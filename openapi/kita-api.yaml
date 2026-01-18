@@ -1,0 +1,1817 @@
+openapi: 3.0.3
+info:
+  title: Kita Knirpsenstadt API
+  description: API für Zeiterfassung und Dienstplanung der Kita Knirpsenstadt
+  version: 1.0.0
+  contact:
+    name: Kita Knirpsenstadt
+
+servers:
+  - url: http://localhost:8080/api
+    description: Local Development
+  - url: https://api.knirpsenstadt.de/api
+    description: Production
+
+tags:
+  - name: Auth
+    description: Authentifizierung und Autorisierung
+  - name: Employees
+    description: Mitarbeiterverwaltung
+  - name: Groups
+    description: Gruppenverwaltung
+  - name: Schedule
+    description: Dienstplanung
+  - name: TimeTracking
+    description: Zeiterfassung
+  - name: SpecialDays
+    description: Feiertage und besondere Tage
+  - name: Statistics
+    description: Statistiken und Reports
+
+paths:
+  # ============================================
+  # AUTH
+  # ============================================
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Successful login
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Refresh access token
+      operationId: refreshToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: Token refreshed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid refresh token
+
+  /auth/password-reset/request:
+    post:
+      tags: [Auth]
+      summary: Request password reset email
+      operationId: requestPasswordReset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetRequest'
+      responses:
+        '200':
+          description: Reset email sent (if email exists)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+
+  /auth/password-reset/confirm:
+    post:
+      tags: [Auth]
+      summary: Confirm password reset with token
+      operationId: confirmPasswordReset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetConfirm'
+      responses:
+        '200':
+          description: Password reset successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Invalid or expired token
+
+  /auth/change-password:
+    post:
+      tags: [Auth]
+      summary: Change own password
+      operationId: changePassword
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '200':
+          description: Password changed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+        '400':
+          description: Invalid current password
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Get current user info
+      operationId: getCurrentUser
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Employee'
+
+  # ============================================
+  # EMPLOYEES
+  # ============================================
+  /employees:
+    get:
+      tags: [Employees]
+      summary: List all employees
+      operationId: listEmployees
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: includeInactive
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: List of employees
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Employee'
+
+    post:
+      tags: [Employees]
+      summary: Create new employee
+      operationId: createEmployee
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateEmployeeRequest'
+      responses:
+        '201':
+          description: Employee created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Employee'
+        '400':
+          description: Validation error
+        '409':
+          description: Email already exists
+
+  /employees/{id}:
+    get:
+      tags: [Employees]
+      summary: Get employee by ID
+      operationId: getEmployee
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Employee found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Employee'
+        '404':
+          description: Employee not found
+
+    put:
+      tags: [Employees]
+      summary: Update employee
+      operationId: updateEmployee
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEmployeeRequest'
+      responses:
+        '200':
+          description: Employee updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Employee'
+        '404':
+          description: Employee not found
+
+    delete:
+      tags: [Employees]
+      summary: Deactivate employee
+      operationId: deleteEmployee
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: Employee deactivated
+        '404':
+          description: Employee not found
+
+  /employees/{id}/reset-password:
+    post:
+      tags: [Employees]
+      summary: Admin reset employee password
+      operationId: adminResetPassword
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Password reset email sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+
+  # ============================================
+  # GROUPS
+  # ============================================
+  /groups:
+    get:
+      tags: [Groups]
+      summary: List all groups
+      operationId: listGroups
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of groups
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Group'
+
+    post:
+      tags: [Groups]
+      summary: Create new group
+      operationId: createGroup
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGroupRequest'
+      responses:
+        '201':
+          description: Group created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Group'
+
+  /groups/{id}:
+    get:
+      tags: [Groups]
+      summary: Get group by ID
+      operationId: getGroup
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Group found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupWithMembers'
+        '404':
+          description: Group not found
+
+    put:
+      tags: [Groups]
+      summary: Update group
+      operationId: updateGroup
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGroupRequest'
+      responses:
+        '200':
+          description: Group updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Group'
+
+    delete:
+      tags: [Groups]
+      summary: Delete group
+      operationId: deleteGroup
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: Group deleted
+
+  /groups/{id}/assignments:
+    get:
+      tags: [Groups]
+      summary: Get group assignments
+      operationId: getGroupAssignments
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Group assignments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GroupAssignment'
+
+    put:
+      tags: [Groups]
+      summary: Update group assignments
+      operationId: updateGroupAssignments
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/GroupAssignmentRequest'
+      responses:
+        '200':
+          description: Assignments updated
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GroupAssignment'
+
+  # ============================================
+  # SCHEDULE
+  # ============================================
+  /schedule:
+    get:
+      tags: [Schedule]
+      summary: Get schedule entries
+      operationId: getSchedule
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: startDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: employeeId
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: groupId
+          in: query
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Schedule entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ScheduleEntry'
+
+    post:
+      tags: [Schedule]
+      summary: Create schedule entry
+      operationId: createScheduleEntry
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateScheduleEntryRequest'
+      responses:
+        '201':
+          description: Entry created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduleEntry'
+
+  /schedule/week:
+    get:
+      tags: [Schedule]
+      summary: Get week view with all groups
+      operationId: getWeekSchedule
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: weekStart
+          in: query
+          required: true
+          description: Monday of the week (ISO date)
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Week schedule
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WeekSchedule'
+
+  /schedule/{id}:
+    put:
+      tags: [Schedule]
+      summary: Update schedule entry
+      operationId: updateScheduleEntry
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateScheduleEntryRequest'
+      responses:
+        '200':
+          description: Entry updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScheduleEntry'
+
+    delete:
+      tags: [Schedule]
+      summary: Delete schedule entry
+      operationId: deleteScheduleEntry
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: Entry deleted
+
+  /schedule/bulk:
+    post:
+      tags: [Schedule]
+      summary: Create multiple schedule entries
+      operationId: bulkCreateScheduleEntries
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/CreateScheduleEntryRequest'
+      responses:
+        '201':
+          description: Entries created
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ScheduleEntry'
+
+  # ============================================
+  # TIME TRACKING
+  # ============================================
+  /time-tracking/clock-in:
+    post:
+      tags: [TimeTracking]
+      summary: Clock in (start work)
+      operationId: clockIn
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClockInRequest'
+      responses:
+        '200':
+          description: Clocked in
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeEntry'
+        '400':
+          description: Already clocked in
+
+  /time-tracking/clock-out:
+    post:
+      tags: [TimeTracking]
+      summary: Clock out (end work)
+      operationId: clockOut
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClockOutRequest'
+      responses:
+        '200':
+          description: Clocked out
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeEntry'
+        '400':
+          description: Not clocked in
+
+  /time-tracking/current:
+    get:
+      tags: [TimeTracking]
+      summary: Get current time entry (if clocked in)
+      operationId: getCurrentTimeEntry
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current entry or null
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeEntry'
+        '204':
+          description: Not currently clocked in
+
+  /time-tracking/entries:
+    get:
+      tags: [TimeTracking]
+      summary: Get time entries
+      operationId: getTimeEntries
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: startDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: employeeId
+          in: query
+          description: Admin only - filter by employee
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Time entries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TimeEntry'
+
+    post:
+      tags: [TimeTracking]
+      summary: Create time entry (admin only)
+      operationId: createTimeEntry
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTimeEntryRequest'
+      responses:
+        '201':
+          description: Entry created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeEntry'
+
+  /time-tracking/entries/{id}:
+    put:
+      tags: [TimeTracking]
+      summary: Update time entry (admin only)
+      operationId: updateTimeEntry
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTimeEntryRequest'
+      responses:
+        '200':
+          description: Entry updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeEntry'
+
+    delete:
+      tags: [TimeTracking]
+      summary: Delete time entry (admin only)
+      operationId: deleteTimeEntry
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: Entry deleted
+
+  /time-tracking/comparison:
+    get:
+      tags: [TimeTracking]
+      summary: Compare time entries with schedule
+      operationId: getTimeScheduleComparison
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: startDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: endDate
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: employeeId
+          in: query
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Comparison data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeScheduleComparison'
+
+  # ============================================
+  # SPECIAL DAYS
+  # ============================================
+  /special-days:
+    get:
+      tags: [SpecialDays]
+      summary: Get special days
+      operationId: getSpecialDays
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: year
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: includeHolidays
+          in: query
+          schema:
+            type: boolean
+            default: true
+      responses:
+        '200':
+          description: Special days
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SpecialDay'
+
+    post:
+      tags: [SpecialDays]
+      summary: Create special day
+      operationId: createSpecialDay
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSpecialDayRequest'
+      responses:
+        '201':
+          description: Special day created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpecialDay'
+
+  /special-days/holidays/{year}:
+    get:
+      tags: [SpecialDays]
+      summary: Get Brandenburg holidays for year
+      operationId: getHolidays
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: year
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Holidays
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SpecialDay'
+
+  /special-days/{id}:
+    put:
+      tags: [SpecialDays]
+      summary: Update special day
+      operationId: updateSpecialDay
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSpecialDayRequest'
+      responses:
+        '200':
+          description: Special day updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SpecialDay'
+
+    delete:
+      tags: [SpecialDays]
+      summary: Delete special day
+      operationId: deleteSpecialDay
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: Special day deleted
+
+  # ============================================
+  # STATISTICS
+  # ============================================
+  /statistics/overview:
+    get:
+      tags: [Statistics]
+      summary: Get overview statistics (admin)
+      operationId: getOverviewStatistics
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: month
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+            description: First day of month (YYYY-MM-01)
+      responses:
+        '200':
+          description: Overview statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OverviewStatistics'
+
+  /statistics/employee/{id}:
+    get:
+      tags: [Statistics]
+      summary: Get employee statistics
+      operationId: getEmployeeStatistics
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+        - name: month
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Employee statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EmployeeStatistics'
+
+  /statistics/weekly:
+    get:
+      tags: [Statistics]
+      summary: Get weekly statistics
+      operationId: getWeeklyStatistics
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: weekStart
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+      responses:
+        '200':
+          description: Weekly statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WeeklyStatistics'
+
+  # ============================================
+  # EXPORT
+  # ============================================
+  /export/timesheet:
+    get:
+      tags: [Statistics]
+      summary: Export timesheet
+      operationId: exportTimesheet
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: employeeId
+          in: query
+          schema:
+            type: integer
+            format: int64
+        - name: month
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: format
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [pdf, xlsx]
+      responses:
+        '200':
+          description: Timesheet file
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+
+  /export/schedule:
+    get:
+      tags: [Statistics]
+      summary: Export schedule
+      operationId: exportSchedule
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: weekStart
+          in: query
+          required: true
+          schema:
+            type: string
+            format: date
+        - name: format
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [pdf, xlsx]
+      responses:
+        '200':
+          description: Schedule file
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+
+# ============================================
+# COMPONENTS
+# ============================================
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    # === Auth ===
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+
+    AuthResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        expiresIn:
+          type: integer
+        user:
+          $ref: '#/components/schemas/Employee'
+
+    RefreshTokenRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+
+    PasswordResetRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+
+    PasswordResetConfirm:
+      type: object
+      required: [token, newPassword]
+      properties:
+        token:
+          type: string
+        newPassword:
+          type: string
+          minLength: 8
+
+    ChangePasswordRequest:
+      type: object
+      required: [currentPassword, newPassword]
+      properties:
+        currentPassword:
+          type: string
+        newPassword:
+          type: string
+          minLength: 8
+
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+
+    # === Employee ===
+    Employee:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        email:
+          type: string
+          format: email
+        firstName:
+          type: string
+        lastName:
+          type: string
+        role:
+          $ref: '#/components/schemas/EmployeeRole'
+        weeklyHours:
+          type: number
+          format: float
+          description: Contracted weekly hours (20-38)
+        vacationDaysPerYear:
+          type: integer
+          description: Annual vacation days
+        remainingVacationDays:
+          type: number
+          format: float
+          description: Remaining vacation days this year
+        overtimeBalance:
+          type: number
+          format: float
+          description: Current overtime balance in hours
+        active:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    EmployeeRole:
+      type: string
+      enum: [ADMIN, EMPLOYEE]
+
+    CreateEmployeeRequest:
+      type: object
+      required: [email, firstName, lastName, weeklyHours]
+      properties:
+        email:
+          type: string
+          format: email
+        firstName:
+          type: string
+        lastName:
+          type: string
+        role:
+          $ref: '#/components/schemas/EmployeeRole'
+          default: EMPLOYEE
+        weeklyHours:
+          type: number
+          format: float
+          minimum: 20
+          maximum: 38
+        vacationDaysPerYear:
+          type: integer
+          default: 30
+
+    UpdateEmployeeRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+        firstName:
+          type: string
+        lastName:
+          type: string
+        role:
+          $ref: '#/components/schemas/EmployeeRole'
+        weeklyHours:
+          type: number
+          format: float
+          minimum: 20
+          maximum: 38
+        vacationDaysPerYear:
+          type: integer
+        remainingVacationDays:
+          type: number
+          format: float
+        overtimeBalance:
+          type: number
+          format: float
+        active:
+          type: boolean
+
+    # === Group ===
+    Group:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        description:
+          type: string
+        color:
+          type: string
+          description: Hex color for UI display
+
+    GroupWithMembers:
+      allOf:
+        - $ref: '#/components/schemas/Group'
+        - type: object
+          properties:
+            members:
+              type: array
+              items:
+                $ref: '#/components/schemas/GroupAssignment'
+
+    CreateGroupRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        color:
+          type: string
+
+    GroupAssignment:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        employeeId:
+          type: integer
+          format: int64
+        employee:
+          $ref: '#/components/schemas/Employee'
+        groupId:
+          type: integer
+          format: int64
+        assignmentType:
+          $ref: '#/components/schemas/AssignmentType'
+
+    AssignmentType:
+      type: string
+      enum: [PERMANENT, SPRINGER]
+
+    GroupAssignmentRequest:
+      type: object
+      required: [employeeId, assignmentType]
+      properties:
+        employeeId:
+          type: integer
+          format: int64
+        assignmentType:
+          $ref: '#/components/schemas/AssignmentType'
+
+    # === Schedule ===
+    ScheduleEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        employeeId:
+          type: integer
+          format: int64
+        employee:
+          $ref: '#/components/schemas/Employee'
+        date:
+          type: string
+          format: date
+        startTime:
+          type: string
+          format: time
+          description: "HH:mm format"
+        endTime:
+          type: string
+          format: time
+        breakMinutes:
+          type: integer
+          default: 0
+        groupId:
+          type: integer
+          format: int64
+        group:
+          $ref: '#/components/schemas/Group'
+        entryType:
+          $ref: '#/components/schemas/ScheduleEntryType'
+        notes:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    ScheduleEntryType:
+      type: string
+      enum: [WORK, VACATION, SICK, SPECIAL_LEAVE, TRAINING, EVENT]
+
+    CreateScheduleEntryRequest:
+      type: object
+      required: [employeeId, date, entryType]
+      properties:
+        employeeId:
+          type: integer
+          format: int64
+        date:
+          type: string
+          format: date
+        startTime:
+          type: string
+          format: time
+        endTime:
+          type: string
+          format: time
+        breakMinutes:
+          type: integer
+          default: 0
+        groupId:
+          type: integer
+          format: int64
+        entryType:
+          $ref: '#/components/schemas/ScheduleEntryType'
+        notes:
+          type: string
+
+    UpdateScheduleEntryRequest:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        startTime:
+          type: string
+          format: time
+        endTime:
+          type: string
+          format: time
+        breakMinutes:
+          type: integer
+        groupId:
+          type: integer
+          format: int64
+        entryType:
+          $ref: '#/components/schemas/ScheduleEntryType'
+        notes:
+          type: string
+
+    WeekSchedule:
+      type: object
+      properties:
+        weekStart:
+          type: string
+          format: date
+        weekEnd:
+          type: string
+          format: date
+        days:
+          type: array
+          items:
+            $ref: '#/components/schemas/DaySchedule'
+        specialDays:
+          type: array
+          items:
+            $ref: '#/components/schemas/SpecialDay'
+
+    DaySchedule:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        dayOfWeek:
+          type: string
+          enum: [MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY, SUNDAY]
+        isHoliday:
+          type: boolean
+        holidayName:
+          type: string
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/ScheduleEntry'
+        byGroup:
+          type: object
+          additionalProperties:
+            type: array
+            items:
+              $ref: '#/components/schemas/ScheduleEntry'
+
+    # === Time Tracking ===
+    TimeEntry:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        employeeId:
+          type: integer
+          format: int64
+        employee:
+          $ref: '#/components/schemas/Employee'
+        date:
+          type: string
+          format: date
+        clockIn:
+          type: string
+          format: date-time
+        clockOut:
+          type: string
+          format: date-time
+        breakMinutes:
+          type: integer
+        entryType:
+          $ref: '#/components/schemas/TimeEntryType'
+        workedMinutes:
+          type: integer
+          description: Calculated worked time in minutes
+        notes:
+          type: string
+        editedBy:
+          type: integer
+          format: int64
+        editedAt:
+          type: string
+          format: date-time
+        editReason:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    TimeEntryType:
+      type: string
+      enum: [WORK, VACATION, SICK, SPECIAL_LEAVE, TRAINING, EVENT]
+
+    ClockInRequest:
+      type: object
+      properties:
+        notes:
+          type: string
+
+    ClockOutRequest:
+      type: object
+      properties:
+        breakMinutes:
+          type: integer
+          default: 0
+        notes:
+          type: string
+
+    CreateTimeEntryRequest:
+      type: object
+      required: [employeeId, date, clockIn, clockOut]
+      properties:
+        employeeId:
+          type: integer
+          format: int64
+        date:
+          type: string
+          format: date
+        clockIn:
+          type: string
+          format: date-time
+        clockOut:
+          type: string
+          format: date-time
+        breakMinutes:
+          type: integer
+          default: 0
+        entryType:
+          $ref: '#/components/schemas/TimeEntryType'
+          default: WORK
+        notes:
+          type: string
+        editReason:
+          type: string
+
+    UpdateTimeEntryRequest:
+      type: object
+      properties:
+        clockIn:
+          type: string
+          format: date-time
+        clockOut:
+          type: string
+          format: date-time
+        breakMinutes:
+          type: integer
+        entryType:
+          $ref: '#/components/schemas/TimeEntryType'
+        notes:
+          type: string
+        editReason:
+          type: string
+          description: Required when admin edits entry
+
+    TimeScheduleComparison:
+      type: object
+      properties:
+        startDate:
+          type: string
+          format: date
+        endDate:
+          type: string
+          format: date
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/DayComparison'
+        summary:
+          $ref: '#/components/schemas/ComparisonSummary'
+
+    DayComparison:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        scheduled:
+          $ref: '#/components/schemas/ScheduleEntry'
+        actual:
+          $ref: '#/components/schemas/TimeEntry'
+        scheduledMinutes:
+          type: integer
+        actualMinutes:
+          type: integer
+        differenceMinutes:
+          type: integer
+        status:
+          type: string
+          enum: [MATCH, EARLY, LATE, OVERTIME, UNDERTIME, MISSING, UNSCHEDULED]
+
+    ComparisonSummary:
+      type: object
+      properties:
+        totalScheduledMinutes:
+          type: integer
+        totalActualMinutes:
+          type: integer
+        totalDifferenceMinutes:
+          type: integer
+        daysWorked:
+          type: integer
+        daysScheduled:
+          type: integer
+
+    # === Special Days ===
+    SpecialDay:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        date:
+          type: string
+          format: date
+        name:
+          type: string
+        dayType:
+          $ref: '#/components/schemas/SpecialDayType'
+        affectsAll:
+          type: boolean
+          description: If true, affects all employees
+        notes:
+          type: string
+
+    SpecialDayType:
+      type: string
+      enum: [HOLIDAY, CLOSURE, TEAM_DAY, EVENT]
+
+    CreateSpecialDayRequest:
+      type: object
+      required: [date, name, dayType]
+      properties:
+        date:
+          type: string
+          format: date
+        name:
+          type: string
+        dayType:
+          $ref: '#/components/schemas/SpecialDayType'
+        affectsAll:
+          type: boolean
+          default: true
+        notes:
+          type: string
+
+    # === Statistics ===
+    OverviewStatistics:
+      type: object
+      properties:
+        month:
+          type: string
+          format: date
+        totalEmployees:
+          type: integer
+        employeeStats:
+          type: array
+          items:
+            $ref: '#/components/schemas/EmployeeStatisticsSummary'
+        totalScheduledHours:
+          type: number
+          format: float
+        totalWorkedHours:
+          type: number
+          format: float
+        totalOvertimeHours:
+          type: number
+          format: float
+        sickDays:
+          type: integer
+        vacationDays:
+          type: integer
+
+    EmployeeStatisticsSummary:
+      type: object
+      properties:
+        employee:
+          $ref: '#/components/schemas/Employee'
+        scheduledHours:
+          type: number
+          format: float
+        workedHours:
+          type: number
+          format: float
+        overtimeHours:
+          type: number
+          format: float
+        remainingVacationDays:
+          type: number
+          format: float
+
+    EmployeeStatistics:
+      type: object
+      properties:
+        employee:
+          $ref: '#/components/schemas/Employee'
+        month:
+          type: string
+          format: date
+        contractedHours:
+          type: number
+          format: float
+          description: Expected hours based on contract
+        scheduledHours:
+          type: number
+          format: float
+        workedHours:
+          type: number
+          format: float
+        overtimeHours:
+          type: number
+          format: float
+        overtimeBalance:
+          type: number
+          format: float
+          description: Cumulative overtime balance
+        vacationDaysUsed:
+          type: integer
+        vacationDaysRemaining:
+          type: number
+          format: float
+        sickDays:
+          type: integer
+        dailyBreakdown:
+          type: array
+          items:
+            $ref: '#/components/schemas/DayStatistics'
+
+    DayStatistics:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        scheduledHours:
+          type: number
+          format: float
+        workedHours:
+          type: number
+          format: float
+        entryType:
+          $ref: '#/components/schemas/ScheduleEntryType'
+
+    WeeklyStatistics:
+      type: object
+      properties:
+        weekStart:
+          type: string
+          format: date
+        weekEnd:
+          type: string
+          format: date
+        byEmployee:
+          type: array
+          items:
+            $ref: '#/components/schemas/EmployeeWeekSummary'
+        byGroup:
+          type: array
+          items:
+            $ref: '#/components/schemas/GroupWeekSummary'
+        totalScheduledHours:
+          type: number
+          format: float
+        totalWorkedHours:
+          type: number
+          format: float
+
+    EmployeeWeekSummary:
+      type: object
+      properties:
+        employee:
+          $ref: '#/components/schemas/Employee'
+        scheduledHours:
+          type: number
+          format: float
+        workedHours:
+          type: number
+          format: float
+        daysWorked:
+          type: integer
+
+    GroupWeekSummary:
+      type: object
+      properties:
+        group:
+          $ref: '#/components/schemas/Group'
+        totalScheduledHours:
+          type: number
+          format: float
+        staffedDays:
+          type: integer
+        understaffedDays:
+          type: integer
