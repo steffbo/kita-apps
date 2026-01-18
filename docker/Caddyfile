@@ -1,0 +1,49 @@
+# Caddyfile for Kita Knirpsenstadt
+# Automatic HTTPS via Let's Encrypt
+
+# API Backend
+api.knirpsenstadt.de {
+    reverse_proxy backend:8080
+    
+    # Enable compression
+    encode gzip
+    
+    # CORS headers (if needed)
+    header Access-Control-Allow-Origin "https://plan.knirpsenstadt.de https://zeit.knirpsenstadt.de"
+    header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+    header Access-Control-Allow-Headers "Authorization, Content-Type"
+}
+
+# Dienstplan Frontend
+plan.knirpsenstadt.de {
+    reverse_proxy frontend-plan:80
+    
+    encode gzip
+    
+    # Security headers
+    header X-Frame-Options "DENY"
+    header X-Content-Type-Options "nosniff"
+    header Referrer-Policy "strict-origin-when-cross-origin"
+}
+
+# Zeiterfassung Frontend
+zeit.knirpsenstadt.de {
+    reverse_proxy frontend-zeit:80
+    
+    encode gzip
+    
+    # Security headers
+    header X-Frame-Options "DENY"
+    header X-Content-Type-Options "nosniff"
+    header Referrer-Policy "strict-origin-when-cross-origin"
+}
+
+# Redirect www to non-www
+www.knirpsenstadt.de {
+    redir https://plan.knirpsenstadt.de{uri} permanent
+}
+
+# Main domain redirect
+knirpsenstadt.de {
+    redir https://plan.knirpsenstadt.de{uri} permanent
+}

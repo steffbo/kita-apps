@@ -1,0 +1,57 @@
+# Development docker-compose
+# Start with: docker compose up -d
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: kita-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: kita
+      POSTGRES_USER: kita
+      POSTGRES_PASSWORD: kita_dev_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kita"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ../backend
+      dockerfile: ../docker/Dockerfile.backend
+    container_name: kita-backend
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: kita
+      DB_USER: kita
+      DB_PASSWORD: kita_dev_password
+      JWT_SECRET: ZGV2LXNlY3JldC1rZXktZm9yLWp3dC10b2tlbi1zaWduaW5nLW11c3QtYmUtYXQtbGVhc3QtMjU2LWJpdHM=
+      MAIL_HOST: ${MAIL_HOST:-mailhog}
+      MAIL_PORT: ${MAIL_PORT:-1025}
+      MAIL_USER: ${MAIL_USER:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      FRONTEND_URL: http://localhost:5173
+      SPRING_PROFILES_ACTIVE: dev
+    ports:
+      - "8080:8080"
+
+  # Mail catcher for development
+  mailhog:
+    image: mailhog/mailhog
+    container_name: kita-mailhog
+    ports:
+      - "1025:1025"  # SMTP
+      - "8025:8025"  # Web UI
+
+volumes:
+  postgres_data:
