@@ -1,0 +1,55 @@
+# Java / Maven
+backend/target/
+*.class
+*.jar
+*.war
+*.ear
+*.log
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+.project
+.classpath
+.settings/
+
+# Node / Bun
+node_modules/
+.bun/
+*.tsbuildinfo
+
+# Build outputs
+dist/
+build/
+.output/
+.nuxt/
+
+# Environment
+.env
+.env.local
+.env.*.local
+*.env
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+docker/data/
+
+# Logs
+logs/
+*.log
+
+# Test coverage
+coverage/
+.nyc_output/
+
+# Generated API code (optional - könnte auch committed werden)
+# backend/src/main/java/de/knirpsenstadt/api/
+# frontend/packages/shared/src/api/
