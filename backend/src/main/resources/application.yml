@@ -1,0 +1,106 @@
+spring:
+  application:
+    name: kita-backend
+
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:kita}
+    username: ${DB_USER:kita}
+    password: ${DB_PASSWORD:kita}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+  mail:
+    host: ${MAIL_HOST:smtp.example.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USER:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
+server:
+  port: 8080
+  servlet:
+    context-path: /api
+
+# JWT Configuration
+jwt:
+  secret: ${JWT_SECRET:your-256-bit-secret-key-here-make-it-long-enough-for-hs256}
+  access-token-expiration: 900000      # 15 minutes
+  refresh-token-expiration: 604800000  # 7 days
+
+# Application Configuration
+app:
+  frontend-url: ${FRONTEND_URL:http://localhost:5173}
+  password-reset-expiration: 3600000   # 1 hour
+  default-vacation-days: 30
+
+# Logging
+logging:
+  level:
+    de.knirpsenstadt: DEBUG
+    org.springframework.security: INFO
+    org.hibernate.SQL: DEBUG
+
+# Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+
+# OpenAPI
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operationsSorter: method
+
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+  jpa:
+    show-sql: true
+
+logging:
+  level:
+    de.knirpsenstadt: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+
+---
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+  jpa:
+    show-sql: false
+
+logging:
+  level:
+    de.knirpsenstadt: INFO
+    org.springframework.security: WARN
