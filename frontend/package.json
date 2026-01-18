@@ -1,0 +1,21 @@
+{
+  "name": "kita-frontend",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev:plan": "bun run --filter @kita/dienstplan dev",
+    "dev:zeit": "bun run --filter @kita/zeiterfassung dev",
+    "dev": "bun run --filter '@kita/*' dev",
+    "build": "bun run --filter '@kita/*' build",
+    "build:plan": "bun run --filter @kita/dienstplan build",
+    "build:zeit": "bun run --filter @kita/zeiterfassung build",
+    "lint": "bun run --filter '@kita/*' lint",
+    "generate:api": "bun run --filter @kita/shared generate:api"
+  },
+  "devDependencies": {
+    "typescript": "~5.6.0"
+  }
+}
