@@ -5,7 +5,7 @@ spring:
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:kita}
     username: ${DB_USER:kita}
-    password: ${DB_PASSWORD:kita}
+    password: ${DB_PASSWORD:kita_dev_password}
     driver-class-name: org.postgresql.Driver
 
   jpa:
@@ -41,7 +41,7 @@ server:
 
 # JWT Configuration
 jwt:
-  secret: ${JWT_SECRET:your-256-bit-secret-key-here-make-it-long-enough-for-hs256}
+  secret: ${JWT_SECRET:YrDhyo+bnIfg3WxnBoyZHGbZTMqtLjKWtlIEY25UDAI=}
   access-token-expiration: 900000      # 15 minutes
   refresh-token-expiration: 604800000  # 7 days
 

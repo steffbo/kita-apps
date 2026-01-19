@@ -25,7 +25,7 @@ INSERT INTO employees (
     remaining_vacation_days
 ) VALUES (
     'admin@knirpsenstadt.de',
-    '$2a$10$N9qo8uLOickgx2ZMRZoMyeIjZRGdjGj/n3.qTHvL5pXVMBxKS1z1e',
+    '$2a$10$qXfapYW7GcKvuQ5ks4q32uNY4DgEpFqLvIvbeVbma7AyAyXXP4MOa',
     'Admin',
     'Leitung',
     'ADMIN',
