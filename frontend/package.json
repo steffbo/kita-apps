@@ -13,9 +13,18 @@
     "build:plan": "bun run --filter @kita/dienstplan build",
     "build:zeit": "bun run --filter @kita/zeiterfassung build",
     "lint": "bun run --filter '@kita/*' lint",
-    "generate:api": "bun run --filter @kita/shared generate:api"
+    "generate:api": "bun run --filter @kita/shared generate:api",
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:headed": "playwright test --headed",
+    "test:plan": "playwright test --project=dienstplan",
+    "test:zeit": "playwright test --project=zeiterfassung",
+    "test:debug": "playwright test --debug",
+    "test:report": "playwright show-report"
   },
   "devDependencies": {
+    "@playwright/test": "1.57.0",
+    "playwright": "1.57.0",
     "typescript": "~5.6.0"
   }
 }

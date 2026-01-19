@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+.bun/
+
+# Build output
+dist/
+
+# Playwright
+e2e/.auth/
+playwright-report/
+test-results/
+playwright/.cache/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+
+# Environment
+.env.local
+.env.*.local
