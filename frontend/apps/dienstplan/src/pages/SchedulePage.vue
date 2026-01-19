@@ -1,8 +1,21 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { useAuth } from '@kita/shared';
-import { getWeekStart, getWeekEnd, formatDate, WEEKDAYS_SHORT } from '@kita/shared/utils';
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-vue-next';
+import { ChevronLeft, ChevronRight, Plus, Loader2 } from 'lucide-vue-next';
+import { 
+  useAuth,
+  useWeekSchedule,
+  useGroups,
+  useEmployees,
+  useCreateScheduleEntry,
+  useUpdateScheduleEntry,
+  useDeleteScheduleEntry,
+  type ScheduleEntry,
+  type CreateScheduleEntryRequest,
+  type UpdateScheduleEntryRequest
+} from '@kita/shared';
+import { getWeekStart, getWeekEnd, formatDate, WEEKDAYS_SHORT, toISODateString } from '@kita/shared/utils';
+import { Button } from '@/components/ui';
+import ScheduleEntryDialog from '@/components/ScheduleEntryDialog.vue';
 
 const { isAdmin } = useAuth();
 
@@ -10,6 +23,22 @@ const { isAdmin } = useAuth();
 const currentDate = ref(new Date());
 const weekStart = computed(() => getWeekStart(currentDate.value));
 const weekEnd = computed(() => getWeekEnd(currentDate.value));
+
+// API queries
+const { data: weekSchedule, isLoading: scheduleLoading, error: scheduleError, refetch: refetchSchedule } = useWeekSchedule(weekStart);
+const { data: groups, isLoading: groupsLoading } = useGroups();
+const { data: employees } = useEmployees(false);
+
+// Mutations
+const createEntry = useCreateScheduleEntry();
+const updateEntry = useUpdateScheduleEntry();
+const deleteEntry = useDeleteScheduleEntry();
+
+// Dialog state
+const dialogOpen = ref(false);
+const selectedEntry = ref<ScheduleEntry | null>(null);
+const defaultDate = ref<Date | undefined>();
+const defaultGroupId = ref<number | undefined>();
 
 // Navigation
 function previousWeek() {
@@ -36,38 +65,96 @@ const weekDays = computed(() => {
   for (let i = 0; i < 7; i++) {
     const date = new Date(start);
     date.setDate(date.getDate() + i);
+    
+    // Find special day info from schedule data
+    const daySchedule = weekSchedule.value?.days?.find(
+      d => d.date === toISODateString(date)
+    );
+    
     days.push({
       date,
+      dateStr: toISODateString(date),
       dayName: WEEKDAYS_SHORT[i],
       dayNumber: date.getDate(),
       isToday: date.toDateString() === new Date().toDateString(),
       isWeekend: i >= 5,
+      isHoliday: daySchedule?.isHoliday || false,
+      holidayName: daySchedule?.holidayName,
     });
   }
   
   return days;
 });
 
-// Mock groups for now
-const groups = ref([
-  { id: 1, name: 'Sonnenkinder', color: '#F59E0B' },
-  { id: 2, name: 'Mondkinder', color: '#6366F1' },
-  { id: 3, name: 'Sternenkinder', color: '#10B981' },
-]);
-
-// Mock schedule entries
-const scheduleEntries = ref([
-  { id: 1, employeeId: 1, employeeName: 'Anna Müller', groupId: 1, date: '2026-01-19', startTime: '07:00', endTime: '14:00', type: 'WORK' },
-  { id: 2, employeeId: 2, employeeName: 'Petra Schmidt', groupId: 1, date: '2026-01-19', startTime: '09:00', endTime: '16:00', type: 'WORK' },
-  { id: 3, employeeId: 3, employeeName: 'Lisa Weber', groupId: 2, date: '2026-01-19', startTime: '07:30', endTime: '15:30', type: 'WORK' },
-]);
-
-function getEntriesForGroupAndDay(groupId: number, date: Date) {
-  const dateStr = date.toISOString().split('T')[0];
-  return scheduleEntries.value.filter(
-    e => e.groupId === groupId && e.date === dateStr
-  );
+// Get entries for a group on a specific day
+function getEntriesForGroupAndDay(groupId: number | null, dateStr: string): ScheduleEntry[] {
+  const daySchedule = weekSchedule.value?.days?.find(d => d.date === dateStr);
+  if (!daySchedule) return [];
+  
+  if (groupId === null) {
+    // Springer: entries without a group
+    return (daySchedule.entries || []).filter(e => !e.groupId);
+  }
+  
+  // Regular group entries
+  if (daySchedule.byGroup && daySchedule.byGroup[String(groupId)]) {
+    return daySchedule.byGroup[String(groupId)] || [];
+  }
+  
+  // Fallback: filter from all entries
+  return (daySchedule.entries || []).filter(e => e.groupId === groupId);
 }
+
+// Get color for entry type
+function getEntryColor(entryType: string, groupColor?: string): string {
+  switch (entryType) {
+    case 'VACATION': return '#3B82F6'; // blue
+    case 'SICK': return '#EF4444'; // red
+    case 'TRAINING': return '#8B5CF6'; // purple
+    case 'EVENT': return '#F59E0B'; // amber
+    case 'SPECIAL_LEAVE': return '#EC4899'; // pink
+    default: return groupColor || '#10B981'; // green or group color
+  }
+}
+
+// Dialog handlers
+function openCreateDialog(date: Date, groupId?: number) {
+  selectedEntry.value = null;
+  defaultDate.value = date;
+  defaultGroupId.value = groupId;
+  dialogOpen.value = true;
+}
+
+function openEditDialog(entry: ScheduleEntry) {
+  selectedEntry.value = entry;
+  defaultDate.value = undefined;
+  defaultGroupId.value = undefined;
+  dialogOpen.value = true;
+}
+
+async function handleSave(data: CreateScheduleEntryRequest | UpdateScheduleEntryRequest, id?: number) {
+  try {
+    if (id) {
+      await updateEntry.mutateAsync({ id, data: data as UpdateScheduleEntryRequest });
+    } else {
+      await createEntry.mutateAsync(data as CreateScheduleEntryRequest);
+    }
+    dialogOpen.value = false;
+  } catch (err) {
+    console.error('Failed to save entry:', err);
+  }
+}
+
+async function handleDelete(id: number) {
+  try {
+    await deleteEntry.mutateAsync(id);
+    dialogOpen.value = false;
+  } catch (err) {
+    console.error('Failed to delete entry:', err);
+  }
+}
+
+const isLoading = computed(() => scheduleLoading.value || groupsLoading.value);
 </script>
 
 <template>
@@ -82,40 +169,41 @@ function getEntriesForGroupAndDay(groupId: number, date: Date) {
       </div>
 
       <div class="flex items-center gap-2">
-        <button
-          @click="goToToday"
-          class="px-3 py-2 text-sm font-medium text-stone-700 bg-white border border-stone-300 rounded-md hover:bg-stone-50"
-        >
+        <Button variant="outline" size="sm" @click="goToToday">
           Heute
-        </button>
+        </Button>
         
-        <div class="flex items-center bg-white border border-stone-300 rounded-md">
-          <button
-            @click="previousWeek"
-            class="p-2 hover:bg-stone-50 rounded-l-md"
-          >
+        <div class="flex items-center">
+          <Button variant="outline" size="icon" @click="previousWeek" class="rounded-r-none">
             <ChevronLeft class="w-4 h-4" />
-          </button>
-          <button
-            @click="nextWeek"
-            class="p-2 hover:bg-stone-50 rounded-r-md border-l border-stone-300"
-          >
+          </Button>
+          <Button variant="outline" size="icon" @click="nextWeek" class="rounded-l-none border-l-0">
             <ChevronRight class="w-4 h-4" />
-          </button>
+          </Button>
         </div>
 
-        <button
-          v-if="isAdmin"
-          class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700"
-        >
-          <Plus class="w-4 h-4" />
+        <Button v-if="isAdmin" @click="openCreateDialog(new Date())">
+          <Plus class="w-4 h-4 mr-2" />
           Eintrag
-        </button>
+        </Button>
       </div>
     </div>
 
+    <!-- Loading state -->
+    <div v-if="isLoading" class="flex items-center justify-center py-12">
+      <Loader2 class="w-8 h-8 animate-spin text-primary" />
+    </div>
+
+    <!-- Error state -->
+    <div v-else-if="scheduleError" class="bg-destructive/10 text-destructive rounded-lg p-4">
+      <p>Fehler beim Laden des Dienstplans: {{ (scheduleError as Error).message }}</p>
+      <Button variant="outline" size="sm" class="mt-2" @click="refetchSchedule()">
+        Erneut versuchen
+      </Button>
+    </div>
+
     <!-- Calendar Grid -->
-    <div class="bg-white rounded-lg border border-stone-200 overflow-hidden">
+    <div v-else class="bg-white rounded-lg border border-stone-200 overflow-hidden">
       <!-- Week header -->
       <div class="grid grid-cols-8 border-b border-stone-200">
         <div class="px-4 py-3 bg-stone-50 border-r border-stone-200">
@@ -123,21 +211,26 @@ function getEntriesForGroupAndDay(groupId: number, date: Date) {
         </div>
         <div
           v-for="day in weekDays"
-          :key="day.date.toISOString()"
+          :key="day.dateStr"
           :class="[
             'px-4 py-3 text-center border-r border-stone-200 last:border-r-0',
             day.isWeekend ? 'bg-stone-100' : 'bg-stone-50',
-            day.isToday ? 'bg-green-50' : ''
+            day.isToday ? 'bg-primary/10' : '',
+            day.isHoliday ? 'bg-red-50' : ''
           ]"
         >
           <div class="text-sm font-medium text-stone-600">{{ day.dayName }}</div>
           <div
             :class="[
               'text-lg font-semibold',
-              day.isToday ? 'text-green-700' : 'text-stone-900'
+              day.isToday ? 'text-primary' : 'text-stone-900',
+              day.isHoliday ? 'text-red-600' : ''
             ]"
           >
             {{ day.dayNumber }}
+          </div>
+          <div v-if="day.isHoliday" class="text-xs text-red-600 truncate">
+            {{ day.holidayName }}
           </div>
         </div>
       </div>
@@ -152,7 +245,7 @@ function getEntriesForGroupAndDay(groupId: number, date: Date) {
         <div class="px-4 py-4 bg-stone-50 border-r border-stone-200 flex items-center gap-2">
           <div
             class="w-3 h-3 rounded-full"
-            :style="{ backgroundColor: group.color }"
+            :style="{ backgroundColor: group.color || '#10B981' }"
           />
           <span class="text-sm font-medium text-stone-900">{{ group.name }}</span>
         </div>
@@ -160,22 +253,38 @@ function getEntriesForGroupAndDay(groupId: number, date: Date) {
         <!-- Day cells -->
         <div
           v-for="day in weekDays"
-          :key="`${group.id}-${day.date.toISOString()}`"
+          :key="`${group.id}-${day.dateStr}`"
           :class="[
-            'px-2 py-2 border-r border-stone-200 last:border-r-0 min-h-[100px]',
+            'px-2 py-2 border-r border-stone-200 last:border-r-0 min-h-[100px] cursor-pointer hover:bg-stone-50/50',
             day.isWeekend ? 'bg-stone-50' : '',
-            day.isToday ? 'bg-green-50/50' : ''
+            day.isToday ? 'bg-primary/5' : '',
+            day.isHoliday ? 'bg-red-50/50' : ''
           ]"
+          @click="isAdmin && openCreateDialog(day.date, group.id)"
         >
           <div class="space-y-1">
             <div
-              v-for="entry in getEntriesForGroupAndDay(group.id, day.date)"
+              v-for="entry in getEntriesForGroupAndDay(group.id!, day.dateStr)"
               :key="entry.id"
               class="px-2 py-1 rounded text-xs cursor-pointer hover:opacity-80 transition-opacity"
-              :style="{ backgroundColor: group.color + '20', borderLeft: `3px solid ${group.color}` }"
+              :style="{ 
+                backgroundColor: getEntryColor(entry.entryType || 'WORK', group.color) + '20', 
+                borderLeft: `3px solid ${getEntryColor(entry.entryType || 'WORK', group.color)}` 
+              }"
+              @click.stop="openEditDialog(entry)"
             >
-              <div class="font-medium text-stone-900 truncate">{{ entry.employeeName }}</div>
-              <div class="text-stone-600">{{ entry.startTime }} - {{ entry.endTime }}</div>
+              <div class="font-medium text-stone-900 truncate">
+                {{ entry.employee?.firstName }} {{ entry.employee?.lastName }}
+              </div>
+              <div class="text-stone-600" v-if="entry.entryType === 'WORK'">
+                {{ entry.startTime?.substring(0, 5) }} - {{ entry.endTime?.substring(0, 5) }}
+              </div>
+              <div class="text-stone-600" v-else>
+                {{ entry.entryType === 'VACATION' ? 'Urlaub' : 
+                   entry.entryType === 'SICK' ? 'Krank' : 
+                   entry.entryType === 'TRAINING' ? 'Fortbildung' :
+                   entry.entryType === 'EVENT' ? 'Veranstaltung' : entry.entryType }}
+              </div>
             </div>
           </div>
         </div>
@@ -189,14 +298,29 @@ function getEntriesForGroupAndDay(groupId: number, date: Date) {
         </div>
         <div
           v-for="day in weekDays"
-          :key="`springer-${day.date.toISOString()}`"
+          :key="`springer-${day.dateStr}`"
           :class="[
-            'px-2 py-2 border-r border-stone-200 last:border-r-0 min-h-[80px]',
+            'px-2 py-2 border-r border-stone-200 last:border-r-0 min-h-[80px] cursor-pointer hover:bg-stone-50/50',
             day.isWeekend ? 'bg-stone-50' : '',
-            day.isToday ? 'bg-green-50/50' : ''
+            day.isToday ? 'bg-primary/5' : ''
           ]"
+          @click="isAdmin && openCreateDialog(day.date)"
         >
-          <!-- Springer entries would go here -->
+          <div class="space-y-1">
+            <div
+              v-for="entry in getEntriesForGroupAndDay(null, day.dateStr)"
+              :key="entry.id"
+              class="px-2 py-1 rounded text-xs cursor-pointer hover:opacity-80 transition-opacity bg-stone-100 border-l-3 border-stone-400"
+              @click.stop="openEditDialog(entry)"
+            >
+              <div class="font-medium text-stone-900 truncate">
+                {{ entry.employee?.firstName }} {{ entry.employee?.lastName }}
+              </div>
+              <div class="text-stone-600">
+                {{ entry.startTime?.substring(0, 5) }} - {{ entry.endTime?.substring(0, 5) }}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -224,5 +348,17 @@ function getEntriesForGroupAndDay(groupId: number, date: Date) {
         <span>Veranstaltung</span>
       </div>
     </div>
+
+    <!-- Schedule Entry Dialog -->
+    <ScheduleEntryDialog
+      v-model:open="dialogOpen"
+      :entry="selectedEntry"
+      :employees="employees || []"
+      :groups="groups || []"
+      :default-date="defaultDate"
+      :default-group-id="defaultGroupId"
+      @save="handleSave"
+      @delete="handleDelete"
+    />
   </div>
 </template>

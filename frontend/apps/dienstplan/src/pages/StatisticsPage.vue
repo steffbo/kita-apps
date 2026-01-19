@@ -1,19 +1,66 @@
 <script setup lang="ts">
-import { Clock, Users, TrendingUp, Calendar } from 'lucide-vue-next';
+import { ref, computed } from 'vue';
+import { ChevronLeft, ChevronRight, Loader2, TrendingUp, Clock, Calendar, Users } from 'lucide-vue-next';
+import { 
+  useOverviewStatistics,
+  useWeeklyStatistics,
+  useAuth,
+} from '@kita/shared';
+import { formatDate, getWeekStart } from '@kita/shared/utils';
+import { Button } from '@/components/ui';
 
-const stats = [
-  { label: 'Gesamtstunden (Monat)', value: '2.480 Std.', icon: Clock, change: '+2.5%' },
-  { label: 'Aktive Mitarbeiter', value: '15', icon: Users, change: '0' },
-  { label: 'Überstunden gesamt', value: '+48 Std.', icon: TrendingUp, change: '+12 Std.' },
-  { label: 'Resturlaub gesamt', value: '187 Tage', icon: Calendar, change: '-23 Tage' },
-];
+// Auth available for future admin-only features
+useAuth();
 
-const employeeStats = [
-  { name: 'Anna Müller', scheduledHours: 152, workedHours: 158, overtime: 6, vacation: 24 },
-  { name: 'Petra Schmidt', scheduledHours: 120, workedHours: 118, overtime: -2, vacation: 28 },
-  { name: 'Lisa Weber', scheduledHours: 100, workedHours: 104, overtime: 4, vacation: 22 },
-  { name: 'Maria Braun', scheduledHours: 152, workedHours: 160, overtime: 8, vacation: 20 },
-];
+// Current month
+const currentMonth = ref(new Date());
+const currentWeek = ref(new Date());
+
+// Queries
+const { data: overview, isLoading: overviewLoading, error: overviewError } = useOverviewStatistics(currentMonth);
+const { data: weekly, isLoading: weeklyLoading } = useWeeklyStatistics(computed(() => getWeekStart(currentWeek.value)));
+
+// Navigation
+function previousMonth() {
+  const newDate = new Date(currentMonth.value);
+  newDate.setMonth(newDate.getMonth() - 1);
+  currentMonth.value = newDate;
+}
+
+function nextMonth() {
+  const newDate = new Date(currentMonth.value);
+  newDate.setMonth(newDate.getMonth() + 1);
+  currentMonth.value = newDate;
+}
+
+function previousWeek() {
+  const newDate = new Date(currentWeek.value);
+  newDate.setDate(newDate.getDate() - 7);
+  currentWeek.value = newDate;
+}
+
+function nextWeek() {
+  const newDate = new Date(currentWeek.value);
+  newDate.setDate(newDate.getDate() + 7);
+  currentWeek.value = newDate;
+}
+
+// Format helpers
+function formatHours(hours: number | undefined): string {
+  if (hours === undefined) return '-';
+  return `${hours.toFixed(1)} Std.`;
+}
+
+function formatMonthYear(date: Date): string {
+  return date.toLocaleDateString('de-DE', { month: 'long', year: 'numeric' });
+}
+
+function getOvertimeClass(hours: number | undefined): string {
+  if (!hours) return 'text-stone-600';
+  return hours > 0 ? 'text-green-600' : hours < 0 ? 'text-red-600' : 'text-stone-600';
+}
+
+const isLoading = computed(() => overviewLoading.value);
 </script>
 
 <template>
@@ -23,70 +70,195 @@ const employeeStats = [
       <p class="text-stone-600">Übersicht über Arbeitszeiten und Abwesenheiten</p>
     </div>
 
-    <!-- Overview cards -->
-    <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-8">
-      <div
-        v-for="stat in stats"
-        :key="stat.label"
-        class="bg-white rounded-lg border border-stone-200 p-6"
-      >
-        <div class="flex items-center justify-between mb-4">
-          <component
-            :is="stat.icon"
-            class="w-8 h-8 text-green-600 p-1.5 bg-green-50 rounded-lg"
-          />
-          <span
-            :class="[
-              'text-sm font-medium',
-              stat.change.startsWith('+') ? 'text-green-600' : stat.change.startsWith('-') ? 'text-red-600' : 'text-stone-500'
-            ]"
-          >
-            {{ stat.change }}
-          </span>
-        </div>
-        <div class="text-2xl font-bold text-stone-900">{{ stat.value }}</div>
-        <div class="text-sm text-stone-500">{{ stat.label }}</div>
+    <!-- Month Navigation -->
+    <div class="flex items-center gap-4 mb-6">
+      <div class="flex items-center gap-2">
+        <Button variant="outline" size="icon" @click="previousMonth">
+          <ChevronLeft class="w-4 h-4" />
+        </Button>
+        <span class="font-semibold text-lg min-w-[180px] text-center">
+          {{ formatMonthYear(currentMonth) }}
+        </span>
+        <Button variant="outline" size="icon" @click="nextMonth">
+          <ChevronRight class="w-4 h-4" />
+        </Button>
       </div>
     </div>
 
-    <!-- Employee table -->
-    <div class="bg-white rounded-lg border border-stone-200 overflow-hidden">
-      <div class="px-6 py-4 border-b border-stone-200">
-        <h2 class="font-semibold text-stone-900">Mitarbeiter-Übersicht (Januar 2026)</h2>
+    <!-- Loading state -->
+    <div v-if="isLoading" class="flex items-center justify-center py-12">
+      <Loader2 class="w-8 h-8 animate-spin text-primary" />
+    </div>
+
+    <!-- Error state -->
+    <div v-else-if="overviewError" class="bg-destructive/10 text-destructive rounded-lg p-4">
+      <p>Fehler beim Laden: {{ (overviewError as Error).message }}</p>
+    </div>
+
+    <!-- Content -->
+    <div v-else class="space-y-6">
+      <!-- Summary Cards -->
+      <div class="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        <div class="bg-white rounded-lg border border-stone-200 p-6">
+          <div class="flex items-center gap-3">
+            <div class="p-2 bg-primary/10 rounded-lg">
+              <Users class="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <p class="text-sm text-stone-500">Mitarbeiter</p>
+              <p class="text-2xl font-bold text-stone-900">{{ overview?.totalEmployees ?? '-' }}</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-lg border border-stone-200 p-6">
+          <div class="flex items-center gap-3">
+            <div class="p-2 bg-blue-100 rounded-lg">
+              <Clock class="w-5 h-5 text-blue-600" />
+            </div>
+            <div>
+              <p class="text-sm text-stone-500">Geplante Stunden</p>
+              <p class="text-2xl font-bold text-stone-900">{{ formatHours(overview?.totalScheduledHours) }}</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-lg border border-stone-200 p-6">
+          <div class="flex items-center gap-3">
+            <div class="p-2 bg-green-100 rounded-lg">
+              <TrendingUp class="w-5 h-5 text-green-600" />
+            </div>
+            <div>
+              <p class="text-sm text-stone-500">Gearbeitete Stunden</p>
+              <p class="text-2xl font-bold text-stone-900">{{ formatHours(overview?.totalWorkedHours) }}</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded-lg border border-stone-200 p-6">
+          <div class="flex items-center gap-3">
+            <div class="p-2 bg-amber-100 rounded-lg">
+              <Calendar class="w-5 h-5 text-amber-600" />
+            </div>
+            <div>
+              <p class="text-sm text-stone-500">Urlaub / Krank</p>
+              <p class="text-2xl font-bold text-stone-900">
+                {{ overview?.vacationDays ?? 0 }} / {{ overview?.sickDays ?? 0 }} Tage
+              </p>
+            </div>
+          </div>
+        </div>
       </div>
-      <table class="w-full">
-        <thead>
-          <tr class="bg-stone-50 border-b border-stone-200">
-            <th class="px-4 py-3 text-left text-sm font-medium text-stone-600">Mitarbeiter</th>
-            <th class="px-4 py-3 text-right text-sm font-medium text-stone-600">Soll-Stunden</th>
-            <th class="px-4 py-3 text-right text-sm font-medium text-stone-600">Ist-Stunden</th>
-            <th class="px-4 py-3 text-right text-sm font-medium text-stone-600">Differenz</th>
-            <th class="px-4 py-3 text-right text-sm font-medium text-stone-600">Resturlaub</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="employee in employeeStats"
-            :key="employee.name"
-            class="border-b border-stone-200 last:border-b-0 hover:bg-stone-50"
-          >
-            <td class="px-4 py-3 font-medium text-stone-900">{{ employee.name }}</td>
-            <td class="px-4 py-3 text-right text-stone-600">{{ employee.scheduledHours }} Std.</td>
-            <td class="px-4 py-3 text-right text-stone-600">{{ employee.workedHours }} Std.</td>
-            <td class="px-4 py-3 text-right">
-              <span
-                :class="[
-                  'font-medium',
-                  employee.overtime > 0 ? 'text-green-600' : employee.overtime < 0 ? 'text-red-600' : 'text-stone-600'
-                ]"
+
+      <!-- Employee Statistics Table -->
+      <div class="bg-white rounded-lg border border-stone-200 overflow-hidden">
+        <div class="px-6 py-4 border-b border-stone-200">
+          <h2 class="text-lg font-semibold text-stone-900">Mitarbeiter-Übersicht</h2>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead>
+              <tr class="bg-stone-50 border-b border-stone-200">
+                <th class="px-4 py-3 text-left text-sm font-medium text-stone-600">Mitarbeiter</th>
+                <th class="px-4 py-3 text-right text-sm font-medium text-stone-600">Geplant</th>
+                <th class="px-4 py-3 text-right text-sm font-medium text-stone-600">Gearbeitet</th>
+                <th class="px-4 py-3 text-right text-sm font-medium text-stone-600">Überstunden</th>
+                <th class="px-4 py-3 text-right text-sm font-medium text-stone-600">Resturlaub</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="stat in overview?.employeeStats"
+                :key="stat.employee?.id"
+                class="border-b border-stone-200 last:border-b-0 hover:bg-stone-50"
               >
-                {{ employee.overtime > 0 ? '+' : '' }}{{ employee.overtime }} Std.
+                <td class="px-4 py-3">
+                  <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                      <span class="text-sm font-medium text-primary">
+                        {{ stat.employee?.firstName?.[0] }}{{ stat.employee?.lastName?.[0] }}
+                      </span>
+                    </div>
+                    <div>
+                      <span class="font-medium text-stone-900">
+                        {{ stat.employee?.firstName }} {{ stat.employee?.lastName }}
+                      </span>
+                      <div class="text-xs text-stone-500">{{ stat.employee?.weeklyHours }} Std./Woche</div>
+                    </div>
+                  </div>
+                </td>
+                <td class="px-4 py-3 text-right text-stone-600">
+                  {{ formatHours(stat.scheduledHours) }}
+                </td>
+                <td class="px-4 py-3 text-right text-stone-600">
+                  {{ formatHours(stat.workedHours) }}
+                </td>
+                <td class="px-4 py-3 text-right" :class="getOvertimeClass(stat.overtimeHours)">
+                  <span v-if="stat.overtimeHours !== undefined && stat.overtimeHours > 0">+</span>{{ formatHours(stat.overtimeHours) }}
+                </td>
+                <td class="px-4 py-3 text-right text-stone-600">
+                  {{ stat.remainingVacationDays ?? '-' }} Tage
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div v-if="!overview?.employeeStats?.length" class="p-6 text-center text-stone-500">
+          Keine Statistiken für diesen Monat verfügbar.
+        </div>
+      </div>
+
+      <!-- Weekly Statistics -->
+      <div class="bg-white rounded-lg border border-stone-200 overflow-hidden">
+        <div class="px-6 py-4 border-b border-stone-200 flex items-center justify-between">
+          <h2 class="text-lg font-semibold text-stone-900">Wochenstatistik</h2>
+          <div class="flex items-center gap-2">
+            <Button variant="outline" size="icon" @click="previousWeek">
+              <ChevronLeft class="w-4 h-4" />
+            </Button>
+            <span class="text-sm text-stone-600 min-w-[200px] text-center">
+              {{ formatDate(getWeekStart(currentWeek)) }} - {{ formatDate(new Date(getWeekStart(currentWeek).getTime() + 6 * 24 * 60 * 60 * 1000)) }}
+            </span>
+            <Button variant="outline" size="icon" @click="nextWeek">
+              <ChevronRight class="w-4 h-4" />
+            </Button>
+          </div>
+        </div>
+        
+        <div v-if="weeklyLoading" class="p-6 text-center">
+          <Loader2 class="w-6 h-6 animate-spin text-primary mx-auto" />
+        </div>
+        
+        <div v-else-if="weekly" class="p-6">
+          <div class="grid gap-4 md:grid-cols-2 mb-4">
+            <div class="p-4 bg-stone-50 rounded-lg">
+              <p class="text-sm text-stone-500">Geplante Stunden (Woche)</p>
+              <p class="text-xl font-bold text-stone-900">{{ formatHours(weekly.totalScheduledHours) }}</p>
+            </div>
+            <div class="p-4 bg-stone-50 rounded-lg">
+              <p class="text-sm text-stone-500">Gearbeitete Stunden (Woche)</p>
+              <p class="text-xl font-bold text-stone-900">{{ formatHours(weekly.totalWorkedHours) }}</p>
+            </div>
+          </div>
+
+          <h3 class="font-medium text-stone-700 mb-2">Nach Mitarbeiter</h3>
+          <div class="space-y-2">
+            <div
+              v-for="emp in weekly.byEmployee"
+              :key="emp.employee?.id"
+              class="flex items-center justify-between p-3 bg-stone-50 rounded-lg"
+            >
+              <span class="font-medium text-stone-900">
+                {{ emp.employee?.firstName }} {{ emp.employee?.lastName }}
               </span>
-            </td>
-            <td class="px-4 py-3 text-right text-stone-600">{{ employee.vacation }} Tage</td>
-          </tr>
-        </tbody>
-      </table>
+              <div class="flex items-center gap-4 text-sm">
+                <span class="text-stone-500">{{ emp.daysWorked }} Tage</span>
+                <span class="text-stone-600">{{ formatHours(emp.workedHours) }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>

@@ -1,36 +1,139 @@
 <script setup lang="ts">
-import { Plus, Calendar } from 'lucide-vue-next';
+import { ref, computed } from 'vue';
+import { Plus, Loader2, Calendar, Trash2 } from 'lucide-vue-next';
+import { 
+  useSpecialDays, 
+  useCreateSpecialDay, 
+  useUpdateSpecialDay, 
+  useDeleteSpecialDay,
+  useAuth,
+  type SpecialDay,
+  type CreateSpecialDayRequest
+} from '@kita/shared';
 import { formatDate } from '@kita/shared/utils';
+import { Button, Badge, Dialog, Input, Label, Select, type SelectOption } from '@/components/ui';
 
-const specialDays = [
-  { id: 1, date: '2026-01-01', name: 'Neujahr', dayType: 'HOLIDAY', affectsAll: true },
-  { id: 2, date: '2026-04-03', name: 'Karfreitag', dayType: 'HOLIDAY', affectsAll: true },
-  { id: 3, date: '2026-04-06', name: 'Ostermontag', dayType: 'HOLIDAY', affectsAll: true },
-  { id: 4, date: '2026-07-20', name: 'Sommerschließzeit Beginn', dayType: 'CLOSURE', affectsAll: true },
-  { id: 5, date: '2026-08-07', name: 'Sommerschließzeit Ende', dayType: 'CLOSURE', affectsAll: true },
-  { id: 6, date: '2026-09-15', name: 'Teamfortbildung', dayType: 'TEAM_DAY', affectsAll: true },
-  { id: 7, date: '2026-11-11', name: 'Laternenumzug', dayType: 'EVENT', affectsAll: true },
+const { isAdmin } = useAuth();
+
+// Current year
+const currentYear = ref(new Date().getFullYear());
+
+// Queries
+const { data: specialDays, isLoading, error, refetch } = useSpecialDays({ 
+  year: currentYear,
+  includeHolidays: true 
+});
+// Holidays are included in specialDays query
+
+// Mutations
+const createSpecialDay = useCreateSpecialDay();
+const updateSpecialDay = useUpdateSpecialDay();
+const deleteSpecialDay = useDeleteSpecialDay();
+
+// Dialog state
+const dialogOpen = ref(false);
+const selectedDay = ref<SpecialDay | null>(null);
+
+// Form state
+const form = ref({
+  date: '',
+  name: '',
+  dayType: 'CLOSURE' as 'CLOSURE' | 'TEAM_DAY' | 'EVENT',
+  affectsAll: true,
+  notes: '',
+});
+
+const dayTypeOptions: SelectOption[] = [
+  { value: 'CLOSURE', label: 'Schließzeit' },
+  { value: 'TEAM_DAY', label: 'Teamtag / Bildungstag' },
+  { value: 'EVENT', label: 'Veranstaltung' },
 ];
 
-function getTypeLabel(type: string) {
-  const labels: Record<string, string> = {
-    HOLIDAY: 'Feiertag',
-    CLOSURE: 'Schließzeit',
-    TEAM_DAY: 'Teamtag',
-    EVENT: 'Veranstaltung',
+// Computed lists
+const holidaysList = computed(() => 
+  (specialDays.value || []).filter(d => d.dayType === 'HOLIDAY')
+);
+
+const closuresList = computed(() => 
+  (specialDays.value || []).filter(d => d.dayType === 'CLOSURE')
+);
+
+const teamDaysList = computed(() => 
+  (specialDays.value || []).filter(d => d.dayType === 'TEAM_DAY')
+);
+
+const eventsList = computed(() => 
+  (specialDays.value || []).filter(d => d.dayType === 'EVENT')
+);
+
+function openCreateDialog() {
+  selectedDay.value = null;
+  form.value = {
+    date: '',
+    name: '',
+    dayType: 'CLOSURE',
+    affectsAll: true,
+    notes: '',
   };
-  return labels[type] || type;
+  dialogOpen.value = true;
 }
 
-function getTypeColor(type: string) {
-  const colors: Record<string, string> = {
-    HOLIDAY: 'bg-red-100 text-red-700',
-    CLOSURE: 'bg-amber-100 text-amber-700',
-    TEAM_DAY: 'bg-purple-100 text-purple-700',
-    EVENT: 'bg-blue-100 text-blue-700',
+function openEditDialog(day: SpecialDay) {
+  if (day.dayType === 'HOLIDAY') return; // Can't edit holidays
+  
+  selectedDay.value = day;
+  form.value = {
+    date: day.date || '',
+    name: day.name || '',
+    dayType: (day.dayType as 'CLOSURE' | 'TEAM_DAY' | 'EVENT') || 'CLOSURE',
+    affectsAll: day.affectsAll ?? true,
+    notes: day.notes || '',
   };
-  return colors[type] || 'bg-stone-100 text-stone-700';
+  dialogOpen.value = true;
 }
+
+async function handleSave() {
+  const data: CreateSpecialDayRequest = {
+    date: form.value.date,
+    name: form.value.name,
+    dayType: form.value.dayType,
+    affectsAll: form.value.affectsAll,
+    notes: form.value.notes || undefined,
+  };
+
+  try {
+    if (selectedDay.value?.id) {
+      await updateSpecialDay.mutateAsync({ id: selectedDay.value.id, data });
+    } else {
+      await createSpecialDay.mutateAsync(data);
+    }
+    dialogOpen.value = false;
+  } catch (err) {
+    console.error('Failed to save special day:', err);
+  }
+}
+
+async function handleDelete(day: SpecialDay) {
+  if (day.dayType === 'HOLIDAY' || !day.id) return;
+  
+  if (confirm(`"${day.name}" wirklich löschen?`)) {
+    try {
+      await deleteSpecialDay.mutateAsync(day.id);
+    } catch (err) {
+      console.error('Failed to delete special day:', err);
+    }
+  }
+}
+
+function previousYear() {
+  currentYear.value--;
+}
+
+function nextYear() {
+  currentYear.value++;
+}
+
+
 </script>
 
 <template>
@@ -40,57 +143,227 @@ function getTypeColor(type: string) {
         <h1 class="text-2xl font-bold text-stone-900">Besondere Tage</h1>
         <p class="text-stone-600">Feiertage, Schließzeiten und Veranstaltungen</p>
       </div>
-      <button class="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700">
-        <Plus class="w-4 h-4" />
-        Neuer Eintrag
-      </button>
+      <div class="flex items-center gap-2">
+        <Button variant="outline" size="icon" @click="previousYear">
+          <span class="sr-only">Vorheriges Jahr</span>
+          &lt;
+        </Button>
+        <span class="font-semibold text-lg px-4">{{ currentYear }}</span>
+        <Button variant="outline" size="icon" @click="nextYear">
+          <span class="sr-only">Nächstes Jahr</span>
+          &gt;
+        </Button>
+        <Button v-if="isAdmin" @click="openCreateDialog" class="ml-4">
+          <Plus class="w-4 h-4 mr-2" />
+          Neuer Eintrag
+        </Button>
+      </div>
     </div>
 
-    <div class="bg-white rounded-lg border border-stone-200 overflow-hidden">
-      <table class="w-full">
-        <thead>
-          <tr class="bg-stone-50 border-b border-stone-200">
-            <th class="px-4 py-3 text-left text-sm font-medium text-stone-600">Datum</th>
-            <th class="px-4 py-3 text-left text-sm font-medium text-stone-600">Bezeichnung</th>
-            <th class="px-4 py-3 text-left text-sm font-medium text-stone-600">Art</th>
-            <th class="px-4 py-3 text-right text-sm font-medium text-stone-600">Aktionen</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="day in specialDays"
-            :key="day.id"
-            class="border-b border-stone-200 last:border-b-0 hover:bg-stone-50"
-          >
-            <td class="px-4 py-3">
-              <div class="flex items-center gap-2">
-                <Calendar class="w-4 h-4 text-stone-400" />
-                <span class="text-stone-900">{{ formatDate(day.date) }}</span>
-              </div>
-            </td>
-            <td class="px-4 py-3 font-medium text-stone-900">{{ day.name }}</td>
-            <td class="px-4 py-3">
-              <span
-                :class="[
-                  'px-2 py-1 text-xs font-medium rounded-full',
-                  getTypeColor(day.dayType)
-                ]"
-              >
-                {{ getTypeLabel(day.dayType) }}
-              </span>
-            </td>
-            <td class="px-4 py-3 text-right">
-              <button
-                v-if="day.dayType !== 'HOLIDAY'"
-                class="text-sm text-green-600 hover:text-green-700 font-medium"
-              >
-                Bearbeiten
-              </button>
-              <span v-else class="text-sm text-stone-400">Automatisch</span>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+    <!-- Loading state -->
+    <div v-if="isLoading" class="flex items-center justify-center py-12">
+      <Loader2 class="w-8 h-8 animate-spin text-primary" />
     </div>
+
+    <!-- Error state -->
+    <div v-else-if="error" class="bg-destructive/10 text-destructive rounded-lg p-4">
+      <p>Fehler beim Laden: {{ (error as Error).message }}</p>
+      <Button variant="outline" size="sm" class="mt-2" @click="refetch()">
+        Erneut versuchen
+      </Button>
+    </div>
+
+    <!-- Content -->
+    <div v-else class="space-y-6">
+      <!-- Holidays Section -->
+      <div class="bg-white rounded-lg border border-stone-200 p-6">
+        <h2 class="text-lg font-semibold text-stone-900 mb-4 flex items-center gap-2">
+          <Calendar class="w-5 h-5 text-red-500" />
+          Feiertage Brandenburg
+        </h2>
+        <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          <div
+            v-for="day in holidaysList"
+            :key="day.id"
+            class="flex items-center justify-between p-3 bg-red-50 rounded-lg"
+          >
+            <div>
+              <div class="font-medium text-stone-900">{{ day.name }}</div>
+              <div class="text-sm text-stone-500">{{ formatDate(day.date || '') }}</div>
+            </div>
+          </div>
+        </div>
+        <p v-if="!holidaysList.length" class="text-stone-500">
+          Keine Feiertage für {{ currentYear }} gefunden.
+        </p>
+      </div>
+
+      <!-- Closures Section -->
+      <div class="bg-white rounded-lg border border-stone-200 p-6">
+        <h2 class="text-lg font-semibold text-stone-900 mb-4 flex items-center gap-2">
+          <Calendar class="w-5 h-5 text-orange-500" />
+          Schließzeiten
+        </h2>
+        <div class="space-y-2">
+          <div
+            v-for="day in closuresList"
+            :key="day.id"
+            class="flex items-center justify-between p-3 bg-orange-50 rounded-lg hover:bg-orange-100 cursor-pointer"
+            @click="openEditDialog(day)"
+          >
+            <div>
+              <div class="font-medium text-stone-900">{{ day.name }}</div>
+              <div class="text-sm text-stone-500">{{ formatDate(day.date || '') }}</div>
+            </div>
+            <div class="flex items-center gap-2">
+              <Badge class="bg-orange-100 text-orange-700" variant="outline">Schließzeit</Badge>
+              <Button 
+                v-if="isAdmin"
+                variant="ghost" 
+                size="icon" 
+                @click.stop="handleDelete(day)"
+              >
+                <Trash2 class="w-4 h-4 text-destructive" />
+              </Button>
+            </div>
+          </div>
+        </div>
+        <p v-if="!closuresList.length" class="text-stone-500">
+          Keine Schließzeiten für {{ currentYear }} eingetragen.
+        </p>
+      </div>
+
+      <!-- Team Days Section -->
+      <div class="bg-white rounded-lg border border-stone-200 p-6">
+        <h2 class="text-lg font-semibold text-stone-900 mb-4 flex items-center gap-2">
+          <Calendar class="w-5 h-5 text-purple-500" />
+          Teamtage / Bildungstage
+        </h2>
+        <div class="space-y-2">
+          <div
+            v-for="day in teamDaysList"
+            :key="day.id"
+            class="flex items-center justify-between p-3 bg-purple-50 rounded-lg hover:bg-purple-100 cursor-pointer"
+            @click="openEditDialog(day)"
+          >
+            <div>
+              <div class="font-medium text-stone-900">{{ day.name }}</div>
+              <div class="text-sm text-stone-500">{{ formatDate(day.date || '') }}</div>
+            </div>
+            <div class="flex items-center gap-2">
+              <Badge class="bg-purple-100 text-purple-700" variant="outline">Teamtag</Badge>
+              <Button 
+                v-if="isAdmin"
+                variant="ghost" 
+                size="icon" 
+                @click.stop="handleDelete(day)"
+              >
+                <Trash2 class="w-4 h-4 text-destructive" />
+              </Button>
+            </div>
+          </div>
+        </div>
+        <p v-if="!teamDaysList.length" class="text-stone-500">
+          Keine Teamtage für {{ currentYear }} eingetragen.
+        </p>
+      </div>
+
+      <!-- Events Section -->
+      <div class="bg-white rounded-lg border border-stone-200 p-6">
+        <h2 class="text-lg font-semibold text-stone-900 mb-4 flex items-center gap-2">
+          <Calendar class="w-5 h-5 text-blue-500" />
+          Veranstaltungen
+        </h2>
+        <div class="space-y-2">
+          <div
+            v-for="day in eventsList"
+            :key="day.id"
+            class="flex items-center justify-between p-3 bg-blue-50 rounded-lg hover:bg-blue-100 cursor-pointer"
+            @click="openEditDialog(day)"
+          >
+            <div>
+              <div class="font-medium text-stone-900">{{ day.name }}</div>
+              <div class="text-sm text-stone-500">{{ formatDate(day.date || '') }}</div>
+              <div v-if="day.notes" class="text-xs text-stone-400 mt-1">{{ day.notes }}</div>
+            </div>
+            <div class="flex items-center gap-2">
+              <Badge class="bg-blue-100 text-blue-700" variant="outline">Veranstaltung</Badge>
+              <Button 
+                v-if="isAdmin"
+                variant="ghost" 
+                size="icon" 
+                @click.stop="handleDelete(day)"
+              >
+                <Trash2 class="w-4 h-4 text-destructive" />
+              </Button>
+            </div>
+          </div>
+        </div>
+        <p v-if="!eventsList.length" class="text-stone-500">
+          Keine Veranstaltungen für {{ currentYear }} eingetragen.
+        </p>
+      </div>
+    </div>
+
+    <!-- Create/Edit Dialog -->
+    <Dialog
+      v-model:open="dialogOpen"
+      :title="selectedDay ? 'Eintrag bearbeiten' : 'Neuer Eintrag'"
+    >
+      <form @submit.prevent="handleSave" class="space-y-4">
+        <div class="space-y-2">
+          <Label for="date">Datum</Label>
+          <Input
+            id="date"
+            v-model="form.date"
+            type="date"
+            required
+          />
+        </div>
+
+        <div class="space-y-2">
+          <Label for="name">Bezeichnung</Label>
+          <Input
+            id="name"
+            v-model="form.name"
+            placeholder="z.B. Sommerschließzeit"
+            required
+          />
+        </div>
+
+        <div class="space-y-2">
+          <Label for="dayType">Typ</Label>
+          <Select
+            v-model="form.dayType"
+            :options="dayTypeOptions"
+          />
+        </div>
+
+        <div class="space-y-2">
+          <Label for="notes">Notizen (optional)</Label>
+          <Input
+            id="notes"
+            v-model="form.notes"
+            placeholder="Zusätzliche Informationen"
+          />
+        </div>
+
+        <div class="flex justify-end gap-3 pt-4">
+          <Button type="button" variant="outline" @click="dialogOpen = false">
+            Abbrechen
+          </Button>
+          <Button 
+            type="submit"
+            :disabled="createSpecialDay.isPending.value || updateSpecialDay.isPending.value"
+          >
+            <Loader2 
+              v-if="createSpecialDay.isPending.value || updateSpecialDay.isPending.value" 
+              class="w-4 h-4 mr-2 animate-spin" 
+            />
+            {{ selectedDay ? 'Speichern' : 'Erstellen' }}
+          </Button>
+        </div>
+      </form>
+    </Dialog>
   </div>
 </template>

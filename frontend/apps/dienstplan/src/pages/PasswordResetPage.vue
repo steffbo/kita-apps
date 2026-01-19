@@ -1,9 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { useRouter } from 'vue-router';
 import { useAuth } from '@kita/shared';
 
-const router = useRouter();
 const { requestPasswordReset, isLoading, error } = useAuth();
 
 const email = ref('');
