@@ -106,6 +106,77 @@ kita-apps/
 
 > ⚠️ Das Passwort nach dem ersten Login ändern!
 
+### E2E Tests mit Playwright
+
+Das Frontend verwendet Playwright für End-to-End Tests.
+
+#### Voraussetzungen
+
+```bash
+cd frontend
+bun install
+bunx playwright install chromium
+```
+
+#### Tests ausführen
+
+```bash
+# Alle Tests (headless)
+bun run test
+
+# UI-Modus (interaktiv, empfohlen für Entwicklung)
+bun run test:ui
+
+# Mit sichtbarem Browser
+bun run test:headed
+
+# Debug-Modus (Schritt für Schritt)
+bun run test:debug
+
+# Nur Dienstplan-Tests
+bun run test:plan
+
+# Nur Zeiterfassung-Tests
+bun run test:zeit
+
+# Einzelnen Test ausführen
+bunx playwright test -g "successfully logs in" --headed
+
+# Test-Report anzeigen
+bun run test:report
+```
+
+#### Test-Struktur
+
+```
+frontend/e2e/
+├── fixtures/
+│   └── index.ts              # Test-Utilities, Page Objects
+├── tests/
+│   ├── auth.setup.ts         # Authentifizierung (läuft zuerst)
+│   ├── dienstplan/
+│   │   ├── navigation.spec.ts    # Login, Navigation
+│   │   ├── employees.spec.ts     # Mitarbeiter-CRUD
+│   │   └── groups.spec.ts        # Gruppen, Besondere Tage
+│   └── zeiterfassung/
+│       └── clock.spec.ts         # Ein-/Ausstempeln, Historie
+└── .auth/                    # Gespeicherter Auth-State (gitignored)
+```
+
+#### Wichtig für CI/CD
+
+Tests benötigen ein laufendes Backend mit Testdaten:
+
+```bash
+# Terminal 1: Backend starten
+cd backend && mvn spring-boot:run
+
+# Terminal 2: Tests ausführen
+cd frontend && bun run test
+```
+
+Die Playwright-Konfiguration startet automatisch die Frontend-Dev-Server.
+
 ### Nützliche URLs (Development)
 
 | URL | Beschreibung |
