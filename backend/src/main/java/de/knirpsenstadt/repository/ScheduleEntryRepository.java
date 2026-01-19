@@ -73,4 +73,16 @@ public interface ScheduleEntryRepository extends JpaRepository<ScheduleEntry, Lo
             @Param("startDate") LocalDate startDate,
             @Param("endDate") LocalDate endDate
     );
+
+    @Query("SELECT se FROM ScheduleEntry se " +
+           "JOIN FETCH se.employee " +
+           "LEFT JOIN FETCH se.group " +
+           "WHERE se.date BETWEEN :startDate AND :endDate " +
+           "AND se.group.id = :groupId " +
+           "ORDER BY se.date, se.startTime")
+    List<ScheduleEntry> findByDateBetweenAndGroupId(
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate,
+            @Param("groupId") Long groupId
+    );
 }

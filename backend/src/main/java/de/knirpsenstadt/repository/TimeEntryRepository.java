@@ -58,14 +58,23 @@ public interface TimeEntryRepository extends JpaRepository<TimeEntry, Long> {
     boolean existsActiveByEmployeeId(@Param("employeeId") Long employeeId);
 
     /**
+     * Find all open (not clocked out) entries for an employee
+     */
+    @Query("SELECT te FROM TimeEntry te " +
+           "WHERE te.employee.id = :employeeId " +
+           "AND te.clockOut IS NULL " +
+           "ORDER BY te.clockIn DESC")
+    List<TimeEntry> findOpenEntriesByEmployeeId(@Param("employeeId") Long employeeId);
+
+    /**
      * Sum worked minutes for employee in date range
      */
-    @Query("SELECT COALESCE(SUM(" +
-           "  EXTRACT(EPOCH FROM (te.clockOut - te.clockIn)) / 60 - COALESCE(te.breakMinutes, 0)" +
-           "), 0) FROM TimeEntry te " +
-           "WHERE te.employee.id = :employeeId " +
-           "AND te.date BETWEEN :startDate AND :endDate " +
-           "AND te.clockOut IS NOT NULL")
+    @Query(value = "SELECT COALESCE(SUM(" +
+           "  EXTRACT(EPOCH FROM (clock_out - clock_in)) / 60 - COALESCE(break_minutes, 0)" +
+           "), 0) FROM time_entries " +
+           "WHERE employee_id = :employeeId " +
+           "AND date BETWEEN :startDate AND :endDate " +
+           "AND clock_out IS NOT NULL", nativeQuery = true)
     long sumWorkedMinutes(
             @Param("employeeId") Long employeeId,
             @Param("startDate") LocalDate startDate,

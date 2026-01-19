@@ -46,4 +46,14 @@ public interface SpecialDayRepository extends JpaRepository<SpecialDay, Long> {
            "WHERE sd.date = :date " +
            "AND sd.dayType = 'CLOSURE'")
     boolean isClosure(@Param("date") LocalDate date);
+
+    @Query("SELECT sd FROM SpecialDay sd " +
+           "WHERE sd.date BETWEEN :startDate AND :endDate " +
+           "AND sd.dayType = :dayType " +
+           "ORDER BY sd.date")
+    List<SpecialDay> findByDateBetweenAndType(
+            @Param("startDate") LocalDate startDate,
+            @Param("endDate") LocalDate endDate,
+            @Param("dayType") SpecialDayType dayType
+    );
 }

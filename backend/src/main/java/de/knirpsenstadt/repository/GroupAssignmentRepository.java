@@ -28,5 +28,9 @@ public interface GroupAssignmentRepository extends JpaRepository<GroupAssignment
 
     void deleteByGroupIdAndEmployeeId(Long groupId, Long employeeId);
 
+    void deleteByGroupId(Long groupId);
+
     boolean existsByGroupIdAndEmployeeId(Long groupId, Long employeeId);
+
+    List<GroupAssignment> findByEmployeeIdAndAssignmentType(Long employeeId, de.knirpsenstadt.model.AssignmentType assignmentType);
 }
