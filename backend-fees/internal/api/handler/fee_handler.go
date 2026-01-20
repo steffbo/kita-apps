@@ -1,0 +1,207 @@
+package handler
+
+import (
+	"net/http"
+	"strconv"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/api/request"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/api/response"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/service"
+)
+
+// FeeHandler handles fee-related requests.
+type FeeHandler struct {
+	feeService *service.FeeService
+}
+
+// NewFeeHandler creates a new fee handler.
+func NewFeeHandler(feeService *service.FeeService) *FeeHandler {
+	return &FeeHandler{feeService: feeService}
+}
+
+// List handles GET /fees
+func (h *FeeHandler) List(w http.ResponseWriter, r *http.Request) {
+	pagination := request.GetPagination(r)
+
+	filter := service.FeeFilter{
+		Year:    request.GetQueryIntOptional(r, "year"),
+		Month:   request.GetQueryIntOptional(r, "month"),
+		FeeType: request.GetQueryString(r, "type", ""),
+		Status:  request.GetQueryString(r, "status", ""),
+	}
+
+	if childIDStr := request.GetQueryString(r, "childId", ""); childIDStr != "" {
+		if childID, err := uuid.Parse(childIDStr); err == nil {
+			filter.ChildID = &childID
+		}
+	}
+
+	fees, total, err := h.feeService.List(r.Context(), filter, pagination.Offset, pagination.PerPage)
+	if err != nil {
+		response.InternalError(w, "failed to list fees")
+		return
+	}
+
+	response.Paginated(w, fees, total, pagination.Page, pagination.PerPage)
+}
+
+// OverviewResponse represents the fee overview response.
+type OverviewResponse struct {
+	TotalOpen     int     `json:"totalOpen"`
+	TotalPaid     int     `json:"totalPaid"`
+	TotalOverdue  int     `json:"totalOverdue"`
+	AmountOpen    float64 `json:"amountOpen"`
+	AmountPaid    float64 `json:"amountPaid"`
+	AmountOverdue float64 `json:"amountOverdue"`
+	ByMonth       []MonthOverview `json:"byMonth"`
+}
+
+// MonthOverview represents fee overview for a single month.
+type MonthOverview struct {
+	Year       int     `json:"year"`
+	Month      int     `json:"month"`
+	OpenCount  int     `json:"openCount"`
+	PaidCount  int     `json:"paidCount"`
+	OpenAmount float64 `json:"openAmount"`
+	PaidAmount float64 `json:"paidAmount"`
+}
+
+// Overview handles GET /fees/overview
+func (h *FeeHandler) Overview(w http.ResponseWriter, r *http.Request) {
+	year := request.GetQueryIntOptional(r, "year")
+
+	overview, err := h.feeService.GetOverview(r.Context(), year)
+	if err != nil {
+		response.InternalError(w, "failed to get fee overview")
+		return
+	}
+
+	response.Success(w, overview)
+}
+
+// GenerateFeeRequest represents a request to generate fees.
+type GenerateFeeRequest struct {
+	Year  int  `json:"year"`
+	Month *int `json:"month,omitempty"` // nil for yearly fees (membership)
+}
+
+// Generate handles POST /fees/generate
+func (h *FeeHandler) Generate(w http.ResponseWriter, r *http.Request) {
+	var req GenerateFeeRequest
+	if err := request.DecodeJSON(r, &req); err != nil {
+		response.BadRequest(w, "invalid request body")
+		return
+	}
+
+	if req.Year < 2000 || req.Year > 2100 {
+		response.BadRequest(w, "invalid year")
+		return
+	}
+
+	if req.Month != nil && (*req.Month < 1 || *req.Month > 12) {
+		response.BadRequest(w, "invalid month")
+		return
+	}
+
+	result, err := h.feeService.Generate(r.Context(), req.Year, req.Month)
+	if err != nil {
+		response.InternalError(w, "failed to generate fees")
+		return
+	}
+
+	response.Created(w, result)
+}
+
+// Get handles GET /fees/{id}
+func (h *FeeHandler) Get(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		response.BadRequest(w, "invalid fee ID")
+		return
+	}
+
+	fee, err := h.feeService.GetByID(r.Context(), id)
+	if err != nil {
+		if err == service.ErrNotFound {
+			response.NotFound(w, "fee not found")
+			return
+		}
+		response.InternalError(w, "failed to get fee")
+		return
+	}
+
+	response.Success(w, fee)
+}
+
+// UpdateFeeRequest represents a request to update a fee.
+type UpdateFeeRequest struct {
+	Amount *float64 `json:"amount,omitempty"`
+}
+
+// Update handles PUT /fees/{id}
+func (h *FeeHandler) Update(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		response.BadRequest(w, "invalid fee ID")
+		return
+	}
+
+	var req UpdateFeeRequest
+	if err := request.DecodeJSON(r, &req); err != nil {
+		response.BadRequest(w, "invalid request body")
+		return
+	}
+
+	fee, err := h.feeService.Update(r.Context(), id, req.Amount)
+	if err != nil {
+		if err == service.ErrNotFound {
+			response.NotFound(w, "fee not found")
+			return
+		}
+		response.InternalError(w, "failed to update fee")
+		return
+	}
+
+	response.Success(w, fee)
+}
+
+// Delete handles DELETE /fees/{id}
+func (h *FeeHandler) Delete(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		response.BadRequest(w, "invalid fee ID")
+		return
+	}
+
+	if err := h.feeService.Delete(r.Context(), id); err != nil {
+		if err == service.ErrNotFound {
+			response.NotFound(w, "fee not found")
+			return
+		}
+		response.InternalError(w, "failed to delete fee")
+		return
+	}
+
+	response.NoContent(w)
+}
+
+// CalculateChildcareFee handles GET /childcare-fee/calculate
+func (h *FeeHandler) CalculateChildcareFee(w http.ResponseWriter, r *http.Request) {
+	incomeStr := request.GetQueryString(r, "income", "0")
+	income, err := strconv.ParseFloat(incomeStr, 64)
+	if err != nil {
+		response.BadRequest(w, "invalid income value")
+		return
+	}
+
+	result := h.feeService.CalculateChildcareFee(income)
+
+	response.Success(w, result)
+}
+
+// Ensure FeeHandler references domain types
+var _ domain.FeeExpectation // Just for reference

@@ -1,0 +1,186 @@
+package handler
+
+import (
+	"net/http"
+
+	"github.com/google/uuid"
+
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/api/middleware"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/api/request"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/api/response"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/auth"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/service"
+)
+
+// AuthHandler handles authentication requests.
+type AuthHandler struct {
+	authService *service.AuthService
+	jwtService  *auth.JWTService
+}
+
+// NewAuthHandler creates a new auth handler.
+func NewAuthHandler(authService *service.AuthService, jwtService *auth.JWTService) *AuthHandler {
+	return &AuthHandler{
+		authService: authService,
+		jwtService:  jwtService,
+	}
+}
+
+// LoginRequest represents a login request.
+type LoginRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+// LoginResponse represents a login response.
+type LoginResponse struct {
+	AccessToken  string `json:"accessToken"`
+	RefreshToken string `json:"refreshToken"`
+	ExpiresAt    string `json:"expiresAt"`
+	User         struct {
+		ID        string  `json:"id"`
+		Email     string  `json:"email"`
+		FirstName *string `json:"firstName,omitempty"`
+		LastName  *string `json:"lastName,omitempty"`
+		Role      string  `json:"role"`
+	} `json:"user"`
+}
+
+// Login handles POST /auth/login
+func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
+	var req LoginRequest
+	if err := request.DecodeJSON(r, &req); err != nil {
+		response.BadRequest(w, "invalid request body")
+		return
+	}
+
+	if req.Email == "" || req.Password == "" {
+		response.BadRequest(w, "email and password are required")
+		return
+	}
+
+	user, err := h.authService.Authenticate(r.Context(), req.Email, req.Password)
+	if err != nil {
+		response.Unauthorized(w, "invalid credentials")
+		return
+	}
+
+	tokenPair, err := h.jwtService.GenerateTokenPair(user.ID, user.Email, string(user.Role))
+	if err != nil {
+		response.InternalError(w, "failed to generate tokens")
+		return
+	}
+
+	// Store refresh token
+	if err := h.authService.StoreRefreshToken(r.Context(), user.ID, tokenPair.RefreshToken); err != nil {
+		response.InternalError(w, "failed to store refresh token")
+		return
+	}
+
+	resp := LoginResponse{
+		AccessToken:  tokenPair.AccessToken,
+		RefreshToken: tokenPair.RefreshToken,
+		ExpiresAt:    tokenPair.ExpiresAt.Format("2006-01-02T15:04:05Z07:00"),
+	}
+	resp.User.ID = user.ID.String()
+	resp.User.Email = user.Email
+	resp.User.FirstName = user.FirstName
+	resp.User.LastName = user.LastName
+	resp.User.Role = string(user.Role)
+
+	response.Success(w, resp)
+}
+
+// RefreshRequest represents a refresh token request.
+type RefreshRequest struct {
+	RefreshToken string `json:"refreshToken"`
+}
+
+// Refresh handles POST /auth/refresh
+func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
+	var req RefreshRequest
+	if err := request.DecodeJSON(r, &req); err != nil {
+		response.BadRequest(w, "invalid request body")
+		return
+	}
+
+	if req.RefreshToken == "" {
+		response.BadRequest(w, "refresh token is required")
+		return
+	}
+
+	claims, err := h.jwtService.ValidateToken(req.RefreshToken, auth.TokenTypeRefresh)
+	if err != nil {
+		response.Unauthorized(w, "invalid refresh token")
+		return
+	}
+
+	// Verify token is still valid in database
+	valid, err := h.authService.ValidateRefreshToken(r.Context(), claims.UserID, req.RefreshToken)
+	if err != nil || !valid {
+		response.Unauthorized(w, "refresh token has been revoked")
+		return
+	}
+
+	// Revoke old refresh token
+	if err := h.authService.RevokeRefreshToken(r.Context(), req.RefreshToken); err != nil {
+		// Log but continue
+	}
+
+	// Generate new token pair
+	tokenPair, err := h.jwtService.GenerateTokenPair(claims.UserID, claims.Email, claims.Role)
+	if err != nil {
+		response.InternalError(w, "failed to generate tokens")
+		return
+	}
+
+	// Store new refresh token
+	if err := h.authService.StoreRefreshToken(r.Context(), claims.UserID, tokenPair.RefreshToken); err != nil {
+		response.InternalError(w, "failed to store refresh token")
+		return
+	}
+
+	response.Success(w, map[string]interface{}{
+		"accessToken":  tokenPair.AccessToken,
+		"refreshToken": tokenPair.RefreshToken,
+		"expiresAt":    tokenPair.ExpiresAt.Format("2006-01-02T15:04:05Z07:00"),
+	})
+}
+
+// Logout handles POST /auth/logout
+func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
+	var req RefreshRequest
+	if err := request.DecodeJSON(r, &req); err == nil && req.RefreshToken != "" {
+		h.authService.RevokeRefreshToken(r.Context(), req.RefreshToken)
+	}
+	response.NoContent(w)
+}
+
+// Me handles GET /auth/me
+func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
+	userCtx := middleware.GetUserFromContext(r)
+	if userCtx == nil {
+		response.Unauthorized(w, "not authenticated")
+		return
+	}
+
+	userID, err := uuid.Parse(userCtx.UserID)
+	if err != nil {
+		response.InternalError(w, "invalid user ID")
+		return
+	}
+
+	user, err := h.authService.GetUserByID(r.Context(), userID)
+	if err != nil {
+		response.NotFound(w, "user not found")
+		return
+	}
+
+	response.Success(w, map[string]interface{}{
+		"id":        user.ID.String(),
+		"email":     user.Email,
+		"firstName": user.FirstName,
+		"lastName":  user.LastName,
+		"role":      string(user.Role),
+	})
+}

@@ -1,0 +1,89 @@
+package repository
+
+import (
+	"context"
+	"time"
+
+	"github.com/google/uuid"
+
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
+)
+
+// UserRepository handles user persistence.
+type UserRepository interface {
+	GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error)
+	GetByEmail(ctx context.Context, email string) (*domain.User, error)
+	Create(ctx context.Context, user *domain.User) error
+	Update(ctx context.Context, user *domain.User) error
+}
+
+// RefreshTokenRepository handles refresh token persistence.
+type RefreshTokenRepository interface {
+	Create(ctx context.Context, token *domain.RefreshToken) error
+	Exists(ctx context.Context, userID uuid.UUID, tokenHash string) (bool, error)
+	DeleteByHash(ctx context.Context, tokenHash string) error
+	DeleteByUserID(ctx context.Context, userID uuid.UUID) error
+	DeleteExpired(ctx context.Context) error
+}
+
+// ChildRepository handles child persistence.
+type ChildRepository interface {
+	List(ctx context.Context, activeOnly bool, search string, offset, limit int) ([]domain.Child, int64, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*domain.Child, error)
+	GetByMemberNumber(ctx context.Context, memberNumber string) (*domain.Child, error)
+	Create(ctx context.Context, child *domain.Child) error
+	Update(ctx context.Context, child *domain.Child) error
+	Delete(ctx context.Context, id uuid.UUID) error
+	GetParents(ctx context.Context, childID uuid.UUID) ([]domain.Parent, error)
+	LinkParent(ctx context.Context, childID, parentID uuid.UUID, isPrimary bool) error
+	UnlinkParent(ctx context.Context, childID, parentID uuid.UUID) error
+}
+
+// ParentRepository handles parent persistence.
+type ParentRepository interface {
+	List(ctx context.Context, search string, offset, limit int) ([]domain.Parent, int64, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*domain.Parent, error)
+	Create(ctx context.Context, parent *domain.Parent) error
+	Update(ctx context.Context, parent *domain.Parent) error
+	Delete(ctx context.Context, id uuid.UUID) error
+	GetChildren(ctx context.Context, parentID uuid.UUID) ([]domain.Child, error)
+}
+
+// FeeFilter defines filters for fee queries.
+type FeeFilter struct {
+	Year    *int
+	Month   *int
+	FeeType string
+	ChildID *uuid.UUID
+}
+
+// FeeRepository handles fee expectation persistence.
+type FeeRepository interface {
+	List(ctx context.Context, filter FeeFilter, offset, limit int) ([]domain.FeeExpectation, int64, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*domain.FeeExpectation, error)
+	Create(ctx context.Context, fee *domain.FeeExpectation) error
+	Update(ctx context.Context, fee *domain.FeeExpectation) error
+	Delete(ctx context.Context, id uuid.UUID) error
+	Exists(ctx context.Context, childID uuid.UUID, feeType domain.FeeType, year int, month *int) (bool, error)
+	FindUnpaid(ctx context.Context, childID uuid.UUID, feeType domain.FeeType, year int, month *int) (*domain.FeeExpectation, error)
+	GetOverview(ctx context.Context, year int) (*domain.FeeOverview, error)
+}
+
+// TransactionRepository handles bank transaction persistence.
+type TransactionRepository interface {
+	Create(ctx context.Context, tx *domain.BankTransaction) error
+	GetByID(ctx context.Context, id uuid.UUID) (*domain.BankTransaction, error)
+	Exists(ctx context.Context, bookingDate time.Time, payerIBAN *string, amount float64, description *string) (bool, error)
+	ListUnmatched(ctx context.Context, offset, limit int) ([]domain.BankTransaction, int64, error)
+	GetBatches(ctx context.Context, offset, limit int) ([]domain.ImportBatch, int64, error)
+}
+
+// MatchRepository handles payment match persistence.
+type MatchRepository interface {
+	Create(ctx context.Context, match *domain.PaymentMatch) error
+	GetByID(ctx context.Context, id uuid.UUID) (*domain.PaymentMatch, error)
+	ExistsForExpectation(ctx context.Context, expectationID uuid.UUID) (bool, error)
+	ExistsForTransaction(ctx context.Context, transactionID uuid.UUID) (bool, error)
+	GetByExpectation(ctx context.Context, expectationID uuid.UUID) (*domain.PaymentMatch, error)
+	Delete(ctx context.Context, id uuid.UUID) error
+}

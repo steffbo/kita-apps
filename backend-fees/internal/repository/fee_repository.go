@@ -1,0 +1,252 @@
+package repository
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"fmt"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/jmoiron/sqlx"
+
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
+)
+
+// PostgresFeeRepository is the PostgreSQL implementation of FeeRepository.
+type PostgresFeeRepository struct {
+	db *sqlx.DB
+}
+
+// NewPostgresFeeRepository creates a new PostgreSQL fee repository.
+func NewPostgresFeeRepository(db *sqlx.DB) *PostgresFeeRepository {
+	return &PostgresFeeRepository{db: db}
+}
+
+// List retrieves fee expectations with optional filtering.
+func (r *PostgresFeeRepository) List(ctx context.Context, filter FeeFilter, offset, limit int) ([]domain.FeeExpectation, int64, error) {
+	var fees []domain.FeeExpectation
+	var total int64
+
+	baseQuery := `FROM fees.fee_expectations WHERE 1=1`
+	args := make([]interface{}, 0)
+	argIdx := 1
+
+	if filter.Year != nil {
+		baseQuery += fmt.Sprintf(" AND year = $%d", argIdx)
+		args = append(args, *filter.Year)
+		argIdx++
+	}
+
+	if filter.Month != nil {
+		baseQuery += fmt.Sprintf(" AND month = $%d", argIdx)
+		args = append(args, *filter.Month)
+		argIdx++
+	}
+
+	if filter.FeeType != "" {
+		baseQuery += fmt.Sprintf(" AND fee_type = $%d", argIdx)
+		args = append(args, filter.FeeType)
+		argIdx++
+	}
+
+	if filter.ChildID != nil {
+		baseQuery += fmt.Sprintf(" AND child_id = $%d", argIdx)
+		args = append(args, *filter.ChildID)
+		argIdx++
+	}
+
+	// Count total
+	countQuery := "SELECT COUNT(*) " + baseQuery
+	err := r.db.GetContext(ctx, &total, countQuery, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Fetch with pagination
+	selectQuery := fmt.Sprintf(`
+		SELECT id, child_id, fee_type, year, month, amount, due_date, created_at
+		%s
+		ORDER BY year DESC, month DESC NULLS LAST, created_at DESC
+		LIMIT $%d OFFSET $%d
+	`, baseQuery, argIdx, argIdx+1)
+	args = append(args, limit, offset)
+
+	err = r.db.SelectContext(ctx, &fees, selectQuery, args...)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	return fees, total, nil
+}
+
+// GetByID retrieves a fee expectation by ID.
+func (r *PostgresFeeRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.FeeExpectation, error) {
+	var fee domain.FeeExpectation
+	err := r.db.GetContext(ctx, &fee, `
+		SELECT id, child_id, fee_type, year, month, amount, due_date, created_at
+		FROM fees.fee_expectations
+		WHERE id = $1
+	`, id)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, errors.New("fee not found")
+		}
+		return nil, err
+	}
+	return &fee, nil
+}
+
+// Create creates a new fee expectation.
+func (r *PostgresFeeRepository) Create(ctx context.Context, fee *domain.FeeExpectation) error {
+	_, err := r.db.ExecContext(ctx, `
+		INSERT INTO fees.fee_expectations (id, child_id, fee_type, year, month, amount, due_date, created_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+	`, fee.ID, fee.ChildID, fee.FeeType, fee.Year, fee.Month, fee.Amount, fee.DueDate, fee.CreatedAt)
+	return err
+}
+
+// Update updates an existing fee expectation.
+func (r *PostgresFeeRepository) Update(ctx context.Context, fee *domain.FeeExpectation) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE fees.fee_expectations
+		SET amount = $2, due_date = $3
+		WHERE id = $1
+	`, fee.ID, fee.Amount, fee.DueDate)
+	return err
+}
+
+// Delete deletes a fee expectation.
+func (r *PostgresFeeRepository) Delete(ctx context.Context, id uuid.UUID) error {
+	_, err := r.db.ExecContext(ctx, `DELETE FROM fees.fee_expectations WHERE id = $1`, id)
+	return err
+}
+
+// Exists checks if a fee expectation already exists.
+func (r *PostgresFeeRepository) Exists(ctx context.Context, childID uuid.UUID, feeType domain.FeeType, year int, month *int) (bool, error) {
+	var count int
+	var err error
+
+	if month != nil {
+		err = r.db.GetContext(ctx, &count, `
+			SELECT COUNT(*)
+			FROM fees.fee_expectations
+			WHERE child_id = $1 AND fee_type = $2 AND year = $3 AND month = $4
+		`, childID, feeType, year, *month)
+	} else {
+		err = r.db.GetContext(ctx, &count, `
+			SELECT COUNT(*)
+			FROM fees.fee_expectations
+			WHERE child_id = $1 AND fee_type = $2 AND year = $3 AND month IS NULL
+		`, childID, feeType, year)
+	}
+
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
+// FindUnpaid finds an unpaid fee expectation for matching.
+func (r *PostgresFeeRepository) FindUnpaid(ctx context.Context, childID uuid.UUID, feeType domain.FeeType, year int, month *int) (*domain.FeeExpectation, error) {
+	var fee domain.FeeExpectation
+	var err error
+
+	query := `
+		SELECT fe.id, fe.child_id, fe.fee_type, fe.year, fe.month, fe.amount, fe.due_date, fe.created_at
+		FROM fees.fee_expectations fe
+		LEFT JOIN fees.payment_matches pm ON fe.id = pm.expectation_id
+		WHERE fe.child_id = $1 AND fe.fee_type = $2 AND fe.year = $3
+		  AND pm.id IS NULL
+	`
+
+	if month != nil {
+		query += " AND fe.month = $4"
+		err = r.db.GetContext(ctx, &fee, query, childID, feeType, year, *month)
+	} else {
+		query += " AND fe.month IS NULL"
+		err = r.db.GetContext(ctx, &fee, query, childID, feeType, year)
+	}
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &fee, nil
+}
+
+// GetOverview returns fee statistics for a given year.
+func (r *PostgresFeeRepository) GetOverview(ctx context.Context, year int) (*domain.FeeOverview, error) {
+	overview := &domain.FeeOverview{}
+	now := time.Now()
+
+	// Get totals
+	rows, err := r.db.QueryContext(ctx, `
+		SELECT 
+			fe.id,
+			fe.amount,
+			fe.due_date,
+			CASE WHEN pm.id IS NOT NULL THEN true ELSE false END as is_paid
+		FROM fees.fee_expectations fe
+		LEFT JOIN fees.payment_matches pm ON fe.id = pm.expectation_id
+		WHERE fe.year = $1
+	`, year)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var id uuid.UUID
+		var amount float64
+		var dueDate time.Time
+		var isPaid bool
+
+		if err := rows.Scan(&id, &amount, &dueDate, &isPaid); err != nil {
+			return nil, err
+		}
+
+		if isPaid {
+			overview.TotalPaid++
+			overview.AmountPaid += amount
+		} else if now.After(dueDate) {
+			overview.TotalOverdue++
+			overview.AmountOverdue += amount
+		} else {
+			overview.TotalOpen++
+			overview.AmountOpen += amount
+		}
+	}
+
+	// Get monthly breakdown
+	monthRows, err := r.db.QueryContext(ctx, `
+		SELECT 
+			fe.month,
+			COUNT(*) FILTER (WHERE pm.id IS NULL) as open_count,
+			COUNT(*) FILTER (WHERE pm.id IS NOT NULL) as paid_count,
+			COALESCE(SUM(fe.amount) FILTER (WHERE pm.id IS NULL), 0) as open_amount,
+			COALESCE(SUM(fe.amount) FILTER (WHERE pm.id IS NOT NULL), 0) as paid_amount
+		FROM fees.fee_expectations fe
+		LEFT JOIN fees.payment_matches pm ON fe.id = pm.expectation_id
+		WHERE fe.year = $1 AND fe.month IS NOT NULL
+		GROUP BY fe.month
+		ORDER BY fe.month
+	`, year)
+	if err != nil {
+		return nil, err
+	}
+	defer monthRows.Close()
+
+	for monthRows.Next() {
+		var ms domain.MonthSummary
+		ms.Year = year
+		if err := monthRows.Scan(&ms.Month, &ms.OpenCount, &ms.PaidCount, &ms.OpenAmount, &ms.PaidAmount); err != nil {
+			return nil, err
+		}
+		overview.ByMonth = append(overview.ByMonth, ms)
+	}
+
+	return overview, nil
+}
