@@ -10,6 +10,34 @@
         "typescript": "~5.6.0",
       },
     },
+    "apps/beitraege": {
+      "name": "@kita/beitraege",
+      "version": "1.0.0",
+      "dependencies": {
+        "@tanstack/vue-query": "^5.56.0",
+        "@vueuse/core": "^11.0.0",
+        "class-variance-authority": "^0.7.0",
+        "clsx": "^2.1.1",
+        "lucide-vue-next": "^0.441.0",
+        "pinia": "^2.2.0",
+        "radix-vue": "^1.9.0",
+        "tailwind-merge": "^2.5.0",
+        "vue": "^3.5.0",
+        "vue-router": "^4.4.0",
+      },
+      "devDependencies": {
+        "@types/node": "^22.0.0",
+        "@vitejs/plugin-vue": "^5.1.0",
+        "@vue/tsconfig": "^0.5.0",
+        "autoprefixer": "^10.4.20",
+        "postcss": "^8.4.45",
+        "tailwindcss": "^3.4.10",
+        "tailwindcss-animate": "^1.0.7",
+        "typescript": "~5.6.0",
+        "vite": "^5.4.0",
+        "vue-tsc": "^2.1.0",
+      },
+    },
     "apps/dienstplan": {
       "name": "@kita/dienstplan",
       "version": "1.0.0",
@@ -180,6 +208,8 @@
     "@jridgewell/sourcemap-codec": ["@jridgewell/sourcemap-codec@1.5.5", "", {}, "sha512-cYQ9310grqxueWbl+WuIUIaiUaDcj7WOq5fVhEljNVgRfOUhY9fy2zTvfoqWsnebh8Sl70VScFbICvJnLKB0Og=="],
 
     "@jridgewell/trace-mapping": ["@jridgewell/trace-mapping@0.3.31", "", { "dependencies": { "@jridgewell/resolve-uri": "^3.1.0", "@jridgewell/sourcemap-codec": "^1.4.14" } }, "sha512-zzNR+SdQSDJzc8joaeP8QQoCQr8NuYx2dIIytl1QeBEZHJ9uW6hebsrYgbz8hJwUQao3TWCMtmfV8Nu1twOLAw=="],
+
+    "@kita/beitraege": ["@kita/beitraege@workspace:apps/beitraege"],
 
     "@kita/dienstplan": ["@kita/dienstplan@workspace:apps/dienstplan"],
 

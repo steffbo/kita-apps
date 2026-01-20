@@ -8,10 +8,12 @@
   "scripts": {
     "dev:plan": "bun run --filter @kita/dienstplan dev",
     "dev:zeit": "bun run --filter @kita/zeiterfassung dev",
+    "dev:beitraege": "bun run --filter @kita/beitraege dev",
     "dev": "bun run --filter '@kita/*' dev",
     "build": "bun run --filter '@kita/*' build",
     "build:plan": "bun run --filter @kita/dienstplan build",
     "build:zeit": "bun run --filter @kita/zeiterfassung build",
+    "build:beitraege": "bun run --filter @kita/beitraege build",
     "lint": "bun run --filter '@kita/*' lint",
     "generate:api": "bun run --filter @kita/shared generate:api",
     "test": "playwright test",
