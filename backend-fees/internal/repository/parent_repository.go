@@ -48,7 +48,7 @@ func (r *PostgresParentRepository) List(ctx context.Context, search string, offs
 	// Fetch with pagination
 	selectQuery := fmt.Sprintf(`
 		SELECT id, first_name, last_name, birth_date, email, phone,
-		       street, house_number, postal_code, city,
+		       street, street_no, postal_code, city,
 		       annual_household_income, created_at, updated_at
 		%s
 		ORDER BY last_name, first_name
@@ -69,7 +69,7 @@ func (r *PostgresParentRepository) GetByID(ctx context.Context, id uuid.UUID) (*
 	var parent domain.Parent
 	err := r.db.GetContext(ctx, &parent, `
 		SELECT id, first_name, last_name, birth_date, email, phone,
-		       street, house_number, postal_code, city,
+		       street, street_no, postal_code, city,
 		       annual_household_income, created_at, updated_at
 		FROM fees.parents
 		WHERE id = $1
@@ -87,11 +87,11 @@ func (r *PostgresParentRepository) GetByID(ctx context.Context, id uuid.UUID) (*
 func (r *PostgresParentRepository) Create(ctx context.Context, parent *domain.Parent) error {
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO fees.parents (id, first_name, last_name, birth_date, email, phone,
-		                          street, house_number, postal_code, city,
+		                          street, street_no, postal_code, city,
 		                          annual_household_income, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 	`, parent.ID, parent.FirstName, parent.LastName, parent.BirthDate, parent.Email, parent.Phone,
-		parent.Street, parent.HouseNumber, parent.PostalCode, parent.City,
+		parent.Street, parent.StreetNo, parent.PostalCode, parent.City,
 		parent.AnnualHouseholdIncome, parent.CreatedAt, parent.UpdatedAt)
 	return err
 }
@@ -102,11 +102,11 @@ func (r *PostgresParentRepository) Update(ctx context.Context, parent *domain.Pa
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE fees.parents
 		SET first_name = $2, last_name = $3, birth_date = $4, email = $5, phone = $6,
-		    street = $7, house_number = $8, postal_code = $9, city = $10,
+		    street = $7, street_no = $8, postal_code = $9, city = $10,
 		    annual_household_income = $11, updated_at = $12
 		WHERE id = $1
 	`, parent.ID, parent.FirstName, parent.LastName, parent.BirthDate, parent.Email, parent.Phone,
-		parent.Street, parent.HouseNumber, parent.PostalCode, parent.City,
+		parent.Street, parent.StreetNo, parent.PostalCode, parent.City,
 		parent.AnnualHouseholdIncome, parent.UpdatedAt)
 	return err
 }
@@ -122,7 +122,7 @@ func (r *PostgresParentRepository) GetChildren(ctx context.Context, parentID uui
 	var children []domain.Child
 	err := r.db.SelectContext(ctx, &children, `
 		SELECT c.id, c.member_number, c.first_name, c.last_name, c.birth_date, c.entry_date,
-		       c.street, c.house_number, c.postal_code, c.city,
+		       c.street, c.street_no, c.postal_code, c.city,
 		       c.is_active, c.created_at, c.updated_at
 		FROM fees.children c
 		INNER JOIN fees.child_parents cp ON c.id = cp.child_id

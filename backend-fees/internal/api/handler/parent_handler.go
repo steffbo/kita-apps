@@ -29,7 +29,7 @@ type CreateParentRequest struct {
 	Email                 *string  `json:"email,omitempty"`
 	Phone                 *string  `json:"phone,omitempty"`
 	Street                *string  `json:"street,omitempty"`
-	HouseNumber           *string  `json:"houseNumber,omitempty"`
+	StreetNo              *string  `json:"streetNo,omitempty"`
 	PostalCode            *string  `json:"postalCode,omitempty"`
 	City                  *string  `json:"city,omitempty"`
 	AnnualHouseholdIncome *float64 `json:"annualHouseholdIncome,omitempty"`
@@ -69,7 +69,7 @@ func (h *ParentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Email:                 req.Email,
 		Phone:                 req.Phone,
 		Street:                req.Street,
-		HouseNumber:           req.HouseNumber,
+		StreetNo:              req.StreetNo,
 		PostalCode:            req.PostalCode,
 		City:                  req.City,
 		AnnualHouseholdIncome: req.AnnualHouseholdIncome,
@@ -111,7 +111,7 @@ type UpdateParentRequest struct {
 	Email                 *string  `json:"email,omitempty"`
 	Phone                 *string  `json:"phone,omitempty"`
 	Street                *string  `json:"street,omitempty"`
-	HouseNumber           *string  `json:"houseNumber,omitempty"`
+	StreetNo              *string  `json:"streetNo,omitempty"`
 	PostalCode            *string  `json:"postalCode,omitempty"`
 	City                  *string  `json:"city,omitempty"`
 	AnnualHouseholdIncome *float64 `json:"annualHouseholdIncome,omitempty"`
@@ -138,7 +138,7 @@ func (h *ParentHandler) Update(w http.ResponseWriter, r *http.Request) {
 		Email:                 req.Email,
 		Phone:                 req.Phone,
 		Street:                req.Street,
-		HouseNumber:           req.HouseNumber,
+		StreetNo:              req.StreetNo,
 		PostalCode:            req.PostalCode,
 		City:                  req.City,
 		AnnualHouseholdIncome: req.AnnualHouseholdIncome,

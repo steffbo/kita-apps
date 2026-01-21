@@ -15,7 +15,7 @@ type Parent struct {
 	Email                 *string    `json:"email,omitempty" db:"email"`
 	Phone                 *string    `json:"phone,omitempty" db:"phone"`
 	Street                *string    `json:"street,omitempty" db:"street"`
-	HouseNumber           *string    `json:"houseNumber,omitempty" db:"house_number"`
+	StreetNo              *string    `json:"streetNo,omitempty" db:"street_no"`
 	PostalCode            *string    `json:"postalCode,omitempty" db:"postal_code"`
 	City                  *string    `json:"city,omitempty" db:"city"`
 	AnnualHouseholdIncome *float64   `json:"annualHouseholdIncome,omitempty" db:"annual_household_income"`

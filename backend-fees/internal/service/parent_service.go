@@ -32,7 +32,7 @@ type CreateParentInput struct {
 	Email                 *string
 	Phone                 *string
 	Street                *string
-	HouseNumber           *string
+	StreetNo              *string
 	PostalCode            *string
 	City                  *string
 	AnnualHouseholdIncome *float64
@@ -46,7 +46,7 @@ type UpdateParentInput struct {
 	Email                 *string
 	Phone                 *string
 	Street                *string
-	HouseNumber           *string
+	StreetNo              *string
 	PostalCode            *string
 	City                  *string
 	AnnualHouseholdIncome *float64
@@ -91,7 +91,7 @@ func (s *ParentService) Create(ctx context.Context, input CreateParentInput) (*d
 		Email:                 input.Email,
 		Phone:                 input.Phone,
 		Street:                input.Street,
-		HouseNumber:           input.HouseNumber,
+		StreetNo:              input.StreetNo,
 		PostalCode:            input.PostalCode,
 		City:                  input.City,
 		AnnualHouseholdIncome: input.AnnualHouseholdIncome,
@@ -135,8 +135,8 @@ func (s *ParentService) Update(ctx context.Context, id uuid.UUID, input UpdatePa
 	if input.Street != nil {
 		parent.Street = input.Street
 	}
-	if input.HouseNumber != nil {
-		parent.HouseNumber = input.HouseNumber
+	if input.StreetNo != nil {
+		parent.StreetNo = input.StreetNo
 	}
 	if input.PostalCode != nil {
 		parent.PostalCode = input.PostalCode
