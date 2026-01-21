@@ -67,7 +67,7 @@ function handleSubmit() {
     :open="open"
     @update:open="emit('update:open', $event)"
     :title="isEditing ? 'Gruppe bearbeiten' : 'Neue Gruppe'"
-    :description="isEditing ? 'Bearbeiten Sie die Gruppeninformationen.' : 'Erstellen Sie eine neue Gruppe.'"
+    :description="isEditing ? 'Bearbeite die Gruppeninformationen.' : 'Erstelle eine neue Gruppe.'"
   >
     <form @submit.prevent="handleSubmit" class="space-y-4">
       <div class="space-y-2">

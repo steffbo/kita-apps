@@ -40,6 +40,9 @@ const selectedEntry = ref<ScheduleEntry | null>(null);
 const defaultDate = ref<Date | undefined>();
 const defaultGroupId = ref<number | undefined>();
 
+// Display settings
+const showWeekends = ref(false);
+
 // Navigation
 function previousWeek() {
   const newDate = new Date(currentDate.value);
@@ -58,7 +61,7 @@ function goToToday() {
 }
 
 // Generate week days
-const weekDays = computed(() => {
+const allWeekDays = computed(() => {
   const days = [];
   const start = new Date(weekStart.value);
   
@@ -86,17 +89,25 @@ const weekDays = computed(() => {
   return days;
 });
 
+// Filtered week days based on showWeekends
+const weekDays = computed(() => {
+  if (showWeekends.value) {
+    return allWeekDays.value;
+  }
+  return allWeekDays.value.filter(d => !d.isWeekend);
+});
+
+// Dynamic grid columns based on whether weekends are shown
+const gridColsClass = computed(() => {
+  return showWeekends.value ? 'grid-cols-8' : 'grid-cols-6';
+});
+
 // Get entries for a group on a specific day
-function getEntriesForGroupAndDay(groupId: number | null, dateStr: string): ScheduleEntry[] {
+function getEntriesForGroupAndDay(groupId: number, dateStr: string): ScheduleEntry[] {
   const daySchedule = weekSchedule.value?.days?.find(d => d.date === dateStr);
   if (!daySchedule) return [];
   
-  if (groupId === null) {
-    // Springer: entries without a group
-    return (daySchedule.entries || []).filter(e => !e.groupId);
-  }
-  
-  // Regular group entries
+  // Check byGroup first for performance
   if (daySchedule.byGroup && daySchedule.byGroup[String(groupId)]) {
     return daySchedule.byGroup[String(groupId)] || [];
   }
@@ -155,6 +166,54 @@ async function handleDelete(id: number) {
 }
 
 const isLoading = computed(() => scheduleLoading.value || groupsLoading.value);
+
+// Calculate weekly hours per employee
+const employeeWeeklyHours = computed(() => {
+  if (!employees.value || !weekSchedule.value) return [];
+  
+  return employees.value.map(emp => {
+    // Get all entries for this employee this week
+    const entries = weekSchedule.value?.days?.flatMap(day => 
+      (day.entries || []).filter(e => e.employeeId === emp.id && e.entryType === 'WORK')
+    ) || [];
+    
+    // Calculate planned minutes
+    let plannedMinutes = 0;
+    for (const entry of entries) {
+      if (entry.startTime && entry.endTime) {
+        const start = parseTime(entry.startTime);
+        const end = parseTime(entry.endTime);
+        const breakMins = entry.breakMinutes || 0;
+        plannedMinutes += (end - start) - breakMins;
+      }
+    }
+    
+    const plannedHours = plannedMinutes / 60;
+    const contractedHours = emp.weeklyHours || 0;
+    const remainingHours = contractedHours - plannedHours;
+    
+    return {
+      employee: emp,
+      contractedHours,
+      plannedHours,
+      remainingHours,
+    };
+  }).filter(e => e.contractedHours > 0); // Only show employees with contracted hours
+});
+
+// Parse time string "HH:mm:ss" or "HH:mm" to minutes since midnight
+function parseTime(timeStr: string): number {
+  const parts = timeStr.split(':');
+  return parseInt(parts[0]) * 60 + parseInt(parts[1]);
+}
+
+// Get status color class for remaining hours
+function getHoursStatusClass(remaining: number): string {
+  if (remaining < -2) return 'text-red-600 font-medium'; // Over-scheduled
+  if (remaining < 0) return 'text-amber-600'; // Slightly over
+  if (remaining > 2) return 'text-amber-600'; // Under-scheduled
+  return 'text-green-600'; // Good
+}
 </script>
 
 <template>
@@ -182,6 +241,15 @@ const isLoading = computed(() => scheduleLoading.value || groupsLoading.value);
           </Button>
         </div>
 
+        <Button 
+          variant="outline" 
+          size="sm" 
+          @click="showWeekends = !showWeekends"
+          :class="showWeekends ? 'bg-stone-100' : ''"
+        >
+          {{ showWeekends ? 'Mo-So' : 'Mo-Fr' }}
+        </Button>
+
         <Button v-if="isAdmin" @click="openCreateDialog(new Date())">
           <Plus class="w-4 h-4 mr-2" />
           Eintrag
@@ -205,7 +273,7 @@ const isLoading = computed(() => scheduleLoading.value || groupsLoading.value);
     <!-- Calendar Grid -->
     <div v-else class="bg-white rounded-lg border border-stone-200 overflow-hidden">
       <!-- Week header -->
-      <div class="grid grid-cols-8 border-b border-stone-200">
+      <div :class="['grid border-b border-stone-200', gridColsClass]">
         <div class="px-4 py-3 bg-stone-50 border-r border-stone-200">
           <span class="text-sm font-medium text-stone-600">Gruppe</span>
         </div>
@@ -239,7 +307,7 @@ const isLoading = computed(() => scheduleLoading.value || groupsLoading.value);
       <div
         v-for="group in groups"
         :key="group.id"
-        class="grid grid-cols-8 border-b border-stone-200 last:border-b-0"
+        :class="['grid border-b border-stone-200 last:border-b-0', gridColsClass]"
       >
         <!-- Group name -->
         <div class="px-4 py-4 bg-stone-50 border-r border-stone-200 flex items-center gap-2">
@@ -289,39 +357,50 @@ const isLoading = computed(() => scheduleLoading.value || groupsLoading.value);
           </div>
         </div>
       </div>
+    </div>
 
-      <!-- Springer row -->
-      <div class="grid grid-cols-8 border-b border-stone-200">
-        <div class="px-4 py-4 bg-stone-50 border-r border-stone-200 flex items-center gap-2">
-          <div class="w-3 h-3 rounded-full bg-stone-400" />
-          <span class="text-sm font-medium text-stone-900">Springer</span>
-        </div>
-        <div
-          v-for="day in weekDays"
-          :key="`springer-${day.dateStr}`"
-          :class="[
-            'px-2 py-2 border-r border-stone-200 last:border-r-0 min-h-[80px] cursor-pointer hover:bg-stone-50/50',
-            day.isWeekend ? 'bg-stone-50' : '',
-            day.isToday ? 'bg-primary/5' : ''
-          ]"
-          @click="isAdmin && openCreateDialog(day.date)"
-        >
-          <div class="space-y-1">
-            <div
-              v-for="entry in getEntriesForGroupAndDay(null, day.dateStr)"
-              :key="entry.id"
-              class="px-2 py-1 rounded text-xs cursor-pointer hover:opacity-80 transition-opacity bg-stone-100 border-l-3 border-stone-400"
-              @click.stop="openEditDialog(entry)"
+    <!-- Weekly Hours Summary Table -->
+    <div v-if="employeeWeeklyHours.length > 0" class="mt-6 bg-white rounded-lg border border-stone-200 overflow-hidden">
+      <div class="px-4 py-3 bg-stone-50 border-b border-stone-200">
+        <h2 class="text-sm font-semibold text-stone-900">Wochenstunden-Übersicht</h2>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="border-b border-stone-200">
+              <th class="px-4 py-2 text-left font-medium text-stone-600">Mitarbeiter</th>
+              <th class="px-4 py-2 text-right font-medium text-stone-600">Vertrag</th>
+              <th class="px-4 py-2 text-right font-medium text-stone-600">Geplant</th>
+              <th class="px-4 py-2 text-right font-medium text-stone-600">Offen</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr 
+              v-for="row in employeeWeeklyHours" 
+              :key="row.employee.id"
+              class="border-b border-stone-100 last:border-b-0 hover:bg-stone-50"
             >
-              <div class="font-medium text-stone-900 truncate">
-                {{ entry.employee?.firstName }} {{ entry.employee?.lastName }}
-              </div>
-              <div class="text-stone-600">
-                {{ entry.startTime?.substring(0, 5) }} - {{ entry.endTime?.substring(0, 5) }}
-              </div>
-            </div>
-          </div>
-        </div>
+              <td class="px-4 py-2">
+                <div class="flex items-center gap-2">
+                  <div 
+                    class="w-2 h-2 rounded-full"
+                    :style="{ backgroundColor: row.employee.primaryGroup?.color || '#9CA3AF' }"
+                  />
+                  <span class="text-stone-900">{{ row.employee.firstName }} {{ row.employee.lastName }}</span>
+                </div>
+              </td>
+              <td class="px-4 py-2 text-right text-stone-600">
+                {{ row.contractedHours.toFixed(1) }} Std.
+              </td>
+              <td class="px-4 py-2 text-right text-stone-600">
+                {{ row.plannedHours.toFixed(1) }} Std.
+              </td>
+              <td class="px-4 py-2 text-right" :class="getHoursStatusClass(row.remainingHours)">
+                {{ row.remainingHours >= 0 ? '+' : '' }}{{ row.remainingHours.toFixed(1) }} Std.
+              </td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
 

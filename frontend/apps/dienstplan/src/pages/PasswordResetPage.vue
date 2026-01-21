@@ -41,7 +41,7 @@ async function handleSubmit() {
           </div>
 
           <p class="text-sm text-stone-600">
-            Geben Sie Ihre E-Mail-Adresse ein. Sie erhalten einen Link zum Zurücksetzen Ihres Passworts.
+            Gib deine E-Mail-Adresse ein. Du erhältst einen Link zum Zurücksetzen deines Passworts.
           </p>
 
           <div>

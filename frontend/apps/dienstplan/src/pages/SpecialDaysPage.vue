@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { Plus, Loader2, Calendar, Trash2 } from 'lucide-vue-next';
+import { Loader2, Calendar, Trash2, CirclePlus } from 'lucide-vue-next';
 import { 
   useSpecialDays, 
   useCreateSpecialDay, 
@@ -37,6 +37,7 @@ const selectedDay = ref<SpecialDay | null>(null);
 // Form state
 const form = ref({
   date: '',
+  endDate: '',
   name: '',
   dayType: 'CLOSURE' as 'CLOSURE' | 'TEAM_DAY' | 'EVENT',
   affectsAll: true,
@@ -66,12 +67,13 @@ const eventsList = computed(() =>
   (specialDays.value || []).filter(d => d.dayType === 'EVENT')
 );
 
-function openCreateDialog() {
+function openCreateDialog(dayType: 'CLOSURE' | 'TEAM_DAY' | 'EVENT' = 'CLOSURE') {
   selectedDay.value = null;
   form.value = {
     date: '',
+    endDate: '',
     name: '',
-    dayType: 'CLOSURE',
+    dayType,
     affectsAll: true,
     notes: '',
   };
@@ -84,6 +86,7 @@ function openEditDialog(day: SpecialDay) {
   selectedDay.value = day;
   form.value = {
     date: day.date || '',
+    endDate: day.endDate || '',
     name: day.name || '',
     dayType: (day.dayType as 'CLOSURE' | 'TEAM_DAY' | 'EVENT') || 'CLOSURE',
     affectsAll: day.affectsAll ?? true,
@@ -95,6 +98,7 @@ function openEditDialog(day: SpecialDay) {
 async function handleSave() {
   const data: CreateSpecialDayRequest = {
     date: form.value.date,
+    endDate: form.value.endDate || undefined,
     name: form.value.name,
     dayType: form.value.dayType,
     affectsAll: form.value.affectsAll,
@@ -133,6 +137,15 @@ function nextYear() {
   currentYear.value++;
 }
 
+// Format date range for display
+function formatDateRange(day: SpecialDay): string {
+  const start = formatDate(day.date || '');
+  if (day.endDate && day.endDate !== day.date) {
+    return `${start} - ${formatDate(day.endDate)}`;
+  }
+  return start;
+}
+
 
 </script>
 
@@ -152,10 +165,6 @@ function nextYear() {
         <Button variant="outline" size="icon" @click="nextYear">
           <span class="sr-only">Nächstes Jahr</span>
           &gt;
-        </Button>
-        <Button v-if="isAdmin" @click="openCreateDialog" class="ml-4">
-          <Plus class="w-4 h-4 mr-2" />
-          Neuer Eintrag
         </Button>
       </div>
     </div>
@@ -200,10 +209,15 @@ function nextYear() {
 
       <!-- Closures Section -->
       <div class="bg-white rounded-lg border border-stone-200 p-6">
-        <h2 class="text-lg font-semibold text-stone-900 mb-4 flex items-center gap-2">
-          <Calendar class="w-5 h-5 text-orange-500" />
-          Schließzeiten
-        </h2>
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-semibold text-stone-900 flex items-center gap-2">
+            <Calendar class="w-5 h-5 text-orange-500" />
+            Schließzeiten
+          </h2>
+          <Button v-if="isAdmin" variant="ghost" size="icon" @click="openCreateDialog('CLOSURE')">
+            <CirclePlus class="w-5 h-5 text-orange-500" />
+          </Button>
+        </div>
         <div class="space-y-2">
           <div
             v-for="day in closuresList"
@@ -213,7 +227,7 @@ function nextYear() {
           >
             <div>
               <div class="font-medium text-stone-900">{{ day.name }}</div>
-              <div class="text-sm text-stone-500">{{ formatDate(day.date || '') }}</div>
+              <div class="text-sm text-stone-500">{{ formatDateRange(day) }}</div>
             </div>
             <div class="flex items-center gap-2">
               <Badge class="bg-orange-100 text-orange-700" variant="outline">Schließzeit</Badge>
@@ -235,10 +249,15 @@ function nextYear() {
 
       <!-- Team Days Section -->
       <div class="bg-white rounded-lg border border-stone-200 p-6">
-        <h2 class="text-lg font-semibold text-stone-900 mb-4 flex items-center gap-2">
-          <Calendar class="w-5 h-5 text-purple-500" />
-          Teamtage / Bildungstage
-        </h2>
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-semibold text-stone-900 flex items-center gap-2">
+            <Calendar class="w-5 h-5 text-purple-500" />
+            Teamtage / Bildungstage
+          </h2>
+          <Button v-if="isAdmin" variant="ghost" size="icon" @click="openCreateDialog('TEAM_DAY')">
+            <CirclePlus class="w-5 h-5 text-purple-500" />
+          </Button>
+        </div>
         <div class="space-y-2">
           <div
             v-for="day in teamDaysList"
@@ -248,7 +267,7 @@ function nextYear() {
           >
             <div>
               <div class="font-medium text-stone-900">{{ day.name }}</div>
-              <div class="text-sm text-stone-500">{{ formatDate(day.date || '') }}</div>
+              <div class="text-sm text-stone-500">{{ formatDateRange(day) }}</div>
             </div>
             <div class="flex items-center gap-2">
               <Badge class="bg-purple-100 text-purple-700" variant="outline">Teamtag</Badge>
@@ -270,10 +289,15 @@ function nextYear() {
 
       <!-- Events Section -->
       <div class="bg-white rounded-lg border border-stone-200 p-6">
-        <h2 class="text-lg font-semibold text-stone-900 mb-4 flex items-center gap-2">
-          <Calendar class="w-5 h-5 text-blue-500" />
-          Veranstaltungen
-        </h2>
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-semibold text-stone-900 flex items-center gap-2">
+            <Calendar class="w-5 h-5 text-blue-500" />
+            Veranstaltungen
+          </h2>
+          <Button v-if="isAdmin" variant="ghost" size="icon" @click="openCreateDialog('EVENT')">
+            <CirclePlus class="w-5 h-5 text-blue-500" />
+          </Button>
+        </div>
         <div class="space-y-2">
           <div
             v-for="day in eventsList"
@@ -283,7 +307,7 @@ function nextYear() {
           >
             <div>
               <div class="font-medium text-stone-900">{{ day.name }}</div>
-              <div class="text-sm text-stone-500">{{ formatDate(day.date || '') }}</div>
+              <div class="text-sm text-stone-500">{{ formatDateRange(day) }}</div>
               <div v-if="day.notes" class="text-xs text-stone-400 mt-1">{{ day.notes }}</div>
             </div>
             <div class="flex items-center gap-2">
@@ -311,14 +335,25 @@ function nextYear() {
       :title="selectedDay ? 'Eintrag bearbeiten' : 'Neuer Eintrag'"
     >
       <form @submit.prevent="handleSave" class="space-y-4">
-        <div class="space-y-2">
-          <Label for="date">Datum</Label>
-          <Input
-            id="date"
-            v-model="form.date"
-            type="date"
-            required
-          />
+        <div class="grid grid-cols-2 gap-4">
+          <div class="space-y-2">
+            <Label for="date">Startdatum</Label>
+            <Input
+              id="date"
+              v-model="form.date"
+              type="date"
+              required
+            />
+          </div>
+          <div class="space-y-2">
+            <Label for="endDate">Enddatum (optional)</Label>
+            <Input
+              id="endDate"
+              v-model="form.endDate"
+              type="date"
+              :min="form.date"
+            />
+          </div>
         </div>
 
         <div class="space-y-2">

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { type HTMLAttributes, computed } from 'vue';
+import { type HTMLAttributes, computed, ref } from 'vue';
 import {
   SelectRoot,
   SelectTrigger,
@@ -10,8 +10,6 @@ import {
   SelectItem,
   SelectItemText,
   SelectItemIndicator,
-  type SelectRootProps,
-  type SelectRootEmits,
 } from 'radix-vue';
 import { Check, ChevronDown } from 'lucide-vue-next';
 import { cn } from '@/lib/utils';
@@ -22,22 +20,35 @@ export interface SelectOption {
   disabled?: boolean;
 }
 
-const props = defineProps<SelectRootProps & {
+const props = defineProps<{
+  modelValue?: string;
   options: SelectOption[];
   placeholder?: string;
   class?: HTMLAttributes['class'];
+  disabled?: boolean;
+  required?: boolean;
+  name?: string;
 }>();
 
-const emits = defineEmits<SelectRootEmits>();
+const emit = defineEmits<{
+  'update:modelValue': [value: string];
+}>();
 
-const delegatedProps = computed(() => {
-  const { class: _, options: __, placeholder: ___, ...rest } = props;
-  return rest;
+// Local model for uncontrolled use
+const localValue = ref(props.modelValue ?? '');
+
+// Use computed to support both controlled and uncontrolled modes
+const value = computed({
+  get: () => props.modelValue ?? localValue.value,
+  set: (val) => {
+    localValue.value = val;
+    emit('update:modelValue', val);
+  }
 });
 </script>
 
 <template>
-  <SelectRoot v-bind="delegatedProps" @update:model-value="emits('update:modelValue', $event)">
+  <SelectRoot v-model="value" :disabled="disabled" :required="required" :name="name">
     <SelectTrigger
       :class="cn(
         'flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 [&>span]:line-clamp-1',
@@ -54,7 +65,7 @@ const delegatedProps = computed(() => {
         :side-offset="4"
         position="popper"
       >
-        <SelectViewport class="p-1 h-[var(--radix-select-trigger-height)] w-full min-w-[var(--radix-select-trigger-width)]">
+        <SelectViewport class="p-1 max-h-[300px] w-full min-w-[var(--radix-select-trigger-width)]">
           <SelectItem
             v-for="option in options"
             :key="option.value"

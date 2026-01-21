@@ -36,20 +36,19 @@ const entryTypeOptions: SelectOption[] = [
   { value: 'EVENT', label: 'Veranstaltung' },
 ];
 
-const employeeOptions = computed<SelectOption[]>(() => 
-  props.employees.map(e => ({
+const employeeOptions = computed<SelectOption[]>(() => {
+  return props.employees.map(e => ({
     value: String(e.id),
     label: `${e.firstName} ${e.lastName}`,
-  }))
-);
+  }));
+});
 
-const groupOptions = computed<SelectOption[]>(() => [
-  { value: 'none', label: 'Keine Gruppe (Springer)' },
-  ...props.groups.map(g => ({
+const groupOptions = computed<SelectOption[]>(() => 
+  props.groups.map(g => ({
     value: String(g.id),
     label: g.name || '',
-  })),
-]);
+  }))
+);
 
 // Form state
 const form = ref({
@@ -63,19 +62,26 @@ const form = ref({
   notes: '',
 });
 
+// Track if user manually changed the group (don't override manual selections)
+const userChangedGroup = ref(false);
+
 // Reset form when dialog opens/entry changes
 watch(
   () => [props.open, props.entry, props.defaultDate, props.defaultGroupId],
   () => {
     if (props.open) {
+      userChangedGroup.value = false; // Reset on dialog open
+      
       if (props.entry) {
+        // Use groupId directly, or fall back to group.id if available
+        const entryGroupId = props.entry.groupId ?? props.entry.group?.id;
         form.value = {
           employeeId: String(props.entry.employeeId || ''),
           date: props.entry.date || '',
           startTime: props.entry.startTime?.substring(0, 5) || '07:00',
           endTime: props.entry.endTime?.substring(0, 5) || '15:00',
-          breakMinutes: props.entry.breakMinutes || 30,
-          groupId: props.entry.groupId ? String(props.entry.groupId) : '',
+          breakMinutes: props.entry.breakMinutes ?? 30,
+          groupId: entryGroupId ? String(entryGroupId) : '',
           entryType: (props.entry.entryType as any) || 'WORK',
           notes: props.entry.notes || '',
         };
@@ -96,18 +102,53 @@ watch(
   { immediate: true }
 );
 
+// Auto-fill group when employee is selected (only for new entries)
+watch(
+  () => form.value.employeeId,
+  (newEmployeeId) => {
+    // Only auto-fill if:
+    // 1. We're creating a new entry (not editing)
+    // 2. User hasn't manually selected a group
+    // 3. An employee is actually selected
+    if (!isEditing.value && !userChangedGroup.value && newEmployeeId) {
+      const selectedEmployee = props.employees.find(e => String(e.id) === newEmployeeId);
+      if (selectedEmployee?.primaryGroupId) {
+        form.value.groupId = String(selectedEmployee.primaryGroupId);
+      }
+    }
+  }
+);
+
+// Track when user manually changes the group
+function onGroupChange(value: string) {
+  userChangedGroup.value = true;
+  form.value.groupId = value;
+}
+
+// Form validation - groupId is now required for WORK entries
+const isFormValid = computed(() => {
+  const baseValid = form.value.employeeId && form.value.date && form.value.entryType;
+  if (form.value.entryType === 'WORK') {
+    return baseValid && form.value.groupId;
+  }
+  return baseValid;
+});
+
 function handleSubmit() {
+  if (!isFormValid.value) {
+    return;
+  }
+  
   const data: CreateScheduleEntryRequest = {
     employeeId: parseInt(form.value.employeeId),
     date: form.value.date,
     startTime: form.value.startTime + ':00',
     endTime: form.value.endTime + ':00',
     breakMinutes: form.value.breakMinutes,
-    groupId: form.value.groupId && form.value.groupId !== 'none' ? parseInt(form.value.groupId) : undefined,
+    groupId: form.value.groupId ? parseInt(form.value.groupId) : undefined,
     entryType: form.value.entryType,
     notes: form.value.notes || undefined,
   };
-  
   emit('save', data, props.entry?.id);
 }
 
@@ -123,7 +164,7 @@ function handleDelete() {
     :open="open"
     @update:open="emit('update:open', $event)"
     :title="isEditing ? 'Eintrag bearbeiten' : 'Neuer Eintrag'"
-    :description="isEditing ? 'Bearbeiten Sie den Dienstplan-Eintrag.' : 'Erstellen Sie einen neuen Dienstplan-Eintrag.'"
+    :description="isEditing ? 'Bearbeite den Dienstplan-Eintrag.' : 'Erstelle einen neuen Dienstplan-Eintrag.'"
   >
     <form @submit.prevent="handleSubmit" class="space-y-4">
       <div class="space-y-2">
@@ -189,7 +230,8 @@ function handleDelete() {
       <div class="space-y-2" v-if="form.entryType === 'WORK'">
         <Label for="group">Gruppe</Label>
         <Select
-          v-model="form.groupId"
+          :model-value="form.groupId"
+          @update:model-value="onGroupChange"
           :options="groupOptions"
           placeholder="Gruppe auswählen"
         />
@@ -217,7 +259,7 @@ function handleDelete() {
         <Button type="button" variant="outline" @click="emit('update:open', false)">
           Abbrechen
         </Button>
-        <Button type="submit">
+        <Button type="submit" :disabled="!isFormValid">
           {{ isEditing ? 'Speichern' : 'Erstellen' }}
         </Button>
       </div>

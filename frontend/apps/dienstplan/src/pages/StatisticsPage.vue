@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { ChevronLeft, ChevronRight, Loader2, TrendingUp, Clock, Calendar, Users } from 'lucide-vue-next';
+import { ChevronLeft, ChevronRight, Loader2, TrendingUp, Clock, Calendar, Users, Target } from 'lucide-vue-next';
 import { 
   useOverviewStatistics,
   useWeeklyStatistics,
@@ -58,6 +58,36 @@ function formatMonthYear(date: Date): string {
 function getOvertimeClass(hours: number | undefined): string {
   if (!hours) return 'text-stone-600';
   return hours > 0 ? 'text-green-600' : hours < 0 ? 'text-red-600' : 'text-stone-600';
+}
+
+// Capacity calculation helpers
+function getCapacityPercent(scheduled: number | undefined, contracted: number | undefined): number {
+  if (!scheduled || !contracted || contracted === 0) return 0;
+  return Math.min(Math.round((scheduled / contracted) * 100), 150);
+}
+
+function getCapacityBarClass(percent: number): string {
+  if (percent < 80) return 'bg-amber-500'; // Under-scheduled
+  if (percent <= 105) return 'bg-green-500'; // Good
+  if (percent <= 120) return 'bg-blue-500'; // Slight overtime
+  return 'bg-red-500'; // Over-scheduled
+}
+
+function getDifferenceText(scheduled: number | undefined, contracted: number | undefined): string {
+  if (scheduled === undefined || contracted === undefined) return '-';
+  const diff = scheduled - contracted;
+  if (diff === 0) return 'Genau richtig';
+  return diff > 0 ? `+${diff.toFixed(1)} Std.` : `${diff.toFixed(1)} Std.`;
+}
+
+function getDifferenceClass(scheduled: number | undefined, contracted: number | undefined): string {
+  if (scheduled === undefined || contracted === undefined) return 'text-stone-500';
+  const diff = scheduled - contracted;
+  if (diff > 2) return 'text-red-600 font-medium';
+  if (diff > 0) return 'text-blue-600';
+  if (diff < -2) return 'text-amber-600 font-medium';
+  if (diff < 0) return 'text-amber-600';
+  return 'text-green-600 font-medium';
 }
 
 const isLoading = computed(() => overviewLoading.value);
@@ -208,10 +238,13 @@ const isLoading = computed(() => overviewLoading.value);
         </div>
       </div>
 
-      <!-- Weekly Statistics -->
+      <!-- Weekly Capacity View -->
       <div class="bg-white rounded-lg border border-stone-200 overflow-hidden">
         <div class="px-6 py-4 border-b border-stone-200 flex items-center justify-between">
-          <h2 class="text-lg font-semibold text-stone-900">Wochenstatistik</h2>
+          <div class="flex items-center gap-2">
+            <Target class="w-5 h-5 text-primary" />
+            <h2 class="text-lg font-semibold text-stone-900">Wochen-Kapazität</h2>
+          </div>
           <div class="flex items-center gap-2">
             <Button variant="outline" size="icon" @click="previousWeek">
               <ChevronLeft class="w-4 h-4" />
@@ -229,32 +262,106 @@ const isLoading = computed(() => overviewLoading.value);
           <Loader2 class="w-6 h-6 animate-spin text-primary mx-auto" />
         </div>
         
-        <div v-else-if="weekly" class="p-6">
-          <div class="grid gap-4 md:grid-cols-2 mb-4">
+        <div v-else-if="weekly" class="p-6 space-y-6">
+          <!-- Summary -->
+          <div class="grid gap-4 md:grid-cols-3">
             <div class="p-4 bg-stone-50 rounded-lg">
-              <p class="text-sm text-stone-500">Geplante Stunden (Woche)</p>
-              <p class="text-xl font-bold text-stone-900">{{ formatHours(weekly.totalScheduledHours) }}</p>
+              <p class="text-sm text-stone-500">Vertrags-Stunden (Summe)</p>
+              <p class="text-xl font-bold text-stone-900">
+                {{ formatHours(weekly.byEmployee?.reduce((sum, e) => sum + (e.employee?.weeklyHours || 0), 0)) }}
+              </p>
             </div>
-            <div class="p-4 bg-stone-50 rounded-lg">
-              <p class="text-sm text-stone-500">Gearbeitete Stunden (Woche)</p>
-              <p class="text-xl font-bold text-stone-900">{{ formatHours(weekly.totalWorkedHours) }}</p>
+            <div class="p-4 bg-blue-50 rounded-lg">
+              <p class="text-sm text-stone-500">Geplante Stunden</p>
+              <p class="text-xl font-bold text-blue-700">{{ formatHours(weekly.totalScheduledHours) }}</p>
+            </div>
+            <div class="p-4 bg-green-50 rounded-lg">
+              <p class="text-sm text-stone-500">Gearbeitete Stunden</p>
+              <p class="text-xl font-bold text-green-700">{{ formatHours(weekly.totalWorkedHours) }}</p>
             </div>
           </div>
 
-          <h3 class="font-medium text-stone-700 mb-2">Nach Mitarbeiter</h3>
-          <div class="space-y-2">
-            <div
-              v-for="emp in weekly.byEmployee"
-              :key="emp.employee?.id"
-              class="flex items-center justify-between p-3 bg-stone-50 rounded-lg"
-            >
-              <span class="font-medium text-stone-900">
-                {{ emp.employee?.firstName }} {{ emp.employee?.lastName }}
-              </span>
-              <div class="flex items-center gap-4 text-sm">
-                <span class="text-stone-500">{{ emp.daysWorked }} Tage</span>
-                <span class="text-stone-600">{{ formatHours(emp.workedHours) }}</span>
+          <!-- Capacity per employee -->
+          <div>
+            <h3 class="font-medium text-stone-700 mb-3">Kapazitätsauslastung pro Mitarbeiter</h3>
+            <div class="space-y-3">
+              <div
+                v-for="emp in weekly.byEmployee"
+                :key="emp.employee?.id"
+                class="p-4 bg-stone-50 rounded-lg"
+              >
+                <div class="flex items-center justify-between mb-2">
+                  <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                      <span class="text-xs font-medium text-primary">
+                        {{ emp.employee?.firstName?.[0] }}{{ emp.employee?.lastName?.[0] }}
+                      </span>
+                    </div>
+                    <div>
+                      <span class="font-medium text-stone-900">
+                        {{ emp.employee?.firstName }} {{ emp.employee?.lastName }}
+                      </span>
+                      <div class="text-xs text-stone-500">
+                        Vertrag: {{ emp.employee?.weeklyHours ?? '-' }} Std./Woche
+                      </div>
+                    </div>
+                  </div>
+                  <div class="text-right">
+                    <div class="text-sm font-medium text-stone-700">
+                      {{ formatHours(emp.scheduledHours) }} geplant
+                    </div>
+                    <div class="text-xs" :class="getDifferenceClass(emp.scheduledHours, emp.employee?.weeklyHours)">
+                      {{ getDifferenceText(emp.scheduledHours, emp.employee?.weeklyHours) }}
+                    </div>
+                  </div>
+                </div>
+                
+                <!-- Progress bar -->
+                <div class="h-3 bg-stone-200 rounded-full overflow-hidden">
+                  <div
+                    class="h-full rounded-full transition-all"
+                    :class="getCapacityBarClass(getCapacityPercent(emp.scheduledHours, emp.employee?.weeklyHours))"
+                    :style="{ width: `${Math.min(getCapacityPercent(emp.scheduledHours, emp.employee?.weeklyHours), 100)}%` }"
+                  />
+                </div>
+                <div class="flex justify-between text-xs text-stone-500 mt-1">
+                  <span>0%</span>
+                  <span>{{ getCapacityPercent(emp.scheduledHours, emp.employee?.weeklyHours) }}%</span>
+                  <span>100%</span>
+                </div>
+                
+                <!-- Worked vs Scheduled if there's actual data -->
+                <div v-if="emp.workedHours !== undefined && emp.workedHours > 0" class="mt-2 pt-2 border-t border-stone-200">
+                  <div class="flex justify-between text-sm">
+                    <span class="text-stone-600">Tatsächlich gearbeitet:</span>
+                    <span class="font-medium text-green-700">{{ formatHours(emp.workedHours) }}</span>
+                  </div>
+                </div>
               </div>
+            </div>
+            
+            <div v-if="!weekly.byEmployee?.length" class="text-center text-stone-500 py-4">
+              Keine Daten für diese Woche verfügbar.
+            </div>
+          </div>
+
+          <!-- Legend -->
+          <div class="flex flex-wrap gap-4 pt-4 border-t border-stone-200">
+            <div class="flex items-center gap-2 text-xs text-stone-600">
+              <div class="w-3 h-3 rounded-full bg-amber-500"></div>
+              <span>Unterplant (&lt;80%)</span>
+            </div>
+            <div class="flex items-center gap-2 text-xs text-stone-600">
+              <div class="w-3 h-3 rounded-full bg-green-500"></div>
+              <span>Optimal (80-105%)</span>
+            </div>
+            <div class="flex items-center gap-2 text-xs text-stone-600">
+              <div class="w-3 h-3 rounded-full bg-blue-500"></div>
+              <span>Leichte Überstunden (105-120%)</span>
+            </div>
+            <div class="flex items-center gap-2 text-xs text-stone-600">
+              <div class="w-3 h-3 rounded-full bg-red-500"></div>
+              <span>Überplant (&gt;120%)</span>
             </div>
           </div>
         </div>

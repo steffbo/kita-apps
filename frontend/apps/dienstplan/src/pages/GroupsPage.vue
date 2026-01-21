@@ -1,14 +1,16 @@
 <script setup lang="ts">
 import { ref } from 'vue';
-import { Plus, Loader2, Users } from 'lucide-vue-next';
+import { Plus, Loader2, Users, Pencil, Trash2 } from 'lucide-vue-next';
 import { 
   useGroups, 
   useCreateGroup, 
   useUpdateGroup, 
   useDeleteGroup,
   useAuth,
+  useEmployees,
   type Group,
-  type CreateGroupRequest
+  type CreateGroupRequest,
+  type Employee
 } from '@kita/shared';
 import { Button } from '@/components/ui';
 import GroupFormDialog from '@/components/GroupFormDialog.vue';
@@ -17,6 +19,7 @@ const { isAdmin } = useAuth();
 
 // Queries
 const { data: groups, isLoading, error, refetch } = useGroups();
+const { data: allEmployees } = useEmployees(false);
 
 // Mutations
 const createGroup = useCreateGroup();
@@ -29,8 +32,11 @@ const selectedGroup = ref<Group | null>(null);
 const showDeleteConfirm = ref(false);
 const groupToDelete = ref<Group | null>(null);
 
-// Expanded group for showing members
-const expandedGroupId = ref<number | null>(null);
+// Get employees assigned to a group (via primaryGroupId)
+function getGroupMembers(groupId: number): Employee[] {
+  if (!allEmployees.value) return [];
+  return allEmployees.value.filter(e => e.primaryGroupId === groupId);
+}
 
 function openCreateDialog() {
   selectedGroup.value = null;
@@ -40,10 +46,6 @@ function openCreateDialog() {
 function openEditDialog(group: Group) {
   selectedGroup.value = group;
   dialogOpen.value = true;
-}
-
-function toggleExpanded(groupId: number) {
-  expandedGroupId.value = expandedGroupId.value === groupId ? null : groupId;
 }
 
 async function handleSave(data: CreateGroupRequest) {
@@ -78,12 +80,6 @@ async function handleDelete() {
     console.error('Failed to delete group:', err);
   }
 }
-
-// Member count would need individual group queries with members
-// For simplicity, showing group info without member count for now
-function getMemberCount(_groupId: number): string {
-  return '-'; // Would need useGroupAssignments per group
-}
 </script>
 
 <template>
@@ -91,7 +87,7 @@ function getMemberCount(_groupId: number): string {
     <div class="flex items-center justify-between mb-6">
       <div>
         <h1 class="text-2xl font-bold text-stone-900">Gruppen</h1>
-        <p class="text-stone-600">Verwalten Sie die Kita-Gruppen und deren Zuordnungen</p>
+        <p class="text-stone-600">Verwalte die Kita-Gruppen und deren Zuordnungen</p>
       </div>
       <Button v-if="isAdmin" @click="openCreateDialog">
         <Plus class="w-4 h-4 mr-2" />
@@ -144,40 +140,45 @@ function getMemberCount(_groupId: number): string {
               <p v-if="group.description" class="text-sm text-stone-500">{{ group.description }}</p>
             </div>
           </div>
-        </div>
-
-        <div class="flex items-center justify-between pt-4 border-t border-stone-200">
-          <button
-            @click="toggleExpanded(group.id!)"
-            class="flex items-center gap-1 text-sm text-stone-600 hover:text-stone-900"
-          >
-            <Users class="w-4 h-4" />
-            <span>{{ getMemberCount(group.id!) }} Mitarbeiter</span>
-          </button>
-          <div v-if="isAdmin" class="flex items-center gap-2">
-            <Button variant="ghost" size="sm" @click="openEditDialog(group)">
-              Bearbeiten
+          <div v-if="isAdmin" class="flex items-center gap-1">
+            <Button variant="ghost" size="icon" @click="openEditDialog(group)" class="h-8 w-8">
+              <Pencil class="w-4 h-4" />
             </Button>
             <Button 
               variant="ghost" 
-              size="sm"
-              class="text-destructive hover:text-destructive"
+              size="icon"
+              class="h-8 w-8 text-destructive hover:text-destructive"
               @click="confirmDelete(group)"
             >
-              Löschen
+              <Trash2 class="w-4 h-4" />
             </Button>
           </div>
         </div>
 
-        <!-- Expanded member list -->
-        <div
-          v-if="expandedGroupId === group.id"
-          class="mt-4 pt-4 border-t border-stone-200"
-        >
-          <h4 class="text-sm font-medium text-stone-700 mb-2">Zugeordnete Mitarbeiter</h4>
-          <div class="text-sm text-stone-500">
-            <!-- This would show the actual members from API -->
-            <p>Mitarbeiter werden aus der API geladen...</p>
+        <!-- Members list - always visible -->
+        <div class="pt-4 border-t border-stone-200">
+          <div class="flex items-center gap-2 text-sm text-stone-600 mb-3">
+            <Users class="w-4 h-4" />
+            <span>Mitarbeiter ({{ getGroupMembers(group.id!).length }})</span>
+          </div>
+          
+          <div v-if="getGroupMembers(group.id!).length === 0" class="text-sm text-stone-400">
+            Keine Mitarbeiter zugeordnet
+          </div>
+          
+          <div v-else class="space-y-2">
+            <div 
+              v-for="employee in getGroupMembers(group.id!)" 
+              :key="employee.id"
+              class="flex items-center gap-2 text-sm"
+            >
+              <div class="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-xs font-medium text-primary">
+                {{ employee.firstName?.[0] }}{{ employee.lastName?.[0] }}
+              </div>
+              <span class="text-stone-900">
+                {{ employee.firstName }} {{ employee.lastName }}
+              </span>
+            </div>
           </div>
         </div>
       </div>
@@ -203,7 +204,7 @@ function getMemberCount(_groupId: number): string {
         <div class="relative bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
           <h3 class="text-lg font-semibold mb-2">Gruppe löschen?</h3>
           <p class="text-stone-600 mb-4">
-            Möchten Sie die Gruppe <strong>{{ groupToDelete?.name }}</strong> wirklich löschen?
+            Möchtest du die Gruppe <strong>{{ groupToDelete?.name }}</strong> wirklich löschen?
             Alle Zuordnungen werden entfernt.
           </p>
           <div class="flex justify-end gap-3">
