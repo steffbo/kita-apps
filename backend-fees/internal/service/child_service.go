@@ -32,28 +32,34 @@ type ChildFilter struct {
 
 // CreateChildInput defines input for creating a child.
 type CreateChildInput struct {
-	MemberNumber string
-	FirstName    string
-	LastName     string
-	BirthDate    string
-	EntryDate    string
-	Street       *string
-	HouseNumber  *string
-	PostalCode   *string
-	City         *string
+	MemberNumber    string
+	FirstName       string
+	LastName        string
+	BirthDate       string
+	EntryDate       string
+	Street          *string
+	StreetNo        *string
+	PostalCode      *string
+	City            *string
+	LegalHours      *int
+	LegalHoursUntil *string
+	CareHours       *int
 }
 
 // UpdateChildInput defines input for updating a child.
 type UpdateChildInput struct {
-	FirstName   *string
-	LastName    *string
-	BirthDate   *string
-	EntryDate   *string
-	Street      *string
-	HouseNumber *string
-	PostalCode  *string
-	City        *string
-	IsActive    *bool
+	FirstName       *string
+	LastName        *string
+	BirthDate       *string
+	EntryDate       *string
+	Street          *string
+	StreetNo        *string
+	PostalCode      *string
+	City            *string
+	LegalHours      *int
+	LegalHoursUntil *string
+	CareHours       *int
+	IsActive        *bool
 }
 
 // List returns children matching the filter.
@@ -88,6 +94,16 @@ func (s *ChildService) Create(ctx context.Context, input CreateChildInput) (*dom
 		return nil, ErrInvalidInput
 	}
 
+	// Parse legalHoursUntil if provided
+	var legalHoursUntil *time.Time
+	if input.LegalHoursUntil != nil && *input.LegalHoursUntil != "" {
+		parsed, err := time.Parse("2006-01-02", *input.LegalHoursUntil)
+		if err != nil {
+			return nil, ErrInvalidInput
+		}
+		legalHoursUntil = &parsed
+	}
+
 	// Check for duplicate member number
 	existing, _ := s.childRepo.GetByMemberNumber(ctx, input.MemberNumber)
 	if existing != nil {
@@ -95,19 +111,22 @@ func (s *ChildService) Create(ctx context.Context, input CreateChildInput) (*dom
 	}
 
 	child := &domain.Child{
-		ID:           uuid.New(),
-		MemberNumber: input.MemberNumber,
-		FirstName:    input.FirstName,
-		LastName:     input.LastName,
-		BirthDate:    birthDate,
-		EntryDate:    entryDate,
-		Street:       input.Street,
-		HouseNumber:  input.HouseNumber,
-		PostalCode:   input.PostalCode,
-		City:         input.City,
-		IsActive:     true,
-		CreatedAt:    time.Now(),
-		UpdatedAt:    time.Now(),
+		ID:              uuid.New(),
+		MemberNumber:    input.MemberNumber,
+		FirstName:       input.FirstName,
+		LastName:        input.LastName,
+		BirthDate:       birthDate,
+		EntryDate:       entryDate,
+		Street:          input.Street,
+		StreetNo:        input.StreetNo,
+		PostalCode:      input.PostalCode,
+		City:            input.City,
+		LegalHours:      input.LegalHours,
+		LegalHoursUntil: legalHoursUntil,
+		CareHours:       input.CareHours,
+		IsActive:        true,
+		CreatedAt:       time.Now(),
+		UpdatedAt:       time.Now(),
 	}
 
 	if err := s.childRepo.Create(ctx, child); err != nil {
@@ -147,14 +166,31 @@ func (s *ChildService) Update(ctx context.Context, id uuid.UUID, input UpdateChi
 	if input.Street != nil {
 		child.Street = input.Street
 	}
-	if input.HouseNumber != nil {
-		child.HouseNumber = input.HouseNumber
+	if input.StreetNo != nil {
+		child.StreetNo = input.StreetNo
 	}
 	if input.PostalCode != nil {
 		child.PostalCode = input.PostalCode
 	}
 	if input.City != nil {
 		child.City = input.City
+	}
+	if input.LegalHours != nil {
+		child.LegalHours = input.LegalHours
+	}
+	if input.LegalHoursUntil != nil {
+		if *input.LegalHoursUntil == "" {
+			child.LegalHoursUntil = nil
+		} else {
+			parsed, err := time.Parse("2006-01-02", *input.LegalHoursUntil)
+			if err != nil {
+				return nil, ErrInvalidInput
+			}
+			child.LegalHoursUntil = &parsed
+		}
+	}
+	if input.CareHours != nil {
+		child.CareHours = input.CareHours
 	}
 	if input.IsActive != nil {
 		child.IsActive = *input.IsActive

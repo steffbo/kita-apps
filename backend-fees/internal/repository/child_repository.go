@@ -54,7 +54,8 @@ func (r *PostgresChildRepository) List(ctx context.Context, activeOnly bool, sea
 	// Fetch with pagination
 	selectQuery := fmt.Sprintf(`
 		SELECT id, member_number, first_name, last_name, birth_date, entry_date,
-		       street, house_number, postal_code, city, is_active, created_at, updated_at
+		       street, street_no, postal_code, city, legal_hours, legal_hours_until, care_hours,
+		       is_active, created_at, updated_at
 		%s
 		ORDER BY last_name, first_name
 		LIMIT $%d OFFSET $%d
@@ -74,7 +75,8 @@ func (r *PostgresChildRepository) GetByID(ctx context.Context, id uuid.UUID) (*d
 	var child domain.Child
 	err := r.db.GetContext(ctx, &child, `
 		SELECT id, member_number, first_name, last_name, birth_date, entry_date,
-		       street, house_number, postal_code, city, is_active, created_at, updated_at
+		       street, street_no, postal_code, city, legal_hours, legal_hours_until, care_hours,
+		       is_active, created_at, updated_at
 		FROM fees.children
 		WHERE id = $1
 	`, id)
@@ -92,7 +94,8 @@ func (r *PostgresChildRepository) GetByMemberNumber(ctx context.Context, memberN
 	var child domain.Child
 	err := r.db.GetContext(ctx, &child, `
 		SELECT id, member_number, first_name, last_name, birth_date, entry_date,
-		       street, house_number, postal_code, city, is_active, created_at, updated_at
+		       street, street_no, postal_code, city, legal_hours, legal_hours_until, care_hours,
+		       is_active, created_at, updated_at
 		FROM fees.children
 		WHERE member_number = $1
 	`, memberNumber)
@@ -109,10 +112,12 @@ func (r *PostgresChildRepository) GetByMemberNumber(ctx context.Context, memberN
 func (r *PostgresChildRepository) Create(ctx context.Context, child *domain.Child) error {
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO fees.children (id, member_number, first_name, last_name, birth_date, entry_date,
-		                           street, house_number, postal_code, city, is_active, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+		                           street, street_no, postal_code, city, legal_hours, legal_hours_until, care_hours,
+		                           is_active, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
 	`, child.ID, child.MemberNumber, child.FirstName, child.LastName, child.BirthDate, child.EntryDate,
-		child.Street, child.HouseNumber, child.PostalCode, child.City, child.IsActive, child.CreatedAt, child.UpdatedAt)
+		child.Street, child.StreetNo, child.PostalCode, child.City, child.LegalHours, child.LegalHoursUntil, child.CareHours,
+		child.IsActive, child.CreatedAt, child.UpdatedAt)
 	return err
 }
 
@@ -122,11 +127,14 @@ func (r *PostgresChildRepository) Update(ctx context.Context, child *domain.Chil
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE fees.children
 		SET first_name = $2, last_name = $3, birth_date = $4, entry_date = $5,
-		    street = $6, house_number = $7, postal_code = $8, city = $9,
-		    is_active = $10, updated_at = $11
+		    street = $6, street_no = $7, postal_code = $8, city = $9,
+		    legal_hours = $10, legal_hours_until = $11, care_hours = $12,
+		    is_active = $13, updated_at = $14
 		WHERE id = $1
 	`, child.ID, child.FirstName, child.LastName, child.BirthDate, child.EntryDate,
-		child.Street, child.HouseNumber, child.PostalCode, child.City, child.IsActive, child.UpdatedAt)
+		child.Street, child.StreetNo, child.PostalCode, child.City,
+		child.LegalHours, child.LegalHoursUntil, child.CareHours,
+		child.IsActive, child.UpdatedAt)
 	return err
 }
 
@@ -141,7 +149,7 @@ func (r *PostgresChildRepository) GetParents(ctx context.Context, childID uuid.U
 	var parents []domain.Parent
 	err := r.db.SelectContext(ctx, &parents, `
 		SELECT p.id, p.first_name, p.last_name, p.birth_date, p.email, p.phone,
-		       p.street, p.house_number, p.postal_code, p.city,
+		       p.street, p.street_no, p.postal_code, p.city,
 		       p.annual_household_income, p.created_at, p.updated_at
 		FROM fees.parents p
 		INNER JOIN fees.child_parents cp ON p.id = cp.parent_id

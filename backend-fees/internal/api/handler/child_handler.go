@@ -24,15 +24,18 @@ func NewChildHandler(childService *service.ChildService) *ChildHandler {
 
 // CreateChildRequest represents a request to create a child.
 type CreateChildRequest struct {
-	MemberNumber string  `json:"memberNumber"`
-	FirstName    string  `json:"firstName"`
-	LastName     string  `json:"lastName"`
-	BirthDate    string  `json:"birthDate"`
-	EntryDate    string  `json:"entryDate"`
-	Street       *string `json:"street,omitempty"`
-	HouseNumber  *string `json:"houseNumber,omitempty"`
-	PostalCode   *string `json:"postalCode,omitempty"`
-	City         *string `json:"city,omitempty"`
+	MemberNumber    string  `json:"memberNumber"`
+	FirstName       string  `json:"firstName"`
+	LastName        string  `json:"lastName"`
+	BirthDate       string  `json:"birthDate"`
+	EntryDate       string  `json:"entryDate"`
+	Street          *string `json:"street,omitempty"`
+	StreetNo        *string `json:"streetNo,omitempty"`
+	PostalCode      *string `json:"postalCode,omitempty"`
+	City            *string `json:"city,omitempty"`
+	LegalHours      *int    `json:"legalHours,omitempty"`
+	LegalHoursUntil *string `json:"legalHoursUntil,omitempty"`
+	CareHours       *int    `json:"careHours,omitempty"`
 }
 
 // List handles GET /children
@@ -67,15 +70,18 @@ func (h *ChildHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	child, err := h.childService.Create(r.Context(), service.CreateChildInput{
-		MemberNumber: req.MemberNumber,
-		FirstName:    req.FirstName,
-		LastName:     req.LastName,
-		BirthDate:    req.BirthDate,
-		EntryDate:    req.EntryDate,
-		Street:       req.Street,
-		HouseNumber:  req.HouseNumber,
-		PostalCode:   req.PostalCode,
-		City:         req.City,
+		MemberNumber:    req.MemberNumber,
+		FirstName:       req.FirstName,
+		LastName:        req.LastName,
+		BirthDate:       req.BirthDate,
+		EntryDate:       req.EntryDate,
+		Street:          req.Street,
+		StreetNo:        req.StreetNo,
+		PostalCode:      req.PostalCode,
+		City:            req.City,
+		LegalHours:      req.LegalHours,
+		LegalHoursUntil: req.LegalHoursUntil,
+		CareHours:       req.CareHours,
 	})
 	if err != nil {
 		if err == service.ErrDuplicateMemberNumber {
@@ -112,15 +118,18 @@ func (h *ChildHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 // UpdateChildRequest represents a request to update a child.
 type UpdateChildRequest struct {
-	FirstName   *string `json:"firstName,omitempty"`
-	LastName    *string `json:"lastName,omitempty"`
-	BirthDate   *string `json:"birthDate,omitempty"`
-	EntryDate   *string `json:"entryDate,omitempty"`
-	Street      *string `json:"street,omitempty"`
-	HouseNumber *string `json:"houseNumber,omitempty"`
-	PostalCode  *string `json:"postalCode,omitempty"`
-	City        *string `json:"city,omitempty"`
-	IsActive    *bool   `json:"isActive,omitempty"`
+	FirstName       *string `json:"firstName,omitempty"`
+	LastName        *string `json:"lastName,omitempty"`
+	BirthDate       *string `json:"birthDate,omitempty"`
+	EntryDate       *string `json:"entryDate,omitempty"`
+	Street          *string `json:"street,omitempty"`
+	StreetNo        *string `json:"streetNo,omitempty"`
+	PostalCode      *string `json:"postalCode,omitempty"`
+	City            *string `json:"city,omitempty"`
+	LegalHours      *int    `json:"legalHours,omitempty"`
+	LegalHoursUntil *string `json:"legalHoursUntil,omitempty"`
+	CareHours       *int    `json:"careHours,omitempty"`
+	IsActive        *bool   `json:"isActive,omitempty"`
 }
 
 // Update handles PUT /children/{id}
@@ -138,15 +147,18 @@ func (h *ChildHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	child, err := h.childService.Update(r.Context(), id, service.UpdateChildInput{
-		FirstName:   req.FirstName,
-		LastName:    req.LastName,
-		BirthDate:   req.BirthDate,
-		EntryDate:   req.EntryDate,
-		Street:      req.Street,
-		HouseNumber: req.HouseNumber,
-		PostalCode:  req.PostalCode,
-		City:        req.City,
-		IsActive:    req.IsActive,
+		FirstName:       req.FirstName,
+		LastName:        req.LastName,
+		BirthDate:       req.BirthDate,
+		EntryDate:       req.EntryDate,
+		Street:          req.Street,
+		StreetNo:        req.StreetNo,
+		PostalCode:      req.PostalCode,
+		City:            req.City,
+		LegalHours:      req.LegalHours,
+		LegalHoursUntil: req.LegalHoursUntil,
+		CareHours:       req.CareHours,
+		IsActive:        req.IsActive,
 	})
 	if err != nil {
 		if err == service.ErrNotFound {
