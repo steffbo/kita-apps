@@ -16,15 +16,15 @@ import (
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
 )
 
-// Column indices for the bank CSV format
+// Column indices for the bank CSV format (BFS/SozialBank export)
 const (
-	colBookingDate = 0  // Buchungstag
-	colValueDate   = 1  // Valutadatum
-	colPayerName   = 11 // Name Zahlungsbeteiligter
-	colPayerIBAN   = 12 // IBAN Zahlungsbeteiligter
-	colDescription = 4  // Verwendungszweck
-	colAmount      = 14 // Betrag
-	colCurrency    = 15 // Währung
+	colBookingDate = 4  // Buchungstag
+	colValueDate   = 5  // Valutadatum
+	colPayerName   = 6  // Name Zahlungsbeteiligter
+	colPayerIBAN   = 7  // IBAN Zahlungsbeteiligter
+	colDescription = 10 // Verwendungszweck
+	colAmount      = 11 // Betrag
+	colCurrency    = 12 // Waehrung
 )
 
 // memberNumberRegex matches 5-digit member numbers (e.g., "11072")
@@ -70,8 +70,8 @@ func ParseBankCSV(file io.Reader) ([]domain.BankTransaction, error) {
 }
 
 func parseRow(record []string) (*domain.BankTransaction, error) {
-	if len(record) < 16 {
-		return nil, fmt.Errorf("insufficient columns: got %d, need at least 16", len(record))
+	if len(record) < 13 {
+		return nil, fmt.Errorf("insufficient columns: got %d, need at least 13", len(record))
 	}
 
 	// Parse booking date (DD.MM.YYYY)

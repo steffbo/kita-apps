@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { api } from '@/api';
-import type { ImportResult, ImportBatch, BankTransaction, MatchConfirmation } from '@/api/types';
+import type { ImportResult, ImportBatch, BankTransaction, MatchConfirmation, KnownIBAN } from '@/api/types';
 import {
   Upload,
   FileSpreadsheet,
@@ -15,9 +15,12 @@ import {
   ChevronUp,
   RefreshCw,
   Check,
+  Ban,
+  Trash2,
+  ShieldOff,
 } from 'lucide-vue-next';
 
-type TabType = 'upload' | 'history' | 'unmatched';
+type TabType = 'upload' | 'history' | 'unmatched' | 'blacklist';
 
 const activeTab = ref<TabType>('upload');
 
@@ -39,6 +42,15 @@ const isLoadingHistory = ref(false);
 const unmatchedTransactions = ref<BankTransaction[]>([]);
 const unmatchedTotal = ref(0);
 const isLoadingUnmatched = ref(false);
+
+// Blacklist state
+const blacklistedIBANs = ref<KnownIBAN[]>([]);
+const blacklistTotal = ref(0);
+const isLoadingBlacklist = ref(false);
+
+// Dismiss state
+const isDismissing = ref<string | null>(null);
+const dismissConfirmId = ref<string | null>(null);
 
 const expandedSuggestions = ref<Set<string>>(new Set());
 
@@ -194,12 +206,68 @@ async function loadUnmatched() {
   }
 }
 
+async function loadBlacklist() {
+  isLoadingBlacklist.value = true;
+  try {
+    const response = await api.getBlacklist(0, 100);
+    blacklistedIBANs.value = response.data;
+    blacklistTotal.value = response.total;
+  } catch (e) {
+    console.error('Failed to load blacklist:', e);
+  } finally {
+    isLoadingBlacklist.value = false;
+  }
+}
+
+function showDismissConfirm(transactionId: string) {
+  dismissConfirmId.value = transactionId;
+}
+
+function cancelDismiss() {
+  dismissConfirmId.value = null;
+}
+
+async function dismissTransaction(transaction: BankTransaction) {
+  isDismissing.value = transaction.id;
+  dismissConfirmId.value = null;
+  try {
+    const result = await api.dismissTransaction(transaction.id);
+    // Remove all transactions with this IBAN from the list
+    unmatchedTransactions.value = unmatchedTransactions.value.filter(
+      tx => tx.payerIban !== transaction.payerIban
+    );
+    unmatchedTotal.value = Math.max(0, unmatchedTotal.value - result.transactionsRemoved);
+    // Refresh blacklist if on that tab
+    if (activeTab.value === 'blacklist') {
+      loadBlacklist();
+    }
+  } catch (e) {
+    console.error('Failed to dismiss transaction:', e);
+    uploadError.value = e instanceof Error ? e.message : 'Ignorieren fehlgeschlagen';
+  } finally {
+    isDismissing.value = null;
+  }
+}
+
+async function removeFromBlacklist(iban: string) {
+  try {
+    await api.removeFromBlacklist(iban);
+    blacklistedIBANs.value = blacklistedIBANs.value.filter(item => item.iban !== iban);
+    blacklistTotal.value = Math.max(0, blacklistTotal.value - 1);
+  } catch (e) {
+    console.error('Failed to remove from blacklist:', e);
+    uploadError.value = e instanceof Error ? e.message : 'Entfernen fehlgeschlagen';
+  }
+}
+
 function switchTab(tab: TabType) {
   activeTab.value = tab;
   if (tab === 'history') {
     loadHistory();
   } else if (tab === 'unmatched') {
     loadUnmatched();
+  } else if (tab === 'blacklist') {
+    loadBlacklist();
   }
 }
 
@@ -310,6 +378,23 @@ function resetUpload() {
           Nicht zugeordnet
           <span v-if="unmatchedTotal > 0" class="px-1.5 py-0.5 text-xs bg-amber-100 text-amber-700 rounded-full">
             {{ unmatchedTotal }}
+          </span>
+        </div>
+      </button>
+      <button
+        @click="switchTab('blacklist')"
+        :class="[
+          'px-4 py-2 text-sm font-medium border-b-2 transition-colors',
+          activeTab === 'blacklist'
+            ? 'border-primary text-primary'
+            : 'border-transparent text-gray-600 hover:text-gray-900',
+        ]"
+      >
+        <div class="flex items-center gap-2">
+          <Ban class="h-4 w-4" />
+          Blacklist
+          <span v-if="blacklistTotal > 0" class="px-1.5 py-0.5 text-xs bg-gray-100 text-gray-700 rounded-full">
+            {{ blacklistTotal }}
           </span>
         </div>
       </button>
@@ -725,6 +810,7 @@ function resetUpload() {
               <th class="px-4 py-3 font-medium">Zahler</th>
               <th class="px-4 py-3 font-medium">Beschreibung</th>
               <th class="px-4 py-3 font-medium text-right">Betrag</th>
+              <th class="px-4 py-3 font-medium text-right">Aktionen</th>
             </tr>
           </thead>
           <tbody>
@@ -747,6 +833,118 @@ function resetUpload() {
               </td>
               <td class="px-4 py-3 text-right font-medium">
                 {{ formatCurrency(tx.amount) }}
+              </td>
+              <td class="px-4 py-3 text-right">
+                <!-- Confirm Dialog -->
+                <div v-if="dismissConfirmId === tx.id" class="flex items-center justify-end gap-2">
+                  <span class="text-xs text-gray-500">Ignorieren?</span>
+                  <button
+                    @click="dismissTransaction(tx)"
+                    class="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600"
+                  >
+                    Ja
+                  </button>
+                  <button
+                    @click="cancelDismiss"
+                    class="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                  >
+                    Nein
+                  </button>
+                </div>
+                <!-- Dismiss Button -->
+                <button
+                  v-else
+                  @click="showDismissConfirm(tx.id)"
+                  :disabled="isDismissing === tx.id"
+                  class="inline-flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
+                  title="IBAN dauerhaft ignorieren"
+                >
+                  <Loader2 v-if="isDismissing === tx.id" class="h-3 w-3 animate-spin" />
+                  <Ban v-else class="h-3 w-3" />
+                  Ignorieren
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Blacklist Tab -->
+    <div v-if="activeTab === 'blacklist'">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <p class="text-sm text-gray-600">
+            {{ blacklistTotal }} ignorierte IBANs
+          </p>
+          <p class="text-xs text-gray-500 mt-1">
+            Transaktionen von diesen IBANs werden beim Import automatisch ignoriert
+          </p>
+        </div>
+        <button
+          @click="loadBlacklist"
+          class="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+        >
+          <RefreshCw class="h-4 w-4" />
+          Aktualisieren
+        </button>
+      </div>
+
+      <div v-if="isLoadingBlacklist" class="flex items-center justify-center py-12">
+        <Loader2 class="h-8 w-8 animate-spin text-primary" />
+      </div>
+
+      <div v-else-if="blacklistedIBANs.length === 0" class="text-center py-12">
+        <ShieldOff class="h-12 w-12 text-gray-300 mx-auto mb-4" />
+        <p class="text-gray-600">Keine IBANs auf der Blacklist</p>
+        <p class="text-sm text-gray-500 mt-1">
+          Klicken Sie bei nicht zugeordneten Transaktionen auf "Ignorieren", um IBANs zur Blacklist hinzuzufugen
+        </p>
+      </div>
+
+      <div v-else class="bg-white rounded-xl border overflow-hidden">
+        <table class="w-full">
+          <thead class="bg-gray-50">
+            <tr class="text-left text-sm text-gray-500">
+              <th class="px-4 py-3 font-medium">IBAN</th>
+              <th class="px-4 py-3 font-medium">Zahler</th>
+              <th class="px-4 py-3 font-medium">Letzte Transaktion</th>
+              <th class="px-4 py-3 font-medium">Hinzugefugt am</th>
+              <th class="px-4 py-3 font-medium text-right">Aktionen</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="item in blacklistedIBANs"
+              :key="item.iban"
+              class="border-t hover:bg-gray-50"
+            >
+              <td class="px-4 py-3">
+                <span class="font-mono text-sm">{{ item.iban }}</span>
+              </td>
+              <td class="px-4 py-3">
+                <span class="font-medium">{{ item.payerName || 'Unbekannt' }}</span>
+              </td>
+              <td class="px-4 py-3 text-gray-600">
+                <div v-if="item.originalDescription" class="truncate max-w-xs text-sm">
+                  {{ item.originalDescription }}
+                </div>
+                <div v-if="item.originalAmount" class="text-xs text-gray-500">
+                  {{ formatCurrency(item.originalAmount) }}
+                </div>
+              </td>
+              <td class="px-4 py-3 text-gray-600 text-sm">
+                {{ formatDate(item.createdAt) }}
+              </td>
+              <td class="px-4 py-3 text-right">
+                <button
+                  @click="removeFromBlacklist(item.iban)"
+                  class="inline-flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:text-green-600 hover:bg-green-50 rounded transition-colors"
+                  title="Von Blacklist entfernen"
+                >
+                  <Trash2 class="h-3 w-3" />
+                  Entfernen
+                </button>
               </td>
             </tr>
           </tbody>

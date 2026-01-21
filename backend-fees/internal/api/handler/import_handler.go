@@ -2,7 +2,9 @@ package handler
 
 import (
 	"net/http"
+	"net/url"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/api/middleware"
@@ -175,4 +177,155 @@ func (h *ImportHandler) ManualMatch(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.Created(w, match)
+}
+
+// Rescan handles POST /import/rescan
+func (h *ImportHandler) Rescan(w http.ResponseWriter, r *http.Request) {
+	result, err := h.importService.Rescan(r.Context())
+	if err != nil {
+		response.InternalError(w, "failed to rescan transactions")
+		return
+	}
+
+	response.Success(w, result)
+}
+
+// DismissTransaction handles POST /import/transactions/{id}/dismiss
+func (h *ImportHandler) DismissTransaction(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		response.BadRequest(w, "invalid transaction ID")
+		return
+	}
+
+	result, err := h.importService.DismissTransaction(r.Context(), id)
+	if err != nil {
+		if err == service.ErrNotFound {
+			response.NotFound(w, "transaction not found")
+			return
+		}
+		if err == service.ErrInvalidInput {
+			response.BadRequest(w, "transaction has no IBAN")
+			return
+		}
+		response.InternalError(w, "failed to dismiss transaction")
+		return
+	}
+
+	response.Success(w, result)
+}
+
+// GetBlacklist handles GET /import/blacklist
+func (h *ImportHandler) GetBlacklist(w http.ResponseWriter, r *http.Request) {
+	pagination := request.GetPagination(r)
+
+	ibans, total, err := h.importService.GetBlacklist(r.Context(), pagination.Offset, pagination.PerPage)
+	if err != nil {
+		response.InternalError(w, "failed to get blacklist")
+		return
+	}
+
+	response.Paginated(w, ibans, total, pagination.Page, pagination.PerPage)
+}
+
+// RemoveFromBlacklist handles DELETE /import/blacklist/{iban}
+func (h *ImportHandler) RemoveFromBlacklist(w http.ResponseWriter, r *http.Request) {
+	iban, err := url.PathUnescape(chi.URLParam(r, "iban"))
+	if err != nil || iban == "" {
+		response.BadRequest(w, "invalid IBAN")
+		return
+	}
+
+	err = h.importService.RemoveFromBlacklist(r.Context(), iban)
+	if err != nil {
+		if err == service.ErrNotFound {
+			response.NotFound(w, "IBAN not found in blacklist")
+			return
+		}
+		if err == service.ErrInvalidInput {
+			response.BadRequest(w, "IBAN is not blacklisted")
+			return
+		}
+		response.InternalError(w, "failed to remove from blacklist")
+		return
+	}
+
+	response.NoContent(w)
+}
+
+// GetTrustedIBANs handles GET /import/trusted
+func (h *ImportHandler) GetTrustedIBANs(w http.ResponseWriter, r *http.Request) {
+	pagination := request.GetPagination(r)
+
+	ibans, total, err := h.importService.GetTrustedIBANs(r.Context(), pagination.Offset, pagination.PerPage)
+	if err != nil {
+		response.InternalError(w, "failed to get trusted IBANs")
+		return
+	}
+
+	response.Paginated(w, ibans, total, pagination.Page, pagination.PerPage)
+}
+
+// LinkIBANRequest represents a request to link an IBAN to a child.
+type LinkIBANRequest struct {
+	ChildID string `json:"childId"`
+}
+
+// LinkIBANToChild handles POST /import/trusted/{iban}/link
+func (h *ImportHandler) LinkIBANToChild(w http.ResponseWriter, r *http.Request) {
+	iban, err := url.PathUnescape(chi.URLParam(r, "iban"))
+	if err != nil || iban == "" {
+		response.BadRequest(w, "invalid IBAN")
+		return
+	}
+
+	var req LinkIBANRequest
+	if err := request.DecodeJSON(r, &req); err != nil {
+		response.BadRequest(w, "invalid request body")
+		return
+	}
+
+	childID, err := uuid.Parse(req.ChildID)
+	if err != nil {
+		response.BadRequest(w, "invalid child ID")
+		return
+	}
+
+	err = h.importService.LinkIBANToChild(r.Context(), iban, childID)
+	if err != nil {
+		if err == service.ErrNotFound {
+			response.NotFound(w, "IBAN or child not found")
+			return
+		}
+		if err == service.ErrInvalidInput {
+			response.BadRequest(w, "IBAN is not trusted")
+			return
+		}
+		response.InternalError(w, "failed to link IBAN to child")
+		return
+	}
+
+	response.NoContent(w)
+}
+
+// UnlinkIBANFromChild handles DELETE /import/trusted/{iban}/link
+func (h *ImportHandler) UnlinkIBANFromChild(w http.ResponseWriter, r *http.Request) {
+	iban, err := url.PathUnescape(chi.URLParam(r, "iban"))
+	if err != nil || iban == "" {
+		response.BadRequest(w, "invalid IBAN")
+		return
+	}
+
+	err = h.importService.UnlinkIBANFromChild(r.Context(), iban)
+	if err != nil {
+		if err == service.ErrNotFound {
+			response.NotFound(w, "IBAN not found")
+			return
+		}
+		response.InternalError(w, "failed to unlink IBAN from child")
+		return
+	}
+
+	response.NoContent(w)
 }

@@ -76,6 +76,8 @@ type TransactionRepository interface {
 	Exists(ctx context.Context, bookingDate time.Time, payerIBAN *string, amount float64, description *string) (bool, error)
 	ListUnmatched(ctx context.Context, offset, limit int) ([]domain.BankTransaction, int64, error)
 	GetBatches(ctx context.Context, offset, limit int) ([]domain.ImportBatch, int64, error)
+	Delete(ctx context.Context, id uuid.UUID) error
+	DeleteUnmatchedByIBAN(ctx context.Context, iban string) (int64, error)
 }
 
 // MatchRepository handles payment match persistence.
@@ -86,4 +88,16 @@ type MatchRepository interface {
 	ExistsForTransaction(ctx context.Context, transactionID uuid.UUID) (bool, error)
 	GetByExpectation(ctx context.Context, expectationID uuid.UUID) (*domain.PaymentMatch, error)
 	Delete(ctx context.Context, id uuid.UUID) error
+}
+
+// KnownIBANRepository handles known IBAN persistence.
+type KnownIBANRepository interface {
+	Create(ctx context.Context, iban *domain.KnownIBAN) error
+	GetByIBAN(ctx context.Context, iban string) (*domain.KnownIBAN, error)
+	IsBlacklisted(ctx context.Context, iban string) (bool, error)
+	IsTrusted(ctx context.Context, iban string) (bool, error)
+	ListByStatus(ctx context.Context, status domain.KnownIBANStatus, offset, limit int) ([]domain.KnownIBAN, int64, error)
+	Delete(ctx context.Context, iban string) error
+	UpdateChildLink(ctx context.Context, iban string, childID *uuid.UUID) error
+	GetBlacklistedIBANs(ctx context.Context) (map[string]bool, error)
 }

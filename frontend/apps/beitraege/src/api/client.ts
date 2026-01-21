@@ -18,6 +18,9 @@ import type {
   ImportBatch,
   BankTransaction,
   PaginatedResponse,
+  KnownIBAN,
+  RescanResult,
+  DismissResult,
 } from './types';
 
 const API_BASE = '/api/fees/v1';
@@ -298,6 +301,60 @@ class ApiClient {
     return this.request<void>('/import/match', {
       method: 'POST',
       body: JSON.stringify({ transactionId, expectationId }),
+    });
+  }
+
+  // IBAN Learning System endpoints
+  async rescanTransactions(): Promise<RescanResult> {
+    const result = await this.request<RescanResult>('/import/rescan', {
+      method: 'POST',
+    });
+    return {
+      ...result,
+      suggestions: result.suggestions ?? [],
+    };
+  }
+
+  async dismissTransaction(transactionId: string): Promise<DismissResult> {
+    return this.request<DismissResult>(`/import/transactions/${transactionId}/dismiss`, {
+      method: 'POST',
+    });
+  }
+
+  async getBlacklist(offset?: number, limit?: number): Promise<PaginatedResponse<KnownIBAN>> {
+    const query = new URLSearchParams();
+    if (offset) query.set('offset', String(offset));
+    if (limit) query.set('limit', String(limit));
+    const queryString = query.toString();
+    const response = await this.request<PaginatedResponse<KnownIBAN>>(`/import/blacklist${queryString ? `?${queryString}` : ''}`);
+    return this.normalizePaginated(response);
+  }
+
+  async removeFromBlacklist(iban: string): Promise<void> {
+    return this.request<void>(`/import/blacklist/${encodeURIComponent(iban)}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getTrustedIBANs(offset?: number, limit?: number): Promise<PaginatedResponse<KnownIBAN>> {
+    const query = new URLSearchParams();
+    if (offset) query.set('offset', String(offset));
+    if (limit) query.set('limit', String(limit));
+    const queryString = query.toString();
+    const response = await this.request<PaginatedResponse<KnownIBAN>>(`/import/trusted${queryString ? `?${queryString}` : ''}`);
+    return this.normalizePaginated(response);
+  }
+
+  async linkIBANToChild(iban: string, childId: string): Promise<void> {
+    return this.request<void>(`/import/trusted/${encodeURIComponent(iban)}/link`, {
+      method: 'POST',
+      body: JSON.stringify({ childId }),
+    });
+  }
+
+  async unlinkIBANFromChild(iban: string): Promise<void> {
+    return this.request<void>(`/import/trusted/${encodeURIComponent(iban)}/link`, {
+      method: 'DELETE',
     });
   }
 }

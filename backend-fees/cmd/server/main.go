@@ -45,6 +45,7 @@ func main() {
 	feeRepo := repository.NewPostgresFeeRepository(db)
 	transactionRepo := repository.NewPostgresTransactionRepository(db)
 	matchRepo := repository.NewPostgresMatchRepository(db)
+	knownIBANRepo := repository.NewPostgresKnownIBANRepository(db)
 
 	// Initialize services
 	jwtService := auth.NewJWTService(cfg.JWT.Secret, cfg.JWT.AccessExpiry, cfg.JWT.RefreshExpiry, cfg.JWT.Issuer)
@@ -52,14 +53,14 @@ func main() {
 	childService := service.NewChildService(childRepo, parentRepo)
 	parentService := service.NewParentService(parentRepo, childRepo)
 	feeService := service.NewFeeService(feeRepo, childRepo, matchRepo)
-	importService := service.NewImportService(transactionRepo, feeRepo, childRepo, matchRepo)
+	importService := service.NewImportService(transactionRepo, feeRepo, childRepo, matchRepo, knownIBANRepo)
 
 	// Initialize handlers
 	handlers := &api.Handlers{
 		Auth:       handler.NewAuthHandler(authService, jwtService),
 		Child:      handler.NewChildHandler(childService),
 		Parent:     handler.NewParentHandler(parentService),
-		Fee:        handler.NewFeeHandler(feeService),
+		Fee:        handler.NewFeeHandler(feeService, importService),
 		Import:     handler.NewImportHandler(importService),
 		JWTService: jwtService,
 	}

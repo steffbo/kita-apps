@@ -63,10 +63,35 @@ type ImportBatch struct {
 
 // MatchSuggestion represents a suggested match between a transaction and a fee.
 type MatchSuggestion struct {
-	Transaction   BankTransaction `json:"transaction"`
-	Expectation   *FeeExpectation `json:"expectation,omitempty"`
-	Child         *Child          `json:"child,omitempty"`
-	DetectedType  *FeeType        `json:"detectedType,omitempty"`
-	Confidence    float64         `json:"confidence"`
-	MatchedBy     string          `json:"matchedBy"` // "member_number", "name", "amount"
+	Transaction  BankTransaction `json:"transaction"`
+	Expectation  *FeeExpectation `json:"expectation,omitempty"`
+	Child        *Child          `json:"child,omitempty"`
+	DetectedType *FeeType        `json:"detectedType,omitempty"`
+	Confidence   float64         `json:"confidence"`
+	MatchedBy    string          `json:"matchedBy"` // "member_number", "name", "amount"
+}
+
+// KnownIBANStatus represents the status of a known IBAN.
+type KnownIBANStatus string
+
+const (
+	KnownIBANStatusTrusted     KnownIBANStatus = "trusted"
+	KnownIBANStatusBlacklisted KnownIBANStatus = "blacklisted"
+)
+
+// KnownIBAN represents a known payment source (trusted or blacklisted).
+type KnownIBAN struct {
+	IBAN                  string          `json:"iban" db:"iban"`
+	PayerName             *string         `json:"payerName,omitempty" db:"payer_name"`
+	Status                KnownIBANStatus `json:"status" db:"status"`
+	ChildID               *uuid.UUID      `json:"childId,omitempty" db:"child_id"`
+	Reason                *string         `json:"reason,omitempty" db:"reason"`
+	OriginalTransactionID *uuid.UUID      `json:"originalTransactionId,omitempty" db:"original_transaction_id"`
+	OriginalDescription   *string         `json:"originalDescription,omitempty" db:"original_description"`
+	OriginalAmount        *float64        `json:"originalAmount,omitempty" db:"original_amount"`
+	CreatedAt             time.Time       `json:"createdAt" db:"created_at"`
+	UpdatedAt             time.Time       `json:"updatedAt" db:"updated_at"`
+
+	// Joined fields
+	Child *Child `json:"child,omitempty" db:"-"`
 }

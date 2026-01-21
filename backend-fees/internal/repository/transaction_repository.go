@@ -158,3 +158,37 @@ func (r *PostgresTransactionRepository) GetBatches(ctx context.Context, offset, 
 
 	return batches, total, nil
 }
+
+// Delete deletes a transaction by ID.
+func (r *PostgresTransactionRepository) Delete(ctx context.Context, id uuid.UUID) error {
+	result, err := r.db.ExecContext(ctx, `
+		DELETE FROM fees.bank_transactions WHERE id = $1
+	`, id)
+	if err != nil {
+		return err
+	}
+
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return errors.New("transaction not found")
+	}
+
+	return nil
+}
+
+// DeleteUnmatchedByIBAN deletes all unmatched transactions with a specific IBAN.
+func (r *PostgresTransactionRepository) DeleteUnmatchedByIBAN(ctx context.Context, iban string) (int64, error) {
+	result, err := r.db.ExecContext(ctx, `
+		DELETE FROM fees.bank_transactions
+		WHERE payer_iban = $1
+		AND id NOT IN (SELECT transaction_id FROM fees.payment_matches)
+	`, iban)
+	if err != nil {
+		return 0, err
+	}
+
+	return result.RowsAffected()
+}

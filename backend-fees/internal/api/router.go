@@ -47,6 +47,9 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 			r.Post("/refresh", handlers.Auth.Refresh)
 		})
 
+		// Public childcare fee calculator
+		r.Get("/childcare-fee/calculate", handlers.Fee.CalculateChildcareFee)
+
 		// Protected routes
 		r.Group(func(r chi.Router) {
 			r.Use(customMiddleware.AuthMiddleware(handlers.JWTService))
@@ -92,10 +95,14 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 				r.Get("/history", handlers.Import.History)
 				r.Get("/transactions", handlers.Import.UnmatchedTransactions)
 				r.Post("/match", handlers.Import.ManualMatch)
+				r.Post("/rescan", handlers.Import.Rescan)
+				r.Post("/transactions/{id}/dismiss", handlers.Import.DismissTransaction)
+				r.Get("/blacklist", handlers.Import.GetBlacklist)
+				r.Delete("/blacklist/{iban}", handlers.Import.RemoveFromBlacklist)
+				r.Get("/trusted", handlers.Import.GetTrustedIBANs)
+				r.Post("/trusted/{iban}/link", handlers.Import.LinkIBANToChild)
+				r.Delete("/trusted/{iban}/link", handlers.Import.UnlinkIBANFromChild)
 			})
-
-			// Childcare fee calculator
-			r.Get("/childcare-fee/calculate", handlers.Fee.CalculateChildcareFee)
 		})
 	})
 

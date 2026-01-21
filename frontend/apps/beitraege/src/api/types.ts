@@ -32,7 +32,7 @@ export interface Child {
   birthDate: string;
   entryDate: string;
   street?: string;
-  houseNumber?: string;
+  streetNo?: string;
   postalCode?: string;
   city?: string;
   isActive: boolean;
@@ -48,7 +48,7 @@ export interface CreateChildRequest {
   birthDate: string;
   entryDate: string;
   street?: string;
-  houseNumber?: string;
+  streetNo?: string;
   postalCode?: string;
   city?: string;
 }
@@ -59,7 +59,7 @@ export interface UpdateChildRequest {
   birthDate?: string;
   entryDate?: string;
   street?: string;
-  houseNumber?: string;
+  streetNo?: string;
   postalCode?: string;
   city?: string;
   isActive?: boolean;
@@ -74,7 +74,7 @@ export interface Parent {
   email?: string;
   phone?: string;
   street?: string;
-  houseNumber?: string;
+  streetNo?: string;
   postalCode?: string;
   city?: string;
   annualHouseholdIncome?: number;
@@ -90,7 +90,7 @@ export interface CreateParentRequest {
   email?: string;
   phone?: string;
   street?: string;
-  houseNumber?: string;
+  streetNo?: string;
   postalCode?: string;
   city?: string;
   annualHouseholdIncome?: number;
@@ -103,7 +103,7 @@ export interface UpdateParentRequest {
   email?: string;
   phone?: string;
   street?: string;
-  houseNumber?: string;
+  streetNo?: string;
   postalCode?: string;
   city?: string;
   annualHouseholdIncome?: number;
@@ -219,4 +219,31 @@ export interface PaginatedResponse<T> {
 export interface ApiError {
   error: string;
   message?: string;
+}
+
+// Known IBANs (IBAN Learning System)
+export type KnownIBANStatus = 'trusted' | 'blacklisted';
+
+export interface KnownIBAN {
+  iban: string;
+  payerName?: string;
+  status: KnownIBANStatus;
+  childId?: string;
+  reason?: string;
+  originalTransactionId?: string;
+  originalDescription?: string;
+  originalAmount?: number;
+  createdAt: string;
+  updatedAt: string;
+  child?: Child;
+}
+
+export interface RescanResult {
+  scanned: number;
+  suggestions: MatchSuggestion[];
+}
+
+export interface DismissResult {
+  iban: string;
+  transactionsRemoved: number;
 }

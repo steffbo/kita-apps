@@ -214,6 +214,7 @@ async function handleGenerate() {
       <table class="w-full">
         <thead class="bg-gray-50">
           <tr class="text-left text-sm text-gray-500">
+            <th class="px-4 py-3 font-medium">Mitgl.-Nr.</th>
             <th class="px-4 py-3 font-medium">Kind</th>
             <th class="px-4 py-3 font-medium">Typ</th>
             <th class="px-4 py-3 font-medium">Zeitraum</th>
@@ -228,6 +229,9 @@ async function handleGenerate() {
             :key="fee.id"
             class="border-t hover:bg-gray-50 transition-colors"
           >
+            <td class="px-4 py-3 text-gray-600 font-mono text-sm">
+              {{ fee.child?.memberNumber }}
+            </td>
             <td class="px-4 py-3">
               <span class="font-medium">
                 {{ fee.child?.firstName }} {{ fee.child?.lastName }}
@@ -263,7 +267,7 @@ async function handleGenerate() {
             </td>
           </tr>
           <tr v-if="fees.length === 0">
-            <td colspan="6" class="px-4 py-8 text-center text-gray-500">
+            <td colspan="7" class="px-4 py-8 text-center text-gray-500">
               Keine Beiträge gefunden
             </td>
           </tr>
