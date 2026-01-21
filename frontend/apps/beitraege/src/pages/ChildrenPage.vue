@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { api } from '@/api';
 import type { Child, CreateChildRequest } from '@/api/types';
@@ -54,6 +54,21 @@ async function loadChildren() {
 }
 
 onMounted(loadChildren);
+
+// ESC key handler to close modal
+function handleKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape' && showCreateDialog.value) {
+    showCreateDialog.value = false;
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('keydown', handleKeydown);
+});
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleKeydown);
+});
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('de-DE');
