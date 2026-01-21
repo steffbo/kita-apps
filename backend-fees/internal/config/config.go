@@ -47,7 +47,7 @@ func Load() *Config {
 			WriteTimeout: getEnvDuration("WRITE_TIMEOUT", 15*time.Second),
 		},
 		Database: DatabaseConfig{
-			URL:             getEnv("DATABASE_URL", "postgres://kita:kita@localhost:5432/kita?sslmode=disable&search_path=fees"),
+			URL:             getEnv("DATABASE_URL", "postgres://kita:kita_dev_password@localhost:5432/kita?sslmode=disable&search_path=fees"),
 			MaxOpenConns:    getEnvInt("DB_MAX_OPEN_CONNS", 25),
 			MaxIdleConns:    getEnvInt("DB_MAX_IDLE_CONNS", 5),
 			ConnMaxLifetime: getEnvDuration("DB_CONN_MAX_LIFETIME", 5*time.Minute),
