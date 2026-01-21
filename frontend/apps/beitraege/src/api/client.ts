@@ -88,6 +88,14 @@ class ApiClient {
     return this.request<User>('/auth/me');
   }
 
+  // Helper to normalize paginated responses (Go returns null for empty slices)
+  private normalizePaginated<T>(response: PaginatedResponse<T>): PaginatedResponse<T> {
+    return {
+      ...response,
+      data: response.data ?? [],
+    };
+  }
+
   // Children endpoints
   async getChildren(params?: {
     activeOnly?: boolean;
@@ -101,7 +109,8 @@ class ApiClient {
     if (params?.offset) query.set('offset', String(params.offset));
     if (params?.limit) query.set('limit', String(params.limit));
     const queryString = query.toString();
-    return this.request<PaginatedResponse<Child>>(`/children${queryString ? `?${queryString}` : ''}`);
+    const response = await this.request<PaginatedResponse<Child>>(`/children${queryString ? `?${queryString}` : ''}`);
+    return this.normalizePaginated(response);
   }
 
   async getChild(id: string): Promise<Child> {
@@ -150,7 +159,8 @@ class ApiClient {
     if (params?.offset) query.set('offset', String(params.offset));
     if (params?.limit) query.set('limit', String(params.limit));
     const queryString = query.toString();
-    return this.request<PaginatedResponse<Parent>>(`/parents${queryString ? `?${queryString}` : ''}`);
+    const response = await this.request<PaginatedResponse<Parent>>(`/parents${queryString ? `?${queryString}` : ''}`);
+    return this.normalizePaginated(response);
   }
 
   async getParent(id: string): Promise<Parent> {
@@ -192,7 +202,8 @@ class ApiClient {
     if (params?.offset) query.set('offset', String(params.offset));
     if (params?.limit) query.set('limit', String(params.limit));
     const queryString = query.toString();
-    return this.request<PaginatedResponse<FeeExpectation>>(`/fees${queryString ? `?${queryString}` : ''}`);
+    const response = await this.request<PaginatedResponse<FeeExpectation>>(`/fees${queryString ? `?${queryString}` : ''}`);
+    return this.normalizePaginated(response);
   }
 
   async getFee(id: string): Promise<FeeExpectation> {
@@ -201,7 +212,11 @@ class ApiClient {
 
   async getFeeOverview(year?: number): Promise<FeeOverview> {
     const query = year ? `?year=${year}` : '';
-    return this.request<FeeOverview>(`/fees/overview${query}`);
+    const response = await this.request<FeeOverview>(`/fees/overview${query}`);
+    return {
+      ...response,
+      byMonth: response.byMonth ?? [],
+    };
   }
 
   async generateFees(data: GenerateFeeRequest): Promise<GenerateFeeResult> {
@@ -247,7 +262,11 @@ class ApiClient {
       throw new Error(error.error || 'Upload failed');
     }
 
-    return response.json();
+    const result: ImportResult = await response.json();
+    return {
+      ...result,
+      suggestions: result.suggestions ?? [],
+    };
   }
 
   async confirmMatches(matches: MatchConfirmation[]): Promise<ConfirmResult> {
@@ -262,7 +281,8 @@ class ApiClient {
     if (offset) query.set('offset', String(offset));
     if (limit) query.set('limit', String(limit));
     const queryString = query.toString();
-    return this.request<PaginatedResponse<ImportBatch>>(`/import/history${queryString ? `?${queryString}` : ''}`);
+    const response = await this.request<PaginatedResponse<ImportBatch>>(`/import/history${queryString ? `?${queryString}` : ''}`);
+    return this.normalizePaginated(response);
   }
 
   async getUnmatchedTransactions(offset?: number, limit?: number): Promise<PaginatedResponse<BankTransaction>> {
@@ -270,7 +290,8 @@ class ApiClient {
     if (offset) query.set('offset', String(offset));
     if (limit) query.set('limit', String(limit));
     const queryString = query.toString();
-    return this.request<PaginatedResponse<BankTransaction>>(`/import/transactions${queryString ? `?${queryString}` : ''}`);
+    const response = await this.request<PaginatedResponse<BankTransaction>>(`/import/transactions${queryString ? `?${queryString}` : ''}`);
+    return this.normalizePaginated(response);
   }
 
   async createManualMatch(transactionId: string, expectationId: string): Promise<void> {
