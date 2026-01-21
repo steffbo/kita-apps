@@ -1,17 +1,19 @@
 # Kita-Apps Knirpsenstadt
 
-Zeiterfassung und Dienstplanung für die Kita Knirpsenstadt.
+Zeiterfassung, Dienstplanung und Beitragsverwaltung für die Kita Knirpsenstadt.
 
 ## Projekt-Übersicht
 
-| App | URL | Beschreibung |
-|-----|-----|--------------|
-| Dienstplan | plan.knirpsenstadt.de | Wochenplanung, Gruppenübersicht |
-| Zeiterfassung | zeit.knirpsenstadt.de | Ein-/Ausstempeln, Zeitübersicht |
+| App | URL | Port (Dev) | Beschreibung |
+|-----|-----|------------|--------------|
+| Dienstplan | plan.knirpsenstadt.de | 5173 | Wochenplanung, Gruppenübersicht |
+| Zeiterfassung | zeit.knirpsenstadt.de | 5174 | Ein-/Ausstempeln, Zeitübersicht |
+| Beiträge | beitraege.knirpsenstadt.de | 5175 | Beitragsverwaltung, Zahlungsabgleich |
 
 ## Tech-Stack
 
-- **Backend**: Spring Boot 3.x, PostgreSQL, JWT Auth
+- **Backend (Java)**: Spring Boot 3.x, PostgreSQL, JWT Auth
+- **Backend (Go)**: Chi Router, PostgreSQL, JWT Auth (für Beiträge)
 - **Frontend**: Vue 3, TypeScript, Tailwind CSS, shadcn-vue
 - **Build**: Bun, Vite
 - **Deployment**: Docker, Caddy
@@ -21,6 +23,7 @@ Zeiterfassung und Dienstplanung für die Kita Knirpsenstadt.
 ### Voraussetzungen
 
 - Java 21+
+- Go 1.21+ (für Beiträge-Backend)
 - Bun 1.x
 - Docker & Docker Compose
 - Maven 3.9+
@@ -34,12 +37,24 @@ docker compose up db -d
 
 ### 2. Backend starten
 
+**Java Backend (Dienstplan, Zeiterfassung):**
 ```bash
 cd backend
 mvn spring-boot:run
 ```
-
 Das Backend läuft auf http://localhost:8080
+
+**Go Backend (Beiträge):**
+```bash
+cd backend-fees
+
+# Migrationen ausführen (einmalig)
+go run cmd/migrate/main.go up
+
+# Server starten
+go run cmd/server/main.go
+```
+Das Beiträge-Backend läuft auf http://localhost:8081
 
 ### 3. Frontend starten
 
@@ -48,6 +63,7 @@ cd frontend
 bun install
 bun run dev:plan  # Dienstplan auf :5173
 bun run dev:zeit  # Zeiterfassung auf :5174
+bun run dev:beitraege  # Beiträge auf :5175
 ```
 
 ### 4. API-Typen generieren
@@ -63,20 +79,35 @@ kita-apps/
 ├── openapi/
 │   └── kita-api.yaml          # API-Spezifikation (Single Source of Truth)
 │
-├── backend/
+├── backend/                   # Java Backend (Dienstplan, Zeiterfassung)
 │   ├── pom.xml
 │   └── src/main/java/de/knirpsenstadt/
 │       ├── KitaApplication.java
 │       ├── config/            # Security, CORS
-│       ├── controller/        # REST Controller (implementieren generierte Interfaces)
+│       ├── controller/        # REST Controller
 │       ├── service/           # Business Logic
 │       ├── repository/        # JPA Repositories
 │       └── model/             # Entities
 │
+├── backend-fees/              # Go Backend (Beiträge)
+│   ├── cmd/
+│   │   ├── server/            # HTTP Server
+│   │   └── migrate/           # Migration CLI
+│   ├── internal/
+│   │   ├── api/               # HTTP Handlers & Router
+│   │   ├── auth/              # JWT Authentication
+│   │   ├── config/            # Configuration
+│   │   ├── domain/            # Domain Models
+│   │   ├── repository/        # Database Layer
+│   │   ├── service/           # Business Logic
+│   │   └── csvparser/         # Bank CSV Import
+│   └── migrations/            # SQL Migrations
+│
 ├── frontend/
 │   ├── apps/
 │   │   ├── dienstplan/        # Vue App für plan.knirpsenstadt.de
-│   │   └── zeiterfassung/     # Vue App für zeit.knirpsenstadt.de
+│   │   ├── zeiterfassung/     # Vue App für zeit.knirpsenstadt.de
+│   │   └── beitraege/         # Vue App für beitraege.knirpsenstadt.de
 │   └── packages/
 │       └── shared/            # Geteilte Komponenten, API-Client, Utils
 │
@@ -101,10 +132,15 @@ kita-apps/
 
 ### Default Admin Login
 
+**Dienstplan & Zeiterfassung:**
 - **E-Mail**: admin@knirpsenstadt.de
 - **Passwort**: admin123
 
-> ⚠️ Das Passwort nach dem ersten Login ändern!
+**Beiträge:**
+- **E-Mail**: admin@knirpsenstadt.de
+- **Passwort**: admin123
+
+> ⚠️ Die Passwörter nach dem ersten Login ändern!
 
 ### E2E Tests mit Playwright
 
@@ -139,6 +175,9 @@ bun run test:plan
 # Nur Zeiterfassung-Tests
 bun run test:zeit
 
+# Nur Beitraege-Tests
+bun run test --project=beitraege
+
 # Einzelnen Test ausführen
 bunx playwright test -g "successfully logs in" --headed
 
@@ -153,25 +192,31 @@ frontend/e2e/
 ├── fixtures/
 │   └── index.ts              # Test-Utilities, Page Objects
 ├── tests/
-│   ├── auth.setup.ts         # Authentifizierung (läuft zuerst)
+│   ├── auth.setup.ts         # Authentifizierung (Dienstplan, Zeiterfassung)
+│   ├── beitraege.setup.ts    # Authentifizierung (Beiträge, Go Backend)
 │   ├── dienstplan/
 │   │   ├── navigation.spec.ts    # Login, Navigation
 │   │   ├── employees.spec.ts     # Mitarbeiter-CRUD
 │   │   └── groups.spec.ts        # Gruppen, Besondere Tage
-│   └── zeiterfassung/
-│       └── clock.spec.ts         # Ein-/Ausstempeln, Historie
+│   ├── zeiterfassung/
+│   │   └── clock.spec.ts         # Ein-/Ausstempeln, Historie
+│   └── beitraege/
+│       └── children.spec.ts      # Kinder-CRUD, Login
 └── .auth/                    # Gespeicherter Auth-State (gitignored)
 ```
 
 #### Wichtig für CI/CD
 
-Tests benötigen ein laufendes Backend mit Testdaten:
+Tests benötigen laufende Backends mit Testdaten:
 
 ```bash
-# Terminal 1: Backend starten
+# Terminal 1: Java Backend starten (Dienstplan, Zeiterfassung)
 cd backend && mvn spring-boot:run
 
-# Terminal 2: Tests ausführen
+# Terminal 2: Go Backend starten (Beiträge)
+cd backend-fees && go run cmd/server/main.go
+
+# Terminal 3: Tests ausführen
 cd frontend && bun run test
 ```
 
@@ -181,11 +226,13 @@ Die Playwright-Konfiguration startet automatisch die Frontend-Dev-Server.
 
 | URL | Beschreibung |
 |-----|--------------|
-| http://localhost:8080/api/swagger-ui.html | API Dokumentation |
-| http://localhost:8080/api/actuator/health | Health Check |
+| http://localhost:8080/api/swagger-ui.html | API Dokumentation (Java) |
+| http://localhost:8080/api/actuator/health | Health Check (Java) |
+| http://localhost:8081/health | Health Check (Go) |
 | http://localhost:8025 | MailHog (E-Mail Tester) |
 | http://localhost:5173 | Dienstplan Frontend |
 | http://localhost:5174 | Zeiterfassung Frontend |
+| http://localhost:5175 | Beiträge Frontend |
 
 ## Deployment (Production)
 
@@ -209,13 +256,15 @@ Die folgenden Subdomains müssen auf den Server zeigen:
 - api.knirpsenstadt.de
 - plan.knirpsenstadt.de
 - zeit.knirpsenstadt.de
+- beitraege.knirpsenstadt.de
 
 Caddy kümmert sich automatisch um SSL-Zertifikate via Let's Encrypt.
 
 ## Dokumentation
 
 - [PLAN.md](PLAN.md) - Detaillierter Projektplan
-- [openapi/kita-api.yaml](openapi/kita-api.yaml) - API-Spezifikation
+- [backend-fees/README.md](backend-fees/README.md) - Beiträge Go-Backend Dokumentation
+- [openapi/kita-api.yaml](openapi/kita-api.yaml) - API-Spezifikation (Java Backend)
 
 ## License
 
