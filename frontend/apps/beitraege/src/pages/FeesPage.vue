@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
+import { useRouter } from 'vue-router';
 import { api } from '@/api';
 import type { FeeExpectation, GenerateFeeRequest } from '@/api/types';
 import {
@@ -12,6 +13,8 @@ import {
   Calendar,
 } from 'lucide-vue-next';
 
+const router = useRouter();
+
 const fees = ref<FeeExpectation[]>([]);
 const total = ref(0);
 const isLoading = ref(true);
@@ -20,6 +23,7 @@ const error = ref<string | null>(null);
 const selectedYear = ref(new Date().getFullYear());
 const selectedMonth = ref<number | null>(null);
 const selectedType = ref<string>('');
+const selectedStatus = ref<'open' | 'paid' | 'all'>('open');
 
 const showGenerateDialog = ref(false);
 const generateForm = ref<GenerateFeeRequest>({
@@ -66,13 +70,24 @@ async function loadFees() {
       feeType: selectedType.value || undefined,
       limit: 200,
     });
-    fees.value = response.data;
+    // Filter by status on client side
+    let data = response.data;
+    if (selectedStatus.value === 'open') {
+      data = data.filter(f => !f.isPaid);
+    } else if (selectedStatus.value === 'paid') {
+      data = data.filter(f => f.isPaid);
+    }
+    fees.value = data;
     total.value = response.total;
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Fehler beim Laden';
   } finally {
     isLoading.value = false;
   }
+}
+
+function goToChild(childId: string) {
+  router.push(`/kinder/${childId}`);
 }
 
 onMounted(loadFees);
@@ -168,6 +183,49 @@ async function handleGenerate() {
         <Filter class="h-4 w-4 text-gray-400" />
         <span class="text-sm font-medium text-gray-700">Filter:</span>
       </div>
+      
+      <!-- Status Filter Buttons -->
+      <div class="flex items-center gap-1 p-1 bg-gray-100 rounded-lg">
+        <button
+          @click="selectedStatus = 'open'; loadFees()"
+          :class="[
+            'flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
+            selectedStatus === 'open'
+              ? 'bg-white text-amber-600 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+          ]"
+          title="Offene Beiträge"
+        >
+          <Clock class="h-4 w-4" />
+          <span class="hidden sm:inline">Offen</span>
+        </button>
+        <button
+          @click="selectedStatus = 'paid'; loadFees()"
+          :class="[
+            'flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
+            selectedStatus === 'paid'
+              ? 'bg-white text-green-600 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+          ]"
+          title="Bezahlte Beiträge"
+        >
+          <CheckCircle class="h-4 w-4" />
+          <span class="hidden sm:inline">Bezahlt</span>
+        </button>
+        <button
+          @click="selectedStatus = 'all'; loadFees()"
+          :class="[
+            'flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
+            selectedStatus === 'all'
+              ? 'bg-white text-gray-900 shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+          ]"
+          title="Alle Beiträge"
+        >
+          <span>Alle</span>
+        </button>
+      </div>
+
       <select
         v-model="selectedYear"
         @change="loadFees"
@@ -233,9 +291,12 @@ async function handleGenerate() {
               {{ fee.child?.memberNumber }}
             </td>
             <td class="px-4 py-3">
-              <span class="font-medium">
+              <button
+                @click="goToChild(fee.childId)"
+                class="font-medium text-primary hover:underline text-left"
+              >
                 {{ fee.child?.firstName }} {{ fee.child?.lastName }}
-              </span>
+              </button>
             </td>
             <td class="px-4 py-3">
               <span
