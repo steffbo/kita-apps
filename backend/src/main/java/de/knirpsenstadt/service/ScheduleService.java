@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -117,6 +118,10 @@ public class ScheduleService {
                     .orElseThrow(() -> new ResourceNotFoundException("Gruppe", request.getGroupId()));
         }
 
+        ScheduleEntryType entryType = request.getEntryType() != null 
+                ? ScheduleEntryType.valueOf(request.getEntryType().getValue()) 
+                : ScheduleEntryType.WORK;
+
         de.knirpsenstadt.model.ScheduleEntry entry = de.knirpsenstadt.model.ScheduleEntry.builder()
                 .employee(employee)
                 .group(group)
@@ -124,9 +129,15 @@ public class ScheduleService {
                 .startTime(request.getStartTime() != null ? LocalTime.parse(request.getStartTime()) : null)
                 .endTime(request.getEndTime() != null ? LocalTime.parse(request.getEndTime()) : null)
                 .breakMinutes(request.getBreakMinutes() != null ? request.getBreakMinutes() : 0)
-                .entryType(request.getEntryType() != null ? ScheduleEntryType.valueOf(request.getEntryType().getValue()) : ScheduleEntryType.WORK)
+                .entryType(entryType)
                 .notes(request.getNotes())
                 .build();
+
+        // Decrement vacation days if this is a vacation entry
+        if (entryType == ScheduleEntryType.VACATION) {
+            employee.setRemainingVacationDays(employee.getRemainingVacationDays().subtract(BigDecimal.ONE));
+            employeeRepository.save(employee);
+        }
 
         de.knirpsenstadt.model.ScheduleEntry saved = scheduleEntryRepository.save(entry);
         return toApiScheduleEntry(saved);
@@ -156,7 +167,24 @@ public class ScheduleService {
             entry.setBreakMinutes(request.getBreakMinutes());
         }
         if (request.getEntryType() != null) {
-            entry.setEntryType(ScheduleEntryType.valueOf(request.getEntryType().getValue()));
+            ScheduleEntryType oldType = entry.getEntryType();
+            ScheduleEntryType newType = ScheduleEntryType.valueOf(request.getEntryType().getValue());
+            
+            // Adjust vacation days if entry type changes to/from VACATION
+            if (oldType != newType) {
+                Employee employee = entry.getEmployee();
+                if (oldType == ScheduleEntryType.VACATION && newType != ScheduleEntryType.VACATION) {
+                    // Was vacation, now something else -> restore vacation day
+                    employee.setRemainingVacationDays(employee.getRemainingVacationDays().add(BigDecimal.ONE));
+                    employeeRepository.save(employee);
+                } else if (oldType != ScheduleEntryType.VACATION && newType == ScheduleEntryType.VACATION) {
+                    // Was something else, now vacation -> deduct vacation day
+                    employee.setRemainingVacationDays(employee.getRemainingVacationDays().subtract(BigDecimal.ONE));
+                    employeeRepository.save(employee);
+                }
+            }
+            
+            entry.setEntryType(newType);
         }
         if (request.getNotes() != null) {
             entry.setNotes(request.getNotes());
@@ -168,9 +196,16 @@ public class ScheduleService {
 
     @Transactional
     public void deleteScheduleEntry(Long id) {
-        if (!scheduleEntryRepository.existsById(id)) {
-            throw new ResourceNotFoundException("Dienstplan-Eintrag", id);
+        de.knirpsenstadt.model.ScheduleEntry entry = scheduleEntryRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Dienstplan-Eintrag", id));
+        
+        // Restore vacation day if deleting a vacation entry
+        if (entry.getEntryType() == ScheduleEntryType.VACATION) {
+            Employee employee = entry.getEmployee();
+            employee.setRemainingVacationDays(employee.getRemainingVacationDays().add(BigDecimal.ONE));
+            employeeRepository.save(employee);
         }
+        
         scheduleEntryRepository.deleteById(id);
     }
 
@@ -189,7 +224,7 @@ public class ScheduleService {
                     sourceMonday, sourceMonday.plusDays(6));
         }
 
-        // Delete existing entries in target week
+        // Delete existing entries in target week and restore vacation days
         List<de.knirpsenstadt.model.ScheduleEntry> existingTarget;
         if (groupId != null) {
             existingTarget = scheduleEntryRepository.findByDateBetweenAndGroupId(
@@ -198,10 +233,21 @@ public class ScheduleService {
             existingTarget = scheduleEntryRepository.findByDateBetween(
                     targetMonday, targetMonday.plusDays(6));
         }
+        
+        // Restore vacation days for deleted vacation entries
+        Map<Long, BigDecimal> vacationAdjustments = new HashMap<>();
+        for (de.knirpsenstadt.model.ScheduleEntry entry : existingTarget) {
+            if (entry.getEntryType() == ScheduleEntryType.VACATION) {
+                Long empId = entry.getEmployee().getId();
+                vacationAdjustments.merge(empId, BigDecimal.ONE, BigDecimal::add);
+            }
+        }
+        
         scheduleEntryRepository.deleteAll(existingTarget);
 
-        // Copy entries
+        // Copy entries (excluding VACATION - vacation is date-specific and shouldn't be copied)
         List<de.knirpsenstadt.model.ScheduleEntry> newEntries = sourceEntries.stream()
+                .filter(source -> source.getEntryType() != ScheduleEntryType.VACATION)
                 .map(source -> de.knirpsenstadt.model.ScheduleEntry.builder()
                         .employee(source.getEmployee())
                         .group(source.getGroup())
@@ -213,6 +259,15 @@ public class ScheduleService {
                         .notes(source.getNotes())
                         .build())
                 .collect(Collectors.toList());
+
+        // Apply vacation day adjustments
+        for (Map.Entry<Long, BigDecimal> adjustment : vacationAdjustments.entrySet()) {
+            Employee employee = employeeRepository.findById(adjustment.getKey()).orElse(null);
+            if (employee != null) {
+                employee.setRemainingVacationDays(employee.getRemainingVacationDays().add(adjustment.getValue()));
+                employeeRepository.save(employee);
+            }
+        }
 
         List<de.knirpsenstadt.model.ScheduleEntry> saved = scheduleEntryRepository.saveAll(newEntries);
         return saved.stream()

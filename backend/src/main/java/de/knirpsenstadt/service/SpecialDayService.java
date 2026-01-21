@@ -54,6 +54,7 @@ public class SpecialDayService {
     public SpecialDay createSpecialDay(CreateSpecialDayRequest request) {
         de.knirpsenstadt.model.SpecialDay day = de.knirpsenstadt.model.SpecialDay.builder()
                 .date(request.getDate())
+                .endDate(request.getEndDate())
                 .name(request.getName())
                 .dayType(SpecialDayType.valueOf(request.getDayType().getValue()))
                 .affectsAll(request.getAffectsAll() != null ? request.getAffectsAll() : true)
@@ -70,6 +71,7 @@ public class SpecialDayService {
                 .orElseThrow(() -> new ResourceNotFoundException("Besonderer Tag", id));
 
         day.setDate(request.getDate());
+        day.setEndDate(request.getEndDate());
         day.setName(request.getName());
         day.setDayType(SpecialDayType.valueOf(request.getDayType().getValue()));
         if (request.getAffectsAll() != null) {
@@ -95,6 +97,7 @@ public class SpecialDayService {
         SpecialDay dto = new SpecialDay();
         dto.setId(entity.getId());
         dto.setDate(entity.getDate());
+        dto.setEndDate(entity.getEndDate());
         dto.setName(entity.getName());
         dto.setDayType(de.knirpsenstadt.api.model.SpecialDayType.fromValue(entity.getDayType().name()));
         dto.setAffectsAll(entity.getAffectsAll());

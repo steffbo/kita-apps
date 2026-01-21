@@ -23,6 +23,9 @@ public class SpecialDay {
     @Column(nullable = false)
     private LocalDate date;
 
+    @Column(name = "end_date")
+    private LocalDate endDate;
+
     @Column(nullable = false)
     private String name;
 

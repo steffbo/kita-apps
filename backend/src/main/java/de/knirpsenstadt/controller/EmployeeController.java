@@ -52,4 +52,10 @@ public class EmployeeController implements EmployeesApi {
         MessageResponse response = employeeService.adminResetPassword(id);
         return ResponseEntity.ok(response);
     }
+
+    @Override
+    public ResponseEntity<List<GroupAssignment>> getEmployeeAssignments(Long id) {
+        List<GroupAssignment> assignments = employeeService.getEmployeeAssignments(id);
+        return ResponseEntity.ok(assignments);
+    }
 }
