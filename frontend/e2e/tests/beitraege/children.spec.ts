@@ -133,7 +133,7 @@ test.describe('Beiträge - Child Detail & Edit', () => {
     
     // Add address
     await page.getByLabel(/straße/i).fill('Teststraße');
-    await page.getByLabel(/hausnummer/i).fill('42');
+    await page.getByLabel(/hausnr/i).fill('42');
     await page.getByLabel(/plz/i).fill('12345');
     await page.getByLabel(/ort/i).fill('Teststadt');
     
