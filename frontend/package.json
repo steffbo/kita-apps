@@ -21,8 +21,10 @@
     "test:headed": "playwright test --headed",
     "test:plan": "playwright test --project=dienstplan",
     "test:zeit": "playwright test --project=zeiterfassung",
+    "test:beitraege": "playwright test --project=beitraege",
     "test:debug": "playwright test --debug",
-    "test:report": "playwright show-report"
+    "test:report": "playwright show-report",
+    "test:cleanup": "cd ../docker && docker compose exec -T db psql -U kita -d kita < ../frontend/e2e/cleanup-test-data.sql"
   },
   "devDependencies": {
     "@playwright/test": "1.57.0",

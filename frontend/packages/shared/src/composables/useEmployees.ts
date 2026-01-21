@@ -1,6 +1,6 @@
 import { computed } from 'vue';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query';
-import { apiClient, type Employee, type CreateEmployeeRequest, type UpdateEmployeeRequest } from '../api';
+import { apiClient, type Employee, type CreateEmployeeRequest, type UpdateEmployeeRequest, type GroupAssignment } from '../api';
 
 export const employeeKeys = {
   all: ['employees'] as const,
@@ -8,6 +8,7 @@ export const employeeKeys = {
   list: (filters: { includeInactive?: boolean }) => [...employeeKeys.lists(), filters] as const,
   details: () => [...employeeKeys.all, 'detail'] as const,
   detail: (id: number) => [...employeeKeys.details(), id] as const,
+  assignments: (id: number) => [...employeeKeys.detail(id), 'assignments'] as const,
 };
 
 export function useEmployees(includeInactive = false) {
@@ -100,5 +101,21 @@ export function useAdminResetPassword() {
       if (error) throw new Error((error as any)?.message || 'Fehler beim Zurücksetzen des Passworts');
       return data;
     },
+  });
+}
+
+export function useEmployeeAssignments(id: number | (() => number)) {
+  const employeeId = computed(() => (typeof id === 'function' ? id() : id));
+  
+  return useQuery({
+    queryKey: computed(() => employeeKeys.assignments(employeeId.value)),
+    queryFn: async () => {
+      const { data, error } = await apiClient.GET('/employees/{id}/assignments', {
+        params: { path: { id: employeeId.value } },
+      });
+      if (error) throw new Error((error as any)?.message || 'Fehler beim Laden der Gruppenzuordnungen');
+      return data as GroupAssignment[];
+    },
+    enabled: computed(() => employeeId.value > 0),
   });
 }

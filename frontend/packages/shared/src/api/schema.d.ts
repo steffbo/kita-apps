@@ -160,6 +160,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/employees/{id}/assignments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get employee's group assignments */
+        get: operations["getEmployeeAssignments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/groups": {
         parameters: {
             query?: never;
@@ -591,6 +608,12 @@ export interface components {
              */
             overtimeBalance?: number;
             active?: boolean;
+            /**
+             * Format: int64
+             * @description ID of the employee's primary group (Stammgruppe)
+             */
+            primaryGroupId?: number;
+            primaryGroup?: components["schemas"]["Group"];
             /** Format: date-time */
             createdAt?: string;
             /** Format: date-time */
@@ -609,6 +632,11 @@ export interface components {
             weeklyHours: number;
             /** @default 30 */
             vacationDaysPerYear: number;
+            /**
+             * Format: int64
+             * @description ID of the employee's primary group (Stammgruppe)
+             */
+            primaryGroupId?: number;
         };
         UpdateEmployeeRequest: {
             /** Format: email */
@@ -624,6 +652,11 @@ export interface components {
             /** Format: float */
             overtimeBalance?: number;
             active?: boolean;
+            /**
+             * Format: int64
+             * @description ID of the employee's primary group (Stammgruppe)
+             */
+            primaryGroupId?: number;
         };
         Group: {
             /** Format: int64 */
@@ -829,6 +862,11 @@ export interface components {
             id?: number;
             /** Format: date */
             date?: string;
+            /**
+             * Format: date
+             * @description Optional end date for multi-day closures
+             */
+            endDate?: string;
             name?: string;
             dayType?: components["schemas"]["SpecialDayType"];
             /** @description If true, affects all employees */
@@ -840,6 +878,11 @@ export interface components {
         CreateSpecialDayRequest: {
             /** Format: date */
             date: string;
+            /**
+             * Format: date
+             * @description Optional end date for multi-day closures
+             */
+            endDate?: string;
             name: string;
             dayType: components["schemas"]["SpecialDayType"];
             /** @default true */
@@ -1280,6 +1323,35 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["MessageResponse"];
                 };
+            };
+        };
+    };
+    getEmployeeAssignments: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description List of group assignments for the employee */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GroupAssignment"][];
+                };
+            };
+            /** @description Employee not found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

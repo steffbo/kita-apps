@@ -1,7 +1,8 @@
 export { useAuth } from './useAuth';
 export { 
   useEmployees, 
-  useEmployee, 
+  useEmployee,
+  useEmployeeAssignments,
   useCreateEmployee, 
   useUpdateEmployee, 
   useDeleteEmployee,

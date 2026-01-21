@@ -300,6 +300,32 @@ paths:
               schema:
                 $ref: '#/components/schemas/MessageResponse'
 
+  /employees/{id}/assignments:
+    get:
+      tags: [Employees]
+      summary: Get employee's group assignments
+      operationId: getEmployeeAssignments
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: List of group assignments for the employee
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/GroupAssignment'
+        '404':
+          description: Employee not found
+
   # ============================================
   # GROUPS
   # ============================================
@@ -1205,6 +1231,12 @@ components:
           description: Current overtime balance in hours
         active:
           type: boolean
+        primaryGroupId:
+          type: integer
+          format: int64
+          description: ID of the employee's primary group (Stammgruppe)
+        primaryGroup:
+          $ref: '#/components/schemas/Group'
         createdAt:
           type: string
           format: date-time
@@ -1238,6 +1270,10 @@ components:
         vacationDaysPerYear:
           type: integer
           default: 30
+        primaryGroupId:
+          type: integer
+          format: int64
+          description: ID of the employee's primary group (Stammgruppe)
 
     UpdateEmployeeRequest:
       type: object
@@ -1266,6 +1302,10 @@ components:
           format: float
         active:
           type: boolean
+        primaryGroupId:
+          type: integer
+          format: int64
+          description: ID of the employee's primary group (Stammgruppe)
 
     # === Group ===
     Group:
@@ -1637,6 +1677,10 @@ components:
         date:
           type: string
           format: date
+        endDate:
+          type: string
+          format: date
+          description: Optional end date for multi-day closures
         name:
           type: string
         dayType:
@@ -1658,6 +1702,10 @@ components:
         date:
           type: string
           format: date
+        endDate:
+          type: string
+          format: date
+          description: Optional end date for multi-day closures
         name:
           type: string
         dayType:

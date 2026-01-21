@@ -80,7 +80,10 @@ export function useCreateScheduleEntry() {
       const { data, error } = await apiClient.POST('/schedule', {
         body: entry,
       });
-      if (error) throw new Error((error as any)?.message || 'Fehler beim Anlegen des Eintrags');
+      if (error) {
+        const errorMessage = (error as any)?.message || (error as any)?.detail || 'Fehler beim Anlegen des Eintrags';
+        throw new Error(errorMessage);
+      }
       return data as ScheduleEntry;
     },
     onSuccess: () => {
