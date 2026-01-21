@@ -1,19 +1,52 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
+import { useTimeEntries, useTimeScheduleComparison } from '@kita/shared';
 import { formatDate, formatTime, formatDuration } from '@kita/shared/utils';
-import { ChevronLeft, ChevronRight } from 'lucide-vue-next';
+import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-vue-next';
 
 const currentMonth = ref(new Date());
 
-// Mock data
-const entries = [
-  { id: 1, date: '2026-01-16', clockIn: '2026-01-16T07:02:00', clockOut: '2026-01-16T14:05:00', breakMinutes: 30, scheduled: { start: '07:00', end: '14:00' } },
-  { id: 2, date: '2026-01-15', clockIn: '2026-01-15T06:58:00', clockOut: '2026-01-15T14:02:00', breakMinutes: 30, scheduled: { start: '07:00', end: '14:00' } },
-  { id: 3, date: '2026-01-14', clockIn: '2026-01-14T07:05:00', clockOut: '2026-01-14T14:10:00', breakMinutes: 30, scheduled: { start: '07:00', end: '14:00' } },
-  { id: 4, date: '2026-01-13', clockIn: '2026-01-13T09:00:00', clockOut: '2026-01-13T16:00:00', breakMinutes: 30, scheduled: { start: '09:00', end: '16:00' } },
-];
+// Compute start and end of month for API query
+const startDate = computed(() => {
+  const d = new Date(currentMonth.value);
+  d.setDate(1);
+  d.setHours(0, 0, 0, 0);
+  return d;
+});
 
-function calculateWorked(clockIn: string, clockOut: string, breakMinutes: number) {
+const endDate = computed(() => {
+  const d = new Date(currentMonth.value);
+  d.setMonth(d.getMonth() + 1);
+  d.setDate(0); // Last day of current month
+  d.setHours(23, 59, 59, 999);
+  return d;
+});
+
+// Fetch time entries and comparison data
+const { data: entries, isLoading: entriesLoading } = useTimeEntries({
+  startDate,
+  endDate,
+});
+
+const { data: comparison, isLoading: comparisonLoading } = useTimeScheduleComparison({
+  startDate,
+  endDate,
+});
+
+const isLoading = computed(() => entriesLoading.value || comparisonLoading.value);
+
+// Sort entries by date descending (newest first)
+const sortedEntries = computed(() => {
+  if (!entries.value) return [];
+  return [...entries.value].sort((a, b) => {
+    const dateA = new Date(a.date || 0).getTime();
+    const dateB = new Date(b.date || 0).getTime();
+    return dateB - dateA;
+  });
+});
+
+function calculateWorked(clockIn: string | undefined, clockOut: string | undefined, breakMinutes: number) {
+  if (!clockIn || !clockOut) return 0;
   const start = new Date(clockIn);
   const end = new Date(clockOut);
   const diff = (end.getTime() - start.getTime()) / 60000;
@@ -30,6 +63,32 @@ function nextMonth() {
   const d = new Date(currentMonth.value);
   d.setMonth(d.getMonth() + 1);
   currentMonth.value = d;
+}
+
+// Format hours for display (e.g., "152 Std.")
+function formatHours(minutes: number | undefined): string {
+  if (minutes === undefined || minutes === null) return '0 Std.';
+  const hours = Math.round(minutes / 60 * 10) / 10;
+  return `${hours} Std.`;
+}
+
+// Calculate difference and format with sign
+function formatDifference(actual: number | undefined, scheduled: number | undefined): { text: string; color: string } {
+  const actualMinutes = actual || 0;
+  const scheduledMinutes = scheduled || 0;
+  const diff = actualMinutes - scheduledMinutes;
+  const hours = Math.round(diff / 60 * 10) / 10;
+  
+  if (hours >= 0) {
+    return { text: `+${hours} Std.`, color: 'text-green-600' };
+  } else {
+    return { text: `${hours} Std.`, color: 'text-red-600' };
+  }
+}
+
+// Check if entry was edited
+function isEdited(entry: { editedBy?: number }): boolean {
+  return entry.editedBy !== undefined && entry.editedBy !== null;
 }
 </script>
 
@@ -61,62 +120,95 @@ function nextMonth() {
       </div>
     </div>
 
-    <!-- Summary -->
-    <div class="grid grid-cols-3 gap-4 mb-6">
-      <div class="bg-white rounded-lg border border-stone-200 p-4">
-        <p class="text-sm text-stone-500">Soll-Stunden</p>
-        <p class="text-2xl font-bold text-stone-900">152 Std.</p>
-      </div>
-      <div class="bg-white rounded-lg border border-stone-200 p-4">
-        <p class="text-sm text-stone-500">Ist-Stunden</p>
-        <p class="text-2xl font-bold text-stone-900">48 Std.</p>
-      </div>
-      <div class="bg-white rounded-lg border border-stone-200 p-4">
-        <p class="text-sm text-stone-500">Differenz</p>
-        <p class="text-2xl font-bold text-green-600">+2 Std.</p>
-      </div>
+    <!-- Loading state -->
+    <div v-if="isLoading" class="flex items-center justify-center py-12">
+      <Loader2 class="w-8 h-8 animate-spin text-green-600" />
     </div>
 
-    <!-- Entries Table -->
-    <div class="bg-white rounded-lg border border-stone-200 overflow-hidden">
-      <table class="w-full">
-        <thead>
-          <tr class="bg-stone-50 border-b border-stone-200">
-            <th class="px-4 py-3 text-left text-sm font-medium text-stone-600">Datum</th>
-            <th class="px-4 py-3 text-left text-sm font-medium text-stone-600">Soll</th>
-            <th class="px-4 py-3 text-left text-sm font-medium text-stone-600">Kommen</th>
-            <th class="px-4 py-3 text-left text-sm font-medium text-stone-600">Gehen</th>
-            <th class="px-4 py-3 text-left text-sm font-medium text-stone-600">Pause</th>
-            <th class="px-4 py-3 text-right text-sm font-medium text-stone-600">Arbeitszeit</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="entry in entries"
-            :key="entry.id"
-            class="border-b border-stone-200 last:border-b-0 hover:bg-stone-50"
-          >
-            <td class="px-4 py-3 font-medium text-stone-900">
-              {{ formatDate(entry.date) }}
-            </td>
-            <td class="px-4 py-3 text-stone-600">
-              {{ entry.scheduled.start }} - {{ entry.scheduled.end }}
-            </td>
-            <td class="px-4 py-3 text-stone-900">
-              {{ formatTime(entry.clockIn) }}
-            </td>
-            <td class="px-4 py-3 text-stone-900">
-              {{ formatTime(entry.clockOut) }}
-            </td>
-            <td class="px-4 py-3 text-stone-600">
-              {{ entry.breakMinutes }} Min.
-            </td>
-            <td class="px-4 py-3 text-right font-medium text-stone-900">
-              {{ formatDuration(calculateWorked(entry.clockIn, entry.clockOut, entry.breakMinutes)) }}
-            </td>
-          </tr>
-        </tbody>
-      </table>
-    </div>
+    <template v-else>
+      <!-- Summary -->
+      <div class="grid grid-cols-3 gap-4 mb-6">
+        <div class="bg-white rounded-lg border border-stone-200 p-4">
+          <p class="text-sm text-stone-500">Soll-Stunden</p>
+          <p class="text-2xl font-bold text-stone-900">
+            {{ formatHours(comparison?.summary?.totalScheduledMinutes) }}
+          </p>
+        </div>
+        <div class="bg-white rounded-lg border border-stone-200 p-4">
+          <p class="text-sm text-stone-500">Ist-Stunden</p>
+          <p class="text-2xl font-bold text-stone-900">
+            {{ formatHours(comparison?.summary?.totalActualMinutes) }}
+          </p>
+        </div>
+        <div class="bg-white rounded-lg border border-stone-200 p-4">
+          <p class="text-sm text-stone-500">Differenz</p>
+          <p class="text-2xl font-bold" :class="formatDifference(comparison?.summary?.totalActualMinutes, comparison?.summary?.totalScheduledMinutes).color">
+            {{ formatDifference(comparison?.summary?.totalActualMinutes, comparison?.summary?.totalScheduledMinutes).text }}
+          </p>
+        </div>
+      </div>
+
+      <!-- Empty state -->
+      <div v-if="!sortedEntries.length" class="bg-white rounded-lg border border-stone-200 p-8 text-center">
+        <p class="text-stone-500">Keine Zeiteinträge für diesen Monat vorhanden.</p>
+      </div>
+
+      <!-- Entries Table -->
+      <div v-else class="bg-white rounded-lg border border-stone-200 overflow-hidden">
+        <table class="w-full">
+          <thead>
+            <tr class="bg-stone-50 border-b border-stone-200">
+              <th class="px-4 py-3 text-left text-sm font-medium text-stone-600">Datum</th>
+              <th class="px-4 py-3 text-left text-sm font-medium text-stone-600">Kommen</th>
+              <th class="px-4 py-3 text-left text-sm font-medium text-stone-600">Gehen</th>
+              <th class="px-4 py-3 text-left text-sm font-medium text-stone-600">Pause</th>
+              <th class="px-4 py-3 text-left text-sm font-medium text-stone-600">Status</th>
+              <th class="px-4 py-3 text-right text-sm font-medium text-stone-600">Arbeitszeit</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="entry in sortedEntries"
+              :key="entry.id"
+              class="border-b border-stone-200 last:border-b-0 hover:bg-stone-50"
+            >
+              <td class="px-4 py-3 font-medium text-stone-900">
+                {{ entry.date ? formatDate(entry.date) : '–' }}
+              </td>
+              <td class="px-4 py-3 text-stone-900">
+                {{ entry.clockIn ? formatTime(entry.clockIn) : '–' }}
+              </td>
+              <td class="px-4 py-3 text-stone-900">
+                <template v-if="entry.clockOut">
+                  {{ formatTime(entry.clockOut) }}
+                </template>
+                <span v-else class="text-amber-600 text-sm">Aktiv</span>
+              </td>
+              <td class="px-4 py-3 text-stone-600">
+                {{ entry.breakMinutes || 0 }} Min.
+              </td>
+              <td class="px-4 py-3">
+                <span
+                  :class="[
+                    'px-2 py-1 text-xs font-medium rounded-full',
+                    isEdited(entry)
+                      ? 'bg-amber-100 text-amber-700'
+                      : 'bg-green-100 text-green-700'
+                  ]"
+                >
+                  {{ isEdited(entry) ? 'Bearbeitet' : 'Original' }}
+                </span>
+              </td>
+              <td class="px-4 py-3 text-right font-medium text-stone-900">
+                <template v-if="entry.clockOut">
+                  {{ formatDuration(calculateWorked(entry.clockIn, entry.clockOut, entry.breakMinutes || 0)) }}
+                </template>
+                <span v-else class="text-stone-400">–</span>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </template>
   </div>
 </template>

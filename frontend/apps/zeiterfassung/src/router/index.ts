@@ -25,12 +25,6 @@ const router = createRouter({
           name: 'history',
           component: () => import('@/pages/HistoryPage.vue'),
         },
-        {
-          path: 'admin',
-          name: 'admin',
-          component: () => import('@/pages/AdminPage.vue'),
-          meta: { requiresAdmin: true },
-        },
       ],
     },
   ],

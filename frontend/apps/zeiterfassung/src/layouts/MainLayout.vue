@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref } from 'vue';
 import { RouterLink, RouterView, useRoute } from 'vue-router';
 import { useAuth } from '@kita/shared';
 import {
   Clock,
   History,
-  Settings,
   LogOut,
   Menu,
   X,
@@ -16,18 +15,10 @@ const { user, isAdmin, logout } = useAuth();
 
 const isMobileMenuOpen = ref(false);
 
-const navigation = computed(() => {
-  const items = [
-    { name: 'Stempeluhr', to: '/', icon: Clock },
-    { name: 'Übersicht', to: '/history', icon: History },
-  ];
-
-  if (isAdmin.value) {
-    items.push({ name: 'Verwaltung', to: '/admin', icon: Settings });
-  }
-
-  return items;
-});
+const navigation = [
+  { name: 'Stempeluhr', to: '/', icon: Clock },
+  { name: 'Übersicht', to: '/history', icon: History },
+];
 
 function isActive(path: string) {
   if (path === '/') {
