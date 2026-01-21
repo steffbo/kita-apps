@@ -71,6 +71,24 @@ export default defineConfig({
       dependencies: ['setup'],
       testMatch: 'zeiterfassung/**/*.spec.ts',
     },
+
+    /* Beiträge App Tests */
+    {
+      name: 'beitraege',
+      use: { 
+        ...devices['Desktop Chrome'],
+        baseURL: 'http://localhost:5175',
+        storageState: 'e2e/.auth/beitraege.json',
+      },
+      dependencies: ['beitraege-setup'],
+      testMatch: 'beitraege/**/*.spec.ts',
+    },
+    
+    /* Beiträge Auth Setup */
+    {
+      name: 'beitraege-setup',
+      testMatch: '**/beitraege.setup.ts',
+    },
     
     /* Mobile viewport tests */
     {
@@ -96,6 +114,12 @@ export default defineConfig({
     {
       command: 'bun run dev:zeit',
       url: 'http://localhost:5174',
+      reuseExistingServer: !process.env.CI,
+      timeout: 120 * 1000,
+    },
+    {
+      command: 'bun run dev:beitraege',
+      url: 'http://localhost:5175',
       reuseExistingServer: !process.env.CI,
       timeout: 120 * 1000,
     },

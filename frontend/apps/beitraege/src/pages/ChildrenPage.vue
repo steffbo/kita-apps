@@ -240,8 +240,9 @@ const filteredChildren = computed(() => children.value);
 
         <form @submit.prevent="handleCreate" class="space-y-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Mitgliedsnummer *</label>
+            <label for="memberNumber" class="block text-sm font-medium text-gray-700 mb-1">Mitgliedsnummer *</label>
             <input
+              id="memberNumber"
               v-model="createForm.memberNumber"
               required
               type="text"
@@ -252,8 +253,9 @@ const filteredChildren = computed(() => children.value);
 
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Vorname *</label>
+              <label for="firstName" class="block text-sm font-medium text-gray-700 mb-1">Vorname *</label>
               <input
+                id="firstName"
                 v-model="createForm.firstName"
                 required
                 type="text"
@@ -261,8 +263,9 @@ const filteredChildren = computed(() => children.value);
               />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Nachname *</label>
+              <label for="lastName" class="block text-sm font-medium text-gray-700 mb-1">Nachname *</label>
               <input
+                id="lastName"
                 v-model="createForm.lastName"
                 required
                 type="text"
@@ -273,8 +276,9 @@ const filteredChildren = computed(() => children.value);
 
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Geburtsdatum *</label>
+              <label for="birthDate" class="block text-sm font-medium text-gray-700 mb-1">Geburtsdatum *</label>
               <input
+                id="birthDate"
                 v-model="createForm.birthDate"
                 required
                 type="date"
@@ -282,8 +286,9 @@ const filteredChildren = computed(() => children.value);
               />
             </div>
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Eintrittsdatum *</label>
+              <label for="entryDate" class="block text-sm font-medium text-gray-700 mb-1">Eintrittsdatum *</label>
               <input
+                id="entryDate"
                 v-model="createForm.entryDate"
                 required
                 type="date"

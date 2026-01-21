@@ -2,10 +2,11 @@
 import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api';
-import type { Child, FeeExpectation } from '@/api/types';
+import type { Child, FeeExpectation, UpdateChildRequest } from '@/api/types';
 import {
   ArrowLeft,
   Edit,
+  Trash2,
   Loader2,
   User,
   Calendar,
@@ -14,6 +15,9 @@ import {
   CheckCircle,
   Clock,
   AlertTriangle,
+  X,
+  Check,
+  Users,
 } from 'lucide-vue-next';
 
 const route = useRoute();
@@ -23,6 +27,16 @@ const child = ref<Child | null>(null);
 const fees = ref<FeeExpectation[]>([]);
 const isLoading = ref(true);
 const error = ref<string | null>(null);
+
+// Edit dialog state
+const showEditDialog = ref(false);
+const editForm = ref<UpdateChildRequest>({});
+const isEditing = ref(false);
+const editError = ref<string | null>(null);
+
+// Delete dialog state
+const showDeleteDialog = ref(false);
+const isDeleting = ref(false);
 
 const childId = computed(() => route.params.id as string);
 
@@ -44,6 +58,10 @@ onMounted(loadChild);
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('de-DE');
+}
+
+function formatDateForInput(dateStr: string): string {
+  return dateStr.split('T')[0];
 }
 
 function formatCurrency(amount: number): string {
@@ -83,6 +101,55 @@ function calculateAge(birthDate: string): number {
 
 function isUnderThree(birthDate: string): boolean {
   return calculateAge(birthDate) < 3;
+}
+
+function openEditDialog() {
+  if (!child.value) return;
+  editForm.value = {
+    firstName: child.value.firstName,
+    lastName: child.value.lastName,
+    birthDate: formatDateForInput(child.value.birthDate),
+    entryDate: formatDateForInput(child.value.entryDate),
+    street: child.value.street,
+    houseNumber: child.value.houseNumber,
+    postalCode: child.value.postalCode,
+    city: child.value.city,
+    isActive: child.value.isActive,
+  };
+  editError.value = null;
+  showEditDialog.value = true;
+}
+
+async function handleEdit() {
+  if (!child.value) return;
+  isEditing.value = true;
+  editError.value = null;
+  try {
+    const updated = await api.updateChild(childId.value, editForm.value);
+    child.value = updated;
+    showEditDialog.value = false;
+  } catch (e) {
+    editError.value = e instanceof Error ? e.message : 'Fehler beim Speichern';
+  } finally {
+    isEditing.value = false;
+  }
+}
+
+async function handleDelete() {
+  isDeleting.value = true;
+  try {
+    await api.deleteChild(childId.value);
+    router.push('/kinder');
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : 'Fehler beim Löschen';
+    showDeleteDialog.value = false;
+  } finally {
+    isDeleting.value = false;
+  }
+}
+
+function goToParent(parentId: string) {
+  router.push(`/eltern?highlight=${parentId}`);
 }
 
 const openFees = computed(() => fees.value.filter(f => !f.isPaid));
@@ -145,11 +212,22 @@ const paidFees = computed(() => fees.value.filter(f => f.isPaid));
               </div>
             </div>
           </div>
-          <button
-            class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <Edit class="h-5 w-5" />
-          </button>
+          <div class="flex items-center gap-2">
+            <button
+              @click="openEditDialog"
+              class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              title="Bearbeiten"
+            >
+              <Edit class="h-5 w-5" />
+            </button>
+            <button
+              @click="showDeleteDialog = true"
+              class="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+              title="Löschen"
+            >
+              <Trash2 class="h-5 w-5" />
+            </button>
+          </div>
         </div>
 
         <!-- Info grid -->
@@ -181,16 +259,20 @@ const paidFees = computed(() => fees.value.filter(f => f.isPaid));
 
         <!-- Parents -->
         <div v-if="child.parents && child.parents.length > 0" class="mt-6 pt-6 border-t">
-          <h3 class="text-sm font-medium text-gray-500 mb-3">Eltern</h3>
+          <h3 class="text-sm font-medium text-gray-500 mb-3 flex items-center gap-2">
+            <Users class="h-4 w-4" />
+            Eltern
+          </h3>
           <div class="flex flex-wrap gap-2">
-            <div
+            <button
               v-for="parent in child.parents"
               :key="parent.id"
-              class="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 rounded-lg"
+              @click="goToParent(parent.id)"
+              class="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors cursor-pointer"
             >
               <User class="h-4 w-4 text-gray-500" />
               <span>{{ parent.firstName }} {{ parent.lastName }}</span>
-            </div>
+            </button>
           </div>
         </div>
       </div>
@@ -261,6 +343,179 @@ const paidFees = computed(() => fees.value.filter(f => f.isPaid));
 
         <div v-if="fees.length === 0" class="text-center py-8 text-gray-500">
           Keine Beiträge vorhanden
+        </div>
+      </div>
+    </div>
+
+    <!-- Edit Dialog -->
+    <div
+      v-if="showEditDialog"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      @click.self="showEditDialog = false"
+    >
+      <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6 max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-6">
+          <h2 class="text-xl font-semibold">Kind bearbeiten</h2>
+          <button @click="showEditDialog = false" class="p-1 hover:bg-gray-100 rounded">
+            <X class="h-5 w-5" />
+          </button>
+        </div>
+
+        <form @submit.prevent="handleEdit" class="space-y-4">
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label for="edit-firstName" class="block text-sm font-medium text-gray-700 mb-1">Vorname</label>
+              <input
+                id="edit-firstName"
+                v-model="editForm.firstName"
+                type="text"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              />
+            </div>
+            <div>
+              <label for="edit-lastName" class="block text-sm font-medium text-gray-700 mb-1">Nachname</label>
+              <input
+                id="edit-lastName"
+                v-model="editForm.lastName"
+                type="text"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label for="edit-birthDate" class="block text-sm font-medium text-gray-700 mb-1">Geburtsdatum</label>
+              <input
+                id="edit-birthDate"
+                v-model="editForm.birthDate"
+                type="date"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              />
+            </div>
+            <div>
+              <label for="edit-entryDate" class="block text-sm font-medium text-gray-700 mb-1">Eintrittsdatum</label>
+              <input
+                id="edit-entryDate"
+                v-model="editForm.entryDate"
+                type="date"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label for="edit-street" class="block text-sm font-medium text-gray-700 mb-1">Straße</label>
+            <input
+              id="edit-street"
+              v-model="editForm.street"
+              type="text"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+            />
+          </div>
+
+          <div class="grid grid-cols-3 gap-4">
+            <div>
+              <label for="edit-houseNumber" class="block text-sm font-medium text-gray-700 mb-1">Hausnummer</label>
+              <input
+                id="edit-houseNumber"
+                v-model="editForm.houseNumber"
+                type="text"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              />
+            </div>
+            <div>
+              <label for="edit-postalCode" class="block text-sm font-medium text-gray-700 mb-1">PLZ</label>
+              <input
+                id="edit-postalCode"
+                v-model="editForm.postalCode"
+                type="text"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              />
+            </div>
+            <div>
+              <label for="edit-city" class="block text-sm font-medium text-gray-700 mb-1">Ort</label>
+              <input
+                id="edit-city"
+                v-model="editForm.city"
+                type="text"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input
+                v-model="editForm.isActive"
+                type="checkbox"
+                class="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary"
+              />
+              <span class="text-sm text-gray-700">Kind ist aktiv</span>
+            </label>
+          </div>
+
+          <div v-if="editError" class="p-3 bg-red-50 border border-red-200 rounded-lg">
+            <p class="text-sm text-red-600">{{ editError }}</p>
+          </div>
+
+          <div class="flex justify-end gap-3 pt-4">
+            <button
+              type="button"
+              @click="showEditDialog = false"
+              class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              Abbrechen
+            </button>
+            <button
+              type="submit"
+              :disabled="isEditing"
+              class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+            >
+              <Loader2 v-if="isEditing" class="h-4 w-4 animate-spin" />
+              <Check v-else class="h-4 w-4" />
+              Speichern
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- Delete Confirmation Dialog -->
+    <div
+      v-if="showDeleteDialog"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      @click.self="showDeleteDialog = false"
+    >
+      <div class="bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="p-2 bg-red-100 rounded-lg">
+            <Trash2 class="h-6 w-6 text-red-600" />
+          </div>
+          <h2 class="text-xl font-semibold">Kind löschen?</h2>
+        </div>
+
+        <p class="text-gray-600 mb-6">
+          Möchten Sie <strong>{{ child?.firstName }} {{ child?.lastName }}</strong> wirklich löschen?
+          Diese Aktion kann nicht rückgängig gemacht werden.
+        </p>
+
+        <div class="flex justify-end gap-3">
+          <button
+            @click="showDeleteDialog = false"
+            class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            Abbrechen
+          </button>
+          <button
+            @click="handleDelete"
+            :disabled="isDeleting"
+            class="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+          >
+            <Loader2 v-if="isDeleting" class="h-4 w-4 animate-spin" />
+            <Trash2 v-else class="h-4 w-4" />
+            Löschen
+          </button>
         </div>
       </div>
     </div>
