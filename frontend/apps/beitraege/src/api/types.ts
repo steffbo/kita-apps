@@ -35,6 +35,9 @@ export interface Child {
   streetNo?: string;
   postalCode?: string;
   city?: string;
+  legalHours?: number;
+  legalHoursUntil?: string;
+  careHours?: number;
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -51,6 +54,9 @@ export interface CreateChildRequest {
   streetNo?: string;
   postalCode?: string;
   city?: string;
+  legalHours?: number;
+  legalHoursUntil?: string;
+  careHours?: number;
 }
 
 export interface UpdateChildRequest {
@@ -62,6 +68,9 @@ export interface UpdateChildRequest {
   streetNo?: string;
   postalCode?: string;
   city?: string;
+  legalHours?: number;
+  legalHoursUntil?: string;
+  careHours?: number;
   isActive?: boolean;
 }
 
@@ -125,6 +134,18 @@ export interface FeeExpectation {
   child?: Child;
   isPaid: boolean;
   paidAt?: string;
+  matchedBy?: PaymentMatch;
+}
+
+export interface PaymentMatch {
+  id: string;
+  transactionId: string;
+  expectationId: string;
+  matchType: 'AUTO' | 'MANUAL';
+  confidence?: number;
+  matchedAt: string;
+  matchedBy?: string;
+  transaction?: BankTransaction;
 }
 
 export interface FeeOverview {

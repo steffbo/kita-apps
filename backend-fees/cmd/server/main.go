@@ -52,7 +52,7 @@ func main() {
 	authService := service.NewAuthService(userRepo, refreshTokenRepo, cfg.JWT.RefreshExpiry)
 	childService := service.NewChildService(childRepo, parentRepo)
 	parentService := service.NewParentService(parentRepo, childRepo)
-	feeService := service.NewFeeService(feeRepo, childRepo, matchRepo)
+	feeService := service.NewFeeService(feeRepo, childRepo, matchRepo, transactionRepo)
 	importService := service.NewImportService(transactionRepo, feeRepo, childRepo, matchRepo, knownIBANRepo)
 
 	// Initialize handlers

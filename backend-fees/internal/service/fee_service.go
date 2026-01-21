@@ -12,9 +12,10 @@ import (
 
 // FeeService handles fee-related business logic.
 type FeeService struct {
-	feeRepo   repository.FeeRepository
-	childRepo repository.ChildRepository
-	matchRepo repository.MatchRepository
+	feeRepo         repository.FeeRepository
+	childRepo       repository.ChildRepository
+	matchRepo       repository.MatchRepository
+	transactionRepo repository.TransactionRepository
 }
 
 // NewFeeService creates a new fee service.
@@ -22,11 +23,13 @@ func NewFeeService(
 	feeRepo repository.FeeRepository,
 	childRepo repository.ChildRepository,
 	matchRepo repository.MatchRepository,
+	transactionRepo repository.TransactionRepository,
 ) *FeeService {
 	return &FeeService{
-		feeRepo:   feeRepo,
-		childRepo: childRepo,
-		matchRepo: matchRepo,
+		feeRepo:         feeRepo,
+		childRepo:       childRepo,
+		matchRepo:       matchRepo,
+		transactionRepo: transactionRepo,
 	}
 }
 
@@ -77,8 +80,20 @@ func (s *FeeService) List(ctx context.Context, filter FeeFilter, offset, limit i
 		if child, ok := childMap[fees[i].ChildID]; ok {
 			fees[i].Child = child
 		}
-		matched, _ := s.matchRepo.ExistsForExpectation(ctx, fees[i].ID)
-		fees[i].IsPaid = matched
+		// Check if paid and get match details with transaction
+		match, _ := s.matchRepo.GetByExpectation(ctx, fees[i].ID)
+		if match != nil {
+			fees[i].IsPaid = true
+			fees[i].PaidAt = &match.MatchedAt
+			// Load transaction data for the match
+			if s.transactionRepo != nil {
+				tx, err := s.transactionRepo.GetByID(ctx, match.TransactionID)
+				if err == nil {
+					match.Transaction = tx
+				}
+			}
+			fees[i].MatchedBy = match
+		}
 	}
 
 	return fees, total, nil
@@ -91,9 +106,20 @@ func (s *FeeService) GetByID(ctx context.Context, id uuid.UUID) (*domain.FeeExpe
 		return nil, ErrNotFound
 	}
 
-	// Check if paid
-	matched, _ := s.matchRepo.ExistsForExpectation(ctx, id)
-	fee.IsPaid = matched
+	// Check if paid and get match details with transaction
+	match, _ := s.matchRepo.GetByExpectation(ctx, id)
+	if match != nil {
+		fee.IsPaid = true
+		fee.PaidAt = &match.MatchedAt
+		// Load transaction data for the match
+		if s.transactionRepo != nil {
+			tx, err := s.transactionRepo.GetByID(ctx, match.TransactionID)
+			if err == nil {
+				match.Transaction = tx
+			}
+		}
+		fee.MatchedBy = match
+	}
 
 	// Get child info
 	child, _ := s.childRepo.GetByID(ctx, fee.ChildID)
