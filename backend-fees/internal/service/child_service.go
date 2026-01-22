@@ -27,6 +27,7 @@ func NewChildService(childRepo repository.ChildRepository, parentRepo repository
 // ChildFilter defines filters for listing children.
 type ChildFilter struct {
 	ActiveOnly bool
+	U3Only     bool
 	Search     string
 	SortBy     string
 	SortDir    string
@@ -68,7 +69,7 @@ type UpdateChildInput struct {
 
 // List returns children matching the filter.
 func (s *ChildService) List(ctx context.Context, filter ChildFilter, offset, limit int) ([]domain.Child, int64, error) {
-	return s.childRepo.List(ctx, filter.ActiveOnly, filter.Search, filter.SortBy, filter.SortDir, offset, limit)
+	return s.childRepo.List(ctx, filter.ActiveOnly, filter.U3Only, filter.Search, filter.SortBy, filter.SortDir, offset, limit)
 }
 
 // GetByID returns a child by ID with parents.
@@ -262,6 +263,6 @@ func (s *ChildService) UnlinkParent(ctx context.Context, childID, parentID uuid.
 
 // GetAll returns all active children (for matching purposes).
 func (s *ChildService) GetAll(ctx context.Context) ([]domain.Child, error) {
-	children, _, err := s.childRepo.List(ctx, true, "", "", "", 0, 1000)
+	children, _, err := s.childRepo.List(ctx, true, false, "", "", "", 0, 1000)
 	return children, err
 }

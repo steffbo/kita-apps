@@ -107,6 +107,7 @@ class ApiClient {
   // Children endpoints
   async getChildren(params?: {
     activeOnly?: boolean;
+    u3Only?: boolean;
     search?: string;
     sortBy?: string;
     sortDir?: string;
@@ -115,6 +116,7 @@ class ApiClient {
   }): Promise<PaginatedResponse<Child>> {
     const query = new URLSearchParams();
     if (params?.activeOnly) query.set('active', 'true');
+    if (params?.u3Only) query.set('u3Only', 'true');
     if (params?.search) query.set('search', params.search);
     if (params?.sortBy) query.set('sortBy', params.sortBy);
     if (params?.sortDir) query.set('sortDir', params.sortDir);

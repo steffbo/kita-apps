@@ -52,8 +52,8 @@ const sortDirection = ref<SortDirection>('asc');
 // Bulk selection
 const selectedIds = ref<Set<string>>(new Set());
 const isAllSelected = computed(() => {
-  if (filteredChildren.value.length === 0) return false;
-  return filteredChildren.value.every(c => selectedIds.value.has(c.id));
+  if (children.value.length === 0) return false;
+  return children.value.every(c => selectedIds.value.has(c.id));
 });
 const isSomeSelected = computed(() => {
   return selectedIds.value.size > 0 && !isAllSelected.value;
@@ -81,18 +81,13 @@ const createError = ref<string | null>(null);
 const totalPages = computed(() => Math.ceil(total.value / pageSize.value));
 const offset = computed(() => (currentPage.value - 1) * pageSize.value);
 
-// Filter children by U3 (applied on top of server-side filters)
-const filteredChildren = computed(() => {
-  if (!showOnlyU3.value) return children.value;
-  return children.value.filter(c => isUnderThree(c.birthDate));
-});
-
 async function loadChildren() {
   isLoading.value = true;
   error.value = null;
   try {
     const response = await api.getChildren({
       activeOnly: !showInactive.value,
+      u3Only: showOnlyU3.value,
       search: searchQuery.value || undefined,
       sortBy: sortField.value,
       sortDir: sortDirection.value,
@@ -133,8 +128,13 @@ function handleInactiveChange() {
   loadChildren();
 }
 
+function handleU3Change() {
+  currentPage.value = 1;
+  loadChildren();
+}
+
 // Watch for filter changes (backup for programmatic v-model changes)
-watch([searchQuery, showInactive], () => {
+watch([searchQuery, showInactive, showOnlyU3], () => {
   currentPage.value = 1;
   loadChildren();
 }, { flush: 'post' });
@@ -239,7 +239,7 @@ function toggleSelectAll() {
   if (isAllSelected.value) {
     selectedIds.value = new Set();
   } else {
-    selectedIds.value = new Set(filteredChildren.value.map(c => c.id));
+    selectedIds.value = new Set(children.value.map(c => c.id));
   }
 }
 
@@ -402,6 +402,7 @@ const visiblePages = computed(() => {
       <label class="flex items-center gap-2 cursor-pointer">
         <input
           v-model="showOnlyU3"
+          @change="handleU3Change"
           type="checkbox"
           class="w-4 h-4 text-amber-500 rounded border-gray-300 focus:ring-amber-500"
         />
@@ -516,7 +517,7 @@ const visiblePages = computed(() => {
           </thead>
           <tbody>
             <tr
-              v-for="child in filteredChildren"
+              v-for="child in children"
               :key="child.id"
               @click="goToChild(child.id)"
               :class="[
@@ -590,9 +591,9 @@ const visiblePages = computed(() => {
                 </span>
               </td>
             </tr>
-            <tr v-if="filteredChildren.length === 0">
+            <tr v-if="children.length === 0">
               <td colspan="8" class="px-4 py-8 text-center text-gray-500">
-                {{ showOnlyU3 && children.length > 0 ? 'Keine U3-Kinder auf dieser Seite' : 'Keine Kinder gefunden' }}
+                Keine Kinder gefunden
               </td>
             </tr>
           </tbody>

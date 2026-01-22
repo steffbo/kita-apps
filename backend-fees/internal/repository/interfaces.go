@@ -28,7 +28,7 @@ type RefreshTokenRepository interface {
 
 // ChildRepository handles child persistence.
 type ChildRepository interface {
-	List(ctx context.Context, activeOnly bool, search string, sortBy string, sortDir string, offset, limit int) ([]domain.Child, int64, error)
+	List(ctx context.Context, activeOnly bool, u3Only bool, search string, sortBy string, sortDir string, offset, limit int) ([]domain.Child, int64, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.Child, error)
 	GetByMemberNumber(ctx context.Context, memberNumber string) (*domain.Child, error)
 	Create(ctx context.Context, child *domain.Child) error

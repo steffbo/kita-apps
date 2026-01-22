@@ -24,7 +24,7 @@ func NewPostgresChildRepository(db *sqlx.DB) *PostgresChildRepository {
 }
 
 // List retrieves children with optional filtering and sorting.
-func (r *PostgresChildRepository) List(ctx context.Context, activeOnly bool, search string, sortBy string, sortDir string, offset, limit int) ([]domain.Child, int64, error) {
+func (r *PostgresChildRepository) List(ctx context.Context, activeOnly bool, u3Only bool, search string, sortBy string, sortDir string, offset, limit int) ([]domain.Child, int64, error) {
 	var children []domain.Child
 	var total int64
 
@@ -35,6 +35,13 @@ func (r *PostgresChildRepository) List(ctx context.Context, activeOnly bool, sea
 	if activeOnly {
 		baseQuery += fmt.Sprintf(" AND is_active = $%d", argIdx)
 		args = append(args, true)
+		argIdx++
+	}
+
+	if u3Only {
+		// Filter for children under 3 years old (born less than 3 years ago)
+		baseQuery += fmt.Sprintf(" AND birth_date > $%d", argIdx)
+		args = append(args, time.Now().AddDate(-3, 0, 0))
 		argIdx++
 	}
 
