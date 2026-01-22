@@ -172,23 +172,38 @@ func (s *FeeService) Generate(ctx context.Context, year int, month *int) (*Gener
 
 			// Childcare fee (only U3)
 			if child.IsUnderThree(checkDate) {
-				// Check if foster family
+				// Get parent info for income and status
 				isFosterFamily := false
+				isHighestRate := false
+				var income float64 = 0
+				var siblingsCount int = 1
+
 				parents, _ := s.childRepo.GetParents(ctx, child.ID)
 				for _, parent := range parents {
 					if parent.IncomeStatus == domain.IncomeStatusFosterFamily {
 						isFosterFamily = true
 						break
 					}
+					if parent.IncomeStatus == domain.IncomeStatusMaxAccepted {
+						isHighestRate = true
+					}
+					if parent.IncomeStatus == domain.IncomeStatusProvided && parent.AnnualHouseholdIncome != nil {
+						income = *parent.AnnualHouseholdIncome
+					}
 				}
 
-				// Use default calculation with no income info
+				// Get care hours from child, default to 45
+				careHours := 45
+				if child.CareHours != nil && *child.CareHours > 0 {
+					careHours = *child.CareHours
+				}
+
 				feeResult := s.CalculateChildcareFee(domain.ChildcareFeeInput{
 					ChildAgeType:  domain.ChildAgeTypeKrippe,
-					NetIncome:     0,
-					SiblingsCount: 1,
-					CareHours:     45,
-					HighestRate:   false,
+					NetIncome:     income,
+					SiblingsCount: siblingsCount,
+					CareHours:     careHours,
+					HighestRate:   isHighestRate,
 					FosterFamily:  isFosterFamily,
 				})
 				created, err := s.createFeeIfNotExists(ctx, child.ID, domain.FeeTypeChildcare, year, month, feeResult.Fee, dueDate)
