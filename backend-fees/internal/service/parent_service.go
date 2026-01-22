@@ -54,9 +54,29 @@ type UpdateParentInput struct {
 	IncomeStatus          *string
 }
 
-// List returns parents matching the search term.
-func (s *ParentService) List(ctx context.Context, search string, offset, limit int) ([]domain.Parent, int64, error) {
-	return s.parentRepo.List(ctx, search, offset, limit)
+// List returns parents matching the search term with sorting.
+func (s *ParentService) List(ctx context.Context, search string, sortBy string, sortDir string, offset, limit int) ([]domain.Parent, int64, error) {
+	parents, total, err := s.parentRepo.List(ctx, search, sortBy, sortDir, offset, limit)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Batch load children for all parents
+	if len(parents) > 0 {
+		parentIDs := make([]uuid.UUID, len(parents))
+		for i, p := range parents {
+			parentIDs[i] = p.ID
+		}
+
+		childrenMap, err := s.parentRepo.GetChildrenForParents(ctx, parentIDs)
+		if err == nil {
+			for i := range parents {
+				parents[i].Children = childrenMap[parents[i].ID]
+			}
+		}
+	}
+
+	return parents, total, nil
 }
 
 // GetByID returns a parent by ID with children.

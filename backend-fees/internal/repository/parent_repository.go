@@ -23,8 +23,8 @@ func NewPostgresParentRepository(db *sqlx.DB) *PostgresParentRepository {
 	return &PostgresParentRepository{db: db}
 }
 
-// List retrieves parents with optional search filtering.
-func (r *PostgresParentRepository) List(ctx context.Context, search string, offset, limit int) ([]domain.Parent, int64, error) {
+// List retrieves parents with optional search filtering and sorting.
+func (r *PostgresParentRepository) List(ctx context.Context, search string, sortBy string, sortDir string, offset, limit int) ([]domain.Parent, int64, error) {
 	var parents []domain.Parent
 	var total int64
 
@@ -45,15 +45,18 @@ func (r *PostgresParentRepository) List(ctx context.Context, search string, offs
 		return nil, 0, err
 	}
 
+	// Get sort order
+	orderClause := getParentSortOrder(sortBy, sortDir)
+
 	// Fetch with pagination
 	selectQuery := fmt.Sprintf(`
 		SELECT id, first_name, last_name, birth_date, email, phone,
 		       street, street_no, postal_code, city,
 		       annual_household_income, income_status, created_at, updated_at
 		%s
-		ORDER BY last_name, first_name
+		ORDER BY %s
 		LIMIT $%d OFFSET $%d
-	`, baseQuery, argIdx, argIdx+1)
+	`, baseQuery, orderClause, argIdx, argIdx+1)
 	args = append(args, limit, offset)
 
 	err = r.db.SelectContext(ctx, &parents, selectQuery, args...)
@@ -62,6 +65,32 @@ func (r *PostgresParentRepository) List(ctx context.Context, search string, offs
 	}
 
 	return parents, total, nil
+}
+
+// getParentSortOrder returns a safe ORDER BY clause for parents.
+func getParentSortOrder(sortBy, sortDir string) string {
+	// Validate sort direction
+	dir := "ASC"
+	if sortDir == "desc" {
+		dir = "DESC"
+	}
+
+	// Map allowed column names to actual database columns
+	allowedColumns := map[string]string{
+		"name":  "last_name",
+		"email": "email",
+	}
+
+	if col, ok := allowedColumns[sortBy]; ok {
+		if sortBy == "name" {
+			// Sort by last_name, then first_name
+			return fmt.Sprintf("last_name %s, first_name %s", dir, dir)
+		}
+		return fmt.Sprintf("%s %s NULLS LAST", col, dir)
+	}
+
+	// Default sort
+	return fmt.Sprintf("last_name %s, first_name %s", dir, dir)
 }
 
 // GetByID retrieves a parent by ID.
@@ -133,4 +162,47 @@ func (r *PostgresParentRepository) GetChildren(ctx context.Context, parentID uui
 		return nil, err
 	}
 	return children, nil
+}
+
+// childWithParentID is a helper struct for batch loading children with their parent ID.
+type childWithParentID struct {
+	domain.Child
+	ParentID uuid.UUID `db:"parent_id"`
+}
+
+// GetChildrenForParents retrieves children for multiple parents in a single query.
+func (r *PostgresParentRepository) GetChildrenForParents(ctx context.Context, parentIDs []uuid.UUID) (map[uuid.UUID][]domain.Child, error) {
+	if len(parentIDs) == 0 {
+		return make(map[uuid.UUID][]domain.Child), nil
+	}
+
+	query, args, err := sqlx.In(`
+		SELECT c.id, c.member_number, c.first_name, c.last_name, c.birth_date, c.entry_date,
+		       c.street, c.street_no, c.postal_code, c.city,
+		       c.is_active, c.created_at, c.updated_at,
+		       cp.parent_id
+		FROM fees.children c
+		INNER JOIN fees.child_parents cp ON c.id = cp.child_id
+		WHERE cp.parent_id IN (?)
+		ORDER BY c.last_name, c.first_name
+	`, parentIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	// Rebind for PostgreSQL
+	query = r.db.Rebind(query)
+
+	var rows []childWithParentID
+	if err := r.db.SelectContext(ctx, &rows, query, args...); err != nil {
+		return nil, err
+	}
+
+	// Group by parent ID
+	result := make(map[uuid.UUID][]domain.Child)
+	for _, row := range rows {
+		result[row.ParentID] = append(result[row.ParentID], row.Child)
+	}
+
+	return result, nil
 }

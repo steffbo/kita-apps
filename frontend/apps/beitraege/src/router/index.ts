@@ -41,6 +41,11 @@ const router = createRouter({
           component: () => import('@/pages/ParentsPage.vue'),
         },
         {
+          path: 'eltern/:id',
+          name: 'parent-detail',
+          component: () => import('@/pages/ParentDetailPage.vue'),
+        },
+        {
           path: 'beitraege',
           name: 'fees',
           component: () => import('@/pages/FeesPage.vue'),

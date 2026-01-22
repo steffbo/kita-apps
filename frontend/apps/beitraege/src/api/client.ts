@@ -108,12 +108,16 @@ class ApiClient {
   async getChildren(params?: {
     activeOnly?: boolean;
     search?: string;
+    sortBy?: string;
+    sortDir?: string;
     offset?: number;
     limit?: number;
   }): Promise<PaginatedResponse<Child>> {
     const query = new URLSearchParams();
     if (params?.activeOnly) query.set('active', 'true');
     if (params?.search) query.set('search', params.search);
+    if (params?.sortBy) query.set('sortBy', params.sortBy);
+    if (params?.sortDir) query.set('sortDir', params.sortDir);
     if (params?.offset) query.set('offset', String(params.offset));
     if (params?.limit) query.set('limit', String(params.limit));
     const queryString = query.toString();
@@ -159,11 +163,15 @@ class ApiClient {
   // Parents endpoints
   async getParents(params?: {
     search?: string;
+    sortBy?: string;
+    sortDir?: string;
     offset?: number;
     limit?: number;
   }): Promise<PaginatedResponse<Parent>> {
     const query = new URLSearchParams();
     if (params?.search) query.set('search', params.search);
+    if (params?.sortBy) query.set('sortBy', params.sortBy);
+    if (params?.sortDir) query.set('sortDir', params.sortDir);
     if (params?.offset) query.set('offset', String(params.offset));
     if (params?.limit) query.set('limit', String(params.limit));
     const queryString = query.toString();

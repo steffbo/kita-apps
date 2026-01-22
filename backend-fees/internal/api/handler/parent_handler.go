@@ -40,8 +40,10 @@ type CreateParentRequest struct {
 func (h *ParentHandler) List(w http.ResponseWriter, r *http.Request) {
 	pagination := request.GetPagination(r)
 	search := request.GetQueryString(r, "search", "")
+	sortBy := request.GetQueryString(r, "sortBy", "name")
+	sortDir := request.GetQueryString(r, "sortDir", "asc")
 
-	parents, total, err := h.parentService.List(r.Context(), search, pagination.Offset, pagination.PerPage)
+	parents, total, err := h.parentService.List(r.Context(), search, sortBy, sortDir, pagination.Offset, pagination.PerPage)
 	if err != nil {
 		response.InternalError(w, "failed to list parents")
 		return

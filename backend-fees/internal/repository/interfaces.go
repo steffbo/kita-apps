@@ -28,7 +28,7 @@ type RefreshTokenRepository interface {
 
 // ChildRepository handles child persistence.
 type ChildRepository interface {
-	List(ctx context.Context, activeOnly bool, search string, offset, limit int) ([]domain.Child, int64, error)
+	List(ctx context.Context, activeOnly bool, search string, sortBy string, sortDir string, offset, limit int) ([]domain.Child, int64, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.Child, error)
 	GetByMemberNumber(ctx context.Context, memberNumber string) (*domain.Child, error)
 	Create(ctx context.Context, child *domain.Child) error
@@ -41,12 +41,13 @@ type ChildRepository interface {
 
 // ParentRepository handles parent persistence.
 type ParentRepository interface {
-	List(ctx context.Context, search string, offset, limit int) ([]domain.Parent, int64, error)
+	List(ctx context.Context, search string, sortBy string, sortDir string, offset, limit int) ([]domain.Parent, int64, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.Parent, error)
 	Create(ctx context.Context, parent *domain.Parent) error
 	Update(ctx context.Context, parent *domain.Parent) error
 	Delete(ctx context.Context, id uuid.UUID) error
 	GetChildren(ctx context.Context, parentID uuid.UUID) ([]domain.Child, error)
+	GetChildrenForParents(ctx context.Context, parentIDs []uuid.UUID) (map[uuid.UUID][]domain.Child, error)
 }
 
 // FeeFilter defines filters for fee queries.
