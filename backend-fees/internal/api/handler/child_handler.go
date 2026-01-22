@@ -29,6 +29,7 @@ type CreateChildRequest struct {
 	LastName        string  `json:"lastName"`
 	BirthDate       string  `json:"birthDate"`
 	EntryDate       string  `json:"entryDate"`
+	ExitDate        *string `json:"exitDate,omitempty"`
 	Street          *string `json:"street,omitempty"`
 	StreetNo        *string `json:"streetNo,omitempty"`
 	PostalCode      *string `json:"postalCode,omitempty"`
@@ -42,9 +43,15 @@ type CreateChildRequest struct {
 func (h *ChildHandler) List(w http.ResponseWriter, r *http.Request) {
 	pagination := request.GetPagination(r)
 	activeOnly := request.GetQueryBool(r, "active")
+	search := request.GetQueryString(r, "search", "")
+	sortBy := request.GetQueryString(r, "sortBy", "name")
+	sortDir := request.GetQueryString(r, "sortDir", "asc")
 
 	filter := service.ChildFilter{
 		ActiveOnly: activeOnly != nil && *activeOnly,
+		Search:     search,
+		SortBy:     sortBy,
+		SortDir:    sortDir,
 	}
 
 	children, total, err := h.childService.List(r.Context(), filter, pagination.Offset, pagination.PerPage)
@@ -75,6 +82,7 @@ func (h *ChildHandler) Create(w http.ResponseWriter, r *http.Request) {
 		LastName:        req.LastName,
 		BirthDate:       req.BirthDate,
 		EntryDate:       req.EntryDate,
+		ExitDate:        req.ExitDate,
 		Street:          req.Street,
 		StreetNo:        req.StreetNo,
 		PostalCode:      req.PostalCode,
@@ -122,6 +130,7 @@ type UpdateChildRequest struct {
 	LastName        *string `json:"lastName,omitempty"`
 	BirthDate       *string `json:"birthDate,omitempty"`
 	EntryDate       *string `json:"entryDate,omitempty"`
+	ExitDate        *string `json:"exitDate,omitempty"`
 	Street          *string `json:"street,omitempty"`
 	StreetNo        *string `json:"streetNo,omitempty"`
 	PostalCode      *string `json:"postalCode,omitempty"`
@@ -151,6 +160,7 @@ func (h *ChildHandler) Update(w http.ResponseWriter, r *http.Request) {
 		LastName:        req.LastName,
 		BirthDate:       req.BirthDate,
 		EntryDate:       req.EntryDate,
+		ExitDate:        req.ExitDate,
 		Street:          req.Street,
 		StreetNo:        req.StreetNo,
 		PostalCode:      req.PostalCode,

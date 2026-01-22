@@ -28,6 +28,8 @@ func NewChildService(childRepo repository.ChildRepository, parentRepo repository
 type ChildFilter struct {
 	ActiveOnly bool
 	Search     string
+	SortBy     string
+	SortDir    string
 }
 
 // CreateChildInput defines input for creating a child.
@@ -37,6 +39,7 @@ type CreateChildInput struct {
 	LastName        string
 	BirthDate       string
 	EntryDate       string
+	ExitDate        *string
 	Street          *string
 	StreetNo        *string
 	PostalCode      *string
@@ -52,6 +55,7 @@ type UpdateChildInput struct {
 	LastName        *string
 	BirthDate       *string
 	EntryDate       *string
+	ExitDate        *string
 	Street          *string
 	StreetNo        *string
 	PostalCode      *string
@@ -64,7 +68,7 @@ type UpdateChildInput struct {
 
 // List returns children matching the filter.
 func (s *ChildService) List(ctx context.Context, filter ChildFilter, offset, limit int) ([]domain.Child, int64, error) {
-	return s.childRepo.List(ctx, filter.ActiveOnly, filter.Search, offset, limit)
+	return s.childRepo.List(ctx, filter.ActiveOnly, filter.Search, filter.SortBy, filter.SortDir, offset, limit)
 }
 
 // GetByID returns a child by ID with parents.
@@ -104,6 +108,16 @@ func (s *ChildService) Create(ctx context.Context, input CreateChildInput) (*dom
 		legalHoursUntil = &parsed
 	}
 
+	// Parse exitDate if provided
+	var exitDate *time.Time
+	if input.ExitDate != nil && *input.ExitDate != "" {
+		parsed, err := time.Parse("2006-01-02", *input.ExitDate)
+		if err != nil {
+			return nil, ErrInvalidInput
+		}
+		exitDate = &parsed
+	}
+
 	// Check for duplicate member number
 	existing, _ := s.childRepo.GetByMemberNumber(ctx, input.MemberNumber)
 	if existing != nil {
@@ -117,6 +131,7 @@ func (s *ChildService) Create(ctx context.Context, input CreateChildInput) (*dom
 		LastName:        input.LastName,
 		BirthDate:       birthDate,
 		EntryDate:       entryDate,
+		ExitDate:        exitDate,
 		Street:          input.Street,
 		StreetNo:        input.StreetNo,
 		PostalCode:      input.PostalCode,
@@ -162,6 +177,17 @@ func (s *ChildService) Update(ctx context.Context, id uuid.UUID, input UpdateChi
 			return nil, ErrInvalidInput
 		}
 		child.EntryDate = entryDate
+	}
+	if input.ExitDate != nil {
+		if *input.ExitDate == "" {
+			child.ExitDate = nil
+		} else {
+			parsed, err := time.Parse("2006-01-02", *input.ExitDate)
+			if err != nil {
+				return nil, ErrInvalidInput
+			}
+			child.ExitDate = &parsed
+		}
 	}
 	if input.Street != nil {
 		child.Street = input.Street
@@ -236,6 +262,6 @@ func (s *ChildService) UnlinkParent(ctx context.Context, childID, parentID uuid.
 
 // GetAll returns all active children (for matching purposes).
 func (s *ChildService) GetAll(ctx context.Context) ([]domain.Child, error) {
-	children, _, err := s.childRepo.List(ctx, true, "", 0, 1000)
+	children, _, err := s.childRepo.List(ctx, true, "", "", "", 0, 1000)
 	return children, err
 }

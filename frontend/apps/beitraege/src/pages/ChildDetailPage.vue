@@ -178,6 +178,7 @@ function openEditDialog() {
     lastName: child.value.lastName,
     birthDate: formatDateForInput(child.value.birthDate),
     entryDate: formatDateForInput(child.value.entryDate),
+    exitDate: child.value.exitDate ? formatDateForInput(child.value.exitDate) : undefined,
     street: child.value.street,
     streetNo: child.value.streetNo,
     postalCode: child.value.postalCode,
@@ -535,6 +536,13 @@ const incomeStatusOptions: { value: IncomeStatus; label: string }[] = [
               <p class="font-medium">{{ formatDate(child.entryDate) }}</p>
             </div>
           </div>
+          <div v-if="child.exitDate" class="flex items-start gap-3">
+            <Calendar class="h-5 w-5 text-gray-400 mt-0.5" />
+            <div>
+              <p class="text-sm text-gray-500">Austrittsdatum</p>
+              <p class="font-medium">{{ formatDate(child.exitDate) }}</p>
+            </div>
+          </div>
           <div v-if="child.street" class="flex items-start gap-3">
             <MapPin class="h-5 w-5 text-gray-400 mt-0.5" />
             <div>
@@ -791,6 +799,17 @@ const incomeStatusOptions: { value: IncomeStatus; label: string }[] = [
                 class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
               />
             </div>
+          </div>
+
+          <div>
+            <label for="edit-exitDate" class="block text-sm font-medium text-gray-700 mb-1">Austrittsdatum</label>
+            <input
+              id="edit-exitDate"
+              v-model="editForm.exitDate"
+              type="date"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+            />
+            <p class="text-xs text-gray-500 mt-1">Optional: Datum, an dem das Kind die Kita verlässt</p>
           </div>
 
           <div class="grid grid-cols-4 gap-4">

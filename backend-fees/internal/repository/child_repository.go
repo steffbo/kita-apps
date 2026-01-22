@@ -23,8 +23,8 @@ func NewPostgresChildRepository(db *sqlx.DB) *PostgresChildRepository {
 	return &PostgresChildRepository{db: db}
 }
 
-// List retrieves children with optional filtering.
-func (r *PostgresChildRepository) List(ctx context.Context, activeOnly bool, search string, offset, limit int) ([]domain.Child, int64, error) {
+// List retrieves children with optional filtering and sorting.
+func (r *PostgresChildRepository) List(ctx context.Context, activeOnly bool, search string, sortBy string, sortDir string, offset, limit int) ([]domain.Child, int64, error) {
 	var children []domain.Child
 	var total int64
 
@@ -51,15 +51,18 @@ func (r *PostgresChildRepository) List(ctx context.Context, activeOnly bool, sea
 		return nil, 0, err
 	}
 
+	// Determine sort order
+	orderClause := getChildSortOrder(sortBy, sortDir)
+
 	// Fetch with pagination
 	selectQuery := fmt.Sprintf(`
-		SELECT id, member_number, first_name, last_name, birth_date, entry_date,
+		SELECT id, member_number, first_name, last_name, birth_date, entry_date, exit_date,
 		       street, street_no, postal_code, city, legal_hours, legal_hours_until, care_hours,
 		       is_active, created_at, updated_at
 		%s
-		ORDER BY last_name, first_name
+		ORDER BY %s
 		LIMIT $%d OFFSET $%d
-	`, baseQuery, argIdx, argIdx+1)
+	`, baseQuery, orderClause, argIdx, argIdx+1)
 	args = append(args, limit, offset)
 
 	err = r.db.SelectContext(ctx, &children, selectQuery, args...)
@@ -70,11 +73,48 @@ func (r *PostgresChildRepository) List(ctx context.Context, activeOnly bool, sea
 	return children, total, nil
 }
 
+// getChildSortOrder returns a safe ORDER BY clause for children.
+func getChildSortOrder(sortBy, sortDir string) string {
+	// Whitelist of allowed sort columns to prevent SQL injection
+	allowedColumns := map[string]string{
+		"memberNumber": "member_number",
+		"name":         "last_name, first_name",
+		"birthDate":    "birth_date",
+		"age":          "birth_date", // age sorts by birth_date (reversed direction)
+		"entryDate":    "entry_date",
+		"createdAt":    "created_at",
+	}
+
+	// Default sort
+	column := "last_name, first_name"
+	if col, ok := allowedColumns[sortBy]; ok {
+		column = col
+	}
+
+	// Validate direction
+	direction := "ASC"
+	if sortDir == "desc" {
+		direction = "DESC"
+	}
+
+	// Special case: sorting by "age" should reverse the direction
+	// (older = earlier birth_date, so ASC birth_date = DESC age)
+	if sortBy == "age" {
+		if direction == "ASC" {
+			direction = "DESC"
+		} else {
+			direction = "ASC"
+		}
+	}
+
+	return column + " " + direction
+}
+
 // GetByID retrieves a child by ID.
 func (r *PostgresChildRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Child, error) {
 	var child domain.Child
 	err := r.db.GetContext(ctx, &child, `
-		SELECT id, member_number, first_name, last_name, birth_date, entry_date,
+		SELECT id, member_number, first_name, last_name, birth_date, entry_date, exit_date,
 		       street, street_no, postal_code, city, legal_hours, legal_hours_until, care_hours,
 		       is_active, created_at, updated_at
 		FROM fees.children
@@ -93,7 +133,7 @@ func (r *PostgresChildRepository) GetByID(ctx context.Context, id uuid.UUID) (*d
 func (r *PostgresChildRepository) GetByMemberNumber(ctx context.Context, memberNumber string) (*domain.Child, error) {
 	var child domain.Child
 	err := r.db.GetContext(ctx, &child, `
-		SELECT id, member_number, first_name, last_name, birth_date, entry_date,
+		SELECT id, member_number, first_name, last_name, birth_date, entry_date, exit_date,
 		       street, street_no, postal_code, city, legal_hours, legal_hours_until, care_hours,
 		       is_active, created_at, updated_at
 		FROM fees.children
@@ -111,11 +151,11 @@ func (r *PostgresChildRepository) GetByMemberNumber(ctx context.Context, memberN
 // Create creates a new child.
 func (r *PostgresChildRepository) Create(ctx context.Context, child *domain.Child) error {
 	_, err := r.db.ExecContext(ctx, `
-		INSERT INTO fees.children (id, member_number, first_name, last_name, birth_date, entry_date,
+		INSERT INTO fees.children (id, member_number, first_name, last_name, birth_date, entry_date, exit_date,
 		                           street, street_no, postal_code, city, legal_hours, legal_hours_until, care_hours,
 		                           is_active, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
-	`, child.ID, child.MemberNumber, child.FirstName, child.LastName, child.BirthDate, child.EntryDate,
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+	`, child.ID, child.MemberNumber, child.FirstName, child.LastName, child.BirthDate, child.EntryDate, child.ExitDate,
 		child.Street, child.StreetNo, child.PostalCode, child.City, child.LegalHours, child.LegalHoursUntil, child.CareHours,
 		child.IsActive, child.CreatedAt, child.UpdatedAt)
 	return err
@@ -126,12 +166,12 @@ func (r *PostgresChildRepository) Update(ctx context.Context, child *domain.Chil
 	child.UpdatedAt = time.Now()
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE fees.children
-		SET first_name = $2, last_name = $3, birth_date = $4, entry_date = $5,
-		    street = $6, street_no = $7, postal_code = $8, city = $9,
-		    legal_hours = $10, legal_hours_until = $11, care_hours = $12,
-		    is_active = $13, updated_at = $14
+		SET first_name = $2, last_name = $3, birth_date = $4, entry_date = $5, exit_date = $6,
+		    street = $7, street_no = $8, postal_code = $9, city = $10,
+		    legal_hours = $11, legal_hours_until = $12, care_hours = $13,
+		    is_active = $14, updated_at = $15
 		WHERE id = $1
-	`, child.ID, child.FirstName, child.LastName, child.BirthDate, child.EntryDate,
+	`, child.ID, child.FirstName, child.LastName, child.BirthDate, child.EntryDate, child.ExitDate,
 		child.Street, child.StreetNo, child.PostalCode, child.City,
 		child.LegalHours, child.LegalHoursUntil, child.CareHours,
 		child.IsActive, child.UpdatedAt)

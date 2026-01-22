@@ -14,6 +14,7 @@ type Child struct {
 	LastName        string     `json:"lastName" db:"last_name"`
 	BirthDate       time.Time  `json:"birthDate" db:"birth_date"`
 	EntryDate       time.Time  `json:"entryDate" db:"entry_date"`
+	ExitDate        *time.Time `json:"exitDate,omitempty" db:"exit_date"`
 	Street          *string    `json:"street,omitempty" db:"street"`
 	StreetNo        *string    `json:"streetNo,omitempty" db:"street_no"`
 	PostalCode      *string    `json:"postalCode,omitempty" db:"postal_code"`

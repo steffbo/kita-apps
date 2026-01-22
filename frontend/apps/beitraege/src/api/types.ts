@@ -31,6 +31,7 @@ export interface Child {
   lastName: string;
   birthDate: string;
   entryDate: string;
+  exitDate?: string;
   street?: string;
   streetNo?: string;
   postalCode?: string;
@@ -50,6 +51,7 @@ export interface CreateChildRequest {
   lastName: string;
   birthDate: string;
   entryDate: string;
+  exitDate?: string;
   street?: string;
   streetNo?: string;
   postalCode?: string;
@@ -64,6 +66,7 @@ export interface UpdateChildRequest {
   lastName?: string;
   birthDate?: string;
   entryDate?: string;
+  exitDate?: string;
   street?: string;
   streetNo?: string;
   postalCode?: string;
@@ -316,6 +319,15 @@ export interface ParentPreview {
   email?: string;
   phone?: string;
   existingMatches?: ParentMatch[];
+  alreadyLinked?: boolean; // True if already linked to the existing child
+  linkedParentId?: string; // ID of the already linked parent
+}
+
+export interface FieldConflict {
+  field: string;
+  fieldLabel: string;
+  existingValue: string;
+  newValue: string;
 }
 
 export interface ChildImportPreviewRow {
@@ -326,6 +338,9 @@ export interface ChildImportPreviewRow {
   warnings: string[];
   isDuplicate: boolean;
   existingChildId?: string;
+  existingChild?: ChildPreview; // The existing child data for comparison when duplicate
+  action: 'create' | 'update' | 'no_change'; // What action will be taken
+  fieldConflicts?: FieldConflict[]; // Conflicts between CSV and existing data
   isValid: boolean;
 }
 
@@ -340,6 +355,9 @@ export interface ChildImportRow {
   child: ChildPreview;
   parent1?: ParentPreview;
   parent2?: ParentPreview;
+  existingChildId?: string; // If set, this is a merge/update operation
+  mergeParents?: boolean; // If true, add parents to existing child
+  fieldUpdates?: Record<string, string>; // Field -> value for updates (from conflict resolution)
 }
 
 export interface ParentDecision {
@@ -361,6 +379,7 @@ export interface ChildImportError {
 
 export interface ChildImportExecuteResult {
   childrenCreated: number;
+  childrenUpdated: number;
   parentsCreated: number;
   parentsLinked: number;
   errors: ChildImportError[];
