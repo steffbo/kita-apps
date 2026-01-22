@@ -574,6 +574,129 @@ func TestFindRateInTable(t *testing.T) {
 	}
 }
 
+func TestCalculateChildcareFee_FosterFamily(t *testing.T) {
+	s := &FeeService{}
+
+	// Calculate expected average for 45h (index 3)
+	// Sum of all 13 rows in FeeTableKrippeSatzung at index 3:
+	// 76.34 + 106.88 + 147.48 + 194.32 + 215.14 + 235.96 + 256.78 + 277.60 + 298.42 + 319.24 + 340.06 + 360.88 + 381.70 = 3210.80
+	// Average: 3210.80 / 13 = 246.98...
+	expectedAvg45h := 246.98
+
+	// Calculate expected average for 30h (index 0)
+	// 55.52 + 77.73 + 107.25 + 141.32 + 156.47 + 171.61 + 186.75 + 201.89 + 217.03 + 232.17 + 247.32 + 262.46 + 277.60 = 2335.12
+	// Average: 2335.12 / 13 = 179.62...
+	expectedAvg30h := 179.62
+
+	tests := []struct {
+		name         string
+		input        domain.ChildcareFeeInput
+		expectedFee  float64
+		expectedRule string
+		tolerance    float64
+	}{
+		{
+			name: "Foster family - 45h care",
+			input: domain.ChildcareFeeInput{
+				ChildAgeType:  domain.ChildAgeTypeKrippe,
+				NetIncome:     0, // Income is ignored for foster families
+				SiblingsCount: 1,
+				CareHours:     45,
+				FosterFamily:  true,
+			},
+			expectedFee:  expectedAvg45h,
+			expectedRule: "Pflegefamilie (Durchschnittsbeitrag)",
+			tolerance:    0.02,
+		},
+		{
+			name: "Foster family - 30h care",
+			input: domain.ChildcareFeeInput{
+				ChildAgeType:  domain.ChildAgeTypeKrippe,
+				NetIncome:     100000, // High income should be ignored
+				SiblingsCount: 1,
+				CareHours:     30,
+				FosterFamily:  true,
+			},
+			expectedFee:  expectedAvg30h,
+			expectedRule: "Pflegefamilie (Durchschnittsbeitrag)",
+			tolerance:    0.02,
+		},
+		{
+			name: "Foster family - no sibling discount even with multiple children",
+			input: domain.ChildcareFeeInput{
+				ChildAgeType:  domain.ChildAgeTypeKrippe,
+				NetIncome:     0,
+				SiblingsCount: 3, // Should be ignored
+				CareHours:     45,
+				FosterFamily:  true,
+			},
+			expectedFee:  expectedAvg45h, // Same as 1 child
+			expectedRule: "Pflegefamilie (Durchschnittsbeitrag)",
+			tolerance:    0.02,
+		},
+		{
+			name: "Foster family takes precedence over highest rate",
+			input: domain.ChildcareFeeInput{
+				ChildAgeType:  domain.ChildAgeTypeKrippe,
+				NetIncome:     0,
+				SiblingsCount: 1,
+				CareHours:     45,
+				FosterFamily:  true,
+				HighestRate:   true, // Should be ignored when foster family
+			},
+			expectedFee:  expectedAvg45h,
+			expectedRule: "Pflegefamilie (Durchschnittsbeitrag)",
+			tolerance:    0.02,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := s.CalculateChildcareFee(tt.input)
+
+			if math.Abs(result.Fee-tt.expectedFee) > tt.tolerance {
+				t.Errorf("Fee: got %v, want %v (tolerance %v)", result.Fee, tt.expectedFee, tt.tolerance)
+			}
+
+			if result.Rule != tt.expectedRule {
+				t.Errorf("Rule: got %q, want %q", result.Rule, tt.expectedRule)
+			}
+
+			// Foster family should have no discount
+			if result.DiscountFactor != 1.0 {
+				t.Errorf("DiscountFactor: got %v, want 1.0", result.DiscountFactor)
+			}
+
+			// Foster family should not show Entlastung link
+			if result.ShowEntlastung != false {
+				t.Errorf("ShowEntlastung: got %v, want false", result.ShowEntlastung)
+			}
+		})
+	}
+}
+
+func TestCalculateAverageSatzungRate(t *testing.T) {
+	// Test the helper function directly
+	tests := []struct {
+		hours       int
+		expectedAvg float64
+		tolerance   float64
+	}{
+		{30, 179.62, 0.02}, // index 0
+		{45, 246.98, 0.02}, // index 3
+		{55, 291.89, 0.02}, // index 5
+	}
+
+	for _, tt := range tests {
+		t.Run("hours_"+string(rune('0'+tt.hours/10))+string(rune('0'+tt.hours%10)), func(t *testing.T) {
+			result := calculateAverageSatzungRate(tt.hours)
+			if math.Abs(result-tt.expectedAvg) > tt.tolerance {
+				t.Errorf("calculateAverageSatzungRate(%d): got %v, want %v", tt.hours, result, tt.expectedAvg)
+			}
+		})
+	}
+}
+
 func TestGetSiblingDiscountFactor(t *testing.T) {
 	tests := []struct {
 		siblings int

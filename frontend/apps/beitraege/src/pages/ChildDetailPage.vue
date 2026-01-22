@@ -430,6 +430,8 @@ function getIncomeStatusLabel(status?: IncomeStatus): string {
       return 'Nicht erforderlich (Kind >3J bei Eintritt)';
     case 'HISTORIC':
       return 'Historisch (Kind jetzt >3J)';
+    case 'FOSTER_FAMILY':
+      return 'Pflegefamilie (Durchschnittsbeitrag)';
     default:
       return 'Nicht festgelegt';
   }
@@ -442,6 +444,7 @@ const incomeStatusOptions: { value: IncomeStatus; label: string }[] = [
   { value: 'PENDING', label: 'Dokumente ausstehend' },
   { value: 'NOT_REQUIRED', label: 'Nicht erforderlich (Kind >3J bei Eintritt)' },
   { value: 'HISTORIC', label: 'Historisch (Kind jetzt >3J)' },
+  { value: 'FOSTER_FAMILY', label: 'Pflegefamilie (Durchschnittsbeitrag)' },
 ];
 </script>
 

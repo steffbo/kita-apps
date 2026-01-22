@@ -22,6 +22,8 @@ const (
 	IncomeStatusNotRequired IncomeStatus = "NOT_REQUIRED"
 	// IncomeStatusHistoric - child is now >3y, income kept for historic reference only
 	IncomeStatusHistoric IncomeStatus = "HISTORIC"
+	// IncomeStatusFosterFamily - foster family, fee is average of all Satzung rates for care hours
+	IncomeStatusFosterFamily IncomeStatus = "FOSTER_FAMILY"
 )
 
 // Parent represents a parent or guardian of a child.

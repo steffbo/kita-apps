@@ -78,7 +78,7 @@ export interface UpdateChildRequest {
 }
 
 // Parents
-export type IncomeStatus = '' | 'PROVIDED' | 'MAX_ACCEPTED' | 'PENDING' | 'NOT_REQUIRED' | 'HISTORIC';
+export type IncomeStatus = '' | 'PROVIDED' | 'MAX_ACCEPTED' | 'PENDING' | 'NOT_REQUIRED' | 'HISTORIC' | 'FOSTER_FAMILY';
 
 export interface Parent {
   id: string;

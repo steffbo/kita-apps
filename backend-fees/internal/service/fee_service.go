@@ -172,6 +172,16 @@ func (s *FeeService) Generate(ctx context.Context, year int, month *int) (*Gener
 
 			// Childcare fee (only U3)
 			if child.IsUnderThree(checkDate) {
+				// Check if foster family
+				isFosterFamily := false
+				parents, _ := s.childRepo.GetParents(ctx, child.ID)
+				for _, parent := range parents {
+					if parent.IncomeStatus == domain.IncomeStatusFosterFamily {
+						isFosterFamily = true
+						break
+					}
+				}
+
 				// Use default calculation with no income info
 				feeResult := s.CalculateChildcareFee(domain.ChildcareFeeInput{
 					ChildAgeType:  domain.ChildAgeTypeKrippe,
@@ -179,6 +189,7 @@ func (s *FeeService) Generate(ctx context.Context, year int, month *int) (*Gener
 					SiblingsCount: 1,
 					CareHours:     45,
 					HighestRate:   false,
+					FosterFamily:  isFosterFamily,
 				})
 				created, err := s.createFeeIfNotExists(ctx, child.ID, domain.FeeTypeChildcare, year, month, feeResult.Fee, dueDate)
 				if err != nil {
@@ -298,6 +309,20 @@ func (s *FeeService) CalculateChildcareFee(input domain.ChildcareFeeInput) *doma
 	}
 
 	// Krippe (< 3 years)
+
+	// Foster family: average of all Satzung rates for the care hours (no sibling discount)
+	if input.FosterFamily {
+		avgFee := calculateAverageSatzungRate(input.CareHours)
+		return &domain.ChildcareFeeResult{
+			Fee:             roundToTwoDecimals(avgFee),
+			BaseFee:         avgFee,
+			Rule:            "Pflegefamilie (Durchschnittsbeitrag)",
+			DiscountFactor:  1.0,
+			DiscountPercent: 0,
+			ShowEntlastung:  false,
+			Notes:           []string{"Beitrag ist der Durchschnitt aller Sätze für die entsprechende Betreuungszeit."},
+		}
+	}
 
 	// 7+ children: free
 	if input.SiblingsCount >= meta.SiblingsFreeThreshold {
@@ -434,6 +459,24 @@ func findRateInTable(table []domain.FeeTableRow, income float64, hours int) floa
 	}
 
 	return 0
+}
+
+// calculateAverageSatzungRate calculates the average of all Satzung rates for the given care hours.
+// Used for foster family fee calculation.
+func calculateAverageSatzungRate(hours int) float64 {
+	idx := hoursToIndex(hours)
+	table := domain.FeeTableKrippeSatzung
+
+	var sum float64
+	for _, row := range table {
+		sum += row.Rates[idx]
+	}
+
+	if len(table) == 0 {
+		return 0
+	}
+
+	return sum / float64(len(table))
 }
 
 // getSiblingDiscountFactor returns the discount factor based on number of siblings.

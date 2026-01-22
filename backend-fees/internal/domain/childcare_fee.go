@@ -83,6 +83,7 @@ type ChildcareFeeInput struct {
 	SiblingsCount int          `json:"siblingsCount"` // Number of children in household (including this child)
 	CareHours     int          `json:"careHours"`     // Weekly care hours (30, 35, 40, 45, 50, or 55)
 	HighestRate   bool         `json:"highestRate"`   // Voluntarily pay highest rate (no income check)
+	FosterFamily  bool         `json:"fosterFamily"`  // Foster family: fee is average of all Satzung rates
 }
 
 // ChildcareFeeResult represents the result of childcare fee calculation.
