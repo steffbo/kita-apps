@@ -33,6 +33,7 @@ type CreateParentRequest struct {
 	PostalCode            *string  `json:"postalCode,omitempty"`
 	City                  *string  `json:"city,omitempty"`
 	AnnualHouseholdIncome *float64 `json:"annualHouseholdIncome,omitempty"`
+	IncomeStatus          *string  `json:"incomeStatus,omitempty"`
 }
 
 // List handles GET /parents
@@ -73,6 +74,7 @@ func (h *ParentHandler) Create(w http.ResponseWriter, r *http.Request) {
 		PostalCode:            req.PostalCode,
 		City:                  req.City,
 		AnnualHouseholdIncome: req.AnnualHouseholdIncome,
+		IncomeStatus:          req.IncomeStatus,
 	})
 	if err != nil {
 		response.InternalError(w, "failed to create parent")
@@ -115,6 +117,7 @@ type UpdateParentRequest struct {
 	PostalCode            *string  `json:"postalCode,omitempty"`
 	City                  *string  `json:"city,omitempty"`
 	AnnualHouseholdIncome *float64 `json:"annualHouseholdIncome,omitempty"`
+	IncomeStatus          *string  `json:"incomeStatus,omitempty"`
 }
 
 // Update handles PUT /parents/{id}
@@ -142,6 +145,7 @@ func (h *ParentHandler) Update(w http.ResponseWriter, r *http.Request) {
 		PostalCode:            req.PostalCode,
 		City:                  req.City,
 		AnnualHouseholdIncome: req.AnnualHouseholdIncome,
+		IncomeStatus:          req.IncomeStatus,
 	})
 	if err != nil {
 		if err == service.ErrNotFound {

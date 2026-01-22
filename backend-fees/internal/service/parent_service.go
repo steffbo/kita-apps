@@ -36,6 +36,7 @@ type CreateParentInput struct {
 	PostalCode            *string
 	City                  *string
 	AnnualHouseholdIncome *float64
+	IncomeStatus          *string
 }
 
 // UpdateParentInput defines input for updating a parent.
@@ -50,6 +51,7 @@ type UpdateParentInput struct {
 	PostalCode            *string
 	City                  *string
 	AnnualHouseholdIncome *float64
+	IncomeStatus          *string
 }
 
 // List returns parents matching the search term.
@@ -95,6 +97,7 @@ func (s *ParentService) Create(ctx context.Context, input CreateParentInput) (*d
 		PostalCode:            input.PostalCode,
 		City:                  input.City,
 		AnnualHouseholdIncome: input.AnnualHouseholdIncome,
+		IncomeStatus:          domain.IncomeStatus(stringOrEmpty(input.IncomeStatus)),
 		CreatedAt:             time.Now(),
 		UpdatedAt:             time.Now(),
 	}
@@ -147,6 +150,9 @@ func (s *ParentService) Update(ctx context.Context, id uuid.UUID, input UpdatePa
 	if input.AnnualHouseholdIncome != nil {
 		parent.AnnualHouseholdIncome = input.AnnualHouseholdIncome
 	}
+	if input.IncomeStatus != nil {
+		parent.IncomeStatus = domain.IncomeStatus(*input.IncomeStatus)
+	}
 
 	if err := s.parentRepo.Update(ctx, parent); err != nil {
 		return nil, err
@@ -163,4 +169,12 @@ func (s *ParentService) Delete(ctx context.Context, id uuid.UUID) error {
 	}
 
 	return s.parentRepo.Delete(ctx, id)
+}
+
+// stringOrEmpty returns the string value or empty string if nil.
+func stringOrEmpty(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }

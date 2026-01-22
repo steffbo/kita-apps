@@ -75,6 +75,8 @@ export interface UpdateChildRequest {
 }
 
 // Parents
+export type IncomeStatus = '' | 'PROVIDED' | 'MAX_ACCEPTED' | 'PENDING' | 'NOT_REQUIRED' | 'HISTORIC';
+
 export interface Parent {
   id: string;
   firstName: string;
@@ -87,6 +89,7 @@ export interface Parent {
   postalCode?: string;
   city?: string;
   annualHouseholdIncome?: number;
+  incomeStatus?: IncomeStatus;
   createdAt: string;
   updatedAt: string;
   children?: Child[];
@@ -103,6 +106,7 @@ export interface CreateParentRequest {
   postalCode?: string;
   city?: string;
   annualHouseholdIncome?: number;
+  incomeStatus?: IncomeStatus;
 }
 
 export interface UpdateParentRequest {
@@ -116,6 +120,7 @@ export interface UpdateParentRequest {
   postalCode?: string;
   city?: string;
   annualHouseholdIncome?: number;
+  incomeStatus?: IncomeStatus;
 }
 
 // Fees
@@ -268,3 +273,104 @@ export interface DismissResult {
   iban: string;
   transactionsRemoved: number;
 }
+
+// Child Import Types
+export interface ChildImportParseResult {
+  headers: string[];
+  sampleRows: string[][];
+  detectedSeparator: string;
+  totalRows: number;
+}
+
+export interface ChildImportPreviewRequest {
+  fileContent: string; // Base64 encoded CSV content
+  separator: string;
+  mapping: Record<string, number>; // systemField -> csvColumnIndex
+  skipHeader: boolean;
+}
+
+export interface ChildPreview {
+  memberNumber: string;
+  firstName: string;
+  lastName: string;
+  birthDate: string;
+  entryDate: string;
+  street?: string;
+  streetNo?: string;
+  postalCode?: string;
+  city?: string;
+  legalHours?: number;
+  careHours?: number;
+}
+
+export interface ParentMatch {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email?: string;
+}
+
+export interface ParentPreview {
+  firstName: string;
+  lastName: string;
+  email?: string;
+  phone?: string;
+  existingMatches?: ParentMatch[];
+}
+
+export interface ChildImportPreviewRow {
+  index: number;
+  child: ChildPreview;
+  parent1?: ParentPreview;
+  parent2?: ParentPreview;
+  warnings: string[];
+  isDuplicate: boolean;
+  existingChildId?: string;
+  isValid: boolean;
+}
+
+export interface ChildImportPreviewResult {
+  rows: ChildImportPreviewRow[];
+  validCount: number;
+  errorCount: number;
+}
+
+export interface ChildImportRow {
+  index: number;
+  child: ChildPreview;
+  parent1?: ParentPreview;
+  parent2?: ParentPreview;
+}
+
+export interface ParentDecision {
+  rowIndex: number;
+  parentIndex: 1 | 2;
+  action: 'create' | 'link';
+  existingParentId?: string;
+}
+
+export interface ChildImportExecuteRequest {
+  rows: ChildImportRow[];
+  parentDecisions: ParentDecision[];
+}
+
+export interface ChildImportError {
+  rowIndex: number;
+  error: string;
+}
+
+export interface ChildImportExecuteResult {
+  childrenCreated: number;
+  parentsCreated: number;
+  parentsLinked: number;
+  errors: ChildImportError[];
+}
+
+// System fields for mapping UI
+export interface SystemField {
+  key: string;
+  label: string;
+  required: boolean;
+  group: 'child' | 'parent1' | 'parent2';
+}
+

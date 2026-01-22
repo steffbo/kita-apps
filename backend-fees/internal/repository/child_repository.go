@@ -150,7 +150,7 @@ func (r *PostgresChildRepository) GetParents(ctx context.Context, childID uuid.U
 	err := r.db.SelectContext(ctx, &parents, `
 		SELECT p.id, p.first_name, p.last_name, p.birth_date, p.email, p.phone,
 		       p.street, p.street_no, p.postal_code, p.city,
-		       p.annual_household_income, p.created_at, p.updated_at
+		       p.annual_household_income, p.income_status, p.created_at, p.updated_at
 		FROM fees.parents p
 		INNER JOIN fees.child_parents cp ON p.id = cp.parent_id
 		WHERE cp.child_id = $1

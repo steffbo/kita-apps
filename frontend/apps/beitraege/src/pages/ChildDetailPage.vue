@@ -2,7 +2,7 @@
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api';
-import type { Child, FeeExpectation, UpdateChildRequest, Parent, CreateParentRequest, UpdateParentRequest, BankTransaction } from '@/api/types';
+import type { Child, FeeExpectation, UpdateChildRequest, Parent, CreateParentRequest, UpdateParentRequest, BankTransaction, IncomeStatus } from '@/api/types';
 import {
   ArrowLeft,
   Edit,
@@ -380,6 +380,7 @@ function startEditingParent() {
     postalCode: selectedParentForDetail.value.postalCode,
     city: selectedParentForDetail.value.city,
     annualHouseholdIncome: selectedParentForDetail.value.annualHouseholdIncome,
+    incomeStatus: selectedParentForDetail.value.incomeStatus || '',
   };
   isEditingParent.value = true;
 }
@@ -415,6 +416,32 @@ function formatIncome(income?: number): string {
     maximumFractionDigits: 0,
   }).format(income);
 }
+
+function getIncomeStatusLabel(status?: IncomeStatus): string {
+  switch (status) {
+    case 'PROVIDED':
+      return 'Einkommen angegeben';
+    case 'MAX_ACCEPTED':
+      return 'Höchstsatz akzeptiert';
+    case 'PENDING':
+      return 'Dokumente ausstehend';
+    case 'NOT_REQUIRED':
+      return 'Nicht erforderlich (Kind >3J bei Eintritt)';
+    case 'HISTORIC':
+      return 'Historisch (Kind jetzt >3J)';
+    default:
+      return 'Nicht festgelegt';
+  }
+}
+
+const incomeStatusOptions: { value: IncomeStatus; label: string }[] = [
+  { value: '', label: 'Nicht festgelegt' },
+  { value: 'PROVIDED', label: 'Einkommen angegeben' },
+  { value: 'MAX_ACCEPTED', label: 'Höchstsatz akzeptiert' },
+  { value: 'PENDING', label: 'Dokumente ausstehend' },
+  { value: 'NOT_REQUIRED', label: 'Nicht erforderlich (Kind >3J bei Eintritt)' },
+  { value: 'HISTORIC', label: 'Historisch (Kind jetzt >3J)' },
+];
 </script>
 
 <template>
@@ -1312,9 +1339,13 @@ function formatIncome(income?: number): string {
             <p class="text-gray-600">{{ selectedParentForDetail.postalCode }} {{ selectedParentForDetail.city }}</p>
           </div>
 
-          <div>
-            <p class="text-sm text-gray-500">Jahreshaushaltseinkommen</p>
-            <p class="font-medium">{{ formatIncome(selectedParentForDetail.annualHouseholdIncome) }}</p>
+          <div class="pt-4 border-t">
+            <p class="text-sm text-gray-500 mb-1">Einkommensstatus</p>
+            <p class="font-medium">{{ getIncomeStatusLabel(selectedParentForDetail.incomeStatus) }}</p>
+            <div v-if="selectedParentForDetail.incomeStatus === 'PROVIDED' || selectedParentForDetail.incomeStatus === 'HISTORIC'" class="mt-2">
+              <p class="text-sm text-gray-500">Jahreshaushaltseinkommen</p>
+              <p class="font-medium">{{ formatIncome(selectedParentForDetail.annualHouseholdIncome) }}</p>
+            </div>
           </div>
 
           <div class="pt-4 border-t text-sm text-gray-500">
@@ -1419,6 +1450,19 @@ function formatIncome(income?: number): string {
           </div>
 
           <div>
+            <label for="parent-edit-incomeStatus" class="block text-sm font-medium text-gray-700 mb-1">Einkommensstatus</label>
+            <select
+              id="parent-edit-incomeStatus"
+              v-model="parentEditForm.incomeStatus"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-white"
+            >
+              <option v-for="option in incomeStatusOptions" :key="option.value" :value="option.value">
+                {{ option.label }}
+              </option>
+            </select>
+          </div>
+
+          <div v-if="parentEditForm.incomeStatus === 'PROVIDED' || parentEditForm.incomeStatus === 'HISTORIC'">
             <label for="parent-edit-income" class="block text-sm font-medium text-gray-700 mb-1">Jahreshaushaltseinkommen</label>
             <input
               id="parent-edit-income"

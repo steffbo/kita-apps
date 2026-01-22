@@ -49,7 +49,7 @@ func (r *PostgresParentRepository) List(ctx context.Context, search string, offs
 	selectQuery := fmt.Sprintf(`
 		SELECT id, first_name, last_name, birth_date, email, phone,
 		       street, street_no, postal_code, city,
-		       annual_household_income, created_at, updated_at
+		       annual_household_income, income_status, created_at, updated_at
 		%s
 		ORDER BY last_name, first_name
 		LIMIT $%d OFFSET $%d
@@ -70,7 +70,7 @@ func (r *PostgresParentRepository) GetByID(ctx context.Context, id uuid.UUID) (*
 	err := r.db.GetContext(ctx, &parent, `
 		SELECT id, first_name, last_name, birth_date, email, phone,
 		       street, street_no, postal_code, city,
-		       annual_household_income, created_at, updated_at
+		       annual_household_income, income_status, created_at, updated_at
 		FROM fees.parents
 		WHERE id = $1
 	`, id)
@@ -88,11 +88,11 @@ func (r *PostgresParentRepository) Create(ctx context.Context, parent *domain.Pa
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO fees.parents (id, first_name, last_name, birth_date, email, phone,
 		                          street, street_no, postal_code, city,
-		                          annual_household_income, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+		                          annual_household_income, income_status, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
 	`, parent.ID, parent.FirstName, parent.LastName, parent.BirthDate, parent.Email, parent.Phone,
 		parent.Street, parent.StreetNo, parent.PostalCode, parent.City,
-		parent.AnnualHouseholdIncome, parent.CreatedAt, parent.UpdatedAt)
+		parent.AnnualHouseholdIncome, parent.IncomeStatus, parent.CreatedAt, parent.UpdatedAt)
 	return err
 }
 
@@ -103,11 +103,11 @@ func (r *PostgresParentRepository) Update(ctx context.Context, parent *domain.Pa
 		UPDATE fees.parents
 		SET first_name = $2, last_name = $3, birth_date = $4, email = $5, phone = $6,
 		    street = $7, street_no = $8, postal_code = $9, city = $10,
-		    annual_household_income = $11, updated_at = $12
+		    annual_household_income = $11, income_status = $12, updated_at = $13
 		WHERE id = $1
 	`, parent.ID, parent.FirstName, parent.LastName, parent.BirthDate, parent.Email, parent.Phone,
 		parent.Street, parent.StreetNo, parent.PostalCode, parent.City,
-		parent.AnnualHouseholdIncome, parent.UpdatedAt)
+		parent.AnnualHouseholdIncome, parent.IncomeStatus, parent.UpdatedAt)
 	return err
 }
 
