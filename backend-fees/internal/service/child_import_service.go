@@ -737,6 +737,18 @@ func (s *ChildImportService) handleParent(ctx context.Context, rowIndex, parentI
 		return parentID, false, nil
 	}
 
+	// Check if parent with same name and email already exists
+	if parent.Email != "" {
+		existingParent, err := s.parentRepo.FindByNameAndEmail(ctx, parent.FirstName, parent.LastName, parent.Email)
+		if err != nil {
+			return uuid.Nil, false, fmt.Errorf("Fehler bei Duplikatprüfung: %v", err)
+		}
+		if existingParent != nil {
+			// Parent already exists, reuse it
+			return existingParent.ID, false, nil
+		}
+	}
+
 	// Create new parent
 	newParent := &domain.Parent{
 		ID:        uuid.New(),

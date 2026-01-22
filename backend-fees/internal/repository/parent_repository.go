@@ -112,6 +112,28 @@ func (r *PostgresParentRepository) GetByID(ctx context.Context, id uuid.UUID) (*
 	return &parent, nil
 }
 
+// FindByNameAndEmail finds a parent by first name, last name, and email.
+// Returns nil if no matching parent is found (not an error).
+func (r *PostgresParentRepository) FindByNameAndEmail(ctx context.Context, firstName, lastName, email string) (*domain.Parent, error) {
+	var parent domain.Parent
+	err := r.db.GetContext(ctx, &parent, `
+		SELECT id, first_name, last_name, birth_date, email, phone,
+		       street, street_no, postal_code, city,
+		       annual_household_income, income_status, created_at, updated_at
+		FROM fees.parents
+		WHERE LOWER(first_name) = LOWER($1) 
+		  AND LOWER(last_name) = LOWER($2) 
+		  AND LOWER(email) = LOWER($3)
+	`, firstName, lastName, email)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil // Not found is not an error
+		}
+		return nil, err
+	}
+	return &parent, nil
+}
+
 // Create creates a new parent.
 func (r *PostgresParentRepository) Create(ctx context.Context, parent *domain.Parent) error {
 	_, err := r.db.ExecContext(ctx, `

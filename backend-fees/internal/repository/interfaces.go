@@ -43,6 +43,7 @@ type ChildRepository interface {
 type ParentRepository interface {
 	List(ctx context.Context, search string, sortBy string, sortDir string, offset, limit int) ([]domain.Parent, int64, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.Parent, error)
+	FindByNameAndEmail(ctx context.Context, firstName, lastName, email string) (*domain.Parent, error)
 	Create(ctx context.Context, parent *domain.Parent) error
 	Update(ctx context.Context, parent *domain.Parent) error
 	Delete(ctx context.Context, id uuid.UUID) error
