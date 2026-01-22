@@ -447,7 +447,7 @@ function goToChild(childId: string) {
                 v-model.number="editForm.annualHouseholdIncome"
                 type="number"
                 min="0"
-                step="1000"
+                step="any"
                 class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
               />
             </div>
