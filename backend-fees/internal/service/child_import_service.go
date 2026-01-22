@@ -61,14 +61,25 @@ type PreviewRequest struct {
 
 // PreviewRow represents a single row in the preview
 type PreviewRow struct {
-	Index           int            `json:"index"`
-	Child           ChildPreview   `json:"child"`
-	Parent1         *ParentPreview `json:"parent1,omitempty"`
-	Parent2         *ParentPreview `json:"parent2,omitempty"`
-	Warnings        []string       `json:"warnings"`
-	IsDuplicate     bool           `json:"isDuplicate"`
-	ExistingChildID *string        `json:"existingChildId,omitempty"`
-	IsValid         bool           `json:"isValid"`
+	Index           int             `json:"index"`
+	Child           ChildPreview    `json:"child"`
+	Parent1         *ParentPreview  `json:"parent1,omitempty"`
+	Parent2         *ParentPreview  `json:"parent2,omitempty"`
+	Warnings        []string        `json:"warnings"`
+	IsDuplicate     bool            `json:"isDuplicate"`
+	ExistingChildID *string         `json:"existingChildId,omitempty"`
+	ExistingChild   *ChildPreview   `json:"existingChild,omitempty"`
+	Action          string          `json:"action"` // "create", "update", "no_change"
+	FieldConflicts  []FieldConflict `json:"fieldConflicts,omitempty"`
+	IsValid         bool            `json:"isValid"`
+}
+
+// FieldConflict represents a conflict between CSV data and existing database data
+type FieldConflict struct {
+	Field         string `json:"field"`
+	FieldLabel    string `json:"fieldLabel"`
+	ExistingValue string `json:"existingValue"`
+	NewValue      string `json:"newValue"`
 }
 
 // ChildPreview contains child data for preview
@@ -93,6 +104,8 @@ type ParentPreview struct {
 	Email           string        `json:"email,omitempty"`
 	Phone           string        `json:"phone,omitempty"`
 	ExistingMatches []ParentMatch `json:"existingMatches,omitempty"`
+	AlreadyLinked   bool          `json:"alreadyLinked,omitempty"`  // True if already linked to the existing child
+	LinkedParentID  *string       `json:"linkedParentId,omitempty"` // ID of the already linked parent
 }
 
 // ParentMatch represents a potential existing parent match
@@ -139,6 +152,7 @@ func (s *ChildImportService) processRow(ctx context.Context, index int, row []st
 		Index:    index,
 		Warnings: []string{},
 		IsValid:  true,
+		Action:   "create", // Default action
 	}
 
 	// Extract child data
@@ -194,57 +208,210 @@ func (s *ChildImportService) processRow(ctx context.Context, index int, row []st
 
 	preview.Child = child
 
-	// Validate required fields
-	if child.MemberNumber == "" {
-		preview.Warnings = append(preview.Warnings, "Mitgliedsnummer fehlt")
-		preview.IsValid = false
-	}
-	if child.FirstName == "" {
-		preview.Warnings = append(preview.Warnings, "Vorname fehlt")
-		preview.IsValid = false
-	}
-	if child.LastName == "" {
-		preview.Warnings = append(preview.Warnings, "Nachname fehlt")
-		preview.IsValid = false
-	}
-	if child.BirthDate == "" {
-		preview.Warnings = append(preview.Warnings, "Geburtsdatum fehlt")
-		preview.IsValid = false
-	}
-	if child.EntryDate == "" {
-		preview.Warnings = append(preview.Warnings, "Eintrittsdatum fehlt")
-		preview.IsValid = false
-	}
-
-	// Check for duplicate member number
+	// Check for existing child by member number first
+	var existingChild *domain.Child
+	var existingParents []domain.Parent
 	if child.MemberNumber != "" {
 		existing, err := s.childRepo.GetByMemberNumber(ctx, child.MemberNumber)
 		if err == nil && existing != nil {
+			existingChild = existing
 			preview.IsDuplicate = true
 			id := existing.ID.String()
 			preview.ExistingChildID = &id
+
+			// Get existing child data for display
+			preview.ExistingChild = &ChildPreview{
+				MemberNumber: existing.MemberNumber,
+				FirstName:    existing.FirstName,
+				LastName:     existing.LastName,
+				BirthDate:    existing.BirthDate.Format("2006-01-02"),
+				EntryDate:    existing.EntryDate.Format("2006-01-02"),
+				Street:       stringOrEmpty(existing.Street),
+				StreetNo:     stringOrEmpty(existing.StreetNo),
+				PostalCode:   stringOrEmpty(existing.PostalCode),
+				City:         stringOrEmpty(existing.City),
+			}
+			if existing.LegalHours != nil {
+				preview.ExistingChild.LegalHours = existing.LegalHours
+			}
+			if existing.CareHours != nil {
+				preview.ExistingChild.CareHours = existing.CareHours
+			}
+
+			// Get existing parents for this child
+			existingParents, _ = s.childRepo.GetParents(ctx, existing.ID)
+
+			// Detect field conflicts
+			preview.FieldConflicts = s.detectFieldConflicts(child, existing)
+
+			// Determine action: "update" if there are conflicts, "no_change" otherwise
+			if len(preview.FieldConflicts) > 0 {
+				preview.Action = "update"
+			} else {
+				preview.Action = "no_change"
+			}
+
+			// For existing children, validation is relaxed - we only need member number
+			// Other fields are optional (we'll use existing values if not provided)
 			preview.Warnings = append(preview.Warnings, fmt.Sprintf("Kind mit Mitgliedsnummer %s existiert bereits", child.MemberNumber))
+		}
+	}
+
+	// Validate required fields - only strictly required for NEW children
+	if existingChild == nil {
+		// For new children, all required fields must be present
+		if child.MemberNumber == "" {
+			preview.Warnings = append(preview.Warnings, "Mitgliedsnummer fehlt")
+			preview.IsValid = false
+		}
+		if child.FirstName == "" {
+			preview.Warnings = append(preview.Warnings, "Vorname fehlt")
+			preview.IsValid = false
+		}
+		if child.LastName == "" {
+			preview.Warnings = append(preview.Warnings, "Nachname fehlt")
+			preview.IsValid = false
+		}
+		if child.BirthDate == "" {
+			preview.Warnings = append(preview.Warnings, "Geburtsdatum fehlt")
+			preview.IsValid = false
+		}
+		if child.EntryDate == "" {
+			preview.Warnings = append(preview.Warnings, "Eintrittsdatum fehlt")
+			preview.IsValid = false
+		}
+	} else {
+		// For existing children, member number must be present
+		if child.MemberNumber == "" {
+			preview.Warnings = append(preview.Warnings, "Mitgliedsnummer fehlt")
+			preview.IsValid = false
 		}
 	}
 
 	// Extract parent 1 data
 	parent1 := s.extractParent(row, mapping, "parent1")
 	if parent1 != nil {
-		// Search for existing parent matches
-		matches := s.findParentMatches(ctx, parent1.FirstName, parent1.LastName)
-		parent1.ExistingMatches = matches
+		// Check if this parent is already linked to the existing child
+		if existingChild != nil {
+			s.checkParentAlreadyLinked(parent1, existingParents)
+		}
+		// Search for existing parent matches (only if not already linked)
+		if !parent1.AlreadyLinked {
+			matches := s.findParentMatches(ctx, parent1.FirstName, parent1.LastName)
+			parent1.ExistingMatches = matches
+		}
 		preview.Parent1 = parent1
 	}
 
 	// Extract parent 2 data
 	parent2 := s.extractParent(row, mapping, "parent2")
 	if parent2 != nil {
-		matches := s.findParentMatches(ctx, parent2.FirstName, parent2.LastName)
-		parent2.ExistingMatches = matches
+		// Check if this parent is already linked to the existing child
+		if existingChild != nil {
+			s.checkParentAlreadyLinked(parent2, existingParents)
+		}
+		// Search for existing parent matches (only if not already linked)
+		if !parent2.AlreadyLinked {
+			matches := s.findParentMatches(ctx, parent2.FirstName, parent2.LastName)
+			parent2.ExistingMatches = matches
+		}
 		preview.Parent2 = parent2
 	}
 
 	return preview
+}
+
+// detectFieldConflicts compares CSV data with existing child data
+func (s *ChildImportService) detectFieldConflicts(csvChild ChildPreview, existing *domain.Child) []FieldConflict {
+	var conflicts []FieldConflict
+
+	// Compare first name
+	if csvChild.FirstName != "" && csvChild.FirstName != existing.FirstName {
+		conflicts = append(conflicts, FieldConflict{
+			Field:         "firstName",
+			FieldLabel:    "Vorname",
+			ExistingValue: existing.FirstName,
+			NewValue:      csvChild.FirstName,
+		})
+	}
+
+	// Compare last name
+	if csvChild.LastName != "" && csvChild.LastName != existing.LastName {
+		conflicts = append(conflicts, FieldConflict{
+			Field:         "lastName",
+			FieldLabel:    "Nachname",
+			ExistingValue: existing.LastName,
+			NewValue:      csvChild.LastName,
+		})
+	}
+
+	// Compare birth date
+	existingBirthDate := existing.BirthDate.Format("2006-01-02")
+	if csvChild.BirthDate != "" && csvChild.BirthDate != existingBirthDate {
+		conflicts = append(conflicts, FieldConflict{
+			Field:         "birthDate",
+			FieldLabel:    "Geburtsdatum",
+			ExistingValue: existingBirthDate,
+			NewValue:      csvChild.BirthDate,
+		})
+	}
+
+	// Compare entry date
+	existingEntryDate := existing.EntryDate.Format("2006-01-02")
+	if csvChild.EntryDate != "" && csvChild.EntryDate != existingEntryDate {
+		conflicts = append(conflicts, FieldConflict{
+			Field:         "entryDate",
+			FieldLabel:    "Eintrittsdatum",
+			ExistingValue: existingEntryDate,
+			NewValue:      csvChild.EntryDate,
+		})
+	}
+
+	// Compare legal hours
+	if csvChild.LegalHours != nil {
+		existingLegal := 0
+		if existing.LegalHours != nil {
+			existingLegal = *existing.LegalHours
+		}
+		if *csvChild.LegalHours != existingLegal {
+			conflicts = append(conflicts, FieldConflict{
+				Field:         "legalHours",
+				FieldLabel:    "Rechtsanspruch",
+				ExistingValue: fmt.Sprintf("%d", existingLegal),
+				NewValue:      fmt.Sprintf("%d", *csvChild.LegalHours),
+			})
+		}
+	}
+
+	// Compare care hours
+	if csvChild.CareHours != nil {
+		existingCare := 0
+		if existing.CareHours != nil {
+			existingCare = *existing.CareHours
+		}
+		if *csvChild.CareHours != existingCare {
+			conflicts = append(conflicts, FieldConflict{
+				Field:         "careHours",
+				FieldLabel:    "Betreuungszeit",
+				ExistingValue: fmt.Sprintf("%d", existingCare),
+				NewValue:      fmt.Sprintf("%d", *csvChild.CareHours),
+			})
+		}
+	}
+
+	return conflicts
+}
+
+// checkParentAlreadyLinked checks if a parent from CSV is already linked to an existing child
+func (s *ChildImportService) checkParentAlreadyLinked(parent *ParentPreview, existingParents []domain.Parent) {
+	for _, ep := range existingParents {
+		if strings.EqualFold(ep.FirstName, parent.FirstName) && strings.EqualFold(ep.LastName, parent.LastName) {
+			parent.AlreadyLinked = true
+			id := ep.ID.String()
+			parent.LinkedParentID = &id
+			return
+		}
+	}
 }
 
 func (s *ChildImportService) extractParent(row []string, mapping map[string]int, prefix string) *ParentPreview {
@@ -284,7 +451,7 @@ func (s *ChildImportService) findParentMatches(ctx context.Context, firstName, l
 
 	// Search by name
 	searchTerm := strings.TrimSpace(firstName + " " + lastName)
-	parents, _, err := s.parentRepo.List(ctx, searchTerm, 0, 5)
+	parents, _, err := s.parentRepo.List(ctx, searchTerm, "name", "asc", 0, 5)
 	if err != nil {
 		return nil
 	}
@@ -313,10 +480,13 @@ type ExecuteRequest struct {
 
 // ImportRow is a row to be imported
 type ImportRow struct {
-	Index   int            `json:"index"`
-	Child   ChildPreview   `json:"child"`
-	Parent1 *ParentPreview `json:"parent1,omitempty"`
-	Parent2 *ParentPreview `json:"parent2,omitempty"`
+	Index           int               `json:"index"`
+	Child           ChildPreview      `json:"child"`
+	Parent1         *ParentPreview    `json:"parent1,omitempty"`
+	Parent2         *ParentPreview    `json:"parent2,omitempty"`
+	ExistingChildID *string           `json:"existingChildId,omitempty"` // Set when merging/updating existing child
+	MergeParents    bool              `json:"mergeParents,omitempty"`    // True if only adding parents to existing child
+	FieldUpdates    map[string]string `json:"fieldUpdates,omitempty"`    // Field -> value for updates (from conflict resolution)
 }
 
 // ParentDecision indicates how to handle a parent
@@ -330,6 +500,7 @@ type ParentDecision struct {
 // ExecuteResult contains the import results
 type ExecuteResult struct {
 	ChildrenCreated int           `json:"childrenCreated"`
+	ChildrenUpdated int           `json:"childrenUpdated"`
 	ParentsCreated  int           `json:"parentsCreated"`
 	ParentsLinked   int           `json:"parentsLinked"`
 	Errors          []ImportError `json:"errors"`
@@ -355,82 +526,163 @@ func (s *ChildImportService) Execute(ctx context.Context, req *ExecuteRequest) (
 	}
 
 	for _, row := range req.Rows {
-		// Parse dates
-		birthDate, err := time.Parse("2006-01-02", row.Child.BirthDate)
-		if err != nil {
-			result.Errors = append(result.Errors, ImportError{
-				RowIndex: row.Index,
-				Error:    "Ungültiges Geburtsdatum",
-			})
-			continue
-		}
+		var childID uuid.UUID
+		var isExistingChild bool
 
-		entryDate, err := time.Parse("2006-01-02", row.Child.EntryDate)
-		if err != nil {
-			result.Errors = append(result.Errors, ImportError{
-				RowIndex: row.Index,
-				Error:    "Ungültiges Eintrittsdatum",
-			})
-			continue
-		}
-
-		// Create child
-		child := &domain.Child{
-			ID:           uuid.New(),
-			MemberNumber: row.Child.MemberNumber,
-			FirstName:    row.Child.FirstName,
-			LastName:     row.Child.LastName,
-			BirthDate:    birthDate,
-			EntryDate:    entryDate,
-			Street:       stringPtr(row.Child.Street),
-			StreetNo:     stringPtr(row.Child.StreetNo),
-			PostalCode:   stringPtr(row.Child.PostalCode),
-			City:         stringPtr(row.Child.City),
-			IsActive:     true,
-			CreatedAt:    time.Now(),
-			UpdatedAt:    time.Now(),
-		}
-
-		if row.Child.LegalHours != nil {
-			child.LegalHours = row.Child.LegalHours
-		}
-		if row.Child.CareHours != nil {
-			child.CareHours = row.Child.CareHours
-		}
-
-		err = s.childRepo.Create(ctx, child)
-		if err != nil {
-			result.Errors = append(result.Errors, ImportError{
-				RowIndex: row.Index,
-				Error:    fmt.Sprintf("Fehler beim Erstellen: %v", err),
-			})
-			continue
-		}
-
-		result.ChildrenCreated++
-
-		// Handle parent 1
-		if row.Parent1 != nil && row.Parent1.FirstName != "" && row.Parent1.LastName != "" {
-			parentID, created, err := s.handleParent(ctx, row.Index, 1, row.Parent1, parentDecisionMap)
+		// Check if this is an update/merge for an existing child
+		if row.ExistingChildID != nil && *row.ExistingChildID != "" {
+			existingID, err := uuid.Parse(*row.ExistingChildID)
 			if err != nil {
 				result.Errors = append(result.Errors, ImportError{
 					RowIndex: row.Index,
-					Error:    fmt.Sprintf("Fehler bei Elternteil 1: %v", err),
+					Error:    "Ungültige Kind-ID",
 				})
-			} else if parentID != uuid.Nil {
-				// Link parent to child
-				isPrimary := true // First parent is primary
-				err = s.childRepo.LinkParent(ctx, child.ID, parentID, isPrimary)
+				continue
+			}
+
+			// Get existing child
+			existingChild, err := s.childRepo.GetByID(ctx, existingID)
+			if err != nil {
+				result.Errors = append(result.Errors, ImportError{
+					RowIndex: row.Index,
+					Error:    fmt.Sprintf("Kind nicht gefunden: %v", err),
+				})
+				continue
+			}
+
+			childID = existingID
+			isExistingChild = true
+
+			// If not just merging parents, update child fields
+			if !row.MergeParents && len(row.FieldUpdates) > 0 {
+				// Apply field updates
+				updated := false
+				for field, value := range row.FieldUpdates {
+					switch field {
+					case "firstName":
+						existingChild.FirstName = value
+						updated = true
+					case "lastName":
+						existingChild.LastName = value
+						updated = true
+					case "birthDate":
+						if t, err := time.Parse("2006-01-02", value); err == nil {
+							existingChild.BirthDate = t
+							updated = true
+						}
+					case "entryDate":
+						if t, err := time.Parse("2006-01-02", value); err == nil {
+							existingChild.EntryDate = t
+							updated = true
+						}
+					case "legalHours":
+						if hours, err := csvparser.ParseInt(value); err == nil {
+							existingChild.LegalHours = &hours
+							updated = true
+						}
+					case "careHours":
+						if hours, err := csvparser.ParseInt(value); err == nil {
+							existingChild.CareHours = &hours
+							updated = true
+						}
+					}
+				}
+
+				if updated {
+					err = s.childRepo.Update(ctx, existingChild)
+					if err != nil {
+						result.Errors = append(result.Errors, ImportError{
+							RowIndex: row.Index,
+							Error:    fmt.Sprintf("Fehler beim Aktualisieren: %v", err),
+						})
+						continue
+					}
+					result.ChildrenUpdated++
+				}
+			}
+		} else {
+			// Create new child
+			birthDate, err := time.Parse("2006-01-02", row.Child.BirthDate)
+			if err != nil {
+				result.Errors = append(result.Errors, ImportError{
+					RowIndex: row.Index,
+					Error:    "Ungültiges Geburtsdatum",
+				})
+				continue
+			}
+
+			entryDate, err := time.Parse("2006-01-02", row.Child.EntryDate)
+			if err != nil {
+				result.Errors = append(result.Errors, ImportError{
+					RowIndex: row.Index,
+					Error:    "Ungültiges Eintrittsdatum",
+				})
+				continue
+			}
+
+			child := &domain.Child{
+				ID:           uuid.New(),
+				MemberNumber: row.Child.MemberNumber,
+				FirstName:    row.Child.FirstName,
+				LastName:     row.Child.LastName,
+				BirthDate:    birthDate,
+				EntryDate:    entryDate,
+				Street:       stringPtr(row.Child.Street),
+				StreetNo:     stringPtr(row.Child.StreetNo),
+				PostalCode:   stringPtr(row.Child.PostalCode),
+				City:         stringPtr(row.Child.City),
+				IsActive:     true,
+				CreatedAt:    time.Now(),
+				UpdatedAt:    time.Now(),
+			}
+
+			if row.Child.LegalHours != nil {
+				child.LegalHours = row.Child.LegalHours
+			}
+			if row.Child.CareHours != nil {
+				child.CareHours = row.Child.CareHours
+			}
+
+			err = s.childRepo.Create(ctx, child)
+			if err != nil {
+				result.Errors = append(result.Errors, ImportError{
+					RowIndex: row.Index,
+					Error:    fmt.Sprintf("Fehler beim Erstellen: %v", err),
+				})
+				continue
+			}
+
+			childID = child.ID
+			result.ChildrenCreated++
+		}
+
+		// Handle parent 1
+		if row.Parent1 != nil && row.Parent1.FirstName != "" && row.Parent1.LastName != "" {
+			// Skip if already linked
+			if row.Parent1.AlreadyLinked {
+				// Parent already linked, nothing to do
+			} else {
+				parentID, created, err := s.handleParent(ctx, row.Index, 1, row.Parent1, parentDecisionMap)
 				if err != nil {
 					result.Errors = append(result.Errors, ImportError{
 						RowIndex: row.Index,
-						Error:    fmt.Sprintf("Fehler beim Verknüpfen von Elternteil 1: %v", err),
+						Error:    fmt.Sprintf("Fehler bei Elternteil 1: %v", err),
 					})
-				} else {
-					if created {
-						result.ParentsCreated++
+				} else if parentID != uuid.Nil {
+					// Link parent to child
+					isPrimary := !isExistingChild // First parent is primary only for new children
+					err = s.childRepo.LinkParent(ctx, childID, parentID, isPrimary)
+					if err != nil {
+						result.Errors = append(result.Errors, ImportError{
+							RowIndex: row.Index,
+							Error:    fmt.Sprintf("Fehler beim Verknüpfen von Elternteil 1: %v", err),
+						})
 					} else {
-						result.ParentsLinked++
+						if created {
+							result.ParentsCreated++
+						} else {
+							result.ParentsLinked++
+						}
 					}
 				}
 			}
@@ -438,26 +690,31 @@ func (s *ChildImportService) Execute(ctx context.Context, req *ExecuteRequest) (
 
 		// Handle parent 2
 		if row.Parent2 != nil && row.Parent2.FirstName != "" && row.Parent2.LastName != "" {
-			parentID, created, err := s.handleParent(ctx, row.Index, 2, row.Parent2, parentDecisionMap)
-			if err != nil {
-				result.Errors = append(result.Errors, ImportError{
-					RowIndex: row.Index,
-					Error:    fmt.Sprintf("Fehler bei Elternteil 2: %v", err),
-				})
-			} else if parentID != uuid.Nil {
-				// Link parent to child
-				isPrimary := false // Second parent is not primary
-				err = s.childRepo.LinkParent(ctx, child.ID, parentID, isPrimary)
+			// Skip if already linked
+			if row.Parent2.AlreadyLinked {
+				// Parent already linked, nothing to do
+			} else {
+				parentID, created, err := s.handleParent(ctx, row.Index, 2, row.Parent2, parentDecisionMap)
 				if err != nil {
 					result.Errors = append(result.Errors, ImportError{
 						RowIndex: row.Index,
-						Error:    fmt.Sprintf("Fehler beim Verknüpfen von Elternteil 2: %v", err),
+						Error:    fmt.Sprintf("Fehler bei Elternteil 2: %v", err),
 					})
-				} else {
-					if created {
-						result.ParentsCreated++
+				} else if parentID != uuid.Nil {
+					// Link parent to child
+					isPrimary := false // Second parent is not primary
+					err = s.childRepo.LinkParent(ctx, childID, parentID, isPrimary)
+					if err != nil {
+						result.Errors = append(result.Errors, ImportError{
+							RowIndex: row.Index,
+							Error:    fmt.Sprintf("Fehler beim Verknüpfen von Elternteil 2: %v", err),
+						})
 					} else {
-						result.ParentsLinked++
+						if created {
+							result.ParentsCreated++
+						} else {
+							result.ParentsLinked++
+						}
 					}
 				}
 			}

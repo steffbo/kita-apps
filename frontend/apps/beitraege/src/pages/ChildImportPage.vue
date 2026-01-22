@@ -5,6 +5,7 @@ import { api } from '@/api';
 import type {
   ChildImportParseResult,
   ChildImportPreviewResult,
+  ChildImportPreviewRow,
   ChildImportExecuteResult,
   ParentDecision,
   SystemField,
@@ -16,11 +17,17 @@ import {
   Loader2,
   Check,
   AlertTriangle,
+  AlertCircle,
   FileSpreadsheet,
   Users,
   CheckCircle,
   XCircle,
   Plus,
+  Pencil,
+  X,
+  GitMerge,
+  Link,
+  RefreshCw,
 } from 'lucide-vue-next';
 
 const router = useRouter();
@@ -42,9 +49,27 @@ const mapping = ref<Record<string, number>>({});
 const previewResult = ref<ChildImportPreviewResult | null>(null);
 const selectedRows = ref<Set<number>>(new Set());
 const parentDecisions = ref<Map<string, ParentDecision>>(new Map());
+// Track member numbers that exist in the database (detected as duplicates on initial preview)
+const existingMemberNumbers = ref<Set<string>>(new Set());
+// Track which duplicate rows should merge parents into existing child
+const mergeRows = ref<Set<number>>(new Set());
+// Track field conflict resolutions: Map<"rowIndex-field", "existing" | "new">
+const conflictResolutions = ref<Map<string, 'existing' | 'new'>>(new Map());
 
 // Step 4: Results
 const executeResult = ref<ChildImportExecuteResult | null>(null);
+
+// Inline editing state
+const editingRow = ref<number | null>(null);
+const editedData = ref<{
+  memberNumber: string;
+  firstName: string;
+  lastName: string;
+  birthDate: string;
+  entryDate: string;
+  legalHours?: number;
+  careHours?: number;
+} | null>(null);
 
 // System fields for mapping
 const systemFields: SystemField[] = [
@@ -77,17 +102,47 @@ const parent1Fields = computed(() => systemFields.filter(f => f.group === 'paren
 const parent2Fields = computed(() => systemFields.filter(f => f.group === 'parent2'));
 
 // Check if all required fields are mapped
+// For preview, we only REQUIRE member number - other fields are needed only for NEW children
+// The backend will validate each row and show which ones need more data
 const allRequiredFieldsMapped = computed(() => {
-  const required = systemFields.filter(f => f.required);
-  return required.every(f => mapping.value[f.key] !== undefined);
+  // Member number is always required to identify the child
+  return mapping.value['memberNumber'] !== undefined;
 });
 
-// Get the count of selected valid rows
+// Check if all fields for creating NEW children are mapped
+const allNewChildFieldsMapped = computed(() => {
+  const requiredForNew = ['memberNumber', 'firstName', 'lastName', 'birthDate', 'entryDate'];
+  return requiredForNew.every(key => mapping.value[key] !== undefined);
+});
+
+// Get the count of selected valid rows (including merge rows)
 const selectedValidCount = computed(() => {
   if (!previewResult.value) return 0;
   return previewResult.value.rows.filter(r => 
-    selectedRows.value.has(r.index) && r.isValid && !r.isDuplicate
+    (selectedRows.value.has(r.index) && r.isValid && !r.isDuplicate) ||
+    mergeRows.value.has(r.index)
   ).length;
+});
+
+// Get the count of merge rows
+const mergeRowsCount = computed(() => mergeRows.value.size);
+
+// Sort preview rows: problems (invalid/duplicate without merge) first, then mergeable, then valid rows
+const sortedPreviewRows = computed(() => {
+  if (!previewResult.value) return [];
+  return [...previewResult.value.rows].sort((a, b) => {
+    const aIsMerge = mergeRows.value.has(a.index);
+    const bIsMerge = mergeRows.value.has(b.index);
+    const aHasProblems = (!a.isValid || a.isDuplicate) && !aIsMerge;
+    const bHasProblems = (!b.isValid || b.isDuplicate) && !bIsMerge;
+    
+    // Problems first (duplicates not marked for merge)
+    if (aHasProblems && !bHasProblems) return -1;
+    if (!aHasProblems && bHasProblems) return 1;
+    
+    // Within same category, sort by original index
+    return a.index - b.index;
+  });
 });
 
 // ESC key handler
@@ -180,40 +235,59 @@ function readFileAsBase64(file: File): Promise<string> {
 function autoDetectMapping(headers: string[]) {
   const newMapping: Record<string, number> = {};
   
-  const mappingRules: Record<string, string[]> = {
-    memberNumber: ['mitgliedsnummer', 'mitglieds-nr', 'mitgliedsnr', 'member', 'nr'],
-    firstName: ['vorname', 'first', 'firstname', 'kind vorname'],
-    lastName: ['nachname', 'name', 'last', 'lastname', 'kind nachname', 'familienname'],
-    birthDate: ['geburtsdatum', 'geburtstag', 'birth', 'geb'],
-    entryDate: ['eintrittsdatum', 'eintritt', 'entry', 'aufnahme', 'start'],
-    street: ['straße', 'strasse', 'street'],
-    streetNo: ['hausnummer', 'hausnr', 'haus-nr', 'nr.'],
-    postalCode: ['plz', 'postleitzahl', 'postal'],
-    city: ['ort', 'stadt', 'city', 'wohnort'],
-    legalHours: ['rechtsanspruch', 'legal'],
-    careHours: ['betreuungszeit', 'betreuung', 'stunden'],
-    parent1FirstName: ['elternteil 1 vorname', 'mutter vorname', 'vater vorname', 'erz1 vorname'],
-    parent1LastName: ['elternteil 1 nachname', 'mutter nachname', 'vater nachname', 'erz1 nachname'],
-    parent1Email: ['elternteil 1 email', 'mutter email', 'vater email', 'erz1 email', 'email 1'],
-    parent1Phone: ['elternteil 1 telefon', 'mutter telefon', 'vater telefon', 'erz1 telefon', 'telefon 1'],
-    parent2FirstName: ['elternteil 2 vorname', 'erz2 vorname'],
-    parent2LastName: ['elternteil 2 nachname', 'erz2 nachname'],
-    parent2Email: ['elternteil 2 email', 'erz2 email', 'email 2'],
-    parent2Phone: ['elternteil 2 telefon', 'erz2 telefon', 'telefon 2'],
-  };
+  // Mapping rules with patterns - order matters for tie-breaking but the actual matching
+  // is done by finding exact or best matches for each header
+  const mappingRules: [string, string[]][] = [
+    // Parent 1 fields
+    ['parent1FirstName', ['elternteil 1 vorname', 'eltern 1 vorname', 'mutter vorname', 'vater vorname', 'erz1 vorname', 'eltern1vorname']],
+    ['parent1LastName', ['elternteil 1 nachname', 'eltern 1 nachname', 'mutter nachname', 'vater nachname', 'erz1 nachname', 'eltern1nachname']],
+    ['parent1Email', ['elternteil 1 email', 'eltern 1 email', 'mutter email', 'vater email', 'erz1 email', 'email 1']],
+    ['parent1Phone', ['elternteil 1 telefon', 'eltern 1 telefon', 'mutter telefon', 'vater telefon', 'erz1 telefon', 'telefon 1']],
+    // Parent 2 fields
+    ['parent2FirstName', ['elternteil 2 vorname', 'eltern 2 vorname', 'erz2 vorname', 'eltern2vorname']],
+    ['parent2LastName', ['elternteil 2 nachname', 'eltern 2 nachname', 'erz2 nachname', 'eltern2nachname']],
+    ['parent2Email', ['elternteil 2 email', 'eltern 2 email', 'erz2 email', 'email 2']],
+    ['parent2Phone', ['elternteil 2 telefon', 'eltern 2 telefon', 'erz2 telefon', 'telefon 2']],
+    // Child fields
+    ['memberNumber', ['mitgliedsnummer', 'mitglieds-nr', 'mitgliedsnr', 'member', 'nr']],
+    ['firstName', ['vorname', 'first', 'firstname', 'kind vorname']],
+    ['lastName', ['nachname', 'name', 'last', 'lastname', 'kind nachname', 'familienname']],
+    ['birthDate', ['geburtsdatum', 'geburtstag', 'birth', 'geb']],
+    ['entryDate', ['eintrittsdatum', 'eintritt', 'entry', 'aufnahme', 'start']],
+    ['street', ['straße', 'strasse', 'street']],
+    ['streetNo', ['hausnummer', 'hausnr', 'haus-nr', 'nr.']],
+    ['postalCode', ['plz', 'postleitzahl', 'postal']],
+    ['city', ['ort', 'stadt', 'city', 'wohnort']],
+    ['legalHours', ['rechtsanspruch', 'legal']],
+    ['careHours', ['betreuungszeit', 'betreuung', 'stunden']],
+  ];
+
+  // Track which headers have been mapped to avoid duplicate mapping
+  const mappedHeaders = new Set<number>();
 
   headers.forEach((header, index) => {
     const normalizedHeader = header.toLowerCase().trim();
+    let bestMatch: { field: string; matchLength: number } | null = null;
     
-    for (const [field, keywords] of Object.entries(mappingRules)) {
+    for (const [field, keywords] of mappingRules) {
       if (newMapping[field] !== undefined) continue;
       
       for (const keyword of keywords) {
-        if (normalizedHeader.includes(keyword) || keyword.includes(normalizedHeader)) {
-          newMapping[field] = index;
-          break;
+        // Only match if header contains keyword (not the other way around!)
+        // This ensures "Vorname" doesn't match "elternteil 1 vorname" just because
+        // the keyword contains "vorname"
+        if (normalizedHeader.includes(keyword)) {
+          // Prefer longer keyword matches (more specific)
+          if (!bestMatch || keyword.length > bestMatch.matchLength) {
+            bestMatch = { field, matchLength: keyword.length };
+          }
         }
       }
+    }
+    
+    if (bestMatch && !mappedHeaders.has(index)) {
+      newMapping[bestMatch.field] = index;
+      mappedHeaders.add(index);
     }
   });
 
@@ -253,6 +327,13 @@ async function goToPreview() {
 
     previewResult.value = result;
 
+    // Track member numbers that were detected as duplicates (exist in database)
+    existingMemberNumbers.value = new Set(
+      result.rows
+        .filter(r => r.isDuplicate)
+        .map(r => r.child.memberNumber)
+    );
+
     // Pre-select all valid rows
     selectedRows.value = new Set(
       result.rows.filter(r => r.isValid && !r.isDuplicate).map(r => r.index)
@@ -260,6 +341,12 @@ async function goToPreview() {
 
     // Initialize parent decisions
     parentDecisions.value = new Map();
+    
+    // Reset merge rows
+    mergeRows.value = new Set();
+    
+    // Reset conflict resolutions
+    conflictResolutions.value = new Map();
 
     currentStep.value = 3;
   } catch (e) {
@@ -277,6 +364,15 @@ function toggleRow(index: number) {
     selectedRows.value.add(index);
   }
   selectedRows.value = new Set(selectedRows.value);
+}
+
+function toggleMerge(index: number) {
+  if (mergeRows.value.has(index)) {
+    mergeRows.value.delete(index);
+  } else {
+    mergeRows.value.add(index);
+  }
+  mergeRows.value = new Set(mergeRows.value);
 }
 
 function selectAll() {
@@ -309,6 +405,123 @@ function getParentDecision(rowIndex: number, parentIndex: 1 | 2): ParentDecision
   return parentDecisions.value.get(getParentDecisionKey(rowIndex, parentIndex));
 }
 
+// Conflict resolution helpers
+function getConflictKey(rowIndex: number, field: string): string {
+  return `${rowIndex}-${field}`;
+}
+
+function setConflictResolution(rowIndex: number, field: string, resolution: 'existing' | 'new') {
+  const key = getConflictKey(rowIndex, field);
+  conflictResolutions.value.set(key, resolution);
+  conflictResolutions.value = new Map(conflictResolutions.value);
+}
+
+function getConflictResolution(rowIndex: number, field: string): 'existing' | 'new' {
+  return conflictResolutions.value.get(getConflictKey(rowIndex, field)) || 'existing';
+}
+
+// Check if row has any conflicts to resolve
+function rowHasConflicts(row: ChildImportPreviewRow): boolean {
+  return row.fieldConflicts !== undefined && row.fieldConflicts.length > 0;
+}
+
+// Inline editing handlers
+function startEditing(row: ChildImportPreviewRow) {
+  editingRow.value = row.index;
+  editedData.value = {
+    memberNumber: row.child.memberNumber,
+    firstName: row.child.firstName,
+    lastName: row.child.lastName,
+    birthDate: row.child.birthDate,
+    entryDate: row.child.entryDate,
+    legalHours: row.child.legalHours,
+    careHours: row.child.careHours,
+  };
+}
+
+function cancelEditing() {
+  editingRow.value = null;
+  editedData.value = null;
+}
+
+function saveEditing(row: ChildImportPreviewRow) {
+  if (!editedData.value || !previewResult.value) return;
+  
+  // Find and update the row in previewResult
+  const rowIndex = previewResult.value.rows.findIndex(r => r.index === row.index);
+  if (rowIndex !== -1) {
+    const currentRow = previewResult.value.rows[rowIndex];
+    const oldMemberNumber = currentRow.child.memberNumber;
+    const newMemberNumber = editedData.value.memberNumber;
+    const memberNumberChanged = oldMemberNumber !== newMemberNumber;
+    
+    currentRow.child = {
+      ...currentRow.child,
+      memberNumber: newMemberNumber,
+      firstName: editedData.value.firstName,
+      lastName: editedData.value.lastName,
+      birthDate: editedData.value.birthDate,
+      entryDate: editedData.value.entryDate,
+      legalHours: editedData.value.legalHours,
+      careHours: editedData.value.careHours,
+    };
+    
+    // If member number was changed, re-check duplicate status
+    if (memberNumberChanged) {
+      // Remove old duplicate-related warnings
+      currentRow.warnings = currentRow.warnings.filter(w => 
+        !w.toLowerCase().includes('existiert bereits') && 
+        !w.toLowerCase().includes('duplikat') &&
+        !w.toLowerCase().includes('mitgliedsnummer')
+      );
+      
+      // Check if new member number exists in database
+      const existsInDatabase = existingMemberNumbers.value.has(newMemberNumber);
+      
+      // Check if new member number exists in other rows of this import
+      const existsInOtherRows = previewResult.value.rows.some(r => 
+        r.index !== row.index && r.child.memberNumber === newMemberNumber
+      );
+      
+      if (existsInDatabase) {
+        currentRow.isDuplicate = true;
+        currentRow.warnings.push(`Kind mit Mitgliedsnummer ${newMemberNumber} existiert bereits`);
+        // Deselect the row since it's now a duplicate
+        selectedRows.value.delete(row.index);
+        selectedRows.value = new Set(selectedRows.value);
+      } else if (existsInOtherRows) {
+        currentRow.isDuplicate = true;
+        currentRow.warnings.push(`Mitgliedsnummer ${newMemberNumber} wird bereits in einer anderen Zeile verwendet`);
+        // Deselect the row since it's now a duplicate
+        selectedRows.value.delete(row.index);
+        selectedRows.value = new Set(selectedRows.value);
+      } else {
+        // No longer a duplicate
+        currentRow.isDuplicate = false;
+        currentRow.existingChildId = undefined;
+      }
+    }
+    
+    // Re-validate the row (basic validation)
+    const child = currentRow.child;
+    const isValid = !!(child.memberNumber && child.firstName && child.lastName && child.birthDate && child.entryDate);
+    currentRow.isValid = isValid;
+    
+    // Auto-select the row if it's now valid and not a duplicate
+    if (isValid && !currentRow.isDuplicate && !selectedRows.value.has(row.index)) {
+      selectedRows.value.add(row.index);
+      selectedRows.value = new Set(selectedRows.value);
+    }
+    
+    // Update counts
+    previewResult.value.validCount = previewResult.value.rows.filter(r => r.isValid && !r.isDuplicate).length;
+    previewResult.value.errorCount = previewResult.value.rows.filter(r => !r.isValid || r.isDuplicate).length;
+  }
+  
+  editingRow.value = null;
+  editedData.value = null;
+}
+
 async function executeImport() {
   if (!previewResult.value) return;
 
@@ -316,22 +529,65 @@ async function executeImport() {
   error.value = null;
 
   try {
-    // Build import request
+    // Build import request - include both new rows and merge rows
     const selectedPreviewRows = previewResult.value.rows.filter(r => 
       selectedRows.value.has(r.index) && r.isValid && !r.isDuplicate
     );
+    
+    const mergePreviewRows = previewResult.value.rows.filter(r =>
+      mergeRows.value.has(r.index) && r.isDuplicate && r.existingChildId
+    );
 
-    const rows = selectedPreviewRows.map(r => ({
-      index: r.index,
-      child: r.child,
-      parent1: r.parent1,
-      parent2: r.parent2,
-    }));
+    const rows = [
+      // New children
+      ...selectedPreviewRows.map(r => ({
+        index: r.index,
+        child: {
+          ...r.child,
+          // Normalize care hours: if < 12, it's daily hours, multiply by 5 for weekly
+          careHours: r.child.careHours && r.child.careHours < 12 
+            ? r.child.careHours * 5 
+            : r.child.careHours,
+        },
+        parent1: r.parent1,
+        parent2: r.parent2,
+      })),
+      // Merge rows - add parents to existing children
+      ...mergePreviewRows.map(r => {
+        // Build field updates from conflict resolutions
+        const fieldUpdates: Record<string, string> = {};
+        if (r.fieldConflicts) {
+          for (const conflict of r.fieldConflicts) {
+            const resolution = getConflictResolution(r.index, conflict.field);
+            if (resolution === 'new') {
+              fieldUpdates[conflict.field] = conflict.newValue;
+            }
+          }
+        }
+        
+        return {
+          index: r.index,
+          child: {
+            ...r.child,
+            careHours: r.child.careHours && r.child.careHours < 12 
+              ? r.child.careHours * 5 
+              : r.child.careHours,
+          },
+          parent1: r.parent1,
+          parent2: r.parent2,
+          existingChildId: r.existingChildId,
+          mergeParents: true,
+          fieldUpdates: Object.keys(fieldUpdates).length > 0 ? fieldUpdates : undefined,
+        };
+      }),
+    ];
+    
+    const allRowsToProcess = [...selectedPreviewRows, ...mergePreviewRows];
 
     // Collect parent decisions
     const decisions: ParentDecision[] = [];
-    for (const row of selectedPreviewRows) {
-      if (row.parent1 && row.parent1.firstName && row.parent1.lastName) {
+    for (const row of allRowsToProcess) {
+      if (row.parent1 && row.parent1.firstName && row.parent1.lastName && !row.parent1.alreadyLinked) {
         const decision = getParentDecision(row.index, 1);
         if (decision) {
           decisions.push(decision);
@@ -344,7 +600,7 @@ async function executeImport() {
           });
         }
       }
-      if (row.parent2 && row.parent2.firstName && row.parent2.lastName) {
+      if (row.parent2 && row.parent2.firstName && row.parent2.lastName && !row.parent2.alreadyLinked) {
         const decision = getParentDecision(row.index, 2);
         if (decision) {
           decisions.push(decision);
@@ -625,6 +881,21 @@ function finishImport() {
         </div>
       </div>
 
+      <!-- Info box when not all fields for new children are mapped -->
+      <div v-if="allRequiredFieldsMapped && !allNewChildFieldsMapped" class="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+        <div class="flex items-start gap-3">
+          <AlertCircle class="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
+          <div>
+            <h4 class="font-medium text-blue-900">Nur Aktualisierung möglich</h4>
+            <p class="text-sm text-blue-700 mt-1">
+              Nicht alle Pflichtfelder für neue Kinder sind zugeordnet (Vorname, Nachname, Geburtsdatum, Eintrittsdatum).
+              Der Import kann nur bestehende Kinder anhand der Mitgliedsnummer aktualisieren.
+              Neue Kinder können nicht angelegt werden.
+            </p>
+          </div>
+        </div>
+      </div>
+
       <!-- Navigation -->
       <div class="flex justify-between">
         <button
@@ -657,7 +928,7 @@ function finishImport() {
             <h2 class="text-lg font-semibold">Vorschau</h2>
             <p class="text-sm text-gray-600 mt-1">
               {{ previewResult?.validCount || 0 }} gültige Einträge,
-              {{ previewResult?.errorCount || 0 }} mit Fehlern
+              {{ previewResult?.errorCount || 0 }} mit Fehlern/Duplikaten
             </p>
           </div>
           <div class="flex items-center gap-4">
@@ -667,9 +938,11 @@ function finishImport() {
             <button @click="deselectAll" class="text-sm text-gray-600 hover:underline">
               Alle abwählen
             </button>
-            <span class="text-sm font-medium text-gray-900">
-              {{ selectedValidCount }} ausgewählt
-            </span>
+            <div class="text-sm font-medium text-gray-900">
+              {{ selectedValidCount - mergeRowsCount }} neu,
+              <span v-if="mergeRowsCount > 0" class="text-blue-600">{{ mergeRowsCount }} Merge</span>
+              <span v-else class="text-gray-500">0 Merge</span>
+            </div>
           </div>
         </div>
       </div>
@@ -686,37 +959,101 @@ function finishImport() {
                 <th class="px-4 py-3 text-left font-medium text-gray-500">Name</th>
                 <th class="px-4 py-3 text-left font-medium text-gray-500">Geburtsdatum</th>
                 <th class="px-4 py-3 text-left font-medium text-gray-500">Eintrittsdatum</th>
+                <th class="px-4 py-3 text-left font-medium text-gray-500">Rechtsanspr.</th>
+                <th class="px-4 py-3 text-left font-medium text-gray-500">Betreuung</th>
                 <th class="px-4 py-3 text-left font-medium text-gray-500">Elternteil 1</th>
                 <th class="px-4 py-3 text-left font-medium text-gray-500">Elternteil 2</th>
+                <th class="px-4 py-3 text-left font-medium text-gray-500 w-20"></th>
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-200">
-              <tr
-                v-for="row in previewResult?.rows"
+              <template
+                v-for="row in sortedPreviewRows"
                 :key="row.index"
+              >
+              <tr
                 :class="[
                   'hover:bg-gray-50',
-                  !row.isValid || row.isDuplicate ? 'bg-red-50' : '',
+                  // Invalid rows: red
+                  !row.isValid && !row.isDuplicate ? 'bg-red-50' : '',
+                  // Duplicates not marked for merge: amber/yellow
+                  row.isDuplicate && !mergeRows.has(row.index) ? 'bg-amber-50' : '',
+                  // Duplicates marked for merge: blue
+                  row.isDuplicate && mergeRows.has(row.index) ? 'bg-blue-50' : '',
+                  // Selected valid rows: primary
                   selectedRows.has(row.index) && row.isValid && !row.isDuplicate ? 'bg-primary/5' : '',
                 ]"
               >
-                <!-- Checkbox -->
+                <!-- Checkbox / Merge toggle -->
                 <td class="px-4 py-3">
+                  <!-- For valid non-duplicates: normal checkbox -->
                   <input
+                    v-if="row.isValid && !row.isDuplicate"
                     type="checkbox"
                     :checked="selectedRows.has(row.index)"
-                    :disabled="!row.isValid || row.isDuplicate"
                     @change="toggleRow(row.index)"
-                    class="h-4 w-4 text-primary rounded border-gray-300 focus:ring-primary disabled:opacity-50"
+                    class="h-4 w-4 text-primary rounded border-gray-300 focus:ring-primary"
                   />
+                  <!-- For duplicates with existing child: merge toggle -->
+                  <button
+                    v-else-if="row.isDuplicate && row.existingChildId"
+                    @click="toggleMerge(row.index)"
+                    :class="[
+                      'flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors',
+                      mergeRows.has(row.index)
+                        ? 'bg-blue-600 text-white'
+                        : 'bg-gray-200 text-gray-700 hover:bg-gray-300',
+                    ]"
+                    :title="mergeRows.has(row.index) ? 'Zusammenführung deaktivieren' : 'Eltern zu bestehendem Kind hinzufügen'"
+                  >
+                    <GitMerge class="h-3 w-3" />
+                    {{ mergeRows.has(row.index) ? 'Merge' : 'Merge?' }}
+                  </button>
+                  <!-- For invalid rows: disabled indicator -->
+                  <span v-else class="text-gray-400 text-xs">-</span>
                 </td>
 
                 <!-- Status -->
                 <td class="px-4 py-3">
                   <div class="flex items-center gap-2">
-                    <CheckCircle v-if="row.isValid && !row.isDuplicate" class="h-5 w-5 text-green-500" />
-                    <XCircle v-else class="h-5 w-5 text-red-500" />
-                    <div v-if="row.warnings.length > 0" class="group relative">
+                    <!-- Action badge -->
+                    <span 
+                      v-if="row.action === 'create' && row.isValid && !row.isDuplicate"
+                      class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 text-green-700"
+                    >
+                      <Plus class="h-3 w-3" />
+                      NEU
+                    </span>
+                    <span 
+                      v-else-if="row.isDuplicate && mergeRows.has(row.index) && rowHasConflicts(row)"
+                      class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-700"
+                    >
+                      <RefreshCw class="h-3 w-3" />
+                      UPDATE
+                    </span>
+                    <span 
+                      v-else-if="row.isDuplicate && mergeRows.has(row.index)"
+                      class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 text-blue-700"
+                    >
+                      <GitMerge class="h-3 w-3" />
+                      MERGE
+                    </span>
+                    <span 
+                      v-else-if="row.isDuplicate"
+                      class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 text-amber-700"
+                    >
+                      EXISTIERT
+                    </span>
+                    <span 
+                      v-else-if="!row.isValid"
+                      class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700"
+                    >
+                      <XCircle class="h-3 w-3" />
+                      FEHLER
+                    </span>
+                    
+                    <!-- Warnings tooltip -->
+                    <div v-if="row.warnings.length > 0 && !row.isDuplicate" class="group relative">
                       <AlertTriangle class="h-4 w-4 text-amber-500" />
                       <div class="hidden group-hover:block absolute left-0 top-6 z-10 bg-white border rounded-lg shadow-lg p-3 w-64">
                         <ul class="text-xs text-gray-700 space-y-1">
@@ -727,27 +1064,153 @@ function finishImport() {
                       </div>
                     </div>
                   </div>
+                  
+                  <!-- Status info text -->
+                  <div v-if="row.isDuplicate && !mergeRows.has(row.index)" class="text-xs text-amber-600 mt-1">
+                    Kind existiert bereits
+                  </div>
+                  <div v-if="row.isDuplicate && mergeRows.has(row.index) && !rowHasConflicts(row)" class="text-xs text-blue-600 mt-1">
+                    Eltern werden hinzugefügt
+                  </div>
+                  <div v-if="row.isDuplicate && mergeRows.has(row.index) && rowHasConflicts(row)" class="text-xs text-blue-600 mt-1">
+                    {{ row.fieldConflicts?.length }} Feld{{ row.fieldConflicts?.length !== 1 ? 'er' : '' }} können aktualisiert werden
+                  </div>
                 </td>
 
                 <!-- Member number -->
-                <td class="px-4 py-3 font-mono">{{ row.child.memberNumber || '-' }}</td>
+                <td class="px-4 py-3 font-mono">
+                  <template v-if="editingRow === row.index">
+                    <input
+                      v-model="editedData!.memberNumber"
+                      type="text"
+                      class="w-20 px-2 py-1 text-xs border rounded focus:ring-1 focus:ring-primary"
+                    />
+                  </template>
+                  <template v-else>
+                    {{ row.child.memberNumber || '-' }}
+                  </template>
+                </td>
 
                 <!-- Name -->
                 <td class="px-4 py-3 font-medium">
-                  {{ row.child.firstName }} {{ row.child.lastName }}
+                  <template v-if="editingRow === row.index">
+                    <div class="flex gap-1">
+                      <input
+                        v-model="editedData!.firstName"
+                        type="text"
+                        placeholder="Vorname"
+                        class="w-20 px-2 py-1 text-xs border rounded focus:ring-1 focus:ring-primary"
+                      />
+                      <input
+                        v-model="editedData!.lastName"
+                        type="text"
+                        placeholder="Nachname"
+                        class="w-24 px-2 py-1 text-xs border rounded focus:ring-1 focus:ring-primary"
+                      />
+                    </div>
+                  </template>
+                  <template v-else>
+                    <div class="flex items-center gap-2">
+                      <span>{{ row.child.firstName }} {{ row.child.lastName }}</span>
+                      <!-- Show info icon for duplicate - details shown in expandable row below -->
+                      <span 
+                        v-if="row.isDuplicate && row.existingChild"
+                        class="inline-flex items-center justify-center w-4 h-4 text-xs bg-blue-100 text-blue-600 rounded-full cursor-help"
+                        title="Bestehendes Kind - Details siehe unten"
+                      >i</span>
+                    </div>
+                  </template>
                 </td>
 
                 <!-- Birth date -->
-                <td class="px-4 py-3">{{ row.child.birthDate || '-' }}</td>
+                <td class="px-4 py-3">
+                  <template v-if="editingRow === row.index">
+                    <input
+                      v-model="editedData!.birthDate"
+                      type="text"
+                      placeholder="DD.MM.YYYY"
+                      class="w-24 px-2 py-1 text-xs border rounded focus:ring-1 focus:ring-primary"
+                    />
+                  </template>
+                  <template v-else>
+                    {{ row.child.birthDate || '-' }}
+                  </template>
+                </td>
 
                 <!-- Entry date -->
-                <td class="px-4 py-3">{{ row.child.entryDate || '-' }}</td>
+                <td class="px-4 py-3">
+                  <template v-if="editingRow === row.index">
+                    <input
+                      v-model="editedData!.entryDate"
+                      type="text"
+                      placeholder="DD.MM.YYYY"
+                      class="w-24 px-2 py-1 text-xs border rounded focus:ring-1 focus:ring-primary"
+                    />
+                  </template>
+                  <template v-else>
+                    {{ row.child.entryDate || '-' }}
+                  </template>
+                </td>
+
+                <!-- Legal hours (Rechtsanspruch) - always weekly -->
+                <td class="px-4 py-3">
+                  <template v-if="editingRow === row.index">
+                    <input
+                      v-model.number="editedData!.legalHours"
+                      type="number"
+                      placeholder="Std/Woche"
+                      class="w-16 px-2 py-1 text-xs border rounded focus:ring-1 focus:ring-primary"
+                    />
+                  </template>
+                  <template v-else>
+                    <span v-if="row.child.legalHours" class="text-gray-700">
+                      {{ row.child.legalHours }} Std
+                    </span>
+                    <span v-else class="text-gray-400">-</span>
+                  </template>
+                </td>
+
+                <!-- Care hours (Betreuungszeit) - may need conversion from daily to weekly -->
+                <td class="px-4 py-3">
+                  <template v-if="editingRow === row.index">
+                    <input
+                      v-model.number="editedData!.careHours"
+                      type="number"
+                      placeholder="Std/Woche"
+                      class="w-16 px-2 py-1 text-xs border rounded focus:ring-1 focus:ring-primary"
+                    />
+                  </template>
+                  <template v-else>
+                    <div v-if="row.child.careHours" class="text-gray-700">
+                      <span v-if="row.child.careHours < 12" class="text-amber-600" :title="`Umgerechnet von ${row.child.careHours} Std/Tag`">
+                        {{ row.child.careHours * 5 }} Std
+                        <span class="text-xs text-gray-500">({{ row.child.careHours }}/Tag)</span>
+                      </span>
+                      <span v-else>
+                        {{ row.child.careHours }} Std
+                      </span>
+                    </div>
+                    <span v-else class="text-gray-400">-</span>
+                  </template>
+                </td>
 
                 <!-- Parent 1 -->
                 <td class="px-4 py-3">
                   <div v-if="row.parent1 && row.parent1.firstName" class="space-y-1">
-                    <div class="font-medium">{{ row.parent1.firstName }} {{ row.parent1.lastName }}</div>
-                    <div v-if="row.parent1.existingMatches && row.parent1.existingMatches.length > 0" class="flex items-center gap-2">
+                    <div class="font-medium flex items-center gap-2">
+                      {{ row.parent1.firstName }} {{ row.parent1.lastName }}
+                      <!-- Already linked badge -->
+                      <span 
+                        v-if="row.parent1.alreadyLinked"
+                        class="inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium rounded bg-gray-100 text-gray-600"
+                        title="Bereits mit diesem Kind verknüpft"
+                      >
+                        <Link class="h-3 w-3" />
+                        Verknüpft
+                      </span>
+                    </div>
+                    <!-- Only show select if not already linked -->
+                    <div v-if="!row.parent1.alreadyLinked && row.parent1.existingMatches && row.parent1.existingMatches.length > 0" class="flex items-center gap-2">
                       <select
                         :value="getParentDecision(row.index, 1)?.action === 'link' ? getParentDecision(row.index, 1)?.existingParentId : 'create'"
                         @change="($event.target as HTMLSelectElement).value === 'create' 
@@ -775,8 +1238,20 @@ function finishImport() {
                 <!-- Parent 2 -->
                 <td class="px-4 py-3">
                   <div v-if="row.parent2 && row.parent2.firstName" class="space-y-1">
-                    <div class="font-medium">{{ row.parent2.firstName }} {{ row.parent2.lastName }}</div>
-                    <div v-if="row.parent2.existingMatches && row.parent2.existingMatches.length > 0" class="flex items-center gap-2">
+                    <div class="font-medium flex items-center gap-2">
+                      {{ row.parent2.firstName }} {{ row.parent2.lastName }}
+                      <!-- Already linked badge -->
+                      <span 
+                        v-if="row.parent2.alreadyLinked"
+                        class="inline-flex items-center gap-1 px-1.5 py-0.5 text-xs font-medium rounded bg-gray-100 text-gray-600"
+                        title="Bereits mit diesem Kind verknüpft"
+                      >
+                        <Link class="h-3 w-3" />
+                        Verknüpft
+                      </span>
+                    </div>
+                    <!-- Only show select if not already linked -->
+                    <div v-if="!row.parent2.alreadyLinked && row.parent2.existingMatches && row.parent2.existingMatches.length > 0" class="flex items-center gap-2">
                       <select
                         :value="getParentDecision(row.index, 2)?.action === 'link' ? getParentDecision(row.index, 2)?.existingParentId : 'create'"
                         @change="($event.target as HTMLSelectElement).value === 'create' 
@@ -797,7 +1272,129 @@ function finishImport() {
                   </div>
                   <span v-else class="text-gray-400">-</span>
                 </td>
+
+                <!-- Actions -->
+                <td class="px-4 py-3">
+                  <div class="flex items-center gap-1">
+                    <template v-if="editingRow === row.index">
+                      <button
+                        @click="saveEditing(row)"
+                        class="p-1 text-green-600 hover:bg-green-50 rounded"
+                        title="Speichern"
+                      >
+                        <Check class="h-4 w-4" />
+                      </button>
+                      <button
+                        @click="cancelEditing"
+                        class="p-1 text-gray-600 hover:bg-gray-100 rounded"
+                        title="Abbrechen"
+                      >
+                        <X class="h-4 w-4" />
+                      </button>
+                    </template>
+                    <template v-else>
+                      <button
+                        @click="startEditing(row)"
+                        class="p-1 text-gray-400 hover:text-primary hover:bg-gray-100 rounded"
+                        title="Bearbeiten"
+                      >
+                        <Pencil class="h-4 w-4" />
+                      </button>
+                    </template>
+                  </div>
+                </td>
               </tr>
+              <!-- Existing child info expansion row (shown for duplicates not yet in merge mode) -->
+              <tr 
+                v-if="row.isDuplicate && row.existingChild && !mergeRows.has(row.index)"
+                :key="`${row.index}-existing`"
+                class="bg-amber-50/50 border-t border-amber-100"
+              >
+                <td colspan="11" class="px-8 py-3">
+                  <div class="text-sm">
+                    <div class="font-medium text-amber-800 mb-2 flex items-center gap-2">
+                      <AlertCircle class="h-4 w-4" />
+                      Bestehendes Kind in Datenbank:
+                    </div>
+                    <div class="bg-white rounded-lg px-4 py-3 border border-amber-200">
+                      <dl class="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-2 text-sm">
+                        <div>
+                          <dt class="text-gray-500">Name</dt>
+                          <dd class="font-medium">{{ row.existingChild.firstName }} {{ row.existingChild.lastName }}</dd>
+                        </div>
+                        <div>
+                          <dt class="text-gray-500">Geburtsdatum</dt>
+                          <dd>{{ row.existingChild.birthDate }}</dd>
+                        </div>
+                        <div>
+                          <dt class="text-gray-500">Eintrittsdatum</dt>
+                          <dd>{{ row.existingChild.entryDate }}</dd>
+                        </div>
+                        <div v-if="row.existingChild.legalHours || row.existingChild.careHours">
+                          <dt class="text-gray-500">Betreuung</dt>
+                          <dd>
+                            <span v-if="row.existingChild.legalHours">{{ row.existingChild.legalHours }} Std RA</span>
+                            <span v-if="row.existingChild.legalHours && row.existingChild.careHours"> / </span>
+                            <span v-if="row.existingChild.careHours">{{ row.existingChild.careHours }} Std</span>
+                          </dd>
+                        </div>
+                      </dl>
+                      <p class="mt-3 text-xs text-amber-700 border-t border-amber-200 pt-2">
+                        Klicke auf "Merge?" um Eltern aus der CSV zu diesem Kind hinzuzufügen.
+                      </p>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+              <!-- Field conflicts expansion row -->
+              <tr 
+                v-if="row.isDuplicate && mergeRows.has(row.index) && rowHasConflicts(row)"
+                :key="`${row.index}-conflicts`"
+                class="bg-blue-50/50 border-t border-blue-100"
+              >
+                <td colspan="11" class="px-8 py-3">
+                  <div class="text-sm">
+                    <div class="font-medium text-blue-800 mb-2 flex items-center gap-2">
+                      <AlertTriangle class="h-4 w-4" />
+                      Unterschiede zwischen CSV und Datenbank:
+                    </div>
+                    <div class="grid gap-2">
+                      <div 
+                        v-for="conflict in row.fieldConflicts" 
+                        :key="conflict.field"
+                        class="flex items-center gap-4 bg-white rounded-lg px-3 py-2 border"
+                      >
+                        <span class="text-gray-600 w-32">{{ conflict.fieldLabel }}:</span>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            :name="`conflict-${row.index}-${conflict.field}`"
+                            :checked="getConflictResolution(row.index, conflict.field) === 'existing'"
+                            @change="setConflictResolution(row.index, conflict.field, 'existing')"
+                            class="text-blue-600"
+                          />
+                          <span class="text-gray-700">
+                            <span class="font-medium">Behalten:</span> {{ conflict.existingValue || '-' }}
+                          </span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                          <input
+                            type="radio"
+                            :name="`conflict-${row.index}-${conflict.field}`"
+                            :checked="getConflictResolution(row.index, conflict.field) === 'new'"
+                            @change="setConflictResolution(row.index, conflict.field, 'new')"
+                            class="text-blue-600"
+                          />
+                          <span class="text-blue-700">
+                            <span class="font-medium">CSV verwenden:</span> {{ conflict.newValue }}
+                          </span>
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+              </template>
             </tbody>
           </table>
         </div>
@@ -820,7 +1417,15 @@ function finishImport() {
           <Loader2 v-if="isLoading" class="h-4 w-4 animate-spin" />
           <template v-else>
             <Upload class="h-4 w-4" />
-            {{ selectedValidCount }} Kinder importieren
+            <span v-if="mergeRowsCount > 0 && selectedValidCount - mergeRowsCount > 0">
+              {{ selectedValidCount - mergeRowsCount }} importieren, {{ mergeRowsCount }} zusammenführen
+            </span>
+            <span v-else-if="mergeRowsCount > 0">
+              {{ mergeRowsCount }} zusammenführen
+            </span>
+            <span v-else>
+              {{ selectedValidCount }} Kinder importieren
+            </span>
           </template>
         </button>
       </div>
@@ -837,17 +1442,21 @@ function finishImport() {
       </div>
 
       <!-- Stats -->
-      <div class="grid grid-cols-3 gap-6">
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
         <div class="bg-white rounded-xl border p-6 text-center">
           <div class="text-3xl font-bold text-primary">{{ executeResult?.childrenCreated || 0 }}</div>
           <div class="text-gray-600 mt-1">Kinder erstellt</div>
+        </div>
+        <div class="bg-white rounded-xl border p-6 text-center">
+          <div class="text-3xl font-bold text-blue-600">{{ executeResult?.childrenUpdated || 0 }}</div>
+          <div class="text-gray-600 mt-1">Kinder aktualisiert</div>
         </div>
         <div class="bg-white rounded-xl border p-6 text-center">
           <div class="text-3xl font-bold text-green-600">{{ executeResult?.parentsCreated || 0 }}</div>
           <div class="text-gray-600 mt-1">Eltern erstellt</div>
         </div>
         <div class="bg-white rounded-xl border p-6 text-center">
-          <div class="text-3xl font-bold text-blue-600">{{ executeResult?.parentsLinked || 0 }}</div>
+          <div class="text-3xl font-bold text-amber-600">{{ executeResult?.parentsLinked || 0 }}</div>
           <div class="text-gray-600 mt-1">Eltern verknüpft</div>
         </div>
       </div>

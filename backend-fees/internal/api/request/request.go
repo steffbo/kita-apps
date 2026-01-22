@@ -19,7 +19,41 @@ type Pagination struct {
 }
 
 // GetPagination extracts pagination parameters from the request.
+// Supports two conventions:
+// 1. offset/limit style: ?offset=20&limit=10
+// 2. page/perPage style: ?page=3&perPage=10
+// If offset/limit are provided, they take precedence.
 func GetPagination(r *http.Request) Pagination {
+	// Check for offset/limit style first
+	offsetParam := r.URL.Query().Get("offset")
+	limitParam := r.URL.Query().Get("limit")
+
+	if offsetParam != "" || limitParam != "" {
+		// Use offset/limit style
+		offset := getQueryInt(r, "offset", 0)
+		limit := getQueryInt(r, "limit", 20)
+
+		if offset < 0 {
+			offset = 0
+		}
+		if limit < 1 {
+			limit = 20
+		}
+		if limit > 100 {
+			limit = 100
+		}
+
+		// Calculate page from offset for response
+		page := (offset / limit) + 1
+
+		return Pagination{
+			Page:    page,
+			PerPage: limit,
+			Offset:  offset,
+		}
+	}
+
+	// Fall back to page/perPage style
 	page := getQueryInt(r, "page", 1)
 	perPage := getQueryInt(r, "perPage", 20)
 
