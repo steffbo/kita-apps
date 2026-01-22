@@ -54,15 +54,17 @@ func main() {
 	parentService := service.NewParentService(parentRepo, childRepo)
 	feeService := service.NewFeeService(feeRepo, childRepo, matchRepo, transactionRepo)
 	importService := service.NewImportService(transactionRepo, feeRepo, childRepo, matchRepo, knownIBANRepo)
+	childImportService := service.NewChildImportService(childRepo, parentRepo)
 
 	// Initialize handlers
 	handlers := &api.Handlers{
-		Auth:       handler.NewAuthHandler(authService, jwtService),
-		Child:      handler.NewChildHandler(childService),
-		Parent:     handler.NewParentHandler(parentService),
-		Fee:        handler.NewFeeHandler(feeService, importService),
-		Import:     handler.NewImportHandler(importService),
-		JWTService: jwtService,
+		Auth:        handler.NewAuthHandler(authService, jwtService),
+		Child:       handler.NewChildHandler(childService),
+		ChildImport: handler.NewChildImportHandler(childImportService),
+		Parent:      handler.NewParentHandler(parentService),
+		Fee:         handler.NewFeeHandler(feeService, importService),
+		Import:      handler.NewImportHandler(importService),
+		JWTService:  jwtService,
 	}
 
 	// Create router

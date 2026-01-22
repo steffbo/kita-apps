@@ -67,6 +67,13 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 				r.Delete("/{id}", handlers.Child.Delete)
 				r.Post("/{id}/parents", handlers.Child.LinkParent)
 				r.Delete("/{id}/parents/{parentId}", handlers.Child.UnlinkParent)
+
+				// Child import routes
+				r.Route("/import", func(r chi.Router) {
+					r.Post("/parse", handlers.ChildImport.Parse)
+					r.Post("/preview", handlers.ChildImport.Preview)
+					r.Post("/execute", handlers.ChildImport.Execute)
+				})
 			})
 
 			// Parents
@@ -111,10 +118,11 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 
 // Handlers holds all HTTP handlers.
 type Handlers struct {
-	Auth       *handler.AuthHandler
-	Child      *handler.ChildHandler
-	Parent     *handler.ParentHandler
-	Fee        *handler.FeeHandler
-	Import     *handler.ImportHandler
-	JWTService *auth.JWTService
+	Auth        *handler.AuthHandler
+	Child       *handler.ChildHandler
+	ChildImport *handler.ChildImportHandler
+	Parent      *handler.ParentHandler
+	Fee         *handler.FeeHandler
+	Import      *handler.ImportHandler
+	JWTService  *auth.JWTService
 }

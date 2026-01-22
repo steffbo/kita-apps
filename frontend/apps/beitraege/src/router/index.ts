@@ -26,6 +26,11 @@ const router = createRouter({
           component: () => import('@/pages/ChildrenPage.vue'),
         },
         {
+          path: 'kinder/import',
+          name: 'children-import',
+          component: () => import('@/pages/ChildImportPage.vue'),
+        },
+        {
           path: 'kinder/:id',
           name: 'child-detail',
           component: () => import('@/pages/ChildDetailPage.vue'),

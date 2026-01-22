@@ -12,6 +12,7 @@ import {
   Hash,
   X,
   Check,
+  Upload,
 } from 'lucide-vue-next';
 
 const router = useRouter();
@@ -126,13 +127,22 @@ const filteredChildren = computed(() => children.value);
         <h1 class="text-2xl font-bold text-gray-900">Kinder</h1>
         <p class="text-gray-600 mt-1">{{ total }} Kinder registriert</p>
       </div>
-      <button
-        @click="showCreateDialog = true"
-        class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
-      >
-        <Plus class="h-4 w-4" />
-        Kind hinzufügen
-      </button>
+      <div class="flex items-center gap-2">
+        <button
+          @click="router.push('/kinder/import')"
+          class="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+        >
+          <Upload class="h-4 w-4" />
+          Importieren
+        </button>
+        <button
+          @click="showCreateDialog = true"
+          class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+        >
+          <Plus class="h-4 w-4" />
+          Kind hinzufügen
+        </button>
+      </div>
     </div>
 
     <!-- Filters -->

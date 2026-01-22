@@ -1,0 +1,4 @@
+Mitgliedsnummer;Vorname;Nachname;Geburtsdatum;Eintrittsdatum;Straße;Hausnr;PLZ;Ort;Eltern 1 Vorname;Eltern 1 Nachname;Eltern 1 Email;Eltern 1 Telefon
+IMP001;Emma;Müller;15.03.2021;01.08.2024;Hauptstraße;12;12345;Musterstadt;Anna;Müller;anna.mueller@example.com;0151-12345678
+IMP002;Max;Schmidt;22.07.2020;01.08.2024;Nebenweg;5a;12345;Musterstadt;Thomas;Schmidt;thomas.schmidt@example.com;0152-87654321
+IMP003;Lina;Weber;08.11.2021;01.09.2024;Parkstraße;8;12346;Nachbarort;Maria;Weber;maria.weber@example.com;0163-11223344

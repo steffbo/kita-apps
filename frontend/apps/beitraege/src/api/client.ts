@@ -21,6 +21,11 @@ import type {
   KnownIBAN,
   RescanResult,
   DismissResult,
+  ChildImportParseResult,
+  ChildImportPreviewRequest,
+  ChildImportPreviewResult,
+  ChildImportExecuteRequest,
+  ChildImportExecuteResult,
 } from './types';
 
 const API_BASE = '/api/fees/v1';
@@ -356,6 +361,56 @@ class ApiClient {
     return this.request<void>(`/import/trusted/${encodeURIComponent(iban)}/link`, {
       method: 'DELETE',
     });
+  }
+
+  // Child Import endpoints
+  async parseChildImportCSV(file: File): Promise<ChildImportParseResult> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const headers: HeadersInit = {};
+    if (this.accessToken) {
+      headers['Authorization'] = `Bearer ${this.accessToken}`;
+    }
+
+    const response = await fetch(`${API_BASE}/children/import/parse`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: 'Upload failed' }));
+      throw new Error(error.error || 'Upload failed');
+    }
+
+    const result: ChildImportParseResult = await response.json();
+    return {
+      ...result,
+      sampleRows: result.sampleRows ?? [],
+    };
+  }
+
+  async previewChildImport(request: ChildImportPreviewRequest): Promise<ChildImportPreviewResult> {
+    const result = await this.request<ChildImportPreviewResult>('/children/import/preview', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+    return {
+      ...result,
+      rows: result.rows ?? [],
+    };
+  }
+
+  async executeChildImport(request: ChildImportExecuteRequest): Promise<ChildImportExecuteResult> {
+    const result = await this.request<ChildImportExecuteResult>('/children/import/execute', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+    return {
+      ...result,
+      errors: result.errors ?? [],
+    };
   }
 }
 
