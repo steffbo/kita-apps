@@ -448,6 +448,11 @@ const siblings = computed(() => {
   return child.value.household.children.filter(c => c.id !== child.value?.id);
 });
 
+// Household parents computed property
+const householdParents = computed(() => {
+  return child.value?.household?.parents || [];
+});
+
 // Household functions
 function startEditingHousehold() {
   if (!child.value?.household) return;
@@ -750,22 +755,40 @@ const incomeStatusOptions: { value: IncomeStatus; label: string }[] = [
               </div>
             </div>
 
-            <!-- Siblings -->
-            <div v-if="siblings.length > 0" class="pt-4 border-t">
-              <p class="text-sm text-gray-500 mb-2 flex items-center gap-1">
-                <Users class="h-4 w-4" />
-                Geschwister im Haushalt
-              </p>
-              <div class="flex flex-wrap gap-2">
-                <router-link
-                  v-for="sibling in siblings"
-                  :key="sibling.id"
-                  :to="`/kinder/${sibling.id}`"
-                  class="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm transition-colors"
-                >
-                  <User class="h-4 w-4 text-gray-500" />
-                  <span>{{ sibling.firstName }} {{ sibling.lastName }}</span>
-                </router-link>
+            <!-- Family Members -->
+            <div v-if="householdParents.length > 0 || siblings.length > 0" class="pt-4 border-t">
+              <p class="text-sm text-gray-500 mb-3">Familienmitglieder</p>
+              
+              <!-- Parents in Household -->
+              <div v-if="householdParents.length > 0" class="mb-3">
+                <p class="text-xs text-gray-400 uppercase tracking-wide mb-2">Eltern</p>
+                <div class="flex flex-wrap gap-2">
+                  <button
+                    v-for="parent in householdParents"
+                    :key="parent.id"
+                    @click="openParentDetailModal(parent)"
+                    class="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg text-sm transition-colors"
+                  >
+                    <User class="h-4 w-4 text-blue-500" />
+                    <span>{{ parent.firstName }} {{ parent.lastName }}</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Siblings in Household -->
+              <div v-if="siblings.length > 0">
+                <p class="text-xs text-gray-400 uppercase tracking-wide mb-2">Geschwister</p>
+                <div class="flex flex-wrap gap-2">
+                  <router-link
+                    v-for="sibling in siblings"
+                    :key="sibling.id"
+                    :to="`/kinder/${sibling.id}`"
+                    class="inline-flex items-center gap-2 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg text-sm transition-colors"
+                  >
+                    <User class="h-4 w-4 text-amber-500" />
+                    <span>{{ sibling.firstName }} {{ sibling.lastName }}</span>
+                  </router-link>
+                </div>
               </div>
             </div>
           </div>
