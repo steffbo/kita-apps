@@ -215,7 +215,7 @@ class ApiClient {
     const query = new URLSearchParams();
     if (params?.year) query.set('year', String(params.year));
     if (params?.month) query.set('month', String(params.month));
-    if (params?.feeType) query.set('feeType', params.feeType);
+    if (params?.feeType) query.set('type', params.feeType);
     if (params?.childId) query.set('childId', params.childId);
     if (params?.offset) query.set('offset', String(params.offset));
     if (params?.limit) query.set('limit', String(params.limit));
