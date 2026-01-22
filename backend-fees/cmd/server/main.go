@@ -42,6 +42,8 @@ func main() {
 	refreshTokenRepo := repository.NewPostgresRefreshTokenRepository(db)
 	childRepo := repository.NewPostgresChildRepository(db)
 	parentRepo := repository.NewPostgresParentRepository(db)
+	householdRepo := repository.NewPostgresHouseholdRepository(db)
+	memberRepo := repository.NewPostgresMemberRepository(db)
 	feeRepo := repository.NewPostgresFeeRepository(db)
 	transactionRepo := repository.NewPostgresTransactionRepository(db)
 	matchRepo := repository.NewPostgresMatchRepository(db)
@@ -50,9 +52,11 @@ func main() {
 	// Initialize services
 	jwtService := auth.NewJWTService(cfg.JWT.Secret, cfg.JWT.AccessExpiry, cfg.JWT.RefreshExpiry, cfg.JWT.Issuer)
 	authService := service.NewAuthService(userRepo, refreshTokenRepo, cfg.JWT.RefreshExpiry)
-	childService := service.NewChildService(childRepo, parentRepo)
+	childService := service.NewChildService(childRepo, parentRepo, householdRepo)
 	parentService := service.NewParentService(parentRepo, childRepo)
-	feeService := service.NewFeeService(feeRepo, childRepo, matchRepo, transactionRepo)
+	householdService := service.NewHouseholdService(householdRepo, parentRepo, childRepo)
+	memberService := service.NewMemberService(memberRepo, householdRepo)
+	feeService := service.NewFeeService(feeRepo, childRepo, householdRepo, matchRepo, transactionRepo)
 	importService := service.NewImportService(transactionRepo, feeRepo, childRepo, matchRepo, knownIBANRepo)
 	childImportService := service.NewChildImportService(childRepo, parentRepo)
 
@@ -62,6 +66,8 @@ func main() {
 		Child:       handler.NewChildHandler(childService),
 		ChildImport: handler.NewChildImportHandler(childImportService),
 		Parent:      handler.NewParentHandler(parentService),
+		Household:   handler.NewHouseholdHandler(householdService),
+		Member:      handler.NewMemberHandler(memberService),
 		Fee:         handler.NewFeeHandler(feeService, importService),
 		Import:      handler.NewImportHandler(importService),
 		JWTService:  jwtService,

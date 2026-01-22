@@ -103,3 +103,27 @@ type KnownIBANRepository interface {
 	UpdateChildLink(ctx context.Context, iban string, childID *uuid.UUID) error
 	GetBlacklistedIBANs(ctx context.Context) (map[string]bool, error)
 }
+
+// HouseholdRepository handles household persistence.
+type HouseholdRepository interface {
+	List(ctx context.Context, search string, sortBy string, sortDir string, offset, limit int) ([]domain.Household, int64, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*domain.Household, error)
+	Create(ctx context.Context, household *domain.Household) error
+	Update(ctx context.Context, household *domain.Household) error
+	Delete(ctx context.Context, id uuid.UUID) error
+	GetParents(ctx context.Context, householdID uuid.UUID) ([]domain.Parent, error)
+	GetChildren(ctx context.Context, householdID uuid.UUID) ([]domain.Child, error)
+	GetWithMembers(ctx context.Context, id uuid.UUID) (*domain.Household, error)
+}
+
+// MemberRepository handles member persistence.
+type MemberRepository interface {
+	List(ctx context.Context, activeOnly bool, search string, sortBy string, sortDir string, offset, limit int) ([]domain.Member, int64, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*domain.Member, error)
+	GetByMemberNumber(ctx context.Context, memberNumber string) (*domain.Member, error)
+	Create(ctx context.Context, member *domain.Member) error
+	Update(ctx context.Context, member *domain.Member) error
+	Delete(ctx context.Context, id uuid.UUID) error
+	ListActiveAt(ctx context.Context, date time.Time) ([]domain.Member, error)
+	GetNextMemberNumber(ctx context.Context) (string, error)
+}

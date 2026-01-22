@@ -12,15 +12,17 @@ import (
 
 // ChildService handles child-related business logic.
 type ChildService struct {
-	childRepo  repository.ChildRepository
-	parentRepo repository.ParentRepository
+	childRepo     repository.ChildRepository
+	parentRepo    repository.ParentRepository
+	householdRepo repository.HouseholdRepository
 }
 
 // NewChildService creates a new child service.
-func NewChildService(childRepo repository.ChildRepository, parentRepo repository.ParentRepository) *ChildService {
+func NewChildService(childRepo repository.ChildRepository, parentRepo repository.ParentRepository, householdRepo repository.HouseholdRepository) *ChildService {
 	return &ChildService{
-		childRepo:  childRepo,
-		parentRepo: parentRepo,
+		childRepo:     childRepo,
+		parentRepo:    parentRepo,
+		householdRepo: householdRepo,
 	}
 }
 
@@ -72,7 +74,7 @@ func (s *ChildService) List(ctx context.Context, filter ChildFilter, offset, lim
 	return s.childRepo.List(ctx, filter.ActiveOnly, filter.U3Only, filter.Search, filter.SortBy, filter.SortDir, offset, limit)
 }
 
-// GetByID returns a child by ID with parents.
+// GetByID returns a child by ID with parents and household.
 func (s *ChildService) GetByID(ctx context.Context, id uuid.UUID) (*domain.Child, error) {
 	child, err := s.childRepo.GetByID(ctx, id)
 	if err != nil {
@@ -82,6 +84,14 @@ func (s *ChildService) GetByID(ctx context.Context, id uuid.UUID) (*domain.Child
 	parents, err := s.childRepo.GetParents(ctx, id)
 	if err == nil {
 		child.Parents = parents
+	}
+
+	// Load household with siblings if child has a household
+	if child.HouseholdID != nil && s.householdRepo != nil {
+		household, err := s.householdRepo.GetWithMembers(ctx, *child.HouseholdID)
+		if err == nil {
+			child.Household = household
+		}
 	}
 
 	return child, nil
@@ -241,16 +251,61 @@ func (s *ChildService) Deactivate(ctx context.Context, id uuid.UUID) error {
 	return s.childRepo.Update(ctx, child)
 }
 
-// LinkParent links a parent to a child.
+// LinkParent links a parent to a child, creating a household if needed.
 func (s *ChildService) LinkParent(ctx context.Context, childID, parentID uuid.UUID, isPrimary bool) error {
-	_, err := s.childRepo.GetByID(ctx, childID)
+	child, err := s.childRepo.GetByID(ctx, childID)
 	if err != nil {
 		return ErrNotFound
 	}
 
-	_, err = s.parentRepo.GetByID(ctx, parentID)
+	parent, err := s.parentRepo.GetByID(ctx, parentID)
 	if err != nil {
 		return ErrNotFound
+	}
+
+	// Create or assign household
+	if s.householdRepo != nil {
+		if child.HouseholdID == nil {
+			// Create a new household for this family
+			householdName := child.LastName
+			if parent.LastName != child.LastName {
+				householdName = parent.LastName + "/" + child.LastName
+			}
+			household := &domain.Household{
+				ID:        uuid.New(),
+				Name:      "Familie " + householdName,
+				CreatedAt: time.Now(),
+				UpdatedAt: time.Now(),
+			}
+
+			// Migrate income from parent to household if available
+			if parent.IncomeStatus != "" && parent.IncomeStatus != domain.IncomeStatusUnknown {
+				household.IncomeStatus = parent.IncomeStatus
+				household.AnnualHouseholdIncome = parent.AnnualHouseholdIncome
+			}
+
+			if err := s.householdRepo.Create(ctx, household); err != nil {
+				return err
+			}
+
+			// Assign child to household
+			child.HouseholdID = &household.ID
+			if err := s.childRepo.Update(ctx, child); err != nil {
+				return err
+			}
+
+			// Assign parent to household
+			parent.HouseholdID = &household.ID
+			if err := s.parentRepo.Update(ctx, parent); err != nil {
+				return err
+			}
+		} else if parent.HouseholdID == nil {
+			// Child has a household but parent doesn't - add parent to child's household
+			parent.HouseholdID = child.HouseholdID
+			if err := s.parentRepo.Update(ctx, parent); err != nil {
+				return err
+			}
+		}
 	}
 
 	return s.childRepo.LinkParent(ctx, childID, parentID, isPrimary)

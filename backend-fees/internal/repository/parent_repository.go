@@ -50,7 +50,7 @@ func (r *PostgresParentRepository) List(ctx context.Context, search string, sort
 
 	// Fetch with pagination
 	selectQuery := fmt.Sprintf(`
-		SELECT id, first_name, last_name, birth_date, email, phone,
+		SELECT id, household_id, member_id, first_name, last_name, birth_date, email, phone,
 		       street, street_no, postal_code, city,
 		       annual_household_income, income_status, created_at, updated_at
 		%s
@@ -97,7 +97,7 @@ func getParentSortOrder(sortBy, sortDir string) string {
 func (r *PostgresParentRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Parent, error) {
 	var parent domain.Parent
 	err := r.db.GetContext(ctx, &parent, `
-		SELECT id, first_name, last_name, birth_date, email, phone,
+		SELECT id, household_id, member_id, first_name, last_name, birth_date, email, phone,
 		       street, street_no, postal_code, city,
 		       annual_household_income, income_status, created_at, updated_at
 		FROM fees.parents
@@ -117,7 +117,7 @@ func (r *PostgresParentRepository) GetByID(ctx context.Context, id uuid.UUID) (*
 func (r *PostgresParentRepository) FindByNameAndEmail(ctx context.Context, firstName, lastName, email string) (*domain.Parent, error) {
 	var parent domain.Parent
 	err := r.db.GetContext(ctx, &parent, `
-		SELECT id, first_name, last_name, birth_date, email, phone,
+		SELECT id, household_id, member_id, first_name, last_name, birth_date, email, phone,
 		       street, street_no, postal_code, city,
 		       annual_household_income, income_status, created_at, updated_at
 		FROM fees.parents
@@ -137,11 +137,11 @@ func (r *PostgresParentRepository) FindByNameAndEmail(ctx context.Context, first
 // Create creates a new parent.
 func (r *PostgresParentRepository) Create(ctx context.Context, parent *domain.Parent) error {
 	_, err := r.db.ExecContext(ctx, `
-		INSERT INTO fees.parents (id, first_name, last_name, birth_date, email, phone,
+		INSERT INTO fees.parents (id, household_id, member_id, first_name, last_name, birth_date, email, phone,
 		                          street, street_no, postal_code, city,
 		                          annual_household_income, income_status, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
-	`, parent.ID, parent.FirstName, parent.LastName, parent.BirthDate, parent.Email, parent.Phone,
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+	`, parent.ID, parent.HouseholdID, parent.MemberID, parent.FirstName, parent.LastName, parent.BirthDate, parent.Email, parent.Phone,
 		parent.Street, parent.StreetNo, parent.PostalCode, parent.City,
 		parent.AnnualHouseholdIncome, parent.IncomeStatus, parent.CreatedAt, parent.UpdatedAt)
 	return err
@@ -152,11 +152,11 @@ func (r *PostgresParentRepository) Update(ctx context.Context, parent *domain.Pa
 	parent.UpdatedAt = time.Now()
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE fees.parents
-		SET first_name = $2, last_name = $3, birth_date = $4, email = $5, phone = $6,
-		    street = $7, street_no = $8, postal_code = $9, city = $10,
-		    annual_household_income = $11, income_status = $12, updated_at = $13
+		SET household_id = $2, member_id = $3, first_name = $4, last_name = $5, birth_date = $6, email = $7, phone = $8,
+		    street = $9, street_no = $10, postal_code = $11, city = $12,
+		    annual_household_income = $13, income_status = $14, updated_at = $15
 		WHERE id = $1
-	`, parent.ID, parent.FirstName, parent.LastName, parent.BirthDate, parent.Email, parent.Phone,
+	`, parent.ID, parent.HouseholdID, parent.MemberID, parent.FirstName, parent.LastName, parent.BirthDate, parent.Email, parent.Phone,
 		parent.Street, parent.StreetNo, parent.PostalCode, parent.City,
 		parent.AnnualHouseholdIncome, parent.IncomeStatus, parent.UpdatedAt)
 	return err

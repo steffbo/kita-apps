@@ -9,6 +9,7 @@ import (
 // Child represents a child enrolled in the Kita.
 type Child struct {
 	ID              uuid.UUID  `json:"id" db:"id"`
+	HouseholdID     *uuid.UUID `json:"householdId,omitempty" db:"household_id"`
 	MemberNumber    string     `json:"memberNumber" db:"member_number"`
 	FirstName       string     `json:"firstName" db:"first_name"`
 	LastName        string     `json:"lastName" db:"last_name"`
@@ -25,7 +26,9 @@ type Child struct {
 	IsActive        bool       `json:"isActive" db:"is_active"`
 	CreatedAt       time.Time  `json:"createdAt" db:"created_at"`
 	UpdatedAt       time.Time  `json:"updatedAt" db:"updated_at"`
-	Parents         []Parent   `json:"parents,omitempty" db:"-"`
+	// Loaded relations (not stored in DB)
+	Parents   []Parent   `json:"parents,omitempty" db:"-"`
+	Household *Household `json:"household,omitempty" db:"-"`
 }
 
 // IsUnderThree checks if the child is under 3 years old at the given date.

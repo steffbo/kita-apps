@@ -2,7 +2,7 @@
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api';
-import type { Child, FeeExpectation, UpdateChildRequest, Parent, CreateParentRequest, UpdateParentRequest, BankTransaction, IncomeStatus } from '@/api/types';
+import type { Child, FeeExpectation, UpdateChildRequest, Parent, CreateParentRequest, UpdateParentRequest, BankTransaction, IncomeStatus, UpdateHouseholdRequest } from '@/api/types';
 import {
   ArrowLeft,
   Edit,
@@ -25,6 +25,7 @@ import {
   Search,
   Unlink,
   CreditCard,
+  Home,
 } from 'lucide-vue-next';
 
 const route = useRoute();
@@ -78,6 +79,12 @@ const isEditingParent = ref(false);
 const parentEditForm = ref<UpdateParentRequest>({});
 const isSavingParent = ref(false);
 const parentDetailError = ref<string | null>(null);
+
+// Household editing state
+const isEditingHousehold = ref(false);
+const householdEditForm = ref<UpdateHouseholdRequest>({});
+const isSavingHousehold = ref(false);
+const householdError = ref<string | null>(null);
 
 const childId = computed(() => route.params.id as string);
 
@@ -380,8 +387,6 @@ function startEditingParent() {
     streetNo: selectedParentForDetail.value.streetNo,
     postalCode: selectedParentForDetail.value.postalCode,
     city: selectedParentForDetail.value.city,
-    annualHouseholdIncome: selectedParentForDetail.value.annualHouseholdIncome,
-    incomeStatus: selectedParentForDetail.value.incomeStatus || '',
   };
   isEditingParent.value = true;
 }
@@ -434,6 +439,46 @@ function getIncomeStatusLabel(status?: IncomeStatus): string {
       return 'Pflegefamilie (Durchschnittsbeitrag)';
     default:
       return 'Nicht festgelegt';
+  }
+}
+
+// Siblings computed property (other children in the same household)
+const siblings = computed(() => {
+  if (!child.value?.household?.children) return [];
+  return child.value.household.children.filter(c => c.id !== child.value?.id);
+});
+
+// Household functions
+function startEditingHousehold() {
+  if (!child.value?.household) return;
+  householdEditForm.value = {
+    name: child.value.household.name,
+    annualHouseholdIncome: child.value.household.annualHouseholdIncome,
+    incomeStatus: child.value.household.incomeStatus || '',
+  };
+  householdError.value = null;
+  isEditingHousehold.value = true;
+}
+
+function cancelEditingHousehold() {
+  isEditingHousehold.value = false;
+  householdEditForm.value = {};
+  householdError.value = null;
+}
+
+async function saveHouseholdEdit() {
+  if (!child.value?.household) return;
+  isSavingHousehold.value = true;
+  householdError.value = null;
+  try {
+    await api.updateHousehold(child.value.household.id, householdEditForm.value);
+    isEditingHousehold.value = false;
+    // Reload child to get updated household
+    await loadChild();
+  } catch (e) {
+    householdError.value = e instanceof Error ? e.message : 'Fehler beim Speichern';
+  } finally {
+    isSavingHousehold.value = false;
   }
 }
 
@@ -663,6 +708,135 @@ const incomeStatusOptions: { value: IncomeStatus; label: string }[] = [
               </button>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- Household & Income Section -->
+      <div class="bg-white rounded-xl border p-6 mb-6">
+        <div class="flex items-center justify-between mb-4">
+          <div class="flex items-center gap-2">
+            <Home class="h-5 w-5 text-primary" />
+            <h2 class="text-lg font-semibold">Haushalt & Einkommen</h2>
+          </div>
+          <button
+            v-if="child.household && !isEditingHousehold"
+            @click="startEditingHousehold"
+            class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            title="Bearbeiten"
+          >
+            <Edit class="h-4 w-4" />
+          </button>
+        </div>
+
+        <!-- Has Household -->
+        <div v-if="child.household">
+          <!-- View Mode -->
+          <div v-if="!isEditingHousehold" class="space-y-4">
+            <!-- Household Name -->
+            <div>
+              <p class="text-sm text-gray-500">Haushaltsname</p>
+              <p class="font-medium">{{ child.household.name }}</p>
+            </div>
+
+            <!-- Income Status -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <p class="text-sm text-gray-500">Einkommensstatus</p>
+                <p class="font-medium">{{ getIncomeStatusLabel(child.household.incomeStatus) }}</p>
+              </div>
+              <div v-if="child.household.incomeStatus === 'PROVIDED' || child.household.incomeStatus === 'HISTORIC'">
+                <p class="text-sm text-gray-500">Jahreshaushaltseinkommen</p>
+                <p class="font-medium">{{ formatIncome(child.household.annualHouseholdIncome) }}</p>
+              </div>
+            </div>
+
+            <!-- Siblings -->
+            <div v-if="siblings.length > 0" class="pt-4 border-t">
+              <p class="text-sm text-gray-500 mb-2 flex items-center gap-1">
+                <Users class="h-4 w-4" />
+                Geschwister im Haushalt
+              </p>
+              <div class="flex flex-wrap gap-2">
+                <router-link
+                  v-for="sibling in siblings"
+                  :key="sibling.id"
+                  :to="`/kinder/${sibling.id}`"
+                  class="inline-flex items-center gap-2 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg text-sm transition-colors"
+                >
+                  <User class="h-4 w-4 text-gray-500" />
+                  <span>{{ sibling.firstName }} {{ sibling.lastName }}</span>
+                </router-link>
+              </div>
+            </div>
+          </div>
+
+          <!-- Edit Mode -->
+          <form v-else @submit.prevent="saveHouseholdEdit" class="space-y-4">
+            <div>
+              <label for="household-name" class="block text-sm font-medium text-gray-700 mb-1">Haushaltsname</label>
+              <input
+                id="household-name"
+                v-model="householdEditForm.name"
+                type="text"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              />
+            </div>
+
+            <div>
+              <label for="household-incomeStatus" class="block text-sm font-medium text-gray-700 mb-1">Einkommensstatus</label>
+              <select
+                id="household-incomeStatus"
+                v-model="householdEditForm.incomeStatus"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-white"
+              >
+                <option v-for="option in incomeStatusOptions" :key="option.value" :value="option.value">
+                  {{ option.label }}
+                </option>
+              </select>
+            </div>
+
+            <div v-if="householdEditForm.incomeStatus === 'PROVIDED' || householdEditForm.incomeStatus === 'HISTORIC'">
+              <label for="household-income" class="block text-sm font-medium text-gray-700 mb-1">Jahreshaushaltseinkommen</label>
+              <input
+                id="household-income"
+                v-model.number="householdEditForm.annualHouseholdIncome"
+                type="number"
+                min="0"
+                step="any"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              />
+            </div>
+
+            <div v-if="householdError" class="p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p class="text-sm text-red-600">{{ householdError }}</p>
+            </div>
+
+            <div class="flex justify-end gap-3 pt-2">
+              <button
+                type="button"
+                @click="cancelEditingHousehold"
+                class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              >
+                Abbrechen
+              </button>
+              <button
+                type="submit"
+                :disabled="isSavingHousehold"
+                class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+              >
+                <Loader2 v-if="isSavingHousehold" class="h-4 w-4 animate-spin" />
+                <Check v-else class="h-4 w-4" />
+                Speichern
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- No Household -->
+        <div v-else class="text-center py-6 bg-gray-50 rounded-lg border border-dashed">
+          <Home class="h-8 w-8 text-gray-400 mx-auto mb-2" />
+          <p class="text-gray-500 text-sm mb-1">Kein Haushalt zugeordnet</p>
+          <p class="text-gray-400 text-xs">Ein Haushalt wird automatisch erstellt, wenn Eltern verknüpft werden.</p>
         </div>
       </div>
 
@@ -1361,15 +1535,6 @@ const incomeStatusOptions: { value: IncomeStatus; label: string }[] = [
             <p class="text-gray-600">{{ selectedParentForDetail.postalCode }} {{ selectedParentForDetail.city }}</p>
           </div>
 
-          <div class="pt-4 border-t">
-            <p class="text-sm text-gray-500 mb-1">Einkommensstatus</p>
-            <p class="font-medium">{{ getIncomeStatusLabel(selectedParentForDetail.incomeStatus) }}</p>
-            <div v-if="selectedParentForDetail.incomeStatus === 'PROVIDED' || selectedParentForDetail.incomeStatus === 'HISTORIC'" class="mt-2">
-              <p class="text-sm text-gray-500">Jahreshaushaltseinkommen</p>
-              <p class="font-medium">{{ formatIncome(selectedParentForDetail.annualHouseholdIncome) }}</p>
-            </div>
-          </div>
-
           <div class="pt-4 border-t text-sm text-gray-500">
             <p>Erstellt: {{ formatDate(selectedParentForDetail.createdAt) }}</p>
             <p>Aktualisiert: {{ formatDate(selectedParentForDetail.updatedAt) }}</p>
@@ -1469,31 +1634,6 @@ const incomeStatusOptions: { value: IncomeStatus; label: string }[] = [
                 class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
               />
             </div>
-          </div>
-
-          <div>
-            <label for="parent-edit-incomeStatus" class="block text-sm font-medium text-gray-700 mb-1">Einkommensstatus</label>
-            <select
-              id="parent-edit-incomeStatus"
-              v-model="parentEditForm.incomeStatus"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-white"
-            >
-              <option v-for="option in incomeStatusOptions" :key="option.value" :value="option.value">
-                {{ option.label }}
-              </option>
-            </select>
-          </div>
-
-          <div v-if="parentEditForm.incomeStatus === 'PROVIDED' || parentEditForm.incomeStatus === 'HISTORIC'">
-            <label for="parent-edit-income" class="block text-sm font-medium text-gray-700 mb-1">Jahreshaushaltseinkommen</label>
-            <input
-              id="parent-edit-income"
-              v-model.number="parentEditForm.annualHouseholdIncome"
-              type="number"
-              min="0"
-              step="any"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-            />
           </div>
 
           <div v-if="parentDetailError" class="p-3 bg-red-50 border border-red-200 rounded-lg">

@@ -8,6 +8,12 @@ import type {
   Parent,
   CreateParentRequest,
   UpdateParentRequest,
+  Household,
+  CreateHouseholdRequest,
+  UpdateHouseholdRequest,
+  Member,
+  CreateMemberRequest,
+  UpdateMemberRequest,
   FeeExpectation,
   FeeOverview,
   GenerateFeeRequest,
@@ -201,6 +207,104 @@ class ApiClient {
 
   async deleteParent(id: string): Promise<void> {
     return this.request<void>(`/parents/${id}`, { method: 'DELETE' });
+  }
+
+  // Households endpoints
+  async getHouseholds(params?: {
+    search?: string;
+    sortBy?: string;
+    sortDir?: string;
+    offset?: number;
+    limit?: number;
+  }): Promise<PaginatedResponse<Household>> {
+    const query = new URLSearchParams();
+    if (params?.search) query.set('search', params.search);
+    if (params?.sortBy) query.set('sortBy', params.sortBy);
+    if (params?.sortDir) query.set('sortDir', params.sortDir);
+    if (params?.offset) query.set('offset', String(params.offset));
+    if (params?.limit) query.set('limit', String(params.limit));
+    const queryString = query.toString();
+    const response = await this.request<PaginatedResponse<Household>>(`/households${queryString ? `?${queryString}` : ''}`);
+    return this.normalizePaginated(response);
+  }
+
+  async getHousehold(id: string): Promise<Household> {
+    return this.request<Household>(`/households/${id}`);
+  }
+
+  async createHousehold(data: CreateHouseholdRequest): Promise<Household> {
+    return this.request<Household>('/households', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateHousehold(id: string, data: UpdateHouseholdRequest): Promise<Household> {
+    return this.request<Household>(`/households/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteHousehold(id: string): Promise<void> {
+    return this.request<void>(`/households/${id}`, { method: 'DELETE' });
+  }
+
+  async linkParentToHousehold(householdId: string, parentId: string): Promise<void> {
+    return this.request<void>(`/households/${householdId}/parents`, {
+      method: 'POST',
+      body: JSON.stringify({ parentId }),
+    });
+  }
+
+  async linkChildToHousehold(householdId: string, childId: string): Promise<void> {
+    return this.request<void>(`/households/${householdId}/children`, {
+      method: 'POST',
+      body: JSON.stringify({ childId }),
+    });
+  }
+
+  // Members (Vereinsmitglieder) endpoints
+  async getMembers(params?: {
+    activeOnly?: boolean;
+    search?: string;
+    sortBy?: string;
+    sortDir?: string;
+    offset?: number;
+    limit?: number;
+  }): Promise<PaginatedResponse<Member>> {
+    const query = new URLSearchParams();
+    if (params?.activeOnly) query.set('active', 'true');
+    if (params?.search) query.set('search', params.search);
+    if (params?.sortBy) query.set('sortBy', params.sortBy);
+    if (params?.sortDir) query.set('sortDir', params.sortDir);
+    if (params?.offset) query.set('offset', String(params.offset));
+    if (params?.limit) query.set('limit', String(params.limit));
+    const queryString = query.toString();
+    const response = await this.request<PaginatedResponse<Member>>(`/members${queryString ? `?${queryString}` : ''}`);
+    return this.normalizePaginated(response);
+  }
+
+  async getMember(id: string): Promise<Member> {
+    return this.request<Member>(`/members/${id}`);
+  }
+
+  async createMember(data: CreateMemberRequest): Promise<Member> {
+    return this.request<Member>('/members', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateMember(id: string, data: UpdateMemberRequest): Promise<Member> {
+    return this.request<Member>(`/members/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteMember(id: string): Promise<void> {
+    return this.request<void>(`/members/${id}`, { method: 'DELETE' });
   }
 
   // Fees endpoints

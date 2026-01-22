@@ -26,6 +26,7 @@ export interface User {
 // Children
 export interface Child {
   id: string;
+  householdId?: string;
   memberNumber: string;
   firstName: string;
   lastName: string;
@@ -43,6 +44,7 @@ export interface Child {
   createdAt: string;
   updatedAt: string;
   parents?: Parent[];
+  household?: Household;
 }
 
 export interface CreateChildRequest {
@@ -75,13 +77,92 @@ export interface UpdateChildRequest {
   legalHoursUntil?: string;
   careHours?: number;
   isActive?: boolean;
+  householdId?: string;
+}
+
+// Households
+export type IncomeStatus = '' | 'PROVIDED' | 'MAX_ACCEPTED' | 'PENDING' | 'NOT_REQUIRED' | 'HISTORIC' | 'FOSTER_FAMILY';
+
+export interface Household {
+  id: string;
+  name: string;
+  annualHouseholdIncome?: number;
+  incomeStatus: IncomeStatus;
+  createdAt: string;
+  updatedAt: string;
+  parents?: Parent[];
+  children?: Child[];
+}
+
+export interface CreateHouseholdRequest {
+  name: string;
+  annualHouseholdIncome?: number;
+  incomeStatus?: IncomeStatus;
+}
+
+export interface UpdateHouseholdRequest {
+  name?: string;
+  annualHouseholdIncome?: number;
+  incomeStatus?: IncomeStatus;
+}
+
+// Members (Vereinsmitglieder - can exist independently of children)
+export interface Member {
+  id: string;
+  memberNumber: string;
+  firstName: string;
+  lastName: string;
+  email?: string;
+  phone?: string;
+  street?: string;
+  streetNo?: string;
+  postalCode?: string;
+  city?: string;
+  householdId?: string;
+  membershipStart: string;
+  membershipEnd?: string;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  household?: Household;
+}
+
+export interface CreateMemberRequest {
+  memberNumber?: string; // Auto-generated if not provided
+  firstName: string;
+  lastName: string;
+  email?: string;
+  phone?: string;
+  street?: string;
+  streetNo?: string;
+  postalCode?: string;
+  city?: string;
+  householdId?: string;
+  membershipStart: string;
+  membershipEnd?: string;
+}
+
+export interface UpdateMemberRequest {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  phone?: string;
+  street?: string;
+  streetNo?: string;
+  postalCode?: string;
+  city?: string;
+  householdId?: string;
+  membershipStart?: string;
+  membershipEnd?: string;
+  isActive?: boolean;
 }
 
 // Parents
-export type IncomeStatus = '' | 'PROVIDED' | 'MAX_ACCEPTED' | 'PENDING' | 'NOT_REQUIRED' | 'HISTORIC' | 'FOSTER_FAMILY';
 
 export interface Parent {
   id: string;
+  householdId?: string;
+  memberId?: string; // Reference to Member if parent is also a Vereinsmitglied
   firstName: string;
   lastName: string;
   birthDate?: string;
@@ -91,11 +172,14 @@ export interface Parent {
   streetNo?: string;
   postalCode?: string;
   city?: string;
+  // DEPRECATED: Income fields moved to Household
   annualHouseholdIncome?: number;
   incomeStatus?: IncomeStatus;
   createdAt: string;
   updatedAt: string;
   children?: Child[];
+  household?: Household;
+  member?: Member; // Linked member if parent is a Vereinsmitglied
 }
 
 export interface CreateParentRequest {
@@ -108,6 +192,9 @@ export interface CreateParentRequest {
   streetNo?: string;
   postalCode?: string;
   city?: string;
+  householdId?: string;
+  memberId?: string; // Link to existing Member
+  // DEPRECATED: Income should be set on Household
   annualHouseholdIncome?: number;
   incomeStatus?: IncomeStatus;
 }
@@ -122,6 +209,9 @@ export interface UpdateParentRequest {
   streetNo?: string;
   postalCode?: string;
   city?: string;
+  householdId?: string;
+  memberId?: string; // Link to existing Member
+  // DEPRECATED: Income should be set on Household
   annualHouseholdIncome?: number;
   incomeStatus?: IncomeStatus;
 }

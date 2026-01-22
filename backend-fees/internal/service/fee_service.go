@@ -14,6 +14,7 @@ import (
 type FeeService struct {
 	feeRepo         repository.FeeRepository
 	childRepo       repository.ChildRepository
+	householdRepo   repository.HouseholdRepository
 	matchRepo       repository.MatchRepository
 	transactionRepo repository.TransactionRepository
 }
@@ -22,12 +23,14 @@ type FeeService struct {
 func NewFeeService(
 	feeRepo repository.FeeRepository,
 	childRepo repository.ChildRepository,
+	householdRepo repository.HouseholdRepository,
 	matchRepo repository.MatchRepository,
 	transactionRepo repository.TransactionRepository,
 ) *FeeService {
 	return &FeeService{
 		feeRepo:         feeRepo,
 		childRepo:       childRepo,
+		householdRepo:   householdRepo,
 		matchRepo:       matchRepo,
 		transactionRepo: transactionRepo,
 	}
@@ -172,23 +175,41 @@ func (s *FeeService) Generate(ctx context.Context, year int, month *int) (*Gener
 
 			// Childcare fee (only U3)
 			if child.IsUnderThree(checkDate) {
-				// Get parent info for income and status
+				// Get income and status - prefer household, fall back to parents
 				isFosterFamily := false
 				isHighestRate := false
 				var income float64 = 0
 				var siblingsCount int = 1
 
-				parents, _ := s.childRepo.GetParents(ctx, child.ID)
-				for _, parent := range parents {
-					if parent.IncomeStatus == domain.IncomeStatusFosterFamily {
-						isFosterFamily = true
-						break
+				// Try to get income from household first
+				if child.HouseholdID != nil && s.householdRepo != nil {
+					household, err := s.householdRepo.GetByID(ctx, *child.HouseholdID)
+					if err == nil && household != nil {
+						if household.IncomeStatus == domain.IncomeStatusFosterFamily {
+							isFosterFamily = true
+						} else if household.IncomeStatus == domain.IncomeStatusMaxAccepted {
+							isHighestRate = true
+						} else if household.IncomeStatus == domain.IncomeStatusProvided && household.AnnualHouseholdIncome != nil {
+							income = *household.AnnualHouseholdIncome
+						}
+						// TODO: count siblings from household children
 					}
-					if parent.IncomeStatus == domain.IncomeStatusMaxAccepted {
-						isHighestRate = true
-					}
-					if parent.IncomeStatus == domain.IncomeStatusProvided && parent.AnnualHouseholdIncome != nil {
-						income = *parent.AnnualHouseholdIncome
+				}
+
+				// Fall back to parent income if not set from household
+				if !isFosterFamily && !isHighestRate && income == 0 {
+					parents, _ := s.childRepo.GetParents(ctx, child.ID)
+					for _, parent := range parents {
+						if parent.IncomeStatus == domain.IncomeStatusFosterFamily {
+							isFosterFamily = true
+							break
+						}
+						if parent.IncomeStatus == domain.IncomeStatusMaxAccepted {
+							isHighestRate = true
+						}
+						if parent.IncomeStatus == domain.IncomeStatusProvided && parent.AnnualHouseholdIncome != nil {
+							income = *parent.AnnualHouseholdIncome
+						}
 					}
 				}
 

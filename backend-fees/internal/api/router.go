@@ -85,6 +85,26 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 				r.Delete("/{id}", handlers.Parent.Delete)
 			})
 
+			// Households
+			r.Route("/households", func(r chi.Router) {
+				r.Get("/", handlers.Household.List)
+				r.Post("/", handlers.Household.Create)
+				r.Get("/{id}", handlers.Household.Get)
+				r.Put("/{id}", handlers.Household.Update)
+				r.Delete("/{id}", handlers.Household.Delete)
+				r.Post("/{id}/parents", handlers.Household.LinkParent)
+				r.Post("/{id}/children", handlers.Household.LinkChild)
+			})
+
+			// Members (Vereinsmitglieder)
+			r.Route("/members", func(r chi.Router) {
+				r.Get("/", handlers.Member.List)
+				r.Post("/", handlers.Member.Create)
+				r.Get("/{id}", handlers.Member.Get)
+				r.Put("/{id}", handlers.Member.Update)
+				r.Delete("/{id}", handlers.Member.Delete)
+			})
+
 			// Fees
 			r.Route("/fees", func(r chi.Router) {
 				r.Get("/", handlers.Fee.List)
@@ -122,6 +142,8 @@ type Handlers struct {
 	Child       *handler.ChildHandler
 	ChildImport *handler.ChildImportHandler
 	Parent      *handler.ParentHandler
+	Household   *handler.HouseholdHandler
+	Member      *handler.MemberHandler
 	Fee         *handler.FeeHandler
 	Import      *handler.ImportHandler
 	JWTService  *auth.JWTService
