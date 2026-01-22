@@ -96,7 +96,7 @@ func (s *ImportService) ProcessCSV(ctx context.Context, file io.Reader, fileName
 	}
 
 	// Get all children for matching
-	children, _, _ := s.childRepo.List(ctx, true, "", 0, 1000)
+	children, _, _ := s.childRepo.List(ctx, true, "", "", "", 0, 1000)
 
 	// Process each transaction
 	for _, tx := range transactions {
@@ -317,7 +317,7 @@ func (s *ImportService) Rescan(ctx context.Context) (*RescanResult, error) {
 	}
 
 	// Get all children for matching
-	children, _, _ := s.childRepo.List(ctx, true, "", 0, 1000)
+	children, _, _ := s.childRepo.List(ctx, true, "", "", "", 0, 1000)
 
 	// Re-scan each transaction
 	for _, tx := range transactions {

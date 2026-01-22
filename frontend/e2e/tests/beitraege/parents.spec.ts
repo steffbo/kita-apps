@@ -1,4 +1,35 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, Page, Locator } from '@playwright/test';
+
+// Helper to fill a search input and trigger Vue's v-model properly
+async function fillSearchInput(page: Page, locator: Locator, value: string) {
+  // Set up response listener BEFORE dispatching the event
+  const responsePromise = page.waitForResponse(
+    resp => resp.url().includes('/children') && resp.status() === 200,
+    { timeout: 10000 }
+  );
+  
+  // Dispatch the input event
+  await locator.evaluate((el: HTMLInputElement, v: string) => {
+    const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!;
+    nativeInputValueSetter.call(el, v);
+    el.dispatchEvent(new InputEvent('input', { bubbles: true, data: v }));
+  }, value);
+  
+  // Wait for debounce (150ms in component) + response
+  await responsePromise;
+  await expect(page.locator('.animate-spin')).toBeHidden({ timeout: 10000 });
+}
+
+// Helper to find and click on a child by searching
+async function navigateToChild(page: Page, childName: string) {
+  // Search for the child
+  const searchInput = page.getByPlaceholder(/suchen/i);
+  await fillSearchInput(page, searchInput, childName);
+  
+  // Click on the first matching row in the table
+  await page.getByRole('cell', { name: new RegExp(childName) }).first().click();
+  await expect(page.getByRole('heading', { name: new RegExp(childName) })).toBeVisible();
+}
 
 test.describe('Beitraege - Parent Cards on Child Detail Page', () => {
   let testChildName: string;
@@ -24,9 +55,8 @@ test.describe('Beitraege - Parent Cards on Child Detail Page', () => {
   });
 
   test('displays "No parents" message when child has no parents', async ({ page }) => {
-    // Navigate to detail page
-    await page.getByText(testChildName).click();
-    await expect(page.getByRole('heading', { name: new RegExp(testChildName) })).toBeVisible();
+    // Navigate to detail page by searching
+    await navigateToChild(page, testChildName);
 
     // Should show "No parents" message
     await expect(page.getByText(/keine eltern zugeordnet/i)).toBeVisible();
@@ -37,8 +67,7 @@ test.describe('Beitraege - Parent Cards on Child Detail Page', () => {
   });
 
   test('can open create parent dialog', async ({ page }) => {
-    await page.getByText(testChildName).click();
-    await expect(page.getByRole('heading', { name: new RegExp(testChildName) })).toBeVisible();
+    await navigateToChild(page, testChildName);
 
     // Click "Neu anlegen" button
     await page.getByRole('button', { name: /neu anlegen/i }).click();
@@ -59,8 +88,7 @@ test.describe('Beitraege - Parent Cards on Child Detail Page', () => {
     const parentEmail = `test-${Date.now()}@example.com`;
     const parentPhone = '0123456789';
 
-    await page.getByText(testChildName).click();
-    await expect(page.getByRole('heading', { name: new RegExp(testChildName) })).toBeVisible();
+    await navigateToChild(page, testChildName);
 
     // Open create dialog
     await page.getByRole('button', { name: /neu anlegen/i }).click();
@@ -93,8 +121,7 @@ test.describe('Beitraege - Parent Cards on Child Detail Page', () => {
     const parentEmail = `card-test-${Date.now()}@example.com`;
     const parentPhone = '0987654321';
 
-    await page.getByText(testChildName).click();
-    await expect(page.getByRole('heading', { name: new RegExp(testChildName) })).toBeVisible();
+    await navigateToChild(page, testChildName);
 
     // Create a parent with all details
     await page.getByRole('button', { name: /neu anlegen/i }).click();
@@ -119,8 +146,7 @@ test.describe('Beitraege - Parent Cards on Child Detail Page', () => {
   });
 
   test('can switch between create and link modes in dialog', async ({ page }) => {
-    await page.getByText(testChildName).click();
-    await expect(page.getByRole('heading', { name: new RegExp(testChildName) })).toBeVisible();
+    await navigateToChild(page, testChildName);
 
     // Open dialog via "Neu anlegen" button in the empty state
     await page.getByRole('button', { name: /neu anlegen/i }).click();
@@ -144,8 +170,7 @@ test.describe('Beitraege - Parent Cards on Child Detail Page', () => {
   });
 
   test('can open link parent dialog directly', async ({ page }) => {
-    await page.getByText(testChildName).click();
-    await expect(page.getByRole('heading', { name: new RegExp(testChildName) })).toBeVisible();
+    await navigateToChild(page, testChildName);
 
     // Click "Verknüpfen" button
     await page.getByRole('button', { name: /verknüpfen/i }).first().click();
@@ -175,8 +200,7 @@ test.describe('Beitraege - Parent Cards on Child Detail Page', () => {
     await expect(page.getByRole('heading', { name: /kind hinzufügen/i })).toBeHidden();
     
     // Navigate to helper child and create a parent there
-    await page.getByText(helperChildName).click();
-    await expect(page.getByRole('heading', { name: new RegExp(helperChildName) })).toBeVisible();
+    await navigateToChild(page, helperChildName);
     
     await page.getByRole('button', { name: /neu anlegen/i }).click();
     await page.locator('#parent-firstName').fill(searchParentName);
@@ -188,8 +212,7 @@ test.describe('Beitraege - Parent Cards on Child Detail Page', () => {
     await page.goto('/kinder');
     await expect(page.locator('.animate-spin')).toBeHidden({ timeout: 10000 });
 
-    await page.getByText(testChildName).click();
-    await expect(page.getByRole('heading', { name: new RegExp(testChildName) })).toBeVisible();
+    await navigateToChild(page, testChildName);
 
     // Open link dialog
     await page.getByRole('button', { name: /verknüpfen/i }).first().click();
@@ -222,8 +245,7 @@ test.describe('Beitraege - Parent Cards on Child Detail Page', () => {
     await expect(page.getByRole('heading', { name: /kind hinzufügen/i })).toBeHidden();
     
     // Navigate to helper child and create a parent there
-    await page.getByText(helperChildName).click();
-    await expect(page.getByRole('heading', { name: new RegExp(helperChildName) })).toBeVisible();
+    await navigateToChild(page, helperChildName);
     
     await page.getByRole('button', { name: /neu anlegen/i }).click();
     await page.locator('#parent-firstName').fill(linkParentName);
@@ -235,8 +257,7 @@ test.describe('Beitraege - Parent Cards on Child Detail Page', () => {
     await page.goto('/kinder');
     await expect(page.locator('.animate-spin')).toBeHidden({ timeout: 10000 });
 
-    await page.getByText(testChildName).click();
-    await expect(page.getByRole('heading', { name: new RegExp(testChildName) })).toBeVisible();
+    await navigateToChild(page, testChildName);
 
     // Open link dialog
     await page.getByRole('button', { name: /verknüpfen/i }).first().click();
@@ -262,8 +283,7 @@ test.describe('Beitraege - Parent Cards on Child Detail Page', () => {
   test('can unlink a parent from a child', async ({ page }) => {
     const unlinkParentName = `Unlink-${Date.now().toString().slice(-4)}`;
 
-    await page.getByText(testChildName).click();
-    await expect(page.getByRole('heading', { name: new RegExp(testChildName) })).toBeVisible();
+    await navigateToChild(page, testChildName);
 
     // Create and link a parent first
     await page.getByRole('button', { name: /neu anlegen/i }).click();
@@ -275,8 +295,8 @@ test.describe('Beitraege - Parent Cards on Child Detail Page', () => {
     // Verify parent is shown
     await expect(page.getByText(`${unlinkParentName} Zuentfernen`)).toBeVisible();
 
-    // Click unlink button (the small button with Unlink icon on the parent card)
-    await page.locator('button[title="Verknüpfung aufheben"]').click();
+    // Click unlink button (the span with Unlink icon on the parent card)
+    await page.locator('span[title="Verknüpfung aufheben"]').click();
 
     // Confirmation dialog should appear
     await expect(page.getByRole('heading', { name: /verknüpfung aufheben/i })).toBeVisible();
@@ -298,8 +318,7 @@ test.describe('Beitraege - Parent Cards on Child Detail Page', () => {
   test('can cancel unlink dialog', async ({ page }) => {
     const cancelUnlinkParent = `CancelUnlink-${Date.now().toString().slice(-4)}`;
 
-    await page.getByText(testChildName).click();
-    await expect(page.getByRole('heading', { name: new RegExp(testChildName) })).toBeVisible();
+    await navigateToChild(page, testChildName);
 
     // Create and link a parent
     await page.getByRole('button', { name: /neu anlegen/i }).click();
@@ -309,7 +328,7 @@ test.describe('Beitraege - Parent Cards on Child Detail Page', () => {
     await expect(page.getByRole('heading', { name: /elternteil anlegen/i })).toBeHidden();
 
     // Click unlink
-    await page.locator('button[title="Verknüpfung aufheben"]').click();
+    await page.locator('span[title="Verknüpfung aufheben"]').click();
     await expect(page.getByRole('heading', { name: /verknüpfung aufheben/i })).toBeVisible();
 
     // Cancel
@@ -326,8 +345,7 @@ test.describe('Beitraege - Parent Cards on Child Detail Page', () => {
     const parent1Name = `Multi1-${Date.now().toString().slice(-4)}`;
     const parent2Name = `Multi2-${Date.now().toString().slice(-4)}`;
 
-    await page.getByText(testChildName).click();
-    await expect(page.getByRole('heading', { name: new RegExp(testChildName) })).toBeVisible();
+    await navigateToChild(page, testChildName);
 
     // Create first parent
     await page.getByRole('button', { name: /neu anlegen/i }).click();
@@ -352,8 +370,7 @@ test.describe('Beitraege - Parent Cards on Child Detail Page', () => {
   });
 
   test('validates required fields when creating parent', async ({ page }) => {
-    await page.getByText(testChildName).click();
-    await expect(page.getByRole('heading', { name: new RegExp(testChildName) })).toBeVisible();
+    await navigateToChild(page, testChildName);
 
     // Open create dialog
     await page.getByRole('button', { name: /neu anlegen/i }).click();
@@ -367,8 +384,7 @@ test.describe('Beitraege - Parent Cards on Child Detail Page', () => {
   });
 
   test('can close parent dialog with X button', async ({ page }) => {
-    await page.getByText(testChildName).click();
-    await expect(page.getByRole('heading', { name: new RegExp(testChildName) })).toBeVisible();
+    await navigateToChild(page, testChildName);
 
     // Open dialog
     await page.getByRole('button', { name: /neu anlegen/i }).click();
@@ -382,8 +398,7 @@ test.describe('Beitraege - Parent Cards on Child Detail Page', () => {
   });
 
   test('can close parent dialog with Cancel button', async ({ page }) => {
-    await page.getByText(testChildName).click();
-    await expect(page.getByRole('heading', { name: new RegExp(testChildName) })).toBeVisible();
+    await navigateToChild(page, testChildName);
 
     // Open dialog
     await page.getByRole('button', { name: /neu anlegen/i }).click();

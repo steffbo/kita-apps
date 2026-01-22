@@ -1,4 +1,24 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, Locator, Page } from '@playwright/test';
+
+// Helper to fill a search input and trigger Vue's v-model properly
+async function fillSearchInput(page: Page, locator: Locator, value: string) {
+  // Set up response listener BEFORE dispatching the event
+  const responsePromise = page.waitForResponse(
+    resp => resp.url().includes('/children') && resp.status() === 200,
+    { timeout: 10000 }
+  );
+  
+  // Dispatch the input event
+  await locator.evaluate((el: HTMLInputElement, v: string) => {
+    const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value')!.set!;
+    nativeInputValueSetter.call(el, v);
+    el.dispatchEvent(new InputEvent('input', { bubbles: true, data: v }));
+  }, value);
+  
+  // Wait for debounce (150ms in component) + response
+  await responsePromise;
+  await expect(page.locator('.animate-spin')).toBeHidden({ timeout: 10000 });
+}
 
 test.describe('Beiträge - Children Management', () => {
   test.beforeEach(async ({ page }) => {
@@ -44,6 +64,10 @@ test.describe('Beiträge - Children Management', () => {
     // Dialog should close
     await expect(page.getByRole('heading', { name: /kind hinzufügen/i })).toBeHidden();
     
+    // Search for the new child (in case pagination hides it)
+    const searchInput = page.getByPlaceholder(/suchen/i);
+    await fillSearchInput(page, searchInput, memberNumber);
+    
     // New child should appear in list
     await expect(page.getByText(memberNumber)).toBeVisible();
     await expect(page.getByText(`${firstName} ${lastName}`)).toBeVisible();
@@ -76,11 +100,12 @@ test.describe('Beiträge - Children Management', () => {
     // Wait for dialog to close
     await expect(page.getByRole('heading', { name: /kind hinzufügen/i })).toBeHidden();
     
-    // Use search
-    await page.getByPlaceholder(/suchen/i).fill(searchName);
+    // Get the search input and search for the child
+    const searchInput = page.getByPlaceholder(/suchen/i);
+    await fillSearchInput(page, searchInput, searchName);
     
     // Should find the child
-    await expect(page.getByText(searchName)).toBeVisible();
+    await expect(page.getByText(searchName)).toBeVisible({ timeout: 5000 });
   });
 });
 
@@ -108,6 +133,10 @@ test.describe('Beiträge - Child Detail & Edit', () => {
   });
 
   test('can navigate to child detail page', async ({ page }) => {
+    // Search for the test child (in case pagination hides it)
+    const searchInput = page.getByPlaceholder(/suchen/i);
+    await fillSearchInput(page, searchInput, testChildName);
+    
     // Click on the child row
     await page.getByText(testChildName).click();
     
@@ -117,6 +146,10 @@ test.describe('Beiträge - Child Detail & Edit', () => {
   });
 
   test('can edit a child', async ({ page }) => {
+    // Search for the test child (in case pagination hides it)
+    const searchInput = page.getByPlaceholder(/suchen/i);
+    await fillSearchInput(page, searchInput, testChildName);
+    
     // Navigate to detail page
     await page.getByText(testChildName).click();
     await expect(page.getByRole('heading', { name: new RegExp(testChildName) })).toBeVisible();
@@ -151,6 +184,10 @@ test.describe('Beiträge - Child Detail & Edit', () => {
   });
 
   test('can delete a child', async ({ page }) => {
+    // Search for the test child (in case pagination hides it)
+    const searchInput = page.getByPlaceholder(/suchen/i);
+    await fillSearchInput(page, searchInput, testChildName);
+    
     // Navigate to detail page
     await page.getByText(testChildName).click();
     await expect(page.getByRole('heading', { name: new RegExp(testChildName) })).toBeVisible();
@@ -168,11 +205,17 @@ test.describe('Beiträge - Child Detail & Edit', () => {
     // Should redirect to children list
     await expect(page).toHaveURL(/\/kinder$/);
     
-    // Child should no longer be in the list
+    // Child should no longer be in the list (even after searching)
+    const searchInput2 = page.getByPlaceholder(/suchen/i);
+    await fillSearchInput(page, searchInput2, testMemberNumber);
     await expect(page.getByText(testMemberNumber)).toBeHidden();
   });
 
   test('can cancel delete', async ({ page }) => {
+    // Search for the test child (in case pagination hides it)
+    const searchInput = page.getByPlaceholder(/suchen/i);
+    await fillSearchInput(page, searchInput, testChildName);
+    
     // Navigate to detail page
     await page.getByText(testChildName).click();
     await expect(page.getByRole('heading', { name: new RegExp(testChildName) })).toBeVisible();
