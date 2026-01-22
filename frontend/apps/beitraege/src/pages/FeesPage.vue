@@ -11,6 +11,7 @@ import {
   Clock,
   AlertTriangle,
   Calendar,
+  Trash2,
 } from 'lucide-vue-next';
 
 const router = useRouter();
@@ -32,6 +33,11 @@ const generateForm = ref<GenerateFeeRequest>({
 });
 const isGenerating = ref(false);
 const generateResult = ref<{ created: number; skipped: number } | null>(null);
+
+// Selection state
+const selectedFeeIds = ref<Set<string>>(new Set());
+const isDeleting = ref(false);
+const showDeleteConfirm = ref(false);
 
 const years = computed(() => {
   const currentYear = new Date().getFullYear();
@@ -60,9 +66,28 @@ const feeTypes = [
   { value: 'CHILDCARE', label: 'Platzgeld' },
 ];
 
+// Computed for selection
+const allSelected = computed(() => {
+  return fees.value.length > 0 && selectedFeeIds.value.size === fees.value.length;
+});
+
+const someSelected = computed(() => {
+  return selectedFeeIds.value.size > 0 && selectedFeeIds.value.size < fees.value.length;
+});
+
+const selectedCount = computed(() => selectedFeeIds.value.size);
+
+const selectedDeletableCount = computed(() => {
+  return Array.from(selectedFeeIds.value).filter(id => {
+    const fee = fees.value.find(f => f.id === id);
+    return fee && !fee.isPaid;
+  }).length;
+});
+
 async function loadFees() {
   isLoading.value = true;
   error.value = null;
+  selectedFeeIds.value = new Set(); // Clear selection on reload
   try {
     const response = await api.getFees({
       year: selectedYear.value,
@@ -158,6 +183,83 @@ async function handleGenerate() {
   }
 }
 
+// Selection functions
+function toggleSelectAll() {
+  if (allSelected.value) {
+    selectedFeeIds.value = new Set();
+  } else {
+    selectedFeeIds.value = new Set(fees.value.map(f => f.id));
+  }
+}
+
+function toggleSelect(id: string) {
+  const newSet = new Set(selectedFeeIds.value);
+  if (newSet.has(id)) {
+    newSet.delete(id);
+  } else {
+    newSet.add(id);
+  }
+  selectedFeeIds.value = newSet;
+}
+
+function isSelected(id: string): boolean {
+  return selectedFeeIds.value.has(id);
+}
+
+function clearSelection() {
+  selectedFeeIds.value = new Set();
+}
+
+// Delete functions
+async function deleteSingleFee(fee: FeeExpectation) {
+  if (fee.isPaid) {
+    error.value = 'Bezahlte Beiträge können nicht gelöscht werden';
+    return;
+  }
+  
+  if (!confirm(`Beitrag "${getFeeTypeName(fee.feeType)}" für ${fee.child?.firstName} ${fee.child?.lastName} wirklich löschen?`)) {
+    return;
+  }
+  
+  try {
+    await api.deleteFee(fee.id);
+    await loadFees();
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : 'Fehler beim Löschen';
+  }
+}
+
+async function deleteSelectedFees() {
+  isDeleting.value = true;
+  error.value = null;
+  
+  const idsToDelete = Array.from(selectedFeeIds.value).filter(id => {
+    const fee = fees.value.find(f => f.id === id);
+    return fee && !fee.isPaid;
+  });
+  
+  let deleted = 0;
+  let failed = 0;
+  
+  for (const id of idsToDelete) {
+    try {
+      await api.deleteFee(id);
+      deleted++;
+    } catch {
+      failed++;
+    }
+  }
+  
+  showDeleteConfirm.value = false;
+  isDeleting.value = false;
+  
+  if (failed > 0) {
+    error.value = `${deleted} gelöscht, ${failed} fehlgeschlagen`;
+  }
+  
+  await loadFees();
+}
+
 </script>
 
 <template>
@@ -175,6 +277,35 @@ async function handleGenerate() {
         <Plus class="h-4 w-4" />
         Beiträge generieren
       </button>
+    </div>
+
+    <!-- Selection Action Bar -->
+    <div
+      v-if="selectedCount > 0"
+      class="flex items-center justify-between gap-4 mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg"
+    >
+      <div class="flex items-center gap-3">
+        <span class="text-sm font-medium text-blue-800">
+          {{ selectedCount }} ausgewählt
+        </span>
+        <button
+          @click="clearSelection"
+          class="text-sm text-blue-600 hover:text-blue-800 underline"
+        >
+          Auswahl aufheben
+        </button>
+      </div>
+      <button
+        v-if="selectedDeletableCount > 0"
+        @click="showDeleteConfirm = true"
+        class="inline-flex items-center gap-2 px-3 py-1.5 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition-colors"
+      >
+        <Trash2 class="h-4 w-4" />
+        {{ selectedDeletableCount }} löschen
+      </button>
+      <span v-else class="text-sm text-gray-500">
+        Nur unbezahlte Beiträge können gelöscht werden
+      </span>
     </div>
 
     <!-- Filters -->
@@ -272,6 +403,15 @@ async function handleGenerate() {
       <table class="w-full">
         <thead class="bg-gray-50">
           <tr class="text-left text-sm text-gray-500">
+            <th class="px-4 py-3 font-medium w-10">
+              <input
+                type="checkbox"
+                :checked="allSelected"
+                :indeterminate="someSelected"
+                @change="toggleSelectAll"
+                class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+              />
+            </th>
             <th class="px-4 py-3 font-medium">Mitgl.-Nr.</th>
             <th class="px-4 py-3 font-medium">Kind</th>
             <th class="px-4 py-3 font-medium">Typ</th>
@@ -279,14 +419,26 @@ async function handleGenerate() {
             <th class="px-4 py-3 font-medium text-right">Betrag</th>
             <th class="px-4 py-3 font-medium">Fällig</th>
             <th class="px-4 py-3 font-medium">Status</th>
+            <th class="px-4 py-3 font-medium w-10"></th>
           </tr>
         </thead>
         <tbody>
           <tr
             v-for="fee in fees"
             :key="fee.id"
-            class="border-t hover:bg-gray-50 transition-colors"
+            :class="[
+              'border-t transition-colors',
+              isSelected(fee.id) ? 'bg-blue-50' : 'hover:bg-gray-50'
+            ]"
           >
+            <td class="px-4 py-3">
+              <input
+                type="checkbox"
+                :checked="isSelected(fee.id)"
+                @change="toggleSelect(fee.id)"
+                class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+              />
+            </td>
             <td class="px-4 py-3 text-gray-600 font-mono text-sm">
               {{ fee.child?.memberNumber }}
             </td>
@@ -326,9 +478,19 @@ async function handleGenerate() {
                 <span class="text-sm">{{ getStatusInfo(fee).label }}</span>
               </div>
             </td>
+            <td class="px-4 py-3">
+              <button
+                v-if="!fee.isPaid"
+                @click="deleteSingleFee(fee)"
+                class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                title="Löschen"
+              >
+                <Trash2 class="h-4 w-4" />
+              </button>
+            </td>
           </tr>
           <tr v-if="fees.length === 0">
-            <td colspan="7" class="px-4 py-8 text-center text-gray-500">
+            <td colspan="9" class="px-4 py-8 text-center text-gray-500">
               Keine Beiträge gefunden
             </td>
           </tr>
@@ -401,6 +563,48 @@ async function handleGenerate() {
               Generieren
             </button>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Delete Confirmation Dialog -->
+    <div
+      v-if="showDeleteConfirm"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      @click.self="showDeleteConfirm = false"
+    >
+      <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+        <div class="flex items-center gap-3 mb-6">
+          <div class="p-2 bg-red-100 rounded-lg">
+            <Trash2 class="h-6 w-6 text-red-600" />
+          </div>
+          <div>
+            <h2 class="text-xl font-semibold">Beiträge löschen</h2>
+            <p class="text-sm text-gray-600">Diese Aktion kann nicht rückgängig gemacht werden</p>
+          </div>
+        </div>
+
+        <p class="text-gray-700 mb-6">
+          Möchten Sie wirklich <strong>{{ selectedDeletableCount }} Beiträge</strong> löschen?
+        </p>
+
+        <div class="flex justify-end gap-3">
+          <button
+            @click="showDeleteConfirm = false"
+            :disabled="isDeleting"
+            class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+          >
+            Abbrechen
+          </button>
+          <button
+            @click="deleteSelectedFees"
+            :disabled="isDeleting"
+            class="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+          >
+            <Loader2 v-if="isDeleting" class="h-4 w-4 animate-spin" />
+            <Trash2 v-else class="h-4 w-4" />
+            Löschen
+          </button>
         </div>
       </div>
     </div>
