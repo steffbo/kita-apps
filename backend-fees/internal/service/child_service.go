@@ -28,11 +28,12 @@ func NewChildService(childRepo repository.ChildRepository, parentRepo repository
 
 // ChildFilter defines filters for listing children.
 type ChildFilter struct {
-	ActiveOnly bool
-	U3Only     bool
-	Search     string
-	SortBy     string
-	SortDir    string
+	ActiveOnly  bool
+	U3Only      bool
+	HasWarnings bool
+	Search      string
+	SortBy      string
+	SortDir     string
 }
 
 // CreateChildInput defines input for creating a child.
@@ -69,9 +70,31 @@ type UpdateChildInput struct {
 	IsActive        *bool
 }
 
-// List returns children matching the filter.
+// List returns children matching the filter with parents loaded.
 func (s *ChildService) List(ctx context.Context, filter ChildFilter, offset, limit int) ([]domain.Child, int64, error) {
-	return s.childRepo.List(ctx, filter.ActiveOnly, filter.U3Only, filter.Search, filter.SortBy, filter.SortDir, offset, limit)
+	children, total, err := s.childRepo.List(ctx, filter.ActiveOnly, filter.U3Only, filter.HasWarnings, filter.Search, filter.SortBy, filter.SortDir, offset, limit)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Batch-load parents for all children
+	if len(children) > 0 {
+		childIDs := make([]uuid.UUID, len(children))
+		for i, child := range children {
+			childIDs[i] = child.ID
+		}
+
+		parentsMap, err := s.childRepo.GetParentsForChildren(ctx, childIDs)
+		if err == nil {
+			for i := range children {
+				if parents, ok := parentsMap[children[i].ID]; ok {
+					children[i].Parents = parents
+				}
+			}
+		}
+	}
+
+	return children, total, nil
 }
 
 // GetByID returns a child by ID with parents and household.
@@ -318,6 +341,6 @@ func (s *ChildService) UnlinkParent(ctx context.Context, childID, parentID uuid.
 
 // GetAll returns all active children (for matching purposes).
 func (s *ChildService) GetAll(ctx context.Context) ([]domain.Child, error) {
-	children, _, err := s.childRepo.List(ctx, true, false, "", "", "", 0, 1000)
+	children, _, err := s.childRepo.List(ctx, true, false, false, "", "", "", 0, 1000)
 	return children, err
 }

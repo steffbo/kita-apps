@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   Users,
   UserCircle,
+  UserPlus,
   Receipt,
   Upload,
   LogOut,
@@ -22,6 +23,7 @@ const navigation = [
   { name: 'Dashboard', to: '/', icon: LayoutDashboard },
   { name: 'Kinder', to: '/kinder', icon: Users },
   { name: 'Eltern', to: '/eltern', icon: UserCircle },
+  { name: 'Mitglieder', to: '/mitglieder', icon: UserPlus },
   { name: 'Beiträge', to: '/beitraege', icon: Receipt },
   { name: 'Import', to: '/import', icon: Upload },
 ];

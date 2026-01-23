@@ -46,6 +46,16 @@ const router = createRouter({
           component: () => import('@/pages/ParentDetailPage.vue'),
         },
         {
+          path: 'mitglieder',
+          name: 'members',
+          component: () => import('@/pages/MembersPage.vue'),
+        },
+        {
+          path: 'mitglieder/:id',
+          name: 'member-detail',
+          component: () => import('@/pages/MemberDetailPage.vue'),
+        },
+        {
           path: 'beitraege',
           name: 'fees',
           component: () => import('@/pages/FeesPage.vue'),

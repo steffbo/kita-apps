@@ -148,7 +148,7 @@ func (s *FeeService) GetOverview(ctx context.Context, year *int) (*domain.FeeOve
 
 // Generate creates fee expectations for the given period.
 func (s *FeeService) Generate(ctx context.Context, year int, month *int) (*GenerateResult, error) {
-	children, _, err := s.childRepo.List(ctx, true, false, "", "", "", 0, 1000)
+	children, _, err := s.childRepo.List(ctx, true, false, false, "", "", "", 0, 1000)
 	if err != nil {
 		return nil, err
 	}

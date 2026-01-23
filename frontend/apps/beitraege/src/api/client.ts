@@ -114,6 +114,7 @@ class ApiClient {
   async getChildren(params?: {
     activeOnly?: boolean;
     u3Only?: boolean;
+    hasWarnings?: boolean;
     search?: string;
     sortBy?: string;
     sortDir?: string;
@@ -123,6 +124,7 @@ class ApiClient {
     const query = new URLSearchParams();
     if (params?.activeOnly) query.set('active', 'true');
     if (params?.u3Only) query.set('u3Only', 'true');
+    if (params?.hasWarnings) query.set('hasWarnings', 'true');
     if (params?.search) query.set('search', params.search);
     if (params?.sortBy) query.set('sortBy', params.sortBy);
     if (params?.sortDir) query.set('sortDir', params.sortDir);

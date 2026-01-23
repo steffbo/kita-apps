@@ -44,16 +44,18 @@ func (h *ChildHandler) List(w http.ResponseWriter, r *http.Request) {
 	pagination := request.GetPagination(r)
 	activeOnly := request.GetQueryBool(r, "active")
 	u3Only := request.GetQueryBool(r, "u3Only")
+	hasWarnings := request.GetQueryBool(r, "hasWarnings")
 	search := request.GetQueryString(r, "search", "")
 	sortBy := request.GetQueryString(r, "sortBy", "name")
 	sortDir := request.GetQueryString(r, "sortDir", "asc")
 
 	filter := service.ChildFilter{
-		ActiveOnly: activeOnly != nil && *activeOnly,
-		U3Only:     u3Only != nil && *u3Only,
-		Search:     search,
-		SortBy:     sortBy,
-		SortDir:    sortDir,
+		ActiveOnly:  activeOnly != nil && *activeOnly,
+		U3Only:      u3Only != nil && *u3Only,
+		HasWarnings: hasWarnings != nil && *hasWarnings,
+		Search:      search,
+		SortBy:      sortBy,
+		SortDir:     sortDir,
 	}
 
 	children, total, err := h.childService.List(r.Context(), filter, pagination.Offset, pagination.PerPage)
