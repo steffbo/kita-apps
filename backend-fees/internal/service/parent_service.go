@@ -14,13 +14,15 @@ import (
 type ParentService struct {
 	parentRepo repository.ParentRepository
 	childRepo  repository.ChildRepository
+	memberRepo repository.MemberRepository
 }
 
 // NewParentService creates a new parent service.
-func NewParentService(parentRepo repository.ParentRepository, childRepo repository.ChildRepository) *ParentService {
+func NewParentService(parentRepo repository.ParentRepository, childRepo repository.ChildRepository, memberRepo repository.MemberRepository) *ParentService {
 	return &ParentService{
 		parentRepo: parentRepo,
 		childRepo:  childRepo,
+		memberRepo: memberRepo,
 	}
 }
 
@@ -79,7 +81,7 @@ func (s *ParentService) List(ctx context.Context, search string, sortBy string, 
 	return parents, total, nil
 }
 
-// GetByID returns a parent by ID with children.
+// GetByID returns a parent by ID with children and member.
 func (s *ParentService) GetByID(ctx context.Context, id uuid.UUID) (*domain.Parent, error) {
 	parent, err := s.parentRepo.GetByID(ctx, id)
 	if err != nil {
@@ -89,6 +91,14 @@ func (s *ParentService) GetByID(ctx context.Context, id uuid.UUID) (*domain.Pare
 	children, err := s.parentRepo.GetChildren(ctx, id)
 	if err == nil {
 		parent.Children = children
+	}
+
+	// Load member if linked
+	if parent.MemberID != nil {
+		member, err := s.memberRepo.GetByID(ctx, *parent.MemberID)
+		if err == nil {
+			parent.Member = member
+		}
 	}
 
 	return parent, nil
@@ -189,6 +199,90 @@ func (s *ParentService) Delete(ctx context.Context, id uuid.UUID) error {
 	}
 
 	return s.parentRepo.Delete(ctx, id)
+}
+
+// CreateMemberFromParent creates a new member from a parent's data and links them.
+func (s *ParentService) CreateMemberFromParent(ctx context.Context, parentID uuid.UUID, membershipStart time.Time) (*domain.Parent, error) {
+	parent, err := s.parentRepo.GetByID(ctx, parentID)
+	if err != nil {
+		return nil, ErrNotFound
+	}
+
+	// Check if already linked to a member
+	if parent.MemberID != nil {
+		return nil, ErrConflict
+	}
+
+	// Get next member number
+	memberNumber, err := s.memberRepo.GetNextMemberNumber(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create member from parent data
+	member := &domain.Member{
+		ID:              uuid.New(),
+		MemberNumber:    memberNumber,
+		FirstName:       parent.FirstName,
+		LastName:        parent.LastName,
+		Email:           parent.Email,
+		Phone:           parent.Phone,
+		Street:          parent.Street,
+		StreetNo:        parent.StreetNo,
+		PostalCode:      parent.PostalCode,
+		City:            parent.City,
+		HouseholdID:     parent.HouseholdID,
+		MembershipStart: membershipStart,
+		IsActive:        true,
+		CreatedAt:       time.Now(),
+		UpdatedAt:       time.Now(),
+	}
+
+	if err := s.memberRepo.Create(ctx, member); err != nil {
+		return nil, err
+	}
+
+	// Link member to parent
+	parent.MemberID = &member.ID
+	if err := s.parentRepo.Update(ctx, parent); err != nil {
+		return nil, err
+	}
+
+	// Load children and return
+	children, err := s.parentRepo.GetChildren(ctx, parentID)
+	if err == nil {
+		parent.Children = children
+	}
+
+	// Attach the member to parent response
+	parent.Member = member
+
+	return parent, nil
+}
+
+// UnlinkMember removes the member link from a parent (does not delete the member).
+func (s *ParentService) UnlinkMember(ctx context.Context, parentID uuid.UUID) (*domain.Parent, error) {
+	parent, err := s.parentRepo.GetByID(ctx, parentID)
+	if err != nil {
+		return nil, ErrNotFound
+	}
+
+	if parent.MemberID == nil {
+		return nil, ErrNotFound
+	}
+
+	parent.MemberID = nil
+	if err := s.parentRepo.Update(ctx, parent); err != nil {
+		return nil, err
+	}
+
+	// Load children and return
+	children, err := s.parentRepo.GetChildren(ctx, parentID)
+	if err == nil {
+		parent.Children = children
+	}
+
+	return parent, nil
 }
 
 // stringOrEmpty returns the string value or empty string if nil.

@@ -50,7 +50,8 @@ func (r *PostgresChildRepository) List(ctx context.Context, activeOnly bool, u3O
 		// 1. No parents linked
 		// 2. No legal_hours set
 		// 3. No care_hours set
-		// 4. U3 children where no parent has annual_household_income set
+		// 4. U3 children where neither household nor any parent has income info
+		//    (income is NOT required if status is MAX_ACCEPTED, NOT_REQUIRED, FOSTER_FAMILY, or HISTORIC)
 		baseQuery += ` AND (
 			-- No parents linked
 			NOT EXISTS (SELECT 1 FROM fees.child_parents cp WHERE cp.child_id = c.id)
@@ -58,11 +59,24 @@ func (r *PostgresChildRepository) List(ctx context.Context, activeOnly bool, u3O
 			OR c.legal_hours IS NULL
 			-- No care hours
 			OR c.care_hours IS NULL
-			-- U3 without income: born less than 3 years ago AND no parent has income
+			-- U3 without income: born less than 3 years ago AND no valid income source
 			OR (c.birth_date > $` + fmt.Sprintf("%d", argIdx) + ` AND NOT EXISTS (
+				-- Check household first
+				SELECT 1 FROM fees.households h
+				WHERE h.id = c.household_id
+				AND (
+					h.annual_household_income IS NOT NULL
+					OR h.income_status IN ('MAX_ACCEPTED', 'NOT_REQUIRED', 'FOSTER_FAMILY', 'HISTORIC')
+				)
+			) AND NOT EXISTS (
+				-- Fallback: check parent income_status (legacy data)
 				SELECT 1 FROM fees.child_parents cp2
 				JOIN fees.parents p ON p.id = cp2.parent_id
-				WHERE cp2.child_id = c.id AND p.annual_household_income IS NOT NULL
+				WHERE cp2.child_id = c.id
+				AND (
+					p.annual_household_income IS NOT NULL
+					OR p.income_status IN ('MAX_ACCEPTED', 'NOT_REQUIRED', 'FOSTER_FAMILY', 'HISTORIC')
+				)
 			))
 		)`
 		args = append(args, time.Now().AddDate(-3, 0, 0))

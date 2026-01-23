@@ -127,16 +127,6 @@ onUnmounted(() => {
   document.removeEventListener('keydown', handleKeydown);
 });
 
-// Helpers
-function formatCurrency(amount: number | undefined): string {
-  if (!amount) return '-';
-  return new Intl.NumberFormat('de-DE', {
-    style: 'currency',
-    currency: 'EUR',
-    maximumFractionDigits: 0,
-  }).format(amount);
-}
-
 // Sorting
 function toggleSort(field: SortField) {
   if (sortField.value === field) {
@@ -339,8 +329,6 @@ const visiblePages = computed(() => {
                   Telefon
                 </div>
               </th>
-              <!-- Household income -->
-              <th class="px-4 py-3 font-medium">Haushaltseinkommen</th>
               <!-- Children -->
               <th class="px-4 py-3 font-medium">Kinder</th>
             </tr>
@@ -374,13 +362,6 @@ const visiblePages = computed(() => {
               <!-- Phone -->
               <td class="px-4 py-3 text-gray-600">
                 <span v-if="parent.phone">{{ parent.phone }}</span>
-                <span v-else class="text-gray-400">-</span>
-              </td>
-              <!-- Household income -->
-              <td class="px-4 py-3">
-                <span v-if="parent.annualHouseholdIncome" class="font-medium">
-                  {{ formatCurrency(parent.annualHouseholdIncome) }}/Jahr
-                </span>
                 <span v-else class="text-gray-400">-</span>
               </td>
               <!-- Children -->

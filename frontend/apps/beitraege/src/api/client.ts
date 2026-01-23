@@ -211,6 +211,21 @@ class ApiClient {
     return this.request<void>(`/parents/${id}`, { method: 'DELETE' });
   }
 
+  // Create a member from parent data and link them
+  async createMemberFromParent(parentId: string, membershipStart?: string): Promise<Parent> {
+    return this.request<Parent>(`/parents/${parentId}/member`, {
+      method: 'POST',
+      body: JSON.stringify({ membershipStart: membershipStart || new Date().toISOString().split('T')[0] }),
+    });
+  }
+
+  // Unlink a member from a parent (does not delete the member)
+  async unlinkMemberFromParent(parentId: string): Promise<Parent> {
+    return this.request<Parent>(`/parents/${parentId}/member`, {
+      method: 'DELETE',
+    });
+  }
+
   // Households endpoints
   async getHouseholds(params?: {
     search?: string;

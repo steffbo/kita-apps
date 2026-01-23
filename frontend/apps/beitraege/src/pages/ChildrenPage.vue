@@ -199,10 +199,15 @@ function isUnderThree(birthDate: string): boolean {
 function getChildWarnings(child: Child): string[] {
   const warnings: string[] = [];
   
-  // U3 without household income from any parent
+  // U3 without household income
   if (isUnderThree(child.birthDate)) {
-    const hasIncome = child.parents?.some(p => 
-      p.annualHouseholdIncome !== undefined && p.annualHouseholdIncome !== null
+    const household = child.household;
+    const hasIncome = household && (
+      household.annualHouseholdIncome !== undefined && household.annualHouseholdIncome !== null ||
+      household.incomeStatus === 'MAX_ACCEPTED' ||
+      household.incomeStatus === 'NOT_REQUIRED' ||
+      household.incomeStatus === 'FOSTER_FAMILY' ||
+      household.incomeStatus === 'HISTORIC'
     );
     if (!hasIncome) {
       warnings.push('U3 ohne Haushaltseinkommen');

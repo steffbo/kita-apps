@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -179,4 +180,75 @@ func (h *ParentHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.NoContent(w)
+}
+
+// CreateMemberFromParentRequest represents a request to create a member from a parent.
+type CreateMemberFromParentRequest struct {
+	MembershipStart string `json:"membershipStart"`
+}
+
+// CreateMember handles POST /parents/{id}/member
+// Creates a new member from the parent's data and links them.
+func (h *ParentHandler) CreateMember(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		response.BadRequest(w, "invalid parent ID")
+		return
+	}
+
+	var req CreateMemberFromParentRequest
+	if err := request.DecodeJSON(r, &req); err != nil {
+		response.BadRequest(w, "invalid request body")
+		return
+	}
+
+	// Parse membership start date, default to today
+	var membershipStart time.Time
+	if req.MembershipStart != "" {
+		membershipStart, err = time.Parse("2006-01-02", req.MembershipStart)
+		if err != nil {
+			response.BadRequest(w, "invalid membershipStart date format (expected YYYY-MM-DD)")
+			return
+		}
+	} else {
+		membershipStart = time.Now()
+	}
+
+	parent, err := h.parentService.CreateMemberFromParent(r.Context(), id, membershipStart)
+	if err != nil {
+		if err == service.ErrNotFound {
+			response.NotFound(w, "parent not found")
+			return
+		}
+		if err == service.ErrConflict {
+			response.Conflict(w, "parent is already linked to a member")
+			return
+		}
+		response.InternalError(w, "failed to create member")
+		return
+	}
+
+	response.Created(w, parent)
+}
+
+// UnlinkMember handles DELETE /parents/{id}/member
+// Removes the member link from a parent (does not delete the member).
+func (h *ParentHandler) UnlinkMember(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		response.BadRequest(w, "invalid parent ID")
+		return
+	}
+
+	parent, err := h.parentService.UnlinkMember(r.Context(), id)
+	if err != nil {
+		if err == service.ErrNotFound {
+			response.NotFound(w, "parent not found or not linked to a member")
+			return
+		}
+		response.InternalError(w, "failed to unlink member")
+		return
+	}
+
+	response.Success(w, parent)
 }

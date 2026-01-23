@@ -54,7 +54,7 @@ func main() {
 	jwtService := auth.NewJWTService(cfg.JWT.Secret, cfg.JWT.AccessExpiry, cfg.JWT.RefreshExpiry, cfg.JWT.Issuer)
 	authService := service.NewAuthService(userRepo, refreshTokenRepo, cfg.JWT.RefreshExpiry)
 	childService := service.NewChildService(childRepo, parentRepo, householdRepo)
-	parentService := service.NewParentService(parentRepo, childRepo)
+	parentService := service.NewParentService(parentRepo, childRepo, memberRepo)
 	householdService := service.NewHouseholdService(householdRepo, parentRepo, childRepo)
 	memberService := service.NewMemberService(memberRepo, householdRepo)
 	feeService := service.NewFeeService(feeRepo, childRepo, householdRepo, matchRepo, transactionRepo)

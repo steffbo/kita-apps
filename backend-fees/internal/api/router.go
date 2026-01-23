@@ -83,6 +83,8 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 				r.Get("/{id}", handlers.Parent.Get)
 				r.Put("/{id}", handlers.Parent.Update)
 				r.Delete("/{id}", handlers.Parent.Delete)
+				r.Post("/{id}/member", handlers.Parent.CreateMember)
+				r.Delete("/{id}/member", handlers.Parent.UnlinkMember)
 			})
 
 			// Households
