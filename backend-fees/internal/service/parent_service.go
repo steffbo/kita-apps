@@ -202,6 +202,7 @@ func (s *ParentService) Delete(ctx context.Context, id uuid.UUID) error {
 }
 
 // CreateMemberFromParent creates a new member from a parent's data and links them.
+// If membershipStart is zero, uses the oldest child's entry date, or today if no children.
 func (s *ParentService) CreateMemberFromParent(ctx context.Context, parentID uuid.UUID, membershipStart time.Time) (*domain.Parent, error) {
 	parent, err := s.parentRepo.GetByID(ctx, parentID)
 	if err != nil {
@@ -211,6 +212,17 @@ func (s *ParentService) CreateMemberFromParent(ctx context.Context, parentID uui
 	// Check if already linked to a member
 	if parent.MemberID != nil {
 		return nil, ErrConflict
+	}
+
+	// Load children to find oldest entry date
+	children, err := s.parentRepo.GetChildren(ctx, parentID)
+	if err == nil {
+		parent.Children = children
+	}
+
+	// If no membership start provided, use oldest child's entry date
+	if membershipStart.IsZero() {
+		membershipStart = s.getOldestChildEntryDate(children)
 	}
 
 	// Get next member number
@@ -248,16 +260,25 @@ func (s *ParentService) CreateMemberFromParent(ctx context.Context, parentID uui
 		return nil, err
 	}
 
-	// Load children and return
-	children, err := s.parentRepo.GetChildren(ctx, parentID)
-	if err == nil {
-		parent.Children = children
-	}
-
 	// Attach the member to parent response
 	parent.Member = member
 
 	return parent, nil
+}
+
+// getOldestChildEntryDate returns the oldest entry date among children, or today if no children.
+func (s *ParentService) getOldestChildEntryDate(children []domain.Child) time.Time {
+	if len(children) == 0 {
+		return time.Now()
+	}
+
+	oldest := children[0].EntryDate
+	for _, child := range children[1:] {
+		if child.EntryDate.Before(oldest) {
+			oldest = child.EntryDate
+		}
+	}
+	return oldest
 }
 
 // UnlinkMember removes the member link from a parent (does not delete the member).

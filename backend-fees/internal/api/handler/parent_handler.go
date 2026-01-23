@@ -202,7 +202,7 @@ func (h *ParentHandler) CreateMember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Parse membership start date, default to today
+	// Parse membership start date - if empty, service will use oldest child's entry date
 	var membershipStart time.Time
 	if req.MembershipStart != "" {
 		membershipStart, err = time.Parse("2006-01-02", req.MembershipStart)
@@ -210,9 +210,8 @@ func (h *ParentHandler) CreateMember(w http.ResponseWriter, r *http.Request) {
 			response.BadRequest(w, "invalid membershipStart date format (expected YYYY-MM-DD)")
 			return
 		}
-	} else {
-		membershipStart = time.Now()
 	}
+	// If empty, membershipStart stays zero and service will auto-detect from children
 
 	parent, err := h.parentService.CreateMemberFromParent(r.Context(), id, membershipStart)
 	if err != nil {

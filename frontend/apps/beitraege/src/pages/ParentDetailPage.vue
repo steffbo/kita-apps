@@ -143,8 +143,24 @@ function goToMember(memberId: string) {
   router.push(`/mitglieder/${memberId}`);
 }
 
+// Get the oldest child's entry date for suggested membership start
+function getOldestChildEntryDate(): string {
+  if (!parent.value?.children || parent.value.children.length === 0) {
+    return new Date().toISOString().split('T')[0];
+  }
+  
+  let oldest = parent.value.children[0].entryDate;
+  for (const child of parent.value.children) {
+    if (child.entryDate < oldest) {
+      oldest = child.entryDate;
+    }
+  }
+  return oldest.split('T')[0];
+}
+
 function openMemberDialog() {
-  membershipStart.value = new Date().toISOString().split('T')[0];
+  // Default to oldest child's entry date
+  membershipStart.value = getOldestChildEntryDate();
   memberError.value = null;
   showMemberDialog.value = true;
 }
@@ -563,6 +579,9 @@ async function handleUnlinkMember() {
             type="date"
             class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
           />
+          <p v-if="parent?.children && parent.children.length > 0" class="mt-1 text-xs text-gray-500">
+            Vorausgefüllt mit dem Eintrittsdatum des ältesten Kindes
+          </p>
         </div>
 
         <div v-if="memberError" class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
