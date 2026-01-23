@@ -68,6 +68,8 @@ type FeeRepository interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 	Exists(ctx context.Context, childID uuid.UUID, feeType domain.FeeType, year int, month *int) (bool, error)
 	FindUnpaid(ctx context.Context, childID uuid.UUID, feeType domain.FeeType, year int, month *int) (*domain.FeeExpectation, error)
+	FindOldestUnpaid(ctx context.Context, childID uuid.UUID, feeType domain.FeeType, amount float64) (*domain.FeeExpectation, error)
+	FindOldestUnpaidWithReminder(ctx context.Context, childID uuid.UUID, feeType domain.FeeType, combinedAmount float64) ([]domain.FeeExpectation, error)
 	GetOverview(ctx context.Context, year int) (*domain.FeeOverview, error)
 }
 
@@ -126,4 +128,15 @@ type MemberRepository interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 	ListActiveAt(ctx context.Context, date time.Time) ([]domain.Member, error)
 	GetNextMemberNumber(ctx context.Context) (string, error)
+}
+
+// WarningRepository handles transaction warning persistence.
+type WarningRepository interface {
+	Create(ctx context.Context, warning *domain.TransactionWarning) error
+	GetByID(ctx context.Context, id uuid.UUID) (*domain.TransactionWarning, error)
+	GetByTransactionID(ctx context.Context, transactionID uuid.UUID) (*domain.TransactionWarning, error)
+	ListUnresolved(ctx context.Context, offset, limit int) ([]domain.TransactionWarning, int64, error)
+	Resolve(ctx context.Context, id uuid.UUID, resolvedBy uuid.UUID, resolutionType domain.ResolutionType, note string) error
+	ResolveByTransactionID(ctx context.Context, transactionID uuid.UUID, resolutionType domain.ResolutionType, note string) error
+	Delete(ctx context.Context, id uuid.UUID) error
 }

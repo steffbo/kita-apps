@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"time"
 
@@ -19,6 +20,7 @@ type ImportService struct {
 	childRepo       repository.ChildRepository
 	matchRepo       repository.MatchRepository
 	knownIBANRepo   repository.KnownIBANRepository
+	warningRepo     repository.WarningRepository
 }
 
 // NewImportService creates a new import service.
@@ -28,6 +30,7 @@ func NewImportService(
 	childRepo repository.ChildRepository,
 	matchRepo repository.MatchRepository,
 	knownIBANRepo repository.KnownIBANRepository,
+	warningRepo repository.WarningRepository,
 ) *ImportService {
 	return &ImportService{
 		transactionRepo: transactionRepo,
@@ -35,18 +38,21 @@ func NewImportService(
 		childRepo:       childRepo,
 		matchRepo:       matchRepo,
 		knownIBANRepo:   knownIBANRepo,
+		warningRepo:     warningRepo,
 	}
 }
 
 // ImportResult represents the result of a CSV import.
 type ImportResult struct {
-	BatchID     uuid.UUID                `json:"batchId"`
-	FileName    string                   `json:"fileName"`
-	TotalRows   int                      `json:"totalRows"`
-	Imported    int                      `json:"imported"`
-	Skipped     int                      `json:"skipped"`
-	Blacklisted int                      `json:"blacklisted"`
-	Suggestions []domain.MatchSuggestion `json:"suggestions"`
+	BatchID     uuid.UUID                   `json:"batchId"`
+	FileName    string                      `json:"fileName"`
+	TotalRows   int                         `json:"totalRows"`
+	Imported    int                         `json:"imported"`
+	Skipped     int                         `json:"skipped"`
+	Blacklisted int                         `json:"blacklisted"`
+	Warnings    int                         `json:"warnings"`
+	Suggestions []domain.MatchSuggestion    `json:"suggestions"`
+	WarningList []domain.TransactionWarning `json:"warningList,omitempty"`
 }
 
 // MatchConfirmation represents a match to confirm.
@@ -132,6 +138,18 @@ func (s *ImportService) ProcessCSV(ctx context.Context, file io.Reader, fileName
 		suggestion := s.matchTransaction(ctx, tx, children)
 		if suggestion != nil {
 			result.Suggestions = append(result.Suggestions, *suggestion)
+		} else {
+			// No match found - check if this is from a trusted IBAN
+			warning := s.checkForWarning(ctx, tx)
+			if warning != nil {
+				// Save warning to database
+				if s.warningRepo != nil {
+					if err := s.warningRepo.Create(ctx, warning); err == nil {
+						result.Warnings++
+						result.WarningList = append(result.WarningList, *warning)
+					}
+				}
+			}
 		}
 	}
 
@@ -145,6 +163,7 @@ func (s *ImportService) matchTransaction(ctx context.Context, tx domain.BankTran
 	}
 
 	// Detect fee type from amount
+	// Note: Combined amounts (fee + reminder) are handled separately below
 	switch tx.Amount {
 	case domain.FoodFeeAmount:
 		feeType := domain.FeeTypeFood
@@ -152,8 +171,14 @@ func (s *ImportService) matchTransaction(ctx context.Context, tx domain.BankTran
 	case domain.MembershipFeeAmount:
 		feeType := domain.FeeTypeMembership
 		suggestion.DetectedType = &feeType
+	case domain.FoodFeeAmount + domain.ReminderFeeAmount: // 55.40 = food + reminder
+		feeType := domain.FeeTypeFood
+		suggestion.DetectedType = &feeType
+	case domain.MembershipFeeAmount + domain.ReminderFeeAmount: // 40.00 = membership + reminder
+		feeType := domain.FeeTypeMembership
+		suggestion.DetectedType = &feeType
 	default:
-		// Could be childcare fee
+		// Could be childcare fee (or childcare + reminder)
 		feeType := domain.FeeTypeChildcare
 		suggestion.DetectedType = &feeType
 	}
@@ -188,16 +213,23 @@ func (s *ImportService) matchTransaction(ctx context.Context, tx domain.BankTran
 
 	// If we found a child, try to find the corresponding fee expectation
 	if suggestion.Child != nil && suggestion.DetectedType != nil {
-		year := tx.BookingDate.Year()
-		var month *int
-		if *suggestion.DetectedType != domain.FeeTypeMembership {
-			m := int(tx.BookingDate.Month())
-			month = &m
-		}
-
-		fee, err := s.feeRepo.FindUnpaid(ctx, suggestion.Child.ID, *suggestion.DetectedType, year, month)
+		// First try exact amount match (oldest unpaid)
+		fee, err := s.feeRepo.FindOldestUnpaid(ctx, suggestion.Child.ID, *suggestion.DetectedType, tx.Amount)
 		if err == nil && fee != nil {
 			suggestion.Expectation = fee
+		} else {
+			// No exact match found - try combined fee + reminder match
+			// This handles cases like 55.40 EUR = 45.40 food + 10.00 reminder
+			fees, err := s.feeRepo.FindOldestUnpaidWithReminder(ctx, suggestion.Child.ID, *suggestion.DetectedType, tx.Amount)
+			if err == nil && len(fees) == 2 {
+				suggestion.Expectations = fees
+				suggestion.Expectation = &fees[0] // Primary fee for backward compatibility
+				suggestion.MatchedBy = "combined"
+				// Boost confidence slightly for combined matches since amount is precise
+				if suggestion.Confidence > 0 {
+					suggestion.Confidence = min(suggestion.Confidence+0.02, 0.99)
+				}
+			}
 		}
 	}
 
@@ -207,6 +239,112 @@ func (s *ImportService) matchTransaction(ctx context.Context, tx domain.BankTran
 	}
 
 	return nil
+}
+
+// checkForWarning checks if an unmatched transaction from a trusted IBAN should generate a warning.
+func (s *ImportService) checkForWarning(ctx context.Context, tx domain.BankTransaction) *domain.TransactionWarning {
+	if tx.PayerIBAN == nil {
+		return nil
+	}
+
+	// Check if IBAN is trusted
+	knownIBAN, err := s.knownIBANRepo.GetByIBAN(ctx, *tx.PayerIBAN)
+	if err != nil || knownIBAN == nil || knownIBAN.Status != domain.KnownIBANStatusTrusted {
+		return nil
+	}
+
+	warning := &domain.TransactionWarning{
+		ID:            uuid.New(),
+		TransactionID: tx.ID,
+		ActualAmount:  &tx.Amount,
+		ChildID:       knownIBAN.ChildID,
+		CreatedAt:     time.Now(),
+	}
+
+	// If we have a linked child, check what fees are open
+	if knownIBAN.ChildID != nil {
+		childID := *knownIBAN.ChildID
+
+		// Check for possible bulk payment (amount is multiple of known fee amounts)
+		bulkCount := s.checkBulkPayment(tx.Amount)
+		if bulkCount > 1 {
+			warning.WarningType = domain.WarningTypePossibleBulk
+			warning.Message = fmt.Sprintf("Betrag %.2f EUR könnte eine Sammelzahlung sein (%d Zahlungen)", tx.Amount, bulkCount)
+			return warning
+		}
+
+		// Check open fees for this child to determine warning type
+		filter := repository.FeeFilter{ChildID: &childID}
+		fees, _, err := s.feeRepo.List(ctx, filter, 0, 100)
+		if err == nil && len(fees) > 0 {
+			// Find unpaid fees
+			for _, fee := range fees {
+				// Check if this fee is already paid
+				isPaid, _ := s.matchRepo.ExistsForExpectation(ctx, fee.ID)
+				if isPaid {
+					continue
+				}
+
+				// Compare amounts
+				if tx.Amount < fee.Amount {
+					warning.WarningType = domain.WarningTypePartialPayment
+					warning.ExpectedAmount = &fee.Amount
+					warning.Message = fmt.Sprintf("Teilzahlung: %.2f EUR erhalten, %.2f EUR erwartet", tx.Amount, fee.Amount)
+					return warning
+				} else if tx.Amount > fee.Amount {
+					warning.WarningType = domain.WarningTypeOverpayment
+					warning.ExpectedAmount = &fee.Amount
+					warning.Message = fmt.Sprintf("Überzahlung: %.2f EUR erhalten, %.2f EUR erwartet", tx.Amount, fee.Amount)
+					return warning
+				}
+			}
+		}
+
+		// No open fees found for this child
+		warning.WarningType = domain.WarningTypeNoMatchingFee
+		warning.Message = fmt.Sprintf("Keine offene Beitragsforderung für dieses Kind gefunden (%.2f EUR)", tx.Amount)
+		return warning
+	}
+
+	// Trusted IBAN without linked child - just note the unexpected payment
+	warning.WarningType = domain.WarningTypeUnexpectedAmount
+	warning.Message = fmt.Sprintf("Zahlung von %.2f EUR von vertrauter IBAN ohne zugeordnetes Kind", tx.Amount)
+	return warning
+}
+
+// checkBulkPayment checks if an amount could be a bulk payment of multiple fees.
+func (s *ImportService) checkBulkPayment(amount float64) int {
+	// Common fee amounts
+	foodFee := domain.FoodFeeAmount             // 45.40
+	membershipFee := domain.MembershipFeeAmount // 30.00
+	reminderFee := domain.ReminderFeeAmount     // 10.00
+
+	// Check for exact multiples of food fee
+	if amount >= foodFee*2 {
+		count := int(amount / foodFee)
+		if amount == foodFee*float64(count) {
+			return count
+		}
+	}
+
+	// Check for exact multiples of membership fee
+	if amount >= membershipFee*2 {
+		count := int(amount / membershipFee)
+		if amount == membershipFee*float64(count) {
+			return count
+		}
+	}
+
+	// Check for food + reminder combinations
+	combinedFood := foodFee + reminderFee // 55.40
+	if amount >= combinedFood*2 {
+		count := int(amount / combinedFood)
+		if amount == combinedFood*float64(count) {
+			return count
+		}
+	}
+
+	return 1
 }
 
 // ConfirmMatches confirms a list of matches.
@@ -231,6 +369,11 @@ func (s *ImportService) ConfirmMatches(ctx context.Context, matches []MatchConfi
 
 		// Mark IBAN as trusted when match is confirmed
 		s.markIBANAsTrusted(ctx, m.TransactionID)
+
+		// Auto-resolve any warning for this transaction
+		if s.warningRepo != nil {
+			s.warningRepo.ResolveByTransactionID(ctx, m.TransactionID, domain.ResolutionTypeMatched, "Auto-resolved: Zahlung wurde zugeordnet")
+		}
 	}
 
 	return result, nil
@@ -302,6 +445,11 @@ func (s *ImportService) CreateManualMatch(ctx context.Context, transactionID, ex
 
 	// Mark IBAN as trusted
 	s.markIBANAsTrusted(ctx, transactionID)
+
+	// Auto-resolve any warning for this transaction
+	if s.warningRepo != nil {
+		s.warningRepo.ResolveByTransactionID(ctx, transactionID, domain.ResolutionTypeMatched, "Auto-resolved: Zahlung wurde manuell zugeordnet")
+	}
 
 	return match, nil
 }
@@ -424,6 +572,30 @@ func (s *ImportService) UnlinkIBANFromChild(ctx context.Context, iban string) er
 // GetTrustedIBANs returns all trusted IBANs.
 func (s *ImportService) GetTrustedIBANs(ctx context.Context, offset, limit int) ([]domain.KnownIBAN, int64, error) {
 	return s.knownIBANRepo.ListByStatus(ctx, domain.KnownIBANStatusTrusted, offset, limit)
+}
+
+// GetWarnings returns all unresolved transaction warnings.
+func (s *ImportService) GetWarnings(ctx context.Context, offset, limit int) ([]domain.TransactionWarning, int64, error) {
+	if s.warningRepo == nil {
+		return nil, 0, nil
+	}
+	return s.warningRepo.ListUnresolved(ctx, offset, limit)
+}
+
+// GetWarningByID returns a warning by its ID.
+func (s *ImportService) GetWarningByID(ctx context.Context, id uuid.UUID) (*domain.TransactionWarning, error) {
+	if s.warningRepo == nil {
+		return nil, ErrNotFound
+	}
+	return s.warningRepo.GetByID(ctx, id)
+}
+
+// DismissWarning dismisses a warning with a note.
+func (s *ImportService) DismissWarning(ctx context.Context, id uuid.UUID, userID uuid.UUID, note string) error {
+	if s.warningRepo == nil {
+		return ErrNotFound
+	}
+	return s.warningRepo.Resolve(ctx, id, userID, domain.ResolutionTypeDismissed, note)
 }
 
 func stringPtr(s string) *string {

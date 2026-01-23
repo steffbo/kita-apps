@@ -113,6 +113,7 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 				r.Get("/{id}", handlers.Fee.Get)
 				r.Put("/{id}", handlers.Fee.Update)
 				r.Delete("/{id}", handlers.Fee.Delete)
+				r.Post("/{id}/reminder", handlers.Fee.CreateReminder)
 			})
 
 			// Import
@@ -129,6 +130,8 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 				r.Get("/trusted", handlers.Import.GetTrustedIBANs)
 				r.Post("/trusted/{iban}/link", handlers.Import.LinkIBANToChild)
 				r.Delete("/trusted/{iban}/link", handlers.Import.UnlinkIBANFromChild)
+				r.Get("/warnings", handlers.Import.GetWarnings)
+				r.Post("/warnings/{id}/dismiss", handlers.Import.DismissWarning)
 			})
 		})
 	})

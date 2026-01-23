@@ -213,6 +213,32 @@ func (h *FeeHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	response.NoContent(w)
 }
 
+// CreateReminder handles POST /fees/{id}/reminder
+// Creates a reminder fee (Mahngebühr) for an unpaid fee.
+func (h *FeeHandler) CreateReminder(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		response.BadRequest(w, "invalid fee ID")
+		return
+	}
+
+	reminder, err := h.feeService.CreateReminder(r.Context(), id)
+	if err != nil {
+		if err == service.ErrNotFound {
+			response.NotFound(w, "fee not found")
+			return
+		}
+		if err == service.ErrInvalidInput {
+			response.BadRequest(w, "cannot create reminder for paid fee")
+			return
+		}
+		response.InternalError(w, "failed to create reminder")
+		return
+	}
+
+	response.Created(w, reminder)
+}
+
 // CalculateChildcareFee handles GET /childcare-fee/calculate
 // Query params: childAgeType, income, siblingsCount, careHours, highestRate
 func (h *FeeHandler) CalculateChildcareFee(w http.ResponseWriter, r *http.Request) {

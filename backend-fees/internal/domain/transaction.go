@@ -63,12 +63,13 @@ type ImportBatch struct {
 
 // MatchSuggestion represents a suggested match between a transaction and a fee.
 type MatchSuggestion struct {
-	Transaction  BankTransaction `json:"transaction"`
-	Expectation  *FeeExpectation `json:"expectation,omitempty"`
-	Child        *Child          `json:"child,omitempty"`
-	DetectedType *FeeType        `json:"detectedType,omitempty"`
-	Confidence   float64         `json:"confidence"`
-	MatchedBy    string          `json:"matchedBy"` // "member_number", "name", "amount"
+	Transaction  BankTransaction  `json:"transaction"`
+	Expectation  *FeeExpectation  `json:"expectation,omitempty"`
+	Expectations []FeeExpectation `json:"expectations,omitempty"` // For combined matches (e.g., fee + reminder)
+	Child        *Child           `json:"child,omitempty"`
+	DetectedType *FeeType         `json:"detectedType,omitempty"`
+	Confidence   float64          `json:"confidence"`
+	MatchedBy    string           `json:"matchedBy"` // "member_number", "name", "amount", "combined"
 }
 
 // KnownIBANStatus represents the status of a known IBAN.
@@ -94,4 +95,50 @@ type KnownIBAN struct {
 
 	// Joined fields
 	Child *Child `json:"child,omitempty" db:"-"`
+}
+
+// WarningType represents the type of transaction warning.
+type WarningType string
+
+const (
+	WarningTypeNoMatchingFee    WarningType = "NO_MATCHING_FEE"   // Trusted IBAN but no open fee found
+	WarningTypeUnexpectedAmount WarningType = "UNEXPECTED_AMOUNT" // Amount doesn't match any expected fee
+	WarningTypePartialPayment   WarningType = "PARTIAL_PAYMENT"   // Amount is less than expected
+	WarningTypeOverpayment      WarningType = "OVERPAYMENT"       // Amount is more than expected
+	WarningTypePossibleBulk     WarningType = "POSSIBLE_BULK"     // Amount could be multiple fees combined
+	WarningTypeDuplicatePayment WarningType = "DUPLICATE_PAYMENT" // Fee already paid, this might be duplicate
+)
+
+// ResolutionType represents how a warning was resolved.
+type ResolutionType string
+
+const (
+	ResolutionTypeDismissed    ResolutionType = "dismissed"     // Manually dismissed with a reason
+	ResolutionTypeMatched      ResolutionType = "matched"       // Resolved by creating a match
+	ResolutionTypeAutoResolved ResolutionType = "auto_resolved" // Automatically resolved
+)
+
+// TransactionWarning represents a warning about a suspicious or unexpected transaction.
+type TransactionWarning struct {
+	ID             uuid.UUID       `json:"id" db:"id"`
+	TransactionID  uuid.UUID       `json:"transactionId" db:"transaction_id"`
+	WarningType    WarningType     `json:"warningType" db:"warning_type"`
+	Message        string          `json:"message" db:"message"`
+	ExpectedAmount *float64        `json:"expectedAmount,omitempty" db:"expected_amount"`
+	ActualAmount   *float64        `json:"actualAmount,omitempty" db:"actual_amount"`
+	ChildID        *uuid.UUID      `json:"childId,omitempty" db:"child_id"`
+	ResolvedAt     *time.Time      `json:"resolvedAt,omitempty" db:"resolved_at"`
+	ResolvedBy     *uuid.UUID      `json:"resolvedBy,omitempty" db:"resolved_by"`
+	ResolutionType *ResolutionType `json:"resolutionType,omitempty" db:"resolution_type"`
+	ResolutionNote *string         `json:"resolutionNote,omitempty" db:"resolution_note"`
+	CreatedAt      time.Time       `json:"createdAt" db:"created_at"`
+
+	// Joined fields
+	Transaction *BankTransaction `json:"transaction,omitempty" db:"-"`
+	Child       *Child           `json:"child,omitempty" db:"-"`
+}
+
+// IsResolved returns true if the warning has been resolved.
+func (w *TransactionWarning) IsResolved() bool {
+	return w.ResolvedAt != nil
 }

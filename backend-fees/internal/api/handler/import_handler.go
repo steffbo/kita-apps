@@ -329,3 +329,57 @@ func (h *ImportHandler) UnlinkIBANFromChild(w http.ResponseWriter, r *http.Reque
 
 	response.NoContent(w)
 }
+
+// GetWarnings handles GET /import/warnings
+func (h *ImportHandler) GetWarnings(w http.ResponseWriter, r *http.Request) {
+	pagination := request.GetPagination(r)
+
+	warnings, total, err := h.importService.GetWarnings(r.Context(), pagination.Offset, pagination.PerPage)
+	if err != nil {
+		response.InternalError(w, "failed to get warnings")
+		return
+	}
+
+	response.Paginated(w, warnings, total, pagination.Page, pagination.PerPage)
+}
+
+// DismissWarningRequest represents a request to dismiss a warning.
+type DismissWarningRequest struct {
+	Note string `json:"note"`
+}
+
+// DismissWarning handles POST /import/warnings/{id}/dismiss
+func (h *ImportHandler) DismissWarning(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		response.BadRequest(w, "invalid warning ID")
+		return
+	}
+
+	var req DismissWarningRequest
+	if err := request.DecodeJSON(r, &req); err != nil {
+		response.BadRequest(w, "invalid request body")
+		return
+	}
+
+	userCtx := middleware.GetUserFromContext(r)
+	if userCtx == nil {
+		response.Unauthorized(w, "not authenticated")
+		return
+	}
+
+	userID, _ := uuid.Parse(userCtx.UserID)
+
+	err = h.importService.DismissWarning(r.Context(), id, userID, req.Note)
+	if err != nil {
+		if err == service.ErrNotFound {
+			response.NotFound(w, "warning not found")
+			return
+		}
+		response.InternalError(w, "failed to dismiss warning")
+		return
+	}
+
+	response.NoContent(w)
+}

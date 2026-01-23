@@ -48,6 +48,7 @@ func main() {
 	transactionRepo := repository.NewPostgresTransactionRepository(db)
 	matchRepo := repository.NewPostgresMatchRepository(db)
 	knownIBANRepo := repository.NewPostgresKnownIBANRepository(db)
+	warningRepo := repository.NewPostgresWarningRepository(db)
 
 	// Initialize services
 	jwtService := auth.NewJWTService(cfg.JWT.Secret, cfg.JWT.AccessExpiry, cfg.JWT.RefreshExpiry, cfg.JWT.Issuer)
@@ -57,7 +58,7 @@ func main() {
 	householdService := service.NewHouseholdService(householdRepo, parentRepo, childRepo)
 	memberService := service.NewMemberService(memberRepo, householdRepo)
 	feeService := service.NewFeeService(feeRepo, childRepo, householdRepo, matchRepo, transactionRepo)
-	importService := service.NewImportService(transactionRepo, feeRepo, childRepo, matchRepo, knownIBANRepo)
+	importService := service.NewImportService(transactionRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, warningRepo)
 	childImportService := service.NewChildImportService(childRepo, parentRepo)
 
 	// Initialize handlers

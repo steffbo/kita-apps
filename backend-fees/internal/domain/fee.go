@@ -13,6 +13,7 @@ const (
 	FeeTypeMembership FeeType = "MEMBERSHIP" // Vereinsbeitrag (yearly, 30 EUR)
 	FeeTypeFood       FeeType = "FOOD"       // Essensgeld (monthly, 45.40 EUR)
 	FeeTypeChildcare  FeeType = "CHILDCARE"  // Platzgeld (monthly, variable, for U3)
+	FeeTypeReminder   FeeType = "REMINDER"   // Mahngebühr (10 EUR, manually triggered)
 )
 
 // FeeAmounts defines the standard fee amounts.
@@ -20,24 +21,27 @@ const (
 	MembershipFeeAmount = 30.00
 	FoodFeeAmount       = 45.40
 	DefaultChildcareFee = 100.00 // Default until income-based calculation is implemented
+	ReminderFeeAmount   = 10.00  // Mahngebühr
 )
 
 // FeeExpectation represents an expected fee payment.
 type FeeExpectation struct {
-	ID        uuid.UUID `json:"id" db:"id"`
-	ChildID   uuid.UUID `json:"childId" db:"child_id"`
-	FeeType   FeeType   `json:"feeType" db:"fee_type"`
-	Year      int       `json:"year" db:"year"`
-	Month     *int      `json:"month,omitempty" db:"month"` // nil for yearly fees
-	Amount    float64   `json:"amount" db:"amount"`
-	DueDate   time.Time `json:"dueDate" db:"due_date"`
-	CreatedAt time.Time `json:"createdAt" db:"created_at"`
+	ID                 uuid.UUID  `json:"id" db:"id"`
+	ChildID            uuid.UUID  `json:"childId" db:"child_id"`
+	FeeType            FeeType    `json:"feeType" db:"fee_type"`
+	Year               int        `json:"year" db:"year"`
+	Month              *int       `json:"month,omitempty" db:"month"` // nil for yearly fees
+	Amount             float64    `json:"amount" db:"amount"`
+	DueDate            time.Time  `json:"dueDate" db:"due_date"`
+	CreatedAt          time.Time  `json:"createdAt" db:"created_at"`
+	ReminderForID      *uuid.UUID `json:"reminderForId,omitempty" db:"reminder_for_id"`          // For REMINDER type: links to the original fee
+	ReconciliationYear *int       `json:"reconciliationYear,omitempty" db:"reconciliation_year"` // For Kalendarjahresabrechnung: the year this Nachzahlung is for
 
 	// Joined fields
-	Child     *Child         `json:"child,omitempty" db:"-"`
-	IsPaid    bool           `json:"isPaid" db:"-"`
-	PaidAt    *time.Time     `json:"paidAt,omitempty" db:"-"`
-	MatchedBy *PaymentMatch  `json:"matchedBy,omitempty" db:"-"`
+	Child     *Child        `json:"child,omitempty" db:"-"`
+	IsPaid    bool          `json:"isPaid" db:"-"`
+	PaidAt    *time.Time    `json:"paidAt,omitempty" db:"-"`
+	MatchedBy *PaymentMatch `json:"matchedBy,omitempty" db:"-"`
 }
 
 // FeeStatus represents the payment status of a fee.

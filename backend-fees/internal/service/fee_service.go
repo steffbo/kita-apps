@@ -530,3 +530,40 @@ func getSiblingDiscountFactor(siblingsCount, maxForDiscount int) float64 {
 func roundToTwoDecimals(val float64) float64 {
 	return float64(int(val*100+0.5)) / 100
 }
+
+// CreateReminder creates a reminder fee (Mahngebühr) for an unpaid fee.
+// The reminder fee is 10 EUR and is linked to the original fee.
+func (s *FeeService) CreateReminder(ctx context.Context, feeID uuid.UUID) (*domain.FeeExpectation, error) {
+	// Get the original fee
+	originalFee, err := s.feeRepo.GetByID(ctx, feeID)
+	if err != nil {
+		return nil, ErrNotFound
+	}
+
+	// Check if the original fee is paid
+	match, _ := s.matchRepo.GetByExpectation(ctx, feeID)
+	if match != nil {
+		return nil, ErrInvalidInput // Cannot create reminder for paid fee
+	}
+
+	// Create the reminder fee
+	now := time.Now()
+	reminder := &domain.FeeExpectation{
+		ID:            uuid.New(),
+		ChildID:       originalFee.ChildID,
+		FeeType:       domain.FeeTypeReminder,
+		Year:          now.Year(),
+		Month:         nil, // Reminders don't have a specific month
+		Amount:        domain.ReminderFeeAmount,
+		DueDate:       now.AddDate(0, 0, 14), // Due in 14 days
+		CreatedAt:     now,
+		ReminderForID: &feeID,
+	}
+
+	if err := s.feeRepo.Create(ctx, reminder); err != nil {
+		return nil, err
+	}
+
+	// Fetch and return with child info
+	return s.GetByID(ctx, reminder.ID)
+}
