@@ -38,9 +38,9 @@ const pageSize = ref(25);
 const pageSizeOptions = [10, 25, 50, 100];
 
 // Sorting
-type SortField = 'name' | 'email';
+type SortField = 'lastName' | 'firstName' | 'email';
 type SortDirection = 'asc' | 'desc';
-const sortField = ref<SortField>('name');
+const sortField = ref<SortField>('lastName');
 const sortDirection = ref<SortDirection>('asc');
 
 // Bulk selection
@@ -300,15 +300,25 @@ const visiblePages = computed(() => {
                   class="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary"
                 />
               </th>
-              <!-- Name -->
+              <!-- Last Name -->
               <th class="px-4 py-3 font-medium">
                 <button
-                  @click="toggleSort('name')"
+                  @click="toggleSort('lastName')"
                   class="flex items-center gap-1 hover:text-gray-700"
                 >
                   <User class="h-4 w-4" />
-                  Name
-                  <component :is="getSortIcon('name')" class="h-4 w-4" />
+                  Nachname
+                  <component :is="getSortIcon('lastName')" class="h-4 w-4" />
+                </button>
+              </th>
+              <!-- First Name -->
+              <th class="px-4 py-3 font-medium">
+                <button
+                  @click="toggleSort('firstName')"
+                  class="flex items-center gap-1 hover:text-gray-700"
+                >
+                  Vorname
+                  <component :is="getSortIcon('firstName')" class="h-4 w-4" />
                 </button>
               </th>
               <!-- Email -->
@@ -352,8 +362,10 @@ const visiblePages = computed(() => {
                   class="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary"
                 />
               </td>
-              <!-- Name -->
-              <td class="px-4 py-3 font-medium">{{ parent.firstName }} {{ parent.lastName }}</td>
+              <!-- Last Name -->
+              <td class="px-4 py-3 font-medium">{{ parent.lastName }}</td>
+              <!-- First Name -->
+              <td class="px-4 py-3">{{ parent.firstName }}</td>
               <!-- Email -->
               <td class="px-4 py-3 text-gray-600">
                 <span v-if="parent.email" class="truncate">{{ parent.email }}</span>
