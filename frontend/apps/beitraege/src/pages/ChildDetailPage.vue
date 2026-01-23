@@ -19,8 +19,6 @@ import {
   Check,
   Users,
   Plus,
-  Mail,
-  Phone,
   Link,
   Search,
   Unlink,
@@ -103,6 +101,11 @@ async function loadChild() {
 }
 
 onMounted(loadChild);
+
+// Reload when navigating between children (e.g., clicking sibling links)
+watch(childId, () => {
+  loadChild();
+});
 
 // ESC key handler to close all modals
 function handleKeydown(e: KeyboardEvent) {
@@ -445,7 +448,7 @@ function getIncomeStatusLabel(status?: IncomeStatus): string {
 // Siblings computed property (other children in the same household)
 const siblings = computed(() => {
   if (!child.value?.household?.children) return [];
-  return child.value.household.children.filter(c => c.id !== child.value?.id);
+  return child.value.household.children.filter(c => c.id !== childId.value);
 });
 
 // Household parents computed property
@@ -621,99 +624,6 @@ const incomeStatusOptions: { value: IncomeStatus; label: string }[] = [
           </div>
         </div>
 
-        <!-- Parents Section -->
-        <div class="mt-6 pt-6 border-t">
-          <div class="flex items-center justify-between mb-4">
-            <h3 class="text-sm font-medium text-gray-500 flex items-center gap-2">
-              <Users class="h-4 w-4" />
-              Eltern
-            </h3>
-            <div class="flex items-center gap-2">
-              <button
-                @click="openLinkParentDialog"
-                class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-primary hover:bg-primary/10 rounded-md transition-colors"
-                title="Vorhandenen Elternteil verknüpfen"
-              >
-                <Link class="h-3 w-3" />
-                Verknüpfen
-              </button>
-              <button
-                @click="openCreateParentDialog"
-                class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-primary text-white hover:bg-primary/90 rounded-md transition-colors"
-              >
-                <Plus class="h-3 w-3" />
-                Neu
-              </button>
-            </div>
-          </div>
-
-          <!-- Parent Cards -->
-          <div v-if="child.parents && child.parents.length > 0" class="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <button
-              v-for="parent in child.parents"
-              :key="parent.id"
-              @click="openParentDetailModal(parent)"
-              class="bg-gray-50 rounded-lg border p-4 hover:border-primary/50 hover:bg-gray-100 transition-colors text-left cursor-pointer"
-            >
-              <div class="flex items-start justify-between">
-                <div class="flex items-center gap-3">
-                  <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                    <User class="h-5 w-5 text-primary" />
-                  </div>
-                  <div>
-                    <span class="font-medium text-gray-900">
-                      {{ parent.firstName }} {{ parent.lastName }}
-                    </span>
-                  </div>
-                </div>
-                <span
-                  @click.stop="confirmUnlinkParent(parent)"
-                  class="p-1 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded transition-colors"
-                  title="Verknüpfung aufheben"
-                >
-                  <Unlink class="h-4 w-4" />
-                </span>
-              </div>
-
-              <div class="mt-3 space-y-1.5 text-sm">
-                <div v-if="parent.email" class="flex items-center gap-2 text-gray-600">
-                  <Mail class="h-3.5 w-3.5 text-gray-400" />
-                  <span>{{ parent.email }}</span>
-                </div>
-                <div v-if="parent.phone" class="flex items-center gap-2 text-gray-600">
-                  <Phone class="h-3.5 w-3.5 text-gray-400" />
-                  <span>{{ parent.phone }}</span>
-                </div>
-                <div v-if="parent.street" class="flex items-center gap-2 text-gray-600">
-                  <MapPin class="h-3.5 w-3.5 text-gray-400" />
-                  <span>{{ parent.street }} {{ parent.streetNo }}, {{ parent.postalCode }} {{ parent.city }}</span>
-                </div>
-              </div>
-            </button>
-          </div>
-
-          <!-- No Parents Message -->
-          <div v-else class="text-center py-6 bg-gray-50 rounded-lg border border-dashed">
-            <Users class="h-8 w-8 text-gray-400 mx-auto mb-2" />
-            <p class="text-gray-500 text-sm mb-3">Keine Eltern zugeordnet</p>
-            <div class="flex items-center justify-center gap-2">
-              <button
-                @click="openLinkParentDialog"
-                class="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-primary border border-primary hover:bg-primary/10 rounded-lg transition-colors"
-              >
-                <Link class="h-4 w-4" />
-                Verknüpfen
-              </button>
-              <button
-                @click="openCreateParentDialog"
-                class="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium bg-primary text-white hover:bg-primary/90 rounded-lg transition-colors"
-              >
-                <Plus class="h-4 w-4" />
-                Neu anlegen
-              </button>
-            </div>
-          </div>
-        </div>
       </div>
 
       <!-- Household & Income Section -->
@@ -723,14 +633,31 @@ const incomeStatusOptions: { value: IncomeStatus; label: string }[] = [
             <Home class="h-5 w-5 text-primary" />
             <h2 class="text-lg font-semibold">Haushalt & Einkommen</h2>
           </div>
-          <button
-            v-if="child.household && !isEditingHousehold"
-            @click="startEditingHousehold"
-            class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-            title="Bearbeiten"
-          >
-            <Edit class="h-4 w-4" />
-          </button>
+          <div class="flex items-center gap-2">
+            <button
+              @click="openLinkParentDialog"
+              class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-primary hover:bg-primary/10 rounded-md transition-colors"
+              title="Vorhandenen Elternteil verknüpfen"
+            >
+              <Link class="h-3 w-3" />
+              Verknüpfen
+            </button>
+            <button
+              @click="openCreateParentDialog"
+              class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-primary text-white hover:bg-primary/90 rounded-md transition-colors"
+            >
+              <Plus class="h-3 w-3" />
+              Elternteil
+            </button>
+            <button
+              v-if="child.household && !isEditingHousehold"
+              @click="startEditingHousehold"
+              class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              title="Bearbeiten"
+            >
+              <Edit class="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         <!-- Has Household -->
@@ -763,15 +690,26 @@ const incomeStatusOptions: { value: IncomeStatus; label: string }[] = [
               <div v-if="householdParents.length > 0" class="mb-3">
                 <p class="text-xs text-gray-400 uppercase tracking-wide mb-2">Eltern</p>
                 <div class="flex flex-wrap gap-2">
-                  <button
+                  <div
                     v-for="parent in householdParents"
                     :key="parent.id"
-                    @click="openParentDetailModal(parent)"
-                    class="inline-flex items-center gap-2 px-3 py-1.5 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg text-sm transition-colors"
+                    class="inline-flex items-center bg-blue-50 border border-blue-200 rounded-lg text-sm"
                   >
-                    <User class="h-4 w-4 text-blue-500" />
-                    <span>{{ parent.firstName }} {{ parent.lastName }}</span>
-                  </button>
+                    <button
+                      @click="openParentDetailModal(parent)"
+                      class="inline-flex items-center gap-2 px-3 py-1.5 hover:bg-blue-100 rounded-l-lg transition-colors"
+                    >
+                      <User class="h-4 w-4 text-blue-500" />
+                      <span>{{ parent.firstName }} {{ parent.lastName }}</span>
+                    </button>
+                    <button
+                      @click="confirmUnlinkParent(parent)"
+                      class="p-1.5 text-blue-400 hover:text-red-500 hover:bg-red-50 rounded-r-lg border-l border-blue-200 transition-colors"
+                      title="Verknüpfung aufheben"
+                    >
+                      <Unlink class="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -857,9 +795,25 @@ const incomeStatusOptions: { value: IncomeStatus; label: string }[] = [
 
         <!-- No Household -->
         <div v-else class="text-center py-6 bg-gray-50 rounded-lg border border-dashed">
-          <Home class="h-8 w-8 text-gray-400 mx-auto mb-2" />
-          <p class="text-gray-500 text-sm mb-1">Kein Haushalt zugeordnet</p>
-          <p class="text-gray-400 text-xs">Ein Haushalt wird automatisch erstellt, wenn Eltern verknüpft werden.</p>
+          <Users class="h-8 w-8 text-gray-400 mx-auto mb-2" />
+          <p class="text-gray-500 text-sm mb-1">Noch keine Eltern zugeordnet</p>
+          <p class="text-gray-400 text-xs mb-4">Ein Haushalt wird automatisch erstellt, wenn der erste Elternteil verknüpft wird.</p>
+          <div class="flex items-center justify-center gap-2">
+            <button
+              @click="openLinkParentDialog"
+              class="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-primary border border-primary hover:bg-primary/10 rounded-lg transition-colors"
+            >
+              <Link class="h-4 w-4" />
+              Verknüpfen
+            </button>
+            <button
+              @click="openCreateParentDialog"
+              class="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium bg-primary text-white hover:bg-primary/90 rounded-lg transition-colors"
+            >
+              <Plus class="h-4 w-4" />
+              Neu anlegen
+            </button>
+          </div>
         </div>
       </div>
 
