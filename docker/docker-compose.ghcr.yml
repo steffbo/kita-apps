@@ -1,0 +1,135 @@
+# Production docker-compose using pre-built images from GHCR
+# 
+# Prerequisites:
+#   1. Copy .env.example to .env and configure all values
+#   2. Login to GHCR: echo $GITHUB_TOKEN | docker login ghcr.io -u $GITHUB_USER --password-stdin
+#
+# Start:
+#   docker compose -f docker-compose.ghcr.yml up -d
+#
+# Update to latest images:
+#   docker compose -f docker-compose.ghcr.yml pull
+#   docker compose -f docker-compose.ghcr.yml up -d
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    container_name: kita-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile
+      - caddy_data:/data
+      - caddy_config:/config
+    environment:
+      - DOMAIN_BASE=${DOMAIN_BASE:-knirpsenstadt.de}
+      - DOMAIN_PLAN=${DOMAIN_PLAN:-plan.knirpsenstadt.de}
+      - DOMAIN_ZEIT=${DOMAIN_ZEIT:-zeit.knirpsenstadt.de}
+      - DOMAIN_BEITRAEGE=${DOMAIN_BEITRAEGE:-beitraege.knirpsenstadt.de}
+      - DOMAIN_API=${DOMAIN_API:-api.knirpsenstadt.de}
+      - DOMAIN_API_FEES=${DOMAIN_API_FEES:-api-fees.knirpsenstadt.de}
+    depends_on:
+      - backend-management
+      - backend-fees
+      - frontend-plan
+      - frontend-zeit
+      - frontend-beitraege
+
+  db:
+    image: postgres:16-alpine
+    container_name: kita-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_NAME}
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend-management:
+    image: ghcr.io/${GITHUB_USER:-steffbo}/kita-backend-management:${IMAGE_TAG:-latest}
+    container_name: kita-backend-management
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+      MAIL_HOST: ${MAIL_HOST}
+      MAIL_PORT: ${MAIL_PORT}
+      MAIL_USER: ${MAIL_USER}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
+      FRONTEND_URL: https://${DOMAIN_PLAN:-plan.knirpsenstadt.de}
+    expose:
+      - "8080"
+
+  backend-fees:
+    image: ghcr.io/${GITHUB_USER:-steffbo}/kita-backend-fees:${IMAGE_TAG:-latest}
+    container_name: kita-backend-fees
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_NAME: ${DB_NAME}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      JWT_SECRET: ${JWT_SECRET}
+    expose:
+      - "8081"
+
+  frontend-plan:
+    image: ghcr.io/${GITHUB_USER:-steffbo}/kita-frontend-plan:${IMAGE_TAG:-latest}
+    container_name: kita-frontend-plan
+    restart: unless-stopped
+    expose:
+      - "80"
+
+  frontend-zeit:
+    image: ghcr.io/${GITHUB_USER:-steffbo}/kita-frontend-zeit:${IMAGE_TAG:-latest}
+    container_name: kita-frontend-zeit
+    restart: unless-stopped
+    expose:
+      - "80"
+
+  frontend-beitraege:
+    image: ghcr.io/${GITHUB_USER:-steffbo}/kita-frontend-beitraege:${IMAGE_TAG:-latest}
+    container_name: kita-frontend-beitraege
+    restart: unless-stopped
+    expose:
+      - "80"
+
+  # Backup service
+  backup:
+    image: postgres:16-alpine
+    container_name: kita-backup
+    depends_on:
+      - db
+    volumes:
+      - ./backup:/backup
+      - ./backup/pg-backup.sh:/pg-backup.sh
+    environment:
+      PGHOST: db
+      PGDATABASE: ${DB_NAME}
+      PGUSER: ${DB_USER}
+      PGPASSWORD: ${DB_PASSWORD}
+    entrypoint: ["sh", "-c", "echo '0 3 * * * /pg-backup.sh' | crontab - && crond -f"]
+
+volumes:
+  postgres_data:
+  caddy_data:
+  caddy_config:

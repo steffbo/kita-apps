@@ -1,21 +1,35 @@
 # Caddyfile for Kita Knirpsenstadt
 # Automatic HTTPS via Let's Encrypt
+# Domain names are configured via environment variables
 
-# API Backend
-api.knirpsenstadt.de {
-    reverse_proxy backend:8080
+# API Backend (Management - Dienstplan/Zeiterfassung)
+{$DOMAIN_API:api.knirpsenstadt.de} {
+    reverse_proxy backend-management:8080
     
     # Enable compression
     encode gzip
     
-    # CORS headers (if needed)
-    header Access-Control-Allow-Origin "https://plan.knirpsenstadt.de https://zeit.knirpsenstadt.de"
+    # CORS headers
+    header Access-Control-Allow-Origin "https://{$DOMAIN_PLAN:plan.knirpsenstadt.de} https://{$DOMAIN_ZEIT:zeit.knirpsenstadt.de} https://{$DOMAIN_BEITRAEGE:beitraege.knirpsenstadt.de}"
+    header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+    header Access-Control-Allow-Headers "Authorization, Content-Type"
+}
+
+# API Backend (Fees - Beitraege)
+{$DOMAIN_API_FEES:api-fees.knirpsenstadt.de} {
+    reverse_proxy backend-fees:8081
+    
+    # Enable compression
+    encode gzip
+    
+    # CORS headers
+    header Access-Control-Allow-Origin "https://{$DOMAIN_BEITRAEGE:beitraege.knirpsenstadt.de}"
     header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
     header Access-Control-Allow-Headers "Authorization, Content-Type"
 }
 
 # Dienstplan Frontend
-plan.knirpsenstadt.de {
+{$DOMAIN_PLAN:plan.knirpsenstadt.de} {
     reverse_proxy frontend-plan:80
     
     encode gzip
@@ -27,7 +41,7 @@ plan.knirpsenstadt.de {
 }
 
 # Zeiterfassung Frontend
-zeit.knirpsenstadt.de {
+{$DOMAIN_ZEIT:zeit.knirpsenstadt.de} {
     reverse_proxy frontend-zeit:80
     
     encode gzip
@@ -38,12 +52,24 @@ zeit.knirpsenstadt.de {
     header Referrer-Policy "strict-origin-when-cross-origin"
 }
 
+# Beitraege Frontend
+{$DOMAIN_BEITRAEGE:beitraege.knirpsenstadt.de} {
+    reverse_proxy frontend-beitraege:80
+    
+    encode gzip
+    
+    # Security headers
+    header X-Frame-Options "DENY"
+    header X-Content-Type-Options "nosniff"
+    header Referrer-Policy "strict-origin-when-cross-origin"
+}
+
 # Redirect www to non-www
-www.knirpsenstadt.de {
-    redir https://plan.knirpsenstadt.de{uri} permanent
+www.{$DOMAIN_BASE:knirpsenstadt.de} {
+    redir https://{$DOMAIN_PLAN:plan.knirpsenstadt.de}{uri} permanent
 }
 
 # Main domain redirect
-knirpsenstadt.de {
-    redir https://plan.knirpsenstadt.de{uri} permanent
+{$DOMAIN_BASE:knirpsenstadt.de} {
+    redir https://{$DOMAIN_PLAN:plan.knirpsenstadt.de}{uri} permanent
 }
