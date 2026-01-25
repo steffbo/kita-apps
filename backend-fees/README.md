@@ -317,15 +317,12 @@ docker run -p 8081:8081 \
   kita-fees-backend
 ```
 
-## Unterschied zum Java Backend
+## Unterschied zum Management Backend
 
-| Aspekt | Java Backend | Go Backend |
-|--------|--------------|------------|
+| Aspekt | Management Backend | Fees Backend |
+|--------|-------------------|--------------|
 | Apps | Dienstplan, Zeiterfassung | Beiträge |
 | Port | 8080 | 8081 |
-| Framework | Spring Boot | Chi Router |
-| Auth | Shared Users | Separate Users |
 | DB Schema | public | fees |
-| API Spec | OpenAPI | Keine (REST) |
 
 Die Backends sind vollständig unabhängig und teilen nur die PostgreSQL-Datenbank (verschiedene Schemas).

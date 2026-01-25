@@ -12,8 +12,7 @@ Zeiterfassung, Dienstplanung und Beitragsverwaltung für die Kita Knirpsenstadt.
 
 ## Tech-Stack
 
-- **Backend (Java)**: Spring Boot 3.x, PostgreSQL, JWT Auth
-- **Backend (Go)**: Chi Router, PostgreSQL, JWT Auth (für Beiträge)
+- **Backend (Go)**: Chi Router, PostgreSQL, JWT Auth
 - **Frontend**: Vue 3, TypeScript, Tailwind CSS, shadcn-vue
 - **Build**: Bun, Vite
 - **Deployment**: Docker, Caddy
@@ -22,11 +21,9 @@ Zeiterfassung, Dienstplanung und Beitragsverwaltung für die Kita Knirpsenstadt.
 
 ### Voraussetzungen
 
-- Java 21+
-- Go 1.21+ (für Beiträge-Backend)
+- Go 1.21+
 - Bun 1.x
 - Docker & Docker Compose
-- Maven 3.9+
 
 ### 1. Datenbank starten
 
@@ -35,12 +32,17 @@ cd docker
 docker compose up db -d
 ```
 
-### 2. Backend starten
+### 2. Backends starten
 
-**Java Backend (Dienstplan, Zeiterfassung):**
+**Go Backend (Dienstplan, Zeiterfassung):**
 ```bash
-cd backend
-mvn spring-boot:run
+cd backend-management
+
+# Migrationen ausführen (einmalig)
+go run cmd/migrate/main.go up
+
+# Server starten
+go run cmd/server/main.go
 ```
 Das Backend läuft auf http://localhost:8080
 
@@ -66,28 +68,23 @@ bun run dev:zeit  # Zeiterfassung auf :5174
 bun run dev:beitraege  # Beiträge auf :5175
 ```
 
-### 4. API-Typen generieren
-
-```bash
-./scripts/generate-api.sh
-```
-
 ## Projektstruktur
 
 ```
 kita-apps/
-├── openapi/
-│   └── kita-api.yaml          # API-Spezifikation (Single Source of Truth)
-│
-├── backend/                   # Java Backend (Dienstplan, Zeiterfassung)
-│   ├── pom.xml
-│   └── src/main/java/de/knirpsenstadt/
-│       ├── KitaApplication.java
-│       ├── config/            # Security, CORS
-│       ├── controller/        # REST Controller
-│       ├── service/           # Business Logic
-│       ├── repository/        # JPA Repositories
-│       └── model/             # Entities
+├── backend-management/        # Go Backend (Dienstplan, Zeiterfassung)
+│   ├── cmd/
+│   │   ├── server/            # HTTP Server
+│   │   └── migrate/           # Migration CLI
+│   ├── internal/
+│   │   ├── api/               # HTTP Handlers & Router
+│   │   ├── auth/              # JWT Authentication
+│   │   ├── config/            # Configuration
+│   │   ├── domain/            # Domain Models
+│   │   ├── repository/        # Database Layer
+│   │   ├── service/           # Business Logic
+│   │   └── testutil/          # Test Utilities
+│   └── migrations/            # SQL Migrations
 │
 ├── backend-fees/              # Go Backend (Beiträge)
 │   ├── cmd/
@@ -122,13 +119,6 @@ kita-apps/
 ```
 
 ## Entwicklung
-
-### API-First Workflow
-
-1. Änderungen in `openapi/kita-api.yaml` vornehmen
-2. `./scripts/generate-api.sh` ausführen
-3. Backend: Maven generiert Interfaces automatisch bei `mvn compile`
-4. Frontend: TypeScript-Typen werden in `packages/shared/src/api/schema.d.ts` generiert
 
 ### Default Admin Login
 
@@ -193,7 +183,7 @@ frontend/e2e/
 │   └── index.ts              # Test-Utilities, Page Objects
 ├── tests/
 │   ├── auth.setup.ts         # Authentifizierung (Dienstplan, Zeiterfassung)
-│   ├── beitraege.setup.ts    # Authentifizierung (Beiträge, Go Backend)
+│   ├── beitraege.setup.ts    # Authentifizierung (Beiträge)
 │   ├── dienstplan/
 │   │   ├── navigation.spec.ts    # Login, Navigation
 │   │   ├── employees.spec.ts     # Mitarbeiter-CRUD
@@ -210,8 +200,8 @@ frontend/e2e/
 Tests benötigen laufende Backends mit Testdaten:
 
 ```bash
-# Terminal 1: Java Backend starten (Dienstplan, Zeiterfassung)
-cd backend && mvn spring-boot:run
+# Terminal 1: Go Backend starten (Dienstplan, Zeiterfassung)
+cd backend-management && go run cmd/server/main.go
 
 # Terminal 2: Go Backend starten (Beiträge)
 cd backend-fees && go run cmd/server/main.go
@@ -226,9 +216,8 @@ Die Playwright-Konfiguration startet automatisch die Frontend-Dev-Server.
 
 | URL | Beschreibung |
 |-----|--------------|
-| http://localhost:8080/api/swagger-ui.html | API Dokumentation (Java) |
-| http://localhost:8080/api/actuator/health | Health Check (Java) |
-| http://localhost:8081/health | Health Check (Go) |
+| http://localhost:8080/health | Health Check (Management) |
+| http://localhost:8081/health | Health Check (Fees) |
 | http://localhost:8025 | MailHog (E-Mail Tester) |
 | http://localhost:5173 | Dienstplan Frontend |
 | http://localhost:5174 | Zeiterfassung Frontend |
@@ -263,8 +252,8 @@ Caddy kümmert sich automatisch um SSL-Zertifikate via Let's Encrypt.
 ## Dokumentation
 
 - [PLAN.md](PLAN.md) - Detaillierter Projektplan
+- [backend-management/README.md](backend-management/README.md) - Management Go-Backend Dokumentation
 - [backend-fees/README.md](backend-fees/README.md) - Beiträge Go-Backend Dokumentation
-- [openapi/kita-api.yaml](openapi/kita-api.yaml) - API-Spezifikation (Java Backend)
 
 ## License
 

@@ -7,7 +7,7 @@
 | **Projekt** | Kita-Apps für Knirpsenstadt |
 | **Ziel** | Zeiterfassung + Dienstplanung + Beitragsverwaltung |
 | **Subdomains** | `plan.knirpsenstadt.de`, `zeit.knirpsenstadt.de`, `beitraege.knirpsenstadt.de` |
-| **Architektur** | Monorepo, Spec-First (OpenAPI für Java), REST API (für Go) |
+| **Architektur** | Monorepo, REST API (Go) |
 
 ---
 
@@ -17,22 +17,22 @@
 
 #### Infrastruktur & Setup
 - [x] Monorepo-Struktur aufgesetzt
-- [x] OpenAPI Spec (`/openapi/kita-api.yaml`) vollständig definiert
-- [x] Backend Spring Boot 3.3 Projekt mit Java 21
-- [x] Frontend Bun + Vue 3 Monorepo mit zwei Apps
-- [x] Code-Generierung für API-Typen (Backend & Frontend)
+- [x] Go Backend für Dienstplan/Zeiterfassung (backend-management)
+- [x] Go Backend für Beiträge (backend-fees)
+- [x] Frontend Bun + Vue 3 Monorepo mit drei Apps
 - [x] Shared Package für gemeinsame Komponenten
-- [x] PostgreSQL Datenbankschema mit Migrationen (V1-V3)
+- [x] PostgreSQL Datenbankschema mit golang-migrate
 - [x] E2E Testing Setup mit Playwright
+- [x] Integration Tests mit testcontainers-go
 
-#### Beiträge-Backend (Go) - NEU
+#### Beiträge-Backend (Go)
 - [x] Go Backend mit Chi Router auf Port 8081
 - [x] Separates `fees` Schema in PostgreSQL
-- [x] JWT Authentication (unabhängig vom Java Backend)
+- [x] JWT Authentication
 - [x] golang-migrate für Datenbankmigrationen
 - [x] REST API für Kinder, Eltern, Beiträge, Import
 
-#### Beiträge-Frontend - NEU
+#### Beiträge-Frontend
 - [x] Vue 3 App auf Port 5175
 - [x] Dashboard mit Beitragsübersicht
 - [x] Kinder-Verwaltung (CRUD, Suche, Detail-Ansicht)
@@ -124,16 +124,16 @@
 
 ## Tech-Stack
 
-### Backend (Java - Dienstplan, Zeiterfassung)
+### Backend (Go - Dienstplan, Zeiterfassung)
 
 | Komponente | Technologie |
 |------------|-------------|
-| Framework | Spring Boot 3.x |
-| Sprache | Java 21 |
+| Framework | Chi Router |
+| Sprache | Go 1.21+ |
 | Datenbank | PostgreSQL 16 |
-| Auth | Spring Security + JWT |
-| API Spec | OpenAPI 3.0 |
-| Code-Gen | openapi-generator-maven-plugin |
+| Auth | JWT |
+| Migration | golang-migrate |
+| Testing | testcontainers-go |
 
 ### Backend (Go - Beiträge)
 
@@ -179,20 +179,19 @@
 
 ```
 kita-apps/
-├── openapi/
-│   └── kita-api.yaml
-├── backend/                   # Java Backend
-│   ├── pom.xml
-│   └── src/main/java/de/knirpsenstadt/
-│       ├── api/            # Generiert
-│       ├── controller/
-│       ├── service/
-│       ├── repository/
-│       ├── model/
-│       ├── dto/
-│       ├── config/
-│       └── util/
-├── backend-fees/              # Go Backend
+├── backend-management/        # Go Backend (Dienstplan, Zeiterfassung)
+│   ├── cmd/
+│   │   ├── server/         # HTTP Server
+│   │   └── migrate/        # Migration CLI
+│   ├── internal/
+│   │   ├── api/            # Router, Handler
+│   │   ├── auth/           # JWT
+│   │   ├── domain/         # Entities
+│   │   ├── repository/     # DB Layer
+│   │   ├── service/        # Business Logic
+│   │   └── testutil/       # Test Utilities
+│   └── migrations/         # SQL Files
+├── backend-fees/              # Go Backend (Beiträge)
 │   ├── cmd/
 │   │   ├── server/         # HTTP Server
 │   │   └── migrate/        # Migration CLI
@@ -231,7 +230,7 @@ kita-apps/
 
 ## Datenmodell
 
-### Entitäten (Java Backend - public Schema)
+### Entitäten (Go Backend - public Schema)
 
 **Employee**
 - id, email, firstName, lastName
@@ -278,7 +277,7 @@ kita-apps/
 **ChildParent** (Many-to-Many)
 - childId, parentId, isPrimary
 
-**User** (separate vom Java Backend)
+**User** (separate Tabelle pro Backend)
 - id, email, passwordHash
 - firstName, lastName, role (ADMIN/USER)
 - isActive, createdAt, updatedAt
@@ -390,12 +389,11 @@ kita-apps/
 
 ## Entwicklungsphasen
 
-### Phase 0: Setup & OpenAPI ✅ FERTIG
+### Phase 0: Setup ✅ FERTIG
 - [x] Monorepo initialisieren
-- [x] OpenAPI Spec schreiben
-- [x] Backend-Projekt (Spring Boot)
+- [x] Backend-Projekt (Go - backend-management)
+- [x] Backend-Projekt (Go - backend-fees)
 - [x] Frontend-Workspace (Bun + Vue)
-- [x] Code-Generierung einrichten
 - [x] Docker Basis-Setup
 - [x] Caddy Konfiguration
 
@@ -439,7 +437,7 @@ kita-apps/
 ### Phase 6: Beitragsverwaltung ✅ FERTIG
 - [x] Go Backend Setup (Chi Router, Port 8081)
 - [x] PostgreSQL fees Schema mit Migrationen
-- [x] JWT Authentication (unabhängig)
+- [x] JWT Authentication
 - [x] Kinder-API (CRUD)
 - [x] Eltern-API (CRUD)
 - [x] Kind-Eltern-Verknüpfung (Many-to-Many)

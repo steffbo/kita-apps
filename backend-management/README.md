@@ -81,7 +81,7 @@ Base URL: `http://localhost:8080/api`
 
 ## Database Schema
 
-Migrations mirror the previous Spring Boot backend and create tables for:
+Migrations create tables for:
 
 - Employees (employees)
 - Groups and assignments (groups, group_assignments)
