@@ -23,22 +23,22 @@ func NewEmployeeHandler(employees *service.EmployeeService) *EmployeeHandler {
 }
 
 type createEmployeeRequest struct {
-	Email               string  `json:"email"`
-	FirstName           string  `json:"firstName"`
-	LastName            string  `json:"lastName"`
-	Role                *string `json:"role,omitempty"`
-	WeeklyHours         float64 `json:"weeklyHours"`
-	VacationDaysPerYear *int    `json:"vacationDaysPerYear,omitempty"`
+	Email               string  `json:"email" validate:"required,email"`
+	FirstName           string  `json:"firstName" validate:"required"`
+	LastName            string  `json:"lastName" validate:"required"`
+	Role                *string `json:"role,omitempty" validate:"omitempty,oneof=ADMIN EMPLOYEE"`
+	WeeklyHours         float64 `json:"weeklyHours" validate:"required,gt=0"`
+	VacationDaysPerYear *int    `json:"vacationDaysPerYear,omitempty" validate:"omitempty,gte=0"`
 	PrimaryGroupID      *int64  `json:"primaryGroupId,omitempty"`
 }
 
 type updateEmployeeRequest struct {
-	Email                 *string  `json:"email,omitempty"`
+	Email                 *string  `json:"email,omitempty" validate:"omitempty,email"`
 	FirstName             *string  `json:"firstName,omitempty"`
 	LastName              *string  `json:"lastName,omitempty"`
-	Role                  *string  `json:"role,omitempty"`
-	WeeklyHours           *float64 `json:"weeklyHours,omitempty"`
-	VacationDaysPerYear   *int     `json:"vacationDaysPerYear,omitempty"`
+	Role                  *string  `json:"role,omitempty" validate:"omitempty,oneof=ADMIN EMPLOYEE"`
+	WeeklyHours           *float64 `json:"weeklyHours,omitempty" validate:"omitempty,gt=0"`
+	VacationDaysPerYear   *int     `json:"vacationDaysPerYear,omitempty" validate:"omitempty,gte=0"`
 	RemainingVacationDays *float64 `json:"remainingVacationDays,omitempty"`
 	OvertimeBalance       *float64 `json:"overtimeBalance,omitempty"`
 	Active                *bool    `json:"active,omitempty"`
@@ -87,24 +87,17 @@ func (h *EmployeeHandler) Get(w http.ResponseWriter, r *http.Request) {
 // Create handles POST /employees.
 func (h *EmployeeHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var req createEmployeeRequest
-	if err := request.DecodeJSON(r, &req); err != nil {
+	if validationErrors, err := request.DecodeAndValidate(r, &req); err != nil {
 		response.BadRequest(w, "Ungültige Anfrage")
 		return
-	}
-
-	if req.Email == "" || req.FirstName == "" || req.LastName == "" || req.WeeklyHours == 0 {
-		response.BadRequest(w, "Pflichtfelder fehlen")
+	} else if validationErrors != nil {
+		response.ValidationError(w, "Validierungsfehler", validationErrors)
 		return
 	}
 
 	role := domain.EmployeeRoleEmployee
 	if req.Role != nil {
-		parsed, ok := parseEmployeeRole(*req.Role)
-		if !ok {
-			response.BadRequest(w, "Ungültige Rolle")
-			return
-		}
-		role = parsed
+		role = parseEmployeeRole(*req.Role)
 	}
 
 	vacDays := 30
@@ -138,18 +131,17 @@ func (h *EmployeeHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req updateEmployeeRequest
-	if err := request.DecodeJSON(r, &req); err != nil {
+	if validationErrors, err := request.DecodeAndValidate(r, &req); err != nil {
 		response.BadRequest(w, "Ungültige Anfrage")
+		return
+	} else if validationErrors != nil {
+		response.ValidationError(w, "Validierungsfehler", validationErrors)
 		return
 	}
 
 	var role *domain.EmployeeRole
 	if req.Role != nil {
-		parsed, ok := parseEmployeeRole(*req.Role)
-		if !ok {
-			response.BadRequest(w, "Ungültige Rolle")
-			return
-		}
+		parsed := parseEmployeeRole(*req.Role)
 		role = &parsed
 	}
 
@@ -231,13 +223,11 @@ func parseID(raw string) (int64, error) {
 	return strconv.ParseInt(raw, 10, 64)
 }
 
-func parseEmployeeRole(value string) (domain.EmployeeRole, bool) {
+func parseEmployeeRole(value string) domain.EmployeeRole {
 	switch value {
 	case string(domain.EmployeeRoleAdmin):
-		return domain.EmployeeRoleAdmin, true
-	case string(domain.EmployeeRoleEmployee):
-		return domain.EmployeeRoleEmployee, true
+		return domain.EmployeeRoleAdmin
 	default:
-		return "", false
+		return domain.EmployeeRoleEmployee
 	}
 }

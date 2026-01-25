@@ -4,11 +4,95 @@ import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"sync"
+
+	"github.com/go-playground/validator/v10"
 )
+
+var (
+	validate     *validator.Validate
+	validateOnce sync.Once
+)
+
+// getValidator returns a singleton validator instance.
+func getValidator() *validator.Validate {
+	validateOnce.Do(func() {
+		validate = validator.New(validator.WithRequiredStructEnabled())
+	})
+	return validate
+}
 
 // DecodeJSON decodes a JSON request body into the given struct.
 func DecodeJSON(r *http.Request, v interface{}) error {
 	return json.NewDecoder(r.Body).Decode(v)
+}
+
+// DecodeAndValidate decodes a JSON request body and validates it.
+// Returns validation errors as a map of field -> error key for frontend translation.
+func DecodeAndValidate(r *http.Request, v interface{}) (map[string]string, error) {
+	if err := json.NewDecoder(r.Body).Decode(v); err != nil {
+		return nil, err
+	}
+	return Validate(v), nil
+}
+
+// Validate validates a struct and returns a map of field -> error key.
+// Returns nil if validation passes.
+func Validate(v interface{}) map[string]string {
+	err := getValidator().Struct(v)
+	if err == nil {
+		return nil
+	}
+
+	validationErrors, ok := err.(validator.ValidationErrors)
+	if !ok {
+		return map[string]string{"_error": "validation_failed"}
+	}
+
+	errors := make(map[string]string)
+	for _, fieldErr := range validationErrors {
+		field := toSnakeCase(fieldErr.Field())
+		errors[field] = mapValidationTag(fieldErr.Tag(), fieldErr.Param())
+	}
+	return errors
+}
+
+// mapValidationTag converts a validator tag to a translatable error key.
+func mapValidationTag(tag, param string) string {
+	switch tag {
+	case "required":
+		return "error.required"
+	case "email":
+		return "error.invalid_email"
+	case "min":
+		return "error.min:" + param
+	case "max":
+		return "error.max:" + param
+	case "gte":
+		return "error.gte:" + param
+	case "lte":
+		return "error.lte:" + param
+	case "oneof":
+		return "error.invalid_value"
+	default:
+		return "error.invalid"
+	}
+}
+
+// toSnakeCase converts a field name to snake_case for JSON field names.
+func toSnakeCase(s string) string {
+	result := make([]byte, 0, len(s)*2)
+	for i, c := range s {
+		if c >= 'A' && c <= 'Z' {
+			if i > 0 {
+				result = append(result, '_')
+			}
+			result = append(result, byte(c+32))
+		} else {
+			result = append(result, byte(c))
+		}
+	}
+	return string(result)
 }
 
 // Pagination holds pagination parameters from query strings.

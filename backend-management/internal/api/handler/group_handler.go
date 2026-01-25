@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/go-chi/chi/v5"
 
@@ -22,14 +23,14 @@ func NewGroupHandler(groups *service.GroupService) *GroupHandler {
 }
 
 type groupRequest struct {
-	Name        string  `json:"name"`
+	Name        string  `json:"name" validate:"required"`
 	Description *string `json:"description,omitempty"`
 	Color       *string `json:"color,omitempty"`
 }
 
 type assignmentRequest struct {
-	EmployeeID     int64  `json:"employeeId"`
-	AssignmentType string `json:"assignmentType"`
+	EmployeeID     int64  `json:"employeeId" validate:"required"`
+	AssignmentType string `json:"assignmentType" validate:"required,oneof=PERMANENT SPRINGER"`
 }
 
 // List handles GET /groups.
@@ -73,12 +74,11 @@ func (h *GroupHandler) Get(w http.ResponseWriter, r *http.Request) {
 // Create handles POST /groups.
 func (h *GroupHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var req groupRequest
-	if err := request.DecodeJSON(r, &req); err != nil {
+	if validationErrors, err := request.DecodeAndValidate(r, &req); err != nil {
 		response.BadRequest(w, "Ungültige Anfrage")
 		return
-	}
-	if req.Name == "" {
-		response.BadRequest(w, "Name ist erforderlich")
+	} else if validationErrors != nil {
+		response.ValidationError(w, "Validierungsfehler", validationErrors)
 		return
 	}
 
@@ -104,12 +104,11 @@ func (h *GroupHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req groupRequest
-	if err := request.DecodeJSON(r, &req); err != nil {
+	if validationErrors, err := request.DecodeAndValidate(r, &req); err != nil {
 		response.BadRequest(w, "Ungültige Anfrage")
 		return
-	}
-	if req.Name == "" {
-		response.BadRequest(w, "Name ist erforderlich")
+	} else if validationErrors != nil {
+		response.ValidationError(w, "Validierungsfehler", validationErrors)
 		return
 	}
 
@@ -178,16 +177,24 @@ func (h *GroupHandler) UpdateAssignments(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	inputs := make([]service.GroupAssignmentInput, 0, len(req))
-	for _, item := range req {
-		assignmentType, ok := parseAssignmentType(item.AssignmentType)
-		if !ok {
-			response.BadRequest(w, "Ungültiger Assignment-Typ")
+	// Validate each assignment
+	for i, item := range req {
+		if validationErrors := request.Validate(&item); validationErrors != nil {
+			// Prefix errors with index
+			indexedErrors := make(map[string]string)
+			for field, errMsg := range validationErrors {
+				indexedErrors[field] = errMsg
+			}
+			response.ValidationError(w, "Validierungsfehler bei Eintrag "+strconv.Itoa(i+1), indexedErrors)
 			return
 		}
+	}
+
+	inputs := make([]service.GroupAssignmentInput, 0, len(req))
+	for _, item := range req {
 		inputs = append(inputs, service.GroupAssignmentInput{
 			EmployeeID:     item.EmployeeID,
-			AssignmentType: assignmentType,
+			AssignmentType: parseAssignmentType(item.AssignmentType),
 		})
 	}
 
@@ -205,13 +212,11 @@ func (h *GroupHandler) UpdateAssignments(w http.ResponseWriter, r *http.Request)
 	response.Success(w, result)
 }
 
-func parseAssignmentType(value string) (domain.AssignmentType, bool) {
+func parseAssignmentType(value string) domain.AssignmentType {
 	switch value {
 	case string(domain.AssignmentTypePermanent):
-		return domain.AssignmentTypePermanent, true
-	case string(domain.AssignmentTypeSpringer):
-		return domain.AssignmentTypeSpringer, true
+		return domain.AssignmentTypePermanent
 	default:
-		return "", false
+		return domain.AssignmentTypeSpringer
 	}
 }

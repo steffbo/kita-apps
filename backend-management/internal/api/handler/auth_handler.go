@@ -20,26 +20,26 @@ func NewAuthHandler(authService *service.AuthService) *AuthHandler {
 }
 
 type loginRequest struct {
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	Email    string `json:"email" validate:"required,email"`
+	Password string `json:"password" validate:"required,min=8"`
 }
 
 type refreshRequest struct {
-	RefreshToken string `json:"refreshToken"`
+	RefreshToken string `json:"refreshToken" validate:"required"`
 }
 
 type passwordResetRequest struct {
-	Email string `json:"email"`
+	Email string `json:"email" validate:"required,email"`
 }
 
 type passwordResetConfirm struct {
-	Token       string `json:"token"`
-	NewPassword string `json:"newPassword"`
+	Token       string `json:"token" validate:"required"`
+	NewPassword string `json:"newPassword" validate:"required,min=8"`
 }
 
 type changePasswordRequest struct {
-	CurrentPassword string `json:"currentPassword"`
-	NewPassword     string `json:"newPassword"`
+	CurrentPassword string `json:"currentPassword" validate:"required"`
+	NewPassword     string `json:"newPassword" validate:"required,min=8"`
 }
 
 type authResponse struct {
@@ -52,12 +52,11 @@ type authResponse struct {
 // Login handles POST /auth/login.
 func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	var req loginRequest
-	if err := request.DecodeJSON(r, &req); err != nil {
+	if validationErrors, err := request.DecodeAndValidate(r, &req); err != nil {
 		response.BadRequest(w, "Ungültige Anfrage")
 		return
-	}
-	if req.Email == "" || req.Password == "" {
-		response.BadRequest(w, "E-Mail und Passwort sind erforderlich")
+	} else if validationErrors != nil {
+		response.ValidationError(w, "Validierungsfehler", validationErrors)
 		return
 	}
 
@@ -78,12 +77,11 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 // Refresh handles POST /auth/refresh.
 func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 	var req refreshRequest
-	if err := request.DecodeJSON(r, &req); err != nil {
+	if validationErrors, err := request.DecodeAndValidate(r, &req); err != nil {
 		response.BadRequest(w, "Ungültige Anfrage")
 		return
-	}
-	if req.RefreshToken == "" {
-		response.BadRequest(w, "Refresh Token ist erforderlich")
+	} else if validationErrors != nil {
+		response.ValidationError(w, "Validierungsfehler", validationErrors)
 		return
 	}
 
@@ -127,12 +125,11 @@ func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req changePasswordRequest
-	if err := request.DecodeJSON(r, &req); err != nil {
+	if validationErrors, err := request.DecodeAndValidate(r, &req); err != nil {
 		response.BadRequest(w, "Ungültige Anfrage")
 		return
-	}
-	if req.CurrentPassword == "" || req.NewPassword == "" {
-		response.BadRequest(w, "Aktuelles und neues Passwort sind erforderlich")
+	} else if validationErrors != nil {
+		response.ValidationError(w, "Validierungsfehler", validationErrors)
 		return
 	}
 
@@ -147,12 +144,11 @@ func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 // RequestPasswordReset handles POST /auth/password-reset/request.
 func (h *AuthHandler) RequestPasswordReset(w http.ResponseWriter, r *http.Request) {
 	var req passwordResetRequest
-	if err := request.DecodeJSON(r, &req); err != nil {
+	if validationErrors, err := request.DecodeAndValidate(r, &req); err != nil {
 		response.BadRequest(w, "Ungültige Anfrage")
 		return
-	}
-	if req.Email == "" {
-		response.BadRequest(w, "E-Mail ist erforderlich")
+	} else if validationErrors != nil {
+		response.ValidationError(w, "Validierungsfehler", validationErrors)
 		return
 	}
 
@@ -164,12 +160,11 @@ func (h *AuthHandler) RequestPasswordReset(w http.ResponseWriter, r *http.Reques
 // ConfirmPasswordReset handles POST /auth/password-reset/confirm.
 func (h *AuthHandler) ConfirmPasswordReset(w http.ResponseWriter, r *http.Request) {
 	var req passwordResetConfirm
-	if err := request.DecodeJSON(r, &req); err != nil {
+	if validationErrors, err := request.DecodeAndValidate(r, &req); err != nil {
 		response.BadRequest(w, "Ungültige Anfrage")
 		return
-	}
-	if req.Token == "" || req.NewPassword == "" {
-		response.BadRequest(w, "Token und neues Passwort sind erforderlich")
+	} else if validationErrors != nil {
+		response.ValidationError(w, "Validierungsfehler", validationErrors)
 		return
 	}
 

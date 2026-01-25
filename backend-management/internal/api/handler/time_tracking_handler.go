@@ -30,17 +30,17 @@ type clockInRequest struct {
 }
 
 type clockOutRequest struct {
-	BreakMinutes *int    `json:"breakMinutes,omitempty"`
+	BreakMinutes *int    `json:"breakMinutes,omitempty" validate:"omitempty,gte=0"`
 	Notes        *string `json:"notes,omitempty"`
 }
 
 type createTimeEntryRequest struct {
-	EmployeeID   int64   `json:"employeeId"`
-	Date         string  `json:"date"`
-	ClockIn      string  `json:"clockIn"`
-	ClockOut     string  `json:"clockOut"`
-	BreakMinutes *int    `json:"breakMinutes,omitempty"`
-	EntryType    *string `json:"entryType,omitempty"`
+	EmployeeID   int64   `json:"employeeId" validate:"required"`
+	Date         string  `json:"date" validate:"required"`
+	ClockIn      string  `json:"clockIn" validate:"required"`
+	ClockOut     string  `json:"clockOut" validate:"required"`
+	BreakMinutes *int    `json:"breakMinutes,omitempty" validate:"omitempty,gte=0"`
+	EntryType    *string `json:"entryType,omitempty" validate:"omitempty,oneof=WORK VACATION SICK SPECIAL_LEAVE TRAINING EVENT"`
 	Notes        *string `json:"notes,omitempty"`
 	EditReason   *string `json:"editReason,omitempty"`
 }
@@ -48,8 +48,8 @@ type createTimeEntryRequest struct {
 type updateTimeEntryRequest struct {
 	ClockIn      *string `json:"clockIn,omitempty"`
 	ClockOut     *string `json:"clockOut,omitempty"`
-	BreakMinutes *int    `json:"breakMinutes,omitempty"`
-	EntryType    *string `json:"entryType,omitempty"`
+	BreakMinutes *int    `json:"breakMinutes,omitempty" validate:"omitempty,gte=0"`
+	EntryType    *string `json:"entryType,omitempty" validate:"omitempty,oneof=WORK VACATION SICK SPECIAL_LEAVE TRAINING EVENT"`
 	Notes        *string `json:"notes,omitempty"`
 	EditReason   *string `json:"editReason,omitempty"`
 }
@@ -174,12 +174,11 @@ func (h *TimeTrackingHandler) List(w http.ResponseWriter, r *http.Request) {
 // Create handles POST /time-tracking/entries.
 func (h *TimeTrackingHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var req createTimeEntryRequest
-	if err := request.DecodeJSON(r, &req); err != nil {
+	if validationErrors, err := request.DecodeAndValidate(r, &req); err != nil {
 		response.BadRequest(w, "Ungültige Anfrage")
 		return
-	}
-	if req.EmployeeID == 0 || req.Date == "" || req.ClockIn == "" || req.ClockOut == "" {
-		response.BadRequest(w, "employeeId, date, clockIn und clockOut sind erforderlich")
+	} else if validationErrors != nil {
+		response.ValidationError(w, "Validierungsfehler", validationErrors)
 		return
 	}
 
@@ -206,12 +205,7 @@ func (h *TimeTrackingHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 	entryType := domain.TimeEntryTypeWork
 	if req.EntryType != nil {
-		parsed, ok := parseTimeEntryType(*req.EntryType)
-		if !ok {
-			response.BadRequest(w, "Ungültiger entryType")
-			return
-		}
-		entryType = parsed
+		entryType = parseTimeEntryType(*req.EntryType)
 	}
 
 	entry, err := h.service.Create(r.Context(), service.CreateTimeEntryInput{
@@ -241,8 +235,11 @@ func (h *TimeTrackingHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req updateTimeEntryRequest
-	if err := request.DecodeJSON(r, &req); err != nil {
+	if validationErrors, err := request.DecodeAndValidate(r, &req); err != nil {
 		response.BadRequest(w, "Ungültige Anfrage")
+		return
+	} else if validationErrors != nil {
+		response.ValidationError(w, "Validierungsfehler", validationErrors)
 		return
 	}
 
@@ -268,11 +265,7 @@ func (h *TimeTrackingHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	var entryType *domain.TimeEntryType
 	if req.EntryType != nil {
-		parsed, ok := parseTimeEntryType(*req.EntryType)
-		if !ok {
-			response.BadRequest(w, "Ungültiger entryType")
-			return
-		}
+		parsed := parseTimeEntryType(*req.EntryType)
 		entryType = &parsed
 	}
 
@@ -359,21 +352,19 @@ func (h *TimeTrackingHandler) Comparison(w http.ResponseWriter, r *http.Request)
 	response.Success(w, mapTimeScheduleComparisonResponse(comparison))
 }
 
-func parseTimeEntryType(value string) (domain.TimeEntryType, bool) {
+func parseTimeEntryType(value string) domain.TimeEntryType {
 	switch value {
 	case string(domain.TimeEntryTypeWork):
-		return domain.TimeEntryTypeWork, true
+		return domain.TimeEntryTypeWork
 	case string(domain.TimeEntryTypeVacation):
-		return domain.TimeEntryTypeVacation, true
+		return domain.TimeEntryTypeVacation
 	case string(domain.TimeEntryTypeSick):
-		return domain.TimeEntryTypeSick, true
+		return domain.TimeEntryTypeSick
 	case string(domain.TimeEntryTypeSpecialLeave):
-		return domain.TimeEntryTypeSpecialLeave, true
+		return domain.TimeEntryTypeSpecialLeave
 	case string(domain.TimeEntryTypeTraining):
-		return domain.TimeEntryTypeTraining, true
-	case string(domain.TimeEntryTypeEvent):
-		return domain.TimeEntryTypeEvent, true
+		return domain.TimeEntryTypeTraining
 	default:
-		return "", false
+		return domain.TimeEntryTypeEvent
 	}
 }

@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -24,13 +25,13 @@ func NewScheduleHandler(schedules *service.ScheduleService) *ScheduleHandler {
 }
 
 type createScheduleEntryRequest struct {
-	EmployeeID   int64   `json:"employeeId"`
-	Date         string  `json:"date"`
+	EmployeeID   int64   `json:"employeeId" validate:"required"`
+	Date         string  `json:"date" validate:"required"`
 	StartTime    *string `json:"startTime,omitempty"`
 	EndTime      *string `json:"endTime,omitempty"`
-	BreakMinutes *int    `json:"breakMinutes,omitempty"`
+	BreakMinutes *int    `json:"breakMinutes,omitempty" validate:"omitempty,gte=0"`
 	GroupID      *int64  `json:"groupId,omitempty"`
-	EntryType    *string `json:"entryType,omitempty"`
+	EntryType    *string `json:"entryType,omitempty" validate:"omitempty,oneof=WORK VACATION SICK SPECIAL_LEAVE TRAINING EVENT"`
 	Notes        *string `json:"notes,omitempty"`
 }
 
@@ -38,9 +39,9 @@ type updateScheduleEntryRequest struct {
 	Date         *string `json:"date,omitempty"`
 	StartTime    *string `json:"startTime,omitempty"`
 	EndTime      *string `json:"endTime,omitempty"`
-	BreakMinutes *int    `json:"breakMinutes,omitempty"`
+	BreakMinutes *int    `json:"breakMinutes,omitempty" validate:"omitempty,gte=0"`
 	GroupID      *int64  `json:"groupId,omitempty"`
-	EntryType    *string `json:"entryType,omitempty"`
+	EntryType    *string `json:"entryType,omitempty" validate:"omitempty,oneof=WORK VACATION SICK SPECIAL_LEAVE TRAINING EVENT"`
 	Notes        *string `json:"notes,omitempty"`
 }
 
@@ -159,66 +160,21 @@ func (h *ScheduleHandler) Week(w http.ResponseWriter, r *http.Request) {
 // Create handles POST /schedule.
 func (h *ScheduleHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var req createScheduleEntryRequest
-	if err := request.DecodeJSON(r, &req); err != nil {
+	if validationErrors, err := request.DecodeAndValidate(r, &req); err != nil {
 		response.BadRequest(w, "Ungültige Anfrage")
 		return
-	}
-	if req.EmployeeID == 0 || req.Date == "" {
-		response.BadRequest(w, "employeeId und date sind erforderlich")
+	} else if validationErrors != nil {
+		response.ValidationError(w, "Validierungsfehler", validationErrors)
 		return
 	}
 
-	date, err := service.ParseDate(req.Date)
-	if err != nil {
-		response.BadRequest(w, "Ungültiges date")
+	input, errMsg := parseScheduleEntryInput(req)
+	if errMsg != "" {
+		response.BadRequest(w, errMsg)
 		return
 	}
 
-	var startTime *time.Time
-	if req.StartTime != nil {
-		parsed, err := service.ParseTime(*req.StartTime)
-		if err != nil {
-			response.BadRequest(w, "Ungültiges startTime")
-			return
-		}
-		startTime = &parsed
-	}
-
-	var endTime *time.Time
-	if req.EndTime != nil {
-		parsed, err := service.ParseTime(*req.EndTime)
-		if err != nil {
-			response.BadRequest(w, "Ungültiges endTime")
-			return
-		}
-		endTime = &parsed
-	}
-
-	breakMinutes := 0
-	if req.BreakMinutes != nil {
-		breakMinutes = *req.BreakMinutes
-	}
-
-	entryType := domain.ScheduleEntryTypeWork
-	if req.EntryType != nil {
-		parsed, ok := parseScheduleEntryType(*req.EntryType)
-		if !ok {
-			response.BadRequest(w, "Ungültiger entryType")
-			return
-		}
-		entryType = parsed
-	}
-
-	entry, err := h.schedules.Create(r.Context(), service.CreateScheduleEntryInput{
-		EmployeeID:   req.EmployeeID,
-		Date:         date,
-		StartTime:    startTime,
-		EndTime:      endTime,
-		BreakMinutes: breakMinutes,
-		GroupID:      req.GroupID,
-		EntryType:    entryType,
-		Notes:        req.Notes,
-	})
+	entry, err := h.schedules.Create(r.Context(), *input)
 	if err != nil {
 		writeServiceError(w, err)
 		return
@@ -236,63 +192,19 @@ func (h *ScheduleHandler) BulkCreate(w http.ResponseWriter, r *http.Request) {
 	}
 
 	inputs := make([]service.CreateScheduleEntryInput, 0, len(req))
-	for _, item := range req {
-		if item.EmployeeID == 0 || item.Date == "" {
-			response.BadRequest(w, "employeeId und date sind erforderlich")
+	for i, item := range req {
+		// Validate each item
+		if validationErrors := request.Validate(&item); validationErrors != nil {
+			response.ValidationError(w, "Validierungsfehler bei Eintrag "+strconv.Itoa(i+1), validationErrors)
 			return
 		}
 
-		date, err := service.ParseDate(item.Date)
-		if err != nil {
-			response.BadRequest(w, "Ungültiges date")
+		input, errMsg := parseScheduleEntryInput(item)
+		if errMsg != "" {
+			response.BadRequest(w, errMsg+" bei Eintrag "+strconv.Itoa(i+1))
 			return
 		}
-
-		var startTime *time.Time
-		if item.StartTime != nil {
-			parsed, err := service.ParseTime(*item.StartTime)
-			if err != nil {
-				response.BadRequest(w, "Ungültiges startTime")
-				return
-			}
-			startTime = &parsed
-		}
-
-		var endTime *time.Time
-		if item.EndTime != nil {
-			parsed, err := service.ParseTime(*item.EndTime)
-			if err != nil {
-				response.BadRequest(w, "Ungültiges endTime")
-				return
-			}
-			endTime = &parsed
-		}
-
-		breakMinutes := 0
-		if item.BreakMinutes != nil {
-			breakMinutes = *item.BreakMinutes
-		}
-
-		entryType := domain.ScheduleEntryTypeWork
-		if item.EntryType != nil {
-			parsed, ok := parseScheduleEntryType(*item.EntryType)
-			if !ok {
-				response.BadRequest(w, "Ungültiger entryType")
-				return
-			}
-			entryType = parsed
-		}
-
-		inputs = append(inputs, service.CreateScheduleEntryInput{
-			EmployeeID:   item.EmployeeID,
-			Date:         date,
-			StartTime:    startTime,
-			EndTime:      endTime,
-			BreakMinutes: breakMinutes,
-			GroupID:      item.GroupID,
-			EntryType:    entryType,
-			Notes:        item.Notes,
-		})
+		inputs = append(inputs, *input)
 	}
 
 	entries, err := h.schedules.BulkCreate(r.Context(), inputs)
@@ -318,8 +230,11 @@ func (h *ScheduleHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req updateScheduleEntryRequest
-	if err := request.DecodeJSON(r, &req); err != nil {
+	if validationErrors, err := request.DecodeAndValidate(r, &req); err != nil {
 		response.BadRequest(w, "Ungültige Anfrage")
+		return
+	} else if validationErrors != nil {
+		response.ValidationError(w, "Validierungsfehler", validationErrors)
 		return
 	}
 
@@ -355,11 +270,7 @@ func (h *ScheduleHandler) Update(w http.ResponseWriter, r *http.Request) {
 
 	var entryType *domain.ScheduleEntryType
 	if req.EntryType != nil {
-		parsed, ok := parseScheduleEntryType(*req.EntryType)
-		if !ok {
-			response.BadRequest(w, "Ungültiger entryType")
-			return
-		}
+		parsed := parseScheduleEntryType(*req.EntryType)
 		entryType = &parsed
 	}
 
@@ -396,21 +307,67 @@ func (h *ScheduleHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	response.NoContent(w)
 }
 
-func parseScheduleEntryType(value string) (domain.ScheduleEntryType, bool) {
+func parseScheduleEntryType(value string) domain.ScheduleEntryType {
 	switch value {
 	case string(domain.ScheduleEntryTypeWork):
-		return domain.ScheduleEntryTypeWork, true
+		return domain.ScheduleEntryTypeWork
 	case string(domain.ScheduleEntryTypeVacation):
-		return domain.ScheduleEntryTypeVacation, true
+		return domain.ScheduleEntryTypeVacation
 	case string(domain.ScheduleEntryTypeSick):
-		return domain.ScheduleEntryTypeSick, true
+		return domain.ScheduleEntryTypeSick
 	case string(domain.ScheduleEntryTypeSpecialLeave):
-		return domain.ScheduleEntryTypeSpecialLeave, true
+		return domain.ScheduleEntryTypeSpecialLeave
 	case string(domain.ScheduleEntryTypeTraining):
-		return domain.ScheduleEntryTypeTraining, true
-	case string(domain.ScheduleEntryTypeEvent):
-		return domain.ScheduleEntryTypeEvent, true
+		return domain.ScheduleEntryTypeTraining
 	default:
-		return "", false
+		return domain.ScheduleEntryTypeEvent
 	}
+}
+
+// parseScheduleEntryInput converts a createScheduleEntryRequest to service.CreateScheduleEntryInput.
+// Returns the input and an error message if parsing fails.
+func parseScheduleEntryInput(req createScheduleEntryRequest) (*service.CreateScheduleEntryInput, string) {
+	date, err := service.ParseDate(req.Date)
+	if err != nil {
+		return nil, "Ungültiges date"
+	}
+
+	var startTime *time.Time
+	if req.StartTime != nil {
+		parsed, err := service.ParseTime(*req.StartTime)
+		if err != nil {
+			return nil, "Ungültiges startTime"
+		}
+		startTime = &parsed
+	}
+
+	var endTime *time.Time
+	if req.EndTime != nil {
+		parsed, err := service.ParseTime(*req.EndTime)
+		if err != nil {
+			return nil, "Ungültiges endTime"
+		}
+		endTime = &parsed
+	}
+
+	breakMinutes := 0
+	if req.BreakMinutes != nil {
+		breakMinutes = *req.BreakMinutes
+	}
+
+	entryType := domain.ScheduleEntryTypeWork
+	if req.EntryType != nil {
+		entryType = parseScheduleEntryType(*req.EntryType)
+	}
+
+	return &service.CreateScheduleEntryInput{
+		EmployeeID:   req.EmployeeID,
+		Date:         date,
+		StartTime:    startTime,
+		EndTime:      endTime,
+		BreakMinutes: breakMinutes,
+		GroupID:      req.GroupID,
+		EntryType:    entryType,
+		Notes:        req.Notes,
+	}, ""
 }

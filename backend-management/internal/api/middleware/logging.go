@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/rs/zerolog/log"
 )
 
@@ -28,6 +29,7 @@ func (rw *responseWriter) WriteHeader(code int) {
 }
 
 // Logging creates a logging middleware that logs HTTP requests.
+// Includes request ID from chi's RequestID middleware for correlation.
 func Logging(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
@@ -37,7 +39,11 @@ func Logging(next http.Handler) http.Handler {
 
 		duration := time.Since(start)
 
+		// Get request ID from chi's RequestID middleware
+		requestID := middleware.GetReqID(r.Context())
+
 		log.Info().
+			Str("request_id", requestID).
 			Str("method", r.Method).
 			Str("path", r.URL.Path).
 			Int("status", wrapped.status).

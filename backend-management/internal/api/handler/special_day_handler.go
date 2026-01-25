@@ -24,10 +24,10 @@ func NewSpecialDayHandler(service *service.SpecialDayService) *SpecialDayHandler
 }
 
 type specialDayRequest struct {
-	Date       string  `json:"date"`
+	Date       string  `json:"date" validate:"required"`
 	EndDate    *string `json:"endDate,omitempty"`
-	Name       string  `json:"name"`
-	DayType    string  `json:"dayType"`
+	Name       string  `json:"name" validate:"required"`
+	DayType    string  `json:"dayType" validate:"required,oneof=HOLIDAY CLOSURE TEAM_DAY EVENT"`
 	AffectsAll *bool   `json:"affectsAll,omitempty"`
 	Notes      *string `json:"notes,omitempty"`
 }
@@ -90,12 +90,11 @@ func (h *SpecialDayHandler) Holidays(w http.ResponseWriter, r *http.Request) {
 // Create handles POST /special-days.
 func (h *SpecialDayHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var req specialDayRequest
-	if err := request.DecodeJSON(r, &req); err != nil {
+	if validationErrors, err := request.DecodeAndValidate(r, &req); err != nil {
 		response.BadRequest(w, "Ungültige Anfrage")
 		return
-	}
-	if req.Date == "" || req.Name == "" || req.DayType == "" {
-		response.BadRequest(w, "date, name und dayType sind erforderlich")
+	} else if validationErrors != nil {
+		response.ValidationError(w, "Validierungsfehler", validationErrors)
 		return
 	}
 
@@ -115,12 +114,6 @@ func (h *SpecialDayHandler) Create(w http.ResponseWriter, r *http.Request) {
 		endDate = &parsed
 	}
 
-	dayType, ok := parseSpecialDayType(req.DayType)
-	if !ok {
-		response.BadRequest(w, "Ungültiger dayType")
-		return
-	}
-
 	affectsAll := true
 	if req.AffectsAll != nil {
 		affectsAll = *req.AffectsAll
@@ -130,7 +123,7 @@ func (h *SpecialDayHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Date:       date,
 		EndDate:    endDate,
 		Name:       req.Name,
-		DayType:    dayType,
+		DayType:    parseSpecialDayType(req.DayType),
 		AffectsAll: affectsAll,
 		Notes:      req.Notes,
 	})
@@ -151,12 +144,11 @@ func (h *SpecialDayHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req specialDayRequest
-	if err := request.DecodeJSON(r, &req); err != nil {
+	if validationErrors, err := request.DecodeAndValidate(r, &req); err != nil {
 		response.BadRequest(w, "Ungültige Anfrage")
 		return
-	}
-	if req.Date == "" || req.Name == "" || req.DayType == "" {
-		response.BadRequest(w, "date, name und dayType sind erforderlich")
+	} else if validationErrors != nil {
+		response.ValidationError(w, "Validierungsfehler", validationErrors)
 		return
 	}
 
@@ -176,12 +168,6 @@ func (h *SpecialDayHandler) Update(w http.ResponseWriter, r *http.Request) {
 		endDate = &parsed
 	}
 
-	dayType, ok := parseSpecialDayType(req.DayType)
-	if !ok {
-		response.BadRequest(w, "Ungültiger dayType")
-		return
-	}
-
 	affectsAll := true
 	if req.AffectsAll != nil {
 		affectsAll = *req.AffectsAll
@@ -191,7 +177,7 @@ func (h *SpecialDayHandler) Update(w http.ResponseWriter, r *http.Request) {
 		Date:       date,
 		EndDate:    endDate,
 		Name:       req.Name,
-		DayType:    dayType,
+		DayType:    parseSpecialDayType(req.DayType),
 		AffectsAll: affectsAll,
 		Notes:      req.Notes,
 	})
@@ -219,17 +205,15 @@ func (h *SpecialDayHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	response.NoContent(w)
 }
 
-func parseSpecialDayType(value string) (domain.SpecialDayType, bool) {
+func parseSpecialDayType(value string) domain.SpecialDayType {
 	switch value {
 	case string(domain.SpecialDayTypeHoliday):
-		return domain.SpecialDayTypeHoliday, true
+		return domain.SpecialDayTypeHoliday
 	case string(domain.SpecialDayTypeClosure):
-		return domain.SpecialDayTypeClosure, true
+		return domain.SpecialDayTypeClosure
 	case string(domain.SpecialDayTypeTeamDay):
-		return domain.SpecialDayTypeTeamDay, true
-	case string(domain.SpecialDayTypeEvent):
-		return domain.SpecialDayTypeEvent, true
+		return domain.SpecialDayTypeTeamDay
 	default:
-		return "", false
+		return domain.SpecialDayTypeEvent
 	}
 }

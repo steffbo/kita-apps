@@ -33,15 +33,14 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 		MaxAge:           300,
 	}))
 
-	// Health checks
-	r.Get("/health", func(w http.ResponseWriter, _ *http.Request) {
+	// Health checks - Go-idiomatic endpoints
+	r.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{"status":"ok"}`))
 	})
-	// Match Spring Boot actuator path used by existing tooling.
-	r.Get("/api/actuator/health", func(w http.ResponseWriter, _ *http.Request) {
+	r.Get("/readyz", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.Write([]byte(`{"status":"UP"}`))
+		w.Write([]byte(`{"status":"ok"}`))
 	})
 
 	r.Route("/api", func(r chi.Router) {

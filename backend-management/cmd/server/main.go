@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"net/http"
 	"os"
 	"os/signal"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -22,6 +24,18 @@ import (
 )
 
 func main() {
+	// Parse command-line flags
+	envFile := flag.String("env-file", "", "Path to .env file to load")
+	flag.Parse()
+
+	// Load .env file if specified
+	if *envFile != "" {
+		if err := godotenv.Load(*envFile); err != nil {
+			log.Fatal().Err(err).Str("file", *envFile).Msg("Failed to load env file")
+		}
+		log.Info().Str("file", *envFile).Msg("Loaded env file")
+	}
+
 	// Configure logging
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339})
