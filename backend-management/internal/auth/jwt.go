@@ -76,8 +76,10 @@ func (s *JWTService) GenerateTokenPair(userID int64, email, role, name string) (
 // GenerateAccessToken creates a signed access token.
 func (s *JWTService) GenerateAccessToken(userID int64, email, role, name string) (string, error) {
 	now := time.Now()
+	nonce, _ := GenerateRandomToken(8)
 	claims := Claims{
 		RegisteredClaims: jwt.RegisteredClaims{
+			ID:        nonce,
 			Issuer:    s.issuer,
 			Subject:   email,
 			IssuedAt:  jwt.NewNumericDate(now),
@@ -95,8 +97,10 @@ func (s *JWTService) GenerateAccessToken(userID int64, email, role, name string)
 // GenerateRefreshToken creates a signed refresh token.
 func (s *JWTService) GenerateRefreshToken(userID int64, email string) (string, error) {
 	now := time.Now()
+	nonce, _ := GenerateRandomToken(8)
 	claims := Claims{
 		RegisteredClaims: jwt.RegisteredClaims{
+			ID:        nonce,
 			Issuer:    s.issuer,
 			Subject:   email,
 			IssuedAt:  jwt.NewNumericDate(now),

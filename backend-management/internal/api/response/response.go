@@ -50,9 +50,9 @@ func BadRequest(w http.ResponseWriter, message string) {
 	Error(w, http.StatusBadRequest, "BAD_REQUEST", message, nil)
 }
 
-// ValidationError writes a 400 Validation Error response.
+// ValidationError writes a 422 Unprocessable Entity response for validation errors.
 func ValidationError(w http.ResponseWriter, message string, details map[string]string) {
-	Error(w, http.StatusBadRequest, "VALIDATION_ERROR", message, details)
+	Error(w, http.StatusUnprocessableEntity, "VALIDATION_ERROR", message, details)
 }
 
 // Unauthorized writes a 401 Unauthorized response.
@@ -68,6 +68,11 @@ func Forbidden(w http.ResponseWriter, message string) {
 // NotFound writes a 404 Not Found response.
 func NotFound(w http.ResponseWriter, message string) {
 	Error(w, http.StatusNotFound, "NOT_FOUND", message, nil)
+}
+
+// Conflict writes a 409 Conflict response.
+func Conflict(w http.ResponseWriter, message string) {
+	Error(w, http.StatusConflict, "CONFLICT", message, nil)
 }
 
 // InternalError writes a 500 Internal Server Error response.

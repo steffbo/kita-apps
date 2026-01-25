@@ -8,6 +8,7 @@ const (
 	ErrCodeBadRequest   ErrorCode = "BAD_REQUEST"
 	ErrCodeUnauthorized ErrorCode = "UNAUTHORIZED"
 	ErrCodeForbidden    ErrorCode = "FORBIDDEN"
+	ErrCodeConflict     ErrorCode = "CONFLICT"
 )
 
 // ServiceError represents a typed error for handlers.
@@ -34,6 +35,10 @@ func NewUnauthorized(message string) error {
 
 func NewForbidden(message string) error {
 	return ServiceError{Code: ErrCodeForbidden, Message: message}
+}
+
+func NewConflict(message string) error {
+	return ServiceError{Code: ErrCodeConflict, Message: message}
 }
 
 // GetCode extracts the error code if available.

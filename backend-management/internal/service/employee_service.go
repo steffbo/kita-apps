@@ -127,7 +127,7 @@ func (s *EmployeeService) Create(ctx context.Context, input CreateEmployeeInput)
 		return nil, err
 	}
 	if exists {
-		return nil, NewBadRequest("E-Mail-Adresse wird bereits verwendet")
+		return nil, NewConflict("E-Mail-Adresse wird bereits verwendet")
 	}
 
 	tempPassword := generateTemporaryPassword()
