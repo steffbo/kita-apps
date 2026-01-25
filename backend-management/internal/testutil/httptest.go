@@ -18,6 +18,7 @@ import (
 	"github.com/knirpsenstadt/kita-apps/backend-management/internal/auth"
 	"github.com/knirpsenstadt/kita-apps/backend-management/internal/config"
 	"github.com/knirpsenstadt/kita-apps/backend-management/internal/domain"
+	"github.com/knirpsenstadt/kita-apps/backend-management/internal/email"
 	"github.com/knirpsenstadt/kita-apps/backend-management/internal/repository"
 	"github.com/knirpsenstadt/kita-apps/backend-management/internal/service"
 )
@@ -67,7 +68,8 @@ func NewTestServer(t *testing.T, db *sqlx.DB) *TestServer {
 	specialDayRepo := repository.NewPostgresSpecialDayRepository(db)
 
 	// Create services
-	authService := service.NewAuthService(employeeRepo, jwtService, 1*time.Hour)
+	emailService := email.NewService(email.Config{}) // Disabled for tests
+	authService := service.NewAuthService(employeeRepo, jwtService, emailService, "http://localhost:5173", 1*time.Hour)
 	employeeService := service.NewEmployeeService(employeeRepo, groupAssignmentRepo, groupRepo)
 	groupService := service.NewGroupService(groupRepo, groupAssignmentRepo, employeeRepo)
 	scheduleService := service.NewScheduleService(scheduleRepo, employeeRepo, groupRepo, specialDayRepo)

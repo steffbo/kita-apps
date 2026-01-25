@@ -9,6 +9,7 @@ import (
 
 	"github.com/knirpsenstadt/kita-apps/backend-management/internal/auth"
 	"github.com/knirpsenstadt/kita-apps/backend-management/internal/domain"
+	"github.com/knirpsenstadt/kita-apps/backend-management/internal/email"
 	"github.com/knirpsenstadt/kita-apps/backend-management/internal/repository"
 )
 
@@ -17,22 +18,32 @@ type passwordResetToken struct {
 	expiresAt time.Time
 }
 
+// EmailSender defines the interface for sending emails.
+type EmailSender interface {
+	SendPasswordResetEmail(to, token, baseURL string) error
+	IsEnabled() bool
+}
+
 // AuthService handles authentication logic.
 type AuthService struct {
-	employees   repository.EmployeeRepository
-	jwtService  *auth.JWTService
-	resetExpiry time.Duration
-	resetTokens map[string]passwordResetToken
-	resetMutex  sync.Mutex
+	employees    repository.EmployeeRepository
+	jwtService   *auth.JWTService
+	emailService EmailSender
+	baseURL      string
+	resetExpiry  time.Duration
+	resetTokens  map[string]passwordResetToken
+	resetMutex   sync.Mutex
 }
 
 // NewAuthService creates a new AuthService.
-func NewAuthService(employees repository.EmployeeRepository, jwtService *auth.JWTService, resetExpiry time.Duration) *AuthService {
+func NewAuthService(employees repository.EmployeeRepository, jwtService *auth.JWTService, emailService *email.Service, baseURL string, resetExpiry time.Duration) *AuthService {
 	return &AuthService{
-		employees:   employees,
-		jwtService:  jwtService,
-		resetExpiry: resetExpiry,
-		resetTokens: make(map[string]passwordResetToken),
+		employees:    employees,
+		jwtService:   jwtService,
+		emailService: emailService,
+		baseURL:      baseURL,
+		resetExpiry:  resetExpiry,
+		resetTokens:  make(map[string]passwordResetToken),
 	}
 }
 
@@ -126,7 +137,7 @@ func (s *AuthService) ChangePassword(ctx context.Context, employeeID int64, curr
 	return s.employees.UpdatePassword(ctx, employeeID, hash)
 }
 
-// RequestPasswordReset creates a password reset token.
+// RequestPasswordReset creates a password reset token and sends an email.
 func (s *AuthService) RequestPasswordReset(ctx context.Context, email string) {
 	employee, err := s.employees.GetByEmail(ctx, email)
 	if err != nil || employee == nil {
@@ -145,7 +156,15 @@ func (s *AuthService) RequestPasswordReset(ctx context.Context, email string) {
 	}
 	s.resetMutex.Unlock()
 
-	log.Info().Str("email", employee.Email).Str("token", token).Msg("password reset token generated")
+	// Send password reset email
+	if s.emailService != nil && s.emailService.IsEnabled() {
+		if err := s.emailService.SendPasswordResetEmail(employee.Email, token, s.baseURL); err != nil {
+			log.Error().Err(err).Str("email", employee.Email).Msg("failed to send password reset email")
+		}
+	} else {
+		// Fallback to logging when email is not configured
+		log.Info().Str("email", employee.Email).Str("token", token).Msg("password reset token generated (email not configured)")
+	}
 }
 
 // ConfirmPasswordReset confirms a reset token and sets a new password.

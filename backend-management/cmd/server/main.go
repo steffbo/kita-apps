@@ -19,6 +19,7 @@ import (
 	"github.com/knirpsenstadt/kita-apps/backend-management/internal/api/handler"
 	"github.com/knirpsenstadt/kita-apps/backend-management/internal/auth"
 	"github.com/knirpsenstadt/kita-apps/backend-management/internal/config"
+	"github.com/knirpsenstadt/kita-apps/backend-management/internal/email"
 	"github.com/knirpsenstadt/kita-apps/backend-management/internal/repository"
 	"github.com/knirpsenstadt/kita-apps/backend-management/internal/service"
 )
@@ -61,7 +62,15 @@ func main() {
 
 	// Initialize services
 	jwtService := auth.NewJWTService(cfg.JWT.Secret, cfg.JWT.AccessExpiry, cfg.JWT.RefreshExpiry, cfg.JWT.Issuer)
-	authService := service.NewAuthService(employeeRepo, jwtService, time.Hour)
+	emailService := email.NewService(email.Config{
+		Host:     cfg.SMTP.Host,
+		Port:     cfg.SMTP.Port,
+		From:     cfg.SMTP.From,
+		Username: cfg.SMTP.Username,
+		Password: cfg.SMTP.Password,
+		UseTLS:   cfg.SMTP.UseTLS,
+	})
+	authService := service.NewAuthService(employeeRepo, jwtService, emailService, cfg.SMTP.BaseURL, time.Hour)
 	employeeService := service.NewEmployeeService(employeeRepo, assignmentRepo, groupRepo)
 	groupService := service.NewGroupService(groupRepo, assignmentRepo, employeeRepo)
 	scheduleService := service.NewScheduleService(scheduleRepo, employeeRepo, groupRepo, specialDayRepo)
