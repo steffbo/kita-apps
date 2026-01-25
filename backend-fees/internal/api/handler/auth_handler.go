@@ -236,3 +236,66 @@ func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 
 	response.Success(w, map[string]string{"message": "password changed successfully"})
 }
+
+// PasswordResetRequest represents a password reset request.
+type PasswordResetRequest struct {
+	Email string `json:"email"`
+}
+
+// PasswordResetConfirmRequest represents a password reset confirmation.
+type PasswordResetConfirmRequest struct {
+	Token       string `json:"token"`
+	NewPassword string `json:"newPassword"`
+}
+
+// RequestPasswordReset handles POST /auth/password-reset/request
+func (h *AuthHandler) RequestPasswordReset(w http.ResponseWriter, r *http.Request) {
+	var req PasswordResetRequest
+	if err := request.DecodeJSON(r, &req); err != nil {
+		response.BadRequest(w, "invalid request body")
+		return
+	}
+
+	if req.Email == "" {
+		response.BadRequest(w, "email is required")
+		return
+	}
+
+	// Always call the service - it handles user existence check internally
+	h.authService.RequestPasswordReset(r.Context(), req.Email)
+
+	// Always return success to not reveal if user exists
+	response.Success(w, map[string]string{"message": "If the email exists, a password reset link has been sent"})
+}
+
+// ConfirmPasswordReset handles POST /auth/password-reset/confirm
+func (h *AuthHandler) ConfirmPasswordReset(w http.ResponseWriter, r *http.Request) {
+	var req PasswordResetConfirmRequest
+	if err := request.DecodeJSON(r, &req); err != nil {
+		response.BadRequest(w, "invalid request body")
+		return
+	}
+
+	if req.Token == "" || req.NewPassword == "" {
+		response.BadRequest(w, "token and new password are required")
+		return
+	}
+
+	if len(req.NewPassword) < 8 {
+		response.BadRequest(w, "new password must be at least 8 characters")
+		return
+	}
+
+	err := h.authService.ConfirmPasswordReset(r.Context(), req.Token, req.NewPassword)
+	if err != nil {
+		switch err {
+		case service.ErrInvalidInput:
+			response.BadRequest(w, "invalid or expired token")
+		default:
+			response.InternalError(w, "failed to reset password")
+		}
+		return
+	}
+
+	response.Success(w, map[string]string{"message": "password has been reset successfully"})
+}

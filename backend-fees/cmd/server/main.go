@@ -17,6 +17,7 @@ import (
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/api/handler"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/auth"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/config"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/email"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/repository"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/service"
 )
@@ -52,7 +53,15 @@ func main() {
 
 	// Initialize services
 	jwtService := auth.NewJWTService(cfg.JWT.Secret, cfg.JWT.AccessExpiry, cfg.JWT.RefreshExpiry, cfg.JWT.Issuer)
-	authService := service.NewAuthService(userRepo, refreshTokenRepo, cfg.JWT.RefreshExpiry)
+	emailService := email.NewService(email.Config{
+		Host:     cfg.SMTP.Host,
+		Port:     cfg.SMTP.Port,
+		From:     cfg.SMTP.From,
+		Username: cfg.SMTP.Username,
+		Password: cfg.SMTP.Password,
+		UseTLS:   cfg.SMTP.UseTLS,
+	})
+	authService := service.NewAuthService(userRepo, refreshTokenRepo, emailService, cfg.SMTP.BaseURL, cfg.JWT.RefreshExpiry)
 	childService := service.NewChildService(childRepo, parentRepo, householdRepo)
 	parentService := service.NewParentService(parentRepo, childRepo, memberRepo)
 	householdService := service.NewHouseholdService(householdRepo, parentRepo, childRepo)

@@ -45,6 +45,8 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 		r.Route("/auth", func(r chi.Router) {
 			r.Post("/login", handlers.Auth.Login)
 			r.Post("/refresh", handlers.Auth.Refresh)
+			r.Post("/password-reset/request", handlers.Auth.RequestPasswordReset)
+			r.Post("/password-reset/confirm", handlers.Auth.ConfirmPasswordReset)
 		})
 
 		// Public childcare fee calculator

@@ -11,6 +11,18 @@ type Config struct {
 	Server   ServerConfig
 	Database DatabaseConfig
 	JWT      JWTConfig
+	SMTP     SMTPConfig
+}
+
+// SMTPConfig holds SMTP email configuration.
+type SMTPConfig struct {
+	Host     string
+	Port     int
+	From     string
+	Username string
+	Password string
+	UseTLS   bool
+	BaseURL  string // Base URL for password reset links
 }
 
 // ServerConfig holds HTTP server configuration.
@@ -57,6 +69,15 @@ func Load() *Config {
 			AccessExpiry:  getEnvDuration("JWT_ACCESS_EXPIRY", 15*time.Minute),
 			RefreshExpiry: getEnvDuration("JWT_REFRESH_EXPIRY", 7*24*time.Hour),
 			Issuer:        getEnv("JWT_ISSUER", "kita-fees"),
+		},
+		SMTP: SMTPConfig{
+			Host:     getEnv("SMTP_HOST", ""),
+			Port:     getEnvInt("SMTP_PORT", 587),
+			From:     getEnv("SMTP_FROM", ""),
+			Username: getEnv("SMTP_USERNAME", ""),
+			Password: getEnv("SMTP_PASSWORD", ""),
+			UseTLS:   getEnvBool("SMTP_USE_TLS", true),
+			BaseURL:  getEnv("APP_BASE_URL", "http://localhost:5175"),
 		},
 	}
 }
@@ -105,6 +126,13 @@ func getEnvDuration(key string, defaultValue time.Duration) time.Duration {
 		if d, err := time.ParseDuration(value); err == nil {
 			return d
 		}
+	}
+	return defaultValue
+}
+
+func getEnvBool(key string, defaultValue bool) bool {
+	if value := os.Getenv(key); value != "" {
+		return value == "true" || value == "1" || value == "yes"
 	}
 	return defaultValue
 }
