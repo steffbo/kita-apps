@@ -45,13 +45,7 @@ Configure DNS A records pointing to your server:
 | `api.knirpsenstadt.de` | Backend Management API |
 | `api-fees.knirpsenstadt.de` | Backend Fees API |
 
-## Step 1: Create GitHub Personal Access Token
-
-1. Go to [GitHub Token Settings](https://github.com/settings/tokens/new?scopes=read:packages)
-2. Create a new token with **`read:packages`** scope
-3. Copy the token (starts with `ghp_`)
-
-## Step 2: Setup on Server
+## Setup on Server
 
 ```bash
 # Clone the repository (or copy the docker/ directory)
@@ -90,25 +84,14 @@ DOMAIN_BEITRAEGE=beitraege.knirpsenstadt.de
 DOMAIN_API=api.knirpsenstadt.de
 DOMAIN_API_FEES=api-fees.knirpsenstadt.de
 
-# GHCR authentication
+# GitHub user (for image paths)
 GITHUB_USER=steffbo
-GITHUB_TOKEN=ghp_your_token_here
 ```
 
-## Step 3: Login to GitHub Container Registry
+## Start the Stack
 
 ```bash
-# Load environment variables
-source .env
-
-# Login to GHCR
-echo $GITHUB_TOKEN | docker login ghcr.io -u $GITHUB_USER --password-stdin
-```
-
-## Step 4: Start the Stack
-
-```bash
-# Pull all images
+# Pull all images (no authentication needed - public repo!)
 docker compose -f docker-compose.ghcr.yml pull
 
 # Start all services
@@ -223,16 +206,6 @@ docker compose -f docker-compose.ghcr.yml exec db pg_isready -U $DB_USER
 docker compose -f docker-compose.ghcr.yml logs db
 ```
 
-### Image Pull Failures
-
-```bash
-# Re-authenticate to GHCR
-echo $GITHUB_TOKEN | docker login ghcr.io -u $GITHUB_USER --password-stdin
-
-# Verify token has read:packages scope
-# Go to https://github.com/settings/tokens and check token permissions
-```
-
 ## Security Recommendations
 
 1. **Firewall**: Only allow ports 80, 443, and SSH
@@ -252,3 +225,5 @@ Images are automatically built and pushed to GHCR on every push to `main`:
 - `ghcr.io/steffbo/kita-frontend-beitraege:latest`
 
 Each image is also tagged with the Git SHA (e.g., `sha-abc1234`) for rollback capability.
+
+Since the repository is public, **no authentication is required** to pull images.
