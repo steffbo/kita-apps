@@ -71,6 +71,15 @@ async function handleSubmit() {
             <span v-if="isLoading">Wird angemeldet...</span>
             <span v-else>Anmelden</span>
           </button>
+
+          <div class="text-center">
+            <router-link
+              to="/password-reset"
+              class="text-sm text-green-600 hover:text-green-700"
+            >
+              Passwort vergessen?
+            </router-link>
+          </div>
         </form>
       </div>
     </div>

@@ -11,6 +11,18 @@ const router = createRouter({
       meta: { requiresAuth: false },
     },
     {
+      path: '/password-reset',
+      name: 'password-reset',
+      component: () => import('@/pages/PasswordResetPage.vue'),
+      meta: { requiresAuth: false },
+    },
+    {
+      path: '/passwort-zuruecksetzen',
+      name: 'password-reset-de',
+      component: () => import('@/pages/PasswordResetPage.vue'),
+      meta: { requiresAuth: false },
+    },
+    {
       path: '/',
       component: () => import('@/layouts/MainLayout.vue'),
       meta: { requiresAuth: true },
