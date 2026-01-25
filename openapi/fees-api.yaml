@@ -1,0 +1,2310 @@
+openapi: 3.0.3
+info:
+  title: Kita Knirpsenstadt Fees API
+  description: API für Beitragsverwaltung der Kita Knirpsenstadt
+  version: 1.0.0
+  contact:
+    name: Kita Knirpsenstadt
+
+servers:
+  - url: http://localhost:8081/api/fees/v1
+    description: Local Development
+  - url: https://api.knirpsenstadt.de/api/fees/v1
+    description: Production
+
+tags:
+  - name: Auth
+    description: Authentifizierung und Autorisierung
+  - name: Children
+    description: Kinderverwaltung
+  - name: Parents
+    description: Elternverwaltung
+  - name: Households
+    description: Haushaltsverwaltung
+  - name: Members
+    description: Vereinsmitglieder
+  - name: Fees
+    description: Beitragsverwaltung
+  - name: Import
+    description: Bankdaten-Import
+  - name: Calculator
+    description: Gebührenrechner
+
+paths:
+  # ============================================
+  # AUTH
+  # ============================================
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login
+      operationId: login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Successful login
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          description: Invalid credentials
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Refresh access token
+      operationId: refreshToken
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RefreshTokenRequest'
+      responses:
+        '200':
+          description: Token refreshed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+
+  /auth/logout:
+    post:
+      tags: [Auth]
+      summary: Logout
+      operationId: logout
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Logged out
+
+  /auth/me:
+    get:
+      tags: [Auth]
+      summary: Get current user info
+      operationId: getCurrentUser
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  /auth/change-password:
+    post:
+      tags: [Auth]
+      summary: Change own password
+      operationId: changePassword
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangePasswordRequest'
+      responses:
+        '200':
+          description: Password changed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+
+  /auth/password-reset/request:
+    post:
+      tags: [Auth]
+      summary: Request password reset email
+      operationId: requestPasswordReset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetRequest'
+      responses:
+        '200':
+          description: Reset email sent (if email exists)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+
+  /auth/password-reset/confirm:
+    post:
+      tags: [Auth]
+      summary: Confirm password reset with token
+      operationId: confirmPasswordReset
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordResetConfirm'
+      responses:
+        '200':
+          description: Password reset successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MessageResponse'
+
+  # ============================================
+  # CHILDREN
+  # ============================================
+  /children:
+    get:
+      tags: [Children]
+      summary: List all children
+      operationId: listChildren
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: includeInactive
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: List of children
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Child'
+
+    post:
+      tags: [Children]
+      summary: Create new child
+      operationId: createChild
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateChildRequest'
+      responses:
+        '201':
+          description: Child created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Child'
+
+  /children/{id}:
+    get:
+      tags: [Children]
+      summary: Get child by ID
+      operationId: getChild
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Child found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Child'
+        '404':
+          description: Child not found
+
+    put:
+      tags: [Children]
+      summary: Update child
+      operationId: updateChild
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateChildRequest'
+      responses:
+        '200':
+          description: Child updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Child'
+
+    delete:
+      tags: [Children]
+      summary: Delete child
+      operationId: deleteChild
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Child deleted
+
+  /children/{id}/parents:
+    post:
+      tags: [Children]
+      summary: Link parent to child
+      operationId: linkParentToChild
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LinkParentRequest'
+      responses:
+        '200':
+          description: Parent linked
+
+  /children/{id}/parents/{parentId}:
+    delete:
+      tags: [Children]
+      summary: Unlink parent from child
+      operationId: unlinkParentFromChild
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: parentId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Parent unlinked
+
+  /children/import/parse:
+    post:
+      tags: [Children]
+      summary: Parse child import file
+      operationId: parseChildImport
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Parsed import data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChildImportParseResult'
+
+  /children/import/preview:
+    post:
+      tags: [Children]
+      summary: Preview child import changes
+      operationId: previewChildImport
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChildImportPreviewRequest'
+      responses:
+        '200':
+          description: Import preview
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChildImportPreviewResult'
+
+  /children/import/execute:
+    post:
+      tags: [Children]
+      summary: Execute child import
+      operationId: executeChildImport
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChildImportExecuteRequest'
+      responses:
+        '200':
+          description: Import executed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChildImportExecuteResult'
+
+  # ============================================
+  # PARENTS
+  # ============================================
+  /parents:
+    get:
+      tags: [Parents]
+      summary: List all parents
+      operationId: listParents
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of parents
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Parent'
+
+    post:
+      tags: [Parents]
+      summary: Create new parent
+      operationId: createParent
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateParentRequest'
+      responses:
+        '201':
+          description: Parent created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Parent'
+
+  /parents/{id}:
+    get:
+      tags: [Parents]
+      summary: Get parent by ID
+      operationId: getParent
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Parent found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Parent'
+
+    put:
+      tags: [Parents]
+      summary: Update parent
+      operationId: updateParent
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateParentRequest'
+      responses:
+        '200':
+          description: Parent updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Parent'
+
+    delete:
+      tags: [Parents]
+      summary: Delete parent
+      operationId: deleteParent
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Parent deleted
+
+  /parents/{id}/member:
+    post:
+      tags: [Parents]
+      summary: Create member for parent
+      operationId: createMemberForParent
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '201':
+          description: Member created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Member'
+
+    delete:
+      tags: [Parents]
+      summary: Unlink member from parent
+      operationId: unlinkMemberFromParent
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Member unlinked
+
+  # ============================================
+  # HOUSEHOLDS
+  # ============================================
+  /households:
+    get:
+      tags: [Households]
+      summary: List all households
+      operationId: listHouseholds
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: List of households
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Household'
+
+    post:
+      tags: [Households]
+      summary: Create new household
+      operationId: createHousehold
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateHouseholdRequest'
+      responses:
+        '201':
+          description: Household created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Household'
+
+  /households/{id}:
+    get:
+      tags: [Households]
+      summary: Get household by ID
+      operationId: getHousehold
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Household found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Household'
+
+    put:
+      tags: [Households]
+      summary: Update household
+      operationId: updateHousehold
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateHouseholdRequest'
+      responses:
+        '200':
+          description: Household updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Household'
+
+    delete:
+      tags: [Households]
+      summary: Delete household
+      operationId: deleteHousehold
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Household deleted
+
+  /households/{id}/parents:
+    post:
+      tags: [Households]
+      summary: Link parent to household
+      operationId: linkParentToHousehold
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LinkParentToHouseholdRequest'
+      responses:
+        '200':
+          description: Parent linked
+
+  /households/{id}/children:
+    post:
+      tags: [Households]
+      summary: Link child to household
+      operationId: linkChildToHousehold
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LinkChildToHouseholdRequest'
+      responses:
+        '200':
+          description: Child linked
+
+  # ============================================
+  # MEMBERS
+  # ============================================
+  /members:
+    get:
+      tags: [Members]
+      summary: List all members
+      operationId: listMembers
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: includeInactive
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: List of members
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Member'
+
+    post:
+      tags: [Members]
+      summary: Create new member
+      operationId: createMember
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateMemberRequest'
+      responses:
+        '201':
+          description: Member created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Member'
+
+  /members/{id}:
+    get:
+      tags: [Members]
+      summary: Get member by ID
+      operationId: getMember
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Member found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Member'
+
+    put:
+      tags: [Members]
+      summary: Update member
+      operationId: updateMember
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMemberRequest'
+      responses:
+        '200':
+          description: Member updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Member'
+
+    delete:
+      tags: [Members]
+      summary: Delete member
+      operationId: deleteMember
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Member deleted
+
+  # ============================================
+  # FEES
+  # ============================================
+  /fees:
+    get:
+      tags: [Fees]
+      summary: List fee expectations
+      operationId: listFees
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: year
+          in: query
+          schema:
+            type: integer
+        - name: month
+          in: query
+          schema:
+            type: integer
+        - name: childId
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/FeeStatus'
+      responses:
+        '200':
+          description: List of fees
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/FeeExpectation'
+
+  /fees/overview:
+    get:
+      tags: [Fees]
+      summary: Get fee overview
+      operationId: getFeeOverview
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: year
+          in: query
+          required: true
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Fee overview
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeeOverview'
+
+  /fees/generate:
+    post:
+      tags: [Fees]
+      summary: Generate fees for period
+      operationId: generateFees
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateFeesRequest'
+      responses:
+        '200':
+          description: Fees generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenerateFeesResult'
+
+  /fees/{id}:
+    get:
+      tags: [Fees]
+      summary: Get fee by ID
+      operationId: getFee
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Fee found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeeExpectation'
+
+    put:
+      tags: [Fees]
+      summary: Update fee
+      operationId: updateFee
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateFeeRequest'
+      responses:
+        '200':
+          description: Fee updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeeExpectation'
+
+    delete:
+      tags: [Fees]
+      summary: Delete fee
+      operationId: deleteFee
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Fee deleted
+
+  /fees/{id}/reminder:
+    post:
+      tags: [Fees]
+      summary: Create reminder for fee
+      operationId: createFeeReminder
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '201':
+          description: Reminder created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FeeExpectation'
+
+  # ============================================
+  # IMPORT (Bank transactions)
+  # ============================================
+  /import/upload:
+    post:
+      tags: [Import]
+      summary: Upload bank statement
+      operationId: uploadBankStatement
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  type: string
+                  format: binary
+      responses:
+        '200':
+          description: Upload result with suggestions
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportUploadResult'
+
+  /import/confirm:
+    post:
+      tags: [Import]
+      summary: Confirm import matches
+      operationId: confirmImportMatches
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ConfirmMatchesRequest'
+      responses:
+        '200':
+          description: Matches confirmed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConfirmMatchesResult'
+
+  /import/history:
+    get:
+      tags: [Import]
+      summary: Get import history
+      operationId: getImportHistory
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Import batches
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ImportBatch'
+
+  /import/transactions:
+    get:
+      tags: [Import]
+      summary: Get unmatched transactions
+      operationId: getUnmatchedTransactions
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Unmatched transactions
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/BankTransaction'
+
+  /import/match:
+    post:
+      tags: [Import]
+      summary: Manually match transaction to fee
+      operationId: manualMatch
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ManualMatchRequest'
+      responses:
+        '200':
+          description: Match created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentMatch'
+
+  /import/rescan:
+    post:
+      tags: [Import]
+      summary: Rescan unmatched transactions
+      operationId: rescanTransactions
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Rescan result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RescanResult'
+
+  /import/transactions/{id}/dismiss:
+    post:
+      tags: [Import]
+      summary: Dismiss transaction (add to blacklist)
+      operationId: dismissTransaction
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DismissTransactionRequest'
+      responses:
+        '200':
+          description: Transaction dismissed
+
+  /import/blacklist:
+    get:
+      tags: [Import]
+      summary: Get blacklisted IBANs
+      operationId: getBlacklist
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Blacklisted IBANs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/KnownIBAN'
+
+  /import/blacklist/{iban}:
+    delete:
+      tags: [Import]
+      summary: Remove IBAN from blacklist
+      operationId: removeFromBlacklist
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: iban
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Removed from blacklist
+
+  /import/trusted:
+    get:
+      tags: [Import]
+      summary: Get trusted IBANs
+      operationId: getTrustedIBANs
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Trusted IBANs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/KnownIBAN'
+
+  /import/trusted/{iban}/link:
+    post:
+      tags: [Import]
+      summary: Link IBAN to child
+      operationId: linkIBANToChild
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: iban
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LinkIBANRequest'
+      responses:
+        '200':
+          description: IBAN linked
+
+    delete:
+      tags: [Import]
+      summary: Unlink IBAN from child
+      operationId: unlinkIBANFromChild
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: iban
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: IBAN unlinked
+
+  /import/warnings:
+    get:
+      tags: [Import]
+      summary: Get transaction warnings
+      operationId: getWarnings
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: resolved
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Transaction warnings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TransactionWarning'
+
+  /import/warnings/{id}/dismiss:
+    post:
+      tags: [Import]
+      summary: Dismiss warning
+      operationId: dismissWarning
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DismissWarningRequest'
+      responses:
+        '200':
+          description: Warning dismissed
+
+  # ============================================
+  # CALCULATOR (Public)
+  # ============================================
+  /childcare-fee/calculate:
+    get:
+      tags: [Calculator]
+      summary: Calculate childcare fee
+      operationId: calculateChildcareFee
+      parameters:
+        - name: childAgeType
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/ChildAgeType'
+        - name: netIncome
+          in: query
+          required: true
+          schema:
+            type: number
+        - name: siblingsCount
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: careHours
+          in: query
+          required: true
+          schema:
+            type: integer
+        - name: highestRate
+          in: query
+          schema:
+            type: boolean
+            default: false
+        - name: fosterFamily
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        '200':
+          description: Fee calculation result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChildcareFeeResult'
+
+# ============================================
+# COMPONENTS
+# ============================================
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    # === Auth ===
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    AuthResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        expiresIn:
+          type: integer
+        user:
+          $ref: '#/components/schemas/User'
+
+    RefreshTokenRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken:
+          type: string
+
+    ChangePasswordRequest:
+      type: object
+      required: [currentPassword, newPassword]
+      properties:
+        currentPassword:
+          type: string
+        newPassword:
+          type: string
+          minLength: 8
+
+    PasswordResetRequest:
+      type: object
+      required: [email]
+      properties:
+        email:
+          type: string
+          format: email
+
+    PasswordResetConfirm:
+      type: object
+      required: [token, newPassword]
+      properties:
+        token:
+          type: string
+        newPassword:
+          type: string
+          minLength: 8
+
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        email:
+          type: string
+          format: email
+        firstName:
+          type: string
+        lastName:
+          type: string
+        role:
+          $ref: '#/components/schemas/UserRole'
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    UserRole:
+      type: string
+      enum: [ADMIN, USER]
+
+    # === Child ===
+    Child:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        householdId:
+          type: string
+          format: uuid
+        memberNumber:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        birthDate:
+          type: string
+          format: date
+        entryDate:
+          type: string
+          format: date
+        exitDate:
+          type: string
+          format: date
+        street:
+          type: string
+        streetNo:
+          type: string
+        postalCode:
+          type: string
+        city:
+          type: string
+        legalHours:
+          type: integer
+        legalHoursUntil:
+          type: string
+          format: date
+        careHours:
+          type: integer
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        parents:
+          type: array
+          items:
+            $ref: '#/components/schemas/Parent'
+        household:
+          $ref: '#/components/schemas/Household'
+
+    CreateChildRequest:
+      type: object
+      required: [memberNumber, firstName, lastName, birthDate, entryDate]
+      properties:
+        householdId:
+          type: string
+          format: uuid
+        memberNumber:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        birthDate:
+          type: string
+          format: date
+        entryDate:
+          type: string
+          format: date
+        exitDate:
+          type: string
+          format: date
+        street:
+          type: string
+        streetNo:
+          type: string
+        postalCode:
+          type: string
+        city:
+          type: string
+        legalHours:
+          type: integer
+        legalHoursUntil:
+          type: string
+          format: date
+        careHours:
+          type: integer
+
+    UpdateChildRequest:
+      type: object
+      properties:
+        householdId:
+          type: string
+          format: uuid
+        memberNumber:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        birthDate:
+          type: string
+          format: date
+        entryDate:
+          type: string
+          format: date
+        exitDate:
+          type: string
+          format: date
+        street:
+          type: string
+        streetNo:
+          type: string
+        postalCode:
+          type: string
+        city:
+          type: string
+        legalHours:
+          type: integer
+        legalHoursUntil:
+          type: string
+          format: date
+        careHours:
+          type: integer
+        isActive:
+          type: boolean
+
+    LinkParentRequest:
+      type: object
+      required: [parentId]
+      properties:
+        parentId:
+          type: string
+          format: uuid
+        isPrimary:
+          type: boolean
+          default: false
+
+    # === Parent ===
+    Parent:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        householdId:
+          type: string
+          format: uuid
+        memberId:
+          type: string
+          format: uuid
+        firstName:
+          type: string
+        lastName:
+          type: string
+        birthDate:
+          type: string
+          format: date
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        street:
+          type: string
+        streetNo:
+          type: string
+        postalCode:
+          type: string
+        city:
+          type: string
+        annualHouseholdIncome:
+          type: number
+        incomeStatus:
+          $ref: '#/components/schemas/IncomeStatus'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/Child'
+        household:
+          $ref: '#/components/schemas/Household'
+        member:
+          $ref: '#/components/schemas/Member'
+
+    IncomeStatus:
+      type: string
+      enum: ['', PROVIDED, MAX_ACCEPTED, PENDING, NOT_REQUIRED, HISTORIC, FOSTER_FAMILY]
+
+    CreateParentRequest:
+      type: object
+      required: [firstName, lastName]
+      properties:
+        householdId:
+          type: string
+          format: uuid
+        firstName:
+          type: string
+        lastName:
+          type: string
+        birthDate:
+          type: string
+          format: date
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        street:
+          type: string
+        streetNo:
+          type: string
+        postalCode:
+          type: string
+        city:
+          type: string
+        annualHouseholdIncome:
+          type: number
+        incomeStatus:
+          $ref: '#/components/schemas/IncomeStatus'
+
+    UpdateParentRequest:
+      type: object
+      properties:
+        householdId:
+          type: string
+          format: uuid
+        firstName:
+          type: string
+        lastName:
+          type: string
+        birthDate:
+          type: string
+          format: date
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        street:
+          type: string
+        streetNo:
+          type: string
+        postalCode:
+          type: string
+        city:
+          type: string
+        annualHouseholdIncome:
+          type: number
+        incomeStatus:
+          $ref: '#/components/schemas/IncomeStatus'
+
+    # === Household ===
+    Household:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        annualHouseholdIncome:
+          type: number
+        incomeStatus:
+          $ref: '#/components/schemas/IncomeStatus'
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        parents:
+          type: array
+          items:
+            $ref: '#/components/schemas/Parent'
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/Child'
+
+    CreateHouseholdRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+        annualHouseholdIncome:
+          type: number
+        incomeStatus:
+          $ref: '#/components/schemas/IncomeStatus'
+
+    UpdateHouseholdRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        annualHouseholdIncome:
+          type: number
+        incomeStatus:
+          $ref: '#/components/schemas/IncomeStatus'
+
+    LinkParentToHouseholdRequest:
+      type: object
+      required: [parentId]
+      properties:
+        parentId:
+          type: string
+          format: uuid
+
+    LinkChildToHouseholdRequest:
+      type: object
+      required: [childId]
+      properties:
+        childId:
+          type: string
+          format: uuid
+
+    # === Member ===
+    Member:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        memberNumber:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        street:
+          type: string
+        streetNo:
+          type: string
+        postalCode:
+          type: string
+        city:
+          type: string
+        householdId:
+          type: string
+          format: uuid
+        membershipStart:
+          type: string
+          format: date
+        membershipEnd:
+          type: string
+          format: date
+        isActive:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        household:
+          $ref: '#/components/schemas/Household'
+
+    CreateMemberRequest:
+      type: object
+      required: [memberNumber, firstName, lastName, membershipStart]
+      properties:
+        memberNumber:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        street:
+          type: string
+        streetNo:
+          type: string
+        postalCode:
+          type: string
+        city:
+          type: string
+        householdId:
+          type: string
+          format: uuid
+        membershipStart:
+          type: string
+          format: date
+        membershipEnd:
+          type: string
+          format: date
+
+    UpdateMemberRequest:
+      type: object
+      properties:
+        memberNumber:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        email:
+          type: string
+          format: email
+        phone:
+          type: string
+        street:
+          type: string
+        streetNo:
+          type: string
+        postalCode:
+          type: string
+        city:
+          type: string
+        householdId:
+          type: string
+          format: uuid
+        membershipStart:
+          type: string
+          format: date
+        membershipEnd:
+          type: string
+          format: date
+        isActive:
+          type: boolean
+
+    # === Fees ===
+    FeeType:
+      type: string
+      enum: [MEMBERSHIP, FOOD, CHILDCARE, REMINDER]
+
+    FeeStatus:
+      type: string
+      enum: [OPEN, PAID, OVERDUE]
+
+    FeeExpectation:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        childId:
+          type: string
+          format: uuid
+        feeType:
+          $ref: '#/components/schemas/FeeType'
+        year:
+          type: integer
+        month:
+          type: integer
+        amount:
+          type: number
+        dueDate:
+          type: string
+          format: date
+        createdAt:
+          type: string
+          format: date-time
+        reminderForId:
+          type: string
+          format: uuid
+        reconciliationYear:
+          type: integer
+        child:
+          $ref: '#/components/schemas/Child'
+        isPaid:
+          type: boolean
+        paidAt:
+          type: string
+          format: date-time
+        matchedBy:
+          $ref: '#/components/schemas/PaymentMatch'
+
+    UpdateFeeRequest:
+      type: object
+      properties:
+        amount:
+          type: number
+        dueDate:
+          type: string
+          format: date
+
+    GenerateFeesRequest:
+      type: object
+      required: [year, month]
+      properties:
+        year:
+          type: integer
+        month:
+          type: integer
+        feeTypes:
+          type: array
+          items:
+            $ref: '#/components/schemas/FeeType'
+
+    GenerateFeesResult:
+      type: object
+      properties:
+        created:
+          type: integer
+        skipped:
+          type: integer
+        fees:
+          type: array
+          items:
+            $ref: '#/components/schemas/FeeExpectation'
+
+    FeeOverview:
+      type: object
+      properties:
+        totalOpen:
+          type: integer
+        totalPaid:
+          type: integer
+        totalOverdue:
+          type: integer
+        amountOpen:
+          type: number
+        amountPaid:
+          type: number
+        amountOverdue:
+          type: number
+        byMonth:
+          type: array
+          items:
+            $ref: '#/components/schemas/MonthSummary'
+
+    MonthSummary:
+      type: object
+      properties:
+        year:
+          type: integer
+        month:
+          type: integer
+        openCount:
+          type: integer
+        paidCount:
+          type: integer
+        openAmount:
+          type: number
+        paidAmount:
+          type: number
+
+    # === Transactions/Import ===
+    BankTransaction:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        bookingDate:
+          type: string
+          format: date
+        valueDate:
+          type: string
+          format: date
+        payerName:
+          type: string
+        payerIban:
+          type: string
+        description:
+          type: string
+        amount:
+          type: number
+        currency:
+          type: string
+        importBatchId:
+          type: string
+          format: uuid
+        importedAt:
+          type: string
+          format: date-time
+        matches:
+          type: array
+          items:
+            $ref: '#/components/schemas/PaymentMatch'
+
+    PaymentMatch:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        transactionId:
+          type: string
+          format: uuid
+        expectationId:
+          type: string
+          format: uuid
+        matchType:
+          $ref: '#/components/schemas/MatchType'
+        confidence:
+          type: number
+        matchedAt:
+          type: string
+          format: date-time
+        matchedBy:
+          type: string
+          format: uuid
+        transaction:
+          $ref: '#/components/schemas/BankTransaction'
+        expectation:
+          $ref: '#/components/schemas/FeeExpectation'
+
+    MatchType:
+      type: string
+      enum: [AUTO, MANUAL]
+
+    ImportBatch:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        fileName:
+          type: string
+        transactionCount:
+          type: integer
+        matchedCount:
+          type: integer
+        importedAt:
+          type: string
+          format: date-time
+        importedBy:
+          type: string
+          format: uuid
+
+    ImportUploadResult:
+      type: object
+      properties:
+        batchId:
+          type: string
+          format: uuid
+        transactionCount:
+          type: integer
+        suggestions:
+          type: array
+          items:
+            $ref: '#/components/schemas/MatchSuggestion'
+
+    MatchSuggestion:
+      type: object
+      properties:
+        transaction:
+          $ref: '#/components/schemas/BankTransaction'
+        expectation:
+          $ref: '#/components/schemas/FeeExpectation'
+        expectations:
+          type: array
+          items:
+            $ref: '#/components/schemas/FeeExpectation'
+        child:
+          $ref: '#/components/schemas/Child'
+        detectedType:
+          $ref: '#/components/schemas/FeeType'
+        confidence:
+          type: number
+        matchedBy:
+          type: string
+
+    ConfirmMatchesRequest:
+      type: object
+      required: [matches]
+      properties:
+        matches:
+          type: array
+          items:
+            type: object
+            properties:
+              transactionId:
+                type: string
+                format: uuid
+              expectationIds:
+                type: array
+                items:
+                  type: string
+                  format: uuid
+
+    ConfirmMatchesResult:
+      type: object
+      properties:
+        confirmed:
+          type: integer
+        failed:
+          type: integer
+
+    ManualMatchRequest:
+      type: object
+      required: [transactionId, expectationId]
+      properties:
+        transactionId:
+          type: string
+          format: uuid
+        expectationId:
+          type: string
+          format: uuid
+
+    RescanResult:
+      type: object
+      properties:
+        scanned:
+          type: integer
+        newMatches:
+          type: integer
+
+    DismissTransactionRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+
+    KnownIBAN:
+      type: object
+      properties:
+        iban:
+          type: string
+        payerName:
+          type: string
+        status:
+          $ref: '#/components/schemas/KnownIBANStatus'
+        childId:
+          type: string
+          format: uuid
+        reason:
+          type: string
+        originalTransactionId:
+          type: string
+          format: uuid
+        originalDescription:
+          type: string
+        originalAmount:
+          type: number
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+        child:
+          $ref: '#/components/schemas/Child'
+
+    KnownIBANStatus:
+      type: string
+      enum: [trusted, blacklisted]
+
+    LinkIBANRequest:
+      type: object
+      required: [childId]
+      properties:
+        childId:
+          type: string
+          format: uuid
+
+    TransactionWarning:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        transactionId:
+          type: string
+          format: uuid
+        warningType:
+          $ref: '#/components/schemas/WarningType'
+        message:
+          type: string
+        expectedAmount:
+          type: number
+        actualAmount:
+          type: number
+        childId:
+          type: string
+          format: uuid
+        resolvedAt:
+          type: string
+          format: date-time
+        resolvedBy:
+          type: string
+          format: uuid
+        resolutionType:
+          $ref: '#/components/schemas/ResolutionType'
+        resolutionNote:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        transaction:
+          $ref: '#/components/schemas/BankTransaction'
+        child:
+          $ref: '#/components/schemas/Child'
+
+    WarningType:
+      type: string
+      enum: [NO_MATCHING_FEE, UNEXPECTED_AMOUNT, PARTIAL_PAYMENT, OVERPAYMENT, POSSIBLE_BULK, DUPLICATE_PAYMENT]
+
+    ResolutionType:
+      type: string
+      enum: [dismissed, matched, auto_resolved]
+
+    DismissWarningRequest:
+      type: object
+      properties:
+        note:
+          type: string
+
+    # === Child Import ===
+    ChildImportParseResult:
+      type: object
+      properties:
+        rows:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        columns:
+          type: array
+          items:
+            type: string
+
+    ChildImportPreviewRequest:
+      type: object
+      properties:
+        rows:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        columnMapping:
+          type: object
+          additionalProperties:
+            type: string
+
+    ChildImportPreviewResult:
+      type: object
+      properties:
+        toCreate:
+          type: array
+          items:
+            $ref: '#/components/schemas/Child'
+        toUpdate:
+          type: array
+          items:
+            $ref: '#/components/schemas/Child'
+        errors:
+          type: array
+          items:
+            type: string
+
+    ChildImportExecuteRequest:
+      type: object
+      properties:
+        rows:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        columnMapping:
+          type: object
+          additionalProperties:
+            type: string
+
+    ChildImportExecuteResult:
+      type: object
+      properties:
+        created:
+          type: integer
+        updated:
+          type: integer
+        errors:
+          type: array
+          items:
+            type: string
+
+    # === Calculator ===
+    ChildAgeType:
+      type: string
+      enum: [krippe, kindergarten]
+
+    ChildcareFeeResult:
+      type: object
+      properties:
+        fee:
+          type: number
+        baseFee:
+          type: number
+        rule:
+          type: string
+        discountFactor:
+          type: number
+        discountPercent:
+          type: integer
+        showEntlastung:
+          type: boolean
+        notes:
+          type: array
+          items:
+            type: string
