@@ -80,6 +80,15 @@ async function handleSubmit() {
             <Loader2 v-if="authStore.isLoading" class="h-4 w-4 animate-spin" />
             {{ authStore.isLoading ? 'Anmelden...' : 'Anmelden' }}
           </button>
+
+          <div class="text-center">
+            <router-link
+              to="/password-reset"
+              class="text-sm text-primary hover:text-primary/80"
+            >
+              Passwort vergessen?
+            </router-link>
+          </div>
         </form>
       </div>
 
