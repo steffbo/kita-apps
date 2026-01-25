@@ -37,6 +37,7 @@ const error = ref<string | null>(null);
 const searchQuery = ref('');
 const showInactive = ref(false);
 const showOnlyU3 = ref(false);
+const showOnlyWarnings = ref(false);
 
 // Pagination
 const currentPage = ref(1);
@@ -44,9 +45,9 @@ const pageSize = ref(25);
 const pageSizeOptions = [10, 25, 50, 100];
 
 // Sorting
-type SortField = 'memberNumber' | 'name' | 'birthDate' | 'age' | 'entryDate';
+type SortField = 'memberNumber' | 'firstName' | 'lastName' | 'birthDate' | 'age' | 'entryDate';
 type SortDirection = 'asc' | 'desc';
-const sortField = ref<SortField>('memberNumber');
+const sortField = ref<SortField>('lastName');
 const sortDirection = ref<SortDirection>('asc');
 
 // Bulk selection
@@ -88,6 +89,7 @@ async function loadChildren() {
     const response = await api.getChildren({
       activeOnly: !showInactive.value,
       u3Only: showOnlyU3.value,
+      hasWarnings: showOnlyWarnings.value,
       search: searchQuery.value || undefined,
       sortBy: sortField.value,
       sortDir: sortDirection.value,
@@ -133,8 +135,13 @@ function handleU3Change() {
   loadChildren();
 }
 
+function handleWarningsChange() {
+  currentPage.value = 1;
+  loadChildren();
+}
+
 // Watch for filter changes (backup for programmatic v-model changes)
-watch([searchQuery, showInactive, showOnlyU3], () => {
+watch([searchQuery, showInactive, showOnlyU3, showOnlyWarnings], () => {
   currentPage.value = 1;
   loadChildren();
 }, { flush: 'post' });
@@ -192,10 +199,15 @@ function isUnderThree(birthDate: string): boolean {
 function getChildWarnings(child: Child): string[] {
   const warnings: string[] = [];
   
-  // U3 without household income from any parent
+  // U3 without household income
   if (isUnderThree(child.birthDate)) {
-    const hasIncome = child.parents?.some(p => 
-      p.annualHouseholdIncome !== undefined && p.annualHouseholdIncome !== null
+    const household = child.household;
+    const hasIncome = household && (
+      household.annualHouseholdIncome !== undefined && household.annualHouseholdIncome !== null ||
+      household.incomeStatus === 'MAX_ACCEPTED' ||
+      household.incomeStatus === 'NOT_REQUIRED' ||
+      household.incomeStatus === 'FOSTER_FAMILY' ||
+      household.incomeStatus === 'HISTORIC'
     );
     if (!hasIncome) {
       warnings.push('U3 ohne Haushaltseinkommen');
@@ -408,6 +420,15 @@ const visiblePages = computed(() => {
         />
         <span class="text-sm text-gray-700">Nur U3</span>
       </label>
+      <label class="flex items-center gap-2 cursor-pointer">
+        <input
+          v-model="showOnlyWarnings"
+          @change="handleWarningsChange"
+          type="checkbox"
+          class="w-4 h-4 text-amber-500 rounded border-gray-300 focus:ring-amber-500"
+        />
+        <span class="text-sm text-gray-700">Nur mit Hinweisen</span>
+      </label>
     </div>
 
     <!-- Bulk actions bar -->
@@ -483,15 +504,25 @@ const visiblePages = computed(() => {
                   <component :is="getSortIcon('memberNumber')" class="h-4 w-4" />
                 </button>
               </th>
-              <!-- Name -->
+              <!-- Last Name -->
               <th class="px-4 py-3 font-medium">
                 <button
-                  @click="toggleSort('name')"
+                  @click="toggleSort('lastName')"
                   class="flex items-center gap-1 hover:text-gray-700"
                 >
                   <User class="h-4 w-4" />
-                  Name
-                  <component :is="getSortIcon('name')" class="h-4 w-4" />
+                  Nachname
+                  <component :is="getSortIcon('lastName')" class="h-4 w-4" />
+                </button>
+              </th>
+              <!-- First Name -->
+              <th class="px-4 py-3 font-medium">
+                <button
+                  @click="toggleSort('firstName')"
+                  class="flex items-center gap-1 hover:text-gray-700"
+                >
+                  Vorname
+                  <component :is="getSortIcon('firstName')" class="h-4 w-4" />
                 </button>
               </th>
               <!-- Birth date -->
@@ -536,8 +567,10 @@ const visiblePages = computed(() => {
               </td>
               <!-- Member number -->
               <td class="px-4 py-3 font-mono text-sm">{{ child.memberNumber }}</td>
-              <!-- Name -->
-              <td class="px-4 py-3 font-medium">{{ child.firstName }} {{ child.lastName }}</td>
+              <!-- Last Name -->
+              <td class="px-4 py-3 font-medium">{{ child.lastName }}</td>
+              <!-- First Name -->
+              <td class="px-4 py-3">{{ child.firstName }}</td>
               <!-- Birth date -->
               <td class="px-4 py-3 text-gray-600">{{ formatDate(child.birthDate) }}</td>
               <!-- Age -->
@@ -592,7 +625,7 @@ const visiblePages = computed(() => {
               </td>
             </tr>
             <tr v-if="children.length === 0">
-              <td colspan="8" class="px-4 py-8 text-center text-gray-500">
+              <td colspan="9" class="px-4 py-8 text-center text-gray-500">
                 Keine Kinder gefunden
               </td>
             </tr>

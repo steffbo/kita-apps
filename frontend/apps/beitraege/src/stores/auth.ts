@@ -16,10 +16,26 @@ export const useAuthStore = defineStore('auth', () => {
   const isAuthenticated = computed(() => !!accessToken.value);
   const isAdmin = computed(() => user.value?.role === 'ADMIN');
 
-  // Initialize API client with stored token
+  // Initialize API client with stored tokens and callbacks
   if (accessToken.value) {
     api.setAccessToken(accessToken.value);
   }
+  if (refreshToken.value) {
+    api.setRefreshToken(refreshToken.value);
+  }
+
+  // Set up callback for when API client refreshes tokens
+  api.setOnTokenRefreshed((tokens) => {
+    accessToken.value = tokens.accessToken;
+    refreshToken.value = tokens.refreshToken;
+    localStorage.setItem(ACCESS_TOKEN_KEY, tokens.accessToken);
+    localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
+  });
+
+  // Set up callback for when auth completely fails
+  api.setOnAuthFailed(() => {
+    clearTokens();
+  });
 
   function setTokens(tokens: TokenPair) {
     accessToken.value = tokens.accessToken;
@@ -27,6 +43,7 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.setItem(ACCESS_TOKEN_KEY, tokens.accessToken);
     localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
     api.setAccessToken(tokens.accessToken);
+    api.setRefreshToken(tokens.refreshToken);
   }
 
   function clearTokens() {
@@ -36,6 +53,7 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem(ACCESS_TOKEN_KEY);
     localStorage.removeItem(REFRESH_TOKEN_KEY);
     api.setAccessToken(null);
+    api.setRefreshToken(null);
   }
 
   async function login(email: string, password: string) {

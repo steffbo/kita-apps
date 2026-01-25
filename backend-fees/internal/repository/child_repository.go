@@ -24,29 +24,67 @@ func NewPostgresChildRepository(db *sqlx.DB) *PostgresChildRepository {
 }
 
 // List retrieves children with optional filtering and sorting.
-func (r *PostgresChildRepository) List(ctx context.Context, activeOnly bool, u3Only bool, search string, sortBy string, sortDir string, offset, limit int) ([]domain.Child, int64, error) {
+func (r *PostgresChildRepository) List(ctx context.Context, activeOnly bool, u3Only bool, hasWarnings bool, search string, sortBy string, sortDir string, offset, limit int) ([]domain.Child, int64, error) {
 	var children []domain.Child
 	var total int64
 
-	baseQuery := `FROM fees.children WHERE 1=1`
+	baseQuery := `FROM fees.children c WHERE 1=1`
 	args := make([]interface{}, 0)
 	argIdx := 1
 
 	if activeOnly {
-		baseQuery += fmt.Sprintf(" AND is_active = $%d", argIdx)
+		baseQuery += fmt.Sprintf(" AND c.is_active = $%d", argIdx)
 		args = append(args, true)
 		argIdx++
 	}
 
 	if u3Only {
 		// Filter for children under 3 years old (born less than 3 years ago)
-		baseQuery += fmt.Sprintf(" AND birth_date > $%d", argIdx)
+		baseQuery += fmt.Sprintf(" AND c.birth_date > $%d", argIdx)
+		args = append(args, time.Now().AddDate(-3, 0, 0))
+		argIdx++
+	}
+
+	if hasWarnings {
+		// Children with warnings:
+		// 1. No parents linked
+		// 2. No legal_hours set
+		// 3. No care_hours set
+		// 4. U3 children where neither household nor any parent has income info
+		//    (income is NOT required if status is MAX_ACCEPTED, NOT_REQUIRED, FOSTER_FAMILY, or HISTORIC)
+		baseQuery += ` AND (
+			-- No parents linked
+			NOT EXISTS (SELECT 1 FROM fees.child_parents cp WHERE cp.child_id = c.id)
+			-- No legal hours
+			OR c.legal_hours IS NULL
+			-- No care hours
+			OR c.care_hours IS NULL
+			-- U3 without income: born less than 3 years ago AND no valid income source
+			OR (c.birth_date > $` + fmt.Sprintf("%d", argIdx) + ` AND NOT EXISTS (
+				-- Check household first
+				SELECT 1 FROM fees.households h
+				WHERE h.id = c.household_id
+				AND (
+					h.annual_household_income IS NOT NULL
+					OR h.income_status IN ('MAX_ACCEPTED', 'NOT_REQUIRED', 'FOSTER_FAMILY', 'HISTORIC')
+				)
+			) AND NOT EXISTS (
+				-- Fallback: check parent income_status (legacy data)
+				SELECT 1 FROM fees.child_parents cp2
+				JOIN fees.parents p ON p.id = cp2.parent_id
+				WHERE cp2.child_id = c.id
+				AND (
+					p.annual_household_income IS NOT NULL
+					OR p.income_status IN ('MAX_ACCEPTED', 'NOT_REQUIRED', 'FOSTER_FAMILY', 'HISTORIC')
+				)
+			))
+		)`
 		args = append(args, time.Now().AddDate(-3, 0, 0))
 		argIdx++
 	}
 
 	if search != "" {
-		baseQuery += fmt.Sprintf(" AND (first_name ILIKE $%d OR last_name ILIKE $%d OR member_number ILIKE $%d)", argIdx, argIdx, argIdx)
+		baseQuery += fmt.Sprintf(" AND (c.first_name ILIKE $%d OR c.last_name ILIKE $%d OR c.member_number ILIKE $%d)", argIdx, argIdx, argIdx)
 		args = append(args, "%"+search+"%")
 		argIdx++
 	}
@@ -63,9 +101,9 @@ func (r *PostgresChildRepository) List(ctx context.Context, activeOnly bool, u3O
 
 	// Fetch with pagination
 	selectQuery := fmt.Sprintf(`
-		SELECT id, household_id, member_number, first_name, last_name, birth_date, entry_date, exit_date,
-		       street, street_no, postal_code, city, legal_hours, legal_hours_until, care_hours,
-		       is_active, created_at, updated_at
+		SELECT c.id, c.household_id, c.member_number, c.first_name, c.last_name, c.birth_date, c.entry_date, c.exit_date,
+		       c.street, c.street_no, c.postal_code, c.city, c.legal_hours, c.legal_hours_until, c.care_hours,
+		       c.is_active, c.created_at, c.updated_at
 		%s
 		ORDER BY %s
 		LIMIT $%d OFFSET $%d
@@ -84,16 +122,18 @@ func (r *PostgresChildRepository) List(ctx context.Context, activeOnly bool, u3O
 func getChildSortOrder(sortBy, sortDir string) string {
 	// Whitelist of allowed sort columns to prevent SQL injection
 	allowedColumns := map[string]string{
-		"memberNumber": "member_number",
-		"name":         "last_name, first_name",
-		"birthDate":    "birth_date",
-		"age":          "birth_date", // age sorts by birth_date (reversed direction)
-		"entryDate":    "entry_date",
-		"createdAt":    "created_at",
+		"memberNumber": "c.member_number",
+		"firstName":    "c.first_name",
+		"lastName":     "c.last_name",
+		"name":         "c.last_name, c.first_name", // Legacy: combined name sorting
+		"birthDate":    "c.birth_date",
+		"age":          "c.birth_date", // age sorts by birth_date (reversed direction)
+		"entryDate":    "c.entry_date",
+		"createdAt":    "c.created_at",
 	}
 
 	// Default sort
-	column := "last_name, first_name"
+	column := "c.last_name, c.first_name"
 	if col, ok := allowedColumns[sortBy]; ok {
 		column = col
 	}
@@ -207,6 +247,50 @@ func (r *PostgresChildRepository) GetParents(ctx context.Context, childID uuid.U
 		return nil, err
 	}
 	return parents, nil
+}
+
+// GetParentsForChildren batch-loads parents for multiple children.
+func (r *PostgresChildRepository) GetParentsForChildren(ctx context.Context, childIDs []uuid.UUID) (map[uuid.UUID][]domain.Parent, error) {
+	if len(childIDs) == 0 {
+		return make(map[uuid.UUID][]domain.Parent), nil
+	}
+
+	// Query all parents for all children in one query
+	query, args, err := sqlx.In(`
+		SELECT p.id, p.household_id, p.member_id, p.first_name, p.last_name, p.birth_date, p.email, p.phone,
+		       p.street, p.street_no, p.postal_code, p.city,
+		       p.annual_household_income, p.income_status, p.created_at, p.updated_at,
+		       cp.child_id
+		FROM fees.parents p
+		INNER JOIN fees.child_parents cp ON p.id = cp.parent_id
+		WHERE cp.child_id IN (?)
+		ORDER BY cp.is_primary DESC, p.last_name, p.first_name
+	`, childIDs)
+	if err != nil {
+		return nil, err
+	}
+
+	// Rebind for postgres ($1, $2, ... instead of ?)
+	query = r.db.Rebind(query)
+
+	// Temp struct to capture child_id alongside parent data
+	type parentWithChildID struct {
+		domain.Parent
+		ChildID uuid.UUID `db:"child_id"`
+	}
+
+	var rows []parentWithChildID
+	if err := r.db.SelectContext(ctx, &rows, query, args...); err != nil {
+		return nil, err
+	}
+
+	// Group parents by child ID
+	result := make(map[uuid.UUID][]domain.Parent)
+	for _, row := range rows {
+		result[row.ChildID] = append(result[row.ChildID], row.Parent)
+	}
+
+	return result, nil
 }
 
 // LinkParent links a parent to a child.

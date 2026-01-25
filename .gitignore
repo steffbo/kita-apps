@@ -50,6 +50,11 @@ logs/
 coverage/
 .nyc_output/
 
+# Playwright test artifacts
+frontend/e2e/fixtures/test-*.csv
+playwright-report/
+test-results/
+
 # Generated API code (optional - könnte auch committed werden)
 # backend/src/main/java/de/knirpsenstadt/api/
 # frontend/packages/shared/src/api/

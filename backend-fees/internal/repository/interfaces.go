@@ -28,13 +28,14 @@ type RefreshTokenRepository interface {
 
 // ChildRepository handles child persistence.
 type ChildRepository interface {
-	List(ctx context.Context, activeOnly bool, u3Only bool, search string, sortBy string, sortDir string, offset, limit int) ([]domain.Child, int64, error)
+	List(ctx context.Context, activeOnly bool, u3Only bool, hasWarnings bool, search string, sortBy string, sortDir string, offset, limit int) ([]domain.Child, int64, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.Child, error)
 	GetByMemberNumber(ctx context.Context, memberNumber string) (*domain.Child, error)
 	Create(ctx context.Context, child *domain.Child) error
 	Update(ctx context.Context, child *domain.Child) error
 	Delete(ctx context.Context, id uuid.UUID) error
 	GetParents(ctx context.Context, childID uuid.UUID) ([]domain.Parent, error)
+	GetParentsForChildren(ctx context.Context, childIDs []uuid.UUID) (map[uuid.UUID][]domain.Parent, error)
 	LinkParent(ctx context.Context, childID, parentID uuid.UUID, isPrimary bool) error
 	UnlinkParent(ctx context.Context, childID, parentID uuid.UUID) error
 }

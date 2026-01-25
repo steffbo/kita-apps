@@ -3,7 +3,7 @@ import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api';
 import { useAuthStore } from '@/stores/auth';
-import type { Parent, UpdateParentRequest, IncomeStatus } from '@/api/types';
+import type { Parent, UpdateParentRequest } from '@/api/types';
 import {
   ArrowLeft,
   Edit,
@@ -17,6 +17,8 @@ import {
   Mail,
   Phone,
   Users,
+  UserPlus,
+  ExternalLink,
 } from 'lucide-vue-next';
 
 const route = useRoute();
@@ -36,6 +38,12 @@ const editError = ref<string | null>(null);
 // Delete dialog state
 const showDeleteDialog = ref(false);
 const isDeleting = ref(false);
+
+// Member dialog state
+const showMemberDialog = ref(false);
+const membershipStart = ref(new Date().toISOString().split('T')[0]);
+const isCreatingMember = ref(false);
+const memberError = ref<string | null>(null);
 
 const parentId = computed(() => route.params.id as string);
 
@@ -58,6 +66,8 @@ function handleKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape') {
     if (showDeleteDialog.value) {
       showDeleteDialog.value = false;
+    } else if (showMemberDialog.value) {
+      showMemberDialog.value = false;
     } else if (showEditDialog.value) {
       showEditDialog.value = false;
     }
@@ -80,44 +90,6 @@ function formatDateForInput(dateStr: string): string {
   return dateStr.split('T')[0];
 }
 
-function formatCurrency(amount: number | undefined): string {
-  if (!amount) return '-';
-  return new Intl.NumberFormat('de-DE', {
-    style: 'currency',
-    currency: 'EUR',
-    maximumFractionDigits: 0,
-  }).format(amount);
-}
-
-function getIncomeStatusLabel(status?: IncomeStatus): string {
-  switch (status) {
-    case 'PROVIDED':
-      return 'Einkommen angegeben';
-    case 'MAX_ACCEPTED':
-      return 'Höchstsatz akzeptiert';
-    case 'PENDING':
-      return 'Dokumente ausstehend';
-    case 'NOT_REQUIRED':
-      return 'Nicht erforderlich (Kind >3J bei Eintritt)';
-    case 'HISTORIC':
-      return 'Historisch (Kind jetzt >3J)';
-    case 'FOSTER_FAMILY':
-      return 'Pflegefamilie (Durchschnittsbeitrag)';
-    default:
-      return 'Nicht festgelegt';
-  }
-}
-
-const incomeStatusOptions: { value: IncomeStatus; label: string }[] = [
-  { value: '', label: 'Nicht festgelegt' },
-  { value: 'PROVIDED', label: 'Einkommen angegeben' },
-  { value: 'MAX_ACCEPTED', label: 'Höchstsatz akzeptiert' },
-  { value: 'PENDING', label: 'Dokumente ausstehend' },
-  { value: 'NOT_REQUIRED', label: 'Nicht erforderlich (Kind >3J bei Eintritt)' },
-  { value: 'HISTORIC', label: 'Historisch (Kind jetzt >3J)' },
-  { value: 'FOSTER_FAMILY', label: 'Pflegefamilie (Durchschnittsbeitrag)' },
-];
-
 function openEditDialog() {
   if (!parent.value) return;
   editForm.value = {
@@ -130,8 +102,6 @@ function openEditDialog() {
     streetNo: parent.value.streetNo,
     postalCode: parent.value.postalCode,
     city: parent.value.city,
-    annualHouseholdIncome: parent.value.annualHouseholdIncome,
-    incomeStatus: parent.value.incomeStatus || '',
   };
   editError.value = null;
   showEditDialog.value = true;
@@ -167,6 +137,57 @@ async function handleDelete() {
 
 function goToChild(childId: string) {
   router.push(`/kinder/${childId}`);
+}
+
+function goToMember(memberId: string) {
+  router.push(`/mitglieder/${memberId}`);
+}
+
+// Get the oldest child's entry date for suggested membership start
+function getOldestChildEntryDate(): string {
+  if (!parent.value?.children || parent.value.children.length === 0) {
+    return new Date().toISOString().split('T')[0];
+  }
+  
+  let oldest = parent.value.children[0].entryDate;
+  for (const child of parent.value.children) {
+    if (child.entryDate < oldest) {
+      oldest = child.entryDate;
+    }
+  }
+  return oldest.split('T')[0];
+}
+
+function openMemberDialog() {
+  // Default to oldest child's entry date
+  membershipStart.value = getOldestChildEntryDate();
+  memberError.value = null;
+  showMemberDialog.value = true;
+}
+
+async function handleCreateMember() {
+  isCreatingMember.value = true;
+  memberError.value = null;
+  try {
+    const updated = await api.createMemberFromParent(parentId.value, membershipStart.value);
+    parent.value = updated;
+    showMemberDialog.value = false;
+  } catch (e) {
+    memberError.value = e instanceof Error ? e.message : 'Fehler beim Erstellen';
+  } finally {
+    isCreatingMember.value = false;
+  }
+}
+
+async function handleUnlinkMember() {
+  if (!parent.value?.memberId) return;
+  if (!confirm('Möchten Sie die Verknüpfung zum Vereinsmitglied wirklich entfernen? Das Mitglied wird nicht gelöscht.')) return;
+  try {
+    const updated = await api.unlinkMemberFromParent(parentId.value);
+    parent.value = updated;
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : 'Fehler beim Entfernen der Verknüpfung';
+  }
 }
 </script>
 
@@ -266,21 +287,6 @@ function goToChild(childId: string) {
           </div>
         </div>
 
-        <!-- Income section -->
-        <div class="mt-6 pt-6 border-t">
-          <h3 class="text-sm font-medium text-gray-500 mb-4">Einkommensinformationen</h3>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            <div>
-              <p class="text-sm text-gray-500">Einkommensstatus</p>
-              <p class="font-medium">{{ getIncomeStatusLabel(parent.incomeStatus) }}</p>
-            </div>
-            <div v-if="parent.incomeStatus === 'PROVIDED' || parent.incomeStatus === 'HISTORIC'">
-              <p class="text-sm text-gray-500">Jahreshaushaltseinkommen</p>
-              <p class="font-medium">{{ formatCurrency(parent.annualHouseholdIncome) }}</p>
-            </div>
-          </div>
-        </div>
-
         <!-- Children Section -->
         <div class="mt-6 pt-6 border-t">
           <div class="flex items-center gap-2 mb-4">
@@ -310,6 +316,62 @@ function goToChild(childId: string) {
           <div v-else class="text-center py-6 bg-gray-50 rounded-lg border border-dashed">
             <Users class="h-8 w-8 text-gray-400 mx-auto mb-2" />
             <p class="text-gray-500 text-sm">Keine Kinder verknüpft</p>
+          </div>
+        </div>
+
+        <!-- Membership Section -->
+        <div class="mt-6 pt-6 border-t">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2">
+              <UserPlus class="h-4 w-4 text-gray-500" />
+              <h3 class="text-sm font-medium text-gray-500">Vereinsmitgliedschaft</h3>
+            </div>
+          </div>
+
+          <!-- Already a member -->
+          <div v-if="parent.member" class="bg-green-50 rounded-lg border border-green-200 p-4">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                  <UserPlus class="h-5 w-5 text-green-600" />
+                </div>
+                <div>
+                  <p class="font-medium text-gray-900">{{ parent.member.memberNumber }}</p>
+                  <p class="text-sm text-gray-500">
+                    Mitglied seit {{ formatDate(parent.member.membershipStart) }}
+                  </p>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <button
+                  @click="goToMember(parent.member!.id)"
+                  class="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                >
+                  <ExternalLink class="h-4 w-4" />
+                  Details
+                </button>
+                <button
+                  @click="handleUnlinkMember"
+                  class="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  title="Verknüpfung entfernen"
+                >
+                  <X class="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Not a member yet -->
+          <div v-else class="text-center py-6 bg-gray-50 rounded-lg border border-dashed">
+            <UserPlus class="h-8 w-8 text-gray-400 mx-auto mb-2" />
+            <p class="text-gray-500 text-sm mb-3">Kein Vereinsmitglied</p>
+            <button
+              @click="openMemberDialog"
+              class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+            >
+              <UserPlus class="h-4 w-4" />
+              Zum Mitglied machen
+            </button>
           </div>
         </div>
       </div>
@@ -423,36 +485,6 @@ function goToChild(childId: string) {
             </div>
           </div>
 
-          <!-- Income section -->
-          <div class="pt-4 border-t">
-            <h3 class="text-sm font-medium text-gray-700 mb-3">Einkommensinformationen</h3>
-            
-            <div class="mb-4">
-              <label for="edit-incomeStatus" class="block text-sm font-medium text-gray-700 mb-1">Einkommensstatus</label>
-              <select
-                id="edit-incomeStatus"
-                v-model="editForm.incomeStatus"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-              >
-                <option v-for="option in incomeStatusOptions" :key="option.value" :value="option.value">
-                  {{ option.label }}
-                </option>
-              </select>
-            </div>
-
-            <div v-if="editForm.incomeStatus === 'PROVIDED' || editForm.incomeStatus === 'HISTORIC'">
-              <label for="edit-income" class="block text-sm font-medium text-gray-700 mb-1">Jahreshaushaltseinkommen</label>
-              <input
-                id="edit-income"
-                v-model.number="editForm.annualHouseholdIncome"
-                type="number"
-                min="0"
-                step="any"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-              />
-            </div>
-          </div>
-
           <div v-if="editError" class="p-3 bg-red-50 border border-red-200 rounded-lg">
             <p class="text-sm text-red-600">{{ editError }}</p>
           </div>
@@ -513,6 +545,64 @@ function goToChild(childId: string) {
             <Loader2 v-if="isDeleting" class="h-4 w-4 animate-spin" />
             <Trash2 v-else class="h-4 w-4" />
             Löschen
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Create Member Dialog -->
+    <div
+      v-if="showMemberDialog"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      @click.self="showMemberDialog = false"
+    >
+      <div class="bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="p-2 bg-primary/10 rounded-lg">
+            <UserPlus class="h-6 w-6 text-primary" />
+          </div>
+          <h2 class="text-xl font-semibold">Vereinsmitglied erstellen</h2>
+        </div>
+
+        <p class="text-gray-600 mb-4">
+          <strong>{{ parent?.firstName }} {{ parent?.lastName }}</strong> wird als Vereinsmitglied registriert.
+          Die Kontaktdaten werden übernommen.
+        </p>
+
+        <div class="mb-6">
+          <label for="membershipStart" class="block text-sm font-medium text-gray-700 mb-1">
+            Mitgliedschaft ab
+          </label>
+          <input
+            id="membershipStart"
+            v-model="membershipStart"
+            type="date"
+            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+          />
+          <p v-if="parent?.children && parent.children.length > 0" class="mt-1 text-xs text-gray-500">
+            Vorausgefüllt mit dem Eintrittsdatum des ältesten Kindes
+          </p>
+        </div>
+
+        <div v-if="memberError" class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+          <p class="text-sm text-red-600">{{ memberError }}</p>
+        </div>
+
+        <div class="flex justify-end gap-3">
+          <button
+            @click="showMemberDialog = false"
+            class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            Abbrechen
+          </button>
+          <button
+            @click="handleCreateMember"
+            :disabled="isCreatingMember"
+            class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+          >
+            <Loader2 v-if="isCreatingMember" class="h-4 w-4 animate-spin" />
+            <Check v-else class="h-4 w-4" />
+            Erstellen
           </button>
         </div>
       </div>

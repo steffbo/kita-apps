@@ -172,9 +172,6 @@ export interface Parent {
   streetNo?: string;
   postalCode?: string;
   city?: string;
-  // DEPRECATED: Income fields moved to Household
-  annualHouseholdIncome?: number;
-  incomeStatus?: IncomeStatus;
   createdAt: string;
   updatedAt: string;
   children?: Child[];
@@ -194,9 +191,6 @@ export interface CreateParentRequest {
   city?: string;
   householdId?: string;
   memberId?: string; // Link to existing Member
-  // DEPRECATED: Income should be set on Household
-  annualHouseholdIncome?: number;
-  incomeStatus?: IncomeStatus;
 }
 
 export interface UpdateParentRequest {
@@ -211,9 +205,6 @@ export interface UpdateParentRequest {
   city?: string;
   householdId?: string;
   memberId?: string; // Link to existing Member
-  // DEPRECATED: Income should be set on Household
-  annualHouseholdIncome?: number;
-  incomeStatus?: IncomeStatus;
 }
 
 // Fees

@@ -77,8 +77,10 @@ func getParentSortOrder(sortBy, sortDir string) string {
 
 	// Map allowed column names to actual database columns
 	allowedColumns := map[string]string{
-		"name":  "last_name",
-		"email": "email",
+		"name":      "last_name",
+		"lastName":  "last_name",
+		"firstName": "first_name",
+		"email":     "email",
 	}
 
 	if col, ok := allowedColumns[sortBy]; ok {

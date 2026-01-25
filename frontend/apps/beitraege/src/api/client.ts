@@ -38,14 +38,75 @@ const API_BASE = '/api/fees/v1';
 
 class ApiClient {
   private accessToken: string | null = null;
+  private refreshToken: string | null = null;
+  private refreshPromise: Promise<boolean> | null = null;
+  private onTokenRefreshed: ((tokens: { accessToken: string; refreshToken: string }) => void) | null = null;
+  private onAuthFailed: (() => void) | null = null;
 
   setAccessToken(token: string | null) {
     this.accessToken = token;
   }
 
+  setRefreshToken(token: string | null) {
+    this.refreshToken = token;
+  }
+
+  // Callback when tokens are refreshed - auth store should use this to update its state
+  setOnTokenRefreshed(callback: (tokens: { accessToken: string; refreshToken: string }) => void) {
+    this.onTokenRefreshed = callback;
+  }
+
+  // Callback when auth completely fails (refresh failed) - auth store should clear state
+  setOnAuthFailed(callback: () => void) {
+    this.onAuthFailed = callback;
+  }
+
+  private async tryRefreshToken(): Promise<boolean> {
+    // If already refreshing, wait for that to complete
+    if (this.refreshPromise) {
+      return this.refreshPromise;
+    }
+
+    if (!this.refreshToken) {
+      return false;
+    }
+
+    this.refreshPromise = (async () => {
+      try {
+        const response = await fetch(`${API_BASE}/auth/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken: this.refreshToken }),
+        });
+
+        if (!response.ok) {
+          return false;
+        }
+
+        const tokens = await response.json();
+        this.accessToken = tokens.accessToken;
+        this.refreshToken = tokens.refreshToken;
+
+        // Notify auth store to update its state
+        if (this.onTokenRefreshed) {
+          this.onTokenRefreshed(tokens);
+        }
+
+        return true;
+      } catch {
+        return false;
+      } finally {
+        this.refreshPromise = null;
+      }
+    })();
+
+    return this.refreshPromise;
+  }
+
   private async request<T>(
     path: string,
-    options: RequestInit = {}
+    options: RequestInit = {},
+    isRetry = false
   ): Promise<T> {
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
@@ -62,9 +123,17 @@ class ApiClient {
     });
 
     if (!response.ok) {
-      if (response.status === 401) {
-        // Token expired or invalid
-        this.accessToken = null;
+      if (response.status === 401 && !isRetry) {
+        // Token expired - try to refresh
+        const refreshed = await this.tryRefreshToken();
+        if (refreshed) {
+          // Retry the original request with new token
+          return this.request<T>(path, options, true);
+        }
+        // Refresh failed - notify auth store and throw
+        if (this.onAuthFailed) {
+          this.onAuthFailed();
+        }
         throw new Error('Unauthorized');
       }
       const error = await response.json().catch(() => ({ error: 'Unknown error' }));
@@ -114,6 +183,7 @@ class ApiClient {
   async getChildren(params?: {
     activeOnly?: boolean;
     u3Only?: boolean;
+    hasWarnings?: boolean;
     search?: string;
     sortBy?: string;
     sortDir?: string;
@@ -123,6 +193,7 @@ class ApiClient {
     const query = new URLSearchParams();
     if (params?.activeOnly) query.set('active', 'true');
     if (params?.u3Only) query.set('u3Only', 'true');
+    if (params?.hasWarnings) query.set('hasWarnings', 'true');
     if (params?.search) query.set('search', params.search);
     if (params?.sortBy) query.set('sortBy', params.sortBy);
     if (params?.sortDir) query.set('sortDir', params.sortDir);
@@ -207,6 +278,21 @@ class ApiClient {
 
   async deleteParent(id: string): Promise<void> {
     return this.request<void>(`/parents/${id}`, { method: 'DELETE' });
+  }
+
+  // Create a member from parent data and link them
+  async createMemberFromParent(parentId: string, membershipStart?: string): Promise<Parent> {
+    return this.request<Parent>(`/parents/${parentId}/member`, {
+      method: 'POST',
+      body: JSON.stringify({ membershipStart: membershipStart || new Date().toISOString().split('T')[0] }),
+    });
+  }
+
+  // Unlink a member from a parent (does not delete the member)
+  async unlinkMemberFromParent(parentId: string): Promise<Parent> {
+    return this.request<Parent>(`/parents/${parentId}/member`, {
+      method: 'DELETE',
+    });
   }
 
   // Households endpoints
