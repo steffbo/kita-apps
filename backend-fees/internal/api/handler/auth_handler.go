@@ -184,3 +184,55 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 		"role":      string(user.Role),
 	})
 }
+
+// ChangePasswordRequest represents a change password request.
+type ChangePasswordRequest struct {
+	CurrentPassword string `json:"currentPassword"`
+	NewPassword     string `json:"newPassword"`
+}
+
+// ChangePassword handles POST /auth/change-password
+func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
+	userCtx := middleware.GetUserFromContext(r)
+	if userCtx == nil {
+		response.Unauthorized(w, "not authenticated")
+		return
+	}
+
+	var req ChangePasswordRequest
+	if err := request.DecodeJSON(r, &req); err != nil {
+		response.BadRequest(w, "invalid request body")
+		return
+	}
+
+	if req.CurrentPassword == "" || req.NewPassword == "" {
+		response.BadRequest(w, "current and new password are required")
+		return
+	}
+
+	if len(req.NewPassword) < 8 {
+		response.BadRequest(w, "new password must be at least 8 characters")
+		return
+	}
+
+	userID, err := uuid.Parse(userCtx.UserID)
+	if err != nil {
+		response.InternalError(w, "invalid user ID")
+		return
+	}
+
+	err = h.authService.ChangePassword(r.Context(), userID, req.CurrentPassword, req.NewPassword)
+	if err != nil {
+		switch err {
+		case service.ErrUnauthorized:
+			response.BadRequest(w, "current password is incorrect")
+		case service.ErrNotFound:
+			response.NotFound(w, "user not found")
+		default:
+			response.InternalError(w, "failed to change password")
+		}
+		return
+	}
+
+	response.Success(w, map[string]string{"message": "password changed successfully"})
+}

@@ -9,6 +9,7 @@
     ".": "./src/index.ts",
     "./api": "./src/api/index.ts",
     "./composables": "./src/composables/index.ts",
+    "./components": "./src/components/index.ts",
     "./utils": "./src/utils/index.ts"
   },
   "scripts": {
@@ -19,10 +20,12 @@
     "openapi-fetch": "^0.12.0"
   },
   "peerDependencies": {
+    "lucide-vue-next": "^0.441.0",
     "vue": "^3.4.0",
     "vue-router": "^4.3.0"
   },
   "devDependencies": {
+    "lucide-vue-next": "^0.441.0",
     "openapi-typescript": "^7.4.0",
     "typescript": "~5.6.0",
     "vue": "^3.5.0",

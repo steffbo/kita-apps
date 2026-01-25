@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { RouterLink, RouterView, useRoute } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import {
@@ -12,12 +12,16 @@ import {
   LogOut,
   Menu,
   X,
+  KeyRound,
+  ChevronDown,
 } from 'lucide-vue-next';
-import { ref } from 'vue';
+import ChangePasswordModal from './ChangePasswordModal.vue';
 
 const authStore = useAuthStore();
 const route = useRoute();
 const mobileMenuOpen = ref(false);
+const showUserMenu = ref(false);
+const showChangePassword = ref(false);
 
 const navigation = [
   { name: 'Dashboard', to: '/', icon: LayoutDashboard },
@@ -39,6 +43,19 @@ function isActive(path: string) {
 
 async function handleLogout() {
   await authStore.logout();
+}
+
+function toggleUserMenu() {
+  showUserMenu.value = !showUserMenu.value;
+}
+
+function openChangePassword() {
+  showUserMenu.value = false;
+  showChangePassword.value = true;
+}
+
+async function handleChangePassword(currentPassword: string, newPassword: string) {
+  await authStore.changePassword(currentPassword, newPassword);
 }
 </script>
 
@@ -94,29 +111,68 @@ async function handleLogout() {
 
         <!-- User section -->
         <div class="border-t p-4">
-          <div class="flex items-center gap-3 mb-3">
-            <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-              <UserCircle class="h-6 w-6 text-primary" />
-            </div>
-            <div class="flex-1 min-w-0">
-              <p class="text-sm font-medium truncate">
-                {{ authStore.user?.firstName || authStore.user?.email }}
-              </p>
-              <p class="text-xs text-gray-500 truncate">
-                {{ authStore.user?.role === 'ADMIN' ? 'Administrator' : 'Benutzer' }}
-              </p>
-            </div>
+          <div class="relative">
+            <button
+              @click="toggleUserMenu"
+              class="w-full flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+            >
+              <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                <UserCircle class="h-6 w-6 text-primary" />
+              </div>
+              <div class="flex-1 min-w-0 text-left">
+                <p class="text-sm font-medium truncate">
+                  {{ authStore.user?.firstName || authStore.user?.email }}
+                </p>
+                <p class="text-xs text-gray-500 truncate">
+                  {{ authStore.user?.role === 'ADMIN' ? 'Administrator' : 'Benutzer' }}
+                </p>
+              </div>
+              <ChevronDown 
+                class="w-4 h-4 text-gray-400 transition-transform"
+                :class="{ 'rotate-180': showUserMenu }"
+              />
+            </button>
+
+            <!-- User dropdown menu -->
+            <Transition
+              enter-active-class="transition ease-out duration-100"
+              enter-from-class="transform opacity-0 scale-95"
+              enter-to-class="transform opacity-100 scale-100"
+              leave-active-class="transition ease-in duration-75"
+              leave-from-class="transform opacity-100 scale-100"
+              leave-to-class="transform opacity-0 scale-95"
+            >
+              <div
+                v-if="showUserMenu"
+                class="absolute bottom-full left-0 right-0 mb-1 bg-white rounded-lg shadow-lg border py-1"
+              >
+                <button
+                  @click="openChangePassword"
+                  class="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                >
+                  <KeyRound class="h-4 w-4" />
+                  Passwort ändern
+                </button>
+                <button
+                  @click="handleLogout"
+                  class="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                >
+                  <LogOut class="h-4 w-4" />
+                  Abmelden
+                </button>
+              </div>
+            </Transition>
           </div>
-          <button
-            @click="handleLogout"
-            class="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 rounded-lg hover:bg-gray-100 transition-colors"
-          >
-            <LogOut class="h-4 w-4" />
-            Abmelden
-          </button>
         </div>
       </div>
     </aside>
+
+    <!-- Click outside to close user menu -->
+    <div
+      v-if="showUserMenu"
+      class="fixed inset-0 z-40"
+      @click="showUserMenu = false"
+    />
 
     <!-- Main content -->
     <main class="lg:pl-64 pt-14 lg:pt-0">
@@ -124,5 +180,11 @@ async function handleLogout() {
         <RouterView />
       </div>
     </main>
+
+    <!-- Change Password Modal -->
+    <ChangePasswordModal
+      v-model:visible="showChangePassword"
+      :change-password-fn="handleChangePassword"
+    />
   </div>
 </template>

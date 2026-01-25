@@ -119,6 +119,21 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  async function changePassword(currentPassword: string, newPassword: string) {
+    isLoading.value = true;
+    error.value = null;
+
+    try {
+      await api.changePassword(currentPassword, newPassword);
+      return true;
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : 'Passwort konnte nicht geändert werden';
+      throw e;
+    } finally {
+      isLoading.value = false;
+    }
+  }
+
   return {
     user,
     isAuthenticated,
@@ -130,5 +145,6 @@ export const useAuthStore = defineStore('auth', () => {
     fetchUser,
     tryRefresh,
     initialize,
+    changePassword,
   };
 });

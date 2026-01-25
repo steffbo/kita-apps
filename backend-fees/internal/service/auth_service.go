@@ -87,6 +87,38 @@ func (s *AuthService) RevokeAllUserTokens(ctx context.Context, userID uuid.UUID)
 	return s.refreshTokenRepo.DeleteByUserID(ctx, userID)
 }
 
+// ChangePassword changes the password for a user after verifying the current password.
+func (s *AuthService) ChangePassword(ctx context.Context, userID uuid.UUID, currentPassword, newPassword string) error {
+	user, err := s.userRepo.GetByID(ctx, userID)
+	if err != nil {
+		return ErrNotFound
+	}
+
+	// Verify current password
+	if !auth.CheckPassword(currentPassword, user.PasswordHash) {
+		return ErrUnauthorized
+	}
+
+	// Validate new password
+	if len(newPassword) < 8 {
+		return ErrInvalidInput
+	}
+
+	// Hash new password
+	newHash, err := auth.HashPassword(newPassword)
+	if err != nil {
+		return err
+	}
+
+	// Update password
+	if err := s.userRepo.UpdatePassword(ctx, userID, newHash); err != nil {
+		return err
+	}
+
+	// Revoke all refresh tokens to force re-login on other devices
+	return s.refreshTokenRepo.DeleteByUserID(ctx, userID)
+}
+
 func hashToken(token string) string {
 	h := sha256.Sum256([]byte(token))
 	return hex.EncodeToString(h[:])

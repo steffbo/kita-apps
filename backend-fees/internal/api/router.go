@@ -57,6 +57,7 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 			// Auth
 			r.Post("/auth/logout", handlers.Auth.Logout)
 			r.Get("/auth/me", handlers.Auth.Me)
+			r.Post("/auth/change-password", handlers.Auth.ChangePassword)
 
 			// Children
 			r.Route("/children", func(r chi.Router) {

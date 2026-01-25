@@ -171,6 +171,13 @@ class ApiClient {
     return this.request<User>('/auth/me');
   }
 
+  async changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    return this.request<void>('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+  }
+
   // Helper to normalize paginated responses (Go returns null for empty slices)
   private normalizePaginated<T>(response: PaginatedResponse<T>): PaginatedResponse<T> {
     return {

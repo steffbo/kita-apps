@@ -76,6 +76,16 @@ func (r *PostgresUserRepository) Update(ctx context.Context, user *domain.User) 
 	return err
 }
 
+// UpdatePassword updates only the password hash for a user.
+func (r *PostgresUserRepository) UpdatePassword(ctx context.Context, id uuid.UUID, passwordHash string) error {
+	_, err := r.db.ExecContext(ctx, `
+		UPDATE fees.users
+		SET password_hash = $2, updated_at = $3
+		WHERE id = $1
+	`, id, passwordHash, time.Now())
+	return err
+}
+
 // PostgresRefreshTokenRepository is the PostgreSQL implementation of RefreshTokenRepository.
 type PostgresRefreshTokenRepository struct {
 	db *sqlx.DB
