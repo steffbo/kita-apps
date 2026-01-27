@@ -18,10 +18,8 @@ RUN bun install --frozen-lockfile
 RUN bun run --filter @kita/shared generate:api || true
 
 # Build beitraege frontend - skip vue-tsc, use vite directly
-ARG VITE_API_URL=/api-fees
-ARG VITE_BASE_PATH=/beitraege
-ENV VITE_API_URL=$VITE_API_URL
-ENV VITE_BASE_PATH=$VITE_BASE_PATH
+ENV VITE_API_URL=/api-fees
+ENV VITE_BASE_PATH=/beitraege
 RUN cd apps/beitraege && bun run vite build
 
 # Go build stage

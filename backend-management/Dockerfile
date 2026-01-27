@@ -18,15 +18,12 @@ RUN bun install --frozen-lockfile
 RUN bun run --filter @kita/shared generate:api || true
 
 # Build dienstplan (plan) frontend - skip vue-tsc, use vite directly
-ARG VITE_API_URL=/api
-ARG VITE_BASE_PATH=/plan
-ENV VITE_API_URL=$VITE_API_URL
-ENV VITE_BASE_PATH=$VITE_BASE_PATH
+ENV VITE_API_URL=/api
+ENV VITE_BASE_PATH=/plan
 RUN cd apps/dienstplan && bun run vite build
 
-# Build zeiterfassung (zeit) frontend
-ARG VITE_BASE_PATH_ZEIT=/zeit
-ENV VITE_BASE_PATH=$VITE_BASE_PATH_ZEIT
+# Build zeiterfassung (zeit) frontend  
+ENV VITE_BASE_PATH=/zeit
 RUN cd apps/zeiterfassung && bun run vite build
 
 # Go build stage
