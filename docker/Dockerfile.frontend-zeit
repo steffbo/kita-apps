@@ -8,17 +8,17 @@ ENV VITE_API_URL=${VITE_API_URL}
 ENV VITE_BASE_PATH=${VITE_BASE_PATH}
 
 # Copy package files
-COPY package.json bun.lockb* ./
-COPY packages/shared/package.json ./packages/shared/
-COPY apps/zeiterfassung/package.json ./apps/zeiterfassung/
+COPY frontend/package.json frontend/bun.lockb* ./
+COPY frontend/packages/shared/package.json ./packages/shared/
+COPY frontend/apps/zeiterfassung/package.json ./apps/zeiterfassung/
 
 # Install dependencies
 RUN bun install --frozen-lockfile
 
 # Copy source
-COPY packages ./packages
-COPY apps/zeiterfassung ./apps/zeiterfassung
-COPY openapi ../openapi
+COPY frontend/packages ./packages
+COPY frontend/apps/zeiterfassung ./apps/zeiterfassung
+COPY openapi ./openapi
 
 # Generate API types and build
 RUN bun run --filter @kita/shared generate:api || true

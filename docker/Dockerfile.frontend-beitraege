@@ -8,17 +8,17 @@ ENV VITE_API_URL=${VITE_API_URL}
 ENV VITE_BASE_PATH=${VITE_BASE_PATH}
 
 # Copy package files
-COPY package.json bun.lockb* ./
-COPY packages/shared/package.json ./packages/shared/
-COPY apps/beitraege/package.json ./apps/beitraege/
+COPY frontend/package.json frontend/bun.lockb* ./
+COPY frontend/packages/shared/package.json ./packages/shared/
+COPY frontend/apps/beitraege/package.json ./apps/beitraege/
 
 # Install dependencies
 RUN bun install --frozen-lockfile
 
 # Copy source
-COPY packages ./packages
-COPY apps/beitraege ./apps/beitraege
-COPY openapi ../openapi
+COPY frontend/packages ./packages
+COPY frontend/apps/beitraege ./apps/beitraege
+COPY openapi ./openapi
 
 # Generate API types and build
 RUN bun run --filter @kita/shared generate:api || true
