@@ -11,6 +11,7 @@ import (
 	customMiddleware "github.com/knirpsenstadt/kita-apps/backend-management/internal/api/middleware"
 	"github.com/knirpsenstadt/kita-apps/backend-management/internal/auth"
 	"github.com/knirpsenstadt/kita-apps/backend-management/internal/config"
+	"github.com/knirpsenstadt/kita-apps/backend-management/internal/frontend"
 )
 
 // NewRouter creates and configures the HTTP router.
@@ -42,6 +43,10 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 		w.Header().Set("Content-Type", "application/json")
 		w.Write([]byte(`{"status":"ok"}`))
 	})
+
+	// Embedded frontend routes (served when built with -tags embed_frontend)
+	r.Mount("/plan", frontend.PlanHandler())
+	r.Mount("/zeit", frontend.ZeitHandler())
 
 	r.Route("/api", func(r chi.Router) {
 		r.Route("/auth", func(r chi.Router) {

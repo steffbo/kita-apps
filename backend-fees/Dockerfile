@@ -1,4 +1,24 @@
-# Build stage
+# Frontend build stage
+FROM oven/bun:1 AS frontend-builder
+
+WORKDIR /frontend
+
+# Copy frontend workspace
+COPY frontend/package.json frontend/bun.lock* ./
+COPY frontend/apps ./apps
+COPY frontend/packages ./packages
+
+# Install dependencies
+RUN bun install --frozen-lockfile
+
+# Build beitraege frontend
+ARG VITE_API_URL=/api-fees
+ARG VITE_BASE_PATH=/beitraege
+ENV VITE_API_URL=$VITE_API_URL
+ENV VITE_BASE_PATH=$VITE_BASE_PATH
+RUN cd apps/beitraege && bun run build
+
+# Go build stage
 FROM golang:1.25-alpine AS builder
 
 WORKDIR /app
@@ -6,17 +26,20 @@ WORKDIR /app
 # Install build dependencies
 RUN apk add --no-cache git
 
-# Copy go mod files
-COPY go.mod go.sum ./
+# Copy go mod files from backend-fees
+COPY backend-fees/go.mod backend-fees/go.sum ./
 
 # Download dependencies
 RUN go mod download
 
-# Copy source code
-COPY . .
+# Copy backend source code
+COPY backend-fees/ .
 
-# Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o server ./cmd/server
+# Copy frontend build to embed directory
+COPY --from=frontend-builder /frontend/apps/beitraege/dist ./internal/frontend/beitraege
+
+# Build the application with embedded frontend
+RUN CGO_ENABLED=0 GOOS=linux go build -tags embed_frontend -a -installsuffix cgo -o server ./cmd/server
 
 # Final stage
 FROM alpine:3.19
