@@ -1,7 +1,6 @@
 package frontend
 
 import (
-	"fmt"
 	"io"
 	"io/fs"
 	"mime"
@@ -36,30 +35,6 @@ func ZeitHandler() http.Handler {
 		})
 	}
 	return spaHandler(ZeitFS)
-}
-
-// DebugHandler returns a handler that lists all files in the plan FS
-func DebugHandler() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "text/plain")
-		if PlanFS == nil {
-			fmt.Fprintln(w, "PlanFS is nil")
-			return
-		}
-		fmt.Fprintln(w, "Files in PlanFS:")
-		fs.WalkDir(PlanFS, ".", func(path string, d fs.DirEntry, err error) error {
-			if err != nil {
-				fmt.Fprintf(w, "ERROR: %s: %v\n", path, err)
-				return nil
-			}
-			if d.IsDir() {
-				fmt.Fprintf(w, "[DIR]  %s\n", path)
-			} else {
-				fmt.Fprintf(w, "[FILE] %s\n", path)
-			}
-			return nil
-		})
-	})
 }
 
 // spaHandler serves files from the embedded FS with SPA fallback to index.html
