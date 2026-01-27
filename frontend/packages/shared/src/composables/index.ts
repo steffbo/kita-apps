@@ -6,6 +6,7 @@ export {
   useCreateEmployee, 
   useUpdateEmployee, 
   useDeleteEmployee,
+  usePermanentDeleteEmployee,
   useAdminResetPassword,
   employeeKeys 
 } from './useEmployees';

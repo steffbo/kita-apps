@@ -92,6 +92,22 @@ export function useDeleteEmployee() {
   });
 }
 
+export function usePermanentDeleteEmployee() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const { error } = await apiClient.DELETE('/employees/{id}/permanent', {
+        params: { path: { id } },
+      });
+      if (error) throw new Error((error as any)?.message || 'Fehler beim endgültigen Löschen des Mitarbeiters');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: employeeKeys.lists() });
+    },
+  });
+}
+
 export function useAdminResetPassword() {
   return useMutation({
     mutationFn: async (id: number) => {

@@ -34,7 +34,7 @@ type FeeResponse struct {
 	PaidAt      *string `json:"paidAt,omitempty" example:"2024-03-10"`
 	Description *string `json:"description,omitempty" example:"Betreuungsgebühr März 2024"`
 	ParentFeeID *string `json:"parentFeeId,omitempty" example:"550e8400-e29b-41d4-a716-446655440002"`
-}
+} //@name Fee
 
 // FeeListResponse represents a paginated list of fees
 // @Description Paginated list of fees
@@ -44,7 +44,7 @@ type FeeListResponse struct {
 	Page       int           `json:"page" example:"1"`
 	PerPage    int           `json:"perPage" example:"20"`
 	TotalPages int           `json:"totalPages" example:"5"`
-}
+} //@name FeeList
 
 // NewFeeHandler creates a new fee handler.
 func NewFeeHandler(feeService *service.FeeService, importService *service.ImportService) *FeeHandler {
@@ -106,7 +106,7 @@ type OverviewResponse struct {
 	AmountPaid    float64         `json:"amountPaid" example:"37500.00"`
 	AmountOverdue float64         `json:"amountOverdue" example:"1250.00"`
 	ByMonth       []MonthOverview `json:"byMonth"`
-}
+} //@name FeeOverview
 
 // MonthOverview represents fee overview for a single month.
 // @Description Monthly fee summary
@@ -117,7 +117,7 @@ type MonthOverview struct {
 	PaidCount  int     `json:"paidCount" example:"40"`
 	OpenAmount float64 `json:"openAmount" example:"2500.00"`
 	PaidAmount float64 `json:"paidAmount" example:"10000.00"`
-}
+} //@name MonthOverview
 
 // Overview handles GET /fees/overview
 // @Summary Get fee overview
@@ -147,7 +147,7 @@ func (h *FeeHandler) Overview(w http.ResponseWriter, r *http.Request) {
 type GenerateFeeRequest struct {
 	Year  int  `json:"year" example:"2024"`
 	Month *int `json:"month,omitempty" example:"3"` // nil for yearly fees (membership)
-}
+} //@name GenerateFeeRequest
 
 // GenerateFeeResponse represents a response from generating fees.
 // @Description Result of fee generation
@@ -155,7 +155,7 @@ type GenerateFeeResponse struct {
 	Created     int                      `json:"created" example:"50"`
 	Skipped     int                      `json:"skipped" example:"5"`
 	Suggestions []domain.MatchSuggestion `json:"suggestions,omitempty"`
-}
+} //@name GenerateFeeResponse
 
 // Generate handles POST /fees/generate
 // @Summary Generate fees for a period
@@ -246,7 +246,7 @@ func (h *FeeHandler) Get(w http.ResponseWriter, r *http.Request) {
 // @Description Request body for updating a fee
 type UpdateFeeRequest struct {
 	Amount *float64 `json:"amount,omitempty" example:"275.50"`
-}
+} //@name UpdateFeeRequest
 
 // Update handles PUT /fees/{id}
 // @Summary Update a fee
@@ -367,7 +367,7 @@ type ChildcareFeeResult struct {
 	SiblingsCount   int     `json:"siblingsCount" example:"1"`
 	HighestRate     bool    `json:"highestRate" example:"false"`
 	DiscountApplied float64 `json:"discountApplied" example:"0"`
-}
+} //@name ChildcareFeeResult
 
 // CalculateChildcareFee handles GET /childcare-fee/calculate
 // @Summary Calculate childcare fee

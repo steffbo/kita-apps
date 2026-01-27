@@ -73,6 +73,7 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 					r.Post("/", handlers.Employee.Create)
 					r.Put("/{id}", handlers.Employee.Update)
 					r.Delete("/{id}", handlers.Employee.Delete)
+					r.Delete("/{id}/permanent", handlers.Employee.PermanentDelete)
 					r.Post("/{id}/reset-password", handlers.Employee.ResetPassword)
 				})
 			})

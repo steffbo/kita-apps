@@ -120,6 +120,44 @@ kita-apps/
 
 ## Entwicklung
 
+### OpenAPI / Type Generation
+
+Both backends use [swag](https://github.com/swaggo/swag) to generate OpenAPI specs from Go code annotations. The frontend then uses these specs to generate TypeScript types.
+
+```
+openapi/
+├── management/
+│   ├── swagger.yaml      # Swagger 2.0 spec
+│   └── openapi3.yaml     # OpenAPI 3.0 spec (used by frontend)
+└── fees/
+    ├── swagger.yaml      # Swagger 2.0 spec
+    └── openapi3.yaml     # OpenAPI 3.0 spec (used by frontend)
+```
+
+#### Regenerate OpenAPI specs and TypeScript types
+
+```bash
+# Management backend
+cd backend-management
+~/go/bin/swag init -g cmd/server/main.go -o ../openapi/management --outputTypes yaml
+npx swagger2openapi ../openapi/management/swagger.yaml -o ../openapi/management/openapi3.yaml
+
+# Fees backend
+cd backend-fees
+~/go/bin/swag init -g cmd/server/main.go -o ../openapi/fees --outputTypes yaml
+npx swagger2openapi ../openapi/fees/swagger.yaml -o ../openapi/fees/openapi3.yaml
+
+# Frontend types (shared package for Dienstplan/Zeiterfassung)
+cd frontend/packages/shared
+bun run generate:api
+
+# Frontend types (Beiträge app)
+cd frontend/apps/beitraege
+bun run generate:api
+```
+
+See the individual backend READMEs for more details on the `@name` annotation syntax.
+
 ### Default Admin Login
 
 **Dienstplan & Zeiterfassung:**

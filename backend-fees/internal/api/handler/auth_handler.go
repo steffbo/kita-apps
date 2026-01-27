@@ -30,7 +30,7 @@ func NewAuthHandler(authService *service.AuthService, jwtService *auth.JWTServic
 type LoginRequest struct {
 	Email    string `json:"email" example:"admin@example.com"`
 	Password string `json:"password" example:"password123"`
-}
+} //@name LoginRequest
 
 // LoginResponse represents a login response.
 type LoginResponse struct {
@@ -38,7 +38,7 @@ type LoginResponse struct {
 	RefreshToken string       `json:"refreshToken" example:"eyJhbGciOiJIUzI1NiIs..."`
 	ExpiresAt    string       `json:"expiresAt" example:"2024-01-27T15:04:05Z"`
 	User         UserResponse `json:"user"`
-}
+} //@name LoginResponse
 
 // UserResponse represents a user in API responses.
 type UserResponse struct {
@@ -47,12 +47,12 @@ type UserResponse struct {
 	FirstName *string `json:"firstName,omitempty" example:"Max"`
 	LastName  *string `json:"lastName,omitempty" example:"Mustermann"`
 	Role      string  `json:"role" example:"ADMIN" enums:"ADMIN,USER"`
-}
+} //@name User
 
 // MessageResponse represents a simple message response.
 type MessageResponse struct {
 	Message string `json:"message" example:"Operation completed successfully"`
-}
+} //@name MessageResponse
 
 // Login handles user authentication
 // @Summary User login
@@ -114,7 +114,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 // RefreshRequest represents a refresh token request.
 type RefreshRequest struct {
 	RefreshToken string `json:"refreshToken" example:"eyJhbGciOiJIUzI1NiIs..."`
-}
+} //@name RefreshTokenRequest
 
 // Refresh refreshes an access token using a refresh token
 // @Summary Refresh access token
@@ -237,7 +237,7 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 type ChangePasswordRequest struct {
 	CurrentPassword string `json:"currentPassword" example:"oldPassword123"`
 	NewPassword     string `json:"newPassword" example:"newPassword456" minLength:"8"`
-}
+} //@name ChangePasswordRequest
 
 // ChangePassword changes the current user's password
 // @Summary Change own password
@@ -300,13 +300,13 @@ func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 // PasswordResetRequest represents a password reset request.
 type PasswordResetRequest struct {
 	Email string `json:"email" example:"user@example.com"`
-}
+} //@name PasswordResetRequest
 
 // PasswordResetConfirmRequest represents a password reset confirmation.
 type PasswordResetConfirmRequest struct {
 	Token       string `json:"token" example:"abc123def456"`
 	NewPassword string `json:"newPassword" example:"newPassword456" minLength:"8"`
-}
+} //@name PasswordResetConfirmRequest
 
 // RequestPasswordReset initiates the password reset flow
 // @Summary Request password reset email

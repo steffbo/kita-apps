@@ -44,7 +44,7 @@ type ParentDetailResponse struct {
 	Children              interface{} `json:"children,omitempty"`
 	Household             interface{} `json:"household,omitempty"`
 	Member                interface{} `json:"member,omitempty"`
-}
+} //@name Parent
 
 // ParentListResponse represents a paginated list of parents.
 // @Description Paginated list of parents
@@ -54,7 +54,7 @@ type ParentListResponse struct {
 	Page       int                    `json:"page" example:"1"`
 	PerPage    int                    `json:"perPage" example:"20"`
 	TotalPages int                    `json:"totalPages" example:"3"`
-}
+} //@name ParentList
 
 // CreateParentRequest represents a request to create a parent.
 // @Description Request body for creating a new parent
@@ -70,7 +70,7 @@ type CreateParentRequest struct {
 	City                  *string  `json:"city,omitempty" example:"Potsdam"`
 	AnnualHouseholdIncome *float64 `json:"annualHouseholdIncome,omitempty" example:"65000.00"`
 	IncomeStatus          *string  `json:"incomeStatus,omitempty" example:"PROVIDED" enums:"PROVIDED,MAX_ACCEPTED,PENDING,NOT_REQUIRED,HISTORIC,FOSTER_FAMILY"`
-}
+} //@name CreateParentRequest
 
 // List returns all parents with pagination
 // @Summary List all parents
@@ -195,7 +195,7 @@ type UpdateParentRequest struct {
 	City                  *string  `json:"city,omitempty" example:"Potsdam"`
 	AnnualHouseholdIncome *float64 `json:"annualHouseholdIncome,omitempty" example:"65000.00"`
 	IncomeStatus          *string  `json:"incomeStatus,omitempty" example:"PROVIDED" enums:"PROVIDED,MAX_ACCEPTED,PENDING,NOT_REQUIRED,HISTORIC,FOSTER_FAMILY"`
-}
+} //@name UpdateParentRequest
 
 // Update updates a parent
 // @Summary Update parent
@@ -285,7 +285,7 @@ func (h *ParentHandler) Delete(w http.ResponseWriter, r *http.Request) {
 // @Description Request body for creating a member from a parent
 type CreateMemberFromParentRequest struct {
 	MembershipStart string `json:"membershipStart" example:"2023-08-01"`
-}
+} //@name CreateMemberFromParentRequest
 
 // CreateMember creates a new member from parent data
 // @Summary Create member for parent

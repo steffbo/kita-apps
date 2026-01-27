@@ -28,7 +28,7 @@ type UploadResponse struct {
 	Unmatched   int               `json:"unmatched" example:"25"`
 	Duplicates  int               `json:"duplicates" example:"5"`
 	Suggestions []MatchSuggestion `json:"suggestions,omitempty"`
-}
+} //@name UploadResponse
 
 // MatchSuggestion represents a suggested match between transaction and expectation
 // @Description Suggested match for manual review
@@ -39,7 +39,7 @@ type MatchSuggestion struct {
 	ExpectationInfo string  `json:"expectationInfo" example:"Betreuungsgebühr März 2024 - Max Mustermann"`
 	Confidence      float64 `json:"confidence" example:"0.85"`
 	Reason          string  `json:"reason" example:"Name match"`
-}
+} //@name MatchSuggestion
 
 // TransactionResponse represents a bank transaction
 // @Description Bank transaction from CSV import
@@ -56,7 +56,7 @@ type TransactionResponse struct {
 	TransactionType *string `json:"transactionType,omitempty" example:"SEPA-Überweisung"`
 	Status          string  `json:"status" example:"unmatched" enums:"matched,unmatched,dismissed"`
 	MatchedFeeID    *string `json:"matchedFeeId,omitempty" example:"550e8400-e29b-41d4-a716-446655440001"`
-}
+} //@name Transaction
 
 // TransactionListResponse represents a paginated list of transactions
 // @Description Paginated list of transactions
@@ -66,7 +66,7 @@ type TransactionListResponse struct {
 	Page       int                   `json:"page" example:"1"`
 	PerPage    int                   `json:"perPage" example:"20"`
 	TotalPages int                   `json:"totalPages" example:"2"`
-}
+} //@name TransactionList
 
 // ImportHistoryEntry represents an import history entry
 // @Description Import history entry
@@ -79,7 +79,7 @@ type ImportHistoryEntry struct {
 	Matched    int    `json:"matched" example:"120"`
 	Unmatched  int    `json:"unmatched" example:"25"`
 	Duplicates int    `json:"duplicates" example:"5"`
-}
+} //@name ImportHistoryEntry
 
 // ImportHistoryListResponse represents a paginated list of import history
 // @Description Paginated import history
@@ -89,7 +89,7 @@ type ImportHistoryListResponse struct {
 	Page       int                  `json:"page" example:"1"`
 	PerPage    int                  `json:"perPage" example:"20"`
 	TotalPages int                  `json:"totalPages" example:"1"`
-}
+} //@name ImportHistoryList
 
 // IBANEntry represents an IBAN in blacklist/trusted list
 // @Description IBAN entry
@@ -100,7 +100,7 @@ type IBANEntry struct {
 	ChildName     *string `json:"childName,omitempty" example:"Max Mustermann"`
 	AddedAt       string  `json:"addedAt" example:"2024-03-15T10:30:00Z"`
 	Reason        *string `json:"reason,omitempty" example:"Fremdkonto"`
-}
+} //@name IBANEntry
 
 // IBANListResponse represents a paginated list of IBANs
 // @Description Paginated IBAN list
@@ -110,7 +110,7 @@ type IBANListResponse struct {
 	Page       int         `json:"page" example:"1"`
 	PerPage    int         `json:"perPage" example:"20"`
 	TotalPages int         `json:"totalPages" example:"1"`
-}
+} //@name IBANList
 
 // WarningEntry represents an import warning
 // @Description Import warning for review
@@ -124,7 +124,7 @@ type WarningEntry struct {
 	DismissedAt   *string `json:"dismissedAt,omitempty" example:"2024-03-16T14:00:00Z"`
 	DismissedBy   *string `json:"dismissedBy,omitempty" example:"admin@knirpsenstadt.de"`
 	DismissNote   *string `json:"dismissNote,omitempty" example:"Eltern haben Restbetrag bar bezahlt"`
-}
+} //@name WarningEntry
 
 // WarningListResponse represents a paginated list of warnings
 // @Description Paginated warnings list
@@ -134,7 +134,7 @@ type WarningListResponse struct {
 	Page       int            `json:"page" example:"1"`
 	PerPage    int            `json:"perPage" example:"20"`
 	TotalPages int            `json:"totalPages" example:"1"`
-}
+} //@name WarningList
 
 // NewImportHandler creates a new import handler.
 func NewImportHandler(importService *service.ImportService) *ImportHandler {
@@ -186,21 +186,21 @@ func (h *ImportHandler) Upload(w http.ResponseWriter, r *http.Request) {
 // @Description Request body for confirming transaction-fee matches
 type ConfirmMatchRequest struct {
 	Matches []MatchConfirmation `json:"matches"`
-}
+} //@name ConfirmMatchRequest
 
 // MatchConfirmation represents a single match confirmation.
 // @Description Single match confirmation
 type MatchConfirmation struct {
 	TransactionID string `json:"transactionId" example:"550e8400-e29b-41d4-a716-446655440000"`
 	ExpectationID string `json:"expectationId" example:"550e8400-e29b-41d4-a716-446655440001"`
-}
+} //@name MatchConfirmation
 
 // ConfirmMatchResponse represents the result of confirming matches
 // @Description Result of confirming matches
 type ConfirmMatchResponse struct {
 	Confirmed int `json:"confirmed" example:"5"`
 	Failed    int `json:"failed" example:"0"`
-}
+} //@name ConfirmMatchResponse
 
 // Confirm handles POST /import/confirm
 // @Summary Confirm suggested matches
@@ -310,7 +310,7 @@ func (h *ImportHandler) UnmatchedTransactions(w http.ResponseWriter, r *http.Req
 type ManualMatchRequest struct {
 	TransactionID string `json:"transactionId" example:"550e8400-e29b-41d4-a716-446655440000"`
 	ExpectationID string `json:"expectationId" example:"550e8400-e29b-41d4-a716-446655440001"`
-}
+} //@name ManualMatchRequest
 
 // ManualMatchResponse represents the result of a manual match
 // @Description Manual match result
@@ -319,7 +319,7 @@ type ManualMatchResponse struct {
 	ExpectationID string `json:"expectationId" example:"550e8400-e29b-41d4-a716-446655440001"`
 	MatchedAt     string `json:"matchedAt" example:"2024-03-15T10:30:00Z"`
 	MatchedBy     string `json:"matchedBy" example:"admin@knirpsenstadt.de"`
-}
+} //@name ManualMatchResponse
 
 // ManualMatch handles POST /import/match
 // @Summary Manually match a transaction
@@ -380,7 +380,7 @@ func (h *ImportHandler) ManualMatch(w http.ResponseWriter, r *http.Request) {
 type RescanResponse struct {
 	NewMatches  int               `json:"newMatches" example:"5"`
 	Suggestions []MatchSuggestion `json:"suggestions,omitempty"`
-}
+} //@name RescanResponse
 
 // Rescan handles POST /import/rescan
 // @Summary Rescan unmatched transactions
@@ -408,7 +408,7 @@ type DismissTransactionResponse struct {
 	TransactionID    string `json:"transactionId" example:"550e8400-e29b-41d4-a716-446655440000"`
 	IBAN             string `json:"iban" example:"DE89370400440532013000"`
 	AddedToBlacklist bool   `json:"addedToBlacklist" example:"true"`
-}
+} //@name DismissTransactionResponse
 
 // DismissTransaction handles POST /import/transactions/{id}/dismiss
 // @Summary Dismiss a transaction
@@ -536,7 +536,7 @@ func (h *ImportHandler) GetTrustedIBANs(w http.ResponseWriter, r *http.Request) 
 // @Description Request body for linking an IBAN to a child
 type LinkIBANRequest struct {
 	ChildID string `json:"childId" example:"550e8400-e29b-41d4-a716-446655440000"`
-}
+} //@name LinkIBANRequest
 
 // LinkIBANToChild handles POST /import/trusted/{iban}/link
 // @Summary Link IBAN to child
@@ -648,7 +648,7 @@ func (h *ImportHandler) GetWarnings(w http.ResponseWriter, r *http.Request) {
 // @Description Request body for dismissing a warning
 type DismissWarningRequest struct {
 	Note string `json:"note" example:"Differenz wurde bar ausgeglichen"`
-}
+} //@name DismissWarningRequest
 
 // DismissWarning handles POST /import/warnings/{id}/dismiss
 // @Summary Dismiss a warning

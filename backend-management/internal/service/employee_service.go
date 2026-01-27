@@ -241,12 +241,20 @@ func (s *EmployeeService) Update(ctx context.Context, id int64, input UpdateEmpl
 	return s.Get(ctx, employee.ID)
 }
 
-// Delete deactivates an employee.
+// Delete deactivates an employee (soft delete).
 func (s *EmployeeService) Delete(ctx context.Context, id int64) error {
 	if _, err := s.employees.GetByID(ctx, id); err != nil {
 		return NewNotFound(fmt.Sprintf("Mitarbeiter mit ID %d nicht gefunden", id))
 	}
 	return s.employees.Deactivate(ctx, id)
+}
+
+// PermanentDelete permanently removes an employee and all related data.
+func (s *EmployeeService) PermanentDelete(ctx context.Context, id int64) error {
+	if _, err := s.employees.GetByID(ctx, id); err != nil {
+		return NewNotFound(fmt.Sprintf("Mitarbeiter mit ID %d nicht gefunden", id))
+	}
+	return s.employees.Delete(ctx, id)
 }
 
 // ResetPassword resets an employee's password.

@@ -947,7 +947,7 @@ paths:
       - Employees
   /employees/{id}:
     delete:
-      description: Delete an employee (soft delete - sets inactive)
+      description: Deactivate an employee (soft delete - sets inactive, can be reactivated)
       parameters:
       - description: Employee ID
         in: path
@@ -956,7 +956,7 @@ paths:
         type: integer
       responses:
         "204":
-          description: Employee deleted
+          description: Employee deactivated
         "400":
           description: Invalid employee ID
           schema:
@@ -974,7 +974,7 @@ paths:
             type: object
       security:
       - BearerAuth: []
-      summary: Delete an employee
+      summary: Deactivate an employee
       tags:
       - Employees
     get:
@@ -1091,6 +1091,39 @@ paths:
       security:
       - BearerAuth: []
       summary: Get employee group assignments
+      tags:
+      - Employees
+  /employees/{id}/permanent:
+    delete:
+      description: Permanently remove an employee and all related data (schedules,
+        time entries, assignments)
+      parameters:
+      - description: Employee ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: Employee permanently deleted
+        "400":
+          description: Invalid employee ID
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Employee not found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Permanently delete an employee
       tags:
       - Employees
   /employees/{id}/reset-password:

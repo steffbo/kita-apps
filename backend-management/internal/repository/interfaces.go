@@ -17,6 +17,7 @@ type EmployeeRepository interface {
 	Update(ctx context.Context, employee *domain.Employee) (*domain.Employee, error)
 	UpdatePassword(ctx context.Context, id int64, passwordHash string) error
 	Deactivate(ctx context.Context, id int64) error
+	Delete(ctx context.Context, id int64) error
 	AdjustRemainingVacationDays(ctx context.Context, id int64, delta float64) error
 }
 

@@ -214,12 +214,12 @@ func (h *EmployeeHandler) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 // Delete handles DELETE /employees/{id}.
-// @Summary Delete an employee
-// @Description Delete an employee (soft delete - sets inactive)
+// @Summary Deactivate an employee
+// @Description Deactivate an employee (soft delete - sets inactive, can be reactivated)
 // @Tags Employees
 // @Security BearerAuth
 // @Param id path int true "Employee ID"
-// @Success 204 "Employee deleted"
+// @Success 204 "Employee deactivated"
 // @Failure 400 {object} map[string]interface{} "Invalid employee ID"
 // @Failure 401 {object} map[string]interface{} "Not authenticated"
 // @Failure 404 {object} map[string]interface{} "Employee not found"
@@ -232,6 +232,32 @@ func (h *EmployeeHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.employees.Delete(r.Context(), id); err != nil {
+		writeServiceError(w, err)
+		return
+	}
+
+	response.NoContent(w)
+}
+
+// PermanentDelete handles DELETE /employees/{id}/permanent.
+// @Summary Permanently delete an employee
+// @Description Permanently remove an employee and all related data (schedules, time entries, assignments)
+// @Tags Employees
+// @Security BearerAuth
+// @Param id path int true "Employee ID"
+// @Success 204 "Employee permanently deleted"
+// @Failure 400 {object} map[string]interface{} "Invalid employee ID"
+// @Failure 401 {object} map[string]interface{} "Not authenticated"
+// @Failure 404 {object} map[string]interface{} "Employee not found"
+// @Router /employees/{id}/permanent [delete]
+func (h *EmployeeHandler) PermanentDelete(w http.ResponseWriter, r *http.Request) {
+	id, err := parseID(chi.URLParam(r, "id"))
+	if err != nil {
+		response.BadRequest(w, "Ungültige ID")
+		return
+	}
+
+	if err := h.employees.PermanentDelete(r.Context(), id); err != nil {
 		writeServiceError(w, err)
 		return
 	}

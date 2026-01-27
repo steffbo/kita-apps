@@ -1,5 +1,1388 @@
 basePath: /api/fees/v1
 definitions:
+  ChangePasswordRequest:
+    properties:
+      currentPassword:
+        example: oldPassword123
+        type: string
+      newPassword:
+        example: newPassword456
+        minLength: 8
+        type: string
+    type: object
+  Child:
+    description: Child information
+    properties:
+      birthDate:
+        example: "2020-06-15"
+        type: string
+      careHours:
+        example: 40
+        type: integer
+      city:
+        example: Potsdam
+        type: string
+      createdAt:
+        example: "2023-08-01T10:00:00Z"
+        type: string
+      entryDate:
+        example: "2023-08-01"
+        type: string
+      exitDate:
+        example: "2026-07-31"
+        type: string
+      firstName:
+        example: Emma
+        type: string
+      household: {}
+      householdId:
+        example: 550e8400-e29b-41d4-a716-446655440001
+        type: string
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      isActive:
+        example: true
+        type: boolean
+      lastName:
+        example: Müller
+        type: string
+      legalHours:
+        example: 35
+        type: integer
+      legalHoursUntil:
+        example: "2024-12-31"
+        type: string
+      memberNumber:
+        example: K-2024-001
+        type: string
+      parents:
+        items:
+          $ref: '#/definitions/ParentSummary'
+        type: array
+      postalCode:
+        example: "14467"
+        type: string
+      street:
+        example: Hauptstraße
+        type: string
+      streetNo:
+        example: "42"
+        type: string
+      updatedAt:
+        example: "2023-08-01T10:00:00Z"
+        type: string
+    type: object
+  ChildImportExecuteResponse:
+    description: Import execution result
+    properties:
+      created:
+        example: 30
+        type: integer
+      errors:
+        items:
+          type: string
+        type: array
+      skipped:
+        example: 5
+        type: integer
+      updated:
+        example: 15
+        type: integer
+    type: object
+  ChildImportPreviewRequest:
+    description: Request body for generating import preview
+    properties:
+      fileContent:
+        description: Base64 encoded CSV content
+        type: string
+      mapping:
+        additionalProperties:
+          type: integer
+        description: systemField -> csvColumnIndex
+        type: object
+      separator:
+        example: ;
+        type: string
+      skipHeader:
+        example: true
+        type: boolean
+    type: object
+  ChildImportPreviewResponse:
+    description: Import preview with validation results
+    properties:
+      hasErrors:
+        example: false
+        type: boolean
+      rows:
+        items:
+          $ref: '#/definitions/ChildPreviewRow'
+        type: array
+      toCreate:
+        example: 30
+        type: integer
+      toSkip:
+        example: 5
+        type: integer
+      toUpdate:
+        example: 15
+        type: integer
+      totalRows:
+        example: 50
+        type: integer
+      validRows:
+        example: 45
+        type: integer
+    type: object
+  ChildList:
+    description: Paginated list of children
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/Child'
+        type: array
+      page:
+        example: 1
+        type: integer
+      perPage:
+        example: 20
+        type: integer
+      total:
+        example: 100
+        type: integer
+      totalPages:
+        example: 5
+        type: integer
+    type: object
+  ChildPreviewRow:
+    description: Single child preview with validation status
+    properties:
+      action:
+        enum:
+        - create
+        - update
+        - skip
+        example: create
+        type: string
+      birthDate:
+        example: "2020-05-15"
+        type: string
+      errors:
+        example:
+        - Ungültiges Geburtsdatum
+        items:
+          type: string
+        type: array
+      existingId:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      firstName:
+        example: Max
+        type: string
+      groupName:
+        example: Schmetterlinge
+        type: string
+      isValid:
+        example: true
+        type: boolean
+      lastName:
+        example: Mustermann
+        type: string
+      parentEmail:
+        example: hans@example.com
+        type: string
+      parentName:
+        example: Hans Mustermann
+        type: string
+      rowNumber:
+        example: 1
+        type: integer
+      warnings:
+        example:
+        - Gruppe nicht gefunden
+        items:
+          type: string
+        type: array
+    type: object
+  ChildcareFeeResult:
+    description: Childcare fee calculation result
+    properties:
+      careHours:
+        example: 40
+        type: integer
+      childAgeType:
+        example: krippe
+        type: string
+      discountApplied:
+        example: 0
+        type: number
+      highestRate:
+        example: false
+        type: boolean
+      incomeLevel:
+        example: level3
+        type: string
+      monthlyFee:
+        example: 250
+        type: number
+      siblingsCount:
+        example: 1
+        type: integer
+    type: object
+  ConfirmMatchRequest:
+    description: Request body for confirming transaction-fee matches
+    properties:
+      matches:
+        items:
+          $ref: '#/definitions/MatchConfirmation'
+        type: array
+    type: object
+  ConfirmMatchResponse:
+    description: Result of confirming matches
+    properties:
+      confirmed:
+        example: 5
+        type: integer
+      failed:
+        example: 0
+        type: integer
+    type: object
+  CreateChildRequest:
+    description: Request body for creating a new child
+    properties:
+      birthDate:
+        example: "2020-06-15"
+        type: string
+      careHours:
+        example: 40
+        type: integer
+      city:
+        example: Potsdam
+        type: string
+      entryDate:
+        example: "2023-08-01"
+        type: string
+      exitDate:
+        example: "2026-07-31"
+        type: string
+      firstName:
+        example: Emma
+        type: string
+      lastName:
+        example: Müller
+        type: string
+      legalHours:
+        example: 35
+        type: integer
+      legalHoursUntil:
+        example: "2024-12-31"
+        type: string
+      memberNumber:
+        example: K-2024-001
+        type: string
+      postalCode:
+        example: "14467"
+        type: string
+      street:
+        example: Hauptstraße
+        type: string
+      streetNo:
+        example: "42"
+        type: string
+    type: object
+  CreateHouseholdRequest:
+    description: Request body for creating a new household
+    properties:
+      annualHouseholdIncome:
+        example: 65000
+        type: number
+      incomeStatus:
+        enum:
+        - PROVIDED
+        - MAX_ACCEPTED
+        - PENDING
+        - NOT_REQUIRED
+        - HISTORIC
+        - FOSTER_FAMILY
+        example: PROVIDED
+        type: string
+      name:
+        example: Familie Müller
+        type: string
+    type: object
+  CreateMemberFromParentRequest:
+    description: Request body for creating a member from a parent
+    properties:
+      membershipStart:
+        example: "2023-08-01"
+        type: string
+    type: object
+  CreateMemberRequest:
+    description: Request body for creating a new member
+    properties:
+      city:
+        example: Berlin
+        type: string
+      email:
+        example: hans.mueller@example.com
+        type: string
+      firstName:
+        example: Hans
+        type: string
+      householdId:
+        example: 550e8400-e29b-41d4-a716-446655440001
+        type: string
+      lastName:
+        example: Müller
+        type: string
+      memberNumber:
+        example: M-2024-001
+        type: string
+      membershipEnd:
+        example: "2024-12-31"
+        type: string
+      membershipStart:
+        example: "2024-01-01"
+        type: string
+      phone:
+        example: +49 123 456789
+        type: string
+      postalCode:
+        example: "12345"
+        type: string
+      street:
+        example: Hauptstraße
+        type: string
+      streetNo:
+        example: "42"
+        type: string
+    type: object
+  CreateParentRequest:
+    description: Request body for creating a new parent
+    properties:
+      annualHouseholdIncome:
+        example: 65000
+        type: number
+      birthDate:
+        example: "1985-03-15"
+        type: string
+      city:
+        example: Potsdam
+        type: string
+      email:
+        example: thomas.mueller@example.com
+        type: string
+      firstName:
+        example: Thomas
+        type: string
+      incomeStatus:
+        enum:
+        - PROVIDED
+        - MAX_ACCEPTED
+        - PENDING
+        - NOT_REQUIRED
+        - HISTORIC
+        - FOSTER_FAMILY
+        example: PROVIDED
+        type: string
+      lastName:
+        example: Müller
+        type: string
+      phone:
+        example: +49 331 12345
+        type: string
+      postalCode:
+        example: "14467"
+        type: string
+      street:
+        example: Hauptstraße
+        type: string
+      streetNo:
+        example: "42"
+        type: string
+    type: object
+  DismissTransactionResponse:
+    description: Dismiss transaction result
+    properties:
+      addedToBlacklist:
+        example: true
+        type: boolean
+      iban:
+        example: DE89370400440532013000
+        type: string
+      transactionId:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+    type: object
+  DismissWarningRequest:
+    description: Request body for dismissing a warning
+    properties:
+      note:
+        example: Differenz wurde bar ausgeglichen
+        type: string
+    type: object
+  ErrorResponse:
+    description: Standard error response format
+    properties:
+      code:
+        example: 400
+        type: integer
+      error:
+        example: Bad Request
+        type: string
+      message:
+        example: invalid request body
+        type: string
+    type: object
+  Fee:
+    description: Fee information
+    properties:
+      amount:
+        example: 250
+        type: number
+      childId:
+        example: 550e8400-e29b-41d4-a716-446655440001
+        type: string
+      childName:
+        example: Max Mustermann
+        type: string
+      description:
+        example: Betreuungsgebühr März 2024
+        type: string
+      dueDate:
+        example: "2024-03-15"
+        type: string
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      month:
+        example: 3
+        type: integer
+      paidAt:
+        example: "2024-03-10"
+        type: string
+      parentFeeId:
+        example: 550e8400-e29b-41d4-a716-446655440002
+        type: string
+      status:
+        enum:
+        - open
+        - paid
+        - overdue
+        example: open
+        type: string
+      type:
+        enum:
+        - childcare
+        - food
+        - membership
+        - reminder
+        example: childcare
+        type: string
+      year:
+        example: 2024
+        type: integer
+    type: object
+  FeeList:
+    description: Paginated list of fees
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/Fee'
+        type: array
+      page:
+        example: 1
+        type: integer
+      perPage:
+        example: 20
+        type: integer
+      total:
+        example: 100
+        type: integer
+      totalPages:
+        example: 5
+        type: integer
+    type: object
+  FeeOverview:
+    description: Fee overview with totals and monthly breakdown
+    properties:
+      amountOpen:
+        example: 6250
+        type: number
+      amountOverdue:
+        example: 1250
+        type: number
+      amountPaid:
+        example: 37500
+        type: number
+      byMonth:
+        items:
+          $ref: '#/definitions/MonthOverview'
+        type: array
+      totalOpen:
+        example: 25
+        type: integer
+      totalOverdue:
+        example: 5
+        type: integer
+      totalPaid:
+        example: 150
+        type: integer
+    type: object
+  GenerateFeeRequest:
+    description: Request body for generating fees
+    properties:
+      month:
+        description: nil for yearly fees (membership)
+        example: 3
+        type: integer
+      year:
+        example: 2024
+        type: integer
+    type: object
+  GenerateFeeResponse:
+    description: Result of fee generation
+    properties:
+      created:
+        example: 50
+        type: integer
+      skipped:
+        example: 5
+        type: integer
+      suggestions:
+        items:
+          $ref: '#/definitions/domain.MatchSuggestion'
+        type: array
+    type: object
+  Household:
+    description: Household information with relationships
+    properties:
+      annualHouseholdIncome:
+        example: 65000
+        type: number
+      children: {}
+      createdAt:
+        example: "2023-01-15T10:00:00Z"
+        type: string
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      incomeStatus:
+        enum:
+        - PROVIDED
+        - MAX_ACCEPTED
+        - PENDING
+        - NOT_REQUIRED
+        - HISTORIC
+        - FOSTER_FAMILY
+        example: PROVIDED
+        type: string
+      name:
+        example: Familie Müller
+        type: string
+      parents: {}
+      updatedAt:
+        example: "2023-01-15T10:00:00Z"
+        type: string
+    type: object
+  HouseholdLinkChildRequest:
+    description: Request body for linking a child to a household
+    properties:
+      childId:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+    type: object
+  HouseholdLinkParentRequest:
+    description: Request body for linking a parent to a household
+    properties:
+      parentId:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+    type: object
+  HouseholdList:
+    description: Paginated list of households
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/Household'
+        type: array
+      page:
+        example: 1
+        type: integer
+      perPage:
+        example: 20
+        type: integer
+      total:
+        example: 25
+        type: integer
+      totalPages:
+        example: 2
+        type: integer
+    type: object
+  IBANEntry:
+    description: IBAN entry
+    properties:
+      accountHolder:
+        example: Max Mustermann
+        type: string
+      addedAt:
+        example: "2024-03-15T10:30:00Z"
+        type: string
+      childId:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      childName:
+        example: Max Mustermann
+        type: string
+      iban:
+        example: DE89370400440532013000
+        type: string
+      reason:
+        example: Fremdkonto
+        type: string
+    type: object
+  IBANList:
+    description: Paginated IBAN list
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/IBANEntry'
+        type: array
+      page:
+        example: 1
+        type: integer
+      perPage:
+        example: 20
+        type: integer
+      total:
+        example: 5
+        type: integer
+      totalPages:
+        example: 1
+        type: integer
+    type: object
+  ImportHistoryEntry:
+    description: Import history entry
+    properties:
+      duplicates:
+        example: 5
+        type: integer
+      fileName:
+        example: kontoauszug_2024_03.csv
+        type: string
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      importedAt:
+        example: "2024-03-15T10:30:00Z"
+        type: string
+      importedBy:
+        example: admin@knirpsenstadt.de
+        type: string
+      matched:
+        example: 120
+        type: integer
+      totalRows:
+        example: 150
+        type: integer
+      unmatched:
+        example: 25
+        type: integer
+    type: object
+  ImportHistoryList:
+    description: Paginated import history
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/ImportHistoryEntry'
+        type: array
+      page:
+        example: 1
+        type: integer
+      perPage:
+        example: 20
+        type: integer
+      total:
+        example: 10
+        type: integer
+      totalPages:
+        example: 1
+        type: integer
+    type: object
+  LinkIBANRequest:
+    description: Request body for linking an IBAN to a child
+    properties:
+      childId:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+    type: object
+  LinkParentRequest:
+    description: Request body for linking a parent to a child
+    properties:
+      isPrimary:
+        example: true
+        type: boolean
+      parentId:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+    type: object
+  LoginRequest:
+    properties:
+      email:
+        example: admin@example.com
+        type: string
+      password:
+        example: password123
+        type: string
+    type: object
+  LoginResponse:
+    properties:
+      accessToken:
+        example: eyJhbGciOiJIUzI1NiIs...
+        type: string
+      expiresAt:
+        example: "2024-01-27T15:04:05Z"
+        type: string
+      refreshToken:
+        example: eyJhbGciOiJIUzI1NiIs...
+        type: string
+      user:
+        $ref: '#/definitions/User'
+    type: object
+  ManualMatchRequest:
+    description: Request body for manual matching
+    properties:
+      expectationId:
+        example: 550e8400-e29b-41d4-a716-446655440001
+        type: string
+      transactionId:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+    type: object
+  ManualMatchResponse:
+    description: Manual match result
+    properties:
+      expectationId:
+        example: 550e8400-e29b-41d4-a716-446655440001
+        type: string
+      matchedAt:
+        example: "2024-03-15T10:30:00Z"
+        type: string
+      matchedBy:
+        example: admin@knirpsenstadt.de
+        type: string
+      transactionId:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+    type: object
+  MatchConfirmation:
+    description: Single match confirmation
+    properties:
+      expectationId:
+        example: 550e8400-e29b-41d4-a716-446655440001
+        type: string
+      transactionId:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+    type: object
+  MatchSuggestion:
+    description: Suggested match for manual review
+    properties:
+      confidence:
+        example: 0.85
+        type: number
+      expectationId:
+        example: 550e8400-e29b-41d4-a716-446655440001
+        type: string
+      expectationInfo:
+        example: Betreuungsgebühr März 2024 - Max Mustermann
+        type: string
+      reason:
+        example: Name match
+        type: string
+      transactionId:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      transactionInfo:
+        example: SEPA-Überweisung Max Mustermann
+        type: string
+    type: object
+  Member:
+    description: Member information
+    properties:
+      city:
+        example: Berlin
+        type: string
+      email:
+        example: hans.mueller@example.com
+        type: string
+      firstName:
+        example: Hans
+        type: string
+      householdId:
+        example: 550e8400-e29b-41d4-a716-446655440001
+        type: string
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      isActive:
+        example: true
+        type: boolean
+      lastName:
+        example: Müller
+        type: string
+      memberNumber:
+        example: M-2024-001
+        type: string
+      membershipEnd:
+        example: "2024-12-31"
+        type: string
+      membershipStart:
+        example: "2024-01-01"
+        type: string
+      phone:
+        example: +49 123 456789
+        type: string
+      postalCode:
+        example: "12345"
+        type: string
+      street:
+        example: Hauptstraße
+        type: string
+      streetNo:
+        example: "42"
+        type: string
+    type: object
+  MemberList:
+    description: Paginated list of members
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/Member'
+        type: array
+      page:
+        example: 1
+        type: integer
+      perPage:
+        example: 20
+        type: integer
+      total:
+        example: 42
+        type: integer
+      totalPages:
+        example: 3
+        type: integer
+    type: object
+  MessageResponse:
+    properties:
+      message:
+        example: Operation completed successfully
+        type: string
+    type: object
+  MonthOverview:
+    description: Monthly fee summary
+    properties:
+      month:
+        example: 3
+        type: integer
+      openAmount:
+        example: 2500
+        type: number
+      openCount:
+        example: 10
+        type: integer
+      paidAmount:
+        example: 10000
+        type: number
+      paidCount:
+        example: 40
+        type: integer
+      year:
+        example: 2024
+        type: integer
+    type: object
+  Parent:
+    description: Parent information with relationships
+    properties:
+      annualHouseholdIncome:
+        example: 65000
+        type: number
+      birthDate:
+        example: "1985-03-15"
+        type: string
+      children: {}
+      city:
+        example: Potsdam
+        type: string
+      createdAt:
+        example: "2023-01-15T10:00:00Z"
+        type: string
+      email:
+        example: thomas.mueller@example.com
+        type: string
+      firstName:
+        example: Thomas
+        type: string
+      household: {}
+      householdId:
+        example: 550e8400-e29b-41d4-a716-446655440001
+        type: string
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      incomeStatus:
+        enum:
+        - PROVIDED
+        - MAX_ACCEPTED
+        - PENDING
+        - NOT_REQUIRED
+        - HISTORIC
+        - FOSTER_FAMILY
+        example: PROVIDED
+        type: string
+      lastName:
+        example: Müller
+        type: string
+      member: {}
+      memberId:
+        example: 550e8400-e29b-41d4-a716-446655440002
+        type: string
+      phone:
+        example: +49 331 12345
+        type: string
+      postalCode:
+        example: "14467"
+        type: string
+      street:
+        example: Hauptstraße
+        type: string
+      streetNo:
+        example: "42"
+        type: string
+      updatedAt:
+        example: "2023-01-15T10:00:00Z"
+        type: string
+    type: object
+  ParentList:
+    description: Paginated list of parents
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/Parent'
+        type: array
+      page:
+        example: 1
+        type: integer
+      perPage:
+        example: 20
+        type: integer
+      total:
+        example: 50
+        type: integer
+      totalPages:
+        example: 3
+        type: integer
+    type: object
+  ParentSummary:
+    description: Parent information (summary)
+    properties:
+      email:
+        example: thomas.mueller@example.com
+        type: string
+      firstName:
+        example: Thomas
+        type: string
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440002
+        type: string
+      lastName:
+        example: Müller
+        type: string
+      phone:
+        example: +49 331 12345
+        type: string
+    type: object
+  ParseCSVResponse:
+    description: CSV parsing result with headers and sample data
+    properties:
+      fileContent:
+        description: Base64 encoded for re-use in preview
+        type: string
+      headers:
+        example:
+        - Vorname
+        - Nachname
+        - Geburtsdatum
+        - Gruppe
+        items:
+          type: string
+        type: array
+      sampleRows:
+        items:
+          items:
+            type: string
+          type: array
+        type: array
+      separator:
+        example: ;
+        type: string
+      totalRows:
+        example: 50
+        type: integer
+    type: object
+  PasswordResetConfirmRequest:
+    properties:
+      newPassword:
+        example: newPassword456
+        minLength: 8
+        type: string
+      token:
+        example: abc123def456
+        type: string
+    type: object
+  PasswordResetRequest:
+    properties:
+      email:
+        example: user@example.com
+        type: string
+    type: object
+  RefreshTokenRequest:
+    properties:
+      refreshToken:
+        example: eyJhbGciOiJIUzI1NiIs...
+        type: string
+    type: object
+  RescanResponse:
+    description: Rescan result with new match suggestions
+    properties:
+      newMatches:
+        example: 5
+        type: integer
+      suggestions:
+        items:
+          $ref: '#/definitions/MatchSuggestion'
+        type: array
+    type: object
+  Transaction:
+    description: Bank transaction from CSV import
+    properties:
+      accountHolder:
+        example: Max Mustermann
+        type: string
+      amount:
+        example: 250
+        type: number
+      bic:
+        example: COBADEFFXXX
+        type: string
+      bookingDate:
+        example: "2024-03-15"
+        type: string
+      currency:
+        example: EUR
+        type: string
+      iban:
+        example: DE89370400440532013000
+        type: string
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      matchedFeeId:
+        example: 550e8400-e29b-41d4-a716-446655440001
+        type: string
+      purpose:
+        example: Betreuungsgebühr März 2024
+        type: string
+      status:
+        enum:
+        - matched
+        - unmatched
+        - dismissed
+        example: unmatched
+        type: string
+      transactionType:
+        example: SEPA-Überweisung
+        type: string
+      valueDate:
+        example: "2024-03-15"
+        type: string
+    type: object
+  TransactionList:
+    description: Paginated list of transactions
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/Transaction'
+        type: array
+      page:
+        example: 1
+        type: integer
+      perPage:
+        example: 20
+        type: integer
+      total:
+        example: 25
+        type: integer
+      totalPages:
+        example: 2
+        type: integer
+    type: object
+  UpdateChildRequest:
+    description: Request body for updating a child
+    properties:
+      birthDate:
+        example: "2020-06-15"
+        type: string
+      careHours:
+        example: 40
+        type: integer
+      city:
+        example: Potsdam
+        type: string
+      entryDate:
+        example: "2023-08-01"
+        type: string
+      exitDate:
+        example: "2026-07-31"
+        type: string
+      firstName:
+        example: Emma
+        type: string
+      isActive:
+        example: true
+        type: boolean
+      lastName:
+        example: Müller
+        type: string
+      legalHours:
+        example: 35
+        type: integer
+      legalHoursUntil:
+        example: "2024-12-31"
+        type: string
+      postalCode:
+        example: "14467"
+        type: string
+      street:
+        example: Hauptstraße
+        type: string
+      streetNo:
+        example: "42"
+        type: string
+    type: object
+  UpdateFeeRequest:
+    description: Request body for updating a fee
+    properties:
+      amount:
+        example: 275.5
+        type: number
+    type: object
+  UpdateHouseholdRequest:
+    description: Request body for updating a household
+    properties:
+      annualHouseholdIncome:
+        example: 65000
+        type: number
+      incomeStatus:
+        enum:
+        - PROVIDED
+        - MAX_ACCEPTED
+        - PENDING
+        - NOT_REQUIRED
+        - HISTORIC
+        - FOSTER_FAMILY
+        example: PROVIDED
+        type: string
+      name:
+        example: Familie Müller
+        type: string
+    type: object
+  UpdateMemberRequest:
+    description: Request body for updating a member
+    properties:
+      city:
+        example: Berlin
+        type: string
+      email:
+        example: hans.mueller@example.com
+        type: string
+      firstName:
+        example: Hans
+        type: string
+      householdId:
+        example: 550e8400-e29b-41d4-a716-446655440001
+        type: string
+      isActive:
+        example: true
+        type: boolean
+      lastName:
+        example: Müller
+        type: string
+      membershipEnd:
+        example: "2024-12-31"
+        type: string
+      membershipStart:
+        example: "2024-01-01"
+        type: string
+      phone:
+        example: +49 123 456789
+        type: string
+      postalCode:
+        example: "12345"
+        type: string
+      street:
+        example: Hauptstraße
+        type: string
+      streetNo:
+        example: "42"
+        type: string
+    type: object
+  UpdateParentRequest:
+    description: Request body for updating a parent
+    properties:
+      annualHouseholdIncome:
+        example: 65000
+        type: number
+      birthDate:
+        example: "1985-03-15"
+        type: string
+      city:
+        example: Potsdam
+        type: string
+      email:
+        example: thomas.mueller@example.com
+        type: string
+      firstName:
+        example: Thomas
+        type: string
+      incomeStatus:
+        enum:
+        - PROVIDED
+        - MAX_ACCEPTED
+        - PENDING
+        - NOT_REQUIRED
+        - HISTORIC
+        - FOSTER_FAMILY
+        example: PROVIDED
+        type: string
+      lastName:
+        example: Müller
+        type: string
+      phone:
+        example: +49 331 12345
+        type: string
+      postalCode:
+        example: "14467"
+        type: string
+      street:
+        example: Hauptstraße
+        type: string
+      streetNo:
+        example: "42"
+        type: string
+    type: object
+  UploadResponse:
+    description: CSV upload and processing result
+    properties:
+      duplicates:
+        example: 5
+        type: integer
+      fileName:
+        example: kontoauszug_2024_03.csv
+        type: string
+      importId:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      matched:
+        example: 120
+        type: integer
+      suggestions:
+        items:
+          $ref: '#/definitions/MatchSuggestion'
+        type: array
+      totalRows:
+        example: 150
+        type: integer
+      unmatched:
+        example: 25
+        type: integer
+    type: object
+  User:
+    properties:
+      email:
+        example: user@example.com
+        type: string
+      firstName:
+        example: Max
+        type: string
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      lastName:
+        example: Mustermann
+        type: string
+      role:
+        enum:
+        - ADMIN
+        - USER
+        example: ADMIN
+        type: string
+    type: object
+  WarningEntry:
+    description: Import warning for review
+    properties:
+      createdAt:
+        example: "2024-03-15T10:30:00Z"
+        type: string
+      dismissNote:
+        example: Eltern haben Restbetrag bar bezahlt
+        type: string
+      dismissedAt:
+        example: "2024-03-16T14:00:00Z"
+        type: string
+      dismissedBy:
+        example: admin@knirpsenstadt.de
+        type: string
+      feeId:
+        example: 550e8400-e29b-41d4-a716-446655440002
+        type: string
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      message:
+        example: Betrag weicht um 5.00€ ab
+        type: string
+      transactionId:
+        example: 550e8400-e29b-41d4-a716-446655440001
+        type: string
+      type:
+        enum:
+        - amount_mismatch
+        - duplicate_payment
+        - unknown_iban
+        example: amount_mismatch
+        type: string
+    type: object
+  WarningList:
+    description: Paginated warnings list
+    properties:
+      data:
+        items:
+          $ref: '#/definitions/WarningEntry'
+        type: array
+      page:
+        example: 1
+        type: integer
+      perPage:
+        example: 20
+        type: integer
+      total:
+        example: 3
+        type: integer
+      totalPages:
+        example: 1
+        type: integer
+    type: object
   domain.BankTransaction:
     properties:
       amount:
@@ -313,1389 +1696,6 @@ definitions:
       transactionId:
         type: string
     type: object
-  handler.ChangePasswordRequest:
-    properties:
-      currentPassword:
-        example: oldPassword123
-        type: string
-      newPassword:
-        example: newPassword456
-        minLength: 8
-        type: string
-    type: object
-  handler.ChildListResponse:
-    description: Paginated list of children
-    properties:
-      data:
-        items:
-          $ref: '#/definitions/handler.ChildResponse'
-        type: array
-      page:
-        example: 1
-        type: integer
-      perPage:
-        example: 20
-        type: integer
-      total:
-        example: 100
-        type: integer
-      totalPages:
-        example: 5
-        type: integer
-    type: object
-  handler.ChildPreviewRow:
-    description: Single child preview with validation status
-    properties:
-      action:
-        enum:
-        - create
-        - update
-        - skip
-        example: create
-        type: string
-      birthDate:
-        example: "2020-05-15"
-        type: string
-      errors:
-        example:
-        - Ungültiges Geburtsdatum
-        items:
-          type: string
-        type: array
-      existingId:
-        example: 550e8400-e29b-41d4-a716-446655440000
-        type: string
-      firstName:
-        example: Max
-        type: string
-      groupName:
-        example: Schmetterlinge
-        type: string
-      isValid:
-        example: true
-        type: boolean
-      lastName:
-        example: Mustermann
-        type: string
-      parentEmail:
-        example: hans@example.com
-        type: string
-      parentName:
-        example: Hans Mustermann
-        type: string
-      rowNumber:
-        example: 1
-        type: integer
-      warnings:
-        example:
-        - Gruppe nicht gefunden
-        items:
-          type: string
-        type: array
-    type: object
-  handler.ChildResponse:
-    description: Child information
-    properties:
-      birthDate:
-        example: "2020-06-15"
-        type: string
-      careHours:
-        example: 40
-        type: integer
-      city:
-        example: Potsdam
-        type: string
-      createdAt:
-        example: "2023-08-01T10:00:00Z"
-        type: string
-      entryDate:
-        example: "2023-08-01"
-        type: string
-      exitDate:
-        example: "2026-07-31"
-        type: string
-      firstName:
-        example: Emma
-        type: string
-      household: {}
-      householdId:
-        example: 550e8400-e29b-41d4-a716-446655440001
-        type: string
-      id:
-        example: 550e8400-e29b-41d4-a716-446655440000
-        type: string
-      isActive:
-        example: true
-        type: boolean
-      lastName:
-        example: Müller
-        type: string
-      legalHours:
-        example: 35
-        type: integer
-      legalHoursUntil:
-        example: "2024-12-31"
-        type: string
-      memberNumber:
-        example: K-2024-001
-        type: string
-      parents:
-        items:
-          $ref: '#/definitions/handler.ParentResponse'
-        type: array
-      postalCode:
-        example: "14467"
-        type: string
-      street:
-        example: Hauptstraße
-        type: string
-      streetNo:
-        example: "42"
-        type: string
-      updatedAt:
-        example: "2023-08-01T10:00:00Z"
-        type: string
-    type: object
-  handler.ChildcareFeeResult:
-    description: Childcare fee calculation result
-    properties:
-      careHours:
-        example: 40
-        type: integer
-      childAgeType:
-        example: krippe
-        type: string
-      discountApplied:
-        example: 0
-        type: number
-      highestRate:
-        example: false
-        type: boolean
-      incomeLevel:
-        example: level3
-        type: string
-      monthlyFee:
-        example: 250
-        type: number
-      siblingsCount:
-        example: 1
-        type: integer
-    type: object
-  handler.ConfirmMatchRequest:
-    description: Request body for confirming transaction-fee matches
-    properties:
-      matches:
-        items:
-          $ref: '#/definitions/handler.MatchConfirmation'
-        type: array
-    type: object
-  handler.ConfirmMatchResponse:
-    description: Result of confirming matches
-    properties:
-      confirmed:
-        example: 5
-        type: integer
-      failed:
-        example: 0
-        type: integer
-    type: object
-  handler.CreateChildRequest:
-    description: Request body for creating a new child
-    properties:
-      birthDate:
-        example: "2020-06-15"
-        type: string
-      careHours:
-        example: 40
-        type: integer
-      city:
-        example: Potsdam
-        type: string
-      entryDate:
-        example: "2023-08-01"
-        type: string
-      exitDate:
-        example: "2026-07-31"
-        type: string
-      firstName:
-        example: Emma
-        type: string
-      lastName:
-        example: Müller
-        type: string
-      legalHours:
-        example: 35
-        type: integer
-      legalHoursUntil:
-        example: "2024-12-31"
-        type: string
-      memberNumber:
-        example: K-2024-001
-        type: string
-      postalCode:
-        example: "14467"
-        type: string
-      street:
-        example: Hauptstraße
-        type: string
-      streetNo:
-        example: "42"
-        type: string
-    type: object
-  handler.CreateHouseholdRequest:
-    description: Request body for creating a new household
-    properties:
-      annualHouseholdIncome:
-        example: 65000
-        type: number
-      incomeStatus:
-        enum:
-        - PROVIDED
-        - MAX_ACCEPTED
-        - PENDING
-        - NOT_REQUIRED
-        - HISTORIC
-        - FOSTER_FAMILY
-        example: PROVIDED
-        type: string
-      name:
-        example: Familie Müller
-        type: string
-    type: object
-  handler.CreateMemberFromParentRequest:
-    description: Request body for creating a member from a parent
-    properties:
-      membershipStart:
-        example: "2023-08-01"
-        type: string
-    type: object
-  handler.CreateMemberRequest:
-    description: Request body for creating a new member
-    properties:
-      city:
-        example: Berlin
-        type: string
-      email:
-        example: hans.mueller@example.com
-        type: string
-      firstName:
-        example: Hans
-        type: string
-      householdId:
-        example: 550e8400-e29b-41d4-a716-446655440001
-        type: string
-      lastName:
-        example: Müller
-        type: string
-      memberNumber:
-        example: M-2024-001
-        type: string
-      membershipEnd:
-        example: "2024-12-31"
-        type: string
-      membershipStart:
-        example: "2024-01-01"
-        type: string
-      phone:
-        example: +49 123 456789
-        type: string
-      postalCode:
-        example: "12345"
-        type: string
-      street:
-        example: Hauptstraße
-        type: string
-      streetNo:
-        example: "42"
-        type: string
-    type: object
-  handler.CreateParentRequest:
-    description: Request body for creating a new parent
-    properties:
-      annualHouseholdIncome:
-        example: 65000
-        type: number
-      birthDate:
-        example: "1985-03-15"
-        type: string
-      city:
-        example: Potsdam
-        type: string
-      email:
-        example: thomas.mueller@example.com
-        type: string
-      firstName:
-        example: Thomas
-        type: string
-      incomeStatus:
-        enum:
-        - PROVIDED
-        - MAX_ACCEPTED
-        - PENDING
-        - NOT_REQUIRED
-        - HISTORIC
-        - FOSTER_FAMILY
-        example: PROVIDED
-        type: string
-      lastName:
-        example: Müller
-        type: string
-      phone:
-        example: +49 331 12345
-        type: string
-      postalCode:
-        example: "14467"
-        type: string
-      street:
-        example: Hauptstraße
-        type: string
-      streetNo:
-        example: "42"
-        type: string
-    type: object
-  handler.DismissTransactionResponse:
-    description: Dismiss transaction result
-    properties:
-      addedToBlacklist:
-        example: true
-        type: boolean
-      iban:
-        example: DE89370400440532013000
-        type: string
-      transactionId:
-        example: 550e8400-e29b-41d4-a716-446655440000
-        type: string
-    type: object
-  handler.DismissWarningRequest:
-    description: Request body for dismissing a warning
-    properties:
-      note:
-        example: Differenz wurde bar ausgeglichen
-        type: string
-    type: object
-  handler.ExecuteImportResponse:
-    description: Import execution result
-    properties:
-      created:
-        example: 30
-        type: integer
-      errors:
-        items:
-          type: string
-        type: array
-      skipped:
-        example: 5
-        type: integer
-      updated:
-        example: 15
-        type: integer
-    type: object
-  handler.FeeListResponse:
-    description: Paginated list of fees
-    properties:
-      data:
-        items:
-          $ref: '#/definitions/handler.FeeResponse'
-        type: array
-      page:
-        example: 1
-        type: integer
-      perPage:
-        example: 20
-        type: integer
-      total:
-        example: 100
-        type: integer
-      totalPages:
-        example: 5
-        type: integer
-    type: object
-  handler.FeeResponse:
-    description: Fee information
-    properties:
-      amount:
-        example: 250
-        type: number
-      childId:
-        example: 550e8400-e29b-41d4-a716-446655440001
-        type: string
-      childName:
-        example: Max Mustermann
-        type: string
-      description:
-        example: Betreuungsgebühr März 2024
-        type: string
-      dueDate:
-        example: "2024-03-15"
-        type: string
-      id:
-        example: 550e8400-e29b-41d4-a716-446655440000
-        type: string
-      month:
-        example: 3
-        type: integer
-      paidAt:
-        example: "2024-03-10"
-        type: string
-      parentFeeId:
-        example: 550e8400-e29b-41d4-a716-446655440002
-        type: string
-      status:
-        enum:
-        - open
-        - paid
-        - overdue
-        example: open
-        type: string
-      type:
-        enum:
-        - childcare
-        - food
-        - membership
-        - reminder
-        example: childcare
-        type: string
-      year:
-        example: 2024
-        type: integer
-    type: object
-  handler.GenerateFeeRequest:
-    description: Request body for generating fees
-    properties:
-      month:
-        description: nil for yearly fees (membership)
-        example: 3
-        type: integer
-      year:
-        example: 2024
-        type: integer
-    type: object
-  handler.GenerateFeeResponse:
-    description: Result of fee generation
-    properties:
-      created:
-        example: 50
-        type: integer
-      skipped:
-        example: 5
-        type: integer
-      suggestions:
-        items:
-          $ref: '#/definitions/domain.MatchSuggestion'
-        type: array
-    type: object
-  handler.HouseholdLinkChildRequest:
-    description: Request body for linking a child to a household
-    properties:
-      childId:
-        example: 550e8400-e29b-41d4-a716-446655440000
-        type: string
-    type: object
-  handler.HouseholdLinkParentRequest:
-    description: Request body for linking a parent to a household
-    properties:
-      parentId:
-        example: 550e8400-e29b-41d4-a716-446655440000
-        type: string
-    type: object
-  handler.HouseholdListResponse:
-    description: Paginated list of households
-    properties:
-      data:
-        items:
-          $ref: '#/definitions/handler.HouseholdResponse'
-        type: array
-      page:
-        example: 1
-        type: integer
-      perPage:
-        example: 20
-        type: integer
-      total:
-        example: 25
-        type: integer
-      totalPages:
-        example: 2
-        type: integer
-    type: object
-  handler.HouseholdResponse:
-    description: Household information with relationships
-    properties:
-      annualHouseholdIncome:
-        example: 65000
-        type: number
-      children: {}
-      createdAt:
-        example: "2023-01-15T10:00:00Z"
-        type: string
-      id:
-        example: 550e8400-e29b-41d4-a716-446655440000
-        type: string
-      incomeStatus:
-        enum:
-        - PROVIDED
-        - MAX_ACCEPTED
-        - PENDING
-        - NOT_REQUIRED
-        - HISTORIC
-        - FOSTER_FAMILY
-        example: PROVIDED
-        type: string
-      name:
-        example: Familie Müller
-        type: string
-      parents: {}
-      updatedAt:
-        example: "2023-01-15T10:00:00Z"
-        type: string
-    type: object
-  handler.IBANEntry:
-    description: IBAN entry
-    properties:
-      accountHolder:
-        example: Max Mustermann
-        type: string
-      addedAt:
-        example: "2024-03-15T10:30:00Z"
-        type: string
-      childId:
-        example: 550e8400-e29b-41d4-a716-446655440000
-        type: string
-      childName:
-        example: Max Mustermann
-        type: string
-      iban:
-        example: DE89370400440532013000
-        type: string
-      reason:
-        example: Fremdkonto
-        type: string
-    type: object
-  handler.IBANListResponse:
-    description: Paginated IBAN list
-    properties:
-      data:
-        items:
-          $ref: '#/definitions/handler.IBANEntry'
-        type: array
-      page:
-        example: 1
-        type: integer
-      perPage:
-        example: 20
-        type: integer
-      total:
-        example: 5
-        type: integer
-      totalPages:
-        example: 1
-        type: integer
-    type: object
-  handler.ImportHistoryEntry:
-    description: Import history entry
-    properties:
-      duplicates:
-        example: 5
-        type: integer
-      fileName:
-        example: kontoauszug_2024_03.csv
-        type: string
-      id:
-        example: 550e8400-e29b-41d4-a716-446655440000
-        type: string
-      importedAt:
-        example: "2024-03-15T10:30:00Z"
-        type: string
-      importedBy:
-        example: admin@knirpsenstadt.de
-        type: string
-      matched:
-        example: 120
-        type: integer
-      totalRows:
-        example: 150
-        type: integer
-      unmatched:
-        example: 25
-        type: integer
-    type: object
-  handler.ImportHistoryListResponse:
-    description: Paginated import history
-    properties:
-      data:
-        items:
-          $ref: '#/definitions/handler.ImportHistoryEntry'
-        type: array
-      page:
-        example: 1
-        type: integer
-      perPage:
-        example: 20
-        type: integer
-      total:
-        example: 10
-        type: integer
-      totalPages:
-        example: 1
-        type: integer
-    type: object
-  handler.LinkIBANRequest:
-    description: Request body for linking an IBAN to a child
-    properties:
-      childId:
-        example: 550e8400-e29b-41d4-a716-446655440000
-        type: string
-    type: object
-  handler.LinkParentRequest:
-    description: Request body for linking a parent to a child
-    properties:
-      isPrimary:
-        example: true
-        type: boolean
-      parentId:
-        example: 550e8400-e29b-41d4-a716-446655440000
-        type: string
-    type: object
-  handler.LoginRequest:
-    properties:
-      email:
-        example: admin@example.com
-        type: string
-      password:
-        example: password123
-        type: string
-    type: object
-  handler.LoginResponse:
-    properties:
-      accessToken:
-        example: eyJhbGciOiJIUzI1NiIs...
-        type: string
-      expiresAt:
-        example: "2024-01-27T15:04:05Z"
-        type: string
-      refreshToken:
-        example: eyJhbGciOiJIUzI1NiIs...
-        type: string
-      user:
-        $ref: '#/definitions/handler.UserResponse'
-    type: object
-  handler.ManualMatchRequest:
-    description: Request body for manual matching
-    properties:
-      expectationId:
-        example: 550e8400-e29b-41d4-a716-446655440001
-        type: string
-      transactionId:
-        example: 550e8400-e29b-41d4-a716-446655440000
-        type: string
-    type: object
-  handler.ManualMatchResponse:
-    description: Manual match result
-    properties:
-      expectationId:
-        example: 550e8400-e29b-41d4-a716-446655440001
-        type: string
-      matchedAt:
-        example: "2024-03-15T10:30:00Z"
-        type: string
-      matchedBy:
-        example: admin@knirpsenstadt.de
-        type: string
-      transactionId:
-        example: 550e8400-e29b-41d4-a716-446655440000
-        type: string
-    type: object
-  handler.MatchConfirmation:
-    description: Single match confirmation
-    properties:
-      expectationId:
-        example: 550e8400-e29b-41d4-a716-446655440001
-        type: string
-      transactionId:
-        example: 550e8400-e29b-41d4-a716-446655440000
-        type: string
-    type: object
-  handler.MatchSuggestion:
-    description: Suggested match for manual review
-    properties:
-      confidence:
-        example: 0.85
-        type: number
-      expectationId:
-        example: 550e8400-e29b-41d4-a716-446655440001
-        type: string
-      expectationInfo:
-        example: Betreuungsgebühr März 2024 - Max Mustermann
-        type: string
-      reason:
-        example: Name match
-        type: string
-      transactionId:
-        example: 550e8400-e29b-41d4-a716-446655440000
-        type: string
-      transactionInfo:
-        example: SEPA-Überweisung Max Mustermann
-        type: string
-    type: object
-  handler.MemberListResponse:
-    description: Paginated list of members
-    properties:
-      data:
-        items:
-          $ref: '#/definitions/handler.MemberResponse'
-        type: array
-      page:
-        example: 1
-        type: integer
-      perPage:
-        example: 20
-        type: integer
-      total:
-        example: 42
-        type: integer
-      totalPages:
-        example: 3
-        type: integer
-    type: object
-  handler.MemberResponse:
-    description: Member information
-    properties:
-      city:
-        example: Berlin
-        type: string
-      email:
-        example: hans.mueller@example.com
-        type: string
-      firstName:
-        example: Hans
-        type: string
-      householdId:
-        example: 550e8400-e29b-41d4-a716-446655440001
-        type: string
-      id:
-        example: 550e8400-e29b-41d4-a716-446655440000
-        type: string
-      isActive:
-        example: true
-        type: boolean
-      lastName:
-        example: Müller
-        type: string
-      memberNumber:
-        example: M-2024-001
-        type: string
-      membershipEnd:
-        example: "2024-12-31"
-        type: string
-      membershipStart:
-        example: "2024-01-01"
-        type: string
-      phone:
-        example: +49 123 456789
-        type: string
-      postalCode:
-        example: "12345"
-        type: string
-      street:
-        example: Hauptstraße
-        type: string
-      streetNo:
-        example: "42"
-        type: string
-    type: object
-  handler.MessageResponse:
-    properties:
-      message:
-        example: Operation completed successfully
-        type: string
-    type: object
-  handler.MonthOverview:
-    description: Monthly fee summary
-    properties:
-      month:
-        example: 3
-        type: integer
-      openAmount:
-        example: 2500
-        type: number
-      openCount:
-        example: 10
-        type: integer
-      paidAmount:
-        example: 10000
-        type: number
-      paidCount:
-        example: 40
-        type: integer
-      year:
-        example: 2024
-        type: integer
-    type: object
-  handler.OverviewResponse:
-    description: Fee overview with totals and monthly breakdown
-    properties:
-      amountOpen:
-        example: 6250
-        type: number
-      amountOverdue:
-        example: 1250
-        type: number
-      amountPaid:
-        example: 37500
-        type: number
-      byMonth:
-        items:
-          $ref: '#/definitions/handler.MonthOverview'
-        type: array
-      totalOpen:
-        example: 25
-        type: integer
-      totalOverdue:
-        example: 5
-        type: integer
-      totalPaid:
-        example: 150
-        type: integer
-    type: object
-  handler.ParentDetailResponse:
-    description: Parent information with relationships
-    properties:
-      annualHouseholdIncome:
-        example: 65000
-        type: number
-      birthDate:
-        example: "1985-03-15"
-        type: string
-      children: {}
-      city:
-        example: Potsdam
-        type: string
-      createdAt:
-        example: "2023-01-15T10:00:00Z"
-        type: string
-      email:
-        example: thomas.mueller@example.com
-        type: string
-      firstName:
-        example: Thomas
-        type: string
-      household: {}
-      householdId:
-        example: 550e8400-e29b-41d4-a716-446655440001
-        type: string
-      id:
-        example: 550e8400-e29b-41d4-a716-446655440000
-        type: string
-      incomeStatus:
-        enum:
-        - PROVIDED
-        - MAX_ACCEPTED
-        - PENDING
-        - NOT_REQUIRED
-        - HISTORIC
-        - FOSTER_FAMILY
-        example: PROVIDED
-        type: string
-      lastName:
-        example: Müller
-        type: string
-      member: {}
-      memberId:
-        example: 550e8400-e29b-41d4-a716-446655440002
-        type: string
-      phone:
-        example: +49 331 12345
-        type: string
-      postalCode:
-        example: "14467"
-        type: string
-      street:
-        example: Hauptstraße
-        type: string
-      streetNo:
-        example: "42"
-        type: string
-      updatedAt:
-        example: "2023-01-15T10:00:00Z"
-        type: string
-    type: object
-  handler.ParentListResponse:
-    description: Paginated list of parents
-    properties:
-      data:
-        items:
-          $ref: '#/definitions/handler.ParentDetailResponse'
-        type: array
-      page:
-        example: 1
-        type: integer
-      perPage:
-        example: 20
-        type: integer
-      total:
-        example: 50
-        type: integer
-      totalPages:
-        example: 3
-        type: integer
-    type: object
-  handler.ParentResponse:
-    description: Parent information (summary)
-    properties:
-      email:
-        example: thomas.mueller@example.com
-        type: string
-      firstName:
-        example: Thomas
-        type: string
-      id:
-        example: 550e8400-e29b-41d4-a716-446655440002
-        type: string
-      lastName:
-        example: Müller
-        type: string
-      phone:
-        example: +49 331 12345
-        type: string
-    type: object
-  handler.ParseCSVResponse:
-    description: CSV parsing result with headers and sample data
-    properties:
-      fileContent:
-        description: Base64 encoded for re-use in preview
-        type: string
-      headers:
-        example:
-        - Vorname
-        - Nachname
-        - Geburtsdatum
-        - Gruppe
-        items:
-          type: string
-        type: array
-      sampleRows:
-        items:
-          items:
-            type: string
-          type: array
-        type: array
-      separator:
-        example: ;
-        type: string
-      totalRows:
-        example: 50
-        type: integer
-    type: object
-  handler.PasswordResetConfirmRequest:
-    properties:
-      newPassword:
-        example: newPassword456
-        minLength: 8
-        type: string
-      token:
-        example: abc123def456
-        type: string
-    type: object
-  handler.PasswordResetRequest:
-    properties:
-      email:
-        example: user@example.com
-        type: string
-    type: object
-  handler.PreviewRequest:
-    description: Request body for generating import preview
-    properties:
-      fileContent:
-        description: Base64 encoded CSV content
-        type: string
-      mapping:
-        additionalProperties:
-          type: integer
-        description: systemField -> csvColumnIndex
-        type: object
-      separator:
-        example: ;
-        type: string
-      skipHeader:
-        example: true
-        type: boolean
-    type: object
-  handler.PreviewResponse:
-    description: Import preview with validation results
-    properties:
-      hasErrors:
-        example: false
-        type: boolean
-      rows:
-        items:
-          $ref: '#/definitions/handler.ChildPreviewRow'
-        type: array
-      toCreate:
-        example: 30
-        type: integer
-      toSkip:
-        example: 5
-        type: integer
-      toUpdate:
-        example: 15
-        type: integer
-      totalRows:
-        example: 50
-        type: integer
-      validRows:
-        example: 45
-        type: integer
-    type: object
-  handler.RefreshRequest:
-    properties:
-      refreshToken:
-        example: eyJhbGciOiJIUzI1NiIs...
-        type: string
-    type: object
-  handler.RescanResponse:
-    description: Rescan result with new match suggestions
-    properties:
-      newMatches:
-        example: 5
-        type: integer
-      suggestions:
-        items:
-          $ref: '#/definitions/handler.MatchSuggestion'
-        type: array
-    type: object
-  handler.TransactionListResponse:
-    description: Paginated list of transactions
-    properties:
-      data:
-        items:
-          $ref: '#/definitions/handler.TransactionResponse'
-        type: array
-      page:
-        example: 1
-        type: integer
-      perPage:
-        example: 20
-        type: integer
-      total:
-        example: 25
-        type: integer
-      totalPages:
-        example: 2
-        type: integer
-    type: object
-  handler.TransactionResponse:
-    description: Bank transaction from CSV import
-    properties:
-      accountHolder:
-        example: Max Mustermann
-        type: string
-      amount:
-        example: 250
-        type: number
-      bic:
-        example: COBADEFFXXX
-        type: string
-      bookingDate:
-        example: "2024-03-15"
-        type: string
-      currency:
-        example: EUR
-        type: string
-      iban:
-        example: DE89370400440532013000
-        type: string
-      id:
-        example: 550e8400-e29b-41d4-a716-446655440000
-        type: string
-      matchedFeeId:
-        example: 550e8400-e29b-41d4-a716-446655440001
-        type: string
-      purpose:
-        example: Betreuungsgebühr März 2024
-        type: string
-      status:
-        enum:
-        - matched
-        - unmatched
-        - dismissed
-        example: unmatched
-        type: string
-      transactionType:
-        example: SEPA-Überweisung
-        type: string
-      valueDate:
-        example: "2024-03-15"
-        type: string
-    type: object
-  handler.UpdateChildRequest:
-    description: Request body for updating a child
-    properties:
-      birthDate:
-        example: "2020-06-15"
-        type: string
-      careHours:
-        example: 40
-        type: integer
-      city:
-        example: Potsdam
-        type: string
-      entryDate:
-        example: "2023-08-01"
-        type: string
-      exitDate:
-        example: "2026-07-31"
-        type: string
-      firstName:
-        example: Emma
-        type: string
-      isActive:
-        example: true
-        type: boolean
-      lastName:
-        example: Müller
-        type: string
-      legalHours:
-        example: 35
-        type: integer
-      legalHoursUntil:
-        example: "2024-12-31"
-        type: string
-      postalCode:
-        example: "14467"
-        type: string
-      street:
-        example: Hauptstraße
-        type: string
-      streetNo:
-        example: "42"
-        type: string
-    type: object
-  handler.UpdateFeeRequest:
-    description: Request body for updating a fee
-    properties:
-      amount:
-        example: 275.5
-        type: number
-    type: object
-  handler.UpdateHouseholdRequest:
-    description: Request body for updating a household
-    properties:
-      annualHouseholdIncome:
-        example: 65000
-        type: number
-      incomeStatus:
-        enum:
-        - PROVIDED
-        - MAX_ACCEPTED
-        - PENDING
-        - NOT_REQUIRED
-        - HISTORIC
-        - FOSTER_FAMILY
-        example: PROVIDED
-        type: string
-      name:
-        example: Familie Müller
-        type: string
-    type: object
-  handler.UpdateMemberRequest:
-    description: Request body for updating a member
-    properties:
-      city:
-        example: Berlin
-        type: string
-      email:
-        example: hans.mueller@example.com
-        type: string
-      firstName:
-        example: Hans
-        type: string
-      householdId:
-        example: 550e8400-e29b-41d4-a716-446655440001
-        type: string
-      isActive:
-        example: true
-        type: boolean
-      lastName:
-        example: Müller
-        type: string
-      membershipEnd:
-        example: "2024-12-31"
-        type: string
-      membershipStart:
-        example: "2024-01-01"
-        type: string
-      phone:
-        example: +49 123 456789
-        type: string
-      postalCode:
-        example: "12345"
-        type: string
-      street:
-        example: Hauptstraße
-        type: string
-      streetNo:
-        example: "42"
-        type: string
-    type: object
-  handler.UpdateParentRequest:
-    description: Request body for updating a parent
-    properties:
-      annualHouseholdIncome:
-        example: 65000
-        type: number
-      birthDate:
-        example: "1985-03-15"
-        type: string
-      city:
-        example: Potsdam
-        type: string
-      email:
-        example: thomas.mueller@example.com
-        type: string
-      firstName:
-        example: Thomas
-        type: string
-      incomeStatus:
-        enum:
-        - PROVIDED
-        - MAX_ACCEPTED
-        - PENDING
-        - NOT_REQUIRED
-        - HISTORIC
-        - FOSTER_FAMILY
-        example: PROVIDED
-        type: string
-      lastName:
-        example: Müller
-        type: string
-      phone:
-        example: +49 331 12345
-        type: string
-      postalCode:
-        example: "14467"
-        type: string
-      street:
-        example: Hauptstraße
-        type: string
-      streetNo:
-        example: "42"
-        type: string
-    type: object
-  handler.UploadResponse:
-    description: CSV upload and processing result
-    properties:
-      duplicates:
-        example: 5
-        type: integer
-      fileName:
-        example: kontoauszug_2024_03.csv
-        type: string
-      importId:
-        example: 550e8400-e29b-41d4-a716-446655440000
-        type: string
-      matched:
-        example: 120
-        type: integer
-      suggestions:
-        items:
-          $ref: '#/definitions/handler.MatchSuggestion'
-        type: array
-      totalRows:
-        example: 150
-        type: integer
-      unmatched:
-        example: 25
-        type: integer
-    type: object
-  handler.UserResponse:
-    properties:
-      email:
-        example: user@example.com
-        type: string
-      firstName:
-        example: Max
-        type: string
-      id:
-        example: 550e8400-e29b-41d4-a716-446655440000
-        type: string
-      lastName:
-        example: Mustermann
-        type: string
-      role:
-        enum:
-        - ADMIN
-        - USER
-        example: ADMIN
-        type: string
-    type: object
-  handler.WarningEntry:
-    description: Import warning for review
-    properties:
-      createdAt:
-        example: "2024-03-15T10:30:00Z"
-        type: string
-      dismissNote:
-        example: Eltern haben Restbetrag bar bezahlt
-        type: string
-      dismissedAt:
-        example: "2024-03-16T14:00:00Z"
-        type: string
-      dismissedBy:
-        example: admin@knirpsenstadt.de
-        type: string
-      feeId:
-        example: 550e8400-e29b-41d4-a716-446655440002
-        type: string
-      id:
-        example: 550e8400-e29b-41d4-a716-446655440000
-        type: string
-      message:
-        example: Betrag weicht um 5.00€ ab
-        type: string
-      transactionId:
-        example: 550e8400-e29b-41d4-a716-446655440001
-        type: string
-      type:
-        enum:
-        - amount_mismatch
-        - duplicate_payment
-        - unknown_iban
-        example: amount_mismatch
-        type: string
-    type: object
-  handler.WarningListResponse:
-    description: Paginated warnings list
-    properties:
-      data:
-        items:
-          $ref: '#/definitions/handler.WarningEntry'
-        type: array
-      page:
-        example: 1
-        type: integer
-      perPage:
-        example: 20
-        type: integer
-      total:
-        example: 3
-        type: integer
-      totalPages:
-        example: 1
-        type: integer
-    type: object
-  response.ErrorBody:
-    description: Standard error response format
-    properties:
-      code:
-        example: 400
-        type: integer
-      error:
-        example: Bad Request
-        type: string
-      message:
-        example: invalid request body
-        type: string
-    type: object
   service.ChildPreview:
     properties:
       birthDate:
@@ -1818,26 +1818,26 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/handler.ChangePasswordRequest'
+          $ref: '#/definitions/ChangePasswordRequest'
       produces:
       - application/json
       responses:
         "200":
           description: Password changed successfully
           schema:
-            $ref: '#/definitions/handler.MessageResponse'
+            $ref: '#/definitions/MessageResponse'
         "400":
           description: Invalid request or current password incorrect
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "404":
           description: User not found
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: Change own password
@@ -1854,22 +1854,22 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/handler.LoginRequest'
+          $ref: '#/definitions/LoginRequest'
       produces:
       - application/json
       responses:
         "200":
           description: Successful login
           schema:
-            $ref: '#/definitions/handler.LoginResponse'
+            $ref: '#/definitions/LoginResponse'
         "400":
           description: Invalid request body
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "401":
           description: Invalid credentials
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       summary: User login
       tags:
       - Auth
@@ -1883,7 +1883,7 @@ paths:
         in: body
         name: request
         schema:
-          $ref: '#/definitions/handler.RefreshRequest'
+          $ref: '#/definitions/RefreshTokenRequest'
       produces:
       - application/json
       responses:
@@ -1903,15 +1903,15 @@ paths:
         "200":
           description: Current user info
           schema:
-            $ref: '#/definitions/handler.UserResponse'
+            $ref: '#/definitions/User'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "404":
           description: User not found
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: Get current user info
@@ -1928,22 +1928,22 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/handler.PasswordResetConfirmRequest'
+          $ref: '#/definitions/PasswordResetConfirmRequest'
       produces:
       - application/json
       responses:
         "200":
           description: Password reset successful
           schema:
-            $ref: '#/definitions/handler.MessageResponse'
+            $ref: '#/definitions/MessageResponse'
         "400":
           description: Invalid or expired token
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       summary: Confirm password reset with token
       tags:
       - Auth
@@ -1959,18 +1959,18 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/handler.PasswordResetRequest'
+          $ref: '#/definitions/PasswordResetRequest'
       produces:
       - application/json
       responses:
         "200":
           description: Reset email sent (if email exists)
           schema:
-            $ref: '#/definitions/handler.MessageResponse'
+            $ref: '#/definitions/MessageResponse'
         "400":
           description: Invalid request body
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       summary: Request password reset email
       tags:
       - Auth
@@ -1986,22 +1986,22 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/handler.RefreshRequest'
+          $ref: '#/definitions/RefreshTokenRequest'
       produces:
       - application/json
       responses:
         "200":
           description: Token refreshed
           schema:
-            $ref: '#/definitions/handler.LoginResponse'
+            $ref: '#/definitions/LoginResponse'
         "400":
           description: Invalid request body
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "401":
           description: Invalid or revoked refresh token
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       summary: Refresh access token
       tags:
       - Auth
@@ -2051,15 +2051,15 @@ paths:
         "200":
           description: Calculated fee
           schema:
-            $ref: '#/definitions/handler.ChildcareFeeResult'
+            $ref: '#/definitions/ChildcareFeeResult'
         "400":
           description: Invalid income value
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: Calculate childcare fee
@@ -2111,15 +2111,15 @@ paths:
         "200":
           description: Paginated list of children
           schema:
-            $ref: '#/definitions/handler.ChildListResponse'
+            $ref: '#/definitions/ChildList'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: List all children
@@ -2135,30 +2135,30 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/handler.CreateChildRequest'
+          $ref: '#/definitions/CreateChildRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Child created successfully
           schema:
-            $ref: '#/definitions/handler.ChildResponse'
+            $ref: '#/definitions/Child'
         "400":
           description: Invalid request body
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "409":
           description: Member number already exists
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: Create new child
@@ -2179,19 +2179,19 @@ paths:
         "400":
           description: Invalid child ID
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "404":
           description: Child not found
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: Delete child
@@ -2211,23 +2211,23 @@ paths:
         "200":
           description: Child found
           schema:
-            $ref: '#/definitions/handler.ChildResponse'
+            $ref: '#/definitions/Child'
         "400":
           description: Invalid child ID
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "404":
           description: Child not found
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: Get child by ID
@@ -2248,30 +2248,30 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/handler.UpdateChildRequest'
+          $ref: '#/definitions/UpdateChildRequest'
       produces:
       - application/json
       responses:
         "200":
           description: Child updated
           schema:
-            $ref: '#/definitions/handler.ChildResponse'
+            $ref: '#/definitions/Child'
         "400":
           description: Invalid request
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "404":
           description: Child not found
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: Update child
@@ -2293,26 +2293,26 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/handler.LinkParentRequest'
+          $ref: '#/definitions/LinkParentRequest'
       responses:
         "204":
           description: Parent linked
         "400":
           description: Invalid request
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "404":
           description: Child or parent not found
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: Link parent to child
@@ -2338,15 +2338,15 @@ paths:
         "400":
           description: Invalid ID
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: Unlink parent from child
@@ -2370,19 +2370,19 @@ paths:
         "200":
           description: Import result
           schema:
-            $ref: '#/definitions/handler.ExecuteImportResponse'
+            $ref: '#/definitions/ChildImportExecuteResponse'
         "400":
           description: Invalid request or no data to import
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: Execute child import
@@ -2406,19 +2406,19 @@ paths:
         "200":
           description: Parsed CSV structure
           schema:
-            $ref: '#/definitions/handler.ParseCSVResponse'
+            $ref: '#/definitions/ParseCSVResponse'
         "400":
           description: File too large or invalid format
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: Parse a CSV file for child import
@@ -2435,26 +2435,26 @@ paths:
         name: preview
         required: true
         schema:
-          $ref: '#/definitions/handler.PreviewRequest'
+          $ref: '#/definitions/ChildImportPreviewRequest'
       produces:
       - application/json
       responses:
         "200":
           description: Import preview
           schema:
-            $ref: '#/definitions/handler.PreviewResponse'
+            $ref: '#/definitions/ChildImportPreviewResponse'
         "400":
           description: Invalid request or missing mapping
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: Preview child import with mapping
@@ -2509,15 +2509,15 @@ paths:
         "200":
           description: Paginated list of fees
           schema:
-            $ref: '#/definitions/handler.FeeListResponse'
+            $ref: '#/definitions/FeeList'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: List all fees
@@ -2538,19 +2538,19 @@ paths:
         "400":
           description: Invalid fee ID
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "404":
           description: Fee not found
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: Delete a fee
@@ -2570,23 +2570,23 @@ paths:
         "200":
           description: Fee details
           schema:
-            $ref: '#/definitions/handler.FeeResponse'
+            $ref: '#/definitions/Fee'
         "400":
           description: Invalid fee ID
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "404":
           description: Fee not found
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: Get a fee by ID
@@ -2607,30 +2607,30 @@ paths:
         name: fee
         required: true
         schema:
-          $ref: '#/definitions/handler.UpdateFeeRequest'
+          $ref: '#/definitions/UpdateFeeRequest'
       produces:
       - application/json
       responses:
         "200":
           description: Updated fee
           schema:
-            $ref: '#/definitions/handler.FeeResponse'
+            $ref: '#/definitions/Fee'
         "400":
           description: Invalid request
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "404":
           description: Fee not found
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: Update a fee
@@ -2651,23 +2651,23 @@ paths:
         "201":
           description: Created reminder fee
           schema:
-            $ref: '#/definitions/handler.FeeResponse'
+            $ref: '#/definitions/Fee'
         "400":
           description: Invalid fee ID or fee is already paid
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "404":
           description: Fee not found
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: Create a reminder fee
@@ -2685,26 +2685,26 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/handler.GenerateFeeRequest'
+          $ref: '#/definitions/GenerateFeeRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Generation result with optional match suggestions
           schema:
-            $ref: '#/definitions/handler.GenerateFeeResponse'
+            $ref: '#/definitions/GenerateFeeResponse'
         "400":
           description: Invalid request (year/month out of range)
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: Generate fees for a period
@@ -2724,15 +2724,15 @@ paths:
         "200":
           description: Fee overview
           schema:
-            $ref: '#/definitions/handler.OverviewResponse'
+            $ref: '#/definitions/FeeOverview'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: Get fee overview
@@ -2772,15 +2772,15 @@ paths:
         "200":
           description: Paginated list of households
           schema:
-            $ref: '#/definitions/handler.HouseholdListResponse'
+            $ref: '#/definitions/HouseholdList'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: List all households
@@ -2796,26 +2796,26 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/handler.CreateHouseholdRequest'
+          $ref: '#/definitions/CreateHouseholdRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Household created successfully
           schema:
-            $ref: '#/definitions/handler.HouseholdResponse'
+            $ref: '#/definitions/Household'
         "400":
           description: Invalid request body
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: Create new household
@@ -2836,19 +2836,19 @@ paths:
         "400":
           description: Invalid household ID
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "404":
           description: Household not found
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: Delete household
@@ -2868,23 +2868,23 @@ paths:
         "200":
           description: Household found
           schema:
-            $ref: '#/definitions/handler.HouseholdResponse'
+            $ref: '#/definitions/Household'
         "400":
           description: Invalid household ID
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "404":
           description: Household not found
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: Get household by ID
@@ -2905,30 +2905,30 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/handler.UpdateHouseholdRequest'
+          $ref: '#/definitions/UpdateHouseholdRequest'
       produces:
       - application/json
       responses:
         "200":
           description: Household updated
           schema:
-            $ref: '#/definitions/handler.HouseholdResponse'
+            $ref: '#/definitions/Household'
         "400":
           description: Invalid request
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "404":
           description: Household not found
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: Update household
@@ -2950,26 +2950,26 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/handler.HouseholdLinkChildRequest'
+          $ref: '#/definitions/HouseholdLinkChildRequest'
       responses:
         "204":
           description: Child linked
         "400":
           description: Invalid request
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "404":
           description: Household or child not found
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: Link child to household
@@ -2991,26 +2991,26 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/handler.HouseholdLinkParentRequest'
+          $ref: '#/definitions/HouseholdLinkParentRequest'
       responses:
         "204":
           description: Parent linked
         "400":
           description: Invalid request
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "404":
           description: Household or parent not found
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: Link parent to household
@@ -3036,15 +3036,15 @@ paths:
         "200":
           description: Blacklisted IBANs
           schema:
-            $ref: '#/definitions/handler.IBANListResponse'
+            $ref: '#/definitions/IBANList'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: Get blacklisted IBANs
@@ -3066,19 +3066,19 @@ paths:
         "400":
           description: Invalid IBAN or IBAN is not blacklisted
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "404":
           description: IBAN not found in blacklist
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: Remove IBAN from blacklist
@@ -3095,26 +3095,26 @@ paths:
         name: matches
         required: true
         schema:
-          $ref: '#/definitions/handler.ConfirmMatchRequest'
+          $ref: '#/definitions/ConfirmMatchRequest'
       produces:
       - application/json
       responses:
         "200":
           description: Confirmation result
           schema:
-            $ref: '#/definitions/handler.ConfirmMatchResponse'
+            $ref: '#/definitions/ConfirmMatchResponse'
         "400":
           description: Invalid request body or IDs
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: Confirm suggested matches
@@ -3140,15 +3140,15 @@ paths:
         "200":
           description: Import history
           schema:
-            $ref: '#/definitions/handler.ImportHistoryListResponse'
+            $ref: '#/definitions/ImportHistoryList'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: Get import history
@@ -3165,30 +3165,30 @@ paths:
         name: match
         required: true
         schema:
-          $ref: '#/definitions/handler.ManualMatchRequest'
+          $ref: '#/definitions/ManualMatchRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Match created
           schema:
-            $ref: '#/definitions/handler.ManualMatchResponse'
+            $ref: '#/definitions/ManualMatchResponse'
         "400":
           description: Invalid transaction or expectation ID
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "404":
           description: Transaction or expectation not found
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: Manually match a transaction
@@ -3204,15 +3204,15 @@ paths:
         "200":
           description: Rescan result
           schema:
-            $ref: '#/definitions/handler.RescanResponse'
+            $ref: '#/definitions/RescanResponse'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: Rescan unmatched transactions
@@ -3239,15 +3239,15 @@ paths:
         "200":
           description: Unmatched transactions
           schema:
-            $ref: '#/definitions/handler.TransactionListResponse'
+            $ref: '#/definitions/TransactionList'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: Get unmatched transactions
@@ -3269,23 +3269,23 @@ paths:
         "200":
           description: Dismissal result
           schema:
-            $ref: '#/definitions/handler.DismissTransactionResponse'
+            $ref: '#/definitions/DismissTransactionResponse'
         "400":
           description: Invalid transaction ID or transaction has no IBAN
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "404":
           description: Transaction not found
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: Dismiss a transaction
@@ -3312,15 +3312,15 @@ paths:
         "200":
           description: Trusted IBANs
           schema:
-            $ref: '#/definitions/handler.IBANListResponse'
+            $ref: '#/definitions/IBANList'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: Get trusted IBANs
@@ -3341,19 +3341,19 @@ paths:
         "400":
           description: Invalid IBAN
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "404":
           description: IBAN not found
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: Unlink IBAN from child
@@ -3374,26 +3374,26 @@ paths:
         name: link
         required: true
         schema:
-          $ref: '#/definitions/handler.LinkIBANRequest'
+          $ref: '#/definitions/LinkIBANRequest'
       responses:
         "204":
           description: IBAN linked to child
         "400":
           description: Invalid IBAN, child ID, or IBAN is not trusted
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "404":
           description: IBAN or child not found
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: Link IBAN to child
@@ -3417,19 +3417,19 @@ paths:
         "200":
           description: Upload and processing result
           schema:
-            $ref: '#/definitions/handler.UploadResponse'
+            $ref: '#/definitions/UploadResponse'
         "400":
           description: No file provided or invalid format
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: Upload a CSV file for import
@@ -3455,15 +3455,15 @@ paths:
         "200":
           description: Import warnings
           schema:
-            $ref: '#/definitions/handler.WarningListResponse'
+            $ref: '#/definitions/WarningList'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: Get import warnings
@@ -3485,26 +3485,26 @@ paths:
         name: dismiss
         required: true
         schema:
-          $ref: '#/definitions/handler.DismissWarningRequest'
+          $ref: '#/definitions/DismissWarningRequest'
       responses:
         "204":
           description: Warning dismissed
         "400":
           description: Invalid warning ID
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "404":
           description: Warning not found
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: Dismiss a warning
@@ -3555,15 +3555,15 @@ paths:
         "200":
           description: Paginated list of members
           schema:
-            $ref: '#/definitions/handler.MemberListResponse'
+            $ref: '#/definitions/MemberList'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: List all members
@@ -3579,26 +3579,26 @@ paths:
         name: member
         required: true
         schema:
-          $ref: '#/definitions/handler.CreateMemberRequest'
+          $ref: '#/definitions/CreateMemberRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Created member
           schema:
-            $ref: '#/definitions/handler.MemberResponse'
+            $ref: '#/definitions/Member'
         "400":
           description: Invalid request body
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: Create a new member
@@ -3619,19 +3619,19 @@ paths:
         "400":
           description: Invalid member ID
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "404":
           description: Member not found
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: Delete a member
@@ -3651,23 +3651,23 @@ paths:
         "200":
           description: Member details
           schema:
-            $ref: '#/definitions/handler.MemberResponse'
+            $ref: '#/definitions/Member'
         "400":
           description: Invalid member ID
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "404":
           description: Member not found
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: Get a member by ID
@@ -3688,30 +3688,30 @@ paths:
         name: member
         required: true
         schema:
-          $ref: '#/definitions/handler.UpdateMemberRequest'
+          $ref: '#/definitions/UpdateMemberRequest'
       produces:
       - application/json
       responses:
         "200":
           description: Updated member
           schema:
-            $ref: '#/definitions/handler.MemberResponse'
+            $ref: '#/definitions/Member'
         "400":
           description: Invalid request
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "404":
           description: Member not found
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: Update a member
@@ -3751,15 +3751,15 @@ paths:
         "200":
           description: Paginated list of parents
           schema:
-            $ref: '#/definitions/handler.ParentListResponse'
+            $ref: '#/definitions/ParentList'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: List all parents
@@ -3775,26 +3775,26 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/handler.CreateParentRequest'
+          $ref: '#/definitions/CreateParentRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Parent created successfully
           schema:
-            $ref: '#/definitions/handler.ParentDetailResponse'
+            $ref: '#/definitions/Parent'
         "400":
           description: Invalid request body
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: Create new parent
@@ -3815,19 +3815,19 @@ paths:
         "400":
           description: Invalid parent ID
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "404":
           description: Parent not found
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: Delete parent
@@ -3847,23 +3847,23 @@ paths:
         "200":
           description: Parent found
           schema:
-            $ref: '#/definitions/handler.ParentDetailResponse'
+            $ref: '#/definitions/Parent'
         "400":
           description: Invalid parent ID
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "404":
           description: Parent not found
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: Get parent by ID
@@ -3884,30 +3884,30 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/handler.UpdateParentRequest'
+          $ref: '#/definitions/UpdateParentRequest'
       produces:
       - application/json
       responses:
         "200":
           description: Parent updated
           schema:
-            $ref: '#/definitions/handler.ParentDetailResponse'
+            $ref: '#/definitions/Parent'
         "400":
           description: Invalid request
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "404":
           description: Parent not found
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: Update parent
@@ -3929,23 +3929,23 @@ paths:
         "200":
           description: Member unlinked
           schema:
-            $ref: '#/definitions/handler.ParentDetailResponse'
+            $ref: '#/definitions/Parent'
         "400":
           description: Invalid parent ID
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "404":
           description: Parent not found or not linked to a member
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: Unlink member from parent
@@ -3965,34 +3965,34 @@ paths:
         in: body
         name: request
         schema:
-          $ref: '#/definitions/handler.CreateMemberFromParentRequest'
+          $ref: '#/definitions/CreateMemberFromParentRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Member created and linked
           schema:
-            $ref: '#/definitions/handler.ParentDetailResponse'
+            $ref: '#/definitions/Parent'
         "400":
           description: Invalid request
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "401":
           description: Not authenticated
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "404":
           description: Parent not found
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "409":
           description: Parent already linked to a member
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/response.ErrorBody'
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: Create member for parent

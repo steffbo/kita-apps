@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { Plus, Loader2, Pencil, KeyRound, UserX, UserCheck, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-vue-next';
+import { Plus, Loader2, Pencil, KeyRound, UserX, UserCheck, Trash2, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-vue-next';
 import { 
   useEmployees, 
   useGroups,
   useCreateEmployee, 
   useUpdateEmployee, 
   useDeleteEmployee,
+  usePermanentDeleteEmployee,
   useAdminResetPassword,
   useAuth,
   type Employee,
@@ -83,6 +84,7 @@ const employees = computed(() => {
 const createEmployee = useCreateEmployee();
 const updateEmployee = useUpdateEmployee();
 const deleteEmployee = useDeleteEmployee();
+const permanentDeleteEmployee = usePermanentDeleteEmployee();
 const resetPassword = useAdminResetPassword();
 
 // Dialog state
@@ -90,6 +92,7 @@ const dialogOpen = ref(false);
 const selectedEmployee = ref<Employee | null>(null);
 const showDeleteConfirm = ref(false);
 const employeeToDelete = ref<Employee | null>(null);
+const deleteMode = ref<'deactivate' | 'permanent'>('deactivate');
 
 function openCreateDialog() {
   selectedEmployee.value = null;
@@ -129,6 +132,13 @@ async function handleSave(data: CreateEmployeeRequest | UpdateEmployeeRequest) {
 
 function confirmDelete(employee: Employee) {
   employeeToDelete.value = employee;
+  deleteMode.value = 'deactivate';
+  showDeleteConfirm.value = true;
+}
+
+function confirmPermanentDelete(employee: Employee) {
+  employeeToDelete.value = employee;
+  deleteMode.value = 'permanent';
   showDeleteConfirm.value = true;
 }
 
@@ -136,7 +146,11 @@ async function handleDelete() {
   if (!employeeToDelete.value?.id) return;
   
   try {
-    await deleteEmployee.mutateAsync(employeeToDelete.value.id);
+    if (deleteMode.value === 'permanent') {
+      await permanentDeleteEmployee.mutateAsync(employeeToDelete.value.id);
+    } else {
+      await deleteEmployee.mutateAsync(employeeToDelete.value.id);
+    }
     showDeleteConfirm.value = false;
     employeeToDelete.value = null;
   } catch (err) {
@@ -388,6 +402,15 @@ async function handleActivate(employee: Employee) {
                 >
                   <UserCheck class="w-4 h-4" />
                 </Button>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  class="h-8 w-8 text-destructive hover:text-destructive"
+                  title="Endgültig löschen"
+                  @click.stop="confirmPermanentDelete(employee)"
+                >
+                  <Trash2 class="w-4 h-4" />
+                </Button>
               </div>
             </td>
           </tr>
@@ -414,24 +437,52 @@ async function handleActivate(employee: Employee) {
           @click="showDeleteConfirm = false"
         />
         <div class="relative bg-white rounded-lg p-6 max-w-md w-full mx-4 shadow-xl">
-          <h3 class="text-lg font-semibold mb-2">Mitarbeiter deaktivieren?</h3>
-          <p class="text-stone-600 mb-4">
-            Möchtest du <strong>{{ employeeToDelete?.firstName }} {{ employeeToDelete?.lastName }}</strong> wirklich deaktivieren?
-            Der Mitarbeiter kann später wieder aktiviert werden.
-          </p>
-          <div class="flex justify-end gap-3">
-            <Button variant="outline" @click="showDeleteConfirm = false">
-              Abbrechen
-            </Button>
-            <Button 
-              variant="destructive" 
-              @click="handleDelete"
-              :disabled="deleteEmployee.isPending.value"
-            >
-              <Loader2 v-if="deleteEmployee.isPending.value" class="w-4 h-4 mr-2 animate-spin" />
-              Deaktivieren
-            </Button>
-          </div>
+          <!-- Deactivate mode -->
+          <template v-if="deleteMode === 'deactivate'">
+            <h3 class="text-lg font-semibold mb-2">Mitarbeiter deaktivieren?</h3>
+            <p class="text-stone-600 mb-4">
+              Möchtest du <strong>{{ employeeToDelete?.firstName }} {{ employeeToDelete?.lastName }}</strong> wirklich deaktivieren?
+              Der Mitarbeiter kann später wieder aktiviert werden.
+            </p>
+            <div class="flex justify-end gap-3">
+              <Button variant="outline" @click="showDeleteConfirm = false">
+                Abbrechen
+              </Button>
+              <Button 
+                variant="destructive" 
+                @click="handleDelete"
+                :disabled="deleteEmployee.isPending.value"
+              >
+                <Loader2 v-if="deleteEmployee.isPending.value" class="w-4 h-4 mr-2 animate-spin" />
+                Deaktivieren
+              </Button>
+            </div>
+          </template>
+          
+          <!-- Permanent delete mode -->
+          <template v-else>
+            <h3 class="text-lg font-semibold mb-2 text-destructive">Mitarbeiter endgültig löschen?</h3>
+            <p class="text-stone-600 mb-2">
+              Möchtest du <strong>{{ employeeToDelete?.firstName }} {{ employeeToDelete?.lastName }}</strong> wirklich <strong class="text-destructive">endgültig löschen</strong>?
+            </p>
+            <p class="text-sm text-destructive bg-destructive/10 rounded p-3 mb-4">
+              <strong>Achtung:</strong> Diese Aktion kann nicht rückgängig gemacht werden! 
+              Alle zugehörigen Daten (Dienstpläne, Zeiterfassungen, Gruppenzuordnungen) werden ebenfalls gelöscht.
+            </p>
+            <div class="flex justify-end gap-3">
+              <Button variant="outline" @click="showDeleteConfirm = false">
+                Abbrechen
+              </Button>
+              <Button 
+                variant="destructive" 
+                @click="handleDelete"
+                :disabled="permanentDeleteEmployee.isPending.value"
+              >
+                <Loader2 v-if="permanentDeleteEmployee.isPending.value" class="w-4 h-4 mr-2 animate-spin" />
+                Endgültig löschen
+              </Button>
+            </div>
+          </template>
         </div>
       </div>
     </Teleport>

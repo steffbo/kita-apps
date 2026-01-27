@@ -292,6 +292,61 @@ Nach den Migrationen existiert ein Admin-Benutzer:
 
 > ⚠️ Das Passwort in Production ändern!
 
+## OpenAPI Spec Generation
+
+The backend uses [swag](https://github.com/swaggo/swag) to generate OpenAPI specs from Go annotations. The generated specs are used by the frontend to generate TypeScript types.
+
+### Prerequisites
+
+```bash
+# Install swag CLI (once)
+go install github.com/swaggo/swag/cmd/swag@latest
+
+# Install swagger2openapi for OpenAPI 3 conversion
+npm install -g swagger2openapi
+```
+
+### Generate OpenAPI Spec
+
+```bash
+cd backend-fees
+
+# Generate Swagger 2.0 spec
+~/go/bin/swag init -g cmd/server/main.go -o ../openapi/fees --outputTypes yaml
+
+# Convert to OpenAPI 3.0
+npx swagger2openapi ../openapi/fees/swagger.yaml -o ../openapi/fees/openapi3.yaml
+```
+
+Generated files:
+- `openapi/fees/swagger.yaml` - Swagger 2.0 spec
+- `openapi/fees/openapi3.yaml` - OpenAPI 3.0 spec (used by frontend)
+
+### Adding `@name` Annotations
+
+To get clean schema names in the generated spec (without `handler.` prefixes), add `@name` annotations to type definitions:
+
+```go
+// MyResponse represents the response
+// @Description API response description
+type MyResponse struct {
+    Field string `json:"field"`
+} //@name MyResponse
+```
+
+The `@name` annotation must be on the same line as the closing brace.
+
+### Frontend Type Generation
+
+After regenerating the OpenAPI spec, update the frontend types:
+
+```bash
+cd frontend/apps/beitraege
+bun run generate:api
+```
+
+This generates `src/api/schema.d.ts` with TypeScript types from the OpenAPI spec.
+
 ## Development
 
 ### Build

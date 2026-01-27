@@ -33,7 +33,7 @@ type HouseholdResponse struct {
 	UpdatedAt             string      `json:"updatedAt" example:"2023-01-15T10:00:00Z"`
 	Parents               interface{} `json:"parents,omitempty"`
 	Children              interface{} `json:"children,omitempty"`
-}
+} //@name Household
 
 // HouseholdListResponse represents a paginated list of households.
 // @Description Paginated list of households
@@ -43,7 +43,7 @@ type HouseholdListResponse struct {
 	Page       int                 `json:"page" example:"1"`
 	PerPage    int                 `json:"perPage" example:"20"`
 	TotalPages int                 `json:"totalPages" example:"2"`
-}
+} //@name HouseholdList
 
 // CreateHouseholdRequest represents a request to create a household.
 // @Description Request body for creating a new household
@@ -51,7 +51,7 @@ type CreateHouseholdRequest struct {
 	Name                  string   `json:"name" example:"Familie Müller"`
 	AnnualHouseholdIncome *float64 `json:"annualHouseholdIncome,omitempty" example:"65000.00"`
 	IncomeStatus          *string  `json:"incomeStatus,omitempty" example:"PROVIDED" enums:"PROVIDED,MAX_ACCEPTED,PENDING,NOT_REQUIRED,HISTORIC,FOSTER_FAMILY"`
-}
+} //@name CreateHouseholdRequest
 
 // List returns all households with pagination
 // @Summary List all households
@@ -165,7 +165,7 @@ type UpdateHouseholdRequest struct {
 	Name                  *string  `json:"name,omitempty" example:"Familie Müller"`
 	AnnualHouseholdIncome *float64 `json:"annualHouseholdIncome,omitempty" example:"65000.00"`
 	IncomeStatus          *string  `json:"incomeStatus,omitempty" example:"PROVIDED" enums:"PROVIDED,MAX_ACCEPTED,PENDING,NOT_REQUIRED,HISTORIC,FOSTER_FAMILY"`
-}
+} //@name UpdateHouseholdRequest
 
 // Update updates a household
 // @Summary Update household
@@ -252,7 +252,7 @@ func (h *HouseholdHandler) Delete(w http.ResponseWriter, r *http.Request) {
 // @Description Request body for linking a parent to a household
 type HouseholdLinkParentRequest struct {
 	ParentID string `json:"parentId" example:"550e8400-e29b-41d4-a716-446655440000"`
-}
+} //@name HouseholdLinkParentRequest
 
 // LinkParent links a parent to a household
 // @Summary Link parent to household
@@ -303,7 +303,7 @@ func (h *HouseholdHandler) LinkParent(w http.ResponseWriter, r *http.Request) {
 // @Description Request body for linking a child to a household
 type HouseholdLinkChildRequest struct {
 	ChildID string `json:"childId" example:"550e8400-e29b-41d4-a716-446655440000"`
-}
+} //@name HouseholdLinkChildRequest
 
 // LinkChild links a child to a household
 // @Summary Link child to household

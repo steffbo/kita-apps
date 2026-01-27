@@ -136,6 +136,13 @@ func (r *PostgresEmployeeRepository) Deactivate(ctx context.Context, id int64) e
 	return err
 }
 
+// Delete permanently removes an employee from the database.
+// This cascades to related records (tokens, assignments, schedule/time entries).
+func (r *PostgresEmployeeRepository) Delete(ctx context.Context, id int64) error {
+	_, err := r.db.ExecContext(ctx, `DELETE FROM employees WHERE id = $1`, id)
+	return err
+}
+
 // AdjustRemainingVacationDays adjusts remaining vacation days by a delta.
 func (r *PostgresEmployeeRepository) AdjustRemainingVacationDays(ctx context.Context, id int64, delta float64) error {
 	_, err := r.db.ExecContext(ctx, `

@@ -18,7 +18,7 @@ type ErrorBody struct {
 	Error   string `json:"error" example:"Bad Request"`
 	Message string `json:"message" example:"invalid request body"`
 	Code    int    `json:"code" example:"400"`
-}
+} //@name ErrorResponse
 
 // SuccessResponse represents a generic success response.
 type SuccessResponse struct {

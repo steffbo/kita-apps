@@ -25,7 +25,7 @@ type ParseCSVResponse struct {
 	TotalRows   int        `json:"totalRows" example:"50"`
 	Separator   string     `json:"separator" example:";"`
 	FileContent string     `json:"fileContent"` // Base64 encoded for re-use in preview
-}
+} //@name ParseCSVResponse
 
 // ChildPreviewRow represents a preview row for child import
 // @Description Single child preview with validation status
@@ -42,7 +42,7 @@ type ChildPreviewRow struct {
 	Warnings    []string `json:"warnings,omitempty" example:"Gruppe nicht gefunden"`
 	Action      string   `json:"action" example:"create" enums:"create,update,skip"`
 	ExistingID  *string  `json:"existingId,omitempty" example:"550e8400-e29b-41d4-a716-446655440000"`
-}
+} //@name ChildPreviewRow
 
 // PreviewResponse represents the result of previewing a child import
 // @Description Import preview with validation results
@@ -54,7 +54,7 @@ type PreviewResponse struct {
 	ToUpdate  int               `json:"toUpdate" example:"15"`
 	ToSkip    int               `json:"toSkip" example:"5"`
 	HasErrors bool              `json:"hasErrors" example:"false"`
-}
+} //@name ChildImportPreviewResponse
 
 // ExecuteImportResponse represents the result of executing a child import
 // @Description Import execution result
@@ -63,7 +63,7 @@ type ExecuteImportResponse struct {
 	Updated int      `json:"updated" example:"15"`
 	Skipped int      `json:"skipped" example:"5"`
 	Errors  []string `json:"errors,omitempty"`
-}
+} //@name ChildImportExecuteResponse
 
 // NewChildImportHandler creates a new child import handler
 func NewChildImportHandler(importService *service.ChildImportService) *ChildImportHandler {
@@ -115,7 +115,7 @@ type PreviewRequest struct {
 	Separator   string         `json:"separator" example:";"`
 	Mapping     map[string]int `json:"mapping"` // systemField -> csvColumnIndex
 	SkipHeader  bool           `json:"skipHeader" example:"true"`
-}
+} //@name ChildImportPreviewRequest
 
 // Preview handles the preview request with mapping applied
 // POST /children/import/preview

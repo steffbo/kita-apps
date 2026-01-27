@@ -627,8 +627,8 @@ export interface paths {
         };
         post?: never;
         /**
-         * Delete an employee
-         * @description Delete an employee (soft delete - sets inactive)
+         * Deactivate an employee
+         * @description Deactivate an employee (soft delete - sets inactive, can be reactivated)
          */
         delete: {
             parameters: {
@@ -642,7 +642,7 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description Employee deleted */
+                /** @description Employee deactivated */
                 204: {
                     headers: {
                         [name: string]: unknown;
@@ -759,6 +759,79 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/employees/{id}/permanent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Permanently delete an employee
+         * @description Permanently remove an employee and all related data (schedules, time entries, assignments)
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Employee ID */
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Employee permanently deleted */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Invalid employee ID */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Employee not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
         options?: never;
         head?: never;
         patch?: never;

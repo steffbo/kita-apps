@@ -45,7 +45,7 @@ type ChildResponse struct {
 	UpdatedAt       string           `json:"updatedAt" example:"2023-08-01T10:00:00Z"`
 	Parents         []ParentResponse `json:"parents,omitempty"`
 	Household       interface{}      `json:"household,omitempty"`
-}
+} //@name Child
 
 // ChildListResponse represents a paginated list of children.
 // @Description Paginated list of children
@@ -55,7 +55,7 @@ type ChildListResponse struct {
 	Page       int             `json:"page" example:"1"`
 	PerPage    int             `json:"perPage" example:"20"`
 	TotalPages int             `json:"totalPages" example:"5"`
-}
+} //@name ChildList
 
 // ParentResponse represents a parent in API responses (summary).
 // @Description Parent information (summary)
@@ -65,7 +65,7 @@ type ParentResponse struct {
 	LastName  string  `json:"lastName" example:"Müller"`
 	Email     *string `json:"email,omitempty" example:"thomas.mueller@example.com"`
 	Phone     *string `json:"phone,omitempty" example:"+49 331 12345"`
-}
+} //@name ParentSummary
 
 // CreateChildRequest represents a request to create a child.
 // @Description Request body for creating a new child
@@ -83,7 +83,7 @@ type CreateChildRequest struct {
 	LegalHours      *int    `json:"legalHours,omitempty" example:"35"`
 	LegalHoursUntil *string `json:"legalHoursUntil,omitempty" example:"2024-12-31"`
 	CareHours       *int    `json:"careHours,omitempty" example:"40"`
-}
+} //@name CreateChildRequest
 
 // List returns all children with pagination and filtering
 // @Summary List all children
@@ -232,7 +232,7 @@ type UpdateChildRequest struct {
 	LegalHoursUntil *string `json:"legalHoursUntil,omitempty" example:"2024-12-31"`
 	CareHours       *int    `json:"careHours,omitempty" example:"40"`
 	IsActive        *bool   `json:"isActive,omitempty" example:"true"`
-}
+} //@name UpdateChildRequest
 
 // Update updates a child
 // @Summary Update child
@@ -325,7 +325,7 @@ func (h *ChildHandler) Delete(w http.ResponseWriter, r *http.Request) {
 type LinkParentRequest struct {
 	ParentID  string `json:"parentId" example:"550e8400-e29b-41d4-a716-446655440000"`
 	IsPrimary bool   `json:"isPrimary" example:"true"`
-}
+} //@name LinkParentRequest
 
 // LinkParent links a parent to a child
 // @Summary Link parent to child

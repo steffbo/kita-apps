@@ -34,7 +34,7 @@ type MemberResponse struct {
 	MembershipStart string  `json:"membershipStart" example:"2024-01-01"`
 	MembershipEnd   *string `json:"membershipEnd,omitempty" example:"2024-12-31"`
 	IsActive        bool    `json:"isActive" example:"true"`
-}
+} //@name Member
 
 // MemberListResponse represents a paginated list of members
 // @Description Paginated list of members
@@ -44,7 +44,7 @@ type MemberListResponse struct {
 	Page       int              `json:"page" example:"1"`
 	PerPage    int              `json:"perPage" example:"20"`
 	TotalPages int              `json:"totalPages" example:"3"`
-}
+} //@name MemberList
 
 // NewMemberHandler creates a new member handler.
 func NewMemberHandler(memberService *service.MemberService) *MemberHandler {
@@ -66,7 +66,7 @@ type CreateMemberRequest struct {
 	HouseholdID     *string `json:"householdId,omitempty" example:"550e8400-e29b-41d4-a716-446655440001"`
 	MembershipStart string  `json:"membershipStart" example:"2024-01-01"`
 	MembershipEnd   *string `json:"membershipEnd,omitempty" example:"2024-12-31"`
-}
+} //@name CreateMemberRequest
 
 // List handles GET /members
 // @Summary List all members
@@ -227,7 +227,7 @@ type UpdateMemberRequest struct {
 	MembershipStart *string `json:"membershipStart,omitempty" example:"2024-01-01"`
 	MembershipEnd   *string `json:"membershipEnd,omitempty" example:"2024-12-31"`
 	IsActive        *bool   `json:"isActive,omitempty" example:"true"`
-}
+} //@name UpdateMemberRequest
 
 // Update handles PUT /members/{id}
 // @Summary Update a member
