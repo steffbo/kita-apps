@@ -1,0 +1,2239 @@
+basePath: /api
+definitions:
+  AuthResponse:
+    properties:
+      accessToken:
+        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        type: string
+      expiresIn:
+        example: 3600
+        type: integer
+      refreshToken:
+        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        type: string
+      user:
+        $ref: '#/definitions/Employee'
+    type: object
+  ChangePasswordRequest:
+    properties:
+      currentPassword:
+        example: altes-passwort
+        type: string
+      newPassword:
+        example: neues-sicheres-passwort
+        minLength: 8
+        type: string
+    required:
+    - currentPassword
+    - newPassword
+    type: object
+  ClockInRequest:
+    properties:
+      notes:
+        example: Frühdienst übernommen
+        type: string
+    type: object
+  ClockOutRequest:
+    properties:
+      breakMinutes:
+        example: 30
+        minimum: 0
+        type: integer
+      notes:
+        example: Überstunden wegen Krankheitsvertretung
+        type: string
+    type: object
+  ComparisonSummary:
+    properties:
+      daysScheduled:
+        type: integer
+      daysWorked:
+        type: integer
+      totalActualMinutes:
+        type: integer
+      totalDifferenceMinutes:
+        type: integer
+      totalScheduledMinutes:
+        type: integer
+    type: object
+  CreateEmployeeRequest:
+    properties:
+      email:
+        example: max.mustermann@knirpsenstadt.de
+        type: string
+      firstName:
+        example: Max
+        type: string
+      lastName:
+        example: Mustermann
+        type: string
+      primaryGroupId:
+        example: 1
+        type: integer
+      role:
+        enum:
+        - ADMIN
+        - EMPLOYEE
+        example: EMPLOYEE
+        type: string
+      vacationDaysPerYear:
+        example: 30
+        minimum: 0
+        type: integer
+      weeklyHours:
+        example: 40
+        type: number
+    required:
+    - email
+    - firstName
+    - lastName
+    - weeklyHours
+    type: object
+  CreateGroupRequest:
+    properties:
+      color:
+        example: '#FF6B6B'
+        type: string
+      description:
+        example: Gruppe für Kinder 3-4 Jahre
+        type: string
+      name:
+        example: Schmetterlinge
+        type: string
+    required:
+    - name
+    type: object
+  CreateScheduleEntryRequest:
+    properties:
+      breakMinutes:
+        example: 30
+        minimum: 0
+        type: integer
+      date:
+        example: "2024-03-15"
+        type: string
+      employeeId:
+        example: 1
+        type: integer
+      endTime:
+        example: "16:00:00"
+        type: string
+      entryType:
+        enum:
+        - WORK
+        - VACATION
+        - SICK
+        - SPECIAL_LEAVE
+        - TRAINING
+        - EVENT
+        example: WORK
+        type: string
+      groupId:
+        example: 1
+        type: integer
+      notes:
+        example: Frühdienst
+        type: string
+      startTime:
+        example: "08:00:00"
+        type: string
+    required:
+    - date
+    - employeeId
+    type: object
+  CreateSpecialDayRequest:
+    properties:
+      affectsAll:
+        example: true
+        type: boolean
+      date:
+        example: "2024-12-25"
+        type: string
+      dayType:
+        enum:
+        - HOLIDAY
+        - CLOSURE
+        - TEAM_DAY
+        - EVENT
+        example: HOLIDAY
+        type: string
+      endDate:
+        example: "2024-12-26"
+        type: string
+      name:
+        example: Weihnachten
+        type: string
+      notes:
+        example: Gesetzlicher Feiertag
+        type: string
+    required:
+    - date
+    - dayType
+    - name
+    type: object
+  CreateTimeEntryRequest:
+    properties:
+      breakMinutes:
+        example: 30
+        minimum: 0
+        type: integer
+      clockIn:
+        example: "2024-03-15T08:00:00Z"
+        type: string
+      clockOut:
+        example: "2024-03-15T16:30:00Z"
+        type: string
+      date:
+        example: "2024-03-15"
+        type: string
+      editReason:
+        example: Nachträgliche Korrektur
+        type: string
+      employeeId:
+        example: 1
+        type: integer
+      entryType:
+        enum:
+        - WORK
+        - VACATION
+        - SICK
+        - SPECIAL_LEAVE
+        - TRAINING
+        - EVENT
+        example: WORK
+        type: string
+      notes:
+        example: Normale Arbeitszeit
+        type: string
+    required:
+    - clockIn
+    - clockOut
+    - date
+    - employeeId
+    type: object
+  DayComparison:
+    properties:
+      actualMinutes:
+        type: integer
+      date:
+        type: string
+      differenceMinutes:
+        type: integer
+      scheduledMinutes:
+        type: integer
+      status:
+        type: string
+    type: object
+  DaySchedule:
+    properties:
+      byGroup:
+        additionalProperties:
+          items:
+            $ref: '#/definitions/ScheduleEntry'
+          type: array
+        type: object
+      date:
+        type: string
+      dayOfWeek:
+        type: string
+      entries:
+        items:
+          $ref: '#/definitions/ScheduleEntry'
+        type: array
+      holidayName:
+        type: string
+      isHoliday:
+        type: boolean
+    type: object
+  DayStatistics:
+    properties:
+      date:
+        type: string
+      entryType:
+        type: string
+      scheduledHours:
+        type: number
+      workedHours:
+        type: number
+    type: object
+  Employee:
+    properties:
+      active:
+        type: boolean
+      createdAt:
+        type: string
+      email:
+        type: string
+      firstName:
+        type: string
+      id:
+        type: integer
+      lastName:
+        type: string
+      overtimeBalance:
+        type: number
+      primaryGroup:
+        $ref: '#/definitions/Group'
+      primaryGroupId:
+        type: integer
+      remainingVacationDays:
+        type: number
+      role:
+        type: string
+      updatedAt:
+        type: string
+      vacationDaysPerYear:
+        type: integer
+      weeklyHours:
+        type: number
+    type: object
+  EmployeeStatistics:
+    properties:
+      contractedHours:
+        type: number
+      dailyBreakdown:
+        items:
+          $ref: '#/definitions/DayStatistics'
+        type: array
+      employee:
+        $ref: '#/definitions/Employee'
+      month:
+        type: string
+      overtimeBalance:
+        type: number
+      overtimeHours:
+        type: number
+      scheduledHours:
+        type: number
+      sickDays:
+        type: integer
+      vacationDaysRemaining:
+        type: number
+      vacationDaysUsed:
+        type: integer
+      workedHours:
+        type: number
+    type: object
+  EmployeeStatisticsSummary:
+    properties:
+      employee:
+        $ref: '#/definitions/Employee'
+      overtimeHours:
+        type: number
+      remainingVacationDays:
+        type: number
+      scheduledHours:
+        type: number
+      workedHours:
+        type: number
+    type: object
+  EmployeeWeekSummary:
+    properties:
+      daysWorked:
+        type: integer
+      employee:
+        $ref: '#/definitions/Employee'
+      scheduledHours:
+        type: number
+      workedHours:
+        type: number
+    type: object
+  Group:
+    properties:
+      color:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+    type: object
+  GroupAssignment:
+    properties:
+      assignmentType:
+        type: string
+      employee:
+        $ref: '#/definitions/Employee'
+      employeeId:
+        type: integer
+      groupId:
+        type: integer
+      id:
+        type: integer
+    type: object
+  GroupAssignmentRequest:
+    properties:
+      assignmentType:
+        enum:
+        - PERMANENT
+        - SPRINGER
+        example: PERMANENT
+        type: string
+      employeeId:
+        example: 1
+        type: integer
+    required:
+    - assignmentType
+    - employeeId
+    type: object
+  GroupWeekSummary:
+    properties:
+      group:
+        $ref: '#/definitions/Group'
+      staffedDays:
+        type: integer
+      totalScheduledHours:
+        type: number
+      understaffedDays:
+        type: integer
+    type: object
+  GroupWithMembers:
+    properties:
+      color:
+        type: string
+      description:
+        type: string
+      id:
+        type: integer
+      members:
+        items:
+          $ref: '#/definitions/GroupAssignment'
+        type: array
+      name:
+        type: string
+    type: object
+  LoginRequest:
+    properties:
+      email:
+        example: mitarbeiter@knirpsenstadt.de
+        type: string
+      password:
+        example: sicheres-passwort
+        minLength: 8
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  OverviewStatistics:
+    properties:
+      employeeStats:
+        items:
+          $ref: '#/definitions/EmployeeStatisticsSummary'
+        type: array
+      month:
+        type: string
+      sickDays:
+        type: integer
+      totalEmployees:
+        type: integer
+      totalOvertimeHours:
+        type: number
+      totalScheduledHours:
+        type: number
+      totalWorkedHours:
+        type: number
+      vacationDays:
+        type: integer
+    type: object
+  PasswordResetConfirm:
+    properties:
+      newPassword:
+        example: neues-sicheres-passwort
+        minLength: 8
+        type: string
+      token:
+        example: abc123def456
+        type: string
+    required:
+    - newPassword
+    - token
+    type: object
+  PasswordResetRequest:
+    properties:
+      email:
+        example: mitarbeiter@knirpsenstadt.de
+        type: string
+    required:
+    - email
+    type: object
+  RefreshTokenRequest:
+    properties:
+      refreshToken:
+        example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        type: string
+    required:
+    - refreshToken
+    type: object
+  ScheduleEntry:
+    properties:
+      breakMinutes:
+        type: integer
+      createdAt:
+        type: string
+      date:
+        type: string
+      employee:
+        $ref: '#/definitions/Employee'
+      employeeId:
+        type: integer
+      endTime:
+        type: string
+      entryType:
+        type: string
+      group:
+        $ref: '#/definitions/Group'
+      groupId:
+        type: integer
+      id:
+        type: integer
+      notes:
+        type: string
+      startTime:
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  SpecialDay:
+    properties:
+      affectsAll:
+        type: boolean
+      date:
+        type: string
+      dayType:
+        type: string
+      endDate:
+        type: string
+      id:
+        type: integer
+      name:
+        type: string
+      notes:
+        type: string
+    type: object
+  TimeEntry:
+    properties:
+      breakMinutes:
+        type: integer
+      clockIn:
+        type: string
+      clockOut:
+        type: string
+      createdAt:
+        type: string
+      date:
+        type: string
+      editReason:
+        type: string
+      editedAt:
+        type: string
+      editedBy:
+        type: integer
+      employee:
+        $ref: '#/definitions/Employee'
+      employeeId:
+        type: integer
+      entryType:
+        type: string
+      id:
+        type: integer
+      notes:
+        type: string
+      workedMinutes:
+        type: integer
+    type: object
+  TimeScheduleComparison:
+    properties:
+      endDate:
+        type: string
+      entries:
+        items:
+          $ref: '#/definitions/DayComparison'
+        type: array
+      startDate:
+        type: string
+      summary:
+        $ref: '#/definitions/ComparisonSummary'
+    type: object
+  UpdateEmployeeRequest:
+    properties:
+      active:
+        example: true
+        type: boolean
+      email:
+        example: max.mustermann@knirpsenstadt.de
+        type: string
+      firstName:
+        example: Max
+        type: string
+      lastName:
+        example: Mustermann
+        type: string
+      overtimeBalance:
+        example: 10.25
+        type: number
+      primaryGroupId:
+        example: 1
+        type: integer
+      remainingVacationDays:
+        example: 25.5
+        type: number
+      role:
+        enum:
+        - ADMIN
+        - EMPLOYEE
+        example: EMPLOYEE
+        type: string
+      vacationDaysPerYear:
+        example: 30
+        minimum: 0
+        type: integer
+      weeklyHours:
+        example: 40
+        type: number
+    type: object
+  UpdateScheduleEntryRequest:
+    properties:
+      breakMinutes:
+        example: 30
+        minimum: 0
+        type: integer
+      date:
+        example: "2024-03-15"
+        type: string
+      endTime:
+        example: "16:00:00"
+        type: string
+      entryType:
+        enum:
+        - WORK
+        - VACATION
+        - SICK
+        - SPECIAL_LEAVE
+        - TRAINING
+        - EVENT
+        example: WORK
+        type: string
+      groupId:
+        example: 1
+        type: integer
+      notes:
+        example: Frühdienst
+        type: string
+      startTime:
+        example: "08:00:00"
+        type: string
+    type: object
+  UpdateTimeEntryRequest:
+    properties:
+      breakMinutes:
+        example: 30
+        minimum: 0
+        type: integer
+      clockIn:
+        example: "2024-03-15T08:00:00Z"
+        type: string
+      clockOut:
+        example: "2024-03-15T16:30:00Z"
+        type: string
+      editReason:
+        example: Fehlerhafte Stempelung korrigiert
+        type: string
+      entryType:
+        enum:
+        - WORK
+        - VACATION
+        - SICK
+        - SPECIAL_LEAVE
+        - TRAINING
+        - EVENT
+        example: WORK
+        type: string
+      notes:
+        example: Korrigierte Arbeitszeit
+        type: string
+    type: object
+  WeekSchedule:
+    properties:
+      days:
+        items:
+          $ref: '#/definitions/DaySchedule'
+        type: array
+      specialDays:
+        items:
+          $ref: '#/definitions/SpecialDay'
+        type: array
+      weekEnd:
+        type: string
+      weekStart:
+        type: string
+    type: object
+  WeeklyStatistics:
+    properties:
+      byEmployee:
+        items:
+          $ref: '#/definitions/EmployeeWeekSummary'
+        type: array
+      byGroup:
+        items:
+          $ref: '#/definitions/GroupWeekSummary'
+        type: array
+      totalScheduledHours:
+        type: number
+      totalWorkedHours:
+        type: number
+      weekEnd:
+        type: string
+      weekStart:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: API für Zeiterfassung und Dienstplanung der Kita Knirpsenstadt
+  title: Kita Knirpsenstadt Management API
+  version: 1.0.0
+paths:
+  /auth/change-password:
+    post:
+      consumes:
+      - application/json
+      description: Change the current user's password
+      parameters:
+      - description: Current and new password
+        in: body
+        name: passwords
+        required: true
+        schema:
+          $ref: '#/definitions/ChangePasswordRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Password changed successfully
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Not authenticated or wrong current password
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Change password
+      tags:
+      - Auth
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate with email and password to receive access and refresh
+        tokens
+      parameters:
+      - description: Login credentials
+        in: body
+        name: credentials
+        required: true
+        schema:
+          $ref: '#/definitions/LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Authentication successful
+          schema:
+            $ref: '#/definitions/AuthResponse'
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Invalid credentials
+          schema:
+            additionalProperties: true
+            type: object
+      summary: User login
+      tags:
+      - Auth
+  /auth/me:
+    get:
+      description: Get the currently authenticated user's information
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Current user
+          schema:
+            $ref: '#/definitions/Employee'
+        "401":
+          description: Not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get current user
+      tags:
+      - Auth
+  /auth/password-reset/confirm:
+    post:
+      consumes:
+      - application/json
+      description: Set a new password using a reset token
+      parameters:
+      - description: Reset token and new password
+        in: body
+        name: reset
+        required: true
+        schema:
+          $ref: '#/definitions/PasswordResetConfirm'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Password reset successful
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid request or token
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Confirm password reset
+      tags:
+      - Auth
+  /auth/password-reset/request:
+    post:
+      consumes:
+      - application/json
+      description: Request a password reset email
+      parameters:
+      - description: Email address
+        in: body
+        name: email
+        required: true
+        schema:
+          $ref: '#/definitions/PasswordResetRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Reset email sent (if email exists)
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Request password reset
+      tags:
+      - Auth
+  /auth/refresh:
+    post:
+      consumes:
+      - application/json
+      description: Use a refresh token to get a new access token
+      parameters:
+      - description: Refresh token
+        in: body
+        name: token
+        required: true
+        schema:
+          $ref: '#/definitions/RefreshTokenRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: New tokens
+          schema:
+            $ref: '#/definitions/AuthResponse'
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Invalid or expired refresh token
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Refresh access token
+      tags:
+      - Auth
+  /employees:
+    get:
+      description: Get a list of all employees, optionally including inactive ones
+      parameters:
+      - default: false
+        description: Include inactive employees
+        in: query
+        name: includeInactive
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of employees
+          schema:
+            items:
+              $ref: '#/definitions/Employee'
+            type: array
+        "401":
+          description: Not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List all employees
+      tags:
+      - Employees
+    post:
+      consumes:
+      - application/json
+      description: Create a new employee account
+      parameters:
+      - description: Employee data
+        in: body
+        name: employee
+        required: true
+        schema:
+          $ref: '#/definitions/CreateEmployeeRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created employee
+          schema:
+            $ref: '#/definitions/Employee'
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: Email already exists
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create a new employee
+      tags:
+      - Employees
+  /employees/{id}:
+    delete:
+      description: Delete an employee (soft delete - sets inactive)
+      parameters:
+      - description: Employee ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: Employee deleted
+        "400":
+          description: Invalid employee ID
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Employee not found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete an employee
+      tags:
+      - Employees
+    get:
+      description: Get detailed information about a specific employee
+      parameters:
+      - description: Employee ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Employee details
+          schema:
+            $ref: '#/definitions/Employee'
+        "400":
+          description: Invalid employee ID
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Employee not found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get an employee by ID
+      tags:
+      - Employees
+    put:
+      consumes:
+      - application/json
+      description: Update an existing employee's information
+      parameters:
+      - description: Employee ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Updated employee data
+        in: body
+        name: employee
+        required: true
+        schema:
+          $ref: '#/definitions/UpdateEmployeeRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Updated employee
+          schema:
+            $ref: '#/definitions/Employee'
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Employee not found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update an employee
+      tags:
+      - Employees
+  /employees/{id}/assignments:
+    get:
+      description: Get all group assignments for an employee
+      parameters:
+      - description: Employee ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of group assignments
+          schema:
+            items:
+              $ref: '#/definitions/GroupAssignment'
+            type: array
+        "400":
+          description: Invalid employee ID
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Employee not found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get employee group assignments
+      tags:
+      - Employees
+  /employees/{id}/reset-password:
+    post:
+      description: Reset an employee's password and send them an email with the new
+        password
+      parameters:
+      - description: Employee ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Password reset email sent
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid employee ID
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Employee not found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Reset employee password
+      tags:
+      - Employees
+  /export/schedule:
+    get:
+      description: Export schedule data (placeholder, not yet implemented)
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No content - not yet implemented
+        "401":
+          description: Not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Export schedule
+      tags:
+      - Export
+  /export/timesheet:
+    get:
+      description: Export timesheet data (placeholder, not yet implemented)
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No content - not yet implemented
+        "401":
+          description: Not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Export timesheet
+      tags:
+      - Export
+  /groups:
+    get:
+      description: Get a list of all kindergarten groups
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of groups
+          schema:
+            items:
+              $ref: '#/definitions/Group'
+            type: array
+        "401":
+          description: Not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal server error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List all groups
+      tags:
+      - Groups
+    post:
+      consumes:
+      - application/json
+      description: Create a new kindergarten group
+      parameters:
+      - description: Group data
+        in: body
+        name: group
+        required: true
+        schema:
+          $ref: '#/definitions/CreateGroupRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created group
+          schema:
+            $ref: '#/definitions/Group'
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create a new group
+      tags:
+      - Groups
+  /groups/{id}:
+    delete:
+      description: Delete a kindergarten group
+      parameters:
+      - description: Group ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: Group deleted
+        "400":
+          description: Invalid group ID
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Group not found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete a group
+      tags:
+      - Groups
+    get:
+      description: Get detailed information about a specific group including its members
+      parameters:
+      - description: Group ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Group details with members
+          schema:
+            $ref: '#/definitions/GroupWithMembers'
+        "400":
+          description: Invalid group ID
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Group not found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get a group by ID
+      tags:
+      - Groups
+    put:
+      consumes:
+      - application/json
+      description: Update an existing group's information
+      parameters:
+      - description: Group ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Updated group data
+        in: body
+        name: group
+        required: true
+        schema:
+          $ref: '#/definitions/CreateGroupRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Updated group
+          schema:
+            $ref: '#/definitions/Group'
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Group not found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update a group
+      tags:
+      - Groups
+  /groups/{id}/assignments:
+    get:
+      description: Get all employee assignments for a group
+      parameters:
+      - description: Group ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of employee assignments
+          schema:
+            items:
+              $ref: '#/definitions/GroupAssignment'
+            type: array
+        "400":
+          description: Invalid group ID
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Group not found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get group assignments
+      tags:
+      - Groups
+    put:
+      consumes:
+      - application/json
+      description: Replace all employee assignments for a group
+      parameters:
+      - description: Group ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: New assignments
+        in: body
+        name: assignments
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/GroupAssignmentRequest'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Updated assignments
+          schema:
+            items:
+              $ref: '#/definitions/GroupAssignment'
+            type: array
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Group not found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update group assignments
+      tags:
+      - Groups
+  /schedule:
+    get:
+      description: Get schedule entries for a date range, optionally filtered by employee
+        or group
+      parameters:
+      - description: Start date (YYYY-MM-DD)
+        in: query
+        name: startDate
+        required: true
+        type: string
+      - description: End date (YYYY-MM-DD)
+        in: query
+        name: endDate
+        required: true
+        type: string
+      - description: Filter by employee ID
+        in: query
+        name: employeeId
+        type: integer
+      - description: Filter by group ID
+        in: query
+        name: groupId
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of schedule entries
+          schema:
+            items:
+              $ref: '#/definitions/ScheduleEntry'
+            type: array
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List schedule entries
+      tags:
+      - Schedule
+    post:
+      consumes:
+      - application/json
+      description: Create a new schedule entry for an employee
+      parameters:
+      - description: Schedule entry data
+        in: body
+        name: entry
+        required: true
+        schema:
+          $ref: '#/definitions/CreateScheduleEntryRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created schedule entry
+          schema:
+            $ref: '#/definitions/ScheduleEntry'
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create a schedule entry
+      tags:
+      - Schedule
+  /schedule/{id}:
+    delete:
+      description: Delete a schedule entry
+      parameters:
+      - description: Schedule entry ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: Schedule entry deleted
+        "400":
+          description: Invalid schedule entry ID
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Schedule entry not found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete a schedule entry
+      tags:
+      - Schedule
+    put:
+      consumes:
+      - application/json
+      description: Update an existing schedule entry
+      parameters:
+      - description: Schedule entry ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Updated schedule entry data
+        in: body
+        name: entry
+        required: true
+        schema:
+          $ref: '#/definitions/UpdateScheduleEntryRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Updated schedule entry
+          schema:
+            $ref: '#/definitions/ScheduleEntry'
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Schedule entry not found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update a schedule entry
+      tags:
+      - Schedule
+  /schedule/bulk:
+    post:
+      consumes:
+      - application/json
+      description: Create multiple schedule entries at once
+      parameters:
+      - description: Schedule entries data
+        in: body
+        name: entries
+        required: true
+        schema:
+          items:
+            $ref: '#/definitions/CreateScheduleEntryRequest'
+          type: array
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created schedule entries
+          schema:
+            items:
+              $ref: '#/definitions/ScheduleEntry'
+            type: array
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create multiple schedule entries
+      tags:
+      - Schedule
+  /schedule/week:
+    get:
+      description: Get the complete schedule for a week with all employees and groups
+      parameters:
+      - description: Week start date (YYYY-MM-DD, should be Monday)
+        in: query
+        name: weekStart
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Week schedule
+          schema:
+            $ref: '#/definitions/WeekSchedule'
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get week schedule
+      tags:
+      - Schedule
+  /special-days:
+    get:
+      description: Get all special days (holidays, closures, events) for a year
+      parameters:
+      - description: Year
+        in: query
+        name: year
+        required: true
+        type: integer
+      - default: true
+        description: Include public holidays
+        in: query
+        name: includeHolidays
+        type: boolean
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of special days
+          schema:
+            items:
+              $ref: '#/definitions/SpecialDay'
+            type: array
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List special days
+      tags:
+      - Special Days
+    post:
+      consumes:
+      - application/json
+      description: Create a new special day (closure, team day, or event)
+      parameters:
+      - description: Special day data
+        in: body
+        name: specialDay
+        required: true
+        schema:
+          $ref: '#/definitions/CreateSpecialDayRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created special day
+          schema:
+            $ref: '#/definitions/SpecialDay'
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: Conflict - date already exists
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create a special day
+      tags:
+      - Special Days
+  /special-days/{id}:
+    delete:
+      description: Delete an existing special day
+      parameters:
+      - description: Special day ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: Special day deleted
+        "400":
+          description: Invalid ID
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Special day not found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete a special day
+      tags:
+      - Special Days
+    put:
+      consumes:
+      - application/json
+      description: Update an existing special day
+      parameters:
+      - description: Special day ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Special day data
+        in: body
+        name: specialDay
+        required: true
+        schema:
+          $ref: '#/definitions/CreateSpecialDayRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Updated special day
+          schema:
+            $ref: '#/definitions/SpecialDay'
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Special day not found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update a special day
+      tags:
+      - Special Days
+  /special-days/holidays/{year}:
+    get:
+      description: Get all public holidays for a year (auto-generated based on German
+        holidays)
+      parameters:
+      - description: Year
+        in: path
+        name: year
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of public holidays
+          schema:
+            items:
+              $ref: '#/definitions/SpecialDay'
+            type: array
+        "400":
+          description: Invalid year
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List public holidays
+      tags:
+      - Special Days
+  /statistics/employee/{id}:
+    get:
+      description: Get monthly statistics for a specific employee
+      parameters:
+      - description: Employee ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Month (YYYY-MM-DD, any day in the month)
+        in: query
+        name: month
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Employee statistics
+          schema:
+            $ref: '#/definitions/EmployeeStatistics'
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Employee not found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get employee statistics
+      tags:
+      - Statistics
+  /statistics/overview:
+    get:
+      description: Get monthly overview statistics for all employees
+      parameters:
+      - description: Month (YYYY-MM-DD, any day in the month)
+        in: query
+        name: month
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Overview statistics
+          schema:
+            $ref: '#/definitions/OverviewStatistics'
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get overview statistics
+      tags:
+      - Statistics
+  /statistics/weekly:
+    get:
+      description: Get weekly statistics by employee and group
+      parameters:
+      - description: Week start date (YYYY-MM-DD, must be a Monday)
+        in: query
+        name: weekStart
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Weekly statistics
+          schema:
+            $ref: '#/definitions/WeeklyStatistics'
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get weekly statistics
+      tags:
+      - Statistics
+  /time-tracking/clock-in:
+    post:
+      consumes:
+      - application/json
+      description: Record the current user's clock-in time
+      parameters:
+      - description: Optional notes
+        in: body
+        name: clockIn
+        schema:
+          $ref: '#/definitions/ClockInRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Time entry with clock-in recorded
+          schema:
+            $ref: '#/definitions/TimeEntry'
+        "400":
+          description: Invalid request or already clocked in
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Clock in
+      tags:
+      - Time Tracking
+  /time-tracking/clock-out:
+    post:
+      consumes:
+      - application/json
+      description: Record the current user's clock-out time
+      parameters:
+      - description: Break minutes and optional notes
+        in: body
+        name: clockOut
+        schema:
+          $ref: '#/definitions/ClockOutRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Completed time entry
+          schema:
+            $ref: '#/definitions/TimeEntry'
+        "400":
+          description: Invalid request or not clocked in
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Clock out
+      tags:
+      - Time Tracking
+  /time-tracking/comparison:
+    get:
+      description: Compare actual time entries with scheduled shifts for a date range
+      parameters:
+      - description: Start date (YYYY-MM-DD)
+        in: query
+        name: startDate
+        required: true
+        type: string
+      - description: End date (YYYY-MM-DD)
+        in: query
+        name: endDate
+        required: true
+        type: string
+      - description: Filter by employee ID (defaults to current user)
+        in: query
+        name: employeeId
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Time vs schedule comparison
+          schema:
+            $ref: '#/definitions/TimeScheduleComparison'
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Compare time entries with schedule
+      tags:
+      - Time Tracking
+  /time-tracking/current:
+    get:
+      description: Get the current user's active (not clocked out) time entry if any
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Current active time entry
+          schema:
+            $ref: '#/definitions/TimeEntry'
+        "204":
+          description: No active time entry
+        "401":
+          description: Not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Get current time entry
+      tags:
+      - Time Tracking
+  /time-tracking/entries:
+    get:
+      description: Get time entries for a date range
+      parameters:
+      - description: Start date (YYYY-MM-DD)
+        in: query
+        name: startDate
+        required: true
+        type: string
+      - description: End date (YYYY-MM-DD)
+        in: query
+        name: endDate
+        required: true
+        type: string
+      - description: Filter by employee ID (defaults to current user)
+        in: query
+        name: employeeId
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of time entries
+          schema:
+            items:
+              $ref: '#/definitions/TimeEntry'
+            type: array
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List time entries
+      tags:
+      - Time Tracking
+    post:
+      consumes:
+      - application/json
+      description: Manually create a time entry (admin function)
+      parameters:
+      - description: Time entry data
+        in: body
+        name: entry
+        required: true
+        schema:
+          $ref: '#/definitions/CreateTimeEntryRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created time entry
+          schema:
+            $ref: '#/definitions/TimeEntry'
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create a time entry
+      tags:
+      - Time Tracking
+  /time-tracking/entries/{id}:
+    delete:
+      description: Delete a time entry
+      parameters:
+      - description: Time entry ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: Time entry deleted
+        "400":
+          description: Invalid time entry ID
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Time entry not found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete a time entry
+      tags:
+      - Time Tracking
+    put:
+      consumes:
+      - application/json
+      description: Update an existing time entry
+      parameters:
+      - description: Time entry ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Updated time entry data
+        in: body
+        name: entry
+        required: true
+        schema:
+          $ref: '#/definitions/UpdateTimeEntryRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Updated time entry
+          schema:
+            $ref: '#/definitions/TimeEntry'
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Time entry not found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update a time entry
+      tags:
+      - Time Tracking
+securityDefinitions:
+  BearerAuth:
+    description: 'Bearer token authentication. Enter: Bearer <token>'
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"
+tags:
+- description: Authentication endpoints (login, logout, password reset)
+  name: Auth
+- description: Employee management (CRUD, assignments)
+  name: Employees
+- description: Group management (Kindergarten groups)
+  name: Groups
+- description: Shift scheduling and planning
+  name: Schedule
+- description: Time entry and tracking
+  name: Time Tracking
+- description: Holidays and special days management
+  name: Special Days
+- description: Statistics and reports
+  name: Statistics

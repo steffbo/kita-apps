@@ -1,0 +1,4416 @@
+openapi: 3.0.0
+info:
+  contact:
+    name: Kita Knirpsenstadt
+  description: API für Beitragsverwaltung der Kita Knirpsenstadt
+  title: Kita Knirpsenstadt Fees API
+  version: 1.0.0
+paths:
+  /auth/change-password:
+    post:
+      description: Change the password for the currently authenticated user
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/handler.ChangePasswordRequest"
+        description: Current and new password
+        required: true
+      responses:
+        "200":
+          description: Password changed successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/handler.MessageResponse"
+        "400":
+          description: Invalid request or current password incorrect
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: Change own password
+      tags:
+        - Auth
+  /auth/login:
+    post:
+      description: Authenticate a user with email and password, returns JWT tokens
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/handler.LoginRequest"
+        description: Login credentials
+        required: true
+      responses:
+        "200":
+          description: Successful login
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/handler.LoginResponse"
+        "400":
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "401":
+          description: Invalid credentials
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      summary: User login
+      tags:
+        - Auth
+  /auth/logout:
+    post:
+      description: Invalidate the refresh token, ending the session
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/handler.RefreshRequest"
+        description: Refresh token to revoke
+      responses:
+        "204":
+          description: Logged out successfully
+      security:
+        - BearerAuth: []
+      summary: Logout
+      tags:
+        - Auth
+  /auth/me:
+    get:
+      description: Returns information about the currently authenticated user
+      responses:
+        "200":
+          description: Current user info
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/handler.UserResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: Get current user info
+      tags:
+        - Auth
+  /auth/password-reset/confirm:
+    post:
+      description: Complete the password reset process using the token from the email
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/handler.PasswordResetConfirmRequest"
+        description: Token and new password
+        required: true
+      responses:
+        "200":
+          description: Password reset successful
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/handler.MessageResponse"
+        "400":
+          description: Invalid or expired token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      summary: Confirm password reset with token
+      tags:
+        - Auth
+  /auth/password-reset/request:
+    post:
+      description: Sends a password reset email to the specified address if a user exists
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/handler.PasswordResetRequest"
+        description: Email address
+        required: true
+      responses:
+        "200":
+          description: Reset email sent (if email exists)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/handler.MessageResponse"
+        "400":
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      summary: Request password reset email
+      tags:
+        - Auth
+  /auth/refresh:
+    post:
+      description: Exchange a refresh token for a new access token and refresh token pair
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/handler.RefreshRequest"
+        description: Refresh token
+        required: true
+      responses:
+        "200":
+          description: Token refreshed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/handler.LoginResponse"
+        "400":
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "401":
+          description: Invalid or revoked refresh token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      summary: Refresh access token
+      tags:
+        - Auth
+  /childcare-fee/calculate:
+    get:
+      description: Calculate the monthly childcare fee based on income, child age, and
+        care hours
+      parameters:
+        - description: Child age type
+          in: query
+          name: childAgeType
+          schema:
+            type: string
+            enum:
+              - krippe
+              - kindergarten
+            default: krippe
+        - description: Monthly net income
+          in: query
+          name: income
+          required: true
+          schema:
+            type: number
+        - description: Number of siblings
+          in: query
+          name: siblingsCount
+          schema:
+            type: integer
+            default: 1
+        - description: Weekly care hours
+          in: query
+          name: careHours
+          schema:
+            type: integer
+            enum:
+              - 30
+              - 35
+              - 40
+              - 45
+              - 50
+              - 55
+            default: 30
+        - description: Apply highest rate
+          in: query
+          name: highestRate
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: Calculated fee
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/handler.ChildcareFeeResult"
+        "400":
+          description: Invalid income value
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: Calculate childcare fee
+      tags:
+        - Fees
+  /children:
+    get:
+      description: Get a paginated list of children with optional filters
+      parameters:
+        - description: Page number
+          in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - description: Items per page
+          in: query
+          name: perPage
+          schema:
+            type: integer
+            default: 20
+        - description: Filter by active status
+          in: query
+          name: active
+          schema:
+            type: boolean
+        - description: Filter for children under 3
+          in: query
+          name: u3Only
+          schema:
+            type: boolean
+        - description: Filter for children with warnings
+          in: query
+          name: hasWarnings
+          schema:
+            type: boolean
+        - description: Search by name or member number
+          in: query
+          name: search
+          schema:
+            type: string
+        - description: Sort field (name, birthDate, entryDate)
+          in: query
+          name: sortBy
+          schema:
+            type: string
+            default: name
+        - description: Sort direction (asc, desc)
+          in: query
+          name: sortDir
+          schema:
+            type: string
+            default: asc
+      responses:
+        "200":
+          description: Paginated list of children
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/handler.ChildListResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: List all children
+      tags:
+        - Children
+    post:
+      description: Register a new child in the system
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/handler.CreateChildRequest"
+        description: Child data
+        required: true
+      responses:
+        "201":
+          description: Child created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/handler.ChildResponse"
+        "400":
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "409":
+          description: Member number already exists
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: Create new child
+      tags:
+        - Children
+  "/children/{id}":
+    delete:
+      description: Soft-delete (deactivate) a child record
+      parameters:
+        - description: Child ID (UUID)
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Child deleted
+        "400":
+          description: Invalid child ID
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "401":
+          description: Not authenticated
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "404":
+          description: Child not found
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "500":
+          description: Internal server error
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: Delete child
+      tags:
+        - Children
+    get:
+      description: Retrieve detailed information about a specific child
+      parameters:
+        - description: Child ID (UUID)
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Child found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/handler.ChildResponse"
+        "400":
+          description: Invalid child ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "404":
+          description: Child not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: Get child by ID
+      tags:
+        - Children
+    put:
+      description: Update child information
+      parameters:
+        - description: Child ID (UUID)
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/handler.UpdateChildRequest"
+        description: Updated child data
+        required: true
+      responses:
+        "200":
+          description: Child updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/handler.ChildResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "404":
+          description: Child not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: Update child
+      tags:
+        - Children
+  "/children/{id}/parents":
+    post:
+      description: Create a relationship between a parent and a child
+      parameters:
+        - description: Child ID (UUID)
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/handler.LinkParentRequest"
+        description: Parent link data
+        required: true
+      responses:
+        "204":
+          description: Parent linked
+        "400":
+          description: Invalid request
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "401":
+          description: Not authenticated
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "404":
+          description: Child or parent not found
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "500":
+          description: Internal server error
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: Link parent to child
+      tags:
+        - Children
+  "/children/{id}/parents/{parentId}":
+    delete:
+      description: Remove the relationship between a parent and a child
+      parameters:
+        - description: Child ID (UUID)
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - description: Parent ID (UUID)
+          in: path
+          name: parentId
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Parent unlinked
+        "400":
+          description: Invalid ID
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "401":
+          description: Not authenticated
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "500":
+          description: Internal server error
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: Unlink parent from child
+      tags:
+        - Children
+  /children/import/execute:
+    post:
+      description: Execute the import with the validated and confirmed data
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/service.ExecuteRequest"
+        description: Import data
+        required: true
+      responses:
+        "200":
+          description: Import result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/handler.ExecuteImportResponse"
+        "400":
+          description: Invalid request or no data to import
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: Execute child import
+      tags:
+        - Children Import
+  /children/import/parse:
+    post:
+      description: Upload and parse a CSV file to extract headers and sample data for
+        mapping
+      requestBody:
+        $ref: "#/components/requestBodies/postChildrenImportParse"
+      responses:
+        "200":
+          description: Parsed CSV structure
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/handler.ParseCSVResponse"
+        "400":
+          description: File too large or invalid format
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: Parse a CSV file for child import
+      tags:
+        - Children Import
+  /children/import/preview:
+    post:
+      description: Apply field mapping to CSV data and generate a preview with validation
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/handler.PreviewRequest"
+        description: Preview configuration
+        required: true
+      responses:
+        "200":
+          description: Import preview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/handler.PreviewResponse"
+        "400":
+          description: Invalid request or missing mapping
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: Preview child import with mapping
+      tags:
+        - Children Import
+  /fees:
+    get:
+      description: Get a paginated list of fees with optional filtering
+      parameters:
+        - description: Page number
+          in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - description: Items per page
+          in: query
+          name: perPage
+          schema:
+            type: integer
+            default: 20
+        - description: Filter by year
+          in: query
+          name: year
+          schema:
+            type: integer
+        - description: Filter by month (1-12)
+          in: query
+          name: month
+          schema:
+            type: integer
+        - description: Filter by fee type
+          in: query
+          name: type
+          schema:
+            type: string
+            enum:
+              - childcare
+              - food
+              - membership
+              - reminder
+        - description: Filter by status
+          in: query
+          name: status
+          schema:
+            type: string
+            enum:
+              - open
+              - paid
+              - overdue
+        - description: Filter by child ID (UUID)
+          in: query
+          name: childId
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Paginated list of fees
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/handler.FeeListResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: List all fees
+      tags:
+        - Fees
+  "/fees/{id}":
+    delete:
+      description: Delete a fee by ID
+      parameters:
+        - description: Fee ID (UUID)
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Fee deleted successfully
+        "400":
+          description: Invalid fee ID
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "401":
+          description: Not authenticated
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "404":
+          description: Fee not found
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "500":
+          description: Internal server error
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: Delete a fee
+      tags:
+        - Fees
+    get:
+      description: Get detailed information about a specific fee
+      parameters:
+        - description: Fee ID (UUID)
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Fee details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/handler.FeeResponse"
+        "400":
+          description: Invalid fee ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "404":
+          description: Fee not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: Get a fee by ID
+      tags:
+        - Fees
+    put:
+      description: Update the amount of an existing fee
+      parameters:
+        - description: Fee ID (UUID)
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/handler.UpdateFeeRequest"
+        description: Updated fee data
+        required: true
+      responses:
+        "200":
+          description: Updated fee
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/handler.FeeResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "404":
+          description: Fee not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: Update a fee
+      tags:
+        - Fees
+  "/fees/{id}/reminder":
+    post:
+      description: Creates a reminder fee (Mahngebühr) for an unpaid fee
+      parameters:
+        - description: Parent Fee ID (UUID)
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "201":
+          description: Created reminder fee
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/handler.FeeResponse"
+        "400":
+          description: Invalid fee ID or fee is already paid
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "404":
+          description: Fee not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: Create a reminder fee
+      tags:
+        - Fees
+  /fees/generate:
+    post:
+      description: Generate fee expectations for children and members for a given year/month
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/handler.GenerateFeeRequest"
+        description: Generation parameters
+        required: true
+      responses:
+        "201":
+          description: Generation result with optional match suggestions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/handler.GenerateFeeResponse"
+        "400":
+          description: Invalid request (year/month out of range)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: Generate fees for a period
+      tags:
+        - Fees
+  /fees/overview:
+    get:
+      description: Get an overview of fees with totals and monthly breakdown
+      parameters:
+        - description: Filter by year
+          in: query
+          name: year
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Fee overview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/handler.OverviewResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: Get fee overview
+      tags:
+        - Fees
+  /households:
+    get:
+      description: Get a paginated list of households with optional search and sorting
+      parameters:
+        - description: Page number
+          in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - description: Items per page
+          in: query
+          name: perPage
+          schema:
+            type: integer
+            default: 20
+        - description: Search by name
+          in: query
+          name: search
+          schema:
+            type: string
+        - description: Sort field (name)
+          in: query
+          name: sortBy
+          schema:
+            type: string
+            default: name
+        - description: Sort direction (asc, desc)
+          in: query
+          name: sortDir
+          schema:
+            type: string
+            default: asc
+      responses:
+        "200":
+          description: Paginated list of households
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/handler.HouseholdListResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: List all households
+      tags:
+        - Households
+    post:
+      description: Register a new household in the system
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/handler.CreateHouseholdRequest"
+        description: Household data
+        required: true
+      responses:
+        "201":
+          description: Household created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/handler.HouseholdResponse"
+        "400":
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: Create new household
+      tags:
+        - Households
+  "/households/{id}":
+    delete:
+      description: Remove a household from the system
+      parameters:
+        - description: Household ID (UUID)
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Household deleted
+        "400":
+          description: Invalid household ID
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "401":
+          description: Not authenticated
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "404":
+          description: Household not found
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "500":
+          description: Internal server error
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: Delete household
+      tags:
+        - Households
+    get:
+      description: Retrieve detailed information about a specific household
+      parameters:
+        - description: Household ID (UUID)
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Household found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/handler.HouseholdResponse"
+        "400":
+          description: Invalid household ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "404":
+          description: Household not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: Get household by ID
+      tags:
+        - Households
+    put:
+      description: Update household information
+      parameters:
+        - description: Household ID (UUID)
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/handler.UpdateHouseholdRequest"
+        description: Updated household data
+        required: true
+      responses:
+        "200":
+          description: Household updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/handler.HouseholdResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "404":
+          description: Household not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: Update household
+      tags:
+        - Households
+  "/households/{id}/children":
+    post:
+      description: Associate a child with a household
+      parameters:
+        - description: Household ID (UUID)
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/handler.HouseholdLinkChildRequest"
+        description: Child link data
+        required: true
+      responses:
+        "204":
+          description: Child linked
+        "400":
+          description: Invalid request
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "401":
+          description: Not authenticated
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "404":
+          description: Household or child not found
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "500":
+          description: Internal server error
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: Link child to household
+      tags:
+        - Households
+  "/households/{id}/parents":
+    post:
+      description: Associate a parent with a household
+      parameters:
+        - description: Household ID (UUID)
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/handler.HouseholdLinkParentRequest"
+        description: Parent link data
+        required: true
+      responses:
+        "204":
+          description: Parent linked
+        "400":
+          description: Invalid request
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "401":
+          description: Not authenticated
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "404":
+          description: Household or parent not found
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "500":
+          description: Internal server error
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: Link parent to household
+      tags:
+        - Households
+  /import/blacklist:
+    get:
+      description: Get a paginated list of IBANs that are ignored during import
+      parameters:
+        - description: Page number
+          in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - description: Items per page
+          in: query
+          name: perPage
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Blacklisted IBANs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/handler.IBANListResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: Get blacklisted IBANs
+      tags:
+        - Import
+  "/import/blacklist/{iban}":
+    delete:
+      description: Remove an IBAN from the blacklist so transactions from it will be
+        processed again
+      parameters:
+        - description: IBAN (URL-encoded)
+          in: path
+          name: iban
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: IBAN removed from blacklist
+        "400":
+          description: Invalid IBAN or IBAN is not blacklisted
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "401":
+          description: Not authenticated
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "404":
+          description: IBAN not found in blacklist
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "500":
+          description: Internal server error
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: Remove IBAN from blacklist
+      tags:
+        - Import
+  /import/confirm:
+    post:
+      description: Confirm multiple transaction-fee matches from suggestions
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/handler.ConfirmMatchRequest"
+        description: Matches to confirm
+        required: true
+      responses:
+        "200":
+          description: Confirmation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/handler.ConfirmMatchResponse"
+        "400":
+          description: Invalid request body or IDs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: Confirm suggested matches
+      tags:
+        - Import
+  /import/history:
+    get:
+      description: Get a paginated list of past CSV imports
+      parameters:
+        - description: Page number
+          in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - description: Items per page
+          in: query
+          name: perPage
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Import history
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/handler.ImportHistoryListResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: Get import history
+      tags:
+        - Import
+  /import/match:
+    post:
+      description: Create a manual match between a transaction and a fee expectation
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/handler.ManualMatchRequest"
+        description: Match data
+        required: true
+      responses:
+        "201":
+          description: Match created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/handler.ManualMatchResponse"
+        "400":
+          description: Invalid transaction or expectation ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "404":
+          description: Transaction or expectation not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: Manually match a transaction
+      tags:
+        - Import
+  /import/rescan:
+    post:
+      description: Re-run matching algorithm on all unmatched transactions to find new
+        matches
+      responses:
+        "200":
+          description: Rescan result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/handler.RescanResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: Rescan unmatched transactions
+      tags:
+        - Import
+  /import/transactions:
+    get:
+      description: Get a paginated list of transactions that haven't been matched to fees
+      parameters:
+        - description: Page number
+          in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - description: Items per page
+          in: query
+          name: perPage
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Unmatched transactions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/handler.TransactionListResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: Get unmatched transactions
+      tags:
+        - Import
+  "/import/transactions/{id}/dismiss":
+    post:
+      description: Dismiss an unmatched transaction and optionally add its IBAN to blacklist
+      parameters:
+        - description: Transaction ID (UUID)
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Dismissal result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/handler.DismissTransactionResponse"
+        "400":
+          description: Invalid transaction ID or transaction has no IBAN
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "404":
+          description: Transaction not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: Dismiss a transaction
+      tags:
+        - Import
+  /import/trusted:
+    get:
+      description: Get a paginated list of trusted IBANs that are auto-matched to
+        specific children
+      parameters:
+        - description: Page number
+          in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - description: Items per page
+          in: query
+          name: perPage
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Trusted IBANs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/handler.IBANListResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: Get trusted IBANs
+      tags:
+        - Import
+  "/import/trusted/{iban}/link":
+    delete:
+      description: Remove the link between a trusted IBAN and a child
+      parameters:
+        - description: IBAN (URL-encoded)
+          in: path
+          name: iban
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: IBAN unlinked from child
+        "400":
+          description: Invalid IBAN
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "401":
+          description: Not authenticated
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "404":
+          description: IBAN not found
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "500":
+          description: Internal server error
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: Unlink IBAN from child
+      tags:
+        - Import
+    post:
+      description: Link a trusted IBAN to a specific child for automatic matching
+      parameters:
+        - description: IBAN (URL-encoded)
+          in: path
+          name: iban
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/handler.LinkIBANRequest"
+        description: Link data
+        required: true
+      responses:
+        "204":
+          description: IBAN linked to child
+        "400":
+          description: Invalid IBAN, child ID, or IBAN is not trusted
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "401":
+          description: Not authenticated
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "404":
+          description: IBAN or child not found
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "500":
+          description: Internal server error
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: Link IBAN to child
+      tags:
+        - Import
+  /import/upload:
+    post:
+      description: Upload and process a bank statement CSV file to match transactions
+        with fees
+      requestBody:
+        $ref: "#/components/requestBodies/postChildrenImportParse"
+      responses:
+        "200":
+          description: Upload and processing result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/handler.UploadResponse"
+        "400":
+          description: No file provided or invalid format
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: Upload a CSV file for import
+      tags:
+        - Import
+  /import/warnings:
+    get:
+      description: Get a paginated list of warnings generated during import processing
+      parameters:
+        - description: Page number
+          in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - description: Items per page
+          in: query
+          name: perPage
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Import warnings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/handler.WarningListResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: Get import warnings
+      tags:
+        - Import
+  "/import/warnings/{id}/dismiss":
+    post:
+      description: Dismiss an import warning with an optional note
+      parameters:
+        - description: Warning ID (UUID)
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/handler.DismissWarningRequest"
+        description: Dismissal note
+        required: true
+      responses:
+        "204":
+          description: Warning dismissed
+        "400":
+          description: Invalid warning ID
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "401":
+          description: Not authenticated
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "404":
+          description: Warning not found
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "500":
+          description: Internal server error
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: Dismiss a warning
+      tags:
+        - Import
+  /members:
+    get:
+      description: Get a paginated list of members with optional filtering and sorting
+      parameters:
+        - description: Page number
+          in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - description: Items per page
+          in: query
+          name: perPage
+          schema:
+            type: integer
+            default: 20
+        - description: Search by name or member number
+          in: query
+          name: search
+          schema:
+            type: string
+        - description: Sort by field
+          in: query
+          name: sortBy
+          schema:
+            type: string
+            enum:
+              - name
+              - memberNumber
+              - membershipStart
+            default: name
+        - description: Sort direction
+          in: query
+          name: sortDir
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+            default: asc
+        - description: Filter by active status
+          in: query
+          name: active
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: Paginated list of members
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/handler.MemberListResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: List all members
+      tags:
+        - Members
+    post:
+      description: Create a new membership record
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/handler.CreateMemberRequest"
+        description: Member data
+        required: true
+      responses:
+        "201":
+          description: Created member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/handler.MemberResponse"
+        "400":
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: Create a new member
+      tags:
+        - Members
+  "/members/{id}":
+    delete:
+      description: Delete a member by ID
+      parameters:
+        - description: Member ID (UUID)
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Member deleted successfully
+        "400":
+          description: Invalid member ID
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "401":
+          description: Not authenticated
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "404":
+          description: Member not found
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "500":
+          description: Internal server error
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: Delete a member
+      tags:
+        - Members
+    get:
+      description: Get detailed information about a specific member
+      parameters:
+        - description: Member ID (UUID)
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Member details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/handler.MemberResponse"
+        "400":
+          description: Invalid member ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "404":
+          description: Member not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: Get a member by ID
+      tags:
+        - Members
+    put:
+      description: Update an existing member's information
+      parameters:
+        - description: Member ID (UUID)
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/handler.UpdateMemberRequest"
+        description: Updated member data
+        required: true
+      responses:
+        "200":
+          description: Updated member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/handler.MemberResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "404":
+          description: Member not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: Update a member
+      tags:
+        - Members
+  /parents:
+    get:
+      description: Get a paginated list of parents with optional search and sorting
+      parameters:
+        - description: Page number
+          in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - description: Items per page
+          in: query
+          name: perPage
+          schema:
+            type: integer
+            default: 20
+        - description: Search by name or email
+          in: query
+          name: search
+          schema:
+            type: string
+        - description: Sort field (name, email)
+          in: query
+          name: sortBy
+          schema:
+            type: string
+            default: name
+        - description: Sort direction (asc, desc)
+          in: query
+          name: sortDir
+          schema:
+            type: string
+            default: asc
+      responses:
+        "200":
+          description: Paginated list of parents
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/handler.ParentListResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: List all parents
+      tags:
+        - Parents
+    post:
+      description: Register a new parent in the system
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/handler.CreateParentRequest"
+        description: Parent data
+        required: true
+      responses:
+        "201":
+          description: Parent created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/handler.ParentDetailResponse"
+        "400":
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: Create new parent
+      tags:
+        - Parents
+  "/parents/{id}":
+    delete:
+      description: Remove a parent from the system
+      parameters:
+        - description: Parent ID (UUID)
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Parent deleted
+        "400":
+          description: Invalid parent ID
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "401":
+          description: Not authenticated
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "404":
+          description: Parent not found
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "500":
+          description: Internal server error
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: Delete parent
+      tags:
+        - Parents
+    get:
+      description: Retrieve detailed information about a specific parent
+      parameters:
+        - description: Parent ID (UUID)
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Parent found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/handler.ParentDetailResponse"
+        "400":
+          description: Invalid parent ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "404":
+          description: Parent not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: Get parent by ID
+      tags:
+        - Parents
+    put:
+      description: Update parent information
+      parameters:
+        - description: Parent ID (UUID)
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/handler.UpdateParentRequest"
+        description: Updated parent data
+        required: true
+      responses:
+        "200":
+          description: Parent updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/handler.ParentDetailResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "404":
+          description: Parent not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: Update parent
+      tags:
+        - Parents
+  "/parents/{id}/member":
+    delete:
+      description: Remove the member association from a parent (does not delete the member)
+      parameters:
+        - description: Parent ID (UUID)
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Member unlinked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/handler.ParentDetailResponse"
+        "400":
+          description: Invalid parent ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "404":
+          description: Parent not found or not linked to a member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: Unlink member from parent
+      tags:
+        - Parents
+    post:
+      description: Create a new club member from the parent's data and link them
+      parameters:
+        - description: Parent ID (UUID)
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/handler.CreateMemberFromParentRequest"
+        description: Membership start date (defaults to oldest child's entry date)
+      responses:
+        "201":
+          description: Member created and linked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/handler.ParentDetailResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "404":
+          description: Parent not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "409":
+          description: Parent already linked to a member
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/response.ErrorBody"
+      security:
+        - BearerAuth: []
+      summary: Create member for parent
+      tags:
+        - Parents
+tags:
+  - description: Authentifizierung und Autorisierung
+    name: Auth
+  - description: Kinderverwaltung
+    name: Children
+  - description: Elternverwaltung
+    name: Parents
+  - description: Haushaltsverwaltung
+    name: Households
+  - description: Vereinsmitglieder
+    name: Members
+  - description: Beitragsverwaltung
+    name: Fees
+  - description: Bankdaten-Import
+    name: Import
+  - description: Gebührenrechner
+    name: Calculator
+servers:
+  - url: http://localhost:8081/api/fees/v1
+  - url: https://localhost:8081/api/fees/v1
+components:
+  requestBodies:
+    postChildrenImportParse:
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            properties:
+              file:
+                description: CSV file (max 10MB)
+                type: string
+                format: binary
+            required:
+              - file
+      required: true
+  securitySchemes:
+    BearerAuth:
+      description: JWT Bearer token authentication
+      in: header
+      name: Authorization
+      type: apiKey
+  schemas:
+    domain.BankTransaction:
+      properties:
+        amount:
+          type: number
+        bookingDate:
+          type: string
+        currency:
+          type: string
+        description:
+          type: string
+        id:
+          type: string
+        importBatchId:
+          type: string
+        importedAt:
+          type: string
+        matches:
+          description: Joined fields
+          items:
+            $ref: "#/components/schemas/domain.PaymentMatch"
+          type: array
+        payerIban:
+          type: string
+        payerName:
+          type: string
+        valueDate:
+          type: string
+      type: object
+    domain.Child:
+      properties:
+        birthDate:
+          type: string
+        careHours:
+          type: integer
+        city:
+          type: string
+        createdAt:
+          type: string
+        entryDate:
+          type: string
+        exitDate:
+          type: string
+        firstName:
+          type: string
+        household:
+          $ref: "#/components/schemas/domain.Household"
+        householdId:
+          type: string
+        id:
+          type: string
+        isActive:
+          type: boolean
+        lastName:
+          type: string
+        legalHours:
+          type: integer
+        legalHoursUntil:
+          type: string
+        memberNumber:
+          type: string
+        parents:
+          description: Loaded relations (not stored in DB)
+          items:
+            $ref: "#/components/schemas/domain.Parent"
+          type: array
+        postalCode:
+          type: string
+        street:
+          type: string
+        streetNo:
+          type: string
+        updatedAt:
+          type: string
+      type: object
+    domain.FeeExpectation:
+      properties:
+        amount:
+          type: number
+        child:
+          allOf:
+            - $ref: "#/components/schemas/domain.Child"
+          description: Joined fields
+        childId:
+          type: string
+        createdAt:
+          type: string
+        dueDate:
+          type: string
+        feeType:
+          $ref: "#/components/schemas/domain.FeeType"
+        id:
+          type: string
+        isPaid:
+          type: boolean
+        matchedBy:
+          $ref: "#/components/schemas/domain.PaymentMatch"
+        month:
+          description: nil for yearly fees
+          type: integer
+        paidAt:
+          type: string
+        reconciliationYear:
+          description: "For Kalendarjahresabrechnung: the year this Nachzahlung is for"
+          type: integer
+        reminderForId:
+          description: "For REMINDER type: links to the original fee"
+          type: string
+        year:
+          type: integer
+      type: object
+    domain.FeeType:
+      enum:
+        - MEMBERSHIP
+        - FOOD
+        - CHILDCARE
+        - REMINDER
+      type: string
+      x-enum-comments:
+        FeeTypeChildcare: Platzgeld (monthly, variable, for U3)
+        FeeTypeFood: Essensgeld (monthly, 45.40 EUR)
+        FeeTypeMembership: Vereinsbeitrag (yearly, 30 EUR)
+        FeeTypeReminder: Mahngebühr (10 EUR, manually triggered)
+      x-enum-descriptions:
+        - Vereinsbeitrag (yearly, 30 EUR)
+        - Essensgeld (monthly, 45.40 EUR)
+        - Platzgeld (monthly, variable, for U3)
+        - Mahngebühr (10 EUR, manually triggered)
+      x-enum-varnames:
+        - FeeTypeMembership
+        - FeeTypeFood
+        - FeeTypeChildcare
+        - FeeTypeReminder
+    domain.Household:
+      properties:
+        annualHouseholdIncome:
+          type: number
+        children:
+          items:
+            $ref: "#/components/schemas/domain.Child"
+          type: array
+        createdAt:
+          type: string
+        id:
+          type: string
+        incomeStatus:
+          $ref: "#/components/schemas/domain.IncomeStatus"
+        name:
+          description: e.g. "Familie Müller" - auto-generated or manual
+          type: string
+        parents:
+          description: Loaded relations (not stored in DB)
+          items:
+            $ref: "#/components/schemas/domain.Parent"
+          type: array
+        updatedAt:
+          type: string
+      type: object
+    domain.IncomeStatus:
+      enum:
+        - ""
+        - PROVIDED
+        - MAX_ACCEPTED
+        - PENDING
+        - NOT_REQUIRED
+        - HISTORIC
+        - FOSTER_FAMILY
+      type: string
+      x-enum-varnames:
+        - IncomeStatusUnknown
+        - IncomeStatusProvided
+        - IncomeStatusMaxAccepted
+        - IncomeStatusPending
+        - IncomeStatusNotRequired
+        - IncomeStatusHistoric
+        - IncomeStatusFosterFamily
+    domain.MatchSuggestion:
+      properties:
+        child:
+          $ref: "#/components/schemas/domain.Child"
+        confidence:
+          type: number
+        detectedType:
+          $ref: "#/components/schemas/domain.FeeType"
+        expectation:
+          $ref: "#/components/schemas/domain.FeeExpectation"
+        expectations:
+          description: For combined matches (e.g., fee + reminder)
+          items:
+            $ref: "#/components/schemas/domain.FeeExpectation"
+          type: array
+        matchedBy:
+          description: '"member_number", "name", "amount", "combined"'
+          type: string
+        transaction:
+          $ref: "#/components/schemas/domain.BankTransaction"
+      type: object
+    domain.MatchType:
+      enum:
+        - AUTO
+        - MANUAL
+      type: string
+      x-enum-varnames:
+        - MatchTypeAuto
+        - MatchTypeManual
+    domain.Member:
+      properties:
+        city:
+          type: string
+        createdAt:
+          type: string
+        email:
+          type: string
+        firstName:
+          type: string
+        household:
+          allOf:
+            - $ref: "#/components/schemas/domain.Household"
+          description: Loaded relations (not stored in DB)
+        householdId:
+          type: string
+        id:
+          type: string
+        isActive:
+          type: boolean
+        lastName:
+          type: string
+        memberNumber:
+          type: string
+        membershipEnd:
+          type: string
+        membershipStart:
+          type: string
+        phone:
+          type: string
+        postalCode:
+          type: string
+        street:
+          type: string
+        streetNo:
+          type: string
+        updatedAt:
+          type: string
+      type: object
+    domain.Parent:
+      properties:
+        annualHouseholdIncome:
+          description: "DEPRECATED: Income fields moved to Household. Kept for backwards
+            compatibility during migration."
+          type: number
+        birthDate:
+          type: string
+        children:
+          description: Loaded relations (not stored in DB)
+          items:
+            $ref: "#/components/schemas/domain.Child"
+          type: array
+        city:
+          type: string
+        createdAt:
+          type: string
+        email:
+          type: string
+        firstName:
+          type: string
+        household:
+          $ref: "#/components/schemas/domain.Household"
+        householdId:
+          type: string
+        id:
+          type: string
+        incomeStatus:
+          $ref: "#/components/schemas/domain.IncomeStatus"
+        lastName:
+          type: string
+        member:
+          $ref: "#/components/schemas/domain.Member"
+        memberId:
+          description: Link to Member if this parent is also a member
+          type: string
+        phone:
+          type: string
+        postalCode:
+          type: string
+        street:
+          type: string
+        streetNo:
+          type: string
+        updatedAt:
+          type: string
+      type: object
+    domain.PaymentMatch:
+      properties:
+        confidence:
+          type: number
+        expectation:
+          $ref: "#/components/schemas/domain.FeeExpectation"
+        expectationId:
+          type: string
+        id:
+          type: string
+        matchType:
+          $ref: "#/components/schemas/domain.MatchType"
+        matchedAt:
+          type: string
+        matchedBy:
+          type: string
+        transaction:
+          allOf:
+            - $ref: "#/components/schemas/domain.BankTransaction"
+          description: Joined fields
+        transactionId:
+          type: string
+      type: object
+    handler.ChangePasswordRequest:
+      properties:
+        currentPassword:
+          example: oldPassword123
+          type: string
+        newPassword:
+          example: newPassword456
+          minLength: 8
+          type: string
+      type: object
+    handler.ChildListResponse:
+      description: Paginated list of children
+      properties:
+        data:
+          items:
+            $ref: "#/components/schemas/handler.ChildResponse"
+          type: array
+        page:
+          example: 1
+          type: integer
+        perPage:
+          example: 20
+          type: integer
+        total:
+          example: 100
+          type: integer
+        totalPages:
+          example: 5
+          type: integer
+      type: object
+    handler.ChildPreviewRow:
+      description: Single child preview with validation status
+      properties:
+        action:
+          enum:
+            - create
+            - update
+            - skip
+          example: create
+          type: string
+        birthDate:
+          example: 2020-05-15
+          type: string
+        errors:
+          example:
+            - Ungültiges Geburtsdatum
+          items:
+            type: string
+          type: array
+        existingId:
+          example: 550e8400-e29b-41d4-a716-446655440000
+          type: string
+        firstName:
+          example: Max
+          type: string
+        groupName:
+          example: Schmetterlinge
+          type: string
+        isValid:
+          example: true
+          type: boolean
+        lastName:
+          example: Mustermann
+          type: string
+        parentEmail:
+          example: hans@example.com
+          type: string
+        parentName:
+          example: Hans Mustermann
+          type: string
+        rowNumber:
+          example: 1
+          type: integer
+        warnings:
+          example:
+            - Gruppe nicht gefunden
+          items:
+            type: string
+          type: array
+      type: object
+    handler.ChildResponse:
+      description: Child information
+      properties:
+        birthDate:
+          example: 2020-06-15
+          type: string
+        careHours:
+          example: 40
+          type: integer
+        city:
+          example: Potsdam
+          type: string
+        createdAt:
+          example: 2023-08-01T10:00:00Z
+          type: string
+        entryDate:
+          example: 2023-08-01
+          type: string
+        exitDate:
+          example: 2026-07-31
+          type: string
+        firstName:
+          example: Emma
+          type: string
+        household: {}
+        householdId:
+          example: 550e8400-e29b-41d4-a716-446655440001
+          type: string
+        id:
+          example: 550e8400-e29b-41d4-a716-446655440000
+          type: string
+        isActive:
+          example: true
+          type: boolean
+        lastName:
+          example: Müller
+          type: string
+        legalHours:
+          example: 35
+          type: integer
+        legalHoursUntil:
+          example: 2024-12-31
+          type: string
+        memberNumber:
+          example: K-2024-001
+          type: string
+        parents:
+          items:
+            $ref: "#/components/schemas/handler.ParentResponse"
+          type: array
+        postalCode:
+          example: "14467"
+          type: string
+        street:
+          example: Hauptstraße
+          type: string
+        streetNo:
+          example: "42"
+          type: string
+        updatedAt:
+          example: 2023-08-01T10:00:00Z
+          type: string
+      type: object
+    handler.ChildcareFeeResult:
+      description: Childcare fee calculation result
+      properties:
+        careHours:
+          example: 40
+          type: integer
+        childAgeType:
+          example: krippe
+          type: string
+        discountApplied:
+          example: 0
+          type: number
+        highestRate:
+          example: false
+          type: boolean
+        incomeLevel:
+          example: level3
+          type: string
+        monthlyFee:
+          example: 250
+          type: number
+        siblingsCount:
+          example: 1
+          type: integer
+      type: object
+    handler.ConfirmMatchRequest:
+      description: Request body for confirming transaction-fee matches
+      properties:
+        matches:
+          items:
+            $ref: "#/components/schemas/handler.MatchConfirmation"
+          type: array
+      type: object
+    handler.ConfirmMatchResponse:
+      description: Result of confirming matches
+      properties:
+        confirmed:
+          example: 5
+          type: integer
+        failed:
+          example: 0
+          type: integer
+      type: object
+    handler.CreateChildRequest:
+      description: Request body for creating a new child
+      properties:
+        birthDate:
+          example: 2020-06-15
+          type: string
+        careHours:
+          example: 40
+          type: integer
+        city:
+          example: Potsdam
+          type: string
+        entryDate:
+          example: 2023-08-01
+          type: string
+        exitDate:
+          example: 2026-07-31
+          type: string
+        firstName:
+          example: Emma
+          type: string
+        lastName:
+          example: Müller
+          type: string
+        legalHours:
+          example: 35
+          type: integer
+        legalHoursUntil:
+          example: 2024-12-31
+          type: string
+        memberNumber:
+          example: K-2024-001
+          type: string
+        postalCode:
+          example: "14467"
+          type: string
+        street:
+          example: Hauptstraße
+          type: string
+        streetNo:
+          example: "42"
+          type: string
+      type: object
+    handler.CreateHouseholdRequest:
+      description: Request body for creating a new household
+      properties:
+        annualHouseholdIncome:
+          example: 65000
+          type: number
+        incomeStatus:
+          enum:
+            - PROVIDED
+            - MAX_ACCEPTED
+            - PENDING
+            - NOT_REQUIRED
+            - HISTORIC
+            - FOSTER_FAMILY
+          example: PROVIDED
+          type: string
+        name:
+          example: Familie Müller
+          type: string
+      type: object
+    handler.CreateMemberFromParentRequest:
+      description: Request body for creating a member from a parent
+      properties:
+        membershipStart:
+          example: 2023-08-01
+          type: string
+      type: object
+    handler.CreateMemberRequest:
+      description: Request body for creating a new member
+      properties:
+        city:
+          example: Berlin
+          type: string
+        email:
+          example: hans.mueller@example.com
+          type: string
+        firstName:
+          example: Hans
+          type: string
+        householdId:
+          example: 550e8400-e29b-41d4-a716-446655440001
+          type: string
+        lastName:
+          example: Müller
+          type: string
+        memberNumber:
+          example: M-2024-001
+          type: string
+        membershipEnd:
+          example: 2024-12-31
+          type: string
+        membershipStart:
+          example: 2024-01-01
+          type: string
+        phone:
+          example: +49 123 456789
+          type: string
+        postalCode:
+          example: "12345"
+          type: string
+        street:
+          example: Hauptstraße
+          type: string
+        streetNo:
+          example: "42"
+          type: string
+      type: object
+    handler.CreateParentRequest:
+      description: Request body for creating a new parent
+      properties:
+        annualHouseholdIncome:
+          example: 65000
+          type: number
+        birthDate:
+          example: 1985-03-15
+          type: string
+        city:
+          example: Potsdam
+          type: string
+        email:
+          example: thomas.mueller@example.com
+          type: string
+        firstName:
+          example: Thomas
+          type: string
+        incomeStatus:
+          enum:
+            - PROVIDED
+            - MAX_ACCEPTED
+            - PENDING
+            - NOT_REQUIRED
+            - HISTORIC
+            - FOSTER_FAMILY
+          example: PROVIDED
+          type: string
+        lastName:
+          example: Müller
+          type: string
+        phone:
+          example: +49 331 12345
+          type: string
+        postalCode:
+          example: "14467"
+          type: string
+        street:
+          example: Hauptstraße
+          type: string
+        streetNo:
+          example: "42"
+          type: string
+      type: object
+    handler.DismissTransactionResponse:
+      description: Dismiss transaction result
+      properties:
+        addedToBlacklist:
+          example: true
+          type: boolean
+        iban:
+          example: DE89370400440532013000
+          type: string
+        transactionId:
+          example: 550e8400-e29b-41d4-a716-446655440000
+          type: string
+      type: object
+    handler.DismissWarningRequest:
+      description: Request body for dismissing a warning
+      properties:
+        note:
+          example: Differenz wurde bar ausgeglichen
+          type: string
+      type: object
+    handler.ExecuteImportResponse:
+      description: Import execution result
+      properties:
+        created:
+          example: 30
+          type: integer
+        errors:
+          items:
+            type: string
+          type: array
+        skipped:
+          example: 5
+          type: integer
+        updated:
+          example: 15
+          type: integer
+      type: object
+    handler.FeeListResponse:
+      description: Paginated list of fees
+      properties:
+        data:
+          items:
+            $ref: "#/components/schemas/handler.FeeResponse"
+          type: array
+        page:
+          example: 1
+          type: integer
+        perPage:
+          example: 20
+          type: integer
+        total:
+          example: 100
+          type: integer
+        totalPages:
+          example: 5
+          type: integer
+      type: object
+    handler.FeeResponse:
+      description: Fee information
+      properties:
+        amount:
+          example: 250
+          type: number
+        childId:
+          example: 550e8400-e29b-41d4-a716-446655440001
+          type: string
+        childName:
+          example: Max Mustermann
+          type: string
+        description:
+          example: Betreuungsgebühr März 2024
+          type: string
+        dueDate:
+          example: 2024-03-15
+          type: string
+        id:
+          example: 550e8400-e29b-41d4-a716-446655440000
+          type: string
+        month:
+          example: 3
+          type: integer
+        paidAt:
+          example: 2024-03-10
+          type: string
+        parentFeeId:
+          example: 550e8400-e29b-41d4-a716-446655440002
+          type: string
+        status:
+          enum:
+            - open
+            - paid
+            - overdue
+          example: open
+          type: string
+        type:
+          enum:
+            - childcare
+            - food
+            - membership
+            - reminder
+          example: childcare
+          type: string
+        year:
+          example: 2024
+          type: integer
+      type: object
+    handler.GenerateFeeRequest:
+      description: Request body for generating fees
+      properties:
+        month:
+          description: nil for yearly fees (membership)
+          example: 3
+          type: integer
+        year:
+          example: 2024
+          type: integer
+      type: object
+    handler.GenerateFeeResponse:
+      description: Result of fee generation
+      properties:
+        created:
+          example: 50
+          type: integer
+        skipped:
+          example: 5
+          type: integer
+        suggestions:
+          items:
+            $ref: "#/components/schemas/domain.MatchSuggestion"
+          type: array
+      type: object
+    handler.HouseholdLinkChildRequest:
+      description: Request body for linking a child to a household
+      properties:
+        childId:
+          example: 550e8400-e29b-41d4-a716-446655440000
+          type: string
+      type: object
+    handler.HouseholdLinkParentRequest:
+      description: Request body for linking a parent to a household
+      properties:
+        parentId:
+          example: 550e8400-e29b-41d4-a716-446655440000
+          type: string
+      type: object
+    handler.HouseholdListResponse:
+      description: Paginated list of households
+      properties:
+        data:
+          items:
+            $ref: "#/components/schemas/handler.HouseholdResponse"
+          type: array
+        page:
+          example: 1
+          type: integer
+        perPage:
+          example: 20
+          type: integer
+        total:
+          example: 25
+          type: integer
+        totalPages:
+          example: 2
+          type: integer
+      type: object
+    handler.HouseholdResponse:
+      description: Household information with relationships
+      properties:
+        annualHouseholdIncome:
+          example: 65000
+          type: number
+        children: {}
+        createdAt:
+          example: 2023-01-15T10:00:00Z
+          type: string
+        id:
+          example: 550e8400-e29b-41d4-a716-446655440000
+          type: string
+        incomeStatus:
+          enum:
+            - PROVIDED
+            - MAX_ACCEPTED
+            - PENDING
+            - NOT_REQUIRED
+            - HISTORIC
+            - FOSTER_FAMILY
+          example: PROVIDED
+          type: string
+        name:
+          example: Familie Müller
+          type: string
+        parents: {}
+        updatedAt:
+          example: 2023-01-15T10:00:00Z
+          type: string
+      type: object
+    handler.IBANEntry:
+      description: IBAN entry
+      properties:
+        accountHolder:
+          example: Max Mustermann
+          type: string
+        addedAt:
+          example: 2024-03-15T10:30:00Z
+          type: string
+        childId:
+          example: 550e8400-e29b-41d4-a716-446655440000
+          type: string
+        childName:
+          example: Max Mustermann
+          type: string
+        iban:
+          example: DE89370400440532013000
+          type: string
+        reason:
+          example: Fremdkonto
+          type: string
+      type: object
+    handler.IBANListResponse:
+      description: Paginated IBAN list
+      properties:
+        data:
+          items:
+            $ref: "#/components/schemas/handler.IBANEntry"
+          type: array
+        page:
+          example: 1
+          type: integer
+        perPage:
+          example: 20
+          type: integer
+        total:
+          example: 5
+          type: integer
+        totalPages:
+          example: 1
+          type: integer
+      type: object
+    handler.ImportHistoryEntry:
+      description: Import history entry
+      properties:
+        duplicates:
+          example: 5
+          type: integer
+        fileName:
+          example: kontoauszug_2024_03.csv
+          type: string
+        id:
+          example: 550e8400-e29b-41d4-a716-446655440000
+          type: string
+        importedAt:
+          example: 2024-03-15T10:30:00Z
+          type: string
+        importedBy:
+          example: admin@knirpsenstadt.de
+          type: string
+        matched:
+          example: 120
+          type: integer
+        totalRows:
+          example: 150
+          type: integer
+        unmatched:
+          example: 25
+          type: integer
+      type: object
+    handler.ImportHistoryListResponse:
+      description: Paginated import history
+      properties:
+        data:
+          items:
+            $ref: "#/components/schemas/handler.ImportHistoryEntry"
+          type: array
+        page:
+          example: 1
+          type: integer
+        perPage:
+          example: 20
+          type: integer
+        total:
+          example: 10
+          type: integer
+        totalPages:
+          example: 1
+          type: integer
+      type: object
+    handler.LinkIBANRequest:
+      description: Request body for linking an IBAN to a child
+      properties:
+        childId:
+          example: 550e8400-e29b-41d4-a716-446655440000
+          type: string
+      type: object
+    handler.LinkParentRequest:
+      description: Request body for linking a parent to a child
+      properties:
+        isPrimary:
+          example: true
+          type: boolean
+        parentId:
+          example: 550e8400-e29b-41d4-a716-446655440000
+          type: string
+      type: object
+    handler.LoginRequest:
+      properties:
+        email:
+          example: admin@example.com
+          type: string
+        password:
+          example: password123
+          type: string
+      type: object
+    handler.LoginResponse:
+      properties:
+        accessToken:
+          example: eyJhbGciOiJIUzI1NiIs...
+          type: string
+        expiresAt:
+          example: 2024-01-27T15:04:05Z
+          type: string
+        refreshToken:
+          example: eyJhbGciOiJIUzI1NiIs...
+          type: string
+        user:
+          $ref: "#/components/schemas/handler.UserResponse"
+      type: object
+    handler.ManualMatchRequest:
+      description: Request body for manual matching
+      properties:
+        expectationId:
+          example: 550e8400-e29b-41d4-a716-446655440001
+          type: string
+        transactionId:
+          example: 550e8400-e29b-41d4-a716-446655440000
+          type: string
+      type: object
+    handler.ManualMatchResponse:
+      description: Manual match result
+      properties:
+        expectationId:
+          example: 550e8400-e29b-41d4-a716-446655440001
+          type: string
+        matchedAt:
+          example: 2024-03-15T10:30:00Z
+          type: string
+        matchedBy:
+          example: admin@knirpsenstadt.de
+          type: string
+        transactionId:
+          example: 550e8400-e29b-41d4-a716-446655440000
+          type: string
+      type: object
+    handler.MatchConfirmation:
+      description: Single match confirmation
+      properties:
+        expectationId:
+          example: 550e8400-e29b-41d4-a716-446655440001
+          type: string
+        transactionId:
+          example: 550e8400-e29b-41d4-a716-446655440000
+          type: string
+      type: object
+    handler.MatchSuggestion:
+      description: Suggested match for manual review
+      properties:
+        confidence:
+          example: 0.85
+          type: number
+        expectationId:
+          example: 550e8400-e29b-41d4-a716-446655440001
+          type: string
+        expectationInfo:
+          example: Betreuungsgebühr März 2024 - Max Mustermann
+          type: string
+        reason:
+          example: Name match
+          type: string
+        transactionId:
+          example: 550e8400-e29b-41d4-a716-446655440000
+          type: string
+        transactionInfo:
+          example: SEPA-Überweisung Max Mustermann
+          type: string
+      type: object
+    handler.MemberListResponse:
+      description: Paginated list of members
+      properties:
+        data:
+          items:
+            $ref: "#/components/schemas/handler.MemberResponse"
+          type: array
+        page:
+          example: 1
+          type: integer
+        perPage:
+          example: 20
+          type: integer
+        total:
+          example: 42
+          type: integer
+        totalPages:
+          example: 3
+          type: integer
+      type: object
+    handler.MemberResponse:
+      description: Member information
+      properties:
+        city:
+          example: Berlin
+          type: string
+        email:
+          example: hans.mueller@example.com
+          type: string
+        firstName:
+          example: Hans
+          type: string
+        householdId:
+          example: 550e8400-e29b-41d4-a716-446655440001
+          type: string
+        id:
+          example: 550e8400-e29b-41d4-a716-446655440000
+          type: string
+        isActive:
+          example: true
+          type: boolean
+        lastName:
+          example: Müller
+          type: string
+        memberNumber:
+          example: M-2024-001
+          type: string
+        membershipEnd:
+          example: 2024-12-31
+          type: string
+        membershipStart:
+          example: 2024-01-01
+          type: string
+        phone:
+          example: +49 123 456789
+          type: string
+        postalCode:
+          example: "12345"
+          type: string
+        street:
+          example: Hauptstraße
+          type: string
+        streetNo:
+          example: "42"
+          type: string
+      type: object
+    handler.MessageResponse:
+      properties:
+        message:
+          example: Operation completed successfully
+          type: string
+      type: object
+    handler.MonthOverview:
+      description: Monthly fee summary
+      properties:
+        month:
+          example: 3
+          type: integer
+        openAmount:
+          example: 2500
+          type: number
+        openCount:
+          example: 10
+          type: integer
+        paidAmount:
+          example: 10000
+          type: number
+        paidCount:
+          example: 40
+          type: integer
+        year:
+          example: 2024
+          type: integer
+      type: object
+    handler.OverviewResponse:
+      description: Fee overview with totals and monthly breakdown
+      properties:
+        amountOpen:
+          example: 6250
+          type: number
+        amountOverdue:
+          example: 1250
+          type: number
+        amountPaid:
+          example: 37500
+          type: number
+        byMonth:
+          items:
+            $ref: "#/components/schemas/handler.MonthOverview"
+          type: array
+        totalOpen:
+          example: 25
+          type: integer
+        totalOverdue:
+          example: 5
+          type: integer
+        totalPaid:
+          example: 150
+          type: integer
+      type: object
+    handler.ParentDetailResponse:
+      description: Parent information with relationships
+      properties:
+        annualHouseholdIncome:
+          example: 65000
+          type: number
+        birthDate:
+          example: 1985-03-15
+          type: string
+        children: {}
+        city:
+          example: Potsdam
+          type: string
+        createdAt:
+          example: 2023-01-15T10:00:00Z
+          type: string
+        email:
+          example: thomas.mueller@example.com
+          type: string
+        firstName:
+          example: Thomas
+          type: string
+        household: {}
+        householdId:
+          example: 550e8400-e29b-41d4-a716-446655440001
+          type: string
+        id:
+          example: 550e8400-e29b-41d4-a716-446655440000
+          type: string
+        incomeStatus:
+          enum:
+            - PROVIDED
+            - MAX_ACCEPTED
+            - PENDING
+            - NOT_REQUIRED
+            - HISTORIC
+            - FOSTER_FAMILY
+          example: PROVIDED
+          type: string
+        lastName:
+          example: Müller
+          type: string
+        member: {}
+        memberId:
+          example: 550e8400-e29b-41d4-a716-446655440002
+          type: string
+        phone:
+          example: +49 331 12345
+          type: string
+        postalCode:
+          example: "14467"
+          type: string
+        street:
+          example: Hauptstraße
+          type: string
+        streetNo:
+          example: "42"
+          type: string
+        updatedAt:
+          example: 2023-01-15T10:00:00Z
+          type: string
+      type: object
+    handler.ParentListResponse:
+      description: Paginated list of parents
+      properties:
+        data:
+          items:
+            $ref: "#/components/schemas/handler.ParentDetailResponse"
+          type: array
+        page:
+          example: 1
+          type: integer
+        perPage:
+          example: 20
+          type: integer
+        total:
+          example: 50
+          type: integer
+        totalPages:
+          example: 3
+          type: integer
+      type: object
+    handler.ParentResponse:
+      description: Parent information (summary)
+      properties:
+        email:
+          example: thomas.mueller@example.com
+          type: string
+        firstName:
+          example: Thomas
+          type: string
+        id:
+          example: 550e8400-e29b-41d4-a716-446655440002
+          type: string
+        lastName:
+          example: Müller
+          type: string
+        phone:
+          example: +49 331 12345
+          type: string
+      type: object
+    handler.ParseCSVResponse:
+      description: CSV parsing result with headers and sample data
+      properties:
+        fileContent:
+          description: Base64 encoded for re-use in preview
+          type: string
+        headers:
+          example:
+            - Vorname
+            - Nachname
+            - Geburtsdatum
+            - Gruppe
+          items:
+            type: string
+          type: array
+        sampleRows:
+          items:
+            items:
+              type: string
+            type: array
+          type: array
+        separator:
+          example: ;
+          type: string
+        totalRows:
+          example: 50
+          type: integer
+      type: object
+    handler.PasswordResetConfirmRequest:
+      properties:
+        newPassword:
+          example: newPassword456
+          minLength: 8
+          type: string
+        token:
+          example: abc123def456
+          type: string
+      type: object
+    handler.PasswordResetRequest:
+      properties:
+        email:
+          example: user@example.com
+          type: string
+      type: object
+    handler.PreviewRequest:
+      description: Request body for generating import preview
+      properties:
+        fileContent:
+          description: Base64 encoded CSV content
+          type: string
+        mapping:
+          additionalProperties:
+            type: integer
+          description: systemField -> csvColumnIndex
+          type: object
+        separator:
+          example: ;
+          type: string
+        skipHeader:
+          example: true
+          type: boolean
+      type: object
+    handler.PreviewResponse:
+      description: Import preview with validation results
+      properties:
+        hasErrors:
+          example: false
+          type: boolean
+        rows:
+          items:
+            $ref: "#/components/schemas/handler.ChildPreviewRow"
+          type: array
+        toCreate:
+          example: 30
+          type: integer
+        toSkip:
+          example: 5
+          type: integer
+        toUpdate:
+          example: 15
+          type: integer
+        totalRows:
+          example: 50
+          type: integer
+        validRows:
+          example: 45
+          type: integer
+      type: object
+    handler.RefreshRequest:
+      properties:
+        refreshToken:
+          example: eyJhbGciOiJIUzI1NiIs...
+          type: string
+      type: object
+    handler.RescanResponse:
+      description: Rescan result with new match suggestions
+      properties:
+        newMatches:
+          example: 5
+          type: integer
+        suggestions:
+          items:
+            $ref: "#/components/schemas/handler.MatchSuggestion"
+          type: array
+      type: object
+    handler.TransactionListResponse:
+      description: Paginated list of transactions
+      properties:
+        data:
+          items:
+            $ref: "#/components/schemas/handler.TransactionResponse"
+          type: array
+        page:
+          example: 1
+          type: integer
+        perPage:
+          example: 20
+          type: integer
+        total:
+          example: 25
+          type: integer
+        totalPages:
+          example: 2
+          type: integer
+      type: object
+    handler.TransactionResponse:
+      description: Bank transaction from CSV import
+      properties:
+        accountHolder:
+          example: Max Mustermann
+          type: string
+        amount:
+          example: 250
+          type: number
+        bic:
+          example: COBADEFFXXX
+          type: string
+        bookingDate:
+          example: 2024-03-15
+          type: string
+        currency:
+          example: EUR
+          type: string
+        iban:
+          example: DE89370400440532013000
+          type: string
+        id:
+          example: 550e8400-e29b-41d4-a716-446655440000
+          type: string
+        matchedFeeId:
+          example: 550e8400-e29b-41d4-a716-446655440001
+          type: string
+        purpose:
+          example: Betreuungsgebühr März 2024
+          type: string
+        status:
+          enum:
+            - matched
+            - unmatched
+            - dismissed
+          example: unmatched
+          type: string
+        transactionType:
+          example: SEPA-Überweisung
+          type: string
+        valueDate:
+          example: 2024-03-15
+          type: string
+      type: object
+    handler.UpdateChildRequest:
+      description: Request body for updating a child
+      properties:
+        birthDate:
+          example: 2020-06-15
+          type: string
+        careHours:
+          example: 40
+          type: integer
+        city:
+          example: Potsdam
+          type: string
+        entryDate:
+          example: 2023-08-01
+          type: string
+        exitDate:
+          example: 2026-07-31
+          type: string
+        firstName:
+          example: Emma
+          type: string
+        isActive:
+          example: true
+          type: boolean
+        lastName:
+          example: Müller
+          type: string
+        legalHours:
+          example: 35
+          type: integer
+        legalHoursUntil:
+          example: 2024-12-31
+          type: string
+        postalCode:
+          example: "14467"
+          type: string
+        street:
+          example: Hauptstraße
+          type: string
+        streetNo:
+          example: "42"
+          type: string
+      type: object
+    handler.UpdateFeeRequest:
+      description: Request body for updating a fee
+      properties:
+        amount:
+          example: 275.5
+          type: number
+      type: object
+    handler.UpdateHouseholdRequest:
+      description: Request body for updating a household
+      properties:
+        annualHouseholdIncome:
+          example: 65000
+          type: number
+        incomeStatus:
+          enum:
+            - PROVIDED
+            - MAX_ACCEPTED
+            - PENDING
+            - NOT_REQUIRED
+            - HISTORIC
+            - FOSTER_FAMILY
+          example: PROVIDED
+          type: string
+        name:
+          example: Familie Müller
+          type: string
+      type: object
+    handler.UpdateMemberRequest:
+      description: Request body for updating a member
+      properties:
+        city:
+          example: Berlin
+          type: string
+        email:
+          example: hans.mueller@example.com
+          type: string
+        firstName:
+          example: Hans
+          type: string
+        householdId:
+          example: 550e8400-e29b-41d4-a716-446655440001
+          type: string
+        isActive:
+          example: true
+          type: boolean
+        lastName:
+          example: Müller
+          type: string
+        membershipEnd:
+          example: 2024-12-31
+          type: string
+        membershipStart:
+          example: 2024-01-01
+          type: string
+        phone:
+          example: +49 123 456789
+          type: string
+        postalCode:
+          example: "12345"
+          type: string
+        street:
+          example: Hauptstraße
+          type: string
+        streetNo:
+          example: "42"
+          type: string
+      type: object
+    handler.UpdateParentRequest:
+      description: Request body for updating a parent
+      properties:
+        annualHouseholdIncome:
+          example: 65000
+          type: number
+        birthDate:
+          example: 1985-03-15
+          type: string
+        city:
+          example: Potsdam
+          type: string
+        email:
+          example: thomas.mueller@example.com
+          type: string
+        firstName:
+          example: Thomas
+          type: string
+        incomeStatus:
+          enum:
+            - PROVIDED
+            - MAX_ACCEPTED
+            - PENDING
+            - NOT_REQUIRED
+            - HISTORIC
+            - FOSTER_FAMILY
+          example: PROVIDED
+          type: string
+        lastName:
+          example: Müller
+          type: string
+        phone:
+          example: +49 331 12345
+          type: string
+        postalCode:
+          example: "14467"
+          type: string
+        street:
+          example: Hauptstraße
+          type: string
+        streetNo:
+          example: "42"
+          type: string
+      type: object
+    handler.UploadResponse:
+      description: CSV upload and processing result
+      properties:
+        duplicates:
+          example: 5
+          type: integer
+        fileName:
+          example: kontoauszug_2024_03.csv
+          type: string
+        importId:
+          example: 550e8400-e29b-41d4-a716-446655440000
+          type: string
+        matched:
+          example: 120
+          type: integer
+        suggestions:
+          items:
+            $ref: "#/components/schemas/handler.MatchSuggestion"
+          type: array
+        totalRows:
+          example: 150
+          type: integer
+        unmatched:
+          example: 25
+          type: integer
+      type: object
+    handler.UserResponse:
+      properties:
+        email:
+          example: user@example.com
+          type: string
+        firstName:
+          example: Max
+          type: string
+        id:
+          example: 550e8400-e29b-41d4-a716-446655440000
+          type: string
+        lastName:
+          example: Mustermann
+          type: string
+        role:
+          enum:
+            - ADMIN
+            - USER
+          example: ADMIN
+          type: string
+      type: object
+    handler.WarningEntry:
+      description: Import warning for review
+      properties:
+        createdAt:
+          example: 2024-03-15T10:30:00Z
+          type: string
+        dismissNote:
+          example: Eltern haben Restbetrag bar bezahlt
+          type: string
+        dismissedAt:
+          example: 2024-03-16T14:00:00Z
+          type: string
+        dismissedBy:
+          example: admin@knirpsenstadt.de
+          type: string
+        feeId:
+          example: 550e8400-e29b-41d4-a716-446655440002
+          type: string
+        id:
+          example: 550e8400-e29b-41d4-a716-446655440000
+          type: string
+        message:
+          example: Betrag weicht um 5.00€ ab
+          type: string
+        transactionId:
+          example: 550e8400-e29b-41d4-a716-446655440001
+          type: string
+        type:
+          enum:
+            - amount_mismatch
+            - duplicate_payment
+            - unknown_iban
+          example: amount_mismatch
+          type: string
+      type: object
+    handler.WarningListResponse:
+      description: Paginated warnings list
+      properties:
+        data:
+          items:
+            $ref: "#/components/schemas/handler.WarningEntry"
+          type: array
+        page:
+          example: 1
+          type: integer
+        perPage:
+          example: 20
+          type: integer
+        total:
+          example: 3
+          type: integer
+        totalPages:
+          example: 1
+          type: integer
+      type: object
+    response.ErrorBody:
+      description: Standard error response format
+      properties:
+        code:
+          example: 400
+          type: integer
+        error:
+          example: Bad Request
+          type: string
+        message:
+          example: invalid request body
+          type: string
+      type: object
+    service.ChildPreview:
+      properties:
+        birthDate:
+          type: string
+        careHours:
+          type: integer
+        city:
+          type: string
+        entryDate:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        legalHours:
+          type: integer
+        memberNumber:
+          type: string
+        postalCode:
+          type: string
+        street:
+          type: string
+        streetNo:
+          type: string
+      type: object
+    service.ExecuteRequest:
+      properties:
+        parentDecisions:
+          items:
+            $ref: "#/components/schemas/service.ParentDecision"
+          type: array
+        rows:
+          items:
+            $ref: "#/components/schemas/service.ImportRow"
+          type: array
+      type: object
+    service.ImportRow:
+      properties:
+        child:
+          $ref: "#/components/schemas/service.ChildPreview"
+        existingChildId:
+          description: Set when merging/updating existing child
+          type: string
+        fieldUpdates:
+          additionalProperties:
+            type: string
+          description: Field -> value for updates (from conflict resolution)
+          type: object
+        index:
+          type: integer
+        mergeParents:
+          description: True if only adding parents to existing child
+          type: boolean
+        parent1:
+          $ref: "#/components/schemas/service.ParentPreview"
+        parent2:
+          $ref: "#/components/schemas/service.ParentPreview"
+      type: object
+    service.ParentDecision:
+      properties:
+        action:
+          description: '"create" or "link"'
+          type: string
+        existingParentId:
+          type: string
+        parentIndex:
+          description: 1 or 2
+          type: integer
+        rowIndex:
+          type: integer
+      type: object
+    service.ParentMatch:
+      properties:
+        email:
+          type: string
+        firstName:
+          type: string
+        id:
+          type: string
+        lastName:
+          type: string
+      type: object
+    service.ParentPreview:
+      properties:
+        alreadyLinked:
+          description: True if already linked to the existing child
+          type: boolean
+        email:
+          type: string
+        existingMatches:
+          items:
+            $ref: "#/components/schemas/service.ParentMatch"
+          type: array
+        firstName:
+          type: string
+        lastName:
+          type: string
+        linkedParentId:
+          description: ID of the already linked parent
+          type: string
+        phone:
+          type: string
+      type: object

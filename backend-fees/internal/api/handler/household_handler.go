@@ -22,14 +22,52 @@ func NewHouseholdHandler(householdService *service.HouseholdService) *HouseholdH
 	return &HouseholdHandler{householdService: householdService}
 }
 
-// CreateHouseholdRequest represents a request to create a household.
-type CreateHouseholdRequest struct {
-	Name                  string   `json:"name"`
-	AnnualHouseholdIncome *float64 `json:"annualHouseholdIncome,omitempty"`
-	IncomeStatus          *string  `json:"incomeStatus,omitempty"`
+// HouseholdResponse represents a household in API responses.
+// @Description Household information with relationships
+type HouseholdResponse struct {
+	ID                    string      `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
+	Name                  string      `json:"name" example:"Familie Müller"`
+	AnnualHouseholdIncome *float64    `json:"annualHouseholdIncome,omitempty" example:"65000.00"`
+	IncomeStatus          *string     `json:"incomeStatus,omitempty" example:"PROVIDED" enums:"PROVIDED,MAX_ACCEPTED,PENDING,NOT_REQUIRED,HISTORIC,FOSTER_FAMILY"`
+	CreatedAt             string      `json:"createdAt" example:"2023-01-15T10:00:00Z"`
+	UpdatedAt             string      `json:"updatedAt" example:"2023-01-15T10:00:00Z"`
+	Parents               interface{} `json:"parents,omitempty"`
+	Children              interface{} `json:"children,omitempty"`
 }
 
-// List handles GET /households
+// HouseholdListResponse represents a paginated list of households.
+// @Description Paginated list of households
+type HouseholdListResponse struct {
+	Data       []HouseholdResponse `json:"data"`
+	Total      int64               `json:"total" example:"25"`
+	Page       int                 `json:"page" example:"1"`
+	PerPage    int                 `json:"perPage" example:"20"`
+	TotalPages int                 `json:"totalPages" example:"2"`
+}
+
+// CreateHouseholdRequest represents a request to create a household.
+// @Description Request body for creating a new household
+type CreateHouseholdRequest struct {
+	Name                  string   `json:"name" example:"Familie Müller"`
+	AnnualHouseholdIncome *float64 `json:"annualHouseholdIncome,omitempty" example:"65000.00"`
+	IncomeStatus          *string  `json:"incomeStatus,omitempty" example:"PROVIDED" enums:"PROVIDED,MAX_ACCEPTED,PENDING,NOT_REQUIRED,HISTORIC,FOSTER_FAMILY"`
+}
+
+// List returns all households with pagination
+// @Summary List all households
+// @Description Get a paginated list of households with optional search and sorting
+// @Tags Households
+// @Produce json
+// @Security BearerAuth
+// @Param page query int false "Page number" default(1)
+// @Param perPage query int false "Items per page" default(20)
+// @Param search query string false "Search by name"
+// @Param sortBy query string false "Sort field (name)" default(name)
+// @Param sortDir query string false "Sort direction (asc, desc)" default(asc)
+// @Success 200 {object} HouseholdListResponse "Paginated list of households"
+// @Failure 401 {object} response.ErrorBody "Not authenticated"
+// @Failure 500 {object} response.ErrorBody "Internal server error"
+// @Router /households [get]
 func (h *HouseholdHandler) List(w http.ResponseWriter, r *http.Request) {
 	pagination := request.GetPagination(r)
 	search := request.GetQueryString(r, "search", "")
@@ -45,7 +83,19 @@ func (h *HouseholdHandler) List(w http.ResponseWriter, r *http.Request) {
 	response.Paginated(w, households, total, pagination.Page, pagination.PerPage)
 }
 
-// Create handles POST /households
+// Create creates a new household
+// @Summary Create new household
+// @Description Register a new household in the system
+// @Tags Households
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body CreateHouseholdRequest true "Household data"
+// @Success 201 {object} HouseholdResponse "Household created successfully"
+// @Failure 400 {object} response.ErrorBody "Invalid request body"
+// @Failure 401 {object} response.ErrorBody "Not authenticated"
+// @Failure 500 {object} response.ErrorBody "Internal server error"
+// @Router /households [post]
 func (h *HouseholdHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var req CreateHouseholdRequest
 	if err := request.DecodeJSON(r, &req); err != nil {
@@ -76,7 +126,19 @@ func (h *HouseholdHandler) Create(w http.ResponseWriter, r *http.Request) {
 	response.Created(w, household)
 }
 
-// Get handles GET /households/{id}
+// Get returns a household by ID
+// @Summary Get household by ID
+// @Description Retrieve detailed information about a specific household
+// @Tags Households
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Household ID (UUID)"
+// @Success 200 {object} HouseholdResponse "Household found"
+// @Failure 400 {object} response.ErrorBody "Invalid household ID"
+// @Failure 401 {object} response.ErrorBody "Not authenticated"
+// @Failure 404 {object} response.ErrorBody "Household not found"
+// @Failure 500 {object} response.ErrorBody "Internal server error"
+// @Router /households/{id} [get]
 func (h *HouseholdHandler) Get(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
@@ -98,13 +160,28 @@ func (h *HouseholdHandler) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 // UpdateHouseholdRequest represents a request to update a household.
+// @Description Request body for updating a household
 type UpdateHouseholdRequest struct {
-	Name                  *string  `json:"name,omitempty"`
-	AnnualHouseholdIncome *float64 `json:"annualHouseholdIncome,omitempty"`
-	IncomeStatus          *string  `json:"incomeStatus,omitempty"`
+	Name                  *string  `json:"name,omitempty" example:"Familie Müller"`
+	AnnualHouseholdIncome *float64 `json:"annualHouseholdIncome,omitempty" example:"65000.00"`
+	IncomeStatus          *string  `json:"incomeStatus,omitempty" example:"PROVIDED" enums:"PROVIDED,MAX_ACCEPTED,PENDING,NOT_REQUIRED,HISTORIC,FOSTER_FAMILY"`
 }
 
-// Update handles PUT /households/{id}
+// Update updates a household
+// @Summary Update household
+// @Description Update household information
+// @Tags Households
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Household ID (UUID)"
+// @Param request body UpdateHouseholdRequest true "Updated household data"
+// @Success 200 {object} HouseholdResponse "Household updated"
+// @Failure 400 {object} response.ErrorBody "Invalid request"
+// @Failure 401 {object} response.ErrorBody "Not authenticated"
+// @Failure 404 {object} response.ErrorBody "Household not found"
+// @Failure 500 {object} response.ErrorBody "Internal server error"
+// @Router /households/{id} [put]
 func (h *HouseholdHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
@@ -140,7 +217,18 @@ func (h *HouseholdHandler) Update(w http.ResponseWriter, r *http.Request) {
 	response.Success(w, household)
 }
 
-// Delete handles DELETE /households/{id}
+// Delete deletes a household
+// @Summary Delete household
+// @Description Remove a household from the system
+// @Tags Households
+// @Security BearerAuth
+// @Param id path string true "Household ID (UUID)"
+// @Success 204 "Household deleted"
+// @Failure 400 {object} response.ErrorBody "Invalid household ID"
+// @Failure 401 {object} response.ErrorBody "Not authenticated"
+// @Failure 404 {object} response.ErrorBody "Household not found"
+// @Failure 500 {object} response.ErrorBody "Internal server error"
+// @Router /households/{id} [delete]
 func (h *HouseholdHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
@@ -161,11 +249,25 @@ func (h *HouseholdHandler) Delete(w http.ResponseWriter, r *http.Request) {
 }
 
 // HouseholdLinkParentRequest represents a request to link a parent to a household.
+// @Description Request body for linking a parent to a household
 type HouseholdLinkParentRequest struct {
-	ParentID string `json:"parentId"`
+	ParentID string `json:"parentId" example:"550e8400-e29b-41d4-a716-446655440000"`
 }
 
-// LinkParent handles POST /households/{id}/parents
+// LinkParent links a parent to a household
+// @Summary Link parent to household
+// @Description Associate a parent with a household
+// @Tags Households
+// @Accept json
+// @Security BearerAuth
+// @Param id path string true "Household ID (UUID)"
+// @Param request body HouseholdLinkParentRequest true "Parent link data"
+// @Success 204 "Parent linked"
+// @Failure 400 {object} response.ErrorBody "Invalid request"
+// @Failure 401 {object} response.ErrorBody "Not authenticated"
+// @Failure 404 {object} response.ErrorBody "Household or parent not found"
+// @Failure 500 {object} response.ErrorBody "Internal server error"
+// @Router /households/{id}/parents [post]
 func (h *HouseholdHandler) LinkParent(w http.ResponseWriter, r *http.Request) {
 	householdID, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
@@ -198,11 +300,25 @@ func (h *HouseholdHandler) LinkParent(w http.ResponseWriter, r *http.Request) {
 }
 
 // HouseholdLinkChildRequest represents a request to link a child to a household.
+// @Description Request body for linking a child to a household
 type HouseholdLinkChildRequest struct {
-	ChildID string `json:"childId"`
+	ChildID string `json:"childId" example:"550e8400-e29b-41d4-a716-446655440000"`
 }
 
-// LinkChild handles POST /households/{id}/children
+// LinkChild links a child to a household
+// @Summary Link child to household
+// @Description Associate a child with a household
+// @Tags Households
+// @Accept json
+// @Security BearerAuth
+// @Param id path string true "Household ID (UUID)"
+// @Param request body HouseholdLinkChildRequest true "Child link data"
+// @Success 204 "Child linked"
+// @Failure 400 {object} response.ErrorBody "Invalid request"
+// @Failure 401 {object} response.ErrorBody "Not authenticated"
+// @Failure 404 {object} response.ErrorBody "Household or child not found"
+// @Failure 500 {object} response.ErrorBody "Internal server error"
+// @Router /households/{id}/children [post]
 func (h *HouseholdHandler) LinkChild(w http.ResponseWriter, r *http.Request) {
 	householdID, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {

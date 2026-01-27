@@ -12,6 +12,14 @@ type ErrorResponse struct {
 	Code    int    `json:"code"`
 }
 
+// ErrorBody represents an error response for API documentation.
+// @Description Standard error response format
+type ErrorBody struct {
+	Error   string `json:"error" example:"Bad Request"`
+	Message string `json:"message" example:"invalid request body"`
+	Code    int    `json:"code" example:"400"`
+}
+
 // SuccessResponse represents a generic success response.
 type SuccessResponse struct {
 	Success bool        `json:"success"`

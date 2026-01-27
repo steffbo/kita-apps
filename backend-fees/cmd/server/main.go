@@ -22,6 +22,37 @@ import (
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/service"
 )
 
+// @title Kita Knirpsenstadt Fees API
+// @version 1.0.0
+// @description API für Beitragsverwaltung der Kita Knirpsenstadt
+// @contact.name Kita Knirpsenstadt
+
+// @host localhost:8081
+// @BasePath /api/fees/v1
+// @schemes http https
+
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description JWT Bearer token authentication
+
+// @tag.name Auth
+// @tag.description Authentifizierung und Autorisierung
+// @tag.name Children
+// @tag.description Kinderverwaltung
+// @tag.name Parents
+// @tag.description Elternverwaltung
+// @tag.name Households
+// @tag.description Haushaltsverwaltung
+// @tag.name Members
+// @tag.description Vereinsmitglieder
+// @tag.name Fees
+// @tag.description Beitragsverwaltung
+// @tag.name Import
+// @tag.description Bankdaten-Import
+// @tag.name Calculator
+// @tag.description Gebührenrechner
+
 func main() {
 	// Configure logging
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix

@@ -21,6 +21,16 @@ func NewStatisticsHandler(service *service.StatisticsService) *StatisticsHandler
 }
 
 // Overview handles GET /statistics/overview.
+// @Summary Get overview statistics
+// @Description Get monthly overview statistics for all employees
+// @Tags Statistics
+// @Produce json
+// @Security BearerAuth
+// @Param month query string true "Month (YYYY-MM-DD, any day in the month)"
+// @Success 200 {object} OverviewStatisticsResponse "Overview statistics"
+// @Failure 400 {object} map[string]interface{} "Invalid request"
+// @Failure 401 {object} map[string]interface{} "Not authenticated"
+// @Router /statistics/overview [get]
 func (h *StatisticsHandler) Overview(w http.ResponseWriter, r *http.Request) {
 	monthStr := request.GetQueryString(r, "month", "")
 	if monthStr == "" {
@@ -44,6 +54,18 @@ func (h *StatisticsHandler) Overview(w http.ResponseWriter, r *http.Request) {
 }
 
 // Employee handles GET /statistics/employee/{id}.
+// @Summary Get employee statistics
+// @Description Get monthly statistics for a specific employee
+// @Tags Statistics
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "Employee ID"
+// @Param month query string true "Month (YYYY-MM-DD, any day in the month)"
+// @Success 200 {object} EmployeeStatisticsResponse "Employee statistics"
+// @Failure 400 {object} map[string]interface{} "Invalid request"
+// @Failure 401 {object} map[string]interface{} "Not authenticated"
+// @Failure 404 {object} map[string]interface{} "Employee not found"
+// @Router /statistics/employee/{id} [get]
 func (h *StatisticsHandler) Employee(w http.ResponseWriter, r *http.Request) {
 	id, err := parseID(chi.URLParam(r, "id"))
 	if err != nil {
@@ -73,6 +95,16 @@ func (h *StatisticsHandler) Employee(w http.ResponseWriter, r *http.Request) {
 }
 
 // Weekly handles GET /statistics/weekly.
+// @Summary Get weekly statistics
+// @Description Get weekly statistics by employee and group
+// @Tags Statistics
+// @Produce json
+// @Security BearerAuth
+// @Param weekStart query string true "Week start date (YYYY-MM-DD, must be a Monday)"
+// @Success 200 {object} WeeklyStatisticsResponse "Weekly statistics"
+// @Failure 400 {object} map[string]interface{} "Invalid request"
+// @Failure 401 {object} map[string]interface{} "Not authenticated"
+// @Router /statistics/weekly [get]
 func (h *StatisticsHandler) Weekly(w http.ResponseWriter, r *http.Request) {
 	weekStartStr := request.GetQueryString(r, "weekStart", "")
 	if weekStartStr == "" {
@@ -96,11 +128,27 @@ func (h *StatisticsHandler) Weekly(w http.ResponseWriter, r *http.Request) {
 }
 
 // ExportTimesheet handles GET /export/timesheet.
+// @Summary Export timesheet
+// @Description Export timesheet data (placeholder, not yet implemented)
+// @Tags Export
+// @Produce json
+// @Security BearerAuth
+// @Success 204 "No content - not yet implemented"
+// @Failure 401 {object} map[string]interface{} "Not authenticated"
+// @Router /export/timesheet [get]
 func (h *StatisticsHandler) ExportTimesheet(w http.ResponseWriter, r *http.Request) {
 	response.NoContent(w)
 }
 
 // ExportSchedule handles GET /export/schedule.
+// @Summary Export schedule
+// @Description Export schedule data (placeholder, not yet implemented)
+// @Tags Export
+// @Produce json
+// @Security BearerAuth
+// @Success 204 "No content - not yet implemented"
+// @Failure 401 {object} map[string]interface{} "Not authenticated"
+// @Router /export/schedule [get]
 func (h *StatisticsHandler) ExportSchedule(w http.ResponseWriter, r *http.Request) {
 	response.NoContent(w)
 }

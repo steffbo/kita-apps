@@ -23,16 +23,28 @@ func NewSpecialDayHandler(service *service.SpecialDayService) *SpecialDayHandler
 	return &SpecialDayHandler{service: service}
 }
 
+// specialDayRequest contains the data for creating or updating a special day.
 type specialDayRequest struct {
-	Date       string  `json:"date" validate:"required"`
-	EndDate    *string `json:"endDate,omitempty"`
-	Name       string  `json:"name" validate:"required"`
-	DayType    string  `json:"dayType" validate:"required,oneof=HOLIDAY CLOSURE TEAM_DAY EVENT"`
-	AffectsAll *bool   `json:"affectsAll,omitempty"`
-	Notes      *string `json:"notes,omitempty"`
-}
+	Date       string  `json:"date" validate:"required" example:"2024-12-25"`
+	EndDate    *string `json:"endDate,omitempty" example:"2024-12-26"`
+	Name       string  `json:"name" validate:"required" example:"Weihnachten"`
+	DayType    string  `json:"dayType" validate:"required,oneof=HOLIDAY CLOSURE TEAM_DAY EVENT" example:"HOLIDAY"`
+	AffectsAll *bool   `json:"affectsAll,omitempty" example:"true"`
+	Notes      *string `json:"notes,omitempty" example:"Gesetzlicher Feiertag"`
+} //@name CreateSpecialDayRequest
 
 // List handles GET /special-days.
+// @Summary List special days
+// @Description Get all special days (holidays, closures, events) for a year
+// @Tags Special Days
+// @Produce json
+// @Security BearerAuth
+// @Param year query int true "Year"
+// @Param includeHolidays query bool false "Include public holidays" default(true)
+// @Success 200 {array} SpecialDayResponse "List of special days"
+// @Failure 400 {object} map[string]interface{} "Invalid request"
+// @Failure 401 {object} map[string]interface{} "Not authenticated"
+// @Router /special-days [get]
 func (h *SpecialDayHandler) List(w http.ResponseWriter, r *http.Request) {
 	yearStr := request.GetQueryString(r, "year", "")
 	if yearStr == "" {
@@ -65,6 +77,16 @@ func (h *SpecialDayHandler) List(w http.ResponseWriter, r *http.Request) {
 }
 
 // Holidays handles GET /special-days/holidays/{year}.
+// @Summary List public holidays
+// @Description Get all public holidays for a year (auto-generated based on German holidays)
+// @Tags Special Days
+// @Produce json
+// @Security BearerAuth
+// @Param year path int true "Year"
+// @Success 200 {array} SpecialDayResponse "List of public holidays"
+// @Failure 400 {object} map[string]interface{} "Invalid year"
+// @Failure 401 {object} map[string]interface{} "Not authenticated"
+// @Router /special-days/holidays/{year} [get]
 func (h *SpecialDayHandler) Holidays(w http.ResponseWriter, r *http.Request) {
 	yearStr := chi.URLParam(r, "year")
 	year, err := strconv.Atoi(yearStr)
@@ -88,6 +110,18 @@ func (h *SpecialDayHandler) Holidays(w http.ResponseWriter, r *http.Request) {
 }
 
 // Create handles POST /special-days.
+// @Summary Create a special day
+// @Description Create a new special day (closure, team day, or event)
+// @Tags Special Days
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param specialDay body specialDayRequest true "Special day data"
+// @Success 201 {object} SpecialDayResponse "Created special day"
+// @Failure 400 {object} map[string]interface{} "Invalid request"
+// @Failure 401 {object} map[string]interface{} "Not authenticated"
+// @Failure 409 {object} map[string]interface{} "Conflict - date already exists"
+// @Router /special-days [post]
 func (h *SpecialDayHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var req specialDayRequest
 	if validationErrors, err := request.DecodeAndValidate(r, &req); err != nil {
@@ -136,6 +170,19 @@ func (h *SpecialDayHandler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 // Update handles PUT /special-days/{id}.
+// @Summary Update a special day
+// @Description Update an existing special day
+// @Tags Special Days
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "Special day ID"
+// @Param specialDay body specialDayRequest true "Special day data"
+// @Success 200 {object} SpecialDayResponse "Updated special day"
+// @Failure 400 {object} map[string]interface{} "Invalid request"
+// @Failure 401 {object} map[string]interface{} "Not authenticated"
+// @Failure 404 {object} map[string]interface{} "Special day not found"
+// @Router /special-days/{id} [put]
 func (h *SpecialDayHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id, err := parseID(chi.URLParam(r, "id"))
 	if err != nil {
@@ -190,6 +237,17 @@ func (h *SpecialDayHandler) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 // Delete handles DELETE /special-days/{id}.
+// @Summary Delete a special day
+// @Description Delete an existing special day
+// @Tags Special Days
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "Special day ID"
+// @Success 204 "Special day deleted"
+// @Failure 400 {object} map[string]interface{} "Invalid ID"
+// @Failure 401 {object} map[string]interface{} "Not authenticated"
+// @Failure 404 {object} map[string]interface{} "Special day not found"
+// @Router /special-days/{id} [delete]
 func (h *SpecialDayHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	id, err := parseID(chi.URLParam(r, "id"))
 	if err != nil {

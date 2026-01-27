@@ -22,30 +22,42 @@ func NewEmployeeHandler(employees *service.EmployeeService) *EmployeeHandler {
 	return &EmployeeHandler{employees: employees}
 }
 
+// createEmployeeRequest contains the data for creating a new employee.
 type createEmployeeRequest struct {
-	Email               string  `json:"email" validate:"required,email"`
-	FirstName           string  `json:"firstName" validate:"required"`
-	LastName            string  `json:"lastName" validate:"required"`
-	Role                *string `json:"role,omitempty" validate:"omitempty,oneof=ADMIN EMPLOYEE"`
-	WeeklyHours         float64 `json:"weeklyHours" validate:"required,gt=0"`
-	VacationDaysPerYear *int    `json:"vacationDaysPerYear,omitempty" validate:"omitempty,gte=0"`
-	PrimaryGroupID      *int64  `json:"primaryGroupId,omitempty"`
-}
+	Email               string  `json:"email" validate:"required,email" example:"max.mustermann@knirpsenstadt.de"`
+	FirstName           string  `json:"firstName" validate:"required" example:"Max"`
+	LastName            string  `json:"lastName" validate:"required" example:"Mustermann"`
+	Role                *string `json:"role,omitempty" validate:"omitempty,oneof=ADMIN EMPLOYEE" example:"EMPLOYEE"`
+	WeeklyHours         float64 `json:"weeklyHours" validate:"required,gt=0" example:"40"`
+	VacationDaysPerYear *int    `json:"vacationDaysPerYear,omitempty" validate:"omitempty,gte=0" example:"30"`
+	PrimaryGroupID      *int64  `json:"primaryGroupId,omitempty" example:"1"`
+} //@name CreateEmployeeRequest
 
+// updateEmployeeRequest contains the data for updating an employee.
 type updateEmployeeRequest struct {
-	Email                 *string  `json:"email,omitempty" validate:"omitempty,email"`
-	FirstName             *string  `json:"firstName,omitempty"`
-	LastName              *string  `json:"lastName,omitempty"`
-	Role                  *string  `json:"role,omitempty" validate:"omitempty,oneof=ADMIN EMPLOYEE"`
-	WeeklyHours           *float64 `json:"weeklyHours,omitempty" validate:"omitempty,gt=0"`
-	VacationDaysPerYear   *int     `json:"vacationDaysPerYear,omitempty" validate:"omitempty,gte=0"`
-	RemainingVacationDays *float64 `json:"remainingVacationDays,omitempty"`
-	OvertimeBalance       *float64 `json:"overtimeBalance,omitempty"`
-	Active                *bool    `json:"active,omitempty"`
-	PrimaryGroupID        *int64   `json:"primaryGroupId,omitempty"`
-}
+	Email                 *string  `json:"email,omitempty" validate:"omitempty,email" example:"max.mustermann@knirpsenstadt.de"`
+	FirstName             *string  `json:"firstName,omitempty" example:"Max"`
+	LastName              *string  `json:"lastName,omitempty" example:"Mustermann"`
+	Role                  *string  `json:"role,omitempty" validate:"omitempty,oneof=ADMIN EMPLOYEE" example:"EMPLOYEE"`
+	WeeklyHours           *float64 `json:"weeklyHours,omitempty" validate:"omitempty,gt=0" example:"40"`
+	VacationDaysPerYear   *int     `json:"vacationDaysPerYear,omitempty" validate:"omitempty,gte=0" example:"30"`
+	RemainingVacationDays *float64 `json:"remainingVacationDays,omitempty" example:"25.5"`
+	OvertimeBalance       *float64 `json:"overtimeBalance,omitempty" example:"10.25"`
+	Active                *bool    `json:"active,omitempty" example:"true"`
+	PrimaryGroupID        *int64   `json:"primaryGroupId,omitempty" example:"1"`
+} //@name UpdateEmployeeRequest
 
 // List handles GET /employees.
+// @Summary List all employees
+// @Description Get a list of all employees, optionally including inactive ones
+// @Tags Employees
+// @Produce json
+// @Security BearerAuth
+// @Param includeInactive query bool false "Include inactive employees" default(false)
+// @Success 200 {array} EmployeeResponse "List of employees"
+// @Failure 401 {object} map[string]interface{} "Not authenticated"
+// @Failure 500 {object} map[string]interface{} "Internal server error"
+// @Router /employees [get]
 func (h *EmployeeHandler) List(w http.ResponseWriter, r *http.Request) {
 	includeInactive := request.GetQueryBool(r, "includeInactive")
 	activeOnly := true
@@ -68,6 +80,17 @@ func (h *EmployeeHandler) List(w http.ResponseWriter, r *http.Request) {
 }
 
 // Get handles GET /employees/{id}.
+// @Summary Get an employee by ID
+// @Description Get detailed information about a specific employee
+// @Tags Employees
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "Employee ID"
+// @Success 200 {object} EmployeeResponse "Employee details"
+// @Failure 400 {object} map[string]interface{} "Invalid employee ID"
+// @Failure 401 {object} map[string]interface{} "Not authenticated"
+// @Failure 404 {object} map[string]interface{} "Employee not found"
+// @Router /employees/{id} [get]
 func (h *EmployeeHandler) Get(w http.ResponseWriter, r *http.Request) {
 	id, err := parseID(chi.URLParam(r, "id"))
 	if err != nil {
@@ -85,6 +108,18 @@ func (h *EmployeeHandler) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 // Create handles POST /employees.
+// @Summary Create a new employee
+// @Description Create a new employee account
+// @Tags Employees
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param employee body createEmployeeRequest true "Employee data"
+// @Success 201 {object} EmployeeResponse "Created employee"
+// @Failure 400 {object} map[string]interface{} "Invalid request"
+// @Failure 401 {object} map[string]interface{} "Not authenticated"
+// @Failure 409 {object} map[string]interface{} "Email already exists"
+// @Router /employees [post]
 func (h *EmployeeHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var req createEmployeeRequest
 	if validationErrors, err := request.DecodeAndValidate(r, &req); err != nil {
@@ -123,6 +158,19 @@ func (h *EmployeeHandler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 // Update handles PUT /employees/{id}.
+// @Summary Update an employee
+// @Description Update an existing employee's information
+// @Tags Employees
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "Employee ID"
+// @Param employee body updateEmployeeRequest true "Updated employee data"
+// @Success 200 {object} EmployeeResponse "Updated employee"
+// @Failure 400 {object} map[string]interface{} "Invalid request"
+// @Failure 401 {object} map[string]interface{} "Not authenticated"
+// @Failure 404 {object} map[string]interface{} "Employee not found"
+// @Router /employees/{id} [put]
 func (h *EmployeeHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id, err := parseID(chi.URLParam(r, "id"))
 	if err != nil {
@@ -166,6 +214,16 @@ func (h *EmployeeHandler) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 // Delete handles DELETE /employees/{id}.
+// @Summary Delete an employee
+// @Description Delete an employee (soft delete - sets inactive)
+// @Tags Employees
+// @Security BearerAuth
+// @Param id path int true "Employee ID"
+// @Success 204 "Employee deleted"
+// @Failure 400 {object} map[string]interface{} "Invalid employee ID"
+// @Failure 401 {object} map[string]interface{} "Not authenticated"
+// @Failure 404 {object} map[string]interface{} "Employee not found"
+// @Router /employees/{id} [delete]
 func (h *EmployeeHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	id, err := parseID(chi.URLParam(r, "id"))
 	if err != nil {
@@ -182,6 +240,17 @@ func (h *EmployeeHandler) Delete(w http.ResponseWriter, r *http.Request) {
 }
 
 // ResetPassword handles POST /employees/{id}/reset-password.
+// @Summary Reset employee password
+// @Description Reset an employee's password and send them an email with the new password
+// @Tags Employees
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "Employee ID"
+// @Success 200 {object} map[string]string "Password reset email sent"
+// @Failure 400 {object} map[string]interface{} "Invalid employee ID"
+// @Failure 401 {object} map[string]interface{} "Not authenticated"
+// @Failure 404 {object} map[string]interface{} "Employee not found"
+// @Router /employees/{id}/reset-password [post]
 func (h *EmployeeHandler) ResetPassword(w http.ResponseWriter, r *http.Request) {
 	id, err := parseID(chi.URLParam(r, "id"))
 	if err != nil {
@@ -198,6 +267,17 @@ func (h *EmployeeHandler) ResetPassword(w http.ResponseWriter, r *http.Request) 
 }
 
 // Assignments handles GET /employees/{id}/assignments.
+// @Summary Get employee group assignments
+// @Description Get all group assignments for an employee
+// @Tags Employees
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "Employee ID"
+// @Success 200 {array} GroupAssignmentResponse "List of group assignments"
+// @Failure 400 {object} map[string]interface{} "Invalid employee ID"
+// @Failure 401 {object} map[string]interface{} "Not authenticated"
+// @Failure 404 {object} map[string]interface{} "Employee not found"
+// @Router /employees/{id}/assignments [get]
 func (h *EmployeeHandler) Assignments(w http.ResponseWriter, r *http.Request) {
 	id, err := parseID(chi.URLParam(r, "id"))
 	if err != nil {

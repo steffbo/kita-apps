@@ -24,6 +24,32 @@ import (
 	"github.com/knirpsenstadt/kita-apps/backend-management/internal/service"
 )
 
+// @title Kita Knirpsenstadt Management API
+// @version 1.0.0
+// @description API für Zeiterfassung und Dienstplanung der Kita Knirpsenstadt
+// @host localhost:8080
+// @BasePath /api
+
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description Bearer token authentication. Enter: Bearer <token>
+
+// @tag.name Auth
+// @tag.description Authentication endpoints (login, logout, password reset)
+// @tag.name Employees
+// @tag.description Employee management (CRUD, assignments)
+// @tag.name Groups
+// @tag.description Group management (Kindergarten groups)
+// @tag.name Schedule
+// @tag.description Shift scheduling and planning
+// @tag.name Time Tracking
+// @tag.description Time entry and tracking
+// @tag.name Special Days
+// @tag.description Holidays and special days management
+// @tag.name Statistics
+// @tag.description Statistics and reports
+
 func main() {
 	// Parse command-line flags
 	envFile := flag.String("env-file", "", "Path to .env file to load")

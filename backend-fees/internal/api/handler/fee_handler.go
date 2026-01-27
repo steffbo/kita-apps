@@ -19,6 +19,33 @@ type FeeHandler struct {
 	importService *service.ImportService
 }
 
+// FeeResponse represents a fee in API responses
+// @Description Fee information
+type FeeResponse struct {
+	ID          string  `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
+	ChildID     string  `json:"childId" example:"550e8400-e29b-41d4-a716-446655440001"`
+	ChildName   string  `json:"childName" example:"Max Mustermann"`
+	Type        string  `json:"type" example:"childcare" enums:"childcare,food,membership,reminder"`
+	Amount      float64 `json:"amount" example:"250.00"`
+	Year        int     `json:"year" example:"2024"`
+	Month       *int    `json:"month,omitempty" example:"3"`
+	Status      string  `json:"status" example:"open" enums:"open,paid,overdue"`
+	DueDate     string  `json:"dueDate" example:"2024-03-15"`
+	PaidAt      *string `json:"paidAt,omitempty" example:"2024-03-10"`
+	Description *string `json:"description,omitempty" example:"Betreuungsgebühr März 2024"`
+	ParentFeeID *string `json:"parentFeeId,omitempty" example:"550e8400-e29b-41d4-a716-446655440002"`
+}
+
+// FeeListResponse represents a paginated list of fees
+// @Description Paginated list of fees
+type FeeListResponse struct {
+	Data       []FeeResponse `json:"data"`
+	Total      int           `json:"total" example:"100"`
+	Page       int           `json:"page" example:"1"`
+	PerPage    int           `json:"perPage" example:"20"`
+	TotalPages int           `json:"totalPages" example:"5"`
+}
+
 // NewFeeHandler creates a new fee handler.
 func NewFeeHandler(feeService *service.FeeService, importService *service.ImportService) *FeeHandler {
 	return &FeeHandler{
@@ -28,6 +55,22 @@ func NewFeeHandler(feeService *service.FeeService, importService *service.Import
 }
 
 // List handles GET /fees
+// @Summary List all fees
+// @Description Get a paginated list of fees with optional filtering
+// @Tags Fees
+// @Produce json
+// @Security BearerAuth
+// @Param page query int false "Page number" default(1)
+// @Param perPage query int false "Items per page" default(20)
+// @Param year query int false "Filter by year"
+// @Param month query int false "Filter by month (1-12)"
+// @Param type query string false "Filter by fee type" Enums(childcare, food, membership, reminder)
+// @Param status query string false "Filter by status" Enums(open, paid, overdue)
+// @Param childId query string false "Filter by child ID (UUID)"
+// @Success 200 {object} FeeListResponse "Paginated list of fees"
+// @Failure 401 {object} response.ErrorBody "Not authenticated"
+// @Failure 500 {object} response.ErrorBody "Internal server error"
+// @Router /fees [get]
 func (h *FeeHandler) List(w http.ResponseWriter, r *http.Request) {
 	pagination := request.GetPagination(r)
 
@@ -54,27 +97,39 @@ func (h *FeeHandler) List(w http.ResponseWriter, r *http.Request) {
 }
 
 // OverviewResponse represents the fee overview response.
+// @Description Fee overview with totals and monthly breakdown
 type OverviewResponse struct {
-	TotalOpen     int             `json:"totalOpen"`
-	TotalPaid     int             `json:"totalPaid"`
-	TotalOverdue  int             `json:"totalOverdue"`
-	AmountOpen    float64         `json:"amountOpen"`
-	AmountPaid    float64         `json:"amountPaid"`
-	AmountOverdue float64         `json:"amountOverdue"`
+	TotalOpen     int             `json:"totalOpen" example:"25"`
+	TotalPaid     int             `json:"totalPaid" example:"150"`
+	TotalOverdue  int             `json:"totalOverdue" example:"5"`
+	AmountOpen    float64         `json:"amountOpen" example:"6250.00"`
+	AmountPaid    float64         `json:"amountPaid" example:"37500.00"`
+	AmountOverdue float64         `json:"amountOverdue" example:"1250.00"`
 	ByMonth       []MonthOverview `json:"byMonth"`
 }
 
 // MonthOverview represents fee overview for a single month.
+// @Description Monthly fee summary
 type MonthOverview struct {
-	Year       int     `json:"year"`
-	Month      int     `json:"month"`
-	OpenCount  int     `json:"openCount"`
-	PaidCount  int     `json:"paidCount"`
-	OpenAmount float64 `json:"openAmount"`
-	PaidAmount float64 `json:"paidAmount"`
+	Year       int     `json:"year" example:"2024"`
+	Month      int     `json:"month" example:"3"`
+	OpenCount  int     `json:"openCount" example:"10"`
+	PaidCount  int     `json:"paidCount" example:"40"`
+	OpenAmount float64 `json:"openAmount" example:"2500.00"`
+	PaidAmount float64 `json:"paidAmount" example:"10000.00"`
 }
 
 // Overview handles GET /fees/overview
+// @Summary Get fee overview
+// @Description Get an overview of fees with totals and monthly breakdown
+// @Tags Fees
+// @Produce json
+// @Security BearerAuth
+// @Param year query int false "Filter by year"
+// @Success 200 {object} OverviewResponse "Fee overview"
+// @Failure 401 {object} response.ErrorBody "Not authenticated"
+// @Failure 500 {object} response.ErrorBody "Internal server error"
+// @Router /fees/overview [get]
 func (h *FeeHandler) Overview(w http.ResponseWriter, r *http.Request) {
 	year := request.GetQueryIntOptional(r, "year")
 
@@ -88,19 +143,33 @@ func (h *FeeHandler) Overview(w http.ResponseWriter, r *http.Request) {
 }
 
 // GenerateFeeRequest represents a request to generate fees.
+// @Description Request body for generating fees
 type GenerateFeeRequest struct {
-	Year  int  `json:"year"`
-	Month *int `json:"month,omitempty"` // nil for yearly fees (membership)
+	Year  int  `json:"year" example:"2024"`
+	Month *int `json:"month,omitempty" example:"3"` // nil for yearly fees (membership)
 }
 
 // GenerateFeeResponse represents a response from generating fees.
+// @Description Result of fee generation
 type GenerateFeeResponse struct {
-	Created     int                      `json:"created"`
-	Skipped     int                      `json:"skipped"`
+	Created     int                      `json:"created" example:"50"`
+	Skipped     int                      `json:"skipped" example:"5"`
 	Suggestions []domain.MatchSuggestion `json:"suggestions,omitempty"`
 }
 
 // Generate handles POST /fees/generate
+// @Summary Generate fees for a period
+// @Description Generate fee expectations for children and members for a given year/month
+// @Tags Fees
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body GenerateFeeRequest true "Generation parameters"
+// @Success 201 {object} GenerateFeeResponse "Generation result with optional match suggestions"
+// @Failure 400 {object} response.ErrorBody "Invalid request (year/month out of range)"
+// @Failure 401 {object} response.ErrorBody "Not authenticated"
+// @Failure 500 {object} response.ErrorBody "Internal server error"
+// @Router /fees/generate [post]
 func (h *FeeHandler) Generate(w http.ResponseWriter, r *http.Request) {
 	var req GenerateFeeRequest
 	if err := request.DecodeJSON(r, &req); err != nil {
@@ -141,6 +210,18 @@ func (h *FeeHandler) Generate(w http.ResponseWriter, r *http.Request) {
 }
 
 // Get handles GET /fees/{id}
+// @Summary Get a fee by ID
+// @Description Get detailed information about a specific fee
+// @Tags Fees
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Fee ID (UUID)"
+// @Success 200 {object} FeeResponse "Fee details"
+// @Failure 400 {object} response.ErrorBody "Invalid fee ID"
+// @Failure 401 {object} response.ErrorBody "Not authenticated"
+// @Failure 404 {object} response.ErrorBody "Fee not found"
+// @Failure 500 {object} response.ErrorBody "Internal server error"
+// @Router /fees/{id} [get]
 func (h *FeeHandler) Get(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
@@ -162,11 +243,26 @@ func (h *FeeHandler) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 // UpdateFeeRequest represents a request to update a fee.
+// @Description Request body for updating a fee
 type UpdateFeeRequest struct {
-	Amount *float64 `json:"amount,omitempty"`
+	Amount *float64 `json:"amount,omitempty" example:"275.50"`
 }
 
 // Update handles PUT /fees/{id}
+// @Summary Update a fee
+// @Description Update the amount of an existing fee
+// @Tags Fees
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Fee ID (UUID)"
+// @Param fee body UpdateFeeRequest true "Updated fee data"
+// @Success 200 {object} FeeResponse "Updated fee"
+// @Failure 400 {object} response.ErrorBody "Invalid request"
+// @Failure 401 {object} response.ErrorBody "Not authenticated"
+// @Failure 404 {object} response.ErrorBody "Fee not found"
+// @Failure 500 {object} response.ErrorBody "Internal server error"
+// @Router /fees/{id} [put]
 func (h *FeeHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
@@ -194,6 +290,17 @@ func (h *FeeHandler) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 // Delete handles DELETE /fees/{id}
+// @Summary Delete a fee
+// @Description Delete a fee by ID
+// @Tags Fees
+// @Security BearerAuth
+// @Param id path string true "Fee ID (UUID)"
+// @Success 204 "Fee deleted successfully"
+// @Failure 400 {object} response.ErrorBody "Invalid fee ID"
+// @Failure 401 {object} response.ErrorBody "Not authenticated"
+// @Failure 404 {object} response.ErrorBody "Fee not found"
+// @Failure 500 {object} response.ErrorBody "Internal server error"
+// @Router /fees/{id} [delete]
 func (h *FeeHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
@@ -214,7 +321,18 @@ func (h *FeeHandler) Delete(w http.ResponseWriter, r *http.Request) {
 }
 
 // CreateReminder handles POST /fees/{id}/reminder
-// Creates a reminder fee (Mahngebühr) for an unpaid fee.
+// @Summary Create a reminder fee
+// @Description Creates a reminder fee (Mahngebühr) for an unpaid fee
+// @Tags Fees
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Parent Fee ID (UUID)"
+// @Success 201 {object} FeeResponse "Created reminder fee"
+// @Failure 400 {object} response.ErrorBody "Invalid fee ID or fee is already paid"
+// @Failure 401 {object} response.ErrorBody "Not authenticated"
+// @Failure 404 {object} response.ErrorBody "Fee not found"
+// @Failure 500 {object} response.ErrorBody "Internal server error"
+// @Router /fees/{id}/reminder [post]
 func (h *FeeHandler) CreateReminder(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
@@ -239,8 +357,33 @@ func (h *FeeHandler) CreateReminder(w http.ResponseWriter, r *http.Request) {
 	response.Created(w, reminder)
 }
 
+// ChildcareFeeResult represents the result of a childcare fee calculation
+// @Description Childcare fee calculation result
+type ChildcareFeeResult struct {
+	MonthlyFee      float64 `json:"monthlyFee" example:"250.00"`
+	ChildAgeType    string  `json:"childAgeType" example:"krippe"`
+	IncomeLevel     string  `json:"incomeLevel" example:"level3"`
+	CareHours       int     `json:"careHours" example:"40"`
+	SiblingsCount   int     `json:"siblingsCount" example:"1"`
+	HighestRate     bool    `json:"highestRate" example:"false"`
+	DiscountApplied float64 `json:"discountApplied" example:"0"`
+}
+
 // CalculateChildcareFee handles GET /childcare-fee/calculate
-// Query params: childAgeType, income, siblingsCount, careHours, highestRate
+// @Summary Calculate childcare fee
+// @Description Calculate the monthly childcare fee based on income, child age, and care hours
+// @Tags Fees
+// @Produce json
+// @Security BearerAuth
+// @Param childAgeType query string false "Child age type" default(krippe) Enums(krippe, kindergarten)
+// @Param income query number true "Monthly net income"
+// @Param siblingsCount query int false "Number of siblings" default(1)
+// @Param careHours query int false "Weekly care hours" default(30) Enums(30, 35, 40, 45, 50, 55)
+// @Param highestRate query bool false "Apply highest rate" default(false)
+// @Success 200 {object} ChildcareFeeResult "Calculated fee"
+// @Failure 400 {object} response.ErrorBody "Invalid income value"
+// @Failure 401 {object} response.ErrorBody "Not authenticated"
+// @Router /childcare-fee/calculate [get]
 func (h *FeeHandler) CalculateChildcareFee(w http.ResponseWriter, r *http.Request) {
 	// Parse child age type (default: krippe)
 	childAgeType := domain.ChildAgeType(request.GetQueryString(r, "childAgeType", "krippe"))

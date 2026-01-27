@@ -22,22 +22,71 @@ func NewParentHandler(parentService *service.ParentService) *ParentHandler {
 	return &ParentHandler{parentService: parentService}
 }
 
-// CreateParentRequest represents a request to create a parent.
-type CreateParentRequest struct {
-	FirstName             string   `json:"firstName"`
-	LastName              string   `json:"lastName"`
-	BirthDate             *string  `json:"birthDate,omitempty"`
-	Email                 *string  `json:"email,omitempty"`
-	Phone                 *string  `json:"phone,omitempty"`
-	Street                *string  `json:"street,omitempty"`
-	StreetNo              *string  `json:"streetNo,omitempty"`
-	PostalCode            *string  `json:"postalCode,omitempty"`
-	City                  *string  `json:"city,omitempty"`
-	AnnualHouseholdIncome *float64 `json:"annualHouseholdIncome,omitempty"`
-	IncomeStatus          *string  `json:"incomeStatus,omitempty"`
+// ParentDetailResponse represents a parent in API responses.
+// @Description Parent information with relationships
+type ParentDetailResponse struct {
+	ID                    string      `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
+	HouseholdID           *string     `json:"householdId,omitempty" example:"550e8400-e29b-41d4-a716-446655440001"`
+	MemberID              *string     `json:"memberId,omitempty" example:"550e8400-e29b-41d4-a716-446655440002"`
+	FirstName             string      `json:"firstName" example:"Thomas"`
+	LastName              string      `json:"lastName" example:"Müller"`
+	BirthDate             *string     `json:"birthDate,omitempty" example:"1985-03-15"`
+	Email                 *string     `json:"email,omitempty" example:"thomas.mueller@example.com"`
+	Phone                 *string     `json:"phone,omitempty" example:"+49 331 12345"`
+	Street                *string     `json:"street,omitempty" example:"Hauptstraße"`
+	StreetNo              *string     `json:"streetNo,omitempty" example:"42"`
+	PostalCode            *string     `json:"postalCode,omitempty" example:"14467"`
+	City                  *string     `json:"city,omitempty" example:"Potsdam"`
+	AnnualHouseholdIncome *float64    `json:"annualHouseholdIncome,omitempty" example:"65000.00"`
+	IncomeStatus          *string     `json:"incomeStatus,omitempty" example:"PROVIDED" enums:"PROVIDED,MAX_ACCEPTED,PENDING,NOT_REQUIRED,HISTORIC,FOSTER_FAMILY"`
+	CreatedAt             string      `json:"createdAt" example:"2023-01-15T10:00:00Z"`
+	UpdatedAt             string      `json:"updatedAt" example:"2023-01-15T10:00:00Z"`
+	Children              interface{} `json:"children,omitempty"`
+	Household             interface{} `json:"household,omitempty"`
+	Member                interface{} `json:"member,omitempty"`
 }
 
-// List handles GET /parents
+// ParentListResponse represents a paginated list of parents.
+// @Description Paginated list of parents
+type ParentListResponse struct {
+	Data       []ParentDetailResponse `json:"data"`
+	Total      int64                  `json:"total" example:"50"`
+	Page       int                    `json:"page" example:"1"`
+	PerPage    int                    `json:"perPage" example:"20"`
+	TotalPages int                    `json:"totalPages" example:"3"`
+}
+
+// CreateParentRequest represents a request to create a parent.
+// @Description Request body for creating a new parent
+type CreateParentRequest struct {
+	FirstName             string   `json:"firstName" example:"Thomas"`
+	LastName              string   `json:"lastName" example:"Müller"`
+	BirthDate             *string  `json:"birthDate,omitempty" example:"1985-03-15"`
+	Email                 *string  `json:"email,omitempty" example:"thomas.mueller@example.com"`
+	Phone                 *string  `json:"phone,omitempty" example:"+49 331 12345"`
+	Street                *string  `json:"street,omitempty" example:"Hauptstraße"`
+	StreetNo              *string  `json:"streetNo,omitempty" example:"42"`
+	PostalCode            *string  `json:"postalCode,omitempty" example:"14467"`
+	City                  *string  `json:"city,omitempty" example:"Potsdam"`
+	AnnualHouseholdIncome *float64 `json:"annualHouseholdIncome,omitempty" example:"65000.00"`
+	IncomeStatus          *string  `json:"incomeStatus,omitempty" example:"PROVIDED" enums:"PROVIDED,MAX_ACCEPTED,PENDING,NOT_REQUIRED,HISTORIC,FOSTER_FAMILY"`
+}
+
+// List returns all parents with pagination
+// @Summary List all parents
+// @Description Get a paginated list of parents with optional search and sorting
+// @Tags Parents
+// @Produce json
+// @Security BearerAuth
+// @Param page query int false "Page number" default(1)
+// @Param perPage query int false "Items per page" default(20)
+// @Param search query string false "Search by name or email"
+// @Param sortBy query string false "Sort field (name, email)" default(name)
+// @Param sortDir query string false "Sort direction (asc, desc)" default(asc)
+// @Success 200 {object} ParentListResponse "Paginated list of parents"
+// @Failure 401 {object} response.ErrorBody "Not authenticated"
+// @Failure 500 {object} response.ErrorBody "Internal server error"
+// @Router /parents [get]
 func (h *ParentHandler) List(w http.ResponseWriter, r *http.Request) {
 	pagination := request.GetPagination(r)
 	search := request.GetQueryString(r, "search", "")
@@ -53,7 +102,19 @@ func (h *ParentHandler) List(w http.ResponseWriter, r *http.Request) {
 	response.Paginated(w, parents, total, pagination.Page, pagination.PerPage)
 }
 
-// Create handles POST /parents
+// Create creates a new parent
+// @Summary Create new parent
+// @Description Register a new parent in the system
+// @Tags Parents
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body CreateParentRequest true "Parent data"
+// @Success 201 {object} ParentDetailResponse "Parent created successfully"
+// @Failure 400 {object} response.ErrorBody "Invalid request body"
+// @Failure 401 {object} response.ErrorBody "Not authenticated"
+// @Failure 500 {object} response.ErrorBody "Internal server error"
+// @Router /parents [post]
 func (h *ParentHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var req CreateParentRequest
 	if err := request.DecodeJSON(r, &req); err != nil {
@@ -87,7 +148,19 @@ func (h *ParentHandler) Create(w http.ResponseWriter, r *http.Request) {
 	response.Created(w, parent)
 }
 
-// Get handles GET /parents/{id}
+// Get returns a parent by ID
+// @Summary Get parent by ID
+// @Description Retrieve detailed information about a specific parent
+// @Tags Parents
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Parent ID (UUID)"
+// @Success 200 {object} ParentDetailResponse "Parent found"
+// @Failure 400 {object} response.ErrorBody "Invalid parent ID"
+// @Failure 401 {object} response.ErrorBody "Not authenticated"
+// @Failure 404 {object} response.ErrorBody "Parent not found"
+// @Failure 500 {object} response.ErrorBody "Internal server error"
+// @Router /parents/{id} [get]
 func (h *ParentHandler) Get(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
@@ -109,21 +182,36 @@ func (h *ParentHandler) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 // UpdateParentRequest represents a request to update a parent.
+// @Description Request body for updating a parent
 type UpdateParentRequest struct {
-	FirstName             *string  `json:"firstName,omitempty"`
-	LastName              *string  `json:"lastName,omitempty"`
-	BirthDate             *string  `json:"birthDate,omitempty"`
-	Email                 *string  `json:"email,omitempty"`
-	Phone                 *string  `json:"phone,omitempty"`
-	Street                *string  `json:"street,omitempty"`
-	StreetNo              *string  `json:"streetNo,omitempty"`
-	PostalCode            *string  `json:"postalCode,omitempty"`
-	City                  *string  `json:"city,omitempty"`
-	AnnualHouseholdIncome *float64 `json:"annualHouseholdIncome,omitempty"`
-	IncomeStatus          *string  `json:"incomeStatus,omitempty"`
+	FirstName             *string  `json:"firstName,omitempty" example:"Thomas"`
+	LastName              *string  `json:"lastName,omitempty" example:"Müller"`
+	BirthDate             *string  `json:"birthDate,omitempty" example:"1985-03-15"`
+	Email                 *string  `json:"email,omitempty" example:"thomas.mueller@example.com"`
+	Phone                 *string  `json:"phone,omitempty" example:"+49 331 12345"`
+	Street                *string  `json:"street,omitempty" example:"Hauptstraße"`
+	StreetNo              *string  `json:"streetNo,omitempty" example:"42"`
+	PostalCode            *string  `json:"postalCode,omitempty" example:"14467"`
+	City                  *string  `json:"city,omitempty" example:"Potsdam"`
+	AnnualHouseholdIncome *float64 `json:"annualHouseholdIncome,omitempty" example:"65000.00"`
+	IncomeStatus          *string  `json:"incomeStatus,omitempty" example:"PROVIDED" enums:"PROVIDED,MAX_ACCEPTED,PENDING,NOT_REQUIRED,HISTORIC,FOSTER_FAMILY"`
 }
 
-// Update handles PUT /parents/{id}
+// Update updates a parent
+// @Summary Update parent
+// @Description Update parent information
+// @Tags Parents
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Parent ID (UUID)"
+// @Param request body UpdateParentRequest true "Updated parent data"
+// @Success 200 {object} ParentDetailResponse "Parent updated"
+// @Failure 400 {object} response.ErrorBody "Invalid request"
+// @Failure 401 {object} response.ErrorBody "Not authenticated"
+// @Failure 404 {object} response.ErrorBody "Parent not found"
+// @Failure 500 {object} response.ErrorBody "Internal server error"
+// @Router /parents/{id} [put]
 func (h *ParentHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
@@ -162,7 +250,18 @@ func (h *ParentHandler) Update(w http.ResponseWriter, r *http.Request) {
 	response.Success(w, parent)
 }
 
-// Delete handles DELETE /parents/{id}
+// Delete deletes a parent
+// @Summary Delete parent
+// @Description Remove a parent from the system
+// @Tags Parents
+// @Security BearerAuth
+// @Param id path string true "Parent ID (UUID)"
+// @Success 204 "Parent deleted"
+// @Failure 400 {object} response.ErrorBody "Invalid parent ID"
+// @Failure 401 {object} response.ErrorBody "Not authenticated"
+// @Failure 404 {object} response.ErrorBody "Parent not found"
+// @Failure 500 {object} response.ErrorBody "Internal server error"
+// @Router /parents/{id} [delete]
 func (h *ParentHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
@@ -183,12 +282,27 @@ func (h *ParentHandler) Delete(w http.ResponseWriter, r *http.Request) {
 }
 
 // CreateMemberFromParentRequest represents a request to create a member from a parent.
+// @Description Request body for creating a member from a parent
 type CreateMemberFromParentRequest struct {
-	MembershipStart string `json:"membershipStart"`
+	MembershipStart string `json:"membershipStart" example:"2023-08-01"`
 }
 
-// CreateMember handles POST /parents/{id}/member
-// Creates a new member from the parent's data and links them.
+// CreateMember creates a new member from parent data
+// @Summary Create member for parent
+// @Description Create a new club member from the parent's data and link them
+// @Tags Parents
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Parent ID (UUID)"
+// @Param request body CreateMemberFromParentRequest false "Membership start date (defaults to oldest child's entry date)"
+// @Success 201 {object} ParentDetailResponse "Member created and linked"
+// @Failure 400 {object} response.ErrorBody "Invalid request"
+// @Failure 401 {object} response.ErrorBody "Not authenticated"
+// @Failure 404 {object} response.ErrorBody "Parent not found"
+// @Failure 409 {object} response.ErrorBody "Parent already linked to a member"
+// @Failure 500 {object} response.ErrorBody "Internal server error"
+// @Router /parents/{id}/member [post]
 func (h *ParentHandler) CreateMember(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
@@ -230,8 +344,19 @@ func (h *ParentHandler) CreateMember(w http.ResponseWriter, r *http.Request) {
 	response.Created(w, parent)
 }
 
-// UnlinkMember handles DELETE /parents/{id}/member
-// Removes the member link from a parent (does not delete the member).
+// UnlinkMember removes the member link from a parent
+// @Summary Unlink member from parent
+// @Description Remove the member association from a parent (does not delete the member)
+// @Tags Parents
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Parent ID (UUID)"
+// @Success 200 {object} ParentDetailResponse "Member unlinked"
+// @Failure 400 {object} response.ErrorBody "Invalid parent ID"
+// @Failure 401 {object} response.ErrorBody "Not authenticated"
+// @Failure 404 {object} response.ErrorBody "Parent not found or not linked to a member"
+// @Failure 500 {object} response.ErrorBody "Internal server error"
+// @Router /parents/{id}/member [delete]
 func (h *ParentHandler) UnlinkMember(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {

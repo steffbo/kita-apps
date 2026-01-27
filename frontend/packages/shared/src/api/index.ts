@@ -149,26 +149,29 @@ export function setAuthFailureCallback(callback: () => void) {
 
 // Type exports for convenience
 export type Employee = components['schemas']['Employee'];
-export type EmployeeRole = components['schemas']['EmployeeRole'];
 export type CreateEmployeeRequest = components['schemas']['CreateEmployeeRequest'];
 export type UpdateEmployeeRequest = components['schemas']['UpdateEmployeeRequest'];
+
+// Enum types (defined manually as swag generates inline enums)
+export type EmployeeRole = 'ADMIN' | 'EMPLOYEE';
+export type AssignmentType = 'PERMANENT' | 'SPRINGER';
+export type ScheduleEntryType = 'WORK' | 'VACATION' | 'SICK' | 'SPECIAL_LEAVE' | 'TRAINING' | 'EVENT';
+export type TimeEntryType = 'WORK' | 'VACATION' | 'SICK' | 'SPECIAL_LEAVE' | 'TRAINING' | 'EVENT';
+export type SpecialDayType = 'HOLIDAY' | 'CLOSURE' | 'TEAM_DAY' | 'EVENT';
 
 export type Group = components['schemas']['Group'];
 export type GroupWithMembers = components['schemas']['GroupWithMembers'];
 export type CreateGroupRequest = components['schemas']['CreateGroupRequest'];
 export type GroupAssignment = components['schemas']['GroupAssignment'];
 export type GroupAssignmentRequest = components['schemas']['GroupAssignmentRequest'];
-export type AssignmentType = components['schemas']['AssignmentType'];
 
 export type ScheduleEntry = components['schemas']['ScheduleEntry'];
-export type ScheduleEntryType = components['schemas']['ScheduleEntryType'];
 export type CreateScheduleEntryRequest = components['schemas']['CreateScheduleEntryRequest'];
 export type UpdateScheduleEntryRequest = components['schemas']['UpdateScheduleEntryRequest'];
 export type WeekSchedule = components['schemas']['WeekSchedule'];
 export type DaySchedule = components['schemas']['DaySchedule'];
 
 export type TimeEntry = components['schemas']['TimeEntry'];
-export type TimeEntryType = components['schemas']['TimeEntryType'];
 export type CreateTimeEntryRequest = components['schemas']['CreateTimeEntryRequest'];
 export type UpdateTimeEntryRequest = components['schemas']['UpdateTimeEntryRequest'];
 export type ClockInRequest = components['schemas']['ClockInRequest'];
@@ -177,7 +180,6 @@ export type TimeScheduleComparison = components['schemas']['TimeScheduleComparis
 export type DayComparison = components['schemas']['DayComparison'];
 
 export type SpecialDay = components['schemas']['SpecialDay'];
-export type SpecialDayType = components['schemas']['SpecialDayType'];
 export type CreateSpecialDayRequest = components['schemas']['CreateSpecialDayRequest'];
 
 export type OverviewStatistics = components['schemas']['OverviewStatistics'];
@@ -187,7 +189,9 @@ export type WeeklyStatistics = components['schemas']['WeeklyStatistics'];
 
 export type AuthResponse = components['schemas']['AuthResponse'];
 export type LoginRequest = components['schemas']['LoginRequest'];
-export type MessageResponse = components['schemas']['MessageResponse'];
-export type ErrorResponse = components['schemas']['ErrorResponse'];
+
+// Generic response types
+export type MessageResponse = { message: string };
+export type ErrorResponse = { error: string; message?: string };
 
 export type { paths, components, operations } from './schema.d';

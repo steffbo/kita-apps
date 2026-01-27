@@ -4,6 +4,74 @@
  */
 
 export interface paths {
+    "/auth/change-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Change password
+         * @description Change the current user's password
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Current and new password */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ChangePasswordRequest"];
+                };
+            };
+            responses: {
+                /** @description Password changed successfully */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Not authenticated or wrong current password */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/login": {
         parameters: {
             query?: never;
@@ -13,42 +81,107 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Login */
-        post: operations["login"];
+        /**
+         * User login
+         * @description Authenticate with email and password to receive access and refresh tokens
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Login credentials */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["LoginRequest"];
+                };
+            };
+            responses: {
+                /** @description Authentication successful */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AuthResponse"];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Invalid credentials */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/auth/refresh": {
+    "/auth/me": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        get?: never;
-        put?: never;
-        /** Refresh access token */
-        post: operations["refreshToken"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/password-reset/request": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
+        /**
+         * Get current user
+         * @description Get the currently authenticated user's information
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Current user */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Employee"];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
         };
-        get?: never;
         put?: never;
-        /** Request password reset email */
-        post: operations["requestPasswordReset"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -64,15 +197,55 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Confirm password reset with token */
-        post: operations["confirmPasswordReset"];
+        /**
+         * Confirm password reset
+         * @description Set a new password using a reset token
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Reset token and new password */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PasswordResetConfirm"];
+                };
+            };
+            responses: {
+                /** @description Password reset successful */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Invalid request or token */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/auth/change-password": {
+    "/auth/password-reset/request": {
         parameters: {
             query?: never;
             header?: never;
@@ -81,25 +254,114 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Change own password */
-        post: operations["changePassword"];
+        /**
+         * Request password reset
+         * @description Request a password reset email
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Email address */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PasswordResetRequest"];
+                };
+            };
+            responses: {
+                /** @description Reset email sent (if email exists) */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/auth/me": {
+    "/auth/refresh": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Get current user info */
-        get: operations["getCurrentUser"];
+        get?: never;
         put?: never;
-        post?: never;
+        /**
+         * Refresh access token
+         * @description Use a refresh token to get a new access token
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Refresh token */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["RefreshTokenRequest"];
+                };
+            };
+            responses: {
+                /** @description New tokens */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AuthResponse"];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Invalid or expired refresh token */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -113,11 +375,118 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List all employees */
-        get: operations["listEmployees"];
+        /**
+         * List all employees
+         * @description Get a list of all employees, optionally including inactive ones
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Include inactive employees */
+                    includeInactive?: boolean;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description List of employees */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Employee"][];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
         put?: never;
-        /** Create new employee */
-        post: operations["createEmployee"];
+        /**
+         * Create a new employee
+         * @description Create a new employee account
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Employee data */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateEmployeeRequest"];
+                };
+            };
+            responses: {
+                /** @description Created employee */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Employee"];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Email already exists */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -131,13 +500,265 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Get employee by ID */
-        get: operations["getEmployee"];
-        /** Update employee */
-        put: operations["updateEmployee"];
+        /**
+         * Get an employee by ID
+         * @description Get detailed information about a specific employee
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Employee ID */
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Employee details */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Employee"];
+                    };
+                };
+                /** @description Invalid employee ID */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Employee not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        /**
+         * Update an employee
+         * @description Update an existing employee's information
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Employee ID */
+                    id: number;
+                };
+                cookie?: never;
+            };
+            /** @description Updated employee data */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateEmployeeRequest"];
+                };
+            };
+            responses: {
+                /** @description Updated employee */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Employee"];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Employee not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
         post?: never;
-        /** Deactivate employee */
-        delete: operations["deleteEmployee"];
+        /**
+         * Delete an employee
+         * @description Delete an employee (soft delete - sets inactive)
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Employee ID */
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Employee deleted */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Invalid employee ID */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Employee not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/employees/{id}/assignments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get employee group assignments
+         * @description Get all group assignments for an employee
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Employee ID */
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description List of group assignments */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["GroupAssignment"][];
+                    };
+                };
+                /** @description Invalid employee ID */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Employee not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -152,356 +773,114 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Admin reset employee password */
-        post: operations["adminResetPassword"];
+        /**
+         * Reset employee password
+         * @description Reset an employee's password and send them an email with the new password
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Employee ID */
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Password reset email sent */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Invalid employee ID */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Employee not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/employees/{id}/assignments": {
+    "/export/schedule": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Get employee's group assignments */
-        get: operations["getEmployeeAssignments"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/groups": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
+        /**
+         * Export schedule
+         * @description Export schedule data (placeholder, not yet implemented)
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No content - not yet implemented */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
         };
-        /** List all groups */
-        get: operations["listGroups"];
-        put?: never;
-        /** Create new group */
-        post: operations["createGroup"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/groups/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get group by ID */
-        get: operations["getGroup"];
-        /** Update group */
-        put: operations["updateGroup"];
-        post?: never;
-        /** Delete group */
-        delete: operations["deleteGroup"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/groups/{id}/assignments": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get group assignments */
-        get: operations["getGroupAssignments"];
-        /** Update group assignments */
-        put: operations["updateGroupAssignments"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/schedule": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get schedule entries */
-        get: operations["getSchedule"];
-        put?: never;
-        /** Create schedule entry */
-        post: operations["createScheduleEntry"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/schedule/week": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get week view with all groups */
-        get: operations["getWeekSchedule"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/schedule/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Update schedule entry */
-        put: operations["updateScheduleEntry"];
-        post?: never;
-        /** Delete schedule entry */
-        delete: operations["deleteScheduleEntry"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/schedule/bulk": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Create multiple schedule entries */
-        post: operations["bulkCreateScheduleEntries"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/time-tracking/clock-in": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Clock in (start work) */
-        post: operations["clockIn"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/time-tracking/clock-out": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Clock out (end work) */
-        post: operations["clockOut"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/time-tracking/current": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get current time entry (if clocked in) */
-        get: operations["getCurrentTimeEntry"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/time-tracking/entries": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get time entries */
-        get: operations["getTimeEntries"];
-        put?: never;
-        /** Create time entry (admin only) */
-        post: operations["createTimeEntry"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/time-tracking/entries/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Update time entry (admin only) */
-        put: operations["updateTimeEntry"];
-        post?: never;
-        /** Delete time entry (admin only) */
-        delete: operations["deleteTimeEntry"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/time-tracking/comparison": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Compare time entries with schedule */
-        get: operations["getTimeScheduleComparison"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/special-days": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get special days */
-        get: operations["getSpecialDays"];
-        put?: never;
-        /** Create special day */
-        post: operations["createSpecialDay"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/special-days/holidays/{year}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get Brandenburg holidays for year */
-        get: operations["getHolidays"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/special-days/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Update special day */
-        put: operations["updateSpecialDay"];
-        post?: never;
-        /** Delete special day */
-        delete: operations["deleteSpecialDay"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/statistics/overview": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get overview statistics (admin) */
-        get: operations["getOverviewStatistics"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/statistics/employee/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get employee statistics */
-        get: operations["getEmployeeStatistics"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/statistics/weekly": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get weekly statistics */
-        get: operations["getWeeklyStatistics"];
         put?: never;
         post?: never;
         delete?: never;
@@ -517,8 +896,39 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Export timesheet */
-        get: operations["exportTimesheet"];
+        /**
+         * Export timesheet
+         * @description Export timesheet data (placeholder, not yet implemented)
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No content - not yet implemented */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
         put?: never;
         post?: never;
         delete?: never;
@@ -527,18 +937,1870 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/export/schedule": {
+    "/groups": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Export schedule */
-        get: operations["exportSchedule"];
+        /**
+         * List all groups
+         * @description Get a list of all kindergarten groups
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description List of groups */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Group"][];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Create a new group
+         * @description Create a new kindergarten group
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Group data */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateGroupRequest"];
+                };
+            };
+            responses: {
+                /** @description Created group */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Group"];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/groups/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a group by ID
+         * @description Get detailed information about a specific group including its members
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Group ID */
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Group details with members */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["GroupWithMembers"];
+                    };
+                };
+                /** @description Invalid group ID */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Group not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        /**
+         * Update a group
+         * @description Update an existing group's information
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Group ID */
+                    id: number;
+                };
+                cookie?: never;
+            };
+            /** @description Updated group data */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateGroupRequest"];
+                };
+            };
+            responses: {
+                /** @description Updated group */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Group"];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Group not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        post?: never;
+        /**
+         * Delete a group
+         * @description Delete a kindergarten group
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Group ID */
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Group deleted */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Invalid group ID */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Group not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/groups/{id}/assignments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get group assignments
+         * @description Get all employee assignments for a group
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Group ID */
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description List of employee assignments */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["GroupAssignment"][];
+                    };
+                };
+                /** @description Invalid group ID */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Group not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        /**
+         * Update group assignments
+         * @description Replace all employee assignments for a group
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Group ID */
+                    id: number;
+                };
+                cookie?: never;
+            };
+            /** @description New assignments */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["GroupAssignmentRequest"][];
+                };
+            };
+            responses: {
+                /** @description Updated assignments */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["GroupAssignment"][];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Group not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List schedule entries
+         * @description Get schedule entries for a date range, optionally filtered by employee or group
+         */
+        get: {
+            parameters: {
+                query: {
+                    /** @description Start date (YYYY-MM-DD) */
+                    startDate: string;
+                    /** @description End date (YYYY-MM-DD) */
+                    endDate: string;
+                    /** @description Filter by employee ID */
+                    employeeId?: number;
+                    /** @description Filter by group ID */
+                    groupId?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description List of schedule entries */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ScheduleEntry"][];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Create a schedule entry
+         * @description Create a new schedule entry for an employee
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Schedule entry data */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateScheduleEntryRequest"];
+                };
+            };
+            responses: {
+                /** @description Created schedule entry */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ScheduleEntry"];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/schedule/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update a schedule entry
+         * @description Update an existing schedule entry
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Schedule entry ID */
+                    id: number;
+                };
+                cookie?: never;
+            };
+            /** @description Updated schedule entry data */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateScheduleEntryRequest"];
+                };
+            };
+            responses: {
+                /** @description Updated schedule entry */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ScheduleEntry"];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Schedule entry not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        post?: never;
+        /**
+         * Delete a schedule entry
+         * @description Delete a schedule entry
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Schedule entry ID */
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Schedule entry deleted */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Invalid schedule entry ID */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Schedule entry not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/schedule/bulk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create multiple schedule entries
+         * @description Create multiple schedule entries at once
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Schedule entries data */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateScheduleEntryRequest"][];
+                };
+            };
+            responses: {
+                /** @description Created schedule entries */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ScheduleEntry"][];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/schedule/week": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get week schedule
+         * @description Get the complete schedule for a week with all employees and groups
+         */
+        get: {
+            parameters: {
+                query: {
+                    /** @description Week start date (YYYY-MM-DD, should be Monday) */
+                    weekStart: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Week schedule */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WeekSchedule"];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/special-days": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List special days
+         * @description Get all special days (holidays, closures, events) for a year
+         */
+        get: {
+            parameters: {
+                query: {
+                    /** @description Year */
+                    year: number;
+                    /** @description Include public holidays */
+                    includeHolidays?: boolean;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description List of special days */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SpecialDay"][];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Create a special day
+         * @description Create a new special day (closure, team day, or event)
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: components["requestBodies"]["CreateSpecialDayRequest"];
+            responses: {
+                /** @description Created special day */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SpecialDay"];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Conflict - date already exists */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/special-days/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update a special day
+         * @description Update an existing special day
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Special day ID */
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody: components["requestBodies"]["CreateSpecialDayRequest"];
+            responses: {
+                /** @description Updated special day */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SpecialDay"];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Special day not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        post?: never;
+        /**
+         * Delete a special day
+         * @description Delete an existing special day
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Special day ID */
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Special day deleted */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Invalid ID */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Special day not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/special-days/holidays/{year}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List public holidays
+         * @description Get all public holidays for a year (auto-generated based on German holidays)
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Year */
+                    year: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description List of public holidays */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SpecialDay"][];
+                    };
+                };
+                /** @description Invalid year */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/statistics/employee/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get employee statistics
+         * @description Get monthly statistics for a specific employee
+         */
+        get: {
+            parameters: {
+                query: {
+                    /** @description Month (YYYY-MM-DD, any day in the month) */
+                    month: string;
+                };
+                header?: never;
+                path: {
+                    /** @description Employee ID */
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Employee statistics */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EmployeeStatistics"];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Employee not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/statistics/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get overview statistics
+         * @description Get monthly overview statistics for all employees
+         */
+        get: {
+            parameters: {
+                query: {
+                    /** @description Month (YYYY-MM-DD, any day in the month) */
+                    month: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Overview statistics */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["OverviewStatistics"];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/statistics/weekly": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get weekly statistics
+         * @description Get weekly statistics by employee and group
+         */
+        get: {
+            parameters: {
+                query: {
+                    /** @description Week start date (YYYY-MM-DD, must be a Monday) */
+                    weekStart: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Weekly statistics */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["WeeklyStatistics"];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/time-tracking/clock-in": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Clock in
+         * @description Record the current user's clock-in time
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Optional notes */
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["ClockInRequest"];
+                };
+            };
+            responses: {
+                /** @description Time entry with clock-in recorded */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TimeEntry"];
+                    };
+                };
+                /** @description Invalid request or already clocked in */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/time-tracking/clock-out": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Clock out
+         * @description Record the current user's clock-out time
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Break minutes and optional notes */
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["ClockOutRequest"];
+                };
+            };
+            responses: {
+                /** @description Completed time entry */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TimeEntry"];
+                    };
+                };
+                /** @description Invalid request or not clocked in */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/time-tracking/comparison": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Compare time entries with schedule
+         * @description Compare actual time entries with scheduled shifts for a date range
+         */
+        get: {
+            parameters: {
+                query: {
+                    /** @description Start date (YYYY-MM-DD) */
+                    startDate: string;
+                    /** @description End date (YYYY-MM-DD) */
+                    endDate: string;
+                    /** @description Filter by employee ID (defaults to current user) */
+                    employeeId?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Time vs schedule comparison */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TimeScheduleComparison"];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/time-tracking/current": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get current time entry
+         * @description Get the current user's active (not clocked out) time entry if any
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Current active time entry */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TimeEntry"];
+                    };
+                };
+                /** @description No active time entry */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/time-tracking/entries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List time entries
+         * @description Get time entries for a date range
+         */
+        get: {
+            parameters: {
+                query: {
+                    /** @description Start date (YYYY-MM-DD) */
+                    startDate: string;
+                    /** @description End date (YYYY-MM-DD) */
+                    endDate: string;
+                    /** @description Filter by employee ID (defaults to current user) */
+                    employeeId?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description List of time entries */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TimeEntry"][];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Create a time entry
+         * @description Manually create a time entry (admin function)
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Time entry data */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateTimeEntryRequest"];
+                };
+            };
+            responses: {
+                /** @description Created time entry */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TimeEntry"];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/time-tracking/entries/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update a time entry
+         * @description Update an existing time entry
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Time entry ID */
+                    id: number;
+                };
+                cookie?: never;
+            };
+            /** @description Updated time entry data */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateTimeEntryRequest"];
+                };
+            };
+            responses: {
+                /** @description Updated time entry */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TimeEntry"];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Time entry not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        post?: never;
+        /**
+         * Delete a time entry
+         * @description Delete a time entry
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Time entry ID */
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Time entry deleted */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Invalid time entry ID */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Time entry not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
         options?: never;
         head?: never;
         patch?: never;
@@ -548,1560 +2810,388 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        LoginRequest: {
-            /** Format: email */
-            email: string;
-            password: string;
-        };
         AuthResponse: {
+            /** @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9... */
             accessToken?: string;
-            refreshToken?: string;
+            /** @example 3600 */
             expiresIn?: number;
+            /** @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9... */
+            refreshToken?: string;
             user?: components["schemas"]["Employee"];
         };
-        RefreshTokenRequest: {
-            refreshToken: string;
-        };
-        PasswordResetRequest: {
-            /** Format: email */
-            email: string;
-        };
-        PasswordResetConfirm: {
-            token: string;
-            newPassword: string;
-        };
         ChangePasswordRequest: {
+            /** @example altes-passwort */
             currentPassword: string;
+            /** @example neues-sicheres-passwort */
             newPassword: string;
         };
-        MessageResponse: {
-            message?: string;
-        };
-        ErrorResponse: {
-            error?: string;
-            message?: string;
-            details?: Record<string, never>;
-        };
-        Employee: {
-            /** Format: int64 */
-            id?: number;
-            /** Format: email */
-            email?: string;
-            firstName?: string;
-            lastName?: string;
-            role?: components["schemas"]["EmployeeRole"];
-            /**
-             * Format: float
-             * @description Contracted weekly hours (20-38)
-             */
-            weeklyHours?: number;
-            /** @description Annual vacation days */
-            vacationDaysPerYear?: number;
-            /**
-             * Format: float
-             * @description Remaining vacation days this year
-             */
-            remainingVacationDays?: number;
-            /**
-             * Format: float
-             * @description Current overtime balance in hours
-             */
-            overtimeBalance?: number;
-            active?: boolean;
-            /**
-             * Format: int64
-             * @description ID of the employee's primary group (Stammgruppe)
-             */
-            primaryGroupId?: number;
-            primaryGroup?: components["schemas"]["Group"];
-            /** Format: date-time */
-            createdAt?: string;
-            /** Format: date-time */
-            updatedAt?: string;
-        };
-        /** @enum {string} */
-        EmployeeRole: "ADMIN" | "EMPLOYEE";
-        CreateEmployeeRequest: {
-            /** Format: email */
-            email: string;
-            firstName: string;
-            lastName: string;
-            /** @default EMPLOYEE */
-            role: components["schemas"]["EmployeeRole"];
-            /** Format: float */
-            weeklyHours: number;
-            /** @default 30 */
-            vacationDaysPerYear: number;
-            /**
-             * Format: int64
-             * @description ID of the employee's primary group (Stammgruppe)
-             */
-            primaryGroupId?: number;
-        };
-        UpdateEmployeeRequest: {
-            /** Format: email */
-            email?: string;
-            firstName?: string;
-            lastName?: string;
-            role?: components["schemas"]["EmployeeRole"];
-            /** Format: float */
-            weeklyHours?: number;
-            vacationDaysPerYear?: number;
-            /** Format: float */
-            remainingVacationDays?: number;
-            /** Format: float */
-            overtimeBalance?: number;
-            active?: boolean;
-            /**
-             * Format: int64
-             * @description ID of the employee's primary group (Stammgruppe)
-             */
-            primaryGroupId?: number;
-        };
-        Group: {
-            /** Format: int64 */
-            id?: number;
-            name?: string;
-            description?: string;
-            /** @description Hex color for UI display */
-            color?: string;
-        };
-        GroupWithMembers: components["schemas"]["Group"] & {
-            members?: components["schemas"]["GroupAssignment"][];
-        };
-        CreateGroupRequest: {
-            name: string;
-            description?: string;
-            color?: string;
-        };
-        GroupAssignment: {
-            /** Format: int64 */
-            id?: number;
-            /** Format: int64 */
-            employeeId?: number;
-            employee?: components["schemas"]["Employee"];
-            /** Format: int64 */
-            groupId?: number;
-            assignmentType?: components["schemas"]["AssignmentType"];
-        };
-        /** @enum {string} */
-        AssignmentType: "PERMANENT" | "SPRINGER";
-        GroupAssignmentRequest: {
-            /** Format: int64 */
-            employeeId: number;
-            assignmentType: components["schemas"]["AssignmentType"];
-        };
-        ScheduleEntry: {
-            /** Format: int64 */
-            id?: number;
-            /** Format: int64 */
-            employeeId?: number;
-            employee?: components["schemas"]["Employee"];
-            /** Format: date */
-            date?: string;
-            /**
-             * Format: time
-             * @description HH:mm format
-             */
-            startTime?: string;
-            /** Format: time */
-            endTime?: string;
-            /** @default 0 */
-            breakMinutes: number;
-            /** Format: int64 */
-            groupId?: number;
-            group?: components["schemas"]["Group"];
-            entryType?: components["schemas"]["ScheduleEntryType"];
-            notes?: string;
-            /** Format: date-time */
-            createdAt?: string;
-            /** Format: date-time */
-            updatedAt?: string;
-        };
-        /** @enum {string} */
-        ScheduleEntryType: "WORK" | "VACATION" | "SICK" | "SPECIAL_LEAVE" | "TRAINING" | "EVENT";
-        CreateScheduleEntryRequest: {
-            /** Format: int64 */
-            employeeId: number;
-            /** Format: date */
-            date: string;
-            /** Format: time */
-            startTime?: string;
-            /** Format: time */
-            endTime?: string;
-            /** @default 0 */
-            breakMinutes: number;
-            /** Format: int64 */
-            groupId?: number;
-            entryType: components["schemas"]["ScheduleEntryType"];
-            notes?: string;
-        };
-        UpdateScheduleEntryRequest: {
-            /** Format: date */
-            date?: string;
-            /** Format: time */
-            startTime?: string;
-            /** Format: time */
-            endTime?: string;
-            breakMinutes?: number;
-            /** Format: int64 */
-            groupId?: number;
-            entryType?: components["schemas"]["ScheduleEntryType"];
-            notes?: string;
-        };
-        WeekSchedule: {
-            /** Format: date */
-            weekStart?: string;
-            /** Format: date */
-            weekEnd?: string;
-            days?: components["schemas"]["DaySchedule"][];
-            specialDays?: components["schemas"]["SpecialDay"][];
-        };
-        DaySchedule: {
-            /** Format: date */
-            date?: string;
-            /** @enum {string} */
-            dayOfWeek?: "MONDAY" | "TUESDAY" | "WEDNESDAY" | "THURSDAY" | "FRIDAY" | "SATURDAY" | "SUNDAY";
-            isHoliday?: boolean;
-            holidayName?: string;
-            entries?: components["schemas"]["ScheduleEntry"][];
-            byGroup?: {
-                [key: string]: components["schemas"]["ScheduleEntry"][];
-            };
-        };
-        TimeEntry: {
-            /** Format: int64 */
-            id?: number;
-            /** Format: int64 */
-            employeeId?: number;
-            employee?: components["schemas"]["Employee"];
-            /** Format: date */
-            date?: string;
-            /** Format: date-time */
-            clockIn?: string;
-            /** Format: date-time */
-            clockOut?: string;
-            breakMinutes?: number;
-            entryType?: components["schemas"]["TimeEntryType"];
-            /** @description Calculated worked time in minutes */
-            workedMinutes?: number;
-            notes?: string;
-            /** Format: int64 */
-            editedBy?: number;
-            /** Format: date-time */
-            editedAt?: string;
-            editReason?: string;
-            /** Format: date-time */
-            createdAt?: string;
-        };
-        /** @enum {string} */
-        TimeEntryType: "WORK" | "VACATION" | "SICK" | "SPECIAL_LEAVE" | "TRAINING" | "EVENT";
         ClockInRequest: {
+            /** @example Frühdienst übernommen */
             notes?: string;
         };
         ClockOutRequest: {
-            /** @default 0 */
-            breakMinutes: number;
+            /** @example 30 */
+            breakMinutes?: number;
+            /** @example Überstunden wegen Krankheitsvertretung */
+            notes?: string;
+        };
+        ComparisonSummary: {
+            daysScheduled?: number;
+            daysWorked?: number;
+            totalActualMinutes?: number;
+            totalDifferenceMinutes?: number;
+            totalScheduledMinutes?: number;
+        };
+        CreateEmployeeRequest: {
+            /** @example max.mustermann@knirpsenstadt.de */
+            email: string;
+            /** @example Max */
+            firstName: string;
+            /** @example Mustermann */
+            lastName: string;
+            /** @example 1 */
+            primaryGroupId?: number;
+            /**
+             * @example EMPLOYEE
+             * @enum {string}
+             */
+            role?: "ADMIN" | "EMPLOYEE";
+            /** @example 30 */
+            vacationDaysPerYear?: number;
+            /** @example 40 */
+            weeklyHours: number;
+        };
+        CreateGroupRequest: {
+            /** @example #FF6B6B */
+            color?: string;
+            /** @example Gruppe für Kinder 3-4 Jahre */
+            description?: string;
+            /** @example Schmetterlinge */
+            name: string;
+        };
+        CreateScheduleEntryRequest: {
+            /** @example 30 */
+            breakMinutes?: number;
+            /** @example 2024-03-15 */
+            date: string;
+            /** @example 1 */
+            employeeId: number;
+            /** @example 16:00:00 */
+            endTime?: string;
+            /**
+             * @example WORK
+             * @enum {string}
+             */
+            entryType?: "WORK" | "VACATION" | "SICK" | "SPECIAL_LEAVE" | "TRAINING" | "EVENT";
+            /** @example 1 */
+            groupId?: number;
+            /** @example Frühdienst */
+            notes?: string;
+            /** @example 08:00:00 */
+            startTime?: string;
+        };
+        CreateSpecialDayRequest: {
+            /** @example true */
+            affectsAll?: boolean;
+            /** @example 2024-12-25 */
+            date: string;
+            /**
+             * @example HOLIDAY
+             * @enum {string}
+             */
+            dayType: "HOLIDAY" | "CLOSURE" | "TEAM_DAY" | "EVENT";
+            /** @example 2024-12-26 */
+            endDate?: string;
+            /** @example Weihnachten */
+            name: string;
+            /** @example Gesetzlicher Feiertag */
             notes?: string;
         };
         CreateTimeEntryRequest: {
-            /** Format: int64 */
-            employeeId: number;
-            /** Format: date */
-            date: string;
-            /** Format: date-time */
-            clockIn: string;
-            /** Format: date-time */
-            clockOut: string;
-            /** @default 0 */
-            breakMinutes: number;
-            /** @default WORK */
-            entryType: components["schemas"]["TimeEntryType"];
-            notes?: string;
-            editReason?: string;
-        };
-        UpdateTimeEntryRequest: {
-            /** Format: date-time */
-            clockIn?: string;
-            /** Format: date-time */
-            clockOut?: string;
+            /** @example 30 */
             breakMinutes?: number;
-            entryType?: components["schemas"]["TimeEntryType"];
-            notes?: string;
-            /** @description Required when admin edits entry */
+            /** @example 2024-03-15T08:00:00Z */
+            clockIn: string;
+            /** @example 2024-03-15T16:30:00Z */
+            clockOut: string;
+            /** @example 2024-03-15 */
+            date: string;
+            /** @example Nachträgliche Korrektur */
             editReason?: string;
-        };
-        TimeScheduleComparison: {
-            /** Format: date */
-            startDate?: string;
-            /** Format: date */
-            endDate?: string;
-            entries?: components["schemas"]["DayComparison"][];
-            summary?: components["schemas"]["ComparisonSummary"];
+            /** @example 1 */
+            employeeId: number;
+            /**
+             * @example WORK
+             * @enum {string}
+             */
+            entryType?: "WORK" | "VACATION" | "SICK" | "SPECIAL_LEAVE" | "TRAINING" | "EVENT";
+            /** @example Normale Arbeitszeit */
+            notes?: string;
         };
         DayComparison: {
-            /** Format: date */
-            date?: string;
-            scheduled?: components["schemas"]["ScheduleEntry"];
-            actual?: components["schemas"]["TimeEntry"];
-            scheduledMinutes?: number;
             actualMinutes?: number;
-            differenceMinutes?: number;
-            /** @enum {string} */
-            status?: "MATCH" | "EARLY" | "LATE" | "OVERTIME" | "UNDERTIME" | "MISSING" | "UNSCHEDULED";
-        };
-        ComparisonSummary: {
-            totalScheduledMinutes?: number;
-            totalActualMinutes?: number;
-            totalDifferenceMinutes?: number;
-            daysWorked?: number;
-            daysScheduled?: number;
-        };
-        SpecialDay: {
-            /** Format: int64 */
-            id?: number;
-            /** Format: date */
             date?: string;
-            /**
-             * Format: date
-             * @description Optional end date for multi-day closures
-             */
-            endDate?: string;
-            name?: string;
-            dayType?: components["schemas"]["SpecialDayType"];
-            /** @description If true, affects all employees */
-            affectsAll?: boolean;
-            notes?: string;
+            differenceMinutes?: number;
+            scheduledMinutes?: number;
+            status?: string;
         };
-        /** @enum {string} */
-        SpecialDayType: "HOLIDAY" | "CLOSURE" | "TEAM_DAY" | "EVENT";
-        CreateSpecialDayRequest: {
-            /** Format: date */
-            date: string;
-            /**
-             * Format: date
-             * @description Optional end date for multi-day closures
-             */
-            endDate?: string;
-            name: string;
-            dayType: components["schemas"]["SpecialDayType"];
-            /** @default true */
-            affectsAll: boolean;
-            notes?: string;
+        DaySchedule: {
+            byGroup?: {
+                [key: string]: components["schemas"]["ScheduleEntry"][];
+            };
+            date?: string;
+            dayOfWeek?: string;
+            entries?: components["schemas"]["ScheduleEntry"][];
+            holidayName?: string;
+            isHoliday?: boolean;
         };
-        OverviewStatistics: {
-            /** Format: date */
+        DayStatistics: {
+            date?: string;
+            entryType?: string;
+            scheduledHours?: number;
+            workedHours?: number;
+        };
+        Employee: {
+            active?: boolean;
+            createdAt?: string;
+            email?: string;
+            firstName?: string;
+            id?: number;
+            lastName?: string;
+            overtimeBalance?: number;
+            primaryGroup?: components["schemas"]["Group"];
+            primaryGroupId?: number;
+            remainingVacationDays?: number;
+            role?: string;
+            updatedAt?: string;
+            vacationDaysPerYear?: number;
+            weeklyHours?: number;
+        };
+        EmployeeStatistics: {
+            contractedHours?: number;
+            dailyBreakdown?: components["schemas"]["DayStatistics"][];
+            employee?: components["schemas"]["Employee"];
             month?: string;
-            totalEmployees?: number;
-            employeeStats?: components["schemas"]["EmployeeStatisticsSummary"][];
-            /** Format: float */
-            totalScheduledHours?: number;
-            /** Format: float */
-            totalWorkedHours?: number;
-            /** Format: float */
-            totalOvertimeHours?: number;
+            overtimeBalance?: number;
+            overtimeHours?: number;
+            scheduledHours?: number;
             sickDays?: number;
-            vacationDays?: number;
+            vacationDaysRemaining?: number;
+            vacationDaysUsed?: number;
+            workedHours?: number;
         };
         EmployeeStatisticsSummary: {
             employee?: components["schemas"]["Employee"];
-            /** Format: float */
-            scheduledHours?: number;
-            /** Format: float */
-            workedHours?: number;
-            /** Format: float */
             overtimeHours?: number;
-            /** Format: float */
             remainingVacationDays?: number;
-        };
-        EmployeeStatistics: {
-            employee?: components["schemas"]["Employee"];
-            /** Format: date */
-            month?: string;
-            /**
-             * Format: float
-             * @description Expected hours based on contract
-             */
-            contractedHours?: number;
-            /** Format: float */
             scheduledHours?: number;
-            /** Format: float */
             workedHours?: number;
-            /** Format: float */
-            overtimeHours?: number;
-            /**
-             * Format: float
-             * @description Cumulative overtime balance
-             */
-            overtimeBalance?: number;
-            vacationDaysUsed?: number;
-            /** Format: float */
-            vacationDaysRemaining?: number;
-            sickDays?: number;
-            dailyBreakdown?: components["schemas"]["DayStatistics"][];
-        };
-        DayStatistics: {
-            /** Format: date */
-            date?: string;
-            /** Format: float */
-            scheduledHours?: number;
-            /** Format: float */
-            workedHours?: number;
-            entryType?: components["schemas"]["ScheduleEntryType"];
-        };
-        WeeklyStatistics: {
-            /** Format: date */
-            weekStart?: string;
-            /** Format: date */
-            weekEnd?: string;
-            byEmployee?: components["schemas"]["EmployeeWeekSummary"][];
-            byGroup?: components["schemas"]["GroupWeekSummary"][];
-            /** Format: float */
-            totalScheduledHours?: number;
-            /** Format: float */
-            totalWorkedHours?: number;
         };
         EmployeeWeekSummary: {
-            employee?: components["schemas"]["Employee"];
-            /** Format: float */
-            scheduledHours?: number;
-            /** Format: float */
-            workedHours?: number;
             daysWorked?: number;
+            employee?: components["schemas"]["Employee"];
+            scheduledHours?: number;
+            workedHours?: number;
+        };
+        Group: {
+            color?: string;
+            description?: string;
+            id?: number;
+            name?: string;
+        };
+        GroupAssignment: {
+            assignmentType?: string;
+            employee?: components["schemas"]["Employee"];
+            employeeId?: number;
+            groupId?: number;
+            id?: number;
+        };
+        GroupAssignmentRequest: {
+            /**
+             * @example PERMANENT
+             * @enum {string}
+             */
+            assignmentType: "PERMANENT" | "SPRINGER";
+            /** @example 1 */
+            employeeId: number;
         };
         GroupWeekSummary: {
             group?: components["schemas"]["Group"];
-            /** Format: float */
-            totalScheduledHours?: number;
             staffedDays?: number;
+            totalScheduledHours?: number;
             understaffedDays?: number;
+        };
+        GroupWithMembers: {
+            color?: string;
+            description?: string;
+            id?: number;
+            members?: components["schemas"]["GroupAssignment"][];
+            name?: string;
+        };
+        LoginRequest: {
+            /** @example mitarbeiter@knirpsenstadt.de */
+            email: string;
+            /** @example sicheres-passwort */
+            password: string;
+        };
+        OverviewStatistics: {
+            employeeStats?: components["schemas"]["EmployeeStatisticsSummary"][];
+            month?: string;
+            sickDays?: number;
+            totalEmployees?: number;
+            totalOvertimeHours?: number;
+            totalScheduledHours?: number;
+            totalWorkedHours?: number;
+            vacationDays?: number;
+        };
+        PasswordResetConfirm: {
+            /** @example neues-sicheres-passwort */
+            newPassword: string;
+            /** @example abc123def456 */
+            token: string;
+        };
+        PasswordResetRequest: {
+            /** @example mitarbeiter@knirpsenstadt.de */
+            email: string;
+        };
+        RefreshTokenRequest: {
+            /** @example eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9... */
+            refreshToken: string;
+        };
+        ScheduleEntry: {
+            breakMinutes?: number;
+            createdAt?: string;
+            date?: string;
+            employee?: components["schemas"]["Employee"];
+            employeeId?: number;
+            endTime?: string;
+            entryType?: string;
+            group?: components["schemas"]["Group"];
+            groupId?: number;
+            id?: number;
+            notes?: string;
+            startTime?: string;
+            updatedAt?: string;
+        };
+        SpecialDay: {
+            affectsAll?: boolean;
+            date?: string;
+            dayType?: string;
+            endDate?: string;
+            id?: number;
+            name?: string;
+            notes?: string;
+        };
+        TimeEntry: {
+            breakMinutes?: number;
+            clockIn?: string;
+            clockOut?: string;
+            createdAt?: string;
+            date?: string;
+            editReason?: string;
+            editedAt?: string;
+            editedBy?: number;
+            employee?: components["schemas"]["Employee"];
+            employeeId?: number;
+            entryType?: string;
+            id?: number;
+            notes?: string;
+            workedMinutes?: number;
+        };
+        TimeScheduleComparison: {
+            endDate?: string;
+            entries?: components["schemas"]["DayComparison"][];
+            startDate?: string;
+            summary?: components["schemas"]["ComparisonSummary"];
+        };
+        UpdateEmployeeRequest: {
+            /** @example true */
+            active?: boolean;
+            /** @example max.mustermann@knirpsenstadt.de */
+            email?: string;
+            /** @example Max */
+            firstName?: string;
+            /** @example Mustermann */
+            lastName?: string;
+            /** @example 10.25 */
+            overtimeBalance?: number;
+            /** @example 1 */
+            primaryGroupId?: number;
+            /** @example 25.5 */
+            remainingVacationDays?: number;
+            /**
+             * @example EMPLOYEE
+             * @enum {string}
+             */
+            role?: "ADMIN" | "EMPLOYEE";
+            /** @example 30 */
+            vacationDaysPerYear?: number;
+            /** @example 40 */
+            weeklyHours?: number;
+        };
+        UpdateScheduleEntryRequest: {
+            /** @example 30 */
+            breakMinutes?: number;
+            /** @example 2024-03-15 */
+            date?: string;
+            /** @example 16:00:00 */
+            endTime?: string;
+            /**
+             * @example WORK
+             * @enum {string}
+             */
+            entryType?: "WORK" | "VACATION" | "SICK" | "SPECIAL_LEAVE" | "TRAINING" | "EVENT";
+            /** @example 1 */
+            groupId?: number;
+            /** @example Frühdienst */
+            notes?: string;
+            /** @example 08:00:00 */
+            startTime?: string;
+        };
+        UpdateTimeEntryRequest: {
+            /** @example 30 */
+            breakMinutes?: number;
+            /** @example 2024-03-15T08:00:00Z */
+            clockIn?: string;
+            /** @example 2024-03-15T16:30:00Z */
+            clockOut?: string;
+            /** @example Fehlerhafte Stempelung korrigiert */
+            editReason?: string;
+            /**
+             * @example WORK
+             * @enum {string}
+             */
+            entryType?: "WORK" | "VACATION" | "SICK" | "SPECIAL_LEAVE" | "TRAINING" | "EVENT";
+            /** @example Korrigierte Arbeitszeit */
+            notes?: string;
+        };
+        WeekSchedule: {
+            days?: components["schemas"]["DaySchedule"][];
+            specialDays?: components["schemas"]["SpecialDay"][];
+            weekEnd?: string;
+            weekStart?: string;
+        };
+        WeeklyStatistics: {
+            byEmployee?: components["schemas"]["EmployeeWeekSummary"][];
+            byGroup?: components["schemas"]["GroupWeekSummary"][];
+            totalScheduledHours?: number;
+            totalWorkedHours?: number;
+            weekEnd?: string;
+            weekStart?: string;
         };
     };
     responses: never;
     parameters: never;
-    requestBodies: never;
+    requestBodies: {
+        /** @description Special day data */
+        CreateSpecialDayRequest: {
+            content: {
+                "application/json": components["schemas"]["CreateSpecialDayRequest"];
+            };
+        };
+    };
     headers: never;
     pathItems: never;
 }
 export type $defs = Record<string, never>;
-export interface operations {
-    login: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["LoginRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful login */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AuthResponse"];
-                };
-            };
-            /** @description Invalid credentials */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorResponse"];
-                };
-            };
-        };
-    };
-    refreshToken: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["RefreshTokenRequest"];
-            };
-        };
-        responses: {
-            /** @description Token refreshed */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["AuthResponse"];
-                };
-            };
-            /** @description Invalid refresh token */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    requestPasswordReset: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PasswordResetRequest"];
-            };
-        };
-        responses: {
-            /** @description Reset email sent (if email exists) */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MessageResponse"];
-                };
-            };
-        };
-    };
-    confirmPasswordReset: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["PasswordResetConfirm"];
-            };
-        };
-        responses: {
-            /** @description Password reset successful */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MessageResponse"];
-                };
-            };
-            /** @description Invalid or expired token */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    changePassword: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ChangePasswordRequest"];
-            };
-        };
-        responses: {
-            /** @description Password changed */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MessageResponse"];
-                };
-            };
-            /** @description Invalid current password */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    getCurrentUser: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Current user */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Employee"];
-                };
-            };
-        };
-    };
-    listEmployees: {
-        parameters: {
-            query?: {
-                includeInactive?: boolean;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description List of employees */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Employee"][];
-                };
-            };
-        };
-    };
-    createEmployee: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateEmployeeRequest"];
-            };
-        };
-        responses: {
-            /** @description Employee created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Employee"];
-                };
-            };
-            /** @description Validation error */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Email already exists */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    getEmployee: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Employee found */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Employee"];
-                };
-            };
-            /** @description Employee not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    updateEmployee: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateEmployeeRequest"];
-            };
-        };
-        responses: {
-            /** @description Employee updated */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Employee"];
-                };
-            };
-            /** @description Employee not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    deleteEmployee: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Employee deactivated */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Employee not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    adminResetPassword: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Password reset email sent */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["MessageResponse"];
-                };
-            };
-        };
-    };
-    getEmployeeAssignments: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description List of group assignments for the employee */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GroupAssignment"][];
-                };
-            };
-            /** @description Employee not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    listGroups: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description List of groups */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Group"][];
-                };
-            };
-        };
-    };
-    createGroup: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateGroupRequest"];
-            };
-        };
-        responses: {
-            /** @description Group created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Group"];
-                };
-            };
-        };
-    };
-    getGroup: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Group found */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GroupWithMembers"];
-                };
-            };
-            /** @description Group not found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    updateGroup: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateGroupRequest"];
-            };
-        };
-        responses: {
-            /** @description Group updated */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Group"];
-                };
-            };
-        };
-    };
-    deleteGroup: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Group deleted */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    getGroupAssignments: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Group assignments */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GroupAssignment"][];
-                };
-            };
-        };
-    };
-    updateGroupAssignments: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["GroupAssignmentRequest"][];
-            };
-        };
-        responses: {
-            /** @description Assignments updated */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["GroupAssignment"][];
-                };
-            };
-        };
-    };
-    getSchedule: {
-        parameters: {
-            query: {
-                startDate: string;
-                endDate: string;
-                employeeId?: number;
-                groupId?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Schedule entries */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ScheduleEntry"][];
-                };
-            };
-        };
-    };
-    createScheduleEntry: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateScheduleEntryRequest"];
-            };
-        };
-        responses: {
-            /** @description Entry created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ScheduleEntry"];
-                };
-            };
-        };
-    };
-    getWeekSchedule: {
-        parameters: {
-            query: {
-                /** @description Monday of the week (ISO date) */
-                weekStart: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Week schedule */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WeekSchedule"];
-                };
-            };
-        };
-    };
-    updateScheduleEntry: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateScheduleEntryRequest"];
-            };
-        };
-        responses: {
-            /** @description Entry updated */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ScheduleEntry"];
-                };
-            };
-        };
-    };
-    deleteScheduleEntry: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Entry deleted */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    bulkCreateScheduleEntries: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateScheduleEntryRequest"][];
-            };
-        };
-        responses: {
-            /** @description Entries created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ScheduleEntry"][];
-                };
-            };
-        };
-    };
-    clockIn: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": components["schemas"]["ClockInRequest"];
-            };
-        };
-        responses: {
-            /** @description Clocked in */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TimeEntry"];
-                };
-            };
-            /** @description Already clocked in */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    clockOut: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": components["schemas"]["ClockOutRequest"];
-            };
-        };
-        responses: {
-            /** @description Clocked out */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TimeEntry"];
-                };
-            };
-            /** @description Not clocked in */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    getCurrentTimeEntry: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Current entry or null */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TimeEntry"];
-                };
-            };
-            /** @description Not currently clocked in */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    getTimeEntries: {
-        parameters: {
-            query: {
-                startDate: string;
-                endDate: string;
-                /** @description Admin only - filter by employee */
-                employeeId?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Time entries */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TimeEntry"][];
-                };
-            };
-        };
-    };
-    createTimeEntry: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateTimeEntryRequest"];
-            };
-        };
-        responses: {
-            /** @description Entry created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TimeEntry"];
-                };
-            };
-        };
-    };
-    updateTimeEntry: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["UpdateTimeEntryRequest"];
-            };
-        };
-        responses: {
-            /** @description Entry updated */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TimeEntry"];
-                };
-            };
-        };
-    };
-    deleteTimeEntry: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Entry deleted */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    getTimeScheduleComparison: {
-        parameters: {
-            query: {
-                startDate: string;
-                endDate: string;
-                employeeId?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Comparison data */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TimeScheduleComparison"];
-                };
-            };
-        };
-    };
-    getSpecialDays: {
-        parameters: {
-            query: {
-                year: number;
-                includeHolidays?: boolean;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Special days */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SpecialDay"][];
-                };
-            };
-        };
-    };
-    createSpecialDay: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateSpecialDayRequest"];
-            };
-        };
-        responses: {
-            /** @description Special day created */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SpecialDay"];
-                };
-            };
-        };
-    };
-    getHolidays: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                year: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Holidays */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SpecialDay"][];
-                };
-            };
-        };
-    };
-    updateSpecialDay: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["CreateSpecialDayRequest"];
-            };
-        };
-        responses: {
-            /** @description Special day updated */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SpecialDay"];
-                };
-            };
-        };
-    };
-    deleteSpecialDay: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Special day deleted */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    getOverviewStatistics: {
-        parameters: {
-            query: {
-                month: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Overview statistics */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OverviewStatistics"];
-                };
-            };
-        };
-    };
-    getEmployeeStatistics: {
-        parameters: {
-            query: {
-                month: string;
-            };
-            header?: never;
-            path: {
-                id: number;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Employee statistics */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["EmployeeStatistics"];
-                };
-            };
-        };
-    };
-    getWeeklyStatistics: {
-        parameters: {
-            query: {
-                weekStart: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Weekly statistics */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["WeeklyStatistics"];
-                };
-            };
-        };
-    };
-    exportTimesheet: {
-        parameters: {
-            query: {
-                employeeId?: number;
-                month: string;
-                format: "pdf" | "xlsx";
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Timesheet file */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/pdf": string;
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
-                };
-            };
-        };
-    };
-    exportSchedule: {
-        parameters: {
-            query: {
-                weekStart: string;
-                format: "pdf" | "xlsx";
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Schedule file */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/pdf": string;
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
-                };
-            };
-        };
-    };
-}
+export type operations = Record<string, never>;

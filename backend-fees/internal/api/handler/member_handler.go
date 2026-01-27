@@ -17,28 +17,73 @@ type MemberHandler struct {
 	memberService *service.MemberService
 }
 
+// MemberResponse represents a member in API responses
+// @Description Member information
+type MemberResponse struct {
+	ID              string  `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
+	MemberNumber    *string `json:"memberNumber,omitempty" example:"M-2024-001"`
+	FirstName       string  `json:"firstName" example:"Hans"`
+	LastName        string  `json:"lastName" example:"Müller"`
+	Email           *string `json:"email,omitempty" example:"hans.mueller@example.com"`
+	Phone           *string `json:"phone,omitempty" example:"+49 123 456789"`
+	Street          *string `json:"street,omitempty" example:"Hauptstraße"`
+	StreetNo        *string `json:"streetNo,omitempty" example:"42"`
+	PostalCode      *string `json:"postalCode,omitempty" example:"12345"`
+	City            *string `json:"city,omitempty" example:"Berlin"`
+	HouseholdID     *string `json:"householdId,omitempty" example:"550e8400-e29b-41d4-a716-446655440001"`
+	MembershipStart string  `json:"membershipStart" example:"2024-01-01"`
+	MembershipEnd   *string `json:"membershipEnd,omitempty" example:"2024-12-31"`
+	IsActive        bool    `json:"isActive" example:"true"`
+}
+
+// MemberListResponse represents a paginated list of members
+// @Description Paginated list of members
+type MemberListResponse struct {
+	Data       []MemberResponse `json:"data"`
+	Total      int              `json:"total" example:"42"`
+	Page       int              `json:"page" example:"1"`
+	PerPage    int              `json:"perPage" example:"20"`
+	TotalPages int              `json:"totalPages" example:"3"`
+}
+
 // NewMemberHandler creates a new member handler.
 func NewMemberHandler(memberService *service.MemberService) *MemberHandler {
 	return &MemberHandler{memberService: memberService}
 }
 
 // CreateMemberRequest represents a request to create a member.
+// @Description Request body for creating a new member
 type CreateMemberRequest struct {
-	MemberNumber    *string `json:"memberNumber,omitempty"`
-	FirstName       string  `json:"firstName"`
-	LastName        string  `json:"lastName"`
-	Email           *string `json:"email,omitempty"`
-	Phone           *string `json:"phone,omitempty"`
-	Street          *string `json:"street,omitempty"`
-	StreetNo        *string `json:"streetNo,omitempty"`
-	PostalCode      *string `json:"postalCode,omitempty"`
-	City            *string `json:"city,omitempty"`
-	HouseholdID     *string `json:"householdId,omitempty"`
-	MembershipStart string  `json:"membershipStart"`
-	MembershipEnd   *string `json:"membershipEnd,omitempty"`
+	MemberNumber    *string `json:"memberNumber,omitempty" example:"M-2024-001"`
+	FirstName       string  `json:"firstName" example:"Hans"`
+	LastName        string  `json:"lastName" example:"Müller"`
+	Email           *string `json:"email,omitempty" example:"hans.mueller@example.com"`
+	Phone           *string `json:"phone,omitempty" example:"+49 123 456789"`
+	Street          *string `json:"street,omitempty" example:"Hauptstraße"`
+	StreetNo        *string `json:"streetNo,omitempty" example:"42"`
+	PostalCode      *string `json:"postalCode,omitempty" example:"12345"`
+	City            *string `json:"city,omitempty" example:"Berlin"`
+	HouseholdID     *string `json:"householdId,omitempty" example:"550e8400-e29b-41d4-a716-446655440001"`
+	MembershipStart string  `json:"membershipStart" example:"2024-01-01"`
+	MembershipEnd   *string `json:"membershipEnd,omitempty" example:"2024-12-31"`
 }
 
 // List handles GET /members
+// @Summary List all members
+// @Description Get a paginated list of members with optional filtering and sorting
+// @Tags Members
+// @Produce json
+// @Security BearerAuth
+// @Param page query int false "Page number" default(1)
+// @Param perPage query int false "Items per page" default(20)
+// @Param search query string false "Search by name or member number"
+// @Param sortBy query string false "Sort by field" default(name) Enums(name, memberNumber, membershipStart)
+// @Param sortDir query string false "Sort direction" default(asc) Enums(asc, desc)
+// @Param active query bool false "Filter by active status"
+// @Success 200 {object} MemberListResponse "Paginated list of members"
+// @Failure 401 {object} response.ErrorBody "Not authenticated"
+// @Failure 500 {object} response.ErrorBody "Internal server error"
+// @Router /members [get]
 func (h *MemberHandler) List(w http.ResponseWriter, r *http.Request) {
 	pagination := request.GetPagination(r)
 	search := request.GetQueryString(r, "search", "")
@@ -57,6 +102,18 @@ func (h *MemberHandler) List(w http.ResponseWriter, r *http.Request) {
 }
 
 // Create handles POST /members
+// @Summary Create a new member
+// @Description Create a new membership record
+// @Tags Members
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param member body CreateMemberRequest true "Member data"
+// @Success 201 {object} MemberResponse "Created member"
+// @Failure 400 {object} response.ErrorBody "Invalid request body"
+// @Failure 401 {object} response.ErrorBody "Not authenticated"
+// @Failure 500 {object} response.ErrorBody "Internal server error"
+// @Router /members [post]
 func (h *MemberHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var req CreateMemberRequest
 	if err := request.DecodeJSON(r, &req); err != nil {
@@ -123,6 +180,18 @@ func (h *MemberHandler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 // Get handles GET /members/{id}
+// @Summary Get a member by ID
+// @Description Get detailed information about a specific member
+// @Tags Members
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Member ID (UUID)"
+// @Success 200 {object} MemberResponse "Member details"
+// @Failure 400 {object} response.ErrorBody "Invalid member ID"
+// @Failure 401 {object} response.ErrorBody "Not authenticated"
+// @Failure 404 {object} response.ErrorBody "Member not found"
+// @Failure 500 {object} response.ErrorBody "Internal server error"
+// @Router /members/{id} [get]
 func (h *MemberHandler) Get(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
@@ -144,22 +213,37 @@ func (h *MemberHandler) Get(w http.ResponseWriter, r *http.Request) {
 }
 
 // UpdateMemberRequest represents a request to update a member.
+// @Description Request body for updating a member
 type UpdateMemberRequest struct {
-	FirstName       *string `json:"firstName,omitempty"`
-	LastName        *string `json:"lastName,omitempty"`
-	Email           *string `json:"email,omitempty"`
-	Phone           *string `json:"phone,omitempty"`
-	Street          *string `json:"street,omitempty"`
-	StreetNo        *string `json:"streetNo,omitempty"`
-	PostalCode      *string `json:"postalCode,omitempty"`
-	City            *string `json:"city,omitempty"`
-	HouseholdID     *string `json:"householdId,omitempty"`
-	MembershipStart *string `json:"membershipStart,omitempty"`
-	MembershipEnd   *string `json:"membershipEnd,omitempty"`
-	IsActive        *bool   `json:"isActive,omitempty"`
+	FirstName       *string `json:"firstName,omitempty" example:"Hans"`
+	LastName        *string `json:"lastName,omitempty" example:"Müller"`
+	Email           *string `json:"email,omitempty" example:"hans.mueller@example.com"`
+	Phone           *string `json:"phone,omitempty" example:"+49 123 456789"`
+	Street          *string `json:"street,omitempty" example:"Hauptstraße"`
+	StreetNo        *string `json:"streetNo,omitempty" example:"42"`
+	PostalCode      *string `json:"postalCode,omitempty" example:"12345"`
+	City            *string `json:"city,omitempty" example:"Berlin"`
+	HouseholdID     *string `json:"householdId,omitempty" example:"550e8400-e29b-41d4-a716-446655440001"`
+	MembershipStart *string `json:"membershipStart,omitempty" example:"2024-01-01"`
+	MembershipEnd   *string `json:"membershipEnd,omitempty" example:"2024-12-31"`
+	IsActive        *bool   `json:"isActive,omitempty" example:"true"`
 }
 
 // Update handles PUT /members/{id}
+// @Summary Update a member
+// @Description Update an existing member's information
+// @Tags Members
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Member ID (UUID)"
+// @Param member body UpdateMemberRequest true "Updated member data"
+// @Success 200 {object} MemberResponse "Updated member"
+// @Failure 400 {object} response.ErrorBody "Invalid request"
+// @Failure 401 {object} response.ErrorBody "Not authenticated"
+// @Failure 404 {object} response.ErrorBody "Member not found"
+// @Failure 500 {object} response.ErrorBody "Internal server error"
+// @Router /members/{id} [put]
 func (h *MemberHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
@@ -226,6 +310,17 @@ func (h *MemberHandler) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 // Delete handles DELETE /members/{id}
+// @Summary Delete a member
+// @Description Delete a member by ID
+// @Tags Members
+// @Security BearerAuth
+// @Param id path string true "Member ID (UUID)"
+// @Success 204 "Member deleted successfully"
+// @Failure 400 {object} response.ErrorBody "Invalid member ID"
+// @Failure 401 {object} response.ErrorBody "Not authenticated"
+// @Failure 404 {object} response.ErrorBody "Member not found"
+// @Failure 500 {object} response.ErrorBody "Internal server error"
+// @Router /members/{id} [delete]
 func (h *MemberHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {

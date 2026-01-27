@@ -28,7 +28,7 @@ type EmployeeResponse struct {
 	PrimaryGroup          *GroupResponse `json:"primaryGroup,omitempty"`
 	CreatedAt             time.Time      `json:"createdAt"`
 	UpdatedAt             time.Time      `json:"updatedAt"`
-}
+} //@name Employee
 
 // GroupResponse represents the group API response.
 type GroupResponse struct {
@@ -36,13 +36,13 @@ type GroupResponse struct {
 	Name        string  `json:"name"`
 	Description *string `json:"description,omitempty"`
 	Color       string  `json:"color"`
-}
+} //@name Group
 
 // GroupWithMembersResponse represents a group with members.
 type GroupWithMembersResponse struct {
 	GroupResponse
 	Members []GroupAssignmentResponse `json:"members"`
-}
+} //@name GroupWithMembers
 
 // GroupAssignmentResponse represents a group assignment.
 type GroupAssignmentResponse struct {
@@ -51,7 +51,7 @@ type GroupAssignmentResponse struct {
 	Employee       *EmployeeResponse `json:"employee,omitempty"`
 	GroupID        int64             `json:"groupId"`
 	AssignmentType string            `json:"assignmentType"`
-}
+} //@name GroupAssignment
 
 // ScheduleEntryResponse represents a schedule entry.
 type ScheduleEntryResponse struct {
@@ -68,7 +68,7 @@ type ScheduleEntryResponse struct {
 	Notes        *string           `json:"notes,omitempty"`
 	CreatedAt    time.Time         `json:"createdAt"`
 	UpdatedAt    time.Time         `json:"updatedAt"`
-}
+} //@name ScheduleEntry
 
 // WeekScheduleResponse represents the week schedule.
 type WeekScheduleResponse struct {
@@ -76,7 +76,7 @@ type WeekScheduleResponse struct {
 	WeekEnd     string                `json:"weekEnd"`
 	Days        []DayScheduleResponse `json:"days"`
 	SpecialDays []SpecialDayResponse  `json:"specialDays,omitempty"`
-}
+} //@name WeekSchedule
 
 // DayScheduleResponse represents a day's schedule.
 type DayScheduleResponse struct {
@@ -86,7 +86,7 @@ type DayScheduleResponse struct {
 	HolidayName *string                            `json:"holidayName,omitempty"`
 	Entries     []ScheduleEntryResponse            `json:"entries"`
 	ByGroup     map[string][]ScheduleEntryResponse `json:"byGroup,omitempty"`
-}
+} //@name DaySchedule
 
 // TimeEntryResponse represents a time entry.
 type TimeEntryResponse struct {
@@ -104,7 +104,7 @@ type TimeEntryResponse struct {
 	EditedAt      *string           `json:"editedAt,omitempty"`
 	EditReason    *string           `json:"editReason,omitempty"`
 	CreatedAt     string            `json:"createdAt"`
-}
+} //@name TimeEntry
 
 // SpecialDayResponse represents a special day.
 type SpecialDayResponse struct {
@@ -115,7 +115,7 @@ type SpecialDayResponse struct {
 	DayType    string  `json:"dayType"`
 	AffectsAll bool    `json:"affectsAll"`
 	Notes      *string `json:"notes,omitempty"`
-}
+} //@name SpecialDay
 
 // OverviewStatisticsResponse represents overview stats.
 type OverviewStatisticsResponse struct {
@@ -127,7 +127,7 @@ type OverviewStatisticsResponse struct {
 	TotalOvertimeHours  float64                             `json:"totalOvertimeHours"`
 	SickDays            int                                 `json:"sickDays"`
 	VacationDays        int                                 `json:"vacationDays"`
-}
+} //@name OverviewStatistics
 
 // EmployeeStatisticsSummaryResponse represents employee summary stats.
 type EmployeeStatisticsSummaryResponse struct {
@@ -136,7 +136,7 @@ type EmployeeStatisticsSummaryResponse struct {
 	WorkedHours           float64          `json:"workedHours"`
 	OvertimeHours         float64          `json:"overtimeHours"`
 	RemainingVacationDays float64          `json:"remainingVacationDays"`
-}
+} //@name EmployeeStatisticsSummary
 
 // EmployeeStatisticsResponse represents employee stats.
 type EmployeeStatisticsResponse struct {
@@ -151,7 +151,7 @@ type EmployeeStatisticsResponse struct {
 	VacationDaysRemaining float64                 `json:"vacationDaysRemaining"`
 	SickDays              int                     `json:"sickDays"`
 	DailyBreakdown        []DayStatisticsResponse `json:"dailyBreakdown"`
-}
+} //@name EmployeeStatistics
 
 // DayStatisticsResponse represents day stats.
 type DayStatisticsResponse struct {
@@ -159,7 +159,7 @@ type DayStatisticsResponse struct {
 	ScheduledHours float64 `json:"scheduledHours"`
 	WorkedHours    float64 `json:"workedHours"`
 	EntryType      *string `json:"entryType,omitempty"`
-}
+} //@name DayStatistics
 
 // WeeklyStatisticsResponse represents weekly stats.
 type WeeklyStatisticsResponse struct {
@@ -169,7 +169,7 @@ type WeeklyStatisticsResponse struct {
 	ByGroup             []GroupWeekSummaryResponse    `json:"byGroup"`
 	TotalScheduledHours float64                       `json:"totalScheduledHours"`
 	TotalWorkedHours    float64                       `json:"totalWorkedHours"`
-}
+} //@name WeeklyStatistics
 
 // EmployeeWeekSummaryResponse represents weekly summary per employee.
 type EmployeeWeekSummaryResponse struct {
@@ -177,7 +177,7 @@ type EmployeeWeekSummaryResponse struct {
 	ScheduledHours float64          `json:"scheduledHours"`
 	WorkedHours    float64          `json:"workedHours"`
 	DaysWorked     int              `json:"daysWorked"`
-}
+} //@name EmployeeWeekSummary
 
 // GroupWeekSummaryResponse represents weekly summary per group.
 type GroupWeekSummaryResponse struct {
@@ -185,7 +185,7 @@ type GroupWeekSummaryResponse struct {
 	TotalScheduledHours float64       `json:"totalScheduledHours"`
 	StaffedDays         int           `json:"staffedDays"`
 	UnderstaffedDays    int           `json:"understaffedDays"`
-}
+} //@name GroupWeekSummary
 
 // TimeScheduleComparisonResponse represents time/schedule comparison.
 type TimeScheduleComparisonResponse struct {
@@ -193,7 +193,7 @@ type TimeScheduleComparisonResponse struct {
 	EndDate   string                    `json:"endDate"`
 	Entries   []DayComparisonResponse   `json:"entries"`
 	Summary   ComparisonSummaryResponse `json:"summary"`
-}
+} //@name TimeScheduleComparison
 
 // DayComparisonResponse represents a daily comparison.
 type DayComparisonResponse struct {
@@ -202,7 +202,7 @@ type DayComparisonResponse struct {
 	ActualMinutes     int    `json:"actualMinutes"`
 	DifferenceMinutes int    `json:"differenceMinutes"`
 	Status            string `json:"status"`
-}
+} //@name DayComparison
 
 // ComparisonSummaryResponse represents comparison totals.
 type ComparisonSummaryResponse struct {
@@ -211,7 +211,7 @@ type ComparisonSummaryResponse struct {
 	TotalDifferenceMinutes int `json:"totalDifferenceMinutes"`
 	DaysWorked             int `json:"daysWorked"`
 	DaysScheduled          int `json:"daysScheduled"`
-}
+} //@name ComparisonSummary
 
 func mapEmployeeResponse(emp domain.Employee, primaryGroup *domain.Group, primaryGroupID *int64) EmployeeResponse {
 	response := EmployeeResponse{

@@ -13,7 +13,7 @@
     "./utils": "./src/utils/index.ts"
   },
   "scripts": {
-    "generate:api": "openapi-typescript ../../../openapi/kita-api.yaml -o ./src/api/schema.d.ts"
+    "generate:api": "openapi-typescript ../../../openapi/management/openapi3.yaml -o ./src/api/schema.d.ts"
   },
   "dependencies": {
     "@tanstack/vue-query": "^5.56.0",

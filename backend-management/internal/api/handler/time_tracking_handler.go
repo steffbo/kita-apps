@@ -25,36 +25,51 @@ func NewTimeTrackingHandler(service *service.TimeTrackingService) *TimeTrackingH
 	return &TimeTrackingHandler{service: service}
 }
 
+// clockInRequest contains optional notes for clocking in.
 type clockInRequest struct {
-	Notes *string `json:"notes,omitempty"`
-}
+	Notes *string `json:"notes,omitempty" example:"Frühdienst übernommen"`
+} //@name ClockInRequest
 
+// clockOutRequest contains the data for clocking out.
 type clockOutRequest struct {
-	BreakMinutes *int    `json:"breakMinutes,omitempty" validate:"omitempty,gte=0"`
-	Notes        *string `json:"notes,omitempty"`
-}
+	BreakMinutes *int    `json:"breakMinutes,omitempty" validate:"omitempty,gte=0" example:"30"`
+	Notes        *string `json:"notes,omitempty" example:"Überstunden wegen Krankheitsvertretung"`
+} //@name ClockOutRequest
 
+// createTimeEntryRequest contains the data for creating a time entry.
 type createTimeEntryRequest struct {
-	EmployeeID   int64   `json:"employeeId" validate:"required"`
-	Date         string  `json:"date" validate:"required"`
-	ClockIn      string  `json:"clockIn" validate:"required"`
-	ClockOut     string  `json:"clockOut" validate:"required"`
-	BreakMinutes *int    `json:"breakMinutes,omitempty" validate:"omitempty,gte=0"`
-	EntryType    *string `json:"entryType,omitempty" validate:"omitempty,oneof=WORK VACATION SICK SPECIAL_LEAVE TRAINING EVENT"`
-	Notes        *string `json:"notes,omitempty"`
-	EditReason   *string `json:"editReason,omitempty"`
-}
+	EmployeeID   int64   `json:"employeeId" validate:"required" example:"1"`
+	Date         string  `json:"date" validate:"required" example:"2024-03-15"`
+	ClockIn      string  `json:"clockIn" validate:"required" example:"2024-03-15T08:00:00Z"`
+	ClockOut     string  `json:"clockOut" validate:"required" example:"2024-03-15T16:30:00Z"`
+	BreakMinutes *int    `json:"breakMinutes,omitempty" validate:"omitempty,gte=0" example:"30"`
+	EntryType    *string `json:"entryType,omitempty" validate:"omitempty,oneof=WORK VACATION SICK SPECIAL_LEAVE TRAINING EVENT" example:"WORK"`
+	Notes        *string `json:"notes,omitempty" example:"Normale Arbeitszeit"`
+	EditReason   *string `json:"editReason,omitempty" example:"Nachträgliche Korrektur"`
+} //@name CreateTimeEntryRequest
 
+// updateTimeEntryRequest contains the data for updating a time entry.
 type updateTimeEntryRequest struct {
-	ClockIn      *string `json:"clockIn,omitempty"`
-	ClockOut     *string `json:"clockOut,omitempty"`
-	BreakMinutes *int    `json:"breakMinutes,omitempty" validate:"omitempty,gte=0"`
-	EntryType    *string `json:"entryType,omitempty" validate:"omitempty,oneof=WORK VACATION SICK SPECIAL_LEAVE TRAINING EVENT"`
-	Notes        *string `json:"notes,omitempty"`
-	EditReason   *string `json:"editReason,omitempty"`
-}
+	ClockIn      *string `json:"clockIn,omitempty" example:"2024-03-15T08:00:00Z"`
+	ClockOut     *string `json:"clockOut,omitempty" example:"2024-03-15T16:30:00Z"`
+	BreakMinutes *int    `json:"breakMinutes,omitempty" validate:"omitempty,gte=0" example:"30"`
+	EntryType    *string `json:"entryType,omitempty" validate:"omitempty,oneof=WORK VACATION SICK SPECIAL_LEAVE TRAINING EVENT" example:"WORK"`
+	Notes        *string `json:"notes,omitempty" example:"Korrigierte Arbeitszeit"`
+	EditReason   *string `json:"editReason,omitempty" example:"Fehlerhafte Stempelung korrigiert"`
+} //@name UpdateTimeEntryRequest
 
 // ClockIn handles POST /time-tracking/clock-in.
+// @Summary Clock in
+// @Description Record the current user's clock-in time
+// @Tags Time Tracking
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param clockIn body clockInRequest false "Optional notes"
+// @Success 200 {object} TimeEntryResponse "Time entry with clock-in recorded"
+// @Failure 400 {object} map[string]interface{} "Invalid request or already clocked in"
+// @Failure 401 {object} map[string]interface{} "Not authenticated"
+// @Router /time-tracking/clock-in [post]
 func (h *TimeTrackingHandler) ClockIn(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUserFromContext(r)
 	if user == nil {
@@ -78,6 +93,17 @@ func (h *TimeTrackingHandler) ClockIn(w http.ResponseWriter, r *http.Request) {
 }
 
 // ClockOut handles POST /time-tracking/clock-out.
+// @Summary Clock out
+// @Description Record the current user's clock-out time
+// @Tags Time Tracking
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param clockOut body clockOutRequest false "Break minutes and optional notes"
+// @Success 200 {object} TimeEntryResponse "Completed time entry"
+// @Failure 400 {object} map[string]interface{} "Invalid request or not clocked in"
+// @Failure 401 {object} map[string]interface{} "Not authenticated"
+// @Router /time-tracking/clock-out [post]
 func (h *TimeTrackingHandler) ClockOut(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUserFromContext(r)
 	if user == nil {
@@ -101,6 +127,15 @@ func (h *TimeTrackingHandler) ClockOut(w http.ResponseWriter, r *http.Request) {
 }
 
 // Current handles GET /time-tracking/current.
+// @Summary Get current time entry
+// @Description Get the current user's active (not clocked out) time entry if any
+// @Tags Time Tracking
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} TimeEntryResponse "Current active time entry"
+// @Success 204 "No active time entry"
+// @Failure 401 {object} map[string]interface{} "Not authenticated"
+// @Router /time-tracking/current [get]
 func (h *TimeTrackingHandler) Current(w http.ResponseWriter, r *http.Request) {
 	user := middleware.GetUserFromContext(r)
 	if user == nil {
@@ -122,6 +157,18 @@ func (h *TimeTrackingHandler) Current(w http.ResponseWriter, r *http.Request) {
 }
 
 // List handles GET /time-tracking/entries.
+// @Summary List time entries
+// @Description Get time entries for a date range
+// @Tags Time Tracking
+// @Produce json
+// @Security BearerAuth
+// @Param startDate query string true "Start date (YYYY-MM-DD)"
+// @Param endDate query string true "End date (YYYY-MM-DD)"
+// @Param employeeId query int false "Filter by employee ID (defaults to current user)"
+// @Success 200 {array} TimeEntryResponse "List of time entries"
+// @Failure 400 {object} map[string]interface{} "Invalid request"
+// @Failure 401 {object} map[string]interface{} "Not authenticated"
+// @Router /time-tracking/entries [get]
 func (h *TimeTrackingHandler) List(w http.ResponseWriter, r *http.Request) {
 	startDateStr := request.GetQueryString(r, "startDate", "")
 	endDateStr := request.GetQueryString(r, "endDate", "")
@@ -172,6 +219,17 @@ func (h *TimeTrackingHandler) List(w http.ResponseWriter, r *http.Request) {
 }
 
 // Create handles POST /time-tracking/entries.
+// @Summary Create a time entry
+// @Description Manually create a time entry (admin function)
+// @Tags Time Tracking
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param entry body createTimeEntryRequest true "Time entry data"
+// @Success 201 {object} TimeEntryResponse "Created time entry"
+// @Failure 400 {object} map[string]interface{} "Invalid request"
+// @Failure 401 {object} map[string]interface{} "Not authenticated"
+// @Router /time-tracking/entries [post]
 func (h *TimeTrackingHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var req createTimeEntryRequest
 	if validationErrors, err := request.DecodeAndValidate(r, &req); err != nil {
@@ -227,6 +285,19 @@ func (h *TimeTrackingHandler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 // Update handles PUT /time-tracking/entries/{id}.
+// @Summary Update a time entry
+// @Description Update an existing time entry
+// @Tags Time Tracking
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "Time entry ID"
+// @Param entry body updateTimeEntryRequest true "Updated time entry data"
+// @Success 200 {object} TimeEntryResponse "Updated time entry"
+// @Failure 400 {object} map[string]interface{} "Invalid request"
+// @Failure 401 {object} map[string]interface{} "Not authenticated"
+// @Failure 404 {object} map[string]interface{} "Time entry not found"
+// @Router /time-tracking/entries/{id} [put]
 func (h *TimeTrackingHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id, err := parseID(chi.URLParam(r, "id"))
 	if err != nil {
@@ -292,6 +363,16 @@ func (h *TimeTrackingHandler) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 // Delete handles DELETE /time-tracking/entries/{id}.
+// @Summary Delete a time entry
+// @Description Delete a time entry
+// @Tags Time Tracking
+// @Security BearerAuth
+// @Param id path int true "Time entry ID"
+// @Success 204 "Time entry deleted"
+// @Failure 400 {object} map[string]interface{} "Invalid time entry ID"
+// @Failure 401 {object} map[string]interface{} "Not authenticated"
+// @Failure 404 {object} map[string]interface{} "Time entry not found"
+// @Router /time-tracking/entries/{id} [delete]
 func (h *TimeTrackingHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	id, err := parseID(chi.URLParam(r, "id"))
 	if err != nil {
@@ -308,6 +389,18 @@ func (h *TimeTrackingHandler) Delete(w http.ResponseWriter, r *http.Request) {
 }
 
 // Comparison handles GET /time-tracking/comparison.
+// @Summary Compare time entries with schedule
+// @Description Compare actual time entries with scheduled shifts for a date range
+// @Tags Time Tracking
+// @Produce json
+// @Security BearerAuth
+// @Param startDate query string true "Start date (YYYY-MM-DD)"
+// @Param endDate query string true "End date (YYYY-MM-DD)"
+// @Param employeeId query int false "Filter by employee ID (defaults to current user)"
+// @Success 200 {object} TimeScheduleComparisonResponse "Time vs schedule comparison"
+// @Failure 400 {object} map[string]interface{} "Invalid request"
+// @Failure 401 {object} map[string]interface{} "Not authenticated"
+// @Router /time-tracking/comparison [get]
 func (h *TimeTrackingHandler) Comparison(w http.ResponseWriter, r *http.Request) {
 	startDateStr := request.GetQueryString(r, "startDate", "")
 	endDateStr := request.GetQueryString(r, "endDate", "")

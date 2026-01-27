@@ -24,28 +24,43 @@ func NewScheduleHandler(schedules *service.ScheduleService) *ScheduleHandler {
 	return &ScheduleHandler{schedules: schedules}
 }
 
+// createScheduleEntryRequest contains the data for creating a schedule entry.
 type createScheduleEntryRequest struct {
-	EmployeeID   int64   `json:"employeeId" validate:"required"`
-	Date         string  `json:"date" validate:"required"`
-	StartTime    *string `json:"startTime,omitempty"`
-	EndTime      *string `json:"endTime,omitempty"`
-	BreakMinutes *int    `json:"breakMinutes,omitempty" validate:"omitempty,gte=0"`
-	GroupID      *int64  `json:"groupId,omitempty"`
-	EntryType    *string `json:"entryType,omitempty" validate:"omitempty,oneof=WORK VACATION SICK SPECIAL_LEAVE TRAINING EVENT"`
-	Notes        *string `json:"notes,omitempty"`
-}
+	EmployeeID   int64   `json:"employeeId" validate:"required" example:"1"`
+	Date         string  `json:"date" validate:"required" example:"2024-03-15"`
+	StartTime    *string `json:"startTime,omitempty" example:"08:00:00"`
+	EndTime      *string `json:"endTime,omitempty" example:"16:00:00"`
+	BreakMinutes *int    `json:"breakMinutes,omitempty" validate:"omitempty,gte=0" example:"30"`
+	GroupID      *int64  `json:"groupId,omitempty" example:"1"`
+	EntryType    *string `json:"entryType,omitempty" validate:"omitempty,oneof=WORK VACATION SICK SPECIAL_LEAVE TRAINING EVENT" example:"WORK"`
+	Notes        *string `json:"notes,omitempty" example:"Frühdienst"`
+} //@name CreateScheduleEntryRequest
 
+// updateScheduleEntryRequest contains the data for updating a schedule entry.
 type updateScheduleEntryRequest struct {
-	Date         *string `json:"date,omitempty"`
-	StartTime    *string `json:"startTime,omitempty"`
-	EndTime      *string `json:"endTime,omitempty"`
-	BreakMinutes *int    `json:"breakMinutes,omitempty" validate:"omitempty,gte=0"`
-	GroupID      *int64  `json:"groupId,omitempty"`
-	EntryType    *string `json:"entryType,omitempty" validate:"omitempty,oneof=WORK VACATION SICK SPECIAL_LEAVE TRAINING EVENT"`
-	Notes        *string `json:"notes,omitempty"`
-}
+	Date         *string `json:"date,omitempty" example:"2024-03-15"`
+	StartTime    *string `json:"startTime,omitempty" example:"08:00:00"`
+	EndTime      *string `json:"endTime,omitempty" example:"16:00:00"`
+	BreakMinutes *int    `json:"breakMinutes,omitempty" validate:"omitempty,gte=0" example:"30"`
+	GroupID      *int64  `json:"groupId,omitempty" example:"1"`
+	EntryType    *string `json:"entryType,omitempty" validate:"omitempty,oneof=WORK VACATION SICK SPECIAL_LEAVE TRAINING EVENT" example:"WORK"`
+	Notes        *string `json:"notes,omitempty" example:"Frühdienst"`
+} //@name UpdateScheduleEntryRequest
 
 // List handles GET /schedule.
+// @Summary List schedule entries
+// @Description Get schedule entries for a date range, optionally filtered by employee or group
+// @Tags Schedule
+// @Produce json
+// @Security BearerAuth
+// @Param startDate query string true "Start date (YYYY-MM-DD)"
+// @Param endDate query string true "End date (YYYY-MM-DD)"
+// @Param employeeId query int false "Filter by employee ID"
+// @Param groupId query int false "Filter by group ID"
+// @Success 200 {array} ScheduleEntryResponse "List of schedule entries"
+// @Failure 400 {object} map[string]interface{} "Invalid request"
+// @Failure 401 {object} map[string]interface{} "Not authenticated"
+// @Router /schedule [get]
 func (h *ScheduleHandler) List(w http.ResponseWriter, r *http.Request) {
 	startDateStr := request.GetQueryString(r, "startDate", "")
 	endDateStr := request.GetQueryString(r, "endDate", "")
@@ -99,6 +114,16 @@ func (h *ScheduleHandler) List(w http.ResponseWriter, r *http.Request) {
 }
 
 // Week handles GET /schedule/week.
+// @Summary Get week schedule
+// @Description Get the complete schedule for a week with all employees and groups
+// @Tags Schedule
+// @Produce json
+// @Security BearerAuth
+// @Param weekStart query string true "Week start date (YYYY-MM-DD, should be Monday)"
+// @Success 200 {object} WeekScheduleResponse "Week schedule"
+// @Failure 400 {object} map[string]interface{} "Invalid request"
+// @Failure 401 {object} map[string]interface{} "Not authenticated"
+// @Router /schedule/week [get]
 func (h *ScheduleHandler) Week(w http.ResponseWriter, r *http.Request) {
 	weekStartStr := request.GetQueryString(r, "weekStart", "")
 	if weekStartStr == "" {
@@ -158,6 +183,17 @@ func (h *ScheduleHandler) Week(w http.ResponseWriter, r *http.Request) {
 }
 
 // Create handles POST /schedule.
+// @Summary Create a schedule entry
+// @Description Create a new schedule entry for an employee
+// @Tags Schedule
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param entry body createScheduleEntryRequest true "Schedule entry data"
+// @Success 201 {object} ScheduleEntryResponse "Created schedule entry"
+// @Failure 400 {object} map[string]interface{} "Invalid request"
+// @Failure 401 {object} map[string]interface{} "Not authenticated"
+// @Router /schedule [post]
 func (h *ScheduleHandler) Create(w http.ResponseWriter, r *http.Request) {
 	var req createScheduleEntryRequest
 	if validationErrors, err := request.DecodeAndValidate(r, &req); err != nil {
@@ -184,6 +220,17 @@ func (h *ScheduleHandler) Create(w http.ResponseWriter, r *http.Request) {
 }
 
 // BulkCreate handles POST /schedule/bulk.
+// @Summary Create multiple schedule entries
+// @Description Create multiple schedule entries at once
+// @Tags Schedule
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param entries body []createScheduleEntryRequest true "Schedule entries data"
+// @Success 201 {array} ScheduleEntryResponse "Created schedule entries"
+// @Failure 400 {object} map[string]interface{} "Invalid request"
+// @Failure 401 {object} map[string]interface{} "Not authenticated"
+// @Router /schedule/bulk [post]
 func (h *ScheduleHandler) BulkCreate(w http.ResponseWriter, r *http.Request) {
 	var req []createScheduleEntryRequest
 	if err := request.DecodeJSON(r, &req); err != nil {
@@ -222,6 +269,19 @@ func (h *ScheduleHandler) BulkCreate(w http.ResponseWriter, r *http.Request) {
 }
 
 // Update handles PUT /schedule/{id}.
+// @Summary Update a schedule entry
+// @Description Update an existing schedule entry
+// @Tags Schedule
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "Schedule entry ID"
+// @Param entry body updateScheduleEntryRequest true "Updated schedule entry data"
+// @Success 200 {object} ScheduleEntryResponse "Updated schedule entry"
+// @Failure 400 {object} map[string]interface{} "Invalid request"
+// @Failure 401 {object} map[string]interface{} "Not authenticated"
+// @Failure 404 {object} map[string]interface{} "Schedule entry not found"
+// @Router /schedule/{id} [put]
 func (h *ScheduleHandler) Update(w http.ResponseWriter, r *http.Request) {
 	id, err := parseID(chi.URLParam(r, "id"))
 	if err != nil {
@@ -292,6 +352,16 @@ func (h *ScheduleHandler) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 // Delete handles DELETE /schedule/{id}.
+// @Summary Delete a schedule entry
+// @Description Delete a schedule entry
+// @Tags Schedule
+// @Security BearerAuth
+// @Param id path int true "Schedule entry ID"
+// @Success 204 "Schedule entry deleted"
+// @Failure 400 {object} map[string]interface{} "Invalid schedule entry ID"
+// @Failure 401 {object} map[string]interface{} "Not authenticated"
+// @Failure 404 {object} map[string]interface{} "Schedule entry not found"
+// @Router /schedule/{id} [delete]
 func (h *ScheduleHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	id, err := parseID(chi.URLParam(r, "id"))
 	if err != nil {
