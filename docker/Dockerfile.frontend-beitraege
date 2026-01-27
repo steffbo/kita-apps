@@ -33,15 +33,15 @@ RUN cd apps/beitraege && bun run vite build
 
 # Production stage
 FROM nginx:alpine
-COPY --from=build /build/frontend/apps/beitraege/dist /usr/share/nginx/html
+COPY --from=build /build/frontend/apps/beitraege/dist /usr/share/nginx/html/beitraege
 
-# Custom nginx config for SPA
+# Custom nginx config for SPA with base path
 RUN echo 'server { \
     listen 80; \
     root /usr/share/nginx/html; \
     index index.html; \
-    location / { \
-        try_files $uri $uri/ /index.html; \
+    location /beitraege { \
+        try_files $uri $uri/ /beitraege/index.html; \
     } \
     location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff|woff2)$ { \
         expires 1y; \
