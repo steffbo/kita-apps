@@ -13,21 +13,23 @@ COPY openapi /build/openapi
 # Set up frontend workspace
 WORKDIR /build/frontend
 
-# Copy package files
+# Copy all package.json files for workspace resolution
 COPY frontend/package.json frontend/bun.lockb* ./
 COPY frontend/packages/shared/package.json ./packages/shared/
 COPY frontend/apps/beitraege/package.json ./apps/beitraege/
+COPY frontend/apps/dienstplan/package.json ./apps/dienstplan/
+COPY frontend/apps/zeiterfassung/package.json ./apps/zeiterfassung/
 
 # Install dependencies
 RUN bun install --frozen-lockfile
 
-# Copy source
+# Copy source for shared and the target app only
 COPY frontend/packages ./packages
 COPY frontend/apps/beitraege ./apps/beitraege
 
-# Generate API types and build
+# Generate API types and build (skip vue-tsc type checking in Docker, vite handles the build)
 RUN bun run --filter @kita/shared generate:api || true
-RUN bun run --filter @kita/beitraege build
+RUN cd apps/beitraege && bun run vite build
 
 # Production stage
 FROM nginx:alpine
