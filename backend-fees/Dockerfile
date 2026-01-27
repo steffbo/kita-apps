@@ -3,6 +3,9 @@ FROM oven/bun:1 AS frontend-builder
 
 WORKDIR /frontend
 
+# Copy openapi specs (needed for type generation)
+COPY openapi /openapi
+
 # Copy frontend workspace
 COPY frontend/package.json frontend/bun.lock* ./
 COPY frontend/apps ./apps
@@ -11,12 +14,15 @@ COPY frontend/packages ./packages
 # Install dependencies
 RUN bun install --frozen-lockfile
 
-# Build beitraege frontend
+# Generate API types
+RUN bun run --filter @kita/shared generate:api || true
+
+# Build beitraege frontend - skip vue-tsc, use vite directly
 ARG VITE_API_URL=/api-fees
 ARG VITE_BASE_PATH=/beitraege
 ENV VITE_API_URL=$VITE_API_URL
 ENV VITE_BASE_PATH=$VITE_BASE_PATH
-RUN cd apps/beitraege && bun run build
+RUN cd apps/beitraege && bun run vite build
 
 # Go build stage
 FROM golang:1.25-alpine AS builder
