@@ -17,10 +17,9 @@ RUN bun install --frozen-lockfile
 # Generate API types
 RUN bun run --filter @kita/shared generate:api || true
 
-# Build beitraege frontend - skip vue-tsc, use vite directly
+# Build beitraege frontend
 ENV VITE_API_URL=/api-fees
-ENV VITE_BASE_PATH=/beitraege
-RUN cd apps/beitraege && bun run vite build
+RUN cd apps/beitraege && bun run vite build --config vite.config.ts
 
 # Go build stage
 FROM golang:1.25-alpine AS builder

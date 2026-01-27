@@ -17,14 +17,12 @@ RUN bun install --frozen-lockfile
 # Generate API types
 RUN bun run --filter @kita/shared generate:api || true
 
-# Build dienstplan (plan) frontend - skip vue-tsc, use vite directly
+# Build dienstplan (plan) frontend
 ENV VITE_API_URL=/api
-ENV VITE_BASE_PATH=/plan
-RUN cd apps/dienstplan && bun run vite build
+RUN cd apps/dienstplan && bun run vite build --config vite.config.ts
 
 # Build zeiterfassung (zeit) frontend  
-ENV VITE_BASE_PATH=/zeit
-RUN cd apps/zeiterfassung && bun run vite build
+RUN cd apps/zeiterfassung && bun run vite build --config vite.config.ts
 
 # Go build stage
 FROM golang:1.25-alpine AS builder
