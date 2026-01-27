@@ -30,7 +30,7 @@ RUN apk add --no-cache ca-certificates tzdata
 COPY --from=builder /app/server .
 
 # Copy migrations
-COPY --from=builder /app/internal/migrations ./migrations
+COPY --from=builder /app/migrations ./migrations
 
 # Create non-root user
 RUN adduser -D -g '' appuser
