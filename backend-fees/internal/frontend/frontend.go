@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"path/filepath"
 	"strings"
+
+	"github.com/go-chi/chi/v5"
 )
 
 // Frontend file system - populated by embed_prod.go in production builds
@@ -23,11 +25,17 @@ func BeitraegeHandler() http.Handler {
 }
 
 // spaHandler serves files from the embedded FS with SPA fallback to index.html
-// Note: chi.Mount strips the prefix, so r.URL.Path is already relative (e.g., "/" or "/assets/foo.js")
+// chi.Mount sets up the route context but doesn't modify r.URL.Path, so we use chi's RoutePath
 func spaHandler(fsys fs.FS) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Get the path without leading slash
-		path := strings.TrimPrefix(r.URL.Path, "/")
+		// Get the path from chi's route context (this is the path after the mount prefix)
+		rctx := chi.RouteContext(r.Context())
+		path := rctx.RoutePath
+		if path == "" {
+			path = r.URL.Path
+		}
+		// Remove leading slash
+		path = strings.TrimPrefix(path, "/")
 
 		// For root path or empty path, serve index.html
 		if path == "" {
