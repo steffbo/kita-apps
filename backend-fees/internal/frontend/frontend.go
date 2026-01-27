@@ -1,8 +1,11 @@
 package frontend
 
 import (
+	"io"
 	"io/fs"
+	"mime"
 	"net/http"
+	"path/filepath"
 	"strings"
 )
 
@@ -22,34 +25,82 @@ func BeitraegeHandler() http.Handler {
 // spaHandler serves files from the embedded FS with SPA fallback to index.html
 // Note: chi.Mount strips the prefix, so r.URL.Path is already relative (e.g., "/" or "/assets/foo.js")
 func spaHandler(fsys fs.FS) http.Handler {
-	fileServer := http.FileServer(http.FS(fsys))
-
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Get the path without leading slash
 		path := strings.TrimPrefix(r.URL.Path, "/")
 
-		// Try to open the requested file
-		if path != "" {
-			f, err := fsys.Open(path)
-			if err == nil {
-				f.Close()
-				// File exists, serve it
-				fileServer.ServeHTTP(w, r)
-				return
-			}
-		}
-
-		// File doesn't exist or path is empty - serve index.html for SPA routing
-		// Check if index.html exists
-		f, err := fsys.Open("index.html")
-		if err != nil {
-			http.Error(w, "index.html not found in embedded filesystem", http.StatusNotFound)
+		// For root path or empty path, serve index.html
+		if path == "" {
+			serveFile(w, r, fsys, "index.html")
 			return
 		}
-		f.Close()
 
-		// Rewrite the request to serve index.html
-		r.URL.Path = "/index.html"
-		fileServer.ServeHTTP(w, r)
+		// Try to open the requested file
+		f, err := fsys.Open(path)
+		if err != nil {
+			// File not found - serve index.html for SPA routing
+			serveFile(w, r, fsys, "index.html")
+			return
+		}
+		defer f.Close()
+
+		// Check if it's a directory
+		stat, err := f.Stat()
+		if err != nil {
+			serveFile(w, r, fsys, "index.html")
+			return
+		}
+
+		if stat.IsDir() {
+			// Try to serve index.html from the directory
+			indexPath := strings.TrimSuffix(path, "/") + "/index.html"
+			if indexFile, err := fsys.Open(indexPath); err == nil {
+				indexFile.Close()
+				serveFile(w, r, fsys, indexPath)
+				return
+			}
+			// Fall back to root index.html for SPA routing
+			serveFile(w, r, fsys, "index.html")
+			return
+		}
+
+		// Serve the actual file
+		serveFile(w, r, fsys, path)
 	})
+}
+
+func serveFile(w http.ResponseWriter, r *http.Request, fsys fs.FS, path string) {
+	f, err := fsys.Open(path)
+	if err != nil {
+		http.Error(w, "File not found", http.StatusNotFound)
+		return
+	}
+	defer f.Close()
+
+	stat, err := f.Stat()
+	if err != nil {
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	// Set content type based on extension
+	contentType := mime.TypeByExtension(filepath.Ext(path))
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+	w.Header().Set("Content-Type", contentType)
+
+	// Use http.ServeContent for proper handling of Range requests, etc.
+	readSeeker, ok := f.(io.ReadSeeker)
+	if ok {
+		http.ServeContent(w, r, path, stat.ModTime(), readSeeker)
+	} else {
+		// Fallback: read all and write
+		content, err := io.ReadAll(f)
+		if err != nil {
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+		w.Write(content)
+	}
 }
