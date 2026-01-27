@@ -47,6 +47,7 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 	// Embedded frontend routes (served when built with -tags embed_frontend)
 	r.Mount("/plan", frontend.PlanHandler())
 	r.Mount("/zeit", frontend.ZeitHandler())
+	r.Get("/debug/frontend", frontend.DebugHandler().ServeHTTP)
 
 	r.Route("/api", func(r chi.Router) {
 		r.Route("/auth", func(r chi.Router) {
