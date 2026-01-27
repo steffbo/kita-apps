@@ -1,11 +1,17 @@
 # Build stage
 FROM oven/bun:1 AS build
-WORKDIR /app
+WORKDIR /build
 
 ARG VITE_API_URL
 ARG VITE_BASE_PATH=/
 ENV VITE_API_URL=${VITE_API_URL}
 ENV VITE_BASE_PATH=${VITE_BASE_PATH}
+
+# Copy openapi specs first (needed for type generation)
+COPY openapi /openapi
+
+# Set up frontend workspace
+WORKDIR /build/frontend
 
 # Copy package files
 COPY frontend/package.json frontend/bun.lockb* ./
@@ -18,7 +24,6 @@ RUN bun install --frozen-lockfile
 # Copy source
 COPY frontend/packages ./packages
 COPY frontend/apps/dienstplan ./apps/dienstplan
-COPY openapi ./openapi
 
 # Generate API types and build
 RUN bun run --filter @kita/shared generate:api || true
@@ -26,7 +31,7 @@ RUN bun run --filter @kita/dienstplan build
 
 # Production stage
 FROM nginx:alpine
-COPY --from=build /app/apps/dienstplan/dist /usr/share/nginx/html
+COPY --from=build /build/frontend/apps/dienstplan/dist /usr/share/nginx/html
 
 # Custom nginx config for SPA
 RUN echo 'server { \
