@@ -142,9 +142,9 @@ async function loadChildcareFee() {
     const isHighestRate = status === 'MAX_ACCEPTED';
     const income = household.annualHouseholdIncome || 0;
     
-    // Use childrenCountForFees if set, otherwise count U3 children in household
+    // Use childrenCountForFees if set, otherwise count all active children in household
     const siblingsCount = household.childrenCountForFees 
-      ?? household.children?.filter(c => isUnderThree(c.birthDate)).length 
+      ?? household.children?.filter(c => c.isActive).length 
       ?? 1;
     
     // Get care hours from child

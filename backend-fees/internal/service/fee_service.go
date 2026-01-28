@@ -186,7 +186,7 @@ func (s *FeeService) Generate(ctx context.Context, year int, month *int) (*Gener
 
 				// Try to get income from household first
 				if child.HouseholdID != nil && s.householdRepo != nil {
-					household, err := s.householdRepo.GetByID(ctx, *child.HouseholdID)
+					household, err := s.householdRepo.GetWithMembers(ctx, *child.HouseholdID)
 					if err == nil && household != nil {
 						if household.IncomeStatus == domain.IncomeStatusFosterFamily {
 							isFosterFamily = true
@@ -195,7 +195,21 @@ func (s *FeeService) Generate(ctx context.Context, year int, month *int) (*Gener
 						} else if household.IncomeStatus == domain.IncomeStatusProvided && household.AnnualHouseholdIncome != nil {
 							income = *household.AnnualHouseholdIncome
 						}
-						// TODO: count siblings from household children
+
+						// Get sibling count: use override if set, otherwise count active children
+						if household.ChildrenCountForFees != nil && *household.ChildrenCountForFees > 0 {
+							siblingsCount = *household.ChildrenCountForFees
+						} else if len(household.Children) > 0 {
+							activeCount := 0
+							for _, c := range household.Children {
+								if c.IsActive {
+									activeCount++
+								}
+							}
+							if activeCount > 0 {
+								siblingsCount = activeCount
+							}
+						}
 					}
 				}
 
