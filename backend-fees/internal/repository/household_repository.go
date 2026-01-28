@@ -102,6 +102,34 @@ func (r *PostgresHouseholdRepository) GetByID(ctx context.Context, id uuid.UUID)
 	return &household, nil
 }
 
+// GetByIDs retrieves households by their IDs.
+func (r *PostgresHouseholdRepository) GetByIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]*domain.Household, error) {
+	if len(ids) == 0 {
+		return make(map[uuid.UUID]*domain.Household), nil
+	}
+
+	query, args, err := sqlx.In(`
+		SELECT id, name, annual_household_income, income_status, children_count_for_fees, created_at, updated_at
+		FROM fees.households
+		WHERE id IN (?)
+	`, ids)
+	if err != nil {
+		return nil, err
+	}
+	query = r.db.Rebind(query)
+
+	var households []domain.Household
+	if err := r.db.SelectContext(ctx, &households, query, args...); err != nil {
+		return nil, err
+	}
+
+	result := make(map[uuid.UUID]*domain.Household, len(households))
+	for i := range households {
+		result[households[i].ID] = &households[i]
+	}
+	return result, nil
+}
+
 // Create creates a new household.
 func (r *PostgresHouseholdRepository) Create(ctx context.Context, household *domain.Household) error {
 	if household.ID == uuid.Nil {

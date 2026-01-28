@@ -113,6 +113,7 @@ type KnownIBANRepository interface {
 type HouseholdRepository interface {
 	List(ctx context.Context, search string, sortBy string, sortDir string, offset, limit int) ([]domain.Household, int64, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.Household, error)
+	GetByIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]*domain.Household, error)
 	Create(ctx context.Context, household *domain.Household) error
 	Update(ctx context.Context, household *domain.Household) error
 	Delete(ctx context.Context, id uuid.UUID) error

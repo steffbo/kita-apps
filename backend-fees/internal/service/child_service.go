@@ -70,25 +70,46 @@ type UpdateChildInput struct {
 	IsActive        *bool
 }
 
-// List returns children matching the filter with parents loaded.
+// List returns children matching the filter with parents and households loaded.
 func (s *ChildService) List(ctx context.Context, filter ChildFilter, offset, limit int) ([]domain.Child, int64, error) {
 	children, total, err := s.childRepo.List(ctx, filter.ActiveOnly, filter.U3Only, filter.HasWarnings, filter.Search, filter.SortBy, filter.SortDir, offset, limit)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	// Batch-load parents for all children
 	if len(children) > 0 {
 		childIDs := make([]uuid.UUID, len(children))
+		householdIDs := make([]uuid.UUID, 0, len(children))
+		householdIDSet := make(map[uuid.UUID]bool)
+
 		for i, child := range children {
 			childIDs[i] = child.ID
+			if child.HouseholdID != nil && !householdIDSet[*child.HouseholdID] {
+				householdIDs = append(householdIDs, *child.HouseholdID)
+				householdIDSet[*child.HouseholdID] = true
+			}
 		}
 
+		// Batch-load parents for all children
 		parentsMap, err := s.childRepo.GetParentsForChildren(ctx, childIDs)
 		if err == nil {
 			for i := range children {
 				if parents, ok := parentsMap[children[i].ID]; ok {
 					children[i].Parents = parents
+				}
+			}
+		}
+
+		// Batch-load households for all children
+		if len(householdIDs) > 0 && s.householdRepo != nil {
+			householdsMap, err := s.householdRepo.GetByIDs(ctx, householdIDs)
+			if err == nil {
+				for i := range children {
+					if children[i].HouseholdID != nil {
+						if household, ok := householdsMap[*children[i].HouseholdID]; ok {
+							children[i].Household = household
+						}
+					}
 				}
 			}
 		}
