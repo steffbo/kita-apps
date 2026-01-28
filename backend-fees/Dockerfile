@@ -44,6 +44,9 @@ COPY --from=frontend-builder /frontend/apps/beitraege/dist ./internal/frontend/b
 # Build the application with embedded frontend
 RUN CGO_ENABLED=0 GOOS=linux go build -tags embed_frontend -a -installsuffix cgo -o server ./cmd/server
 
+# Build the migrate tool
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o migrate ./cmd/migrate
+
 # Final stage
 FROM alpine:3.19
 
@@ -54,6 +57,7 @@ RUN apk add --no-cache ca-certificates tzdata
 
 # Copy the binary from builder
 COPY --from=builder /app/server .
+COPY --from=builder /app/migrate .
 
 # Copy migrations
 COPY --from=builder /app/migrations ./migrations
