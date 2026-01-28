@@ -420,6 +420,7 @@ class ApiClient {
     month?: number;
     feeType?: string;
     childId?: string;
+    search?: string;
     offset?: number;
     limit?: number;
   }): Promise<PaginatedResponse<FeeExpectation>> {
@@ -428,6 +429,7 @@ class ApiClient {
     if (params?.month) query.set('month', String(params.month));
     if (params?.feeType) query.set('type', params.feeType);
     if (params?.childId) query.set('childId', params.childId);
+    if (params?.search) query.set('search', params.search);
     if (params?.offset) query.set('offset', String(params.offset));
     if (params?.limit) query.set('limit', String(params.limit));
     const queryString = query.toString();
@@ -464,6 +466,12 @@ class ApiClient {
 
   async deleteFee(id: string): Promise<void> {
     return this.request<void>(`/fees/${id}`, { method: 'DELETE' });
+  }
+
+  async createReminder(feeId: string): Promise<FeeExpectation> {
+    return this.request<FeeExpectation>(`/fees/${feeId}/reminder`, {
+      method: 'POST',
+    });
   }
 
   async calculateChildcareFee(income: number): Promise<{ amount: number; bracket: string }> {

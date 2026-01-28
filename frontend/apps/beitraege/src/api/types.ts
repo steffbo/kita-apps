@@ -208,7 +208,7 @@ export interface UpdateParentRequest {
 }
 
 // Fees
-export type FeeType = 'MEMBERSHIP' | 'FOOD' | 'CHILDCARE';
+export type FeeType = 'MEMBERSHIP' | 'FOOD' | 'CHILDCARE' | 'REMINDER';
 export type FeeStatus = 'OPEN' | 'PAID' | 'OVERDUE';
 
 export interface FeeExpectation {
@@ -224,6 +224,7 @@ export interface FeeExpectation {
   isPaid: boolean;
   paidAt?: string;
   matchedBy?: PaymentMatch;
+  reminderForId?: string; // Links REMINDER fee to original fee
 }
 
 export interface PaymentMatch {

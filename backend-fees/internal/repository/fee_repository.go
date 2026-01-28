@@ -28,31 +28,43 @@ func (r *PostgresFeeRepository) List(ctx context.Context, filter FeeFilter, offs
 	var fees []domain.FeeExpectation
 	var total int64
 
-	baseQuery := `FROM fees.fee_expectations WHERE 1=1`
+	// Base query with JOIN for search functionality
+	baseQuery := `FROM fees.fee_expectations fe`
+	if filter.Search != "" {
+		baseQuery += ` JOIN fees.children c ON fe.child_id = c.id`
+	}
+	baseQuery += ` WHERE 1=1`
 	args := make([]interface{}, 0)
 	argIdx := 1
 
 	if filter.Year != nil {
-		baseQuery += fmt.Sprintf(" AND year = $%d", argIdx)
+		baseQuery += fmt.Sprintf(" AND fe.year = $%d", argIdx)
 		args = append(args, *filter.Year)
 		argIdx++
 	}
 
 	if filter.Month != nil {
-		baseQuery += fmt.Sprintf(" AND month = $%d", argIdx)
+		baseQuery += fmt.Sprintf(" AND fe.month = $%d", argIdx)
 		args = append(args, *filter.Month)
 		argIdx++
 	}
 
 	if filter.FeeType != "" {
-		baseQuery += fmt.Sprintf(" AND fee_type = $%d", argIdx)
+		baseQuery += fmt.Sprintf(" AND fe.fee_type = $%d", argIdx)
 		args = append(args, filter.FeeType)
 		argIdx++
 	}
 
 	if filter.ChildID != nil {
-		baseQuery += fmt.Sprintf(" AND child_id = $%d", argIdx)
+		baseQuery += fmt.Sprintf(" AND fe.child_id = $%d", argIdx)
 		args = append(args, *filter.ChildID)
+		argIdx++
+	}
+
+	if filter.Search != "" {
+		searchPattern := "%" + filter.Search + "%"
+		baseQuery += fmt.Sprintf(" AND (c.member_number ILIKE $%d OR c.first_name ILIKE $%d OR c.last_name ILIKE $%d OR CONCAT(c.first_name, ' ', c.last_name) ILIKE $%d)", argIdx, argIdx, argIdx, argIdx)
+		args = append(args, searchPattern)
 		argIdx++
 	}
 
@@ -65,9 +77,9 @@ func (r *PostgresFeeRepository) List(ctx context.Context, filter FeeFilter, offs
 
 	// Fetch with pagination
 	selectQuery := fmt.Sprintf(`
-		SELECT id, child_id, fee_type, year, month, amount, due_date, created_at, reminder_for_id, reconciliation_year
+		SELECT fe.id, fe.child_id, fe.fee_type, fe.year, fe.month, fe.amount, fe.due_date, fe.created_at, fe.reminder_for_id, fe.reconciliation_year
 		%s
-		ORDER BY year DESC, month DESC NULLS LAST, created_at DESC
+		ORDER BY fe.year DESC, fe.month DESC NULLS LAST, fe.created_at DESC
 		LIMIT $%d OFFSET $%d
 	`, baseQuery, argIdx, argIdx+1)
 	args = append(args, limit, offset)

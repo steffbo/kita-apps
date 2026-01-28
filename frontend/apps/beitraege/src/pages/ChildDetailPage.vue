@@ -15,6 +15,7 @@ import {
   CheckCircle,
   Clock,
   AlertTriangle,
+  AlertCircle,
   X,
   Check,
   Users,
@@ -84,6 +85,12 @@ const householdEditForm = ref<UpdateHouseholdRequest>({});
 const isSavingHousehold = ref(false);
 const householdError = ref<string | null>(null);
 
+// Reminder dialog state
+const showReminderDialog = ref(false);
+const reminderFee = ref<FeeExpectation | null>(null);
+const isCreatingReminder = ref(false);
+const reminderError = ref<string | null>(null);
+
 const childId = computed(() => route.params.id as string);
 
 async function loadChild() {
@@ -110,7 +117,9 @@ watch(childId, () => {
 // ESC key handler to close all modals
 function handleKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape') {
-    if (showTransactionModal.value) {
+    if (showReminderDialog.value) {
+      showReminderDialog.value = false;
+    } else if (showTransactionModal.value) {
       closeTransactionModal();
     } else if (showParentDetailModal.value) {
       closeParentDetailModal();
@@ -157,6 +166,8 @@ function getFeeTypeName(type: string): string {
       return 'Essensgeld';
     case 'CHILDCARE':
       return 'Platzgeld';
+    case 'REMINDER':
+      return 'Mahngebühr';
     default:
       return type;
   }
@@ -499,6 +510,38 @@ const incomeStatusOptions: { value: IncomeStatus; label: string }[] = [
   { value: 'HISTORIC', label: 'Historisch (Kind jetzt >3J)' },
   { value: 'FOSTER_FAMILY', label: 'Pflegefamilie (Durchschnittsbeitrag)' },
 ];
+
+// Reminder functions
+function canCreateReminder(fee: FeeExpectation): boolean {
+  // Can create reminder if: past due date, not paid, not already a REMINDER type, no existing reminder
+  const isPastDue = new Date(fee.dueDate) < new Date();
+  const isUnpaid = !fee.isPaid;
+  const isNotReminder = fee.feeType !== 'REMINDER';
+  const hasNoReminder = !fees.value.some(f => f.reminderForId === fee.id);
+  return isPastDue && isUnpaid && isNotReminder && hasNoReminder;
+}
+
+function openReminderDialog(fee: FeeExpectation) {
+  reminderFee.value = fee;
+  reminderError.value = null;
+  showReminderDialog.value = true;
+}
+
+async function createReminder() {
+  if (!reminderFee.value) return;
+  isCreatingReminder.value = true;
+  reminderError.value = null;
+  try {
+    await api.createReminder(reminderFee.value.id);
+    await loadChild(); // Reload to get the new reminder fee
+    showReminderDialog.value = false;
+    reminderFee.value = null;
+  } catch (e) {
+    reminderError.value = e instanceof Error ? e.message : 'Fehler beim Erstellen der Mahngebühr';
+  } finally {
+    isCreatingReminder.value = false;
+  }
+}
 </script>
 
 <template>
@@ -834,23 +877,38 @@ const incomeStatusOptions: { value: IncomeStatus; label: string }[] = [
             <div
               v-for="fee in openFees"
               :key="fee.id"
-              class="flex items-center justify-between p-3 bg-amber-50 border border-amber-200 rounded-lg"
+              :class="[
+                'flex items-center justify-between p-3 rounded-lg',
+                fee.feeType === 'REMINDER' 
+                  ? 'bg-red-50 border border-red-200' 
+                  : 'bg-amber-50 border border-amber-200'
+              ]"
             >
               <div class="flex items-center gap-3">
                 <AlertTriangle
                   v-if="new Date(fee.dueDate) < new Date()"
-                  class="h-5 w-5 text-red-500"
+                  :class="fee.feeType === 'REMINDER' ? 'h-5 w-5 text-red-500' : 'h-5 w-5 text-red-500'"
                 />
-                <Clock v-else class="h-5 w-5 text-amber-500" />
+                <Clock v-else :class="fee.feeType === 'REMINDER' ? 'h-5 w-5 text-red-500' : 'h-5 w-5 text-amber-500'" />
                 <div>
-                  <p class="font-medium">{{ getFeeTypeName(fee.feeType) }}</p>
+                  <p :class="['font-medium', fee.feeType === 'REMINDER' ? 'text-red-700' : '']">{{ getFeeTypeName(fee.feeType) }}</p>
                   <p class="text-sm text-gray-600">
                     {{ fee.month ? getMonthName(fee.month) + ' ' : '' }}{{ fee.year }}
                     · Fällig: {{ formatDate(fee.dueDate) }}
                   </p>
                 </div>
               </div>
-              <p class="font-semibold">{{ formatCurrency(fee.amount) }}</p>
+              <div class="flex items-center gap-2">
+                <p :class="['font-semibold', fee.feeType === 'REMINDER' ? 'text-red-700' : '']">{{ formatCurrency(fee.amount) }}</p>
+                <button
+                  v-if="canCreateReminder(fee)"
+                  @click="openReminderDialog(fee)"
+                  class="p-1.5 text-amber-600 hover:text-amber-800 hover:bg-amber-100 rounded-lg transition-colors"
+                  title="Mahngebühr erstellen"
+                >
+                  <AlertCircle class="h-4 w-4" />
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1636,6 +1694,63 @@ const incomeStatusOptions: { value: IncomeStatus; label: string }[] = [
             </button>
           </div>
         </form>
+      </div>
+    </div>
+
+    <!-- Reminder Confirmation Dialog -->
+    <div
+      v-if="showReminderDialog && reminderFee"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      @click.self="showReminderDialog = false"
+    >
+      <div class="bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="p-2 bg-amber-100 rounded-lg">
+            <AlertCircle class="h-6 w-6 text-amber-600" />
+          </div>
+          <h2 class="text-xl font-semibold">Mahngebühr erstellen?</h2>
+        </div>
+
+        <div class="mb-6">
+          <p class="text-gray-600 mb-4">
+            Möchtest du eine Mahngebühr für den folgenden überfälligen Beitrag erstellen?
+          </p>
+          <div class="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+            <p class="font-medium">{{ getFeeTypeName(reminderFee.feeType) }}</p>
+            <p class="text-sm text-gray-600">
+              {{ reminderFee.month ? getMonthName(reminderFee.month) + ' ' : '' }}{{ reminderFee.year }}
+              · {{ formatCurrency(reminderFee.amount) }}
+            </p>
+            <p class="text-sm text-red-600 mt-1">
+              Fällig seit: {{ formatDate(reminderFee.dueDate) }}
+            </p>
+          </div>
+          <p class="text-sm text-gray-500 mt-3">
+            Es wird eine Mahngebühr von <strong>10,00 EUR</strong> erstellt.
+          </p>
+        </div>
+
+        <div v-if="reminderError" class="p-3 bg-red-50 border border-red-200 rounded-lg mb-4">
+          <p class="text-sm text-red-600">{{ reminderError }}</p>
+        </div>
+
+        <div class="flex justify-end gap-3">
+          <button
+            @click="showReminderDialog = false"
+            class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+          >
+            Abbrechen
+          </button>
+          <button
+            @click="createReminder"
+            :disabled="isCreatingReminder"
+            class="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-50"
+          >
+            <Loader2 v-if="isCreatingReminder" class="h-4 w-4 animate-spin" />
+            <AlertCircle v-else class="h-4 w-4" />
+            Mahngebühr erstellen
+          </button>
+        </div>
       </div>
     </div>
   </div>

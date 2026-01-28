@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { api } from '@/api';
 import type { FeeExpectation, GenerateFeeRequest } from '@/api/types';
@@ -12,6 +12,8 @@ import {
   AlertTriangle,
   Calendar,
   Trash2,
+  Search,
+  AlertCircle,
 } from 'lucide-vue-next';
 
 const router = useRouter();
@@ -25,6 +27,8 @@ const selectedYear = ref(new Date().getFullYear());
 const selectedMonth = ref<number | null>(null);
 const selectedType = ref<string>('');
 const selectedStatus = ref<'open' | 'paid' | 'all'>('open');
+const searchQuery = ref('');
+const debouncedSearch = ref('');
 
 const showGenerateDialog = ref(false);
 const generateForm = ref<GenerateFeeRequest>({
@@ -38,6 +42,11 @@ const generateResult = ref<{ created: number; skipped: number } | null>(null);
 const selectedFeeIds = ref<Set<string>>(new Set());
 const isDeleting = ref(false);
 const showDeleteConfirm = ref(false);
+
+// Reminder state
+const showReminderConfirm = ref(false);
+const reminderTargetFee = ref<FeeExpectation | null>(null);
+const isCreatingReminder = ref(false);
 
 const years = computed(() => {
   const currentYear = new Date().getFullYear();
@@ -64,6 +73,7 @@ const feeTypes = [
   { value: 'MEMBERSHIP', label: 'Vereinsbeitrag' },
   { value: 'FOOD', label: 'Essensgeld' },
   { value: 'CHILDCARE', label: 'Platzgeld' },
+  { value: 'REMINDER', label: 'Mahngebühr' },
 ];
 
 // Computed for selection
@@ -84,6 +94,16 @@ const selectedDeletableCount = computed(() => {
   }).length;
 });
 
+// Debounce search
+let searchTimeout: ReturnType<typeof setTimeout>;
+watch(searchQuery, (newVal) => {
+  clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(() => {
+    debouncedSearch.value = newVal;
+    loadFees();
+  }, 300);
+});
+
 async function loadFees() {
   isLoading.value = true;
   error.value = null;
@@ -93,6 +113,7 @@ async function loadFees() {
       year: selectedYear.value,
       month: selectedMonth.value || undefined,
       feeType: selectedType.value || undefined,
+      search: debouncedSearch.value || undefined,
       limit: 200,
     });
     // Filter by status on client side
@@ -136,6 +157,8 @@ function getFeeTypeName(type: string): string {
       return 'Essensgeld';
     case 'CHILDCARE':
       return 'Platzgeld';
+    case 'REMINDER':
+      return 'Mahngebühr';
     default:
       return type;
   }
@@ -149,6 +172,8 @@ function getFeeTypeColor(type: string): string {
       return 'bg-orange-100 text-orange-700';
     case 'CHILDCARE':
       return 'bg-blue-100 text-blue-700';
+    case 'REMINDER':
+      return 'bg-red-100 text-red-700';
     default:
       return 'bg-gray-100 text-gray-700';
   }
@@ -260,6 +285,40 @@ async function deleteSelectedFees() {
   await loadFees();
 }
 
+// Check if fee is overdue and can have a reminder created
+function canCreateReminder(fee: FeeExpectation): boolean {
+  if (fee.isPaid) return false;
+  if (fee.feeType === 'REMINDER') return false;
+  const isOverdue = new Date(fee.dueDate) < new Date();
+  if (!isOverdue) return false;
+  // Check if there's already a reminder for this fee
+  const hasReminder = fees.value.some(f => f.reminderForId === fee.id);
+  return !hasReminder;
+}
+
+function openReminderDialog(fee: FeeExpectation) {
+  reminderTargetFee.value = fee;
+  showReminderConfirm.value = true;
+}
+
+async function createReminder() {
+  if (!reminderTargetFee.value) return;
+  
+  isCreatingReminder.value = true;
+  error.value = null;
+  
+  try {
+    await api.createReminder(reminderTargetFee.value.id);
+    showReminderConfirm.value = false;
+    reminderTargetFee.value = null;
+    await loadFees();
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : 'Fehler beim Erstellen der Mahngebühr';
+  } finally {
+    isCreatingReminder.value = false;
+  }
+}
+
 </script>
 
 <template>
@@ -313,6 +372,17 @@ async function deleteSelectedFees() {
       <div class="flex items-center gap-2">
         <Filter class="h-4 w-4 text-gray-400" />
         <span class="text-sm font-medium text-gray-700">Filter:</span>
+      </div>
+
+      <!-- Search Input -->
+      <div class="relative">
+        <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <input
+          v-model="searchQuery"
+          type="text"
+          placeholder="Mitgl.-Nr. oder Name..."
+          class="pl-9 pr-3 py-1.5 w-48 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+        />
       </div>
       
       <!-- Status Filter Buttons -->
@@ -479,14 +549,24 @@ async function deleteSelectedFees() {
               </div>
             </td>
             <td class="px-4 py-3">
-              <button
-                v-if="!fee.isPaid"
-                @click="deleteSingleFee(fee)"
-                class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                title="Löschen"
-              >
-                <Trash2 class="h-4 w-4" />
-              </button>
+              <div class="flex items-center gap-1">
+                <button
+                  v-if="canCreateReminder(fee)"
+                  @click="openReminderDialog(fee)"
+                  class="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded transition-colors"
+                  title="Mahngebühr erstellen"
+                >
+                  <AlertCircle class="h-4 w-4" />
+                </button>
+                <button
+                  v-if="!fee.isPaid"
+                  @click="deleteSingleFee(fee)"
+                  class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                  title="Löschen"
+                >
+                  <Trash2 class="h-4 w-4" />
+                </button>
+              </div>
             </td>
           </tr>
           <tr v-if="fees.length === 0">
@@ -604,6 +684,55 @@ async function deleteSelectedFees() {
             <Loader2 v-if="isDeleting" class="h-4 w-4 animate-spin" />
             <Trash2 v-else class="h-4 w-4" />
             Löschen
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Reminder Confirmation Dialog -->
+    <div
+      v-if="showReminderConfirm"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      @click.self="showReminderConfirm = false"
+    >
+      <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+        <div class="flex items-center gap-3 mb-6">
+          <div class="p-2 bg-amber-100 rounded-lg">
+            <AlertCircle class="h-6 w-6 text-amber-600" />
+          </div>
+          <div>
+            <h2 class="text-xl font-semibold">Mahngebühr erstellen</h2>
+            <p class="text-sm text-gray-600">Eine Mahngebühr von 10,00 € wird erstellt</p>
+          </div>
+        </div>
+
+        <div v-if="reminderTargetFee" class="mb-6 p-4 bg-gray-50 rounded-lg">
+          <p class="text-sm text-gray-600">Für den überfälligen Beitrag:</p>
+          <p class="font-medium mt-1">
+            {{ getFeeTypeName(reminderTargetFee.feeType) }} - 
+            {{ reminderTargetFee.child?.firstName }} {{ reminderTargetFee.child?.lastName }}
+          </p>
+          <p class="text-sm text-gray-500 mt-1">
+            {{ formatCurrency(reminderTargetFee.amount) }} • Fällig: {{ formatDate(reminderTargetFee.dueDate) }}
+          </p>
+        </div>
+
+        <div class="flex justify-end gap-3">
+          <button
+            @click="showReminderConfirm = false"
+            :disabled="isCreatingReminder"
+            class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+          >
+            Abbrechen
+          </button>
+          <button
+            @click="createReminder"
+            :disabled="isCreatingReminder"
+            class="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-50"
+          >
+            <Loader2 v-if="isCreatingReminder" class="h-4 w-4 animate-spin" />
+            <AlertCircle v-else class="h-4 w-4" />
+            Mahngebühr erstellen
           </button>
         </div>
       </div>

@@ -59,6 +59,7 @@ type FeeFilter struct {
 	Month   *int
 	FeeType string
 	ChildID *uuid.UUID
+	Search  string // Search by member number or child name
 }
 
 // FeeRepository handles fee expectation persistence.

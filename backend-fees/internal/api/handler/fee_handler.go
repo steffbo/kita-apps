@@ -67,6 +67,7 @@ func NewFeeHandler(feeService *service.FeeService, importService *service.Import
 // @Param type query string false "Filter by fee type" Enums(childcare, food, membership, reminder)
 // @Param status query string false "Filter by status" Enums(open, paid, overdue)
 // @Param childId query string false "Filter by child ID (UUID)"
+// @Param search query string false "Search by member number or child name"
 // @Success 200 {object} FeeListResponse "Paginated list of fees"
 // @Failure 401 {object} response.ErrorBody "Not authenticated"
 // @Failure 500 {object} response.ErrorBody "Internal server error"
@@ -79,6 +80,7 @@ func (h *FeeHandler) List(w http.ResponseWriter, r *http.Request) {
 		Month:   request.GetQueryIntOptional(r, "month"),
 		FeeType: request.GetQueryString(r, "type", ""),
 		Status:  request.GetQueryString(r, "status", ""),
+		Search:  request.GetQueryString(r, "search", ""),
 	}
 
 	if childIDStr := request.GetQueryString(r, "childId", ""); childIDStr != "" {
