@@ -378,10 +378,11 @@ type ChildcareFeeResult struct {
 // @Produce json
 // @Security BearerAuth
 // @Param childAgeType query string false "Child age type" default(krippe) Enums(krippe, kindergarten)
-// @Param income query number true "Monthly net income"
+// @Param income query number true "Annual net household income"
 // @Param siblingsCount query int false "Number of siblings" default(1)
 // @Param careHours query int false "Weekly care hours" default(30) Enums(30, 35, 40, 45, 50, 55)
 // @Param highestRate query bool false "Apply highest rate" default(false)
+// @Param fosterFamily query bool false "Foster family (uses average rate)" default(false)
 // @Success 200 {object} ChildcareFeeResult "Calculated fee"
 // @Failure 400 {object} response.ErrorBody "Invalid income value"
 // @Failure 401 {object} response.ErrorBody "Not authenticated"
@@ -431,12 +432,17 @@ func (h *FeeHandler) CalculateChildcareFee(w http.ResponseWriter, r *http.Reques
 	highestRateStr := request.GetQueryString(r, "highestRate", "false")
 	highestRate := highestRateStr == "true" || highestRateStr == "1"
 
+	// Parse foster family flag (default: false)
+	fosterFamilyStr := request.GetQueryString(r, "fosterFamily", "false")
+	fosterFamily := fosterFamilyStr == "true" || fosterFamilyStr == "1"
+
 	input := domain.ChildcareFeeInput{
 		ChildAgeType:  childAgeType,
 		NetIncome:     income,
 		SiblingsCount: siblingsCount,
 		CareHours:     careHours,
 		HighestRate:   highestRate,
+		FosterFamily:  fosterFamily,
 	}
 
 	result := h.feeService.CalculateChildcareFee(input)
