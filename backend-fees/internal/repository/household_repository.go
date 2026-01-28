@@ -50,7 +50,7 @@ func (r *PostgresHouseholdRepository) List(ctx context.Context, search string, s
 
 	// Fetch with pagination
 	selectQuery := fmt.Sprintf(`
-		SELECT id, name, annual_household_income, income_status, created_at, updated_at
+		SELECT id, name, annual_household_income, income_status, children_count_for_fees, created_at, updated_at
 		%s
 		ORDER BY %s
 		LIMIT $%d OFFSET $%d
@@ -89,7 +89,7 @@ func getHouseholdSortOrder(sortBy, sortDir string) string {
 func (r *PostgresHouseholdRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Household, error) {
 	var household domain.Household
 	err := r.db.GetContext(ctx, &household, `
-		SELECT id, name, annual_household_income, income_status, created_at, updated_at
+		SELECT id, name, annual_household_income, income_status, children_count_for_fees, created_at, updated_at
 		FROM fees.households
 		WHERE id = $1
 	`, id)
@@ -124,10 +124,10 @@ func (r *PostgresHouseholdRepository) Update(ctx context.Context, household *dom
 	household.UpdatedAt = time.Now()
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE fees.households
-		SET name = $2, annual_household_income = $3, income_status = $4, updated_at = $5
+		SET name = $2, annual_household_income = $3, income_status = $4, children_count_for_fees = $5, updated_at = $6
 		WHERE id = $1
 	`, household.ID, household.Name, household.AnnualHouseholdIncome, household.IncomeStatus,
-		household.UpdatedAt)
+		household.ChildrenCountForFees, household.UpdatedAt)
 	return err
 }
 
