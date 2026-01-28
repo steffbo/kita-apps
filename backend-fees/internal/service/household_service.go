@@ -87,6 +87,7 @@ type UpdateHouseholdInput struct {
 	Name                  *string
 	AnnualHouseholdIncome *float64
 	IncomeStatus          *domain.IncomeStatus
+	ChildrenCountForFees  *int
 }
 
 // Update updates a household.
@@ -104,6 +105,9 @@ func (s *HouseholdService) Update(ctx context.Context, id uuid.UUID, input Updat
 	}
 	if input.IncomeStatus != nil {
 		household.IncomeStatus = *input.IncomeStatus
+	}
+	if input.ChildrenCountForFees != nil {
+		household.ChildrenCountForFees = input.ChildrenCountForFees
 	}
 
 	if err := s.householdRepo.Update(ctx, household); err != nil {

@@ -142,8 +142,10 @@ async function loadChildcareFee() {
     const isHighestRate = status === 'MAX_ACCEPTED';
     const income = household.annualHouseholdIncome || 0;
     
-    // Count siblings (children in same household who are U3)
-    const siblingsCount = household.children?.filter(c => isUnderThree(c.birthDate)).length || 1;
+    // Use childrenCountForFees if set, otherwise count U3 children in household
+    const siblingsCount = household.childrenCountForFees 
+      ?? household.children?.filter(c => isUnderThree(c.birthDate)).length 
+      ?? 1;
     
     // Get care hours from child
     const careHours = child.value.careHours || 30;
@@ -531,6 +533,7 @@ function startEditingHousehold() {
     name: child.value.household.name,
     annualHouseholdIncome: child.value.household.annualHouseholdIncome,
     incomeStatus: child.value.household.incomeStatus || '',
+    childrenCountForFees: child.value.household.childrenCountForFees,
   };
   householdError.value = null;
   isEditingHousehold.value = true;
@@ -771,7 +774,7 @@ async function createReminder() {
             </div>
 
             <!-- Income Status -->
-            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <div>
                 <p class="text-sm text-gray-500">Einkommensstatus</p>
                 <p class="font-medium">{{ getIncomeStatusLabel(child.household.incomeStatus) }}</p>
@@ -779,6 +782,10 @@ async function createReminder() {
               <div v-if="child.household.incomeStatus === 'PROVIDED' || child.household.incomeStatus === 'HISTORIC'">
                 <p class="text-sm text-gray-500">Jahreshaushaltseinkommen</p>
                 <p class="font-medium">{{ formatIncome(child.household.annualHouseholdIncome) }}</p>
+              </div>
+              <div v-if="child.household.childrenCountForFees">
+                <p class="text-sm text-gray-500">Kinder (Beitragsberechnung)</p>
+                <p class="font-medium">{{ child.household.childrenCountForFees }}</p>
               </div>
             </div>
 
@@ -903,6 +910,20 @@ async function createReminder() {
                 step="any"
                 class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
               />
+            </div>
+
+            <div>
+              <label for="household-childrenCount" class="block text-sm font-medium text-gray-700 mb-1">Anzahl Kinder (für Beitragsberechnung)</label>
+              <input
+                id="household-childrenCount"
+                v-model.number="householdEditForm.childrenCountForFees"
+                type="number"
+                min="1"
+                max="10"
+                placeholder="Automatisch"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              />
+              <p class="text-xs text-gray-500 mt-1">Leer lassen für automatische Zählung der U3-Kinder im Haushalt</p>
             </div>
 
             <div v-if="householdError" class="p-3 bg-red-50 border border-red-200 rounded-lg">

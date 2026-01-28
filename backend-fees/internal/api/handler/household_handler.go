@@ -165,6 +165,7 @@ type UpdateHouseholdRequest struct {
 	Name                  *string  `json:"name,omitempty" example:"Familie Müller"`
 	AnnualHouseholdIncome *float64 `json:"annualHouseholdIncome,omitempty" example:"65000.00"`
 	IncomeStatus          *string  `json:"incomeStatus,omitempty" example:"PROVIDED" enums:"PROVIDED,MAX_ACCEPTED,PENDING,NOT_REQUIRED,HISTORIC,FOSTER_FAMILY"`
+	ChildrenCountForFees  *int     `json:"childrenCountForFees,omitempty" example:"2"`
 } //@name UpdateHouseholdRequest
 
 // Update updates a household
@@ -198,6 +199,7 @@ func (h *HouseholdHandler) Update(w http.ResponseWriter, r *http.Request) {
 	input := service.UpdateHouseholdInput{
 		Name:                  req.Name,
 		AnnualHouseholdIncome: req.AnnualHouseholdIncome,
+		ChildrenCountForFees:  req.ChildrenCountForFees,
 	}
 	if req.IncomeStatus != nil {
 		status := domain.IncomeStatus(*req.IncomeStatus)

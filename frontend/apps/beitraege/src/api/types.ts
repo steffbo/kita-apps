@@ -88,6 +88,7 @@ export interface Household {
   name: string;
   annualHouseholdIncome?: number;
   incomeStatus: IncomeStatus;
+  childrenCountForFees?: number;
   createdAt: string;
   updatedAt: string;
   parents?: Parent[];
@@ -104,6 +105,7 @@ export interface UpdateHouseholdRequest {
   name?: string;
   annualHouseholdIncome?: number;
   incomeStatus?: IncomeStatus;
+  childrenCountForFees?: number;
 }
 
 // Members (Vereinsmitglieder - can exist independently of children)
