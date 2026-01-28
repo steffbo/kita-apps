@@ -538,8 +538,8 @@ const visiblePages = computed(() => {
               </th>
               <!-- Age -->
               <th class="px-4 py-3 font-medium">Alter</th>
-              <!-- U3 -->
-              <th class="px-4 py-3 font-medium">U3</th>
+              <!-- Care Hours -->
+              <th class="px-4 py-3 font-medium">Stunden</th>
               <!-- Warnings -->
               <th class="px-4 py-3 font-medium">Hinweise</th>
               <!-- Status -->
@@ -575,14 +575,9 @@ const visiblePages = computed(() => {
               <td class="px-4 py-3 text-gray-600">{{ formatDate(child.birthDate) }}</td>
               <!-- Age -->
               <td class="px-4 py-3">{{ calculateAge(child.birthDate) }} J.</td>
-              <!-- U3 -->
-              <td class="px-4 py-3">
-                <span
-                  v-if="isUnderThree(child.birthDate)"
-                  class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700"
-                >
-                  U3
-                </span>
+              <!-- Care Hours -->
+              <td class="px-4 py-3 text-gray-600">
+                <span v-if="child.careHours">{{ child.careHours }}h</span>
                 <span v-else class="text-gray-400">-</span>
               </td>
               <!-- Warnings -->
