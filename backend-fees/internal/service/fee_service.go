@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"math"
 	"time"
 
 	"github.com/google/uuid"
@@ -381,7 +382,7 @@ func (s *FeeService) CalculateChildcareFee(input domain.ChildcareFeeInput) *doma
 		baseFee := findRate(lastRow.Rates[:], input.CareHours)
 		discountFactor := getSiblingDiscountFactor(input.SiblingsCount, meta.MaxSiblingsForDiscount)
 		fee := baseFee * discountFactor
-		discountPercent := int((1 - discountFactor) * 100)
+		discountPercent := int(math.Round((1 - discountFactor) * 100))
 
 		notes := []string{}
 		if input.SiblingsCount > 1 && discountFactor < 1.0 {
@@ -434,7 +435,7 @@ func (s *FeeService) CalculateChildcareFee(input domain.ChildcareFeeInput) *doma
 		baseFee := findRateInTable(domain.FeeTableKrippeSatzung, input.NetIncome, input.CareHours)
 		discountFactor := getSiblingDiscountFactor(input.SiblingsCount, meta.MaxSiblingsForDiscount)
 		fee := baseFee * discountFactor
-		discountPercent := int((1 - discountFactor) * 100)
+		discountPercent := int(math.Round((1 - discountFactor) * 100))
 
 		notes := []string{}
 		if input.SiblingsCount > 1 && discountFactor < 1.0 {
