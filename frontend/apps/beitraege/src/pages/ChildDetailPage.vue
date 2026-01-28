@@ -2,7 +2,7 @@
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api';
-import type { Child, FeeExpectation, UpdateChildRequest, Parent, CreateParentRequest, UpdateParentRequest, BankTransaction, IncomeStatus, UpdateHouseholdRequest } from '@/api/types';
+import type { Child, FeeExpectation, UpdateChildRequest, Parent, CreateParentRequest, UpdateParentRequest, BankTransaction, IncomeStatus, UpdateHouseholdRequest, ChildcareFeeResult } from '@/api/types';
 import {
   ArrowLeft,
   Edit,
@@ -25,6 +25,7 @@ import {
   Unlink,
   CreditCard,
   Home,
+  Euro,
 } from 'lucide-vue-next';
 
 const route = useRoute();
@@ -91,6 +92,10 @@ const reminderFee = ref<FeeExpectation | null>(null);
 const isCreatingReminder = ref(false);
 const reminderError = ref<string | null>(null);
 
+// Childcare fee calculation state
+const childcareFee = ref<ChildcareFeeResult | null>(null);
+const isLoadingChildcareFee = ref(false);
+
 const childId = computed(() => route.params.id as string);
 
 async function loadChild() {
@@ -100,10 +105,62 @@ async function loadChild() {
     child.value = await api.getChild(childId.value);
     const feesResponse = await api.getFees({ childId: childId.value, limit: 50 });
     fees.value = feesResponse.data;
+    // Load childcare fee if applicable
+    await loadChildcareFee();
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Fehler beim Laden';
   } finally {
     isLoading.value = false;
+  }
+}
+
+async function loadChildcareFee() {
+  if (!child.value) return;
+  
+  // Only calculate for U3 children (under 3 years)
+  if (!isUnderThree(child.value.birthDate)) {
+    childcareFee.value = null;
+    return;
+  }
+  
+  const household = child.value.household;
+  if (!household) {
+    childcareFee.value = null;
+    return;
+  }
+  
+  // Check income status - need income to calculate (except for MAX_ACCEPTED and FOSTER_FAMILY)
+  const status = household.incomeStatus;
+  if (!status || status === 'PENDING' || status === 'NOT_REQUIRED' || status === 'HISTORIC') {
+    childcareFee.value = null;
+    return;
+  }
+  
+  isLoadingChildcareFee.value = true;
+  try {
+    const isFosterFamily = status === 'FOSTER_FAMILY';
+    const isHighestRate = status === 'MAX_ACCEPTED';
+    const income = household.annualHouseholdIncome || 0;
+    
+    // Count siblings (children in same household who are U3)
+    const siblingsCount = household.children?.filter(c => isUnderThree(c.birthDate)).length || 1;
+    
+    // Get care hours from child
+    const careHours = child.value.careHours || 30;
+    
+    childcareFee.value = await api.calculateChildcareFee({
+      income,
+      childAgeType: 'krippe',
+      siblingsCount,
+      careHours,
+      highestRate: isHighestRate,
+      fosterFamily: isFosterFamily,
+    });
+  } catch (e) {
+    console.error('Failed to calculate childcare fee:', e);
+    childcareFee.value = null;
+  } finally {
+    isLoadingChildcareFee.value = false;
   }
 }
 
@@ -722,6 +779,43 @@ async function createReminder() {
               <div v-if="child.household.incomeStatus === 'PROVIDED' || child.household.incomeStatus === 'HISTORIC'">
                 <p class="text-sm text-gray-500">Jahreshaushaltseinkommen</p>
                 <p class="font-medium">{{ formatIncome(child.household.annualHouseholdIncome) }}</p>
+              </div>
+            </div>
+
+            <!-- Platzgeld (Childcare Fee) for U3 children -->
+            <div v-if="isUnderThree(child.birthDate)" class="pt-4 border-t">
+              <div class="flex items-start gap-3">
+                <Euro class="h-5 w-5 text-primary mt-0.5" />
+                <div class="flex-1">
+                  <p class="text-sm text-gray-500">Monatliches Platzgeld</p>
+                  <div v-if="isLoadingChildcareFee" class="flex items-center gap-2">
+                    <Loader2 class="h-4 w-4 animate-spin text-gray-400" />
+                    <span class="text-gray-400 text-sm">Berechne...</span>
+                  </div>
+                  <div v-else-if="childcareFee">
+                    <p class="font-semibold text-lg text-primary">{{ formatCurrency(childcareFee.fee) }}</p>
+                    <p class="text-sm text-gray-500">{{ childcareFee.rule }}</p>
+                    <p v-if="childcareFee.discountPercent > 0" class="text-sm text-green-600">
+                      Geschwisterrabatt: {{ childcareFee.discountPercent }}%
+                    </p>
+                    <p v-if="childcareFee.notes && childcareFee.notes.length > 0" class="text-xs text-gray-400 mt-1">
+                      {{ childcareFee.notes.join(' · ') }}
+                    </p>
+                  </div>
+                  <div v-else>
+                    <p class="text-gray-400 text-sm italic">
+                      <span v-if="!child.household.incomeStatus || child.household.incomeStatus === 'PENDING'">
+                        Einkommen noch nicht angegeben
+                      </span>
+                      <span v-else-if="child.household.incomeStatus === 'NOT_REQUIRED' || child.household.incomeStatus === 'HISTORIC'">
+                        Nicht zutreffend
+                      </span>
+                      <span v-else>
+                        Kann nicht berechnet werden
+                      </span>
+                    </p>
+                  </div>
+                </div>
               </div>
             </div>
 

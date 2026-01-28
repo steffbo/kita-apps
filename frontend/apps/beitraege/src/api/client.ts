@@ -32,6 +32,7 @@ import type {
   ChildImportPreviewResult,
   ChildImportExecuteRequest,
   ChildImportExecuteResult,
+  ChildcareFeeResult,
 } from './types';
 
 const API_BASE = '/api/fees/v1';
@@ -474,8 +475,22 @@ class ApiClient {
     });
   }
 
-  async calculateChildcareFee(income: number): Promise<{ amount: number; bracket: string }> {
-    return this.request<{ amount: number; bracket: string }>(`/childcare-fee/calculate?income=${income}`);
+  async calculateChildcareFee(params: {
+    income: number;
+    childAgeType?: 'krippe' | 'kindergarten';
+    siblingsCount?: number;
+    careHours?: number;
+    highestRate?: boolean;
+    fosterFamily?: boolean;
+  }): Promise<ChildcareFeeResult> {
+    const searchParams = new URLSearchParams();
+    searchParams.set('income', params.income.toString());
+    if (params.childAgeType) searchParams.set('childAgeType', params.childAgeType);
+    if (params.siblingsCount) searchParams.set('siblingsCount', params.siblingsCount.toString());
+    if (params.careHours) searchParams.set('careHours', params.careHours.toString());
+    if (params.highestRate) searchParams.set('highestRate', 'true');
+    if (params.fosterFamily) searchParams.set('fosterFamily', 'true');
+    return this.request<ChildcareFeeResult>(`/childcare-fee/calculate?${searchParams.toString()}`);
   }
 
   // Import endpoints

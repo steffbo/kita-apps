@@ -475,3 +475,25 @@ export interface SystemField {
   group: 'child' | 'parent1' | 'parent2';
 }
 
+// Childcare Fee Calculation
+export type ChildAgeType = 'krippe' | 'kindergarten';
+
+export interface ChildcareFeeInput {
+  childAgeType?: ChildAgeType;
+  income: number;
+  siblingsCount?: number;
+  careHours?: number;
+  highestRate?: boolean;
+  fosterFamily?: boolean;
+}
+
+export interface ChildcareFeeResult {
+  fee: number;
+  baseFee: number;
+  rule: string;
+  discountFactor: number;
+  discountPercent: number;
+  showEntlastung: boolean;
+  notes: string[];
+}
+
