@@ -1,8 +1,10 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -11,6 +13,7 @@ import (
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/api/request"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/api/response"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/service"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/util"
 )
 
 // ImportHandler handles CSV import-related requests.
@@ -378,13 +381,15 @@ func (h *ImportHandler) ManualMatch(w http.ResponseWriter, r *http.Request) {
 // RescanResponse represents the result of a rescan operation
 // @Description Rescan result with new match suggestions
 type RescanResponse struct {
+	Scanned     int               `json:"scanned" example:"226"`
+	AutoMatched int               `json:"autoMatched" example:"150"`
 	NewMatches  int               `json:"newMatches" example:"5"`
 	Suggestions []MatchSuggestion `json:"suggestions,omitempty"`
 } //@name RescanResponse
 
 // Rescan handles POST /import/rescan
 // @Summary Rescan unmatched transactions
-// @Description Re-run matching algorithm on all unmatched transactions to find new matches
+// @Description Re-run matching algorithm on all unmatched transactions. High-confidence matches (95%+) are automatically confirmed.
 // @Tags Import
 // @Produce json
 // @Security BearerAuth
@@ -399,7 +404,62 @@ func (h *ImportHandler) Rescan(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.Success(w, result)
+	resp := RescanResponse{
+		Scanned:     result.Scanned,
+		AutoMatched: result.AutoMatched,
+		NewMatches:  len(result.Suggestions),
+		Suggestions: make([]MatchSuggestion, 0, len(result.Suggestions)),
+	}
+
+	for _, s := range result.Suggestions {
+		ms := MatchSuggestion{
+			TransactionID: s.Transaction.ID.String(),
+			Confidence:    s.Confidence,
+			Reason:        s.MatchedBy,
+		}
+
+		// Build transaction info
+		txInfo := fmt.Sprintf("%.2f EUR", s.Transaction.Amount)
+		if s.Transaction.PayerName != nil {
+			txInfo = *s.Transaction.PayerName + " - " + txInfo
+		}
+		if s.Transaction.Description != nil {
+			txInfo += " (" + *s.Transaction.Description + ")"
+		}
+		ms.TransactionInfo = txInfo
+
+		// Build expectation info
+		if s.Expectation != nil {
+			ms.ExpectationID = s.Expectation.ID.String()
+			expInfo := fmt.Sprintf("%s %d", s.Expectation.FeeType, s.Expectation.Year)
+			if s.Expectation.Month != nil {
+				expInfo = fmt.Sprintf("%s %s %d", s.Expectation.FeeType, util.MonthToGerman(*s.Expectation.Month), s.Expectation.Year)
+			}
+			if s.Child != nil {
+				expInfo += " - " + s.Child.FirstName + " " + s.Child.LastName
+			}
+			ms.ExpectationInfo = expInfo
+		} else if len(s.Expectations) > 0 {
+			// Combined match - use first expectation
+			ms.ExpectationID = s.Expectations[0].ID.String()
+			var expParts []string
+			for _, e := range s.Expectations {
+				expInfo := string(e.FeeType)
+				if e.Month != nil {
+					expInfo = fmt.Sprintf("%s %s %d", e.FeeType, util.MonthToGerman(*e.Month), e.Year)
+				}
+				expParts = append(expParts, expInfo)
+			}
+			ms.ExpectationInfo = strings.Join(expParts, " + ")
+			if s.Child != nil {
+				ms.ExpectationInfo += " - " + s.Child.FirstName + " " + s.Child.LastName
+			}
+		}
+
+		resp.Suggestions = append(resp.Suggestions, ms)
+	}
+
+	response.Success(w, resp)
 }
 
 // DismissTransactionResponse represents the result of dismissing a transaction
@@ -697,4 +757,121 @@ func (h *ImportHandler) DismissWarning(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.NoContent(w)
+}
+
+// ResolveLateFeeResponse represents the result of resolving a late payment warning
+// @Description Late payment resolution result
+type ResolveLateFeeResponse struct {
+	WarningID     string  `json:"warningId" example:"550e8400-e29b-41d4-a716-446655440000"`
+	LateFeeID     string  `json:"lateFeeId" example:"550e8400-e29b-41d4-a716-446655440001"`
+	LateFeeAmount float64 `json:"lateFeeAmount" example:"10.00"`
+} //@name ResolveLateFeeResponse
+
+// ResolveLateFee handles POST /import/warnings/{id}/resolve-late-fee
+// @Summary Resolve late payment warning by creating late fee
+// @Description Resolves a LATE_PAYMENT warning by creating a 10 EUR REMINDER fee linked to the original fee
+// @Tags Import
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Warning ID (UUID)"
+// @Success 200 {object} ResolveLateFeeResponse "Late fee created"
+// @Failure 400 {object} response.ErrorBody "Invalid warning ID or warning is not a late payment"
+// @Failure 401 {object} response.ErrorBody "Not authenticated"
+// @Failure 404 {object} response.ErrorBody "Warning not found"
+// @Failure 500 {object} response.ErrorBody "Internal server error"
+// @Router /import/warnings/{id}/resolve-late-fee [post]
+func (h *ImportHandler) ResolveLateFee(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		response.BadRequest(w, "invalid warning ID")
+		return
+	}
+
+	userCtx := middleware.GetUserFromContext(r)
+	if userCtx == nil {
+		response.Unauthorized(w, "not authenticated")
+		return
+	}
+
+	userID, _ := uuid.Parse(userCtx.UserID)
+
+	result, err := h.importService.ResolveWarningWithLateFee(r.Context(), id, userID)
+	if err != nil {
+		if err == service.ErrNotFound {
+			response.NotFound(w, "warning not found")
+			return
+		}
+		if err == service.ErrInvalidInput {
+			response.BadRequest(w, "warning is not a late payment warning or is already resolved")
+			return
+		}
+		response.InternalError(w, "failed to resolve late payment warning")
+		return
+	}
+
+	resp := ResolveLateFeeResponse{
+		WarningID:     result.WarningID.String(),
+		LateFeeID:     result.LateFeeID.String(),
+		LateFeeAmount: result.LateFeeAmount,
+	}
+	response.Success(w, resp)
+}
+
+// MatchedTransactions handles GET /import/transactions/matched
+// @Summary Get matched transactions
+// @Description Get a paginated list of transactions that have been matched to fees
+// @Tags Import
+// @Produce json
+// @Security BearerAuth
+// @Param page query int false "Page number" default(1)
+// @Param perPage query int false "Items per page" default(20)
+// @Success 200 {object} TransactionListResponse "Matched transactions"
+// @Failure 401 {object} response.ErrorBody "Not authenticated"
+// @Failure 500 {object} response.ErrorBody "Internal server error"
+// @Router /import/transactions/matched [get]
+func (h *ImportHandler) MatchedTransactions(w http.ResponseWriter, r *http.Request) {
+	pagination := request.GetPagination(r)
+
+	transactions, total, err := h.importService.GetMatchedTransactions(r.Context(), pagination.Offset, pagination.PerPage)
+	if err != nil {
+		response.InternalError(w, "failed to get matched transactions")
+		return
+	}
+
+	response.Paginated(w, transactions, total, pagination.Page, pagination.PerPage)
+}
+
+// TransactionSuggestions handles GET /import/transactions/{id}/suggestions
+// @Summary Get match suggestions for a transaction
+// @Description Get potential fee matches for a single unmatched transaction
+// @Tags Import
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Transaction ID (UUID)"
+// @Success 200 {object} MatchSuggestion "Match suggestion"
+// @Failure 400 {object} response.ErrorBody "Invalid transaction ID"
+// @Failure 401 {object} response.ErrorBody "Not authenticated"
+// @Failure 404 {object} response.ErrorBody "Transaction not found"
+// @Failure 500 {object} response.ErrorBody "Internal server error"
+// @Router /import/transactions/{id}/suggestions [get]
+func (h *ImportHandler) TransactionSuggestions(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		response.BadRequest(w, "invalid transaction ID")
+		return
+	}
+
+	suggestion, err := h.importService.GetSuggestionsForTransaction(r.Context(), id)
+	if err != nil {
+		if err == service.ErrNotFound {
+			response.NotFound(w, "transaction not found")
+			return
+		}
+		response.InternalError(w, "failed to get suggestions")
+		return
+	}
+
+	response.Success(w, suggestion)
 }

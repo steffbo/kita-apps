@@ -3,8 +3,8 @@ package handler
 import (
 	"net/http"
 	"strconv"
+	"time"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/api/request"
@@ -45,6 +45,18 @@ type FeeListResponse struct {
 	PerPage    int           `json:"perPage" example:"20"`
 	TotalPages int           `json:"totalPages" example:"5"`
 } //@name FeeList
+
+// CreateFeeRequest represents a request to create a single fee.
+// @Description Request body for creating a single fee
+type CreateFeeRequest struct {
+	ChildID            string   `json:"childId" example:"550e8400-e29b-41d4-a716-446655440001"`
+	FeeType            string   `json:"feeType" example:"FOOD" enums:"FOOD,MEMBERSHIP,CHILDCARE,REMINDER"`
+	Year               int      `json:"year" example:"2025"`
+	Month              *int     `json:"month,omitempty" example:"1"`
+	Amount             *float64 `json:"amount,omitempty" example:"45.40"`
+	DueDate            *string  `json:"dueDate,omitempty" example:"2025-01-05"`
+	ReconciliationYear *int     `json:"reconciliationYear,omitempty" example:"2024"`
+} //@name CreateFeeRequest
 
 // NewFeeHandler creates a new fee handler.
 func NewFeeHandler(feeService *service.FeeService, importService *service.ImportService) *FeeHandler {
@@ -96,6 +108,107 @@ func (h *FeeHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.Paginated(w, fees, total, pagination.Page, pagination.PerPage)
+}
+
+// Create handles POST /fees
+// @Summary Create a single fee
+// @Description Create a fee for a specific child
+// @Tags Fees
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body CreateFeeRequest true "Fee creation parameters"
+// @Success 201 {object} FeeResponse "Created fee"
+// @Failure 400 {object} response.ErrorBody "Invalid request (missing fields, invalid child ID, etc.)"
+// @Failure 401 {object} response.ErrorBody "Not authenticated"
+// @Failure 404 {object} response.ErrorBody "Child not found"
+// @Failure 409 {object} response.ErrorBody "Fee already exists for this period"
+// @Failure 500 {object} response.ErrorBody "Internal server error"
+// @Router /fees [post]
+func (h *FeeHandler) Create(w http.ResponseWriter, r *http.Request) {
+	var req CreateFeeRequest
+	if err := request.DecodeJSON(r, &req); err != nil {
+		response.BadRequest(w, "invalid request body")
+		return
+	}
+
+	// Validate required fields
+	if req.ChildID == "" {
+		response.BadRequest(w, "childId is required")
+		return
+	}
+	if req.FeeType == "" {
+		response.BadRequest(w, "feeType is required")
+		return
+	}
+	if req.Year < 2000 || req.Year > 2100 {
+		response.BadRequest(w, "invalid year")
+		return
+	}
+	if req.Month != nil && (*req.Month < 1 || *req.Month > 12) {
+		response.BadRequest(w, "invalid month")
+		return
+	}
+
+	childID, err := uuid.Parse(req.ChildID)
+	if err != nil {
+		response.BadRequest(w, "invalid childId format")
+		return
+	}
+
+	// Parse fee type
+	feeType := domain.FeeType(req.FeeType)
+	validTypes := map[domain.FeeType]bool{
+		domain.FeeTypeFood:       true,
+		domain.FeeTypeMembership: true,
+		domain.FeeTypeChildcare:  true,
+		domain.FeeTypeReminder:   true,
+	}
+	if !validTypes[feeType] {
+		response.BadRequest(w, "invalid feeType")
+		return
+	}
+
+	// Parse due date if provided
+	var dueDate *time.Time
+	if req.DueDate != nil && *req.DueDate != "" {
+		parsed, err := time.Parse("2006-01-02", *req.DueDate)
+		if err != nil {
+			response.BadRequest(w, "invalid dueDate format, use YYYY-MM-DD")
+			return
+		}
+		dueDate = &parsed
+	}
+
+	input := service.CreateFeeInput{
+		ChildID:            childID,
+		FeeType:            feeType,
+		Year:               req.Year,
+		Month:              req.Month,
+		Amount:             req.Amount,
+		DueDate:            dueDate,
+		ReconciliationYear: req.ReconciliationYear,
+	}
+
+	fee, err := h.feeService.Create(r.Context(), input)
+	if err != nil {
+		if err == service.ErrNotFound {
+			response.NotFound(w, "child not found")
+			return
+		}
+		if err == service.ErrAlreadyExists {
+			response.Conflict(w, "fee already exists for this child and period")
+			return
+		}
+		if err == service.ErrInvalidInput {
+			response.BadRequest(w, "invalid fee type")
+			return
+		}
+		response.InternalError(w, "failed to create fee")
+		return
+	}
+
+	response.Created(w, fee)
 }
 
 // OverviewResponse represents the fee overview response.
@@ -225,9 +338,8 @@ func (h *FeeHandler) Generate(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} response.ErrorBody "Internal server error"
 // @Router /fees/{id} [get]
 func (h *FeeHandler) Get(w http.ResponseWriter, r *http.Request) {
-	id, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		response.BadRequest(w, "invalid fee ID")
+	id, ok := parseUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -266,9 +378,8 @@ type UpdateFeeRequest struct {
 // @Failure 500 {object} response.ErrorBody "Internal server error"
 // @Router /fees/{id} [put]
 func (h *FeeHandler) Update(w http.ResponseWriter, r *http.Request) {
-	id, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		response.BadRequest(w, "invalid fee ID")
+	id, ok := parseUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -304,9 +415,8 @@ func (h *FeeHandler) Update(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} response.ErrorBody "Internal server error"
 // @Router /fees/{id} [delete]
 func (h *FeeHandler) Delete(w http.ResponseWriter, r *http.Request) {
-	id, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		response.BadRequest(w, "invalid fee ID")
+	id, ok := parseUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -336,9 +446,8 @@ func (h *FeeHandler) Delete(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} response.ErrorBody "Internal server error"
 // @Router /fees/{id}/reminder [post]
 func (h *FeeHandler) CreateReminder(w http.ResponseWriter, r *http.Request) {
-	id, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		response.BadRequest(w, "invalid fee ID")
+	id, ok := parseUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -449,6 +558,3 @@ func (h *FeeHandler) CalculateChildcareFee(w http.ResponseWriter, r *http.Reques
 
 	response.Success(w, result)
 }
-
-// Ensure FeeHandler references domain types
-var _ domain.FeeExpectation // Just for reference

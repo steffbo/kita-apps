@@ -3,23 +3,25 @@ package handler
 import (
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/api/request"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/api/response"
-	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/service"
 )
 
 // ChildHandler handles child-related requests.
 type ChildHandler struct {
 	childService *service.ChildService
+	feeService   *service.FeeService
 }
 
 // NewChildHandler creates a new child handler.
-func NewChildHandler(childService *service.ChildService) *ChildHandler {
-	return &ChildHandler{childService: childService}
+func NewChildHandler(childService *service.ChildService, feeService *service.FeeService) *ChildHandler {
+	return &ChildHandler{
+		childService: childService,
+		feeService:   feeService,
+	}
 }
 
 // ChildResponse represents a child in API responses.
@@ -197,9 +199,8 @@ func (h *ChildHandler) Create(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} response.ErrorBody "Internal server error"
 // @Router /children/{id} [get]
 func (h *ChildHandler) Get(w http.ResponseWriter, r *http.Request) {
-	id, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		response.BadRequest(w, "invalid child ID")
+	id, ok := parseUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -250,9 +251,8 @@ type UpdateChildRequest struct {
 // @Failure 500 {object} response.ErrorBody "Internal server error"
 // @Router /children/{id} [put]
 func (h *ChildHandler) Update(w http.ResponseWriter, r *http.Request) {
-	id, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		response.BadRequest(w, "invalid child ID")
+	id, ok := parseUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -302,9 +302,8 @@ func (h *ChildHandler) Update(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} response.ErrorBody "Internal server error"
 // @Router /children/{id} [delete]
 func (h *ChildHandler) Delete(w http.ResponseWriter, r *http.Request) {
-	id, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		response.BadRequest(w, "invalid child ID")
+	id, ok := parseUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -342,9 +341,8 @@ type LinkParentRequest struct {
 // @Failure 500 {object} response.ErrorBody "Internal server error"
 // @Router /children/{id}/parents [post]
 func (h *ChildHandler) LinkParent(w http.ResponseWriter, r *http.Request) {
-	childID, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		response.BadRequest(w, "invalid child ID")
+	childID, ok := parseUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
@@ -385,15 +383,13 @@ func (h *ChildHandler) LinkParent(w http.ResponseWriter, r *http.Request) {
 // @Failure 500 {object} response.ErrorBody "Internal server error"
 // @Router /children/{id}/parents/{parentId} [delete]
 func (h *ChildHandler) UnlinkParent(w http.ResponseWriter, r *http.Request) {
-	childID, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		response.BadRequest(w, "invalid child ID")
+	childID, ok := parseUUIDParam(w, r, "id")
+	if !ok {
 		return
 	}
 
-	parentID, err := uuid.Parse(chi.URLParam(r, "parentId"))
-	if err != nil {
-		response.BadRequest(w, "invalid parent ID")
+	parentID, ok := parseUUIDParam(w, r, "parentId")
+	if !ok {
 		return
 	}
 
@@ -405,5 +401,74 @@ func (h *ChildHandler) UnlinkParent(w http.ResponseWriter, r *http.Request) {
 	response.NoContent(w)
 }
 
-// Ensure ChildHandler implements the interface
-var _ domain.Child // Just for reference
+// LedgerEntryResponse represents a single entry in the payment ledger.
+// @Description Ledger entry for a child
+type LedgerEntryResponse struct {
+	ID          string  `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
+	Date        string  `json:"date" example:"2024-01-05"`
+	Type        string  `json:"type" example:"fee" enums:"fee,payment"`
+	Description string  `json:"description" example:"Essensgeld Januar 2024"`
+	FeeType     string  `json:"feeType,omitempty" example:"FOOD"`
+	Year        int     `json:"year,omitempty" example:"2024"`
+	Month       *int    `json:"month,omitempty" example:"1"`
+	Debit       float64 `json:"debit" example:"45.40"`
+	Credit      float64 `json:"credit" example:"0"`
+	Balance     float64 `json:"balance" example:"45.40"`
+	IsPaid      bool    `json:"isPaid,omitempty" example:"false"`
+	PaidAt      *string `json:"paidAt,omitempty" example:"2024-01-10"`
+} //@name LedgerEntry
+
+// LedgerSummaryResponse provides totals for the ledger.
+// @Description Summary totals for the ledger
+type LedgerSummaryResponse struct {
+	TotalFees      float64 `json:"totalFees" example:"500.00"`
+	TotalPaid      float64 `json:"totalPaid" example:"400.00"`
+	TotalOpen      float64 `json:"totalOpen" example:"100.00"`
+	OpenFeesCount  int     `json:"openFeesCount" example:"2"`
+	PaidFeesCount  int     `json:"paidFeesCount" example:"8"`
+	TotalFeesCount int     `json:"totalFeesCount" example:"10"`
+} //@name LedgerSummary
+
+// ChildLedgerResponse represents the complete payment ledger for a child.
+// @Description Payment ledger for a child
+type ChildLedgerResponse struct {
+	ChildID string                `json:"childId" example:"550e8400-e29b-41d4-a716-446655440000"`
+	Child   interface{}           `json:"child,omitempty"`
+	Entries []LedgerEntryResponse `json:"entries"`
+	Summary LedgerSummaryResponse `json:"summary"`
+} //@name ChildLedger
+
+// GetLedger returns the payment ledger for a child
+// @Summary Get child payment ledger
+// @Description Retrieve the payment ledger showing all fees and payments for a child
+// @Tags Children
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Child ID (UUID)"
+// @Param year query int false "Filter by year"
+// @Success 200 {object} ChildLedgerResponse "Payment ledger"
+// @Failure 400 {object} response.ErrorBody "Invalid child ID"
+// @Failure 401 {object} response.ErrorBody "Not authenticated"
+// @Failure 404 {object} response.ErrorBody "Child not found"
+// @Failure 500 {object} response.ErrorBody "Internal server error"
+// @Router /children/{id}/ledger [get]
+func (h *ChildHandler) GetLedger(w http.ResponseWriter, r *http.Request) {
+	childID, ok := parseUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+
+	year := request.GetQueryIntOptional(r, "year")
+
+	ledger, err := h.feeService.GetChildLedger(r.Context(), childID, year)
+	if err != nil {
+		if err == service.ErrNotFound {
+			response.NotFound(w, "child not found")
+			return
+		}
+		response.InternalError(w, "failed to get ledger")
+		return
+	}
+
+	response.Success(w, ledger)
+}
