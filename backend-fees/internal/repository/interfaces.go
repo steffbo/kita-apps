@@ -2,11 +2,17 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
+)
+
+// Common repository errors
+var (
+	ErrNotFound = errors.New("not found")
 )
 
 // UserRepository handles user persistence.
@@ -31,6 +37,7 @@ type RefreshTokenRepository interface {
 type ChildRepository interface {
 	List(ctx context.Context, activeOnly bool, u3Only bool, hasWarnings bool, search string, sortBy string, sortDir string, offset, limit int) ([]domain.Child, int64, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.Child, error)
+	GetByIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]*domain.Child, error)
 	GetByMemberNumber(ctx context.Context, memberNumber string) (*domain.Child, error)
 	Create(ctx context.Context, child *domain.Child) error
 	Update(ctx context.Context, child *domain.Child) error
@@ -66,12 +73,16 @@ type FeeFilter struct {
 type FeeRepository interface {
 	List(ctx context.Context, filter FeeFilter, offset, limit int) ([]domain.FeeExpectation, int64, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.FeeExpectation, error)
+	GetByIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]*domain.FeeExpectation, error)
 	Create(ctx context.Context, fee *domain.FeeExpectation) error
 	Update(ctx context.Context, fee *domain.FeeExpectation) error
 	Delete(ctx context.Context, id uuid.UUID) error
 	Exists(ctx context.Context, childID uuid.UUID, feeType domain.FeeType, year int, month *int) (bool, error)
 	FindUnpaid(ctx context.Context, childID uuid.UUID, feeType domain.FeeType, year int, month *int) (*domain.FeeExpectation, error)
 	FindOldestUnpaid(ctx context.Context, childID uuid.UUID, feeType domain.FeeType, amount float64) (*domain.FeeExpectation, error)
+	// FindBestUnpaid finds the best matching unpaid fee, preferring fees for the payment month.
+	// If a fee exists for the same month/year as paymentDate, it is preferred over older fees.
+	FindBestUnpaid(ctx context.Context, childID uuid.UUID, feeType domain.FeeType, amount float64, paymentDate time.Time) (*domain.FeeExpectation, error)
 	FindOldestUnpaidWithReminder(ctx context.Context, childID uuid.UUID, feeType domain.FeeType, combinedAmount float64) ([]domain.FeeExpectation, error)
 	GetOverview(ctx context.Context, year int) (*domain.FeeOverview, error)
 }
@@ -80,9 +91,12 @@ type FeeRepository interface {
 type TransactionRepository interface {
 	Create(ctx context.Context, tx *domain.BankTransaction) error
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.BankTransaction, error)
+	GetByIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]*domain.BankTransaction, error)
 	Exists(ctx context.Context, bookingDate time.Time, payerIBAN *string, amount float64, description *string) (bool, error)
 	ListUnmatched(ctx context.Context, offset, limit int) ([]domain.BankTransaction, int64, error)
+	ListMatched(ctx context.Context, offset, limit int) ([]domain.BankTransaction, int64, error)
 	GetBatches(ctx context.Context, offset, limit int) ([]domain.ImportBatch, int64, error)
+	CreateBatch(ctx context.Context, id uuid.UUID, fileName string, importedBy uuid.UUID) error
 	Delete(ctx context.Context, id uuid.UUID) error
 	DeleteUnmatchedByIBAN(ctx context.Context, iban string) (int64, error)
 }

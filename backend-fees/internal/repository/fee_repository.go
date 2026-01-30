@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
 )
@@ -102,11 +103,34 @@ func (r *PostgresFeeRepository) GetByID(ctx context.Context, id uuid.UUID) (*dom
 	`, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, errors.New("fee not found")
+			return nil, ErrNotFound
 		}
 		return nil, err
 	}
 	return &fee, nil
+}
+
+// GetByIDs retrieves multiple fee expectations by their IDs.
+func (r *PostgresFeeRepository) GetByIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]*domain.FeeExpectation, error) {
+	if len(ids) == 0 {
+		return make(map[uuid.UUID]*domain.FeeExpectation), nil
+	}
+
+	var fees []domain.FeeExpectation
+	err := r.db.SelectContext(ctx, &fees, `
+		SELECT id, child_id, fee_type, year, month, amount, due_date, created_at, reminder_for_id, reconciliation_year
+		FROM fees.fee_expectations
+		WHERE id = ANY($1)
+	`, pq.Array(ids))
+	if err != nil {
+		return nil, err
+	}
+
+	result := make(map[uuid.UUID]*domain.FeeExpectation, len(fees))
+	for i := range fees {
+		result[fees[i].ID] = &fees[i]
+	}
+	return result, nil
 }
 
 // Create creates a new fee expectation.
@@ -212,6 +236,37 @@ func (r *PostgresFeeRepository) FindOldestUnpaid(ctx context.Context, childID uu
 		return nil, err
 	}
 	return &fee, nil
+}
+
+// FindBestUnpaid finds the best matching unpaid fee, preferring fees for the payment month.
+// Priority: 1) Same month/year as payment, 2) Oldest unpaid fee.
+// This handles the common case where a payment on Jan 5 should match January's fee, not December's.
+func (r *PostgresFeeRepository) FindBestUnpaid(ctx context.Context, childID uuid.UUID, feeType domain.FeeType, amount float64, paymentDate time.Time) (*domain.FeeExpectation, error) {
+	var fee domain.FeeExpectation
+	paymentMonth := int(paymentDate.Month())
+	paymentYear := paymentDate.Year()
+
+	// First, try to find a fee for the same month/year as the payment
+	queryCurrentMonth := `
+		SELECT fe.id, fe.child_id, fe.fee_type, fe.year, fe.month, fe.amount, fe.due_date, fe.created_at, fe.reminder_for_id, fe.reconciliation_year
+		FROM fees.fee_expectations fe
+		LEFT JOIN fees.payment_matches pm ON fe.id = pm.expectation_id
+		WHERE fe.child_id = $1 AND fe.fee_type = $2 AND fe.amount = $3
+		  AND fe.year = $4 AND fe.month = $5
+		  AND pm.id IS NULL
+		LIMIT 1
+	`
+
+	err := r.db.GetContext(ctx, &fee, queryCurrentMonth, childID, feeType, amount, paymentYear, paymentMonth)
+	if err == nil {
+		return &fee, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+
+	// No fee for current month, fall back to oldest unpaid
+	return r.FindOldestUnpaid(ctx, childID, feeType, amount)
 }
 
 // FindOldestUnpaidWithReminder finds the oldest unpaid fee with its linked reminder
