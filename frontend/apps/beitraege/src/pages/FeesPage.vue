@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue';
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { api } from '@/api';
 import type { FeeExpectation, GenerateFeeRequest, Child, CreateFeeRequest } from '@/api/types';
@@ -152,7 +152,24 @@ function goToChild(childId: string) {
   router.push(`/kinder/${childId}`);
 }
 
-onMounted(loadFees);
+// ESC key handler to close modals
+function handleKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape') {
+    if (showDeleteConfirm.value) showDeleteConfirm.value = false;
+    else if (showReminderConfirm.value) showReminderConfirm.value = false;
+    else if (showCreateFeeDialog.value) showCreateFeeDialog.value = false;
+    else if (showGenerateDialog.value) showGenerateDialog.value = false;
+  }
+}
+
+onMounted(() => {
+  loadFees();
+  document.addEventListener('keydown', handleKeydown);
+});
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleKeydown);
+});
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('de-DE');

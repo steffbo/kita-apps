@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import { Plus, Loader2, Users, Pencil, Trash2 } from 'lucide-vue-next';
 import { 
   useGroups, 
@@ -71,7 +71,7 @@ function confirmDelete(group: Group) {
 
 async function handleDelete() {
   if (!groupToDelete.value?.id) return;
-  
+
   try {
     await deleteGroup.mutateAsync(groupToDelete.value.id);
     showDeleteConfirm.value = false;
@@ -80,6 +80,22 @@ async function handleDelete() {
     console.error('Failed to delete group:', err);
   }
 }
+
+// ESC key handler to close modals
+function handleKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape') {
+    if (showDeleteConfirm.value) showDeleteConfirm.value = false;
+    else if (dialogOpen.value) dialogOpen.value = false;
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('keydown', handleKeydown);
+});
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleKeydown);
+});
 </script>
 
 <template>

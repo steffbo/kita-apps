@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue';
+import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { Plus, Loader2, Pencil, KeyRound, UserX, UserCheck, Trash2, ArrowUp, ArrowDown, ArrowUpDown } from 'lucide-vue-next';
 import { 
   useEmployees, 
@@ -173,7 +173,7 @@ async function handleResetPassword(employee: Employee) {
 
 async function handleActivate(employee: Employee) {
   if (!employee.id) return;
-  
+
   try {
     await updateEmployee.mutateAsync({
       id: employee.id,
@@ -183,6 +183,22 @@ async function handleActivate(employee: Employee) {
     console.error('Failed to activate employee:', err);
   }
 }
+
+// ESC key handler to close modals
+function handleKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape') {
+    if (showDeleteConfirm.value) showDeleteConfirm.value = false;
+    else if (dialogOpen.value) dialogOpen.value = false;
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('keydown', handleKeydown);
+});
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleKeydown);
+});
 </script>
 
 <template>
