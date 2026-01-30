@@ -484,8 +484,8 @@ func (s *ImportService) GetHistory(ctx context.Context, offset, limit int) ([]do
 }
 
 // GetUnmatchedTransactions returns transactions without matches.
-func (s *ImportService) GetUnmatchedTransactions(ctx context.Context, offset, limit int) ([]domain.BankTransaction, int64, error) {
-	return s.transactionRepo.ListUnmatched(ctx, offset, limit)
+func (s *ImportService) GetUnmatchedTransactions(ctx context.Context, search, sortBy, sortDir string, offset, limit int) ([]domain.BankTransaction, int64, error) {
+	return s.transactionRepo.ListUnmatched(ctx, search, sortBy, sortDir, offset, limit)
 }
 
 // CreateManualMatch creates a manual match between transaction and fee.
@@ -525,8 +525,8 @@ func (s *ImportService) CreateManualMatch(ctx context.Context, transactionID, ex
 func (s *ImportService) Rescan(ctx context.Context) (*RescanResult, error) {
 	result := &RescanResult{}
 
-	// Get all unmatched transactions
-	transactions, _, err := s.transactionRepo.ListUnmatched(ctx, 0, 10000)
+	// Get all unmatched transactions (no search/sort, just get all)
+	transactions, _, err := s.transactionRepo.ListUnmatched(ctx, "", "date", "desc", 0, 10000)
 	if err != nil {
 		return nil, err
 	}
@@ -956,8 +956,61 @@ func (s *ImportService) ResolveWarningWithLateFee(ctx context.Context, warningID
 }
 
 // GetMatchedTransactions returns transactions that have been matched to fees.
-func (s *ImportService) GetMatchedTransactions(ctx context.Context, offset, limit int) ([]domain.BankTransaction, int64, error) {
-	return s.transactionRepo.ListMatched(ctx, offset, limit)
+func (s *ImportService) GetMatchedTransactions(ctx context.Context, search, sortBy, sortDir string, offset, limit int) ([]domain.BankTransaction, int64, error) {
+	transactions, total, err := s.transactionRepo.ListMatched(ctx, search, sortBy, sortDir, offset, limit)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// If no transactions, return early
+	if len(transactions) == 0 {
+		return transactions, total, nil
+	}
+
+	// Get transaction IDs
+	txIDs := make([]uuid.UUID, len(transactions))
+	for i, tx := range transactions {
+		txIDs[i] = tx.ID
+	}
+
+	// Fetch matches for all transactions
+	matchesByTxID, err := s.matchRepo.GetByTransactionIDs(ctx, txIDs)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Collect all expectation IDs from matches
+	expectationIDs := make([]uuid.UUID, 0)
+	for _, matches := range matchesByTxID {
+		for _, m := range matches {
+			expectationIDs = append(expectationIDs, m.ExpectationID)
+		}
+	}
+
+	// Fetch all fee expectations
+	var expectationsMap map[uuid.UUID]*domain.FeeExpectation
+	if len(expectationIDs) > 0 {
+		expectationsMap, err = s.feeRepo.GetByIDs(ctx, expectationIDs)
+		if err != nil {
+			return nil, 0, err
+		}
+	} else {
+		expectationsMap = make(map[uuid.UUID]*domain.FeeExpectation)
+	}
+
+	// Attach matches with expectations to transactions
+	for i := range transactions {
+		if matches, ok := matchesByTxID[transactions[i].ID]; ok {
+			for j := range matches {
+				if exp, ok := expectationsMap[matches[j].ExpectationID]; ok {
+					matches[j].Expectation = exp
+				}
+			}
+			transactions[i].Matches = matches
+		}
+	}
+
+	return transactions, total, nil
 }
 
 // GetSuggestionsForTransaction returns match suggestions for a single transaction.

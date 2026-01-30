@@ -155,7 +155,7 @@ func TestImportService_DismissTransaction(t *testing.T) {
 	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, nil)
 
 	// Get one of the transactions
-	transactions, _, err := txRepo.ListUnmatched(context.Background(), 0, 100)
+	transactions, _, err := txRepo.ListUnmatched(context.Background(), "", "date", "desc", 0, 100)
 	if err != nil {
 		t.Fatalf("ListUnmatched failed: %v", err)
 	}
@@ -195,7 +195,7 @@ func TestImportService_DismissTransaction(t *testing.T) {
 	}
 
 	// Verify transactions are gone
-	transactions, _, err = txRepo.ListUnmatched(context.Background(), 0, 100)
+	transactions, _, err = txRepo.ListUnmatched(context.Background(), "", "date", "desc", 0, 100)
 	if err != nil {
 		t.Fatalf("ListUnmatched failed: %v", err)
 	}
