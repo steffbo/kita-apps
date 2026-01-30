@@ -292,14 +292,20 @@ func (h *ImportHandler) History(w http.ResponseWriter, r *http.Request) {
 // @Security BearerAuth
 // @Param page query int false "Page number" default(1)
 // @Param perPage query int false "Items per page" default(20)
+// @Param search query string false "Search by payer name or description"
+// @Param sortBy query string false "Sort field: date, payer, description, amount" default(date)
+// @Param sortDir query string false "Sort direction: asc, desc" default(desc)
 // @Success 200 {object} TransactionListResponse "Unmatched transactions"
 // @Failure 401 {object} response.ErrorBody "Not authenticated"
 // @Failure 500 {object} response.ErrorBody "Internal server error"
 // @Router /import/transactions [get]
 func (h *ImportHandler) UnmatchedTransactions(w http.ResponseWriter, r *http.Request) {
 	pagination := request.GetPagination(r)
+	search := r.URL.Query().Get("search")
+	sortBy := r.URL.Query().Get("sortBy")
+	sortDir := r.URL.Query().Get("sortDir")
 
-	transactions, total, err := h.importService.GetUnmatchedTransactions(r.Context(), pagination.Offset, pagination.PerPage)
+	transactions, total, err := h.importService.GetUnmatchedTransactions(r.Context(), search, sortBy, sortDir, pagination.Offset, pagination.PerPage)
 	if err != nil {
 		response.InternalError(w, "failed to get unmatched transactions")
 		return
@@ -826,14 +832,20 @@ func (h *ImportHandler) ResolveLateFee(w http.ResponseWriter, r *http.Request) {
 // @Security BearerAuth
 // @Param page query int false "Page number" default(1)
 // @Param perPage query int false "Items per page" default(20)
+// @Param search query string false "Search by payer name or description"
+// @Param sortBy query string false "Sort field: date, payer, description, amount" default(date)
+// @Param sortDir query string false "Sort direction: asc, desc" default(desc)
 // @Success 200 {object} TransactionListResponse "Matched transactions"
 // @Failure 401 {object} response.ErrorBody "Not authenticated"
 // @Failure 500 {object} response.ErrorBody "Internal server error"
 // @Router /import/transactions/matched [get]
 func (h *ImportHandler) MatchedTransactions(w http.ResponseWriter, r *http.Request) {
 	pagination := request.GetPagination(r)
+	search := r.URL.Query().Get("search")
+	sortBy := r.URL.Query().Get("sortBy")
+	sortDir := r.URL.Query().Get("sortDir")
 
-	transactions, total, err := h.importService.GetMatchedTransactions(r.Context(), pagination.Offset, pagination.PerPage)
+	transactions, total, err := h.importService.GetMatchedTransactions(r.Context(), search, sortBy, sortDir, pagination.Offset, pagination.PerPage)
 	if err != nil {
 		response.InternalError(w, "failed to get matched transactions")
 		return
