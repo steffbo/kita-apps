@@ -201,7 +201,6 @@ func (s *FeeService) Generate(ctx context.Context, year int, month *int) (*Gener
 		// Generate monthly fees
 		if month != nil {
 			dueDate := time.Date(year, time.Month(*month), 5, 0, 0, 0, 0, time.UTC)
-			checkDate := time.Date(year, time.Month(*month), 1, 0, 0, 0, 0, time.UTC)
 
 			// Food fee (all children)
 			created, err := s.createFeeIfNotExists(ctx, child.ID, domain.FeeTypeFood, year, month, domain.FoodFeeAmount, dueDate)
@@ -215,7 +214,8 @@ func (s *FeeService) Generate(ctx context.Context, year int, month *int) (*Gener
 			}
 
 			// Childcare fee (only U3)
-			if child.IsUnderThree(checkDate) {
+			// If child turns 3 at any point during the month, no childcare fee is charged
+			if child.IsUnderThreeForEntireMonth(year, time.Month(*month)) {
 				info := s.getIncomeInfo(ctx, &child)
 
 				// Get care hours from child, default to 45
@@ -619,15 +619,17 @@ func (s *FeeService) Create(ctx context.Context, input CreateFeeInput) (*domain.
 
 // calculateChildcareFeeForChild calculates the childcare fee for a specific child.
 func (s *FeeService) calculateChildcareFeeForChild(ctx context.Context, child *domain.Child, year int, month *int) float64 {
-	// Determine the check date
-	checkDate := time.Now()
-	if month != nil {
-		checkDate = time.Date(year, time.Month(*month), 1, 0, 0, 0, 0, time.UTC)
-	}
-
 	// Only U3 children pay childcare fees
-	if !child.IsUnderThree(checkDate) {
-		return 0
+	// If child turns 3 at any point during the month, no childcare fee is charged
+	if month != nil {
+		if !child.IsUnderThreeForEntireMonth(year, time.Month(*month)) {
+			return 0
+		}
+	} else {
+		// No month specified, use current date check
+		if !child.IsUnderThree(time.Now()) {
+			return 0
+		}
 	}
 
 	info := s.getIncomeInfo(ctx, child)

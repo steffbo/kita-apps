@@ -37,6 +37,30 @@ func (c *Child) IsUnderThree(atDate time.Time) bool {
 	return atDate.Before(thirdBirthday)
 }
 
+// IsUnderThreeForEntireMonth checks if the child remains under 3 for the entire month.
+// Returns false if the child completes their 3rd year of life during or before the given month,
+// meaning no childcare fee should be charged for that month.
+//
+// Important: Per German law (§ 188 Abs. 2 BGB), the 3rd year of life is completed on the day
+// BEFORE the 3rd birthday, not on the birthday itself. This means:
+// - A child born on October 1st completes their 3rd year on September 30th
+// - Therefore September is already fee-free (beitragsfrei)
+func (c *Child) IsUnderThreeForEntireMonth(year int, month time.Month) bool {
+	// The day the child completes 3 years of life (day before 3rd birthday)
+	// Per § 188 Abs. 2 BGB, age is completed at the END of the day before the birthday
+	thirdBirthday := c.BirthDate.AddDate(3, 0, 0)
+	completesThirdYear := thirdBirthday.AddDate(0, 0, -1)
+
+	// Check if the child completes their 3rd year within or before this month
+	if completesThirdYear.Year() < year {
+		return false
+	}
+	if completesThirdYear.Year() == year && completesThirdYear.Month() <= month {
+		return false
+	}
+	return true
+}
+
 // Age returns the child's age in years at the given date.
 func (c *Child) Age(atDate time.Time) int {
 	years := atDate.Year() - c.BirthDate.Year()
