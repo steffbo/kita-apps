@@ -53,12 +53,15 @@ type PaymentMatch struct {
 
 // ImportBatch represents a batch of imported transactions.
 type ImportBatch struct {
-	ID               uuid.UUID `json:"id" db:"id"`
-	FileName         string    `json:"fileName" db:"file_name"`
-	TransactionCount int       `json:"transactionCount" db:"transaction_count"`
-	MatchedCount     int       `json:"matchedCount" db:"matched_count"`
-	ImportedAt       time.Time `json:"importedAt" db:"imported_at"`
-	ImportedBy       uuid.UUID `json:"importedBy" db:"imported_by"`
+	ID               uuid.UUID  `json:"id" db:"id"`
+	FileName         string     `json:"fileName" db:"file_name"`
+	TransactionCount int        `json:"transactionCount" db:"transaction_count"`
+	MatchedCount     int        `json:"matchedCount" db:"matched_count"`
+	ImportedAt       time.Time  `json:"importedAt" db:"imported_at"`
+	ImportedBy       uuid.UUID  `json:"importedBy" db:"imported_by"`
+	ImportedByEmail  string     `json:"importedByEmail" db:"imported_by_email"`
+	DateFrom         *time.Time `json:"dateFrom,omitempty" db:"date_from"`
+	DateTo           *time.Time `json:"dateTo,omitempty" db:"date_to"`
 }
 
 // MatchSuggestion represents a suggested match between a transaction and a fee.
@@ -107,6 +110,7 @@ const (
 	WarningTypeOverpayment      WarningType = "OVERPAYMENT"       // Amount is more than expected
 	WarningTypePossibleBulk     WarningType = "POSSIBLE_BULK"     // Amount could be multiple fees combined
 	WarningTypeDuplicatePayment WarningType = "DUPLICATE_PAYMENT" // Fee already paid, this might be duplicate
+	WarningTypeLatePayment      WarningType = "LATE_PAYMENT"      // Payment received after the 15th of fee month
 )
 
 // ResolutionType represents how a warning was resolved.
@@ -127,6 +131,7 @@ type TransactionWarning struct {
 	ExpectedAmount *float64        `json:"expectedAmount,omitempty" db:"expected_amount"`
 	ActualAmount   *float64        `json:"actualAmount,omitempty" db:"actual_amount"`
 	ChildID        *uuid.UUID      `json:"childId,omitempty" db:"child_id"`
+	MatchedFeeID   *uuid.UUID      `json:"matchedFeeId,omitempty" db:"matched_fee_id"` // For LATE_PAYMENT: the fee that was matched
 	ResolvedAt     *time.Time      `json:"resolvedAt,omitempty" db:"resolved_at"`
 	ResolvedBy     *uuid.UUID      `json:"resolvedBy,omitempty" db:"resolved_by"`
 	ResolutionType *ResolutionType `json:"resolutionType,omitempty" db:"resolution_type"`
@@ -136,6 +141,7 @@ type TransactionWarning struct {
 	// Joined fields
 	Transaction *BankTransaction `json:"transaction,omitempty" db:"-"`
 	Child       *Child           `json:"child,omitempty" db:"-"`
+	MatchedFee  *FeeExpectation  `json:"matchedFee,omitempty" db:"-"` // For LATE_PAYMENT: the fee that was matched
 }
 
 // IsResolved returns true if the warning has been resolved.

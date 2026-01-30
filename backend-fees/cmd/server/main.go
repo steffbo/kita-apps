@@ -104,7 +104,7 @@ func main() {
 	// Initialize handlers
 	handlers := &api.Handlers{
 		Auth:        handler.NewAuthHandler(authService, jwtService),
-		Child:       handler.NewChildHandler(childService),
+		Child:       handler.NewChildHandler(childService, feeService),
 		ChildImport: handler.NewChildImportHandler(childImportService),
 		Parent:      handler.NewParentHandler(parentService),
 		Household:   handler.NewHouseholdHandler(householdService),

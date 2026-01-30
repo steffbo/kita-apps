@@ -72,6 +72,7 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 				r.Get("/{id}", handlers.Child.Get)
 				r.Put("/{id}", handlers.Child.Update)
 				r.Delete("/{id}", handlers.Child.Delete)
+				r.Get("/{id}/ledger", handlers.Child.GetLedger)
 				r.Post("/{id}/parents", handlers.Child.LinkParent)
 				r.Delete("/{id}/parents/{parentId}", handlers.Child.UnlinkParent)
 
@@ -117,6 +118,7 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 			// Fees
 			r.Route("/fees", func(r chi.Router) {
 				r.Get("/", handlers.Fee.List)
+				r.Post("/", handlers.Fee.Create)
 				r.Get("/overview", handlers.Fee.Overview)
 				r.Post("/generate", handlers.Fee.Generate)
 				r.Get("/{id}", handlers.Fee.Get)
@@ -131,9 +133,11 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 				r.Post("/confirm", handlers.Import.Confirm)
 				r.Get("/history", handlers.Import.History)
 				r.Get("/transactions", handlers.Import.UnmatchedTransactions)
+				r.Get("/transactions/matched", handlers.Import.MatchedTransactions)
+				r.Get("/transactions/{id}/suggestions", handlers.Import.TransactionSuggestions)
+				r.Post("/transactions/{id}/dismiss", handlers.Import.DismissTransaction)
 				r.Post("/match", handlers.Import.ManualMatch)
 				r.Post("/rescan", handlers.Import.Rescan)
-				r.Post("/transactions/{id}/dismiss", handlers.Import.DismissTransaction)
 				r.Get("/blacklist", handlers.Import.GetBlacklist)
 				r.Delete("/blacklist/{iban}", handlers.Import.RemoveFromBlacklist)
 				r.Get("/trusted", handlers.Import.GetTrustedIBANs)
@@ -141,6 +145,7 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 				r.Delete("/trusted/{iban}/link", handlers.Import.UnlinkIBANFromChild)
 				r.Get("/warnings", handlers.Import.GetWarnings)
 				r.Post("/warnings/{id}/dismiss", handlers.Import.DismissWarning)
+				r.Post("/warnings/{id}/resolve-late-fee", handlers.Import.ResolveLateFee)
 			})
 		})
 	})

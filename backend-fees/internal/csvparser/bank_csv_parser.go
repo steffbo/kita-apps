@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -15,6 +16,8 @@ import (
 
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
 )
+
+const estimatedFullNameParts = 4
 
 // Column indices for the bank CSV format (BFS/SozialBank export)
 const (
@@ -29,6 +32,23 @@ const (
 
 // memberNumberRegex matches 5-digit member numbers (e.g., "11072")
 var memberNumberRegex = regexp.MustCompile(`\b(\d{5})\b`)
+var whitespaceRegex = regexp.MustCompile(`\s+`)
+var letterDigitRegex = regexp.MustCompile(`([\p{L}])(\d)`)
+var digitLetterRegex = regexp.MustCompile(`(\d)([\p{L}])`)
+var germanFoldReplacer = strings.NewReplacer(
+	"ã¤", "a",
+	"ã¶", "o",
+	"ã¼", "u",
+	"ãÿ", "s",
+	"ä", "a",
+	"ö", "o",
+	"ü", "u",
+	"ß", "s",
+	"ae", "a",
+	"oe", "o",
+	"ue", "u",
+	"ss", "s",
+)
 
 // ParseBankCSV parses a German bank CSV file (semicolon-delimited, ISO-8859-1 encoded).
 func ParseBankCSV(file io.Reader) ([]domain.BankTransaction, error) {
@@ -65,6 +85,14 @@ func ParseBankCSV(file io.Reader) ([]domain.BankTransaction, error) {
 
 		transactions = append(transactions, *tx)
 	}
+
+	// Sort by booking date ascending (oldest first).
+	// This ensures correct matching when a family has multiple unpaid fees:
+	// e.g., a December payment should match the December fee before
+	// a January payment matches the January fee.
+	sort.Slice(transactions, func(i, j int) bool {
+		return transactions[i].BookingDate.Before(transactions[j].BookingDate)
+	})
 
 	return transactions, nil
 }
@@ -147,9 +175,32 @@ func stringPtr(s string) *string {
 	return &s
 }
 
+func normalizeMatchText(text string) string {
+	if text == "" {
+		return ""
+	}
+
+	normalized := strings.TrimSpace(text)
+	if normalized == "" {
+		return ""
+	}
+
+	normalized = strings.ToLower(normalized)
+	normalized = strings.ReplaceAll(normalized, "\u00a0", " ")
+	normalized = whitespaceRegex.ReplaceAllString(normalized, " ")
+	normalized = letterDigitRegex.ReplaceAllString(normalized, "$1 $2")
+	normalized = digitLetterRegex.ReplaceAllString(normalized, "$1 $2")
+
+	// Fold German umlauts to their base letters and common ASCII variants.
+	normalized = germanFoldReplacer.Replace(normalized)
+
+	return normalized
+}
+
 // ExtractMemberNumber extracts a 5-digit member number from a string.
 func ExtractMemberNumber(text string) string {
-	matches := memberNumberRegex.FindStringSubmatch(text)
+	normalized := normalizeMatchText(text)
+	matches := memberNumberRegex.FindStringSubmatch(normalized)
 	if len(matches) >= 2 {
 		return matches[1]
 	}
@@ -159,17 +210,17 @@ func ExtractMemberNumber(text string) string {
 // MatchChildByName attempts to find a child by matching their name in the description.
 // Returns the matched child and a confidence score (0-1).
 func MatchChildByName(description string, children []domain.Child) (*domain.Child, float64) {
-	if description == "" {
+	normalizedDescription := normalizeMatchText(description)
+	if normalizedDescription == "" {
 		return nil, 0
 	}
 
-	descLower := strings.ToLower(description)
 	var bestMatch *domain.Child
 	var bestScore float64
 
 	for i := range children {
 		child := &children[i]
-		score := calculateNameMatchScore(descLower, child)
+		score := calculatePersonNameMatchScore(normalizedDescription, child.FirstName, child.LastName)
 		if score > bestScore && score >= 0.5 {
 			bestScore = score
 			bestMatch = child
@@ -179,29 +230,92 @@ func MatchChildByName(description string, children []domain.Child) (*domain.Chil
 	return bestMatch, bestScore
 }
 
-// calculateNameMatchScore calculates how well a child's name matches the description.
-func calculateNameMatchScore(descLower string, child *domain.Child) float64 {
-	firstName := strings.ToLower(child.FirstName)
-	lastName := strings.ToLower(child.LastName)
-	fullName := firstName + " " + lastName
-	fullNameReverse := lastName + " " + firstName
+// MatchChildByParentName attempts to match parents' names in the description and returns the related child.
+func MatchChildByParentName(description string, children []domain.Child) (*domain.Child, float64) {
+	normalizedDescription := normalizeMatchText(description)
+	if normalizedDescription == "" {
+		return nil, 0
+	}
 
-	// Full name match (highest confidence)
-	if strings.Contains(descLower, fullName) || strings.Contains(descLower, fullNameReverse) {
-		return 0.85
+	var bestMatch *domain.Child
+	var bestScore float64
+
+	for i := range children {
+		child := &children[i]
+		for _, parent := range child.Parents {
+			score := calculatePersonNameMatchScore(normalizedDescription, parent.FirstName, parent.LastName)
+			if score > bestScore && score >= 0.5 {
+				bestScore = score
+				bestMatch = child
+			}
+		}
+	}
+
+	return bestMatch, bestScore
+}
+
+// calculatePersonNameMatchScore calculates how well a person's name matches the description.
+func calculatePersonNameMatchScore(descNormalized string, firstNameRaw string, lastNameRaw string) float64 {
+	rawFirstName := strings.TrimSpace(firstNameRaw)
+	rawLastName := strings.TrimSpace(lastNameRaw)
+
+	firstName := normalizeMatchText(firstNameRaw)
+	lastName := normalizeMatchText(lastNameRaw)
+
+	// Check various full name patterns using strings.Builder for efficiency
+	fullNamePatterns := make([]string, 0, estimatedFullNameParts)
+
+	var sb strings.Builder
+	sb.Grow(len(firstName) + len(lastName) + 2)
+
+	sb.WriteString(firstName)
+	sb.WriteString(" ")
+	sb.WriteString(lastName)
+	fullNamePatterns = append(fullNamePatterns, sb.String())
+
+	sb.Reset()
+	sb.Grow(len(lastName) + len(firstName) + 2)
+	sb.WriteString(lastName)
+	sb.WriteString(" ")
+	sb.WriteString(firstName)
+	fullNamePatterns = append(fullNamePatterns, sb.String())
+
+	sb.Reset()
+	sb.Grow(len(lastName) + len(firstName) + 3)
+	sb.WriteString(lastName)
+	sb.WriteString(", ")
+	sb.WriteString(firstName)
+	fullNamePatterns = append(fullNamePatterns, sb.String())
+
+	sb.Reset()
+	sb.Grow(len(lastName) + len(firstName) + 4)
+	sb.WriteString(lastName)
+	sb.WriteString(" , ")
+	sb.WriteString(firstName)
+	fullNamePatterns = append(fullNamePatterns, sb.String())
+
+	for _, pattern := range fullNamePatterns {
+		if strings.Contains(descNormalized, pattern) {
+			return 0.85
+		}
+	}
+
+	// Both names present but not adjacent (still high confidence)
+	if strings.Contains(descNormalized, firstName) && strings.Contains(descNormalized, lastName) {
+		return 0.80
 	}
 
 	// Last name match (medium confidence)
-	if strings.Contains(descLower, lastName) && len(lastName) >= 3 {
+	if strings.Contains(descNormalized, lastName) && len(rawLastName) >= 3 {
 		// Boost if first name initial is also present
-		if len(firstName) > 0 && strings.Contains(descLower, string(firstName[0])+".") {
+		if len(rawFirstName) > 0 && strings.Contains(descNormalized, string(firstName[0])+".") {
 			return 0.75
 		}
 		return 0.6
 	}
 
 	// First name match (lower confidence, names can be common)
-	if strings.Contains(descLower, firstName) && len(firstName) >= 4 {
+	if strings.Contains(descNormalized, firstName) && len(rawFirstName) >= 4 {
 		return 0.4
 	}
 
