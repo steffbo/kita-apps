@@ -279,6 +279,18 @@ export interface CreateFeeRequest {
   reconciliationYear?: number;
 }
 
+// Payment Match
+export interface PaymentMatch {
+  id: string;
+  transactionId: string;
+  expectationId: string;
+  matchType: 'AUTO' | 'MANUAL';
+  confidence?: number;
+  matchedAt: string;
+  matchedBy?: string;
+  expectation?: FeeExpectation;
+}
+
 // Bank Transactions
 export interface BankTransaction {
   id: string;
@@ -291,6 +303,7 @@ export interface BankTransaction {
   currency: string;
   importBatchId?: string;
   importedAt: string;
+  matches?: PaymentMatch[];
 }
 
 export interface MatchSuggestion {

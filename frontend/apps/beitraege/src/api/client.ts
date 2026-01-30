@@ -558,10 +558,19 @@ class ApiClient {
     return this.normalizePaginated(response);
   }
 
-  async getUnmatchedTransactions(offset?: number, limit?: number): Promise<PaginatedResponse<BankTransaction>> {
+  async getUnmatchedTransactions(params?: {
+    offset?: number;
+    limit?: number;
+    search?: string;
+    sortBy?: string;
+    sortDir?: string;
+  }): Promise<PaginatedResponse<BankTransaction>> {
     const query = new URLSearchParams();
-    if (offset) query.set('offset', String(offset));
-    if (limit) query.set('limit', String(limit));
+    if (params?.offset) query.set('offset', String(params.offset));
+    if (params?.limit) query.set('limit', String(params.limit));
+    if (params?.search) query.set('search', params.search);
+    if (params?.sortBy) query.set('sortBy', params.sortBy);
+    if (params?.sortDir) query.set('sortDir', params.sortDir);
     const queryString = query.toString();
     const response = await this.request<PaginatedResponse<BankTransaction>>(`/import/transactions${queryString ? `?${queryString}` : ''}`);
     return this.normalizePaginated(response);
@@ -574,10 +583,19 @@ class ApiClient {
     });
   }
 
-  async getMatchedTransactions(offset?: number, limit?: number): Promise<PaginatedResponse<BankTransaction>> {
+  async getMatchedTransactions(params?: {
+    offset?: number;
+    limit?: number;
+    search?: string;
+    sortBy?: string;
+    sortDir?: string;
+  }): Promise<PaginatedResponse<BankTransaction>> {
     const query = new URLSearchParams();
-    if (offset) query.set('offset', String(offset));
-    if (limit) query.set('limit', String(limit));
+    if (params?.offset) query.set('offset', String(params.offset));
+    if (params?.limit) query.set('limit', String(params.limit));
+    if (params?.search) query.set('search', params.search);
+    if (params?.sortBy) query.set('sortBy', params.sortBy);
+    if (params?.sortDir) query.set('sortDir', params.sortDir);
     const queryString = query.toString();
     const response = await this.request<PaginatedResponse<BankTransaction>>(`/import/transactions/matched${queryString ? `?${queryString}` : ''}`);
     return this.normalizePaginated(response);
