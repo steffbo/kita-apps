@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
 import { api } from '@/api';
 import type { ImportResult, ImportBatch, BankTransaction, MatchConfirmation, KnownIBAN, TransactionWarning, MatchSuggestion, FeeExpectation } from '@/api/types';
 import {
@@ -13,6 +13,8 @@ import {
   Link2,
   ChevronDown,
   ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   RefreshCw,
   Check,
   Ban,
@@ -22,6 +24,9 @@ import {
   Euro,
   LinkIcon,
   Search,
+  ArrowUp,
+  ArrowDown,
+  ArrowUpDown,
 } from 'lucide-vue-next';
 
 type TabType = 'upload' | 'history' | 'unmatched' | 'matched' | 'warnings' | 'blacklist';
@@ -85,9 +90,88 @@ const rescanResult = ref<{ scanned: number; autoMatched: number; newMatches: num
 const isDismissing = ref<string | null>(null);
 const dismissConfirmId = ref<string | null>(null);
 
+// Transaction search and sorting state (server-side)
+const transactionSearch = ref('');
+const debouncedTransactionSearch = ref('');
+type TransactionSortField = 'date' | 'payer' | 'description' | 'amount';
+type SortDirection = 'asc' | 'desc';
+const unmatchedSortField = ref<TransactionSortField>('date');
+const unmatchedSortDirection = ref<SortDirection>('desc');
+const matchedSortField = ref<TransactionSortField>('date');
+const matchedSortDirection = ref<SortDirection>('desc');
+
+// Pagination state
+const unmatchedPage = ref(1);
+const matchedPage = ref(1);
+const pageSize = 20;
+
+// Debounce search
+let searchTimeout: ReturnType<typeof setTimeout>;
+watch(transactionSearch, (newVal) => {
+  clearTimeout(searchTimeout);
+  searchTimeout = setTimeout(() => {
+    debouncedTransactionSearch.value = newVal;
+    unmatchedPage.value = 1;
+    matchedPage.value = 1;
+
+    const reloadActions: Record<string, () => Promise<void>> = {
+      unmatched: loadUnmatched,
+      matched: loadMatched,
+    };
+
+    const reloadFn = reloadActions[activeTab.value];
+    if (reloadFn) {
+      reloadFn();
+    }
+  }, 300);
+});
+
+function toggleSort(
+  field: TransactionSortField,
+  currentField: Ref<TransactionSortField>,
+  currentDirection: Ref<SortDirection>,
+  pageRef: Ref<number>,
+  reloadFn: () => Promise<void>
+): void {
+  if (currentField.value === field) {
+    currentDirection.value = currentDirection.value === 'asc' ? 'desc' : 'asc';
+  } else {
+    currentField.value = field;
+    currentDirection.value = 'asc';
+  }
+  pageRef.value = 1;
+  reloadFn();
+}
+
+function toggleUnmatchedSort(field: TransactionSortField): void {
+  toggleSort(field, unmatchedSortField, unmatchedSortDirection, unmatchedPage, loadUnmatched);
+}
+
+function toggleMatchedSort(field: TransactionSortField): void {
+  toggleSort(field, matchedSortField, matchedSortDirection, matchedPage, loadMatched);
+}
+
+const unmatchedTotalPages = computed(() => Math.ceil(unmatchedTotal.value / pageSize));
+const matchedTotalPages = computed(() => Math.ceil(matchedTotal.value / pageSize));
+
+function goToPage(page: number, pageRef: Ref<number>, totalPages: number, reloadFn: () => Promise<void>): void {
+  if (page >= 1 && page <= totalPages) {
+    pageRef.value = page;
+    reloadFn();
+  }
+}
+
+function goToUnmatchedPage(page: number): void {
+  goToPage(page, unmatchedPage, unmatchedTotalPages.value, loadUnmatched);
+}
+
+function goToMatchedPage(page: number): void {
+  goToPage(page, matchedPage, matchedTotalPages.value, loadMatched);
+}
+
 const expandedSuggestions = ref<Set<string>>(new Set());
 
-function toggleSuggestion(id: string) {
+function toggleSuggestion(id: string): void {
   if (expandedSuggestions.value.has(id)) {
     expandedSuggestions.value.delete(id);
   } else {
@@ -95,16 +179,16 @@ function toggleSuggestion(id: string) {
   }
 }
 
-function handleDragOver(e: DragEvent) {
+function handleDragOver(e: DragEvent): void {
   e.preventDefault();
   isDragging.value = true;
 }
 
-function handleDragLeave() {
+function handleDragLeave(): void {
   isDragging.value = false;
 }
 
-async function handleDrop(e: DragEvent) {
+async function handleDrop(e: DragEvent): Promise<void> {
   e.preventDefault();
   isDragging.value = false;
   const files = e.dataTransfer?.files;
@@ -113,7 +197,7 @@ async function handleDrop(e: DragEvent) {
   }
 }
 
-async function handleFileSelect(e: Event) {
+async function handleFileSelect(e: Event): Promise<void> {
   const input = e.target as HTMLInputElement;
   if (input.files && input.files.length > 0) {
     await uploadFile(input.files[0]);
@@ -121,7 +205,7 @@ async function handleFileSelect(e: Event) {
   }
 }
 
-async function uploadFile(file: File) {
+async function uploadFile(file: File): Promise<void> {
   if (!file.name.endsWith('.csv')) {
     uploadError.value = 'Bitte nur CSV-Dateien hochladen';
     return;
@@ -136,21 +220,21 @@ async function uploadFile(file: File) {
   try {
     const result = await api.uploadCSV(file);
     importResult.value = result;
-    
+
     // Pre-select high-confidence matches
     for (const suggestion of result.suggestions) {
       if (suggestion.confidence >= 0.8 && suggestion.expectation) {
         selectedMatches.value.add(suggestion.transaction.id);
       }
     }
-  } catch (e) {
-    uploadError.value = e instanceof Error ? e.message : 'Upload fehlgeschlagen';
+  } catch (error) {
+    uploadError.value = error instanceof Error ? error.message : 'Upload fehlgeschlagen';
   } finally {
     isUploading.value = false;
   }
 }
 
-function toggleMatch(transactionId: string) {
+function toggleMatch(transactionId: string): void {
   if (selectedMatches.value.has(transactionId)) {
     selectedMatches.value.delete(transactionId);
   } else {
@@ -158,7 +242,7 @@ function toggleMatch(transactionId: string) {
   }
 }
 
-function selectAllMatches() {
+function selectAllMatches(): void {
   if (!importResult.value) return;
   for (const suggestion of importResult.value.suggestions) {
     if (suggestion.expectation) {
@@ -167,7 +251,7 @@ function selectAllMatches() {
   }
 }
 
-function deselectAllMatches() {
+function deselectAllMatches(): void {
   selectedMatches.value.clear();
 }
 
@@ -181,7 +265,7 @@ const unmatchableSuggestions = computed(() => {
   return importResult.value.suggestions.filter(s => !s.expectation);
 });
 
-async function confirmMatches() {
+async function confirmMatches(): Promise<void> {
   if (!importResult.value || selectedMatches.value.size === 0) return;
 
   isConfirming.value = true;
@@ -198,7 +282,7 @@ async function confirmMatches() {
 
     const result = await api.confirmMatches(matches);
     confirmResult.value = result;
-    
+
     // Remove confirmed matches from the list
     if (importResult.value) {
       importResult.value.suggestions = importResult.value.suggestions.filter(
@@ -206,130 +290,136 @@ async function confirmMatches() {
       );
     }
     selectedMatches.value.clear();
-  } catch (e) {
-    uploadError.value = e instanceof Error ? e.message : 'Bestätigung fehlgeschlagen';
+  } catch (error) {
+    uploadError.value = error instanceof Error ? error.message : 'Bestätigung fehlgeschlagen';
   } finally {
     isConfirming.value = false;
   }
 }
 
-async function loadHistory() {
+async function loadHistory(): Promise<void> {
   isLoadingHistory.value = true;
   try {
     const response = await api.getImportHistory(0, 50);
     importHistory.value = response.data;
     historyTotal.value = response.total;
-  } catch (e) {
-    console.error('Failed to load history:', e);
+  } catch (error) {
+    console.error('Failed to load history:', error);
   } finally {
     isLoadingHistory.value = false;
   }
 }
 
-async function loadUnmatched() {
+async function loadUnmatched(): Promise<void> {
   isLoadingUnmatched.value = true;
   try {
-    const response = await api.getUnmatchedTransactions(0, 100);
+    const response = await api.getUnmatchedTransactions({
+      offset: (unmatchedPage.value - 1) * pageSize,
+      limit: pageSize,
+      search: debouncedTransactionSearch.value || undefined,
+      sortBy: unmatchedSortField.value,
+      sortDir: unmatchedSortDirection.value,
+    });
     unmatchedTransactions.value = response.data;
     unmatchedTotal.value = response.total;
-  } catch (e) {
-    console.error('Failed to load unmatched:', e);
+  } catch (error) {
+    console.error('Failed to load unmatched transactions:', error);
   } finally {
     isLoadingUnmatched.value = false;
   }
 }
 
-async function loadBlacklist() {
+async function loadBlacklist(): Promise<void> {
   isLoadingBlacklist.value = true;
   try {
     const response = await api.getBlacklist(0, 100);
     blacklistedIBANs.value = response.data;
     blacklistTotal.value = response.total;
-  } catch (e) {
-    console.error('Failed to load blacklist:', e);
+  } catch (error) {
+    console.error('Failed to load blacklist:', error);
   } finally {
     isLoadingBlacklist.value = false;
   }
 }
 
-async function loadWarnings() {
+async function loadWarnings(): Promise<void> {
   isLoadingWarnings.value = true;
   try {
     const response = await api.getWarnings(0, 100);
     warnings.value = response.data;
     warningsTotal.value = response.total;
-  } catch (e) {
-    console.error('Failed to load warnings:', e);
+  } catch (error) {
+    console.error('Failed to load warnings:', error);
   } finally {
     isLoadingWarnings.value = false;
   }
 }
 
-async function loadMatched() {
+async function loadMatched(): Promise<void> {
   isLoadingMatched.value = true;
   try {
-    const response = await api.getMatchedTransactions(0, 100);
+    const response = await api.getMatchedTransactions({
+      offset: (matchedPage.value - 1) * pageSize,
+      limit: pageSize,
+      search: debouncedTransactionSearch.value || undefined,
+      sortBy: matchedSortField.value,
+      sortDir: matchedSortDirection.value,
+    });
     matchedTransactions.value = response.data;
     matchedTotal.value = response.total;
-  } catch (e) {
-    console.error('Failed to load matched:', e);
+  } catch (error) {
+    console.error('Failed to load matched transactions:', error);
   } finally {
     isLoadingMatched.value = false;
   }
 }
 
-async function rescanTransactions() {
+async function rescanTransactions(): Promise<void> {
   isRescanning.value = true;
   rescanResult.value = null;
   try {
     const result = await api.rescanTransactions();
     rescanResult.value = result;
-    // Reload unmatched transactions to show updated list
     await loadUnmatched();
-  } catch (e) {
-    console.error('Failed to rescan:', e);
-    uploadError.value = e instanceof Error ? e.message : 'Erneutes Zuordnen fehlgeschlagen';
+  } catch (error) {
+    console.error('Failed to rescan transactions:', error);
+    uploadError.value = error instanceof Error ? error.message : 'Erneutes Zuordnen fehlgeschlagen';
   } finally {
     isRescanning.value = false;
   }
 }
 
-async function openManualMatch(transaction: BankTransaction) {
+async function openManualMatch(transaction: BankTransaction): Promise<void> {
   manualMatchTransaction.value = transaction;
   manualMatchSuggestion.value = null;
   isLoadingSuggestions.value = true;
   feeSearch.value = '';
   availableFees.value = [];
   showAllFees.value = false;
-  
+
   try {
-    // Load suggestions for this transaction
     const suggestion = await api.getTransactionSuggestions(transaction.id);
     manualMatchSuggestion.value = suggestion;
-  } catch (e) {
-    console.error('Failed to load suggestions:', e);
+  } catch (error) {
+    console.error('Failed to load suggestions:', error);
   } finally {
     isLoadingSuggestions.value = false;
   }
-  
-  // Load available fees
+
   await loadAvailableFees();
 }
 
-async function loadAvailableFees() {
+async function loadAvailableFees(): Promise<void> {
   isLoadingFees.value = true;
   try {
     const suggestedChildId = manualMatchSuggestion.value?.child?.id;
 
-    // Load general fees (with search filter if provided)
     const generalResponse = await api.getFees({
       search: feeSearch.value || undefined,
       limit: 50,
     });
     let fees = generalResponse.data.filter(f => !f.isPaid);
 
-    // If we have a suggestion with a matched child and no search active,
-    // also load all fees for that child to ensure they're included
     if (suggestedChildId && !feeSearch.value) {
       const childFeesResponse = await api.getFees({
         childId: suggestedChildId,
@@ -337,7 +427,6 @@ async function loadAvailableFees() {
       });
       const childFees = childFeesResponse.data.filter(f => !f.isPaid);
 
-      // Merge and deduplicate
       const feeIds = new Set(fees.map(f => f.id));
       for (const fee of childFees) {
         if (!feeIds.has(fee.id)) {
@@ -347,14 +436,14 @@ async function loadAvailableFees() {
     }
 
     availableFees.value = fees;
-  } catch (e) {
-    console.error('Failed to load fees:', e);
+  } catch (error) {
+    console.error('Failed to load fees:', error);
   } finally {
     isLoadingFees.value = false;
   }
 }
 
-function closeManualMatch() {
+function closeManualMatch(): void {
   manualMatchTransaction.value = null;
   manualMatchSuggestion.value = null;
   availableFees.value = [];
@@ -362,21 +451,34 @@ function closeManualMatch() {
   showAllFees.value = false;
 }
 
-async function confirmManualMatch(expectationId: string) {
+function handleKeydown(e: KeyboardEvent): void {
+  if (e.key === 'Escape' && manualMatchTransaction.value) {
+    closeManualMatch();
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('keydown', handleKeydown);
+});
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleKeydown);
+});
+
+async function confirmManualMatch(expectationId: string): Promise<void> {
   if (!manualMatchTransaction.value) return;
-  
+
   isCreatingMatch.value = true;
   try {
     await api.createManualMatch(manualMatchTransaction.value.id, expectationId);
-    // Remove from unmatched list
     unmatchedTransactions.value = unmatchedTransactions.value.filter(
       tx => tx.id !== manualMatchTransaction.value?.id
     );
     unmatchedTotal.value = Math.max(0, unmatchedTotal.value - 1);
     closeManualMatch();
-  } catch (e) {
-    console.error('Failed to create match:', e);
-    uploadError.value = e instanceof Error ? e.message : 'Zuordnung fehlgeschlagen';
+  } catch (error) {
+    console.error('Failed to create match:', error);
+    uploadError.value = error instanceof Error ? error.message : 'Zuordnung fehlgeschlagen';
   } finally {
     isCreatingMatch.value = false;
   }
@@ -469,17 +571,17 @@ const displayedFeeCandidates = computed<ScoredFee[]>(() => {
 });
 
 
-function showWarningDismiss(warningId: string) {
+function showWarningDismiss(warningId: string): void {
   dismissWarningId.value = warningId;
   dismissNote.value = '';
 }
 
-function cancelWarningDismiss() {
+function cancelWarningDismiss(): void {
   dismissWarningId.value = null;
   dismissNote.value = '';
 }
 
-async function dismissWarning(warning: TransactionWarning) {
+async function dismissWarning(warning: TransactionWarning): Promise<void> {
   isResolvingWarning.value = warning.id;
   try {
     await api.dismissWarning(warning.id, dismissNote.value);
@@ -487,81 +589,82 @@ async function dismissWarning(warning: TransactionWarning) {
     warningsTotal.value = Math.max(0, warningsTotal.value - 1);
     dismissWarningId.value = null;
     dismissNote.value = '';
-  } catch (e) {
-    console.error('Failed to dismiss warning:', e);
-    uploadError.value = e instanceof Error ? e.message : 'Warnung konnte nicht verworfen werden';
+  } catch (error) {
+    console.error('Failed to dismiss warning:', error);
+    uploadError.value = error instanceof Error ? error.message : 'Warnung konnte nicht verworfen werden';
   } finally {
     isResolvingWarning.value = null;
   }
 }
 
-async function resolveLateFee(warning: TransactionWarning) {
+async function resolveLateFee(warning: TransactionWarning): Promise<void> {
   isResolvingWarning.value = warning.id;
   try {
     await api.resolveLateFee(warning.id);
     warnings.value = warnings.value.filter(w => w.id !== warning.id);
     warningsTotal.value = Math.max(0, warningsTotal.value - 1);
-  } catch (e) {
-    console.error('Failed to resolve late fee:', e);
-    uploadError.value = e instanceof Error ? e.message : 'Mahngebuhr konnte nicht erstellt werden';
+  } catch (error) {
+    console.error('Failed to resolve late fee:', error);
+    uploadError.value = error instanceof Error ? error.message : 'Mahngebuhr konnte nicht erstellt werden';
   } finally {
     isResolvingWarning.value = null;
   }
 }
 
-function showDismissConfirm(transactionId: string) {
+function showDismissConfirm(transactionId: string): void {
   dismissConfirmId.value = transactionId;
 }
 
-function cancelDismiss() {
+function cancelDismiss(): void {
   dismissConfirmId.value = null;
 }
 
-async function dismissTransaction(transaction: BankTransaction) {
+async function dismissTransaction(transaction: BankTransaction): Promise<void> {
   isDismissing.value = transaction.id;
   dismissConfirmId.value = null;
   try {
     const result = await api.dismissTransaction(transaction.id);
-    // Remove all transactions with this IBAN from the list
     unmatchedTransactions.value = unmatchedTransactions.value.filter(
       tx => tx.payerIban !== transaction.payerIban
     );
     unmatchedTotal.value = Math.max(0, unmatchedTotal.value - result.transactionsRemoved);
-    // Refresh blacklist if on that tab
     if (activeTab.value === 'blacklist') {
       loadBlacklist();
     }
-  } catch (e) {
-    console.error('Failed to dismiss transaction:', e);
-    uploadError.value = e instanceof Error ? e.message : 'Ignorieren fehlgeschlagen';
+  } catch (error) {
+    console.error('Failed to dismiss transaction:', error);
+    uploadError.value = error instanceof Error ? error.message : 'Ignorieren fehlgeschlagen';
   } finally {
     isDismissing.value = null;
   }
 }
 
-async function removeFromBlacklist(iban: string) {
+async function removeFromBlacklist(iban: string): Promise<void> {
   try {
     await api.removeFromBlacklist(iban);
     blacklistedIBANs.value = blacklistedIBANs.value.filter(item => item.iban !== iban);
     blacklistTotal.value = Math.max(0, blacklistTotal.value - 1);
-  } catch (e) {
-    console.error('Failed to remove from blacklist:', e);
-    uploadError.value = e instanceof Error ? e.message : 'Entfernen fehlgeschlagen';
+  } catch (error) {
+    console.error('Failed to remove from blacklist:', error);
+    uploadError.value = error instanceof Error ? error.message : 'Entfernen fehlgeschlagen';
   }
 }
 
-function switchTab(tab: TabType) {
+function switchTab(tab: TabType): void {
   activeTab.value = tab;
-  if (tab === 'history') {
-    loadHistory();
-  } else if (tab === 'unmatched') {
-    loadUnmatched();
-  } else if (tab === 'matched') {
-    loadMatched();
-  } else if (tab === 'warnings') {
-    loadWarnings();
-  } else if (tab === 'blacklist') {
-    loadBlacklist();
+
+  const tabActions: Record<TabType, (() => Promise<void>) | null> = {
+    upload: null,
+    history: loadHistory,
+    unmatched: loadUnmatched,
+    matched: loadMatched,
+    warnings: loadWarnings,
+    blacklist: loadBlacklist,
+  };
+
+  const loadFn = tabActions[tab];
+  if (loadFn) {
+    loadFn();
   }
 }
 
@@ -612,12 +715,29 @@ function getFeeTypeName(type?: string): string {
       return 'Essensgeld';
     case 'CHILDCARE':
       return 'Platzgeld';
+    case 'REMINDER':
+      return 'Mahngebühr';
     default:
       return type || 'Unbekannt';
   }
 }
 
-function resetUpload() {
+function getFeeTypeColor(type?: string): string {
+  switch (type) {
+    case 'MEMBERSHIP':
+      return 'bg-purple-100 text-purple-700';
+    case 'FOOD':
+      return 'bg-orange-100 text-orange-700';
+    case 'CHILDCARE':
+      return 'bg-blue-100 text-blue-700';
+    case 'REMINDER':
+      return 'bg-red-100 text-red-700';
+    default:
+      return 'bg-gray-100 text-gray-700';
+  }
+}
+
+function resetUpload(): void {
   importResult.value = null;
   uploadError.value = null;
   confirmResult.value = null;
@@ -1195,23 +1315,80 @@ function getWarningTypeColor(type: string): string {
         </button>
       </div>
 
+      <!-- Search Bar -->
+      <div class="mb-4">
+        <div class="relative">
+          <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <input
+            v-model="transactionSearch"
+            type="text"
+            placeholder="Suche nach Zahler oder Beschreibung..."
+            class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+          />
+        </div>
+      </div>
+
       <div v-if="isLoadingUnmatched" class="flex items-center justify-center py-12">
         <Loader2 class="h-8 w-8 animate-spin text-primary" />
       </div>
 
       <div v-else-if="unmatchedTransactions.length === 0" class="text-center py-12">
-        <CheckCircle class="h-12 w-12 text-green-300 mx-auto mb-4" />
-        <p class="text-gray-600">Alle Transaktionen sind zugeordnet</p>
+        <component :is="debouncedTransactionSearch ? Search : CheckCircle"
+                   :class="debouncedTransactionSearch ? 'h-12 w-12 text-gray-300 mx-auto mb-4' : 'h-12 w-12 text-green-300 mx-auto mb-4'" />
+        <p class="text-gray-600">
+          {{ debouncedTransactionSearch ? 'Keine Transaktionen gefunden' : 'Alle Transaktionen sind zugeordnet' }}
+        </p>
+        <p v-if="debouncedTransactionSearch" class="text-sm text-gray-500 mt-1">Versuche einen anderen Suchbegriff</p>
       </div>
 
       <div v-else class="bg-white rounded-xl border overflow-hidden">
         <table class="w-full">
           <thead class="bg-gray-50">
             <tr class="text-left text-sm text-gray-500">
-              <th class="px-4 py-3 font-medium">Datum</th>
-              <th class="px-4 py-3 font-medium">Zahler</th>
-              <th class="px-4 py-3 font-medium">Beschreibung</th>
-              <th class="px-4 py-3 font-medium text-right">Betrag</th>
+              <th
+                class="px-4 py-3 font-medium cursor-pointer hover:bg-gray-100 select-none"
+                @click="toggleUnmatchedSort('date')"
+              >
+                <div class="flex items-center gap-1">
+                  Datum
+                  <ArrowUp v-if="unmatchedSortField === 'date' && unmatchedSortDirection === 'asc'" class="h-4 w-4" />
+                  <ArrowDown v-else-if="unmatchedSortField === 'date' && unmatchedSortDirection === 'desc'" class="h-4 w-4" />
+                  <ArrowUpDown v-else class="h-4 w-4 text-gray-400" />
+                </div>
+              </th>
+              <th
+                class="px-4 py-3 font-medium cursor-pointer hover:bg-gray-100 select-none"
+                @click="toggleUnmatchedSort('payer')"
+              >
+                <div class="flex items-center gap-1">
+                  Zahler
+                  <ArrowUp v-if="unmatchedSortField === 'payer' && unmatchedSortDirection === 'asc'" class="h-4 w-4" />
+                  <ArrowDown v-else-if="unmatchedSortField === 'payer' && unmatchedSortDirection === 'desc'" class="h-4 w-4" />
+                  <ArrowUpDown v-else class="h-4 w-4 text-gray-400" />
+                </div>
+              </th>
+              <th
+                class="px-4 py-3 font-medium cursor-pointer hover:bg-gray-100 select-none"
+                @click="toggleUnmatchedSort('description')"
+              >
+                <div class="flex items-center gap-1">
+                  Beschreibung
+                  <ArrowUp v-if="unmatchedSortField === 'description' && unmatchedSortDirection === 'asc'" class="h-4 w-4" />
+                  <ArrowDown v-else-if="unmatchedSortField === 'description' && unmatchedSortDirection === 'desc'" class="h-4 w-4" />
+                  <ArrowUpDown v-else class="h-4 w-4 text-gray-400" />
+                </div>
+              </th>
+              <th
+                class="px-4 py-3 font-medium text-right cursor-pointer hover:bg-gray-100 select-none"
+                @click="toggleUnmatchedSort('amount')"
+              >
+                <div class="flex items-center justify-end gap-1">
+                  Betrag
+                  <ArrowUp v-if="unmatchedSortField === 'amount' && unmatchedSortDirection === 'asc'" class="h-4 w-4" />
+                  <ArrowDown v-else-if="unmatchedSortField === 'amount' && unmatchedSortDirection === 'desc'" class="h-4 w-4" />
+                  <ArrowUpDown v-else class="h-4 w-4 text-gray-400" />
+                </div>
+              </th>
               <th class="px-4 py-3 font-medium text-right">Aktionen</th>
             </tr>
           </thead>
@@ -1280,6 +1457,41 @@ function getWarningTypeColor(type: string): string {
             </tr>
           </tbody>
         </table>
+
+        <!-- Pagination -->
+        <div v-if="unmatchedTotalPages > 1" class="flex items-center justify-between px-4 py-3 border-t bg-gray-50">
+          <div class="text-sm text-gray-600">
+            Seite {{ unmatchedPage }} von {{ unmatchedTotalPages }} ({{ unmatchedTotal }} Einträge)
+          </div>
+          <div class="flex items-center gap-2">
+            <button
+              @click="goToUnmatchedPage(unmatchedPage - 1)"
+              :disabled="unmatchedPage <= 1"
+              class="p-1 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft class="h-5 w-5" />
+            </button>
+            <button
+              v-for="page in Math.min(5, unmatchedTotalPages)"
+              :key="page"
+              @click="goToUnmatchedPage(page)"
+              :class="[
+                'px-3 py-1 rounded text-sm',
+                page === unmatchedPage ? 'bg-primary text-white' : 'hover:bg-gray-200'
+              ]"
+            >
+              {{ page }}
+            </button>
+            <span v-if="unmatchedTotalPages > 5" class="text-gray-400">...</span>
+            <button
+              @click="goToUnmatchedPage(unmatchedPage + 1)"
+              :disabled="unmatchedPage >= unmatchedTotalPages"
+              class="p-1 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <ChevronRight class="h-5 w-5" />
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1541,23 +1753,81 @@ function getWarningTypeColor(type: string): string {
         </button>
       </div>
 
+      <!-- Search Bar -->
+      <div class="mb-4">
+        <div class="relative">
+          <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <input
+            v-model="transactionSearch"
+            type="text"
+            placeholder="Suche nach Zahler oder Beschreibung..."
+            class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+          />
+        </div>
+      </div>
+
       <div v-if="isLoadingMatched" class="flex items-center justify-center py-12">
         <Loader2 class="h-8 w-8 animate-spin text-primary" />
       </div>
 
       <div v-else-if="matchedTransactions.length === 0" class="text-center py-12">
-        <Link2 class="h-12 w-12 text-gray-300 mx-auto mb-4" />
-        <p class="text-gray-600">Noch keine zugeordneten Transaktionen</p>
+        <component :is="debouncedTransactionSearch ? Search : Link2"
+                   class="h-12 w-12 text-gray-300 mx-auto mb-4" />
+        <p class="text-gray-600">
+          {{ debouncedTransactionSearch ? 'Keine Transaktionen gefunden' : 'Noch keine zugeordneten Transaktionen' }}
+        </p>
+        <p v-if="debouncedTransactionSearch" class="text-sm text-gray-500 mt-1">Versuche einen anderen Suchbegriff</p>
       </div>
 
       <div v-else class="bg-white rounded-xl border overflow-hidden">
         <table class="w-full">
           <thead class="bg-gray-50">
             <tr class="text-left text-sm text-gray-500">
-              <th class="px-4 py-3 font-medium">Datum</th>
-              <th class="px-4 py-3 font-medium">Zahler</th>
-              <th class="px-4 py-3 font-medium">Beschreibung</th>
-              <th class="px-4 py-3 font-medium text-right">Betrag</th>
+              <th
+                class="px-4 py-3 font-medium cursor-pointer hover:bg-gray-100 select-none"
+                @click="toggleMatchedSort('date')"
+              >
+                <div class="flex items-center gap-1">
+                  Datum
+                  <ArrowUp v-if="matchedSortField === 'date' && matchedSortDirection === 'asc'" class="h-4 w-4" />
+                  <ArrowDown v-else-if="matchedSortField === 'date' && matchedSortDirection === 'desc'" class="h-4 w-4" />
+                  <ArrowUpDown v-else class="h-4 w-4 text-gray-400" />
+                </div>
+              </th>
+              <th
+                class="px-4 py-3 font-medium cursor-pointer hover:bg-gray-100 select-none"
+                @click="toggleMatchedSort('payer')"
+              >
+                <div class="flex items-center gap-1">
+                  Zahler
+                  <ArrowUp v-if="matchedSortField === 'payer' && matchedSortDirection === 'asc'" class="h-4 w-4" />
+                  <ArrowDown v-else-if="matchedSortField === 'payer' && matchedSortDirection === 'desc'" class="h-4 w-4" />
+                  <ArrowUpDown v-else class="h-4 w-4 text-gray-400" />
+                </div>
+              </th>
+              <th
+                class="px-4 py-3 font-medium cursor-pointer hover:bg-gray-100 select-none"
+                @click="toggleMatchedSort('description')"
+              >
+                <div class="flex items-center gap-1">
+                  Beschreibung
+                  <ArrowUp v-if="matchedSortField === 'description' && matchedSortDirection === 'asc'" class="h-4 w-4" />
+                  <ArrowDown v-else-if="matchedSortField === 'description' && matchedSortDirection === 'desc'" class="h-4 w-4" />
+                  <ArrowUpDown v-else class="h-4 w-4 text-gray-400" />
+                </div>
+              </th>
+              <th
+                class="px-4 py-3 font-medium text-right cursor-pointer hover:bg-gray-100 select-none"
+                @click="toggleMatchedSort('amount')"
+              >
+                <div class="flex items-center justify-end gap-1">
+                  Betrag
+                  <ArrowUp v-if="matchedSortField === 'amount' && matchedSortDirection === 'asc'" class="h-4 w-4" />
+                  <ArrowDown v-else-if="matchedSortField === 'amount' && matchedSortDirection === 'desc'" class="h-4 w-4" />
+                  <ArrowUpDown v-else class="h-4 w-4 text-gray-400" />
+                </div>
+              </th>
+              <th class="px-4 py-3 font-medium">Zugeordnete Beiträge</th>
             </tr>
           </thead>
           <tbody>
@@ -1581,9 +1851,60 @@ function getWarningTypeColor(type: string): string {
               <td class="px-4 py-3 text-right font-medium text-green-600">
                 {{ formatCurrency(tx.amount) }}
               </td>
+              <td class="px-4 py-3">
+                <div v-if="tx.matches && tx.matches.length > 0" class="flex flex-wrap gap-1">
+                  <span
+                    v-for="match in tx.matches"
+                    :key="match.id"
+                    :class="[
+                      'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium',
+                      getFeeTypeColor(match.expectation?.feeType || '')
+                    ]"
+                  >
+                    {{ getFeeTypeName(match.expectation?.feeType || '') }}
+                    <span class="ml-1 opacity-75">{{ formatCurrency(match.expectation?.amount || 0) }}</span>
+                  </span>
+                </div>
+                <span v-else class="text-gray-400 text-sm">-</span>
+              </td>
             </tr>
           </tbody>
         </table>
+
+        <!-- Pagination -->
+        <div v-if="matchedTotalPages > 1" class="flex items-center justify-between px-4 py-3 border-t bg-gray-50">
+          <div class="text-sm text-gray-600">
+            Seite {{ matchedPage }} von {{ matchedTotalPages }} ({{ matchedTotal }} Einträge)
+          </div>
+          <div class="flex items-center gap-2">
+            <button
+              @click="goToMatchedPage(matchedPage - 1)"
+              :disabled="matchedPage <= 1"
+              class="p-1 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <ChevronLeft class="h-5 w-5" />
+            </button>
+            <button
+              v-for="page in Math.min(5, matchedTotalPages)"
+              :key="page"
+              @click="goToMatchedPage(page)"
+              :class="[
+                'px-3 py-1 rounded text-sm',
+                page === matchedPage ? 'bg-primary text-white' : 'hover:bg-gray-200'
+              ]"
+            >
+              {{ page }}
+            </button>
+            <span v-if="matchedTotalPages > 5" class="text-gray-400">...</span>
+            <button
+              @click="goToMatchedPage(matchedPage + 1)"
+              :disabled="matchedPage >= matchedTotalPages"
+              class="p-1 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <ChevronRight class="h-5 w-5" />
+            </button>
+          </div>
+        </div>
       </div>
     </div>
 
