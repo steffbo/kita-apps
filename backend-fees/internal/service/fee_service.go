@@ -2,13 +2,16 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"math"
+	"sort"
 	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/repository"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/util"
 )
 
 // FeeService handles fee-related business logic.
@@ -53,6 +56,68 @@ type GenerateResult struct {
 	Skipped int `json:"skipped"`
 }
 
+// incomeInfo holds income and sibling information for fee calculation.
+type incomeInfo struct {
+	IsFosterFamily bool
+	IsHighestRate  bool
+	Income         float64
+	SiblingsCount  int
+}
+
+// getIncomeInfo retrieves income and sibling information for a child.
+// It prefers household data but falls back to parent data if needed.
+func (s *FeeService) getIncomeInfo(ctx context.Context, child *domain.Child) incomeInfo {
+	info := incomeInfo{SiblingsCount: 1}
+
+	// Try to get income from household first
+	if child.HouseholdID != nil && s.householdRepo != nil {
+		household, err := s.householdRepo.GetWithMembers(ctx, *child.HouseholdID)
+		if err == nil && household != nil {
+			if household.IncomeStatus == domain.IncomeStatusFosterFamily {
+				info.IsFosterFamily = true
+			} else if household.IncomeStatus == domain.IncomeStatusMaxAccepted {
+				info.IsHighestRate = true
+			} else if household.IncomeStatus == domain.IncomeStatusProvided && household.AnnualHouseholdIncome != nil {
+				info.Income = *household.AnnualHouseholdIncome
+			}
+
+			// Get sibling count: use override if set, otherwise count active children
+			if household.ChildrenCountForFees != nil && *household.ChildrenCountForFees > 0 {
+				info.SiblingsCount = *household.ChildrenCountForFees
+			} else if len(household.Children) > 0 {
+				activeCount := 0
+				for _, c := range household.Children {
+					if c.IsActive {
+						activeCount++
+					}
+				}
+				if activeCount > 0 {
+					info.SiblingsCount = activeCount
+				}
+			}
+		}
+	}
+
+	// Fall back to parent income if not set from household
+	if !info.IsFosterFamily && !info.IsHighestRate && info.Income == 0 {
+		parents, _ := s.childRepo.GetParents(ctx, child.ID)
+		for _, parent := range parents {
+			if parent.IncomeStatus == domain.IncomeStatusFosterFamily {
+				info.IsFosterFamily = true
+				break
+			}
+			if parent.IncomeStatus == domain.IncomeStatusMaxAccepted {
+				info.IsHighestRate = true
+			}
+			if parent.IncomeStatus == domain.IncomeStatusProvided && parent.AnnualHouseholdIncome != nil {
+				info.Income = *parent.AnnualHouseholdIncome
+			}
+		}
+	}
+
+	return info
+}
+
 // List returns fees matching the filter.
 func (s *FeeService) List(ctx context.Context, filter FeeFilter, offset, limit int) ([]domain.FeeExpectation, int64, error) {
 	fees, total, err := s.feeRepo.List(ctx, repository.FeeFilter{
@@ -86,20 +151,7 @@ func (s *FeeService) List(ctx context.Context, filter FeeFilter, offset, limit i
 		if child, ok := childMap[fees[i].ChildID]; ok {
 			fees[i].Child = child
 		}
-		// Check if paid and get match details with transaction
-		match, _ := s.matchRepo.GetByExpectation(ctx, fees[i].ID)
-		if match != nil {
-			fees[i].IsPaid = true
-			fees[i].PaidAt = &match.MatchedAt
-			// Load transaction data for the match
-			if s.transactionRepo != nil {
-				tx, err := s.transactionRepo.GetByID(ctx, match.TransactionID)
-				if err == nil {
-					match.Transaction = tx
-				}
-			}
-			fees[i].MatchedBy = match
-		}
+		s.enrichWithPaymentStatus(ctx, &fees[i])
 	}
 
 	return fees, total, nil
@@ -112,20 +164,7 @@ func (s *FeeService) GetByID(ctx context.Context, id uuid.UUID) (*domain.FeeExpe
 		return nil, ErrNotFound
 	}
 
-	// Check if paid and get match details with transaction
-	match, _ := s.matchRepo.GetByExpectation(ctx, id)
-	if match != nil {
-		fee.IsPaid = true
-		fee.PaidAt = &match.MatchedAt
-		// Load transaction data for the match
-		if s.transactionRepo != nil {
-			tx, err := s.transactionRepo.GetByID(ctx, match.TransactionID)
-			if err == nil {
-				match.Transaction = tx
-			}
-		}
-		fee.MatchedBy = match
-	}
+	s.enrichWithPaymentStatus(ctx, fee)
 
 	// Get child info
 	child, _ := s.childRepo.GetByID(ctx, fee.ChildID)
@@ -157,7 +196,6 @@ func (s *FeeService) Generate(ctx context.Context, year int, month *int) (*Gener
 	}
 
 	result := &GenerateResult{}
-	now := time.Now()
 
 	for _, child := range children {
 		// Generate monthly fees
@@ -178,57 +216,7 @@ func (s *FeeService) Generate(ctx context.Context, year int, month *int) (*Gener
 
 			// Childcare fee (only U3)
 			if child.IsUnderThree(checkDate) {
-				// Get income and status - prefer household, fall back to parents
-				isFosterFamily := false
-				isHighestRate := false
-				var income float64 = 0
-				var siblingsCount int = 1
-
-				// Try to get income from household first
-				if child.HouseholdID != nil && s.householdRepo != nil {
-					household, err := s.householdRepo.GetWithMembers(ctx, *child.HouseholdID)
-					if err == nil && household != nil {
-						if household.IncomeStatus == domain.IncomeStatusFosterFamily {
-							isFosterFamily = true
-						} else if household.IncomeStatus == domain.IncomeStatusMaxAccepted {
-							isHighestRate = true
-						} else if household.IncomeStatus == domain.IncomeStatusProvided && household.AnnualHouseholdIncome != nil {
-							income = *household.AnnualHouseholdIncome
-						}
-
-						// Get sibling count: use override if set, otherwise count active children
-						if household.ChildrenCountForFees != nil && *household.ChildrenCountForFees > 0 {
-							siblingsCount = *household.ChildrenCountForFees
-						} else if len(household.Children) > 0 {
-							activeCount := 0
-							for _, c := range household.Children {
-								if c.IsActive {
-									activeCount++
-								}
-							}
-							if activeCount > 0 {
-								siblingsCount = activeCount
-							}
-						}
-					}
-				}
-
-				// Fall back to parent income if not set from household
-				if !isFosterFamily && !isHighestRate && income == 0 {
-					parents, _ := s.childRepo.GetParents(ctx, child.ID)
-					for _, parent := range parents {
-						if parent.IncomeStatus == domain.IncomeStatusFosterFamily {
-							isFosterFamily = true
-							break
-						}
-						if parent.IncomeStatus == domain.IncomeStatusMaxAccepted {
-							isHighestRate = true
-						}
-						if parent.IncomeStatus == domain.IncomeStatusProvided && parent.AnnualHouseholdIncome != nil {
-							income = *parent.AnnualHouseholdIncome
-						}
-					}
-				}
+				info := s.getIncomeInfo(ctx, &child)
 
 				// Get care hours from child, default to 45
 				careHours := 45
@@ -238,11 +226,11 @@ func (s *FeeService) Generate(ctx context.Context, year int, month *int) (*Gener
 
 				feeResult := s.CalculateChildcareFee(domain.ChildcareFeeInput{
 					ChildAgeType:  domain.ChildAgeTypeKrippe,
-					NetIncome:     income,
-					SiblingsCount: siblingsCount,
+					NetIncome:     info.Income,
+					SiblingsCount: info.SiblingsCount,
 					CareHours:     careHours,
-					HighestRate:   isHighestRate,
-					FosterFamily:  isFosterFamily,
+					HighestRate:   info.IsHighestRate,
+					FosterFamily:  info.IsFosterFamily,
 				})
 				created, err := s.createFeeIfNotExists(ctx, child.ID, domain.FeeTypeChildcare, year, month, feeResult.Fee, dueDate)
 				if err != nil {
@@ -272,8 +260,6 @@ func (s *FeeService) Generate(ctx context.Context, year int, month *int) (*Gener
 			}
 		}
 	}
-
-	_ = now // suppress unused warning
 
 	return result, nil
 }
@@ -548,6 +534,122 @@ func roundToTwoDecimals(val float64) float64 {
 	return float64(int(val*100+0.5)) / 100
 }
 
+// CreateFeeInput represents the input for creating a single fee.
+type CreateFeeInput struct {
+	ChildID            uuid.UUID
+	FeeType            domain.FeeType
+	Year               int
+	Month              *int
+	Amount             *float64 // Optional: if nil, use default amount for fee type
+	DueDate            *time.Time
+	ReconciliationYear *int
+}
+
+// Create creates a single fee for a specific child.
+// If amount is not provided, it calculates the appropriate amount based on fee type.
+func (s *FeeService) Create(ctx context.Context, input CreateFeeInput) (*domain.FeeExpectation, error) {
+	// Validate child exists
+	child, err := s.childRepo.GetByID(ctx, input.ChildID)
+	if err != nil {
+		return nil, ErrNotFound
+	}
+
+	// Check if fee already exists
+	exists, err := s.feeRepo.Exists(ctx, input.ChildID, input.FeeType, input.Year, input.Month)
+	if err != nil {
+		return nil, err
+	}
+	if exists {
+		return nil, ErrAlreadyExists
+	}
+
+	// Determine amount
+	var amount float64
+	if input.Amount != nil {
+		amount = *input.Amount
+	} else {
+		// Calculate default amount based on fee type
+		switch input.FeeType {
+		case domain.FeeTypeFood:
+			amount = domain.FoodFeeAmount
+		case domain.FeeTypeMembership:
+			amount = domain.MembershipFeeAmount
+		case domain.FeeTypeReminder:
+			amount = domain.ReminderFeeAmount
+		case domain.FeeTypeChildcare:
+			// Calculate childcare fee based on household income
+			amount = s.calculateChildcareFeeForChild(ctx, child, input.Year, input.Month)
+		default:
+			return nil, ErrInvalidInput
+		}
+	}
+
+	// Determine due date
+	var dueDate time.Time
+	if input.DueDate != nil {
+		dueDate = *input.DueDate
+	} else {
+		// Default due date: 5th of the month for monthly fees, March 31st for yearly
+		if input.Month != nil {
+			dueDate = time.Date(input.Year, time.Month(*input.Month), 5, 0, 0, 0, 0, time.UTC)
+		} else {
+			dueDate = time.Date(input.Year, 3, 31, 0, 0, 0, 0, time.UTC)
+		}
+	}
+
+	fee := &domain.FeeExpectation{
+		ID:                 uuid.New(),
+		ChildID:            input.ChildID,
+		FeeType:            input.FeeType,
+		Year:               input.Year,
+		Month:              input.Month,
+		Amount:             amount,
+		DueDate:            dueDate,
+		CreatedAt:          time.Now(),
+		ReconciliationYear: input.ReconciliationYear,
+	}
+
+	if err := s.feeRepo.Create(ctx, fee); err != nil {
+		return nil, err
+	}
+
+	// Return with child info
+	return s.GetByID(ctx, fee.ID)
+}
+
+// calculateChildcareFeeForChild calculates the childcare fee for a specific child.
+func (s *FeeService) calculateChildcareFeeForChild(ctx context.Context, child *domain.Child, year int, month *int) float64 {
+	// Determine the check date
+	checkDate := time.Now()
+	if month != nil {
+		checkDate = time.Date(year, time.Month(*month), 1, 0, 0, 0, 0, time.UTC)
+	}
+
+	// Only U3 children pay childcare fees
+	if !child.IsUnderThree(checkDate) {
+		return 0
+	}
+
+	info := s.getIncomeInfo(ctx, child)
+
+	// Get care hours from child, default to 45
+	careHours := 45
+	if child.CareHours != nil && *child.CareHours > 0 {
+		careHours = *child.CareHours
+	}
+
+	feeResult := s.CalculateChildcareFee(domain.ChildcareFeeInput{
+		ChildAgeType:  domain.ChildAgeTypeKrippe,
+		NetIncome:     info.Income,
+		SiblingsCount: info.SiblingsCount,
+		CareHours:     careHours,
+		HighestRate:   info.IsHighestRate,
+		FosterFamily:  info.IsFosterFamily,
+	})
+
+	return feeResult.Fee
+}
+
 // CreateReminder creates a reminder fee (Mahngebühr) for an unpaid fee.
 // The reminder fee is 10 EUR and is linked to the original fee.
 func (s *FeeService) CreateReminder(ctx context.Context, feeID uuid.UUID) (*domain.FeeExpectation, error) {
@@ -583,4 +685,193 @@ func (s *FeeService) CreateReminder(ctx context.Context, feeID uuid.UUID) (*doma
 
 	// Fetch and return with child info
 	return s.GetByID(ctx, reminder.ID)
+}
+
+// LedgerEntry represents a single entry in the payment ledger.
+type LedgerEntry struct {
+	ID          uuid.UUID  `json:"id"`
+	Date        time.Time  `json:"date"`        // Due date for fees, booking date for payments
+	Type        string     `json:"type"`        // "fee" or "payment"
+	Description string     `json:"description"` // e.g., "Essensgeld Januar 2024" or "Zahlung DE89..."
+	FeeType     string     `json:"feeType,omitempty"`
+	Year        int        `json:"year,omitempty"`
+	Month       *int       `json:"month,omitempty"`
+	Debit       float64    `json:"debit"`   // Amount owed (fees)
+	Credit      float64    `json:"credit"`  // Amount paid (payments)
+	Balance     float64    `json:"balance"` // Running balance
+	IsPaid      bool       `json:"isPaid,omitempty"`
+	PaidAt      *time.Time `json:"paidAt,omitempty"`
+
+	// Related objects
+	Fee         *domain.FeeExpectation  `json:"fee,omitempty"`
+	Transaction *domain.BankTransaction `json:"transaction,omitempty"`
+}
+
+// LedgerSummary provides totals for the ledger.
+type LedgerSummary struct {
+	TotalFees      float64 `json:"totalFees"`
+	TotalPaid      float64 `json:"totalPaid"`
+	TotalOpen      float64 `json:"totalOpen"`
+	OpenFeesCount  int     `json:"openFeesCount"`
+	PaidFeesCount  int     `json:"paidFeesCount"`
+	TotalFeesCount int     `json:"totalFeesCount"`
+}
+
+// ChildLedger represents the complete payment ledger for a child.
+type ChildLedger struct {
+	ChildID uuid.UUID     `json:"childId"`
+	Child   *domain.Child `json:"child,omitempty"`
+	Entries []LedgerEntry `json:"entries"`
+	Summary LedgerSummary `json:"summary"`
+}
+
+// GetChildLedger returns the payment ledger for a specific child.
+func (s *FeeService) GetChildLedger(ctx context.Context, childID uuid.UUID, year *int) (*ChildLedger, error) {
+	// Verify child exists
+	child, err := s.childRepo.GetByID(ctx, childID)
+	if err != nil {
+		return nil, ErrNotFound
+	}
+
+	// Get all fees for the child
+	filter := repository.FeeFilter{
+		ChildID: &childID,
+		Year:    year,
+	}
+	fees, _, err := s.feeRepo.List(ctx, filter, 0, 1000)
+	if err != nil {
+		return nil, err
+	}
+
+	// Build ledger entries
+	entries := make([]LedgerEntry, 0, len(fees)*2)
+	var totalFees, totalPaid float64
+	var openFeesCount, paidFeesCount int
+
+	for _, fee := range fees {
+		// Check payment status
+		match, _ := s.matchRepo.GetByExpectation(ctx, fee.ID)
+		isPaid := match != nil
+		var paidAt *time.Time
+		var transaction *domain.BankTransaction
+
+		if isPaid {
+			paidAt = &match.MatchedAt
+			paidFeesCount++
+			totalPaid += fee.Amount
+
+			// Load transaction details
+			if s.transactionRepo != nil {
+				tx, err := s.transactionRepo.GetByID(ctx, match.TransactionID)
+				if err == nil {
+					transaction = tx
+				}
+			}
+		} else {
+			openFeesCount++
+		}
+
+		totalFees += fee.Amount
+
+		// Build description
+		description := util.FeeTypeToGerman(fee.FeeType)
+		if fee.Month != nil {
+			description += " " + util.MonthToGerman(*fee.Month)
+		}
+		description += fmt.Sprintf(" %d", fee.Year)
+
+		// Fee entry
+		feeEntry := LedgerEntry{
+			ID:          fee.ID,
+			Date:        fee.DueDate,
+			Type:        "fee",
+			Description: description,
+			FeeType:     string(fee.FeeType),
+			Year:        fee.Year,
+			Month:       fee.Month,
+			Debit:       fee.Amount,
+			Credit:      0,
+			IsPaid:      isPaid,
+			PaidAt:      paidAt,
+			Fee:         &fee,
+		}
+		entries = append(entries, feeEntry)
+
+		// Add payment entry if paid
+		if isPaid && transaction != nil {
+			paymentDesc := "Zahlung"
+			if transaction.PayerName != nil && *transaction.PayerName != "" {
+				paymentDesc += " von " + *transaction.PayerName
+			}
+			if transaction.PayerIBAN != nil && *transaction.PayerIBAN != "" {
+				// Show last 4 digits of IBAN
+				iban := *transaction.PayerIBAN
+				if len(iban) > 4 {
+					paymentDesc += " (..." + iban[len(iban)-4:] + ")"
+				}
+			}
+
+			paymentEntry := LedgerEntry{
+				ID:          match.ID,
+				Date:        transaction.BookingDate,
+				Type:        "payment",
+				Description: paymentDesc,
+				Debit:       0,
+				Credit:      fee.Amount,
+				Transaction: transaction,
+			}
+			entries = append(entries, paymentEntry)
+		}
+	}
+
+	// Sort entries by date (oldest first)
+	sortLedgerEntries(entries)
+
+	// Calculate running balance
+	var balance float64
+	for i := range entries {
+		balance += entries[i].Debit - entries[i].Credit
+		entries[i].Balance = balance
+	}
+
+	ledger := &ChildLedger{
+		ChildID: childID,
+		Child:   child,
+		Entries: entries,
+		Summary: LedgerSummary{
+			TotalFees:      totalFees,
+			TotalPaid:      totalPaid,
+			TotalOpen:      totalFees - totalPaid,
+			OpenFeesCount:  openFeesCount,
+			PaidFeesCount:  paidFeesCount,
+			TotalFeesCount: len(fees),
+		},
+	}
+
+	return ledger, nil
+}
+
+
+// enrichWithPaymentStatus checks if a fee is paid and loads match details with transaction.
+func (s *FeeService) enrichWithPaymentStatus(ctx context.Context, fee *domain.FeeExpectation) {
+	match, _ := s.matchRepo.GetByExpectation(ctx, fee.ID)
+	if match != nil {
+		fee.IsPaid = true
+		fee.PaidAt = &match.MatchedAt
+		// Load transaction data for the match
+		if s.transactionRepo != nil {
+			tx, err := s.transactionRepo.GetByID(ctx, match.TransactionID)
+			if err == nil {
+				match.Transaction = tx
+			}
+		}
+		fee.MatchedBy = match
+	}
+}
+
+// sortLedgerEntries sorts entries by date (oldest first).
+func sortLedgerEntries(entries []LedgerEntry) {
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].Date.Before(entries[j].Date)
+	})
 }

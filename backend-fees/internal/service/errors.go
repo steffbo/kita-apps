@@ -9,4 +9,5 @@ var (
 	ErrInvalidInput          = errors.New("invalid input")
 	ErrUnauthorized          = errors.New("unauthorized")
 	ErrConflict              = errors.New("conflict")
+	ErrAlreadyExists         = errors.New("already exists")
 )
