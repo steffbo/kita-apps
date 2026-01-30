@@ -27,10 +27,10 @@ func (r *PostgresWarningRepository) Create(ctx context.Context, warning *domain.
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO fees.transaction_warnings (
 			id, transaction_id, warning_type, message, expected_amount, actual_amount, 
-			child_id, created_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			child_id, matched_fee_id, created_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 	`, warning.ID, warning.TransactionID, warning.WarningType, warning.Message,
-		warning.ExpectedAmount, warning.ActualAmount, warning.ChildID, warning.CreatedAt)
+		warning.ExpectedAmount, warning.ActualAmount, warning.ChildID, warning.MatchedFeeID, warning.CreatedAt)
 	return err
 }
 
@@ -39,7 +39,7 @@ func (r *PostgresWarningRepository) GetByID(ctx context.Context, id uuid.UUID) (
 	var warning domain.TransactionWarning
 	err := r.db.GetContext(ctx, &warning, `
 		SELECT id, transaction_id, warning_type, message, expected_amount, actual_amount,
-			   child_id, resolved_at, resolved_by, resolution_type, resolution_note, created_at
+			   child_id, matched_fee_id, resolved_at, resolved_by, resolution_type, resolution_note, created_at
 		FROM fees.transaction_warnings
 		WHERE id = $1
 	`, id)
@@ -57,7 +57,7 @@ func (r *PostgresWarningRepository) GetByTransactionID(ctx context.Context, tran
 	var warning domain.TransactionWarning
 	err := r.db.GetContext(ctx, &warning, `
 		SELECT id, transaction_id, warning_type, message, expected_amount, actual_amount,
-			   child_id, resolved_at, resolved_by, resolution_type, resolution_note, created_at
+			   child_id, matched_fee_id, resolved_at, resolved_by, resolution_type, resolution_note, created_at
 		FROM fees.transaction_warnings
 		WHERE transaction_id = $1
 	`, transactionID)
@@ -86,7 +86,7 @@ func (r *PostgresWarningRepository) ListUnresolved(ctx context.Context, offset, 
 	// Fetch with pagination
 	err = r.db.SelectContext(ctx, &warnings, `
 		SELECT w.id, w.transaction_id, w.warning_type, w.message, w.expected_amount, w.actual_amount,
-			   w.child_id, w.resolved_at, w.resolved_by, w.resolution_type, w.resolution_note, w.created_at
+			   w.child_id, w.matched_fee_id, w.resolved_at, w.resolved_by, w.resolution_type, w.resolution_note, w.created_at
 		FROM fees.transaction_warnings w
 		WHERE w.resolved_at IS NULL
 		ORDER BY w.created_at DESC

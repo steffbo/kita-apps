@@ -2,114 +2,40 @@ package service_test
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jmoiron/sqlx"
-	_ "github.com/lib/pq"
 
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/repository"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/service"
 )
 
-// testDB holds the test database connection
-var testDB *sqlx.DB
-
-// TestMain sets up and tears down the test database
+// TestMain sets up and tears down the test database using testcontainers
 func TestMain(m *testing.M) {
-	// Get database URL from environment or use default
-	dbURL := os.Getenv("TEST_DATABASE_URL")
-	if dbURL == "" {
-		dbURL = "postgres://kita:kita_dev_password@localhost:5432/kita?sslmode=disable"
+	// Setup testcontainer
+	if err := setupTestContainer(); err != nil {
+		fmt.Printf("Failed to setup test container: %v\n", err)
+		os.Exit(1)
 	}
-
-	var err error
-	testDB, err = sqlx.Connect("postgres", dbURL)
-	if err != nil {
-		panic("Failed to connect to test database: " + err.Error())
-	}
-	defer testDB.Close()
 
 	// Run tests
 	code := m.Run()
+
+	// Teardown
+	teardownTestContainer()
+
 	os.Exit(code)
-}
-
-// cleanupTestData removes test data created during tests
-func cleanupTestData(t *testing.T) {
-	t.Helper()
-
-	// Clean up in reverse order of dependencies
-	testDB.Exec("DELETE FROM fees.transaction_warnings WHERE transaction_id IN (SELECT id FROM fees.bank_transactions WHERE payer_iban LIKE 'TEST%')")
-	testDB.Exec("DELETE FROM fees.payment_matches WHERE transaction_id IN (SELECT id FROM fees.bank_transactions WHERE payer_iban LIKE 'TEST%')")
-	testDB.Exec("DELETE FROM fees.bank_transactions WHERE payer_iban LIKE 'TEST%'")
-	testDB.Exec("DELETE FROM fees.known_ibans WHERE iban LIKE 'TEST%'")
-	testDB.Exec("DELETE FROM fees.fee_expectations WHERE child_id IN (SELECT id FROM fees.children WHERE member_number LIKE 'TEST%')")
-	testDB.Exec("DELETE FROM fees.child_parents WHERE child_id IN (SELECT id FROM fees.children WHERE member_number LIKE 'TEST%')")
-	testDB.Exec("DELETE FROM fees.children WHERE member_number LIKE 'TEST%'")
-}
-
-// createTestChild creates a child for testing
-func createTestChild(t *testing.T, childRepo repository.ChildRepository) *domain.Child {
-	t.Helper()
-
-	child := &domain.Child{
-		ID:           uuid.New(),
-		MemberNumber: "TEST" + time.Now().Format("150405"),
-		FirstName:    "Test",
-		LastName:     "Kind",
-		BirthDate:    time.Now().AddDate(-2, 0, 0), // 2 years old
-		EntryDate:    time.Now().AddDate(-1, 0, 0),
-		IsActive:     true,
-	}
-
-	err := childRepo.Create(context.Background(), child)
-	if err != nil {
-		t.Fatalf("Failed to create test child: %v", err)
-	}
-
-	return child
-}
-
-// createTestFee creates a fee expectation for testing
-func createTestFee(t *testing.T, feeRepo repository.FeeRepository, childID uuid.UUID, feeType domain.FeeType, amount float64) *domain.FeeExpectation {
-	t.Helper()
-
-	fee := &domain.FeeExpectation{
-		ID:        uuid.New(),
-		ChildID:   childID,
-		FeeType:   feeType,
-		Year:      time.Now().Year(),
-		Month:     intPtr(int(time.Now().Month())),
-		Amount:    amount,
-		DueDate:   time.Now().AddDate(0, 0, 5),
-		CreatedAt: time.Now(),
-	}
-
-	err := feeRepo.Create(context.Background(), fee)
-	if err != nil {
-		t.Fatalf("Failed to create test fee: %v", err)
-	}
-
-	return fee
-}
-
-func intPtr(i int) *int {
-	return &i
-}
-
-func stringPtr(s string) *string {
-	return &s
 }
 
 // TestImportService_BlacklistFiltering tests that blacklisted IBANs are filtered during import
 func TestImportService_BlacklistFiltering(t *testing.T) {
-	cleanupTestData(t)
-	defer cleanupTestData(t)
+	cleanupTestData()
+	defer cleanupTestData()
 
 	// Initialize repos
 	childRepo := repository.NewPostgresChildRepository(testDB)
@@ -154,8 +80,8 @@ Test;DE1234;BIC;Bank;02.01.2026;02.01.2026;Blocked Payer;TESTDE123456789012;BIC;
 
 // TestImportService_TrustedIBANOnMatch tests that IBANs are marked as trusted when matched
 func TestImportService_TrustedIBANOnMatch(t *testing.T) {
-	cleanupTestData(t)
-	defer cleanupTestData(t)
+	cleanupTestData()
+	defer cleanupTestData()
 
 	// Initialize repos
 	childRepo := repository.NewPostgresChildRepository(testDB)
@@ -165,24 +91,20 @@ func TestImportService_TrustedIBANOnMatch(t *testing.T) {
 	knownIBANRepo := repository.NewPostgresKnownIBANRepository(testDB)
 
 	// Create test data
-	child := createTestChild(t, childRepo)
-	fee := createTestFee(t, feeRepo, child.ID, domain.FeeTypeFood, 45.40)
+	child, err := createTestChild(childRepo, "TRUSTED")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fee, err := createTestFee(feeRepo, child.ID, domain.FeeTypeFood, 45.40, time.Now().Year(), int(time.Now().Month()))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Create a transaction
-	tx := &domain.BankTransaction{
-		ID:          uuid.New(),
-		BookingDate: time.Now(),
-		ValueDate:   time.Now(),
-		PayerName:   stringPtr("Test Payer"),
-		PayerIBAN:   stringPtr("TESTDE999888777666"),
-		Description: stringPtr(child.FirstName + " " + child.LastName + " " + child.MemberNumber),
-		Amount:      45.40,
-		Currency:    "EUR",
-		ImportedAt:  time.Now(),
-	}
-	err := txRepo.Create(context.Background(), tx)
+	tx, err := createTestTransaction(txRepo, "TESTDE999888777666", 45.40, time.Now(),
+		child.FirstName+" "+child.LastName+" "+child.MemberNumber)
 	if err != nil {
-		t.Fatalf("Failed to create test transaction: %v", err)
+		t.Fatal(err)
 	}
 
 	// Initialize service
@@ -209,8 +131,8 @@ func TestImportService_TrustedIBANOnMatch(t *testing.T) {
 
 // TestImportService_DismissTransaction tests dismissing a transaction and blacklisting IBAN
 func TestImportService_DismissTransaction(t *testing.T) {
-	cleanupTestData(t)
-	defer cleanupTestData(t)
+	cleanupTestData()
+	defer cleanupTestData()
 
 	// Initialize repos
 	childRepo := repository.NewPostgresChildRepository(testDB)
@@ -222,18 +144,8 @@ func TestImportService_DismissTransaction(t *testing.T) {
 	// Create multiple transactions with same IBAN
 	testIBAN := "TESTDE111222333444"
 	for i := 0; i < 3; i++ {
-		tx := &domain.BankTransaction{
-			ID:          uuid.New(),
-			BookingDate: time.Now().AddDate(0, 0, -i),
-			ValueDate:   time.Now().AddDate(0, 0, -i),
-			PayerName:   stringPtr("Unwanted Payer"),
-			PayerIBAN:   stringPtr(testIBAN),
-			Description: stringPtr("Random payment"),
-			Amount:      float64(100 + i*10),
-			Currency:    "EUR",
-			ImportedAt:  time.Now(),
-		}
-		err := txRepo.Create(context.Background(), tx)
+		_, err := createTestTransaction(txRepo, testIBAN, float64(100+i*10),
+			time.Now().AddDate(0, 0, -i), "Random payment")
 		if err != nil {
 			t.Fatalf("Failed to create test transaction %d: %v", i, err)
 		}
@@ -296,8 +208,8 @@ func TestImportService_DismissTransaction(t *testing.T) {
 
 // TestImportService_Rescan tests rescanning unmatched transactions
 func TestImportService_Rescan(t *testing.T) {
-	cleanupTestData(t)
-	defer cleanupTestData(t)
+	cleanupTestData()
+	defer cleanupTestData()
 
 	// Clean up any existing unmatched transactions first
 	testDB.Exec("DELETE FROM fees.bank_transactions WHERE id NOT IN (SELECT transaction_id FROM fees.payment_matches)")
@@ -310,23 +222,16 @@ func TestImportService_Rescan(t *testing.T) {
 	knownIBANRepo := repository.NewPostgresKnownIBANRepository(testDB)
 
 	// Create child
-	child := createTestChild(t, childRepo)
+	child, err := createTestChild(childRepo, "RESCAN")
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Create unmatched transaction (before fee exists)
-	tx := &domain.BankTransaction{
-		ID:          uuid.New(),
-		BookingDate: time.Now(),
-		ValueDate:   time.Now(),
-		PayerName:   stringPtr("Test Payer"),
-		PayerIBAN:   stringPtr("TESTDE555666777888"),
-		Description: stringPtr(child.FirstName + " " + child.LastName + " " + child.MemberNumber + " Essensgeld"),
-		Amount:      45.40,
-		Currency:    "EUR",
-		ImportedAt:  time.Now(),
-	}
-	err := txRepo.Create(context.Background(), tx)
+	_, err = createTestTransaction(txRepo, "TESTDE555666777888", 45.40, time.Now(),
+		child.FirstName+" "+child.LastName+" "+child.MemberNumber+" Essensgeld")
 	if err != nil {
-		t.Fatalf("Failed to create test transaction: %v", err)
+		t.Fatal(err)
 	}
 
 	// Initialize service
@@ -346,7 +251,10 @@ func TestImportService_Rescan(t *testing.T) {
 	}
 
 	// Now create the fee
-	createTestFee(t, feeRepo, child.ID, domain.FeeTypeFood, 45.40)
+	_, err = createTestFee(feeRepo, child.ID, domain.FeeTypeFood, 45.40, time.Now().Year(), int(time.Now().Month()))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Rescan after fee exists - should find match with expectation
 	result2, err := importService.Rescan(context.Background())
@@ -363,8 +271,8 @@ func TestImportService_Rescan(t *testing.T) {
 
 // TestImportService_RemoveFromBlacklist tests removing an IBAN from blacklist
 func TestImportService_RemoveFromBlacklist(t *testing.T) {
-	cleanupTestData(t)
-	defer cleanupTestData(t)
+	cleanupTestData()
+	defer cleanupTestData()
 
 	// Initialize repos
 	childRepo := repository.NewPostgresChildRepository(testDB)
@@ -406,8 +314,8 @@ func TestImportService_RemoveFromBlacklist(t *testing.T) {
 
 // TestImportService_LinkIBANToChild tests linking a trusted IBAN to a child
 func TestImportService_LinkIBANToChild(t *testing.T) {
-	cleanupTestData(t)
-	defer cleanupTestData(t)
+	cleanupTestData()
+	defer cleanupTestData()
 
 	// Initialize repos
 	childRepo := repository.NewPostgresChildRepository(testDB)
@@ -417,11 +325,14 @@ func TestImportService_LinkIBANToChild(t *testing.T) {
 	knownIBANRepo := repository.NewPostgresKnownIBANRepository(testDB)
 
 	// Create child
-	child := createTestChild(t, childRepo)
+	child, err := createTestChild(childRepo, "LINK")
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Add a trusted IBAN
 	trustedIBAN := "TESTDE777888999000"
-	err := knownIBANRepo.Create(context.Background(), &domain.KnownIBAN{
+	err = knownIBANRepo.Create(context.Background(), &domain.KnownIBAN{
 		IBAN:      trustedIBAN,
 		PayerName: stringPtr("Trusted Payer"),
 		Status:    domain.KnownIBANStatusTrusted,
@@ -468,8 +379,8 @@ func TestImportService_LinkIBANToChild(t *testing.T) {
 // TestImportService_OldestFeeMatchedFirst tests that when multiple unpaid fees exist,
 // the oldest one (by due_date) is matched first.
 func TestImportService_OldestFeeMatchedFirst(t *testing.T) {
-	cleanupTestData(t)
-	defer cleanupTestData(t)
+	cleanupTestData()
+	defer cleanupTestData()
 
 	// Initialize repos
 	childRepo := repository.NewPostgresChildRepository(testDB)
@@ -479,39 +390,38 @@ func TestImportService_OldestFeeMatchedFirst(t *testing.T) {
 	knownIBANRepo := repository.NewPostgresKnownIBANRepository(testDB)
 
 	// Create child
-	child := createTestChild(t, childRepo)
+	child, err := createTestChild(childRepo, "OLDEST")
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Create 3 unpaid food fees for different months (oldest first)
 	// January fee (oldest)
-	feeJan := createTestFeeWithDueDate(t, feeRepo, child.ID, domain.FeeTypeFood, 45.40,
-		time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC), // year/month
-		time.Date(2025, 1, 5, 0, 0, 0, 0, time.UTC)) // due date
+	feeJan, err := createTestFeeWithDueDate(feeRepo, child.ID, domain.FeeTypeFood, 45.40,
+		2025, 1, time.Date(2025, 1, 5, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// February fee
-	feeFeb := createTestFeeWithDueDate(t, feeRepo, child.ID, domain.FeeTypeFood, 45.40,
-		time.Date(2025, 2, 1, 0, 0, 0, 0, time.UTC),
-		time.Date(2025, 2, 5, 0, 0, 0, 0, time.UTC))
+	feeFeb, err := createTestFeeWithDueDate(feeRepo, child.ID, domain.FeeTypeFood, 45.40,
+		2025, 2, time.Date(2025, 2, 5, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// March fee (newest)
-	feeMar := createTestFeeWithDueDate(t, feeRepo, child.ID, domain.FeeTypeFood, 45.40,
-		time.Date(2025, 3, 1, 0, 0, 0, 0, time.UTC),
-		time.Date(2025, 3, 5, 0, 0, 0, 0, time.UTC))
+	feeMar, err := createTestFeeWithDueDate(feeRepo, child.ID, domain.FeeTypeFood, 45.40,
+		2025, 3, time.Date(2025, 3, 5, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Create transaction that should match oldest fee
-	tx := &domain.BankTransaction{
-		ID:          uuid.New(),
-		BookingDate: time.Now(),
-		ValueDate:   time.Now(),
-		PayerName:   stringPtr("Test Payer"),
-		PayerIBAN:   stringPtr("TESTDE123456789999"),
-		Description: stringPtr(child.FirstName + " " + child.LastName + " " + child.MemberNumber + " Essensgeld"),
-		Amount:      45.40,
-		Currency:    "EUR",
-		ImportedAt:  time.Now(),
-	}
-	err := txRepo.Create(context.Background(), tx)
+	tx, err := createTestTransaction(txRepo, "TESTDE123456789999", 45.40, time.Now(),
+		child.FirstName+" "+child.LastName+" "+child.MemberNumber+" Essensgeld")
 	if err != nil {
-		t.Fatalf("Failed to create test transaction: %v", err)
+		t.Fatal(err)
 	}
 
 	// Initialize service
@@ -554,20 +464,10 @@ func TestImportService_OldestFeeMatchedFirst(t *testing.T) {
 	}
 
 	// Create another transaction for the same amount
-	tx2 := &domain.BankTransaction{
-		ID:          uuid.New(),
-		BookingDate: time.Now(),
-		ValueDate:   time.Now(),
-		PayerName:   stringPtr("Test Payer"),
-		PayerIBAN:   stringPtr("TESTDE123456789998"),
-		Description: stringPtr(child.FirstName + " " + child.LastName + " " + child.MemberNumber + " Essensgeld"),
-		Amount:      45.40,
-		Currency:    "EUR",
-		ImportedAt:  time.Now(),
-	}
-	err = txRepo.Create(context.Background(), tx2)
+	_, err = createTestTransaction(txRepo, "TESTDE123456789998", 45.40, time.Now(),
+		child.FirstName+" "+child.LastName+" "+child.MemberNumber+" Essensgeld")
 	if err != nil {
-		t.Fatalf("Failed to create second test transaction: %v", err)
+		t.Fatal(err)
 	}
 
 	// Rescan again - should now match February (since January is paid)
@@ -595,35 +495,11 @@ func TestImportService_OldestFeeMatchedFirst(t *testing.T) {
 	_ = feeMar
 }
 
-// createTestFeeWithDueDate creates a fee expectation with specific year/month and due date.
-func createTestFeeWithDueDate(t *testing.T, feeRepo repository.FeeRepository, childID uuid.UUID, feeType domain.FeeType, amount float64, monthDate, dueDate time.Time) *domain.FeeExpectation {
-	t.Helper()
-
-	month := int(monthDate.Month())
-	fee := &domain.FeeExpectation{
-		ID:        uuid.New(),
-		ChildID:   childID,
-		FeeType:   feeType,
-		Year:      monthDate.Year(),
-		Month:     &month,
-		Amount:    amount,
-		DueDate:   dueDate,
-		CreatedAt: time.Now(),
-	}
-
-	err := feeRepo.Create(context.Background(), fee)
-	if err != nil {
-		t.Fatalf("Failed to create test fee: %v", err)
-	}
-
-	return fee
-}
-
 // TestImportService_OldestFeeMatchedFirst_DifferentAmounts tests that amount matching
 // still works correctly - a transaction should only match fees with the same amount.
 func TestImportService_OldestFeeMatchedFirst_DifferentAmounts(t *testing.T) {
-	cleanupTestData(t)
-	defer cleanupTestData(t)
+	cleanupTestData()
+	defer cleanupTestData()
 
 	// Initialize repos
 	childRepo := repository.NewPostgresChildRepository(testDB)
@@ -633,33 +509,30 @@ func TestImportService_OldestFeeMatchedFirst_DifferentAmounts(t *testing.T) {
 	knownIBANRepo := repository.NewPostgresKnownIBANRepository(testDB)
 
 	// Create child
-	child := createTestChild(t, childRepo)
+	child, err := createTestChild(childRepo, "DIFFAMT")
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Create an older childcare fee with different amount
-	createTestFeeWithDueDate(t, feeRepo, child.ID, domain.FeeTypeChildcare, 150.00,
-		time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
-		time.Date(2025, 1, 5, 0, 0, 0, 0, time.UTC))
+	_, err = createTestFeeWithDueDate(feeRepo, child.ID, domain.FeeTypeChildcare, 150.00,
+		2025, 1, time.Date(2025, 1, 5, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Create a newer food fee
-	feeFood := createTestFeeWithDueDate(t, feeRepo, child.ID, domain.FeeTypeFood, 45.40,
-		time.Date(2025, 2, 1, 0, 0, 0, 0, time.UTC),
-		time.Date(2025, 2, 5, 0, 0, 0, 0, time.UTC))
+	feeFood, err := createTestFeeWithDueDate(feeRepo, child.ID, domain.FeeTypeFood, 45.40,
+		2025, 2, time.Date(2025, 2, 5, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Create transaction for food fee amount (45.40)
-	tx := &domain.BankTransaction{
-		ID:          uuid.New(),
-		BookingDate: time.Now(),
-		ValueDate:   time.Now(),
-		PayerName:   stringPtr("Test Payer"),
-		PayerIBAN:   stringPtr("TESTDE987654321111"),
-		Description: stringPtr(child.FirstName + " " + child.LastName + " " + child.MemberNumber),
-		Amount:      45.40, // Food fee amount
-		Currency:    "EUR",
-		ImportedAt:  time.Now(),
-	}
-	err := txRepo.Create(context.Background(), tx)
+	_, err = createTestTransaction(txRepo, "TESTDE987654321111", 45.40, time.Now(),
+		child.FirstName+" "+child.LastName+" "+child.MemberNumber)
 	if err != nil {
-		t.Fatalf("Failed to create test transaction: %v", err)
+		t.Fatal(err)
 	}
 
 	// Initialize service
@@ -692,8 +565,8 @@ func TestImportService_OldestFeeMatchedFirst_DifferentAmounts(t *testing.T) {
 // TestImportService_CombinedFeeAndReminderMatch tests that a transaction amount of 55.40
 // (food fee 45.40 + reminder 10.00) correctly matches both fees.
 func TestImportService_CombinedFeeAndReminderMatch(t *testing.T) {
-	cleanupTestData(t)
-	defer cleanupTestData(t)
+	cleanupTestData()
+	defer cleanupTestData()
 
 	// Initialize repos
 	childRepo := repository.NewPostgresChildRepository(testDB)
@@ -703,12 +576,17 @@ func TestImportService_CombinedFeeAndReminderMatch(t *testing.T) {
 	knownIBANRepo := repository.NewPostgresKnownIBANRepository(testDB)
 
 	// Create child
-	child := createTestChild(t, childRepo)
+	child, err := createTestChild(childRepo, "COMBINED")
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Create a food fee
-	foodFee := createTestFeeWithDueDate(t, feeRepo, child.ID, domain.FeeTypeFood, 45.40,
-		time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
-		time.Date(2025, 1, 5, 0, 0, 0, 0, time.UTC))
+	foodFee, err := createTestFeeWithDueDate(feeRepo, child.ID, domain.FeeTypeFood, 45.40,
+		2025, 1, time.Date(2025, 1, 5, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Create a reminder fee linked to the food fee
 	reminderFee := &domain.FeeExpectation{
@@ -722,26 +600,16 @@ func TestImportService_CombinedFeeAndReminderMatch(t *testing.T) {
 		CreatedAt:     time.Now(),
 		ReminderForID: &foodFee.ID,
 	}
-	err := feeRepo.Create(context.Background(), reminderFee)
+	err = feeRepo.Create(context.Background(), reminderFee)
 	if err != nil {
 		t.Fatalf("Failed to create reminder fee: %v", err)
 	}
 
 	// Create transaction for combined amount (45.40 + 10.00 = 55.40)
-	tx := &domain.BankTransaction{
-		ID:          uuid.New(),
-		BookingDate: time.Now(),
-		ValueDate:   time.Now(),
-		PayerName:   stringPtr("Test Payer"),
-		PayerIBAN:   stringPtr("TESTDE555666777888"),
-		Description: stringPtr(child.FirstName + " " + child.LastName + " " + child.MemberNumber + " Essensgeld inkl Mahnung"),
-		Amount:      55.40, // Combined: food (45.40) + reminder (10.00)
-		Currency:    "EUR",
-		ImportedAt:  time.Now(),
-	}
-	err = txRepo.Create(context.Background(), tx)
+	_, err = createTestTransaction(txRepo, "TESTDE555666777888", 55.40, time.Now(),
+		child.FirstName+" "+child.LastName+" "+child.MemberNumber+" Essensgeld inkl Mahnung")
 	if err != nil {
-		t.Fatalf("Failed to create test transaction: %v", err)
+		t.Fatal(err)
 	}
 
 	// Initialize service
@@ -799,8 +667,8 @@ func TestImportService_CombinedFeeAndReminderMatch(t *testing.T) {
 // TestImportService_CombinedMatch_PreferExactMatch tests that exact amount matches
 // are preferred over combined matches when both are possible.
 func TestImportService_CombinedMatch_PreferExactMatch(t *testing.T) {
-	cleanupTestData(t)
-	defer cleanupTestData(t)
+	cleanupTestData()
+	defer cleanupTestData()
 
 	// Initialize repos
 	childRepo := repository.NewPostgresChildRepository(testDB)
@@ -810,28 +678,23 @@ func TestImportService_CombinedMatch_PreferExactMatch(t *testing.T) {
 	knownIBANRepo := repository.NewPostgresKnownIBANRepository(testDB)
 
 	// Create child
-	child := createTestChild(t, childRepo)
+	child, err := createTestChild(childRepo, "EXACT")
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Create a food fee for 45.40
-	foodFee := createTestFeeWithDueDate(t, feeRepo, child.ID, domain.FeeTypeFood, 45.40,
-		time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
-		time.Date(2025, 1, 5, 0, 0, 0, 0, time.UTC))
+	foodFee, err := createTestFeeWithDueDate(feeRepo, child.ID, domain.FeeTypeFood, 45.40,
+		2025, 1, time.Date(2025, 1, 5, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Create transaction for exact amount (45.40)
-	tx := &domain.BankTransaction{
-		ID:          uuid.New(),
-		BookingDate: time.Now(),
-		ValueDate:   time.Now(),
-		PayerName:   stringPtr("Test Payer"),
-		PayerIBAN:   stringPtr("TESTDE111222333444"),
-		Description: stringPtr(child.FirstName + " " + child.LastName + " " + child.MemberNumber),
-		Amount:      45.40, // Exact match
-		Currency:    "EUR",
-		ImportedAt:  time.Now(),
-	}
-	err := txRepo.Create(context.Background(), tx)
+	_, err = createTestTransaction(txRepo, "TESTDE111222333444", 45.40, time.Now(),
+		child.FirstName+" "+child.LastName+" "+child.MemberNumber)
 	if err != nil {
-		t.Fatalf("Failed to create test transaction: %v", err)
+		t.Fatal(err)
 	}
 
 	// Initialize service
@@ -872,8 +735,8 @@ func TestImportService_CombinedMatch_PreferExactMatch(t *testing.T) {
 // but the transaction only covers the original fee amount, only the fee is matched
 // and the reminder remains unpaid.
 func TestImportService_PartialPayment_FeeOnlyNotReminder(t *testing.T) {
-	cleanupTestData(t)
-	defer cleanupTestData(t)
+	cleanupTestData()
+	defer cleanupTestData()
 
 	// Initialize repos
 	childRepo := repository.NewPostgresChildRepository(testDB)
@@ -883,12 +746,17 @@ func TestImportService_PartialPayment_FeeOnlyNotReminder(t *testing.T) {
 	knownIBANRepo := repository.NewPostgresKnownIBANRepository(testDB)
 
 	// Create child
-	child := createTestChild(t, childRepo)
+	child, err := createTestChild(childRepo, "PARTIAL")
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Create a food fee
-	foodFee := createTestFeeWithDueDate(t, feeRepo, child.ID, domain.FeeTypeFood, 45.40,
-		time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
-		time.Date(2025, 1, 5, 0, 0, 0, 0, time.UTC))
+	foodFee, err := createTestFeeWithDueDate(feeRepo, child.ID, domain.FeeTypeFood, 45.40,
+		2025, 1, time.Date(2025, 1, 5, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Create a reminder fee linked to the food fee
 	reminderFee := &domain.FeeExpectation{
@@ -902,26 +770,16 @@ func TestImportService_PartialPayment_FeeOnlyNotReminder(t *testing.T) {
 		CreatedAt:     time.Now(),
 		ReminderForID: &foodFee.ID,
 	}
-	err := feeRepo.Create(context.Background(), reminderFee)
+	err = feeRepo.Create(context.Background(), reminderFee)
 	if err != nil {
 		t.Fatalf("Failed to create reminder fee: %v", err)
 	}
 
 	// Create transaction for ONLY the food fee amount (45.40), not the combined amount
-	tx := &domain.BankTransaction{
-		ID:          uuid.New(),
-		BookingDate: time.Now(),
-		ValueDate:   time.Now(),
-		PayerName:   stringPtr("Test Payer"),
-		PayerIBAN:   stringPtr("TESTDE999888777666"),
-		Description: stringPtr(child.FirstName + " " + child.LastName + " " + child.MemberNumber + " Essensgeld"),
-		Amount:      45.40, // Only the food fee, not including reminder
-		Currency:    "EUR",
-		ImportedAt:  time.Now(),
-	}
-	err = txRepo.Create(context.Background(), tx)
+	tx, err := createTestTransaction(txRepo, "TESTDE999888777666", 45.40, time.Now(),
+		child.FirstName+" "+child.LastName+" "+child.MemberNumber+" Essensgeld")
 	if err != nil {
-		t.Fatalf("Failed to create test transaction: %v", err)
+		t.Fatal(err)
 	}
 
 	// Initialize service
@@ -966,20 +824,10 @@ func TestImportService_PartialPayment_FeeOnlyNotReminder(t *testing.T) {
 	}
 
 	// Verify reminder is still unpaid by checking if it would match a new 10 EUR transaction
-	tx2 := &domain.BankTransaction{
-		ID:          uuid.New(),
-		BookingDate: time.Now(),
-		ValueDate:   time.Now(),
-		PayerName:   stringPtr("Test Payer"),
-		PayerIBAN:   stringPtr("TESTDE999888777665"),
-		Description: stringPtr(child.FirstName + " " + child.LastName + " " + child.MemberNumber + " Mahnung"),
-		Amount:      10.00, // Reminder amount
-		Currency:    "EUR",
-		ImportedAt:  time.Now(),
-	}
-	err = txRepo.Create(context.Background(), tx2)
+	_, err = createTestTransaction(txRepo, "TESTDE999888777665", 10.00, time.Now(),
+		child.FirstName+" "+child.LastName+" "+child.MemberNumber+" Mahnung")
 	if err != nil {
-		t.Fatalf("Failed to create second test transaction: %v", err)
+		t.Fatal(err)
 	}
 
 	// Rescan again
@@ -1010,8 +858,8 @@ func TestImportService_PartialPayment_FeeOnlyNotReminder(t *testing.T) {
 
 // TestImportService_GetBlacklistAndTrusted tests listing blacklisted and trusted IBANs
 func TestImportService_GetBlacklistAndTrusted(t *testing.T) {
-	cleanupTestData(t)
-	defer cleanupTestData(t)
+	cleanupTestData()
+	defer cleanupTestData()
 
 	// Initialize repos
 	childRepo := repository.NewPostgresChildRepository(testDB)
@@ -1078,8 +926,8 @@ func TestImportService_GetBlacklistAndTrusted(t *testing.T) {
 
 // TestWarningFromTrustedIBAN tests warning generation for trusted IBANs with no matching fee.
 func TestWarningFromTrustedIBAN(t *testing.T) {
-	cleanupTestData(t)
-	defer cleanupTestData(t)
+	cleanupTestData()
+	defer cleanupTestData()
 
 	// Create repositories
 	txRepo := repository.NewPostgresTransactionRepository(testDB)
@@ -1090,7 +938,10 @@ func TestWarningFromTrustedIBAN(t *testing.T) {
 	warningRepo := repository.NewPostgresWarningRepository(testDB)
 
 	// Create a test child
-	child := createTestChild(t, childRepo)
+	child, err := createTestChild(childRepo, "WARN")
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Create a trusted IBAN linked to the child
 	trustedIBAN := &domain.KnownIBAN{
@@ -1100,7 +951,7 @@ func TestWarningFromTrustedIBAN(t *testing.T) {
 		ChildID:   &child.ID,
 		Reason:    stringPtr("Test trusted IBAN"),
 	}
-	err := knownIBANRepo.Create(context.Background(), trustedIBAN)
+	err = knownIBANRepo.Create(context.Background(), trustedIBAN)
 	if err != nil {
 		t.Fatalf("Failed to create trusted IBAN: %v", err)
 	}
@@ -1108,20 +959,10 @@ func TestWarningFromTrustedIBAN(t *testing.T) {
 	// Don't create any fee - so we should get a warning
 
 	// Create a transaction from the trusted IBAN directly (no open fee for child)
-	tx := &domain.BankTransaction{
-		ID:          uuid.New(),
-		BookingDate: time.Now(),
-		ValueDate:   time.Now(),
-		PayerName:   stringPtr("Test Parent"),
-		PayerIBAN:   stringPtr(trustedIBAN.IBAN),
-		Description: stringPtr(child.FirstName + " " + child.LastName + " Essensgeld"),
-		Amount:      45.40,
-		Currency:    "EUR",
-		ImportedAt:  time.Now(),
-	}
-	err = txRepo.Create(context.Background(), tx)
+	tx, err := createTestTransaction(txRepo, trustedIBAN.IBAN, 45.40, time.Now(),
+		child.FirstName+" "+child.LastName+" Essensgeld")
 	if err != nil {
-		t.Fatalf("Failed to create test transaction: %v", err)
+		t.Fatal(err)
 	}
 
 	// Initialize service with warning repo
@@ -1189,8 +1030,8 @@ func TestWarningFromTrustedIBAN(t *testing.T) {
 
 // TestWarningAutoResolveOnMatch tests that warnings are auto-resolved when a transaction is matched.
 func TestWarningAutoResolveOnMatch(t *testing.T) {
-	cleanupTestData(t)
-	defer cleanupTestData(t)
+	cleanupTestData()
+	defer cleanupTestData()
 
 	// Create repositories
 	txRepo := repository.NewPostgresTransactionRepository(testDB)
@@ -1201,7 +1042,10 @@ func TestWarningAutoResolveOnMatch(t *testing.T) {
 	warningRepo := repository.NewPostgresWarningRepository(testDB)
 
 	// Create a test child
-	child := createTestChild(t, childRepo)
+	child, err := createTestChild(childRepo, "AUTORES")
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	// Create a trusted IBAN linked to the child
 	trustedIBAN := &domain.KnownIBAN{
@@ -1211,26 +1055,18 @@ func TestWarningAutoResolveOnMatch(t *testing.T) {
 		ChildID:   &child.ID,
 		Reason:    stringPtr("Test trusted IBAN 2"),
 	}
-	err := knownIBANRepo.Create(context.Background(), trustedIBAN)
+	err = knownIBANRepo.Create(context.Background(), trustedIBAN)
 	if err != nil {
 		t.Fatalf("Failed to create trusted IBAN: %v", err)
 	}
 
-	// Create a transaction (simulating import without matching fee)
-	tx := &domain.BankTransaction{
-		ID:          uuid.New(),
-		BookingDate: time.Now(),
-		ValueDate:   time.Now(),
-		PayerName:   stringPtr("Test Parent 2"),
-		PayerIBAN:   stringPtr(trustedIBAN.IBAN),
-		Description: stringPtr(child.FirstName + " " + child.LastName + " Essensgeld"),
-		Amount:      45.40,
-		Currency:    "EUR",
-		ImportedAt:  time.Now(),
-	}
-	err = txRepo.Create(context.Background(), tx)
+	// Create a transaction on Jan 10, 2025 (before the fee's 15th deadline - NOT late)
+	// This ensures the auto-resolve test doesn't create a late payment warning
+	paymentDate := time.Date(2025, 1, 10, 0, 0, 0, 0, time.UTC)
+	tx, err := createTestTransaction(txRepo, trustedIBAN.IBAN, 45.40, paymentDate,
+		child.FirstName+" "+child.LastName+" Essensgeld")
 	if err != nil {
-		t.Fatalf("Failed to create test transaction: %v", err)
+		t.Fatal(err)
 	}
 
 	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, warningRepo)
@@ -1284,7 +1120,8 @@ func TestWarningAutoResolveOnMatch(t *testing.T) {
 		t.Fatalf("CreateManualMatch failed: %v", err)
 	}
 
-	// Verify warning is now auto-resolved
+	// Verify warning is now auto-resolved (and no new late payment warning was created
+	// since the payment was on Jan 10 which is before the Jan 15 deadline)
 	_, resolvedTotal, err := importService.GetWarnings(context.Background(), 0, 100)
 	if err != nil {
 		t.Fatalf("GetWarnings failed: %v", err)

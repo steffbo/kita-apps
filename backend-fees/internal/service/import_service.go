@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -11,6 +12,23 @@ import (
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/csvparser"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/repository"
+)
+
+const (
+	// Fee combination amounts
+	foodWithReminderAmount       = domain.FoodFeeAmount + domain.ReminderFeeAmount             // 55.40
+	membershipWithReminderAmount = domain.MembershipFeeAmount + domain.MembershipReminderFeeAmount // 35.00
+
+	// Late payment threshold: 15th day of the month
+	latePaymentDayThreshold = 15
+
+	// Confidence thresholds
+	autoMatchConfidenceThreshold = 0.95
+	memberNumberConfidence       = 0.95
+	confidenceBoostCombined      = 0.02
+	confidenceBoostNameMatch     = 0.05
+	maxConfidenceNameMatch       = 0.93
+	maxConfidenceCombined        = 0.99
 )
 
 // ImportService handles CSV import and matching logic.
@@ -70,6 +88,7 @@ type ConfirmResult struct {
 // RescanResult represents the result of rescanning unmatched transactions.
 type RescanResult struct {
 	Scanned     int                      `json:"scanned"`
+	AutoMatched int                      `json:"autoMatched"`
 	Suggestions []domain.MatchSuggestion `json:"suggestions"`
 }
 
@@ -94,6 +113,12 @@ func (s *ImportService) ProcessCSV(ctx context.Context, file io.Reader, fileName
 		TotalRows: len(transactions),
 	}
 
+	// Create batch record first (so we have the metadata stored)
+	if err := s.transactionRepo.CreateBatch(ctx, batchID, fileName, userID); err != nil {
+		// Log but don't fail - we can still process without batch metadata
+		// In production, you might want to handle this differently
+	}
+
 	// Get blacklisted IBANs for efficient filtering
 	blacklistedIBANs, err := s.knownIBANRepo.GetBlacklistedIBANs(ctx)
 	if err != nil {
@@ -103,6 +128,7 @@ func (s *ImportService) ProcessCSV(ctx context.Context, file io.Reader, fileName
 
 	// Get all children for matching
 	children, _, _ := s.childRepo.List(ctx, true, false, false, "", "", "", 0, 1000)
+	s.enrichChildrenWithParents(ctx, children)
 
 	// Process each transaction
 	for _, tx := range transactions {
@@ -163,74 +189,20 @@ func (s *ImportService) matchTransaction(ctx context.Context, tx domain.BankTran
 	}
 
 	// Detect fee type from amount
-	// Note: Combined amounts (fee + reminder) are handled separately below
-	switch tx.Amount {
-	case domain.FoodFeeAmount:
-		feeType := domain.FeeTypeFood
-		suggestion.DetectedType = &feeType
-	case domain.MembershipFeeAmount:
-		feeType := domain.FeeTypeMembership
-		suggestion.DetectedType = &feeType
-	case domain.FoodFeeAmount + domain.ReminderFeeAmount: // 55.40 = food + reminder
-		feeType := domain.FeeTypeFood
-		suggestion.DetectedType = &feeType
-	case domain.MembershipFeeAmount + domain.ReminderFeeAmount: // 40.00 = membership + reminder
-		feeType := domain.FeeTypeMembership
-		suggestion.DetectedType = &feeType
-	default:
-		// Could be childcare fee (or childcare + reminder)
-		feeType := domain.FeeTypeChildcare
-		suggestion.DetectedType = &feeType
-	}
+	suggestion.DetectedType = s.detectFeeType(tx.Amount)
 
-	description := ""
-	if tx.Description != nil {
-		description = *tx.Description
-	}
+	// Match child by member number, name, or parent name
+	matchText := buildMatchText(tx)
+	s.matchChild(matchText, children, suggestion)
 
-	// Try to match by member number
-	memberNumber := csvparser.ExtractMemberNumber(description)
-	if memberNumber != "" {
-		for i := range children {
-			if children[i].MemberNumber == memberNumber {
-				suggestion.Child = &children[i]
-				suggestion.MatchedBy = "member_number"
-				suggestion.Confidence = 0.95
-				break
-			}
-		}
-	}
-
-	// If no match by member number, try by name
-	if suggestion.Child == nil {
-		matchedChild, confidence := csvparser.MatchChildByName(description, children)
-		if matchedChild != nil {
-			suggestion.Child = matchedChild
-			suggestion.MatchedBy = "name"
-			suggestion.Confidence = confidence
-		}
-	}
-
-	// If we found a child, try to find the corresponding fee expectation
+	// Find the corresponding fee expectation
 	if suggestion.Child != nil && suggestion.DetectedType != nil {
-		// First try exact amount match (oldest unpaid)
-		fee, err := s.feeRepo.FindOldestUnpaid(ctx, suggestion.Child.ID, *suggestion.DetectedType, tx.Amount)
-		if err == nil && fee != nil {
-			suggestion.Expectation = fee
-		} else {
-			// No exact match found - try combined fee + reminder match
-			// This handles cases like 55.40 EUR = 45.40 food + 10.00 reminder
-			fees, err := s.feeRepo.FindOldestUnpaidWithReminder(ctx, suggestion.Child.ID, *suggestion.DetectedType, tx.Amount)
-			if err == nil && len(fees) == 2 {
-				suggestion.Expectations = fees
-				suggestion.Expectation = &fees[0] // Primary fee for backward compatibility
-				suggestion.MatchedBy = "combined"
-				// Boost confidence slightly for combined matches since amount is precise
-				if suggestion.Confidence > 0 {
-					suggestion.Confidence = min(suggestion.Confidence+0.02, 0.99)
-				}
-			}
-		}
+		s.matchFeeExpectation(ctx, tx, suggestion)
+	}
+
+	// Boost confidence for name-based matches with fee expectations
+	if suggestion.Expectation != nil && (suggestion.MatchedBy == "name" || suggestion.MatchedBy == "parent_name") {
+		suggestion.Confidence = min(suggestion.Confidence+confidenceBoostNameMatch, maxConfidenceNameMatch)
 	}
 
 	// Only return if we have some confidence
@@ -239,6 +211,112 @@ func (s *ImportService) matchTransaction(ctx context.Context, tx domain.BankTran
 	}
 
 	return nil
+}
+
+func (s *ImportService) detectFeeType(amount float64) *domain.FeeType {
+	switch amount {
+	case domain.FoodFeeAmount:
+		feeType := domain.FeeTypeFood
+		return &feeType
+	case domain.MembershipFeeAmount:
+		feeType := domain.FeeTypeMembership
+		return &feeType
+	case foodWithReminderAmount:
+		feeType := domain.FeeTypeFood
+		return &feeType
+	case membershipWithReminderAmount:
+		feeType := domain.FeeTypeMembership
+		return &feeType
+	default:
+		feeType := domain.FeeTypeChildcare
+		return &feeType
+	}
+}
+
+func (s *ImportService) matchChild(matchText string, children []domain.Child, suggestion *domain.MatchSuggestion) {
+	// Try to match by member number first
+	memberNumber := csvparser.ExtractMemberNumber(matchText)
+	if memberNumber != "" {
+		for i := range children {
+			if children[i].MemberNumber == memberNumber {
+				suggestion.Child = &children[i]
+				suggestion.MatchedBy = "member_number"
+				suggestion.Confidence = memberNumberConfidence
+				return
+			}
+		}
+	}
+
+	// Try by child name
+	matchedChild, confidence := csvparser.MatchChildByName(matchText, children)
+	if matchedChild != nil {
+		suggestion.Child = matchedChild
+		suggestion.MatchedBy = "name"
+		suggestion.Confidence = confidence
+		return
+	}
+
+	// Try by parent name
+	matchedChild, confidence = csvparser.MatchChildByParentName(matchText, children)
+	if matchedChild != nil {
+		suggestion.Child = matchedChild
+		suggestion.MatchedBy = "parent_name"
+		suggestion.Confidence = confidence
+	}
+}
+
+func (s *ImportService) matchFeeExpectation(ctx context.Context, tx domain.BankTransaction, suggestion *domain.MatchSuggestion) {
+	// First try exact amount match - prefer fee for same month as payment date
+	fee, err := s.feeRepo.FindBestUnpaid(ctx, suggestion.Child.ID, *suggestion.DetectedType, tx.Amount, tx.BookingDate)
+	if err == nil && fee != nil {
+		suggestion.Expectation = fee
+		return
+	}
+
+	// No exact match found - try combined fee + reminder match
+	fees, err := s.feeRepo.FindOldestUnpaidWithReminder(ctx, suggestion.Child.ID, *suggestion.DetectedType, tx.Amount)
+	if err == nil && len(fees) == 2 {
+		suggestion.Expectations = fees
+		suggestion.Expectation = &fees[0]
+		suggestion.MatchedBy = "combined"
+		// Boost confidence slightly for combined matches since amount is precise
+		if suggestion.Confidence > 0 {
+			suggestion.Confidence = min(suggestion.Confidence+confidenceBoostCombined, maxConfidenceCombined)
+		}
+	}
+}
+
+func (s *ImportService) enrichChildrenWithParents(ctx context.Context, children []domain.Child) {
+	if len(children) == 0 {
+		return
+	}
+
+	childIDs := make([]uuid.UUID, len(children))
+	for i := range children {
+		childIDs[i] = children[i].ID
+	}
+
+	parentsMap, err := s.childRepo.GetParentsForChildren(ctx, childIDs)
+	if err != nil {
+		return
+	}
+
+	for i := range children {
+		if parents, ok := parentsMap[children[i].ID]; ok {
+			children[i].Parents = parents
+		}
+	}
+}
+
+func buildMatchText(tx domain.BankTransaction) string {
+	var parts []string
+	if tx.PayerName != nil && strings.TrimSpace(*tx.PayerName) != "" {
+		parts = append(parts, *tx.PayerName)
+	}
+	if tx.Description != nil && strings.TrimSpace(*tx.Description) != "" {
+		parts = append(parts, *tx.Description)
+	}
+	return strings.Join(parts, " ")
 }
 
 // checkForWarning checks if an unmatched transaction from a trusted IBAN should generate a warning.
@@ -367,13 +445,7 @@ func (s *ImportService) ConfirmMatches(ctx context.Context, matches []MatchConfi
 		}
 		result.Confirmed++
 
-		// Mark IBAN as trusted when match is confirmed
-		s.markIBANAsTrusted(ctx, m.TransactionID)
-
-		// Auto-resolve any warning for this transaction
-		if s.warningRepo != nil {
-			s.warningRepo.ResolveByTransactionID(ctx, m.TransactionID, domain.ResolutionTypeMatched, "Auto-resolved: Zahlung wurde zugeordnet")
-		}
+		s.postMatchActions(ctx, m.TransactionID, m.ExpectationID, "Auto-resolved: Zahlung wurde zugeordnet")
 	}
 
 	return result, nil
@@ -443,18 +515,13 @@ func (s *ImportService) CreateManualMatch(ctx context.Context, transactionID, ex
 		return nil, err
 	}
 
-	// Mark IBAN as trusted
-	s.markIBANAsTrusted(ctx, transactionID)
-
-	// Auto-resolve any warning for this transaction
-	if s.warningRepo != nil {
-		s.warningRepo.ResolveByTransactionID(ctx, transactionID, domain.ResolutionTypeMatched, "Auto-resolved: Zahlung wurde manuell zugeordnet")
-	}
+	s.postMatchActions(ctx, transactionID, expectationID, "Auto-resolved: Zahlung wurde manuell zugeordnet")
 
 	return match, nil
 }
 
 // Rescan re-scans all unmatched transactions for potential matches.
+// High-confidence matches (95%+) are automatically confirmed.
 func (s *ImportService) Rescan(ctx context.Context) (*RescanResult, error) {
 	result := &RescanResult{}
 
@@ -466,17 +533,87 @@ func (s *ImportService) Rescan(ctx context.Context) (*RescanResult, error) {
 
 	// Get all children for matching
 	children, _, _ := s.childRepo.List(ctx, true, false, false, "", "", "", 0, 1000)
+	s.enrichChildrenWithParents(ctx, children)
 
 	// Re-scan each transaction
 	for _, tx := range transactions {
 		result.Scanned++
 		suggestion := s.matchTransaction(ctx, tx, children)
-		if suggestion != nil {
-			result.Suggestions = append(result.Suggestions, *suggestion)
+		if suggestion == nil {
+			continue
 		}
+
+		// High confidence with matching fee expectation(s) -> auto-confirm
+		if suggestion.Confidence >= autoMatchConfidenceThreshold && (suggestion.Expectation != nil || len(suggestion.Expectations) > 0) {
+			autoMatched := s.autoConfirmMatch(ctx, suggestion)
+			if autoMatched {
+				result.AutoMatched++
+				continue
+			}
+		}
+
+		// Lower confidence or no auto-match -> add to suggestions for manual review
+		result.Suggestions = append(result.Suggestions, *suggestion)
 	}
 
 	return result, nil
+}
+
+// autoConfirmMatch automatically confirms a high-confidence match.
+// Returns true if the match was successfully confirmed.
+func (s *ImportService) autoConfirmMatch(ctx context.Context, suggestion *domain.MatchSuggestion) bool {
+	// Handle combined matches (fee + reminder)
+	if len(suggestion.Expectations) > 0 {
+		for _, fee := range suggestion.Expectations {
+			match := &domain.PaymentMatch{
+				ID:            uuid.New(),
+				TransactionID: suggestion.Transaction.ID,
+				ExpectationID: fee.ID,
+				MatchType:     domain.MatchTypeAuto,
+				Confidence:    &suggestion.Confidence,
+				MatchedAt:     time.Now(),
+				MatchedBy:     nil,
+			}
+			if err := s.matchRepo.Create(ctx, match); err != nil {
+				return false
+			}
+		}
+		s.postMatchActions(ctx, suggestion.Transaction.ID, uuid.Nil, "Auto-matched: Hohe Übereinstimmung (95%+)")
+		return true
+	}
+
+	// Single fee match
+	if suggestion.Expectation != nil {
+		match := &domain.PaymentMatch{
+			ID:            uuid.New(),
+			TransactionID: suggestion.Transaction.ID,
+			ExpectationID: suggestion.Expectation.ID,
+			MatchType:     domain.MatchTypeAuto,
+			Confidence:    &suggestion.Confidence,
+			MatchedAt:     time.Now(),
+			MatchedBy:     nil,
+		}
+		if err := s.matchRepo.Create(ctx, match); err != nil {
+			return false
+		}
+		s.postMatchActions(ctx, suggestion.Transaction.ID, suggestion.Expectation.ID, "Auto-matched: Hohe Übereinstimmung (95%+)")
+		return true
+	}
+
+	return false
+}
+
+// postMatchActions performs common actions after a match is created.
+func (s *ImportService) postMatchActions(ctx context.Context, transactionID, feeID uuid.UUID, warningResolutionNote string) {
+	s.markIBANAsTrusted(ctx, transactionID)
+
+	if s.warningRepo != nil {
+		s.warningRepo.ResolveByTransactionID(ctx, transactionID, domain.ResolutionTypeMatched, warningResolutionNote)
+	}
+
+	if feeID != uuid.Nil {
+		s.checkLatePaymentAndCreateWarning(ctx, transactionID, feeID)
+	}
 }
 
 // DismissTransaction dismisses a transaction and blacklists its IBAN.
@@ -574,12 +711,97 @@ func (s *ImportService) GetTrustedIBANs(ctx context.Context, offset, limit int) 
 	return s.knownIBANRepo.ListByStatus(ctx, domain.KnownIBANStatusTrusted, offset, limit)
 }
 
-// GetWarnings returns all unresolved transaction warnings.
+// GetWarnings returns all unresolved transaction warnings with related entities.
 func (s *ImportService) GetWarnings(ctx context.Context, offset, limit int) ([]domain.TransactionWarning, int64, error) {
 	if s.warningRepo == nil {
 		return nil, 0, nil
 	}
-	return s.warningRepo.ListUnresolved(ctx, offset, limit)
+
+	warnings, total, err := s.warningRepo.ListUnresolved(ctx, offset, limit)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Collect all IDs for batch loading
+	transactionIDs := make([]uuid.UUID, 0, len(warnings))
+	childIDs := make([]uuid.UUID, 0, len(warnings))
+	feeIDs := make([]uuid.UUID, 0, len(warnings))
+
+	for _, w := range warnings {
+		transactionIDs = append(transactionIDs, w.TransactionID)
+		if w.ChildID != nil {
+			childIDs = append(childIDs, *w.ChildID)
+		}
+		if w.MatchedFeeID != nil {
+			feeIDs = append(feeIDs, *w.MatchedFeeID)
+		}
+	}
+
+	// Batch load all related entities (3 queries instead of N*3)
+	transactionsMap, err := s.transactionRepo.GetByIDs(ctx, transactionIDs)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	childrenMap, err := s.childRepo.GetByIDs(ctx, childIDs)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	feesMap, err := s.feeRepo.GetByIDs(ctx, feeIDs)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Collect additional child IDs from fees (for warnings without direct child link)
+	additionalChildIDs := make([]uuid.UUID, 0)
+	for _, w := range warnings {
+		if w.ChildID == nil && w.MatchedFeeID != nil {
+			if fee, ok := feesMap[*w.MatchedFeeID]; ok && fee.ChildID != uuid.Nil {
+				if _, exists := childrenMap[fee.ChildID]; !exists {
+					additionalChildIDs = append(additionalChildIDs, fee.ChildID)
+				}
+			}
+		}
+	}
+
+	// Load additional children if needed
+	if len(additionalChildIDs) > 0 {
+		additionalChildren, err := s.childRepo.GetByIDs(ctx, additionalChildIDs)
+		if err != nil {
+			return nil, 0, err
+		}
+		for id, child := range additionalChildren {
+			childrenMap[id] = child
+		}
+	}
+
+	// Enrich warnings with loaded entities
+	for i := range warnings {
+		if tx, ok := transactionsMap[warnings[i].TransactionID]; ok {
+			warnings[i].Transaction = tx
+		}
+
+		if warnings[i].ChildID != nil {
+			if child, ok := childrenMap[*warnings[i].ChildID]; ok {
+				warnings[i].Child = child
+			}
+		}
+
+		if warnings[i].MatchedFeeID != nil {
+			if fee, ok := feesMap[*warnings[i].MatchedFeeID]; ok {
+				warnings[i].MatchedFee = fee
+				// Also set child from fee if not already set
+				if warnings[i].Child == nil && fee.ChildID != uuid.Nil {
+					if child, ok := childrenMap[fee.ChildID]; ok {
+						warnings[i].Child = child
+					}
+				}
+			}
+		}
+	}
+
+	return warnings, total, nil
 }
 
 // GetWarningByID returns a warning by its ID.
@@ -600,4 +822,166 @@ func (s *ImportService) DismissWarning(ctx context.Context, id uuid.UUID, userID
 
 func stringPtr(s string) *string {
 	return &s
+}
+
+// isLatePayment checks if a payment is late based on the fee's month and payment date.
+// Returns true if the payment is late.
+func isLatePayment(fee *domain.FeeExpectation, paymentDate time.Time) bool {
+	// Only monthly fees (CHILDCARE, FOOD) can be late - not MEMBERSHIP
+	if fee.FeeType == domain.FeeTypeMembership || fee.FeeType == domain.FeeTypeReminder {
+		return false
+	}
+
+	// Fee must have a month (monthly fees)
+	if fee.Month == nil {
+		return false
+	}
+
+	feeMonth := *fee.Month
+	feeYear := fee.Year
+
+	deadline := time.Date(feeYear, time.Month(feeMonth), latePaymentDayThreshold, 23, 59, 59, 0, time.UTC)
+
+	// Payment is late if it's after the deadline
+	return paymentDate.After(deadline)
+}
+
+// checkLatePaymentAndCreateWarning checks if a match is late and creates a warning if so.
+func (s *ImportService) checkLatePaymentAndCreateWarning(ctx context.Context, transactionID, feeID uuid.UUID) error {
+	if s.warningRepo == nil {
+		return nil
+	}
+
+	// Get the transaction
+	tx, err := s.transactionRepo.GetByID(ctx, transactionID)
+	if err != nil {
+		return nil // Don't fail the match, just skip warning
+	}
+
+	// Get the fee
+	fee, err := s.feeRepo.GetByID(ctx, feeID)
+	if err != nil {
+		return nil
+	}
+
+	// Check if late
+	if !isLatePayment(fee, tx.BookingDate) {
+		return nil
+	}
+
+	// Create LATE_PAYMENT warning
+	warning := &domain.TransactionWarning{
+		ID:            uuid.New(),
+		TransactionID: tx.ID,
+		WarningType:   domain.WarningTypeLatePayment,
+		Message:       fmt.Sprintf("Zahlung nach dem 15. des Monats (%s %d)", time.Month(*fee.Month).String(), fee.Year),
+		ActualAmount:  &tx.Amount,
+		ChildID:       &fee.ChildID,
+		MatchedFeeID:  &fee.ID,
+		CreatedAt:     time.Now(),
+	}
+
+	return s.warningRepo.Create(ctx, warning)
+}
+
+// LateFeeResolution contains the result of resolving a late payment warning.
+type LateFeeResolution struct {
+	WarningID     uuid.UUID `json:"warningId"`
+	LateFeeID     uuid.UUID `json:"lateFeeId"`
+	LateFeeAmount float64   `json:"lateFeeAmount"`
+}
+
+// ResolveWarningWithLateFee resolves a LATE_PAYMENT warning by creating a REMINDER fee.
+// The REMINDER fee is linked to the original fee and is for 10 EUR.
+func (s *ImportService) ResolveWarningWithLateFee(ctx context.Context, warningID, userID uuid.UUID) (*LateFeeResolution, error) {
+	if s.warningRepo == nil {
+		return nil, ErrNotFound
+	}
+
+	// Get the warning
+	warning, err := s.warningRepo.GetByID(ctx, warningID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Must be a LATE_PAYMENT warning
+	if warning.WarningType != domain.WarningTypeLatePayment {
+		return nil, ErrInvalidInput
+	}
+
+	// Must not already be resolved
+	if warning.ResolvedAt != nil {
+		return nil, ErrInvalidInput
+	}
+
+	// Must have a matched fee
+	if warning.MatchedFeeID == nil {
+		return nil, ErrInvalidInput
+	}
+
+	// Get the original fee
+	originalFee, err := s.feeRepo.GetByID(ctx, *warning.MatchedFeeID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Create REMINDER fee (10 EUR late fee)
+	reminderFee := &domain.FeeExpectation{
+		ID:            uuid.New(),
+		ChildID:       originalFee.ChildID,
+		FeeType:       domain.FeeTypeReminder,
+		Year:          originalFee.Year,
+		Month:         originalFee.Month, // Same month as original fee
+		Amount:        domain.ReminderFeeAmount,
+		DueDate:       time.Now().AddDate(0, 0, 14), // Due in 14 days
+		CreatedAt:     time.Now(),
+		ReminderForID: &originalFee.ID, // Link to original fee
+	}
+
+	if err := s.feeRepo.Create(ctx, reminderFee); err != nil {
+		return nil, err
+	}
+
+	// Resolve the warning
+	note := fmt.Sprintf("Mahngebühr von %.2f EUR erstellt", domain.ReminderFeeAmount)
+	if err := s.warningRepo.Resolve(ctx, warningID, userID, domain.ResolutionTypeMatched, note); err != nil {
+		return nil, err
+	}
+
+	return &LateFeeResolution{
+		WarningID:     warningID,
+		LateFeeID:     reminderFee.ID,
+		LateFeeAmount: domain.ReminderFeeAmount,
+	}, nil
+}
+
+// GetMatchedTransactions returns transactions that have been matched to fees.
+func (s *ImportService) GetMatchedTransactions(ctx context.Context, offset, limit int) ([]domain.BankTransaction, int64, error) {
+	return s.transactionRepo.ListMatched(ctx, offset, limit)
+}
+
+// GetSuggestionsForTransaction returns match suggestions for a single transaction.
+func (s *ImportService) GetSuggestionsForTransaction(ctx context.Context, transactionID uuid.UUID) (*domain.MatchSuggestion, error) {
+	// Get the transaction
+	tx, err := s.transactionRepo.GetByID(ctx, transactionID)
+	if err != nil {
+		return nil, ErrNotFound
+	}
+
+	// Get all children for matching
+	children, _, _ := s.childRepo.List(ctx, true, false, false, "", "", "", 0, 1000)
+	s.enrichChildrenWithParents(ctx, children)
+
+	// Run matching algorithm
+	suggestion := s.matchTransaction(ctx, *tx, children)
+	if suggestion == nil {
+		// No automatic match found, return transaction info only
+		return &domain.MatchSuggestion{
+			Transaction: *tx,
+			Confidence:  0,
+			MatchedBy:   "none",
+		}, nil
+	}
+
+	return suggestion, nil
 }
