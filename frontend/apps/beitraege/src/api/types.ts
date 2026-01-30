@@ -269,6 +269,16 @@ export interface GenerateFeeResult {
   skipped: number;
 }
 
+export interface CreateFeeRequest {
+  childId: string;
+  feeType: FeeType;
+  year: number;
+  month?: number;
+  amount?: number;
+  dueDate?: string;
+  reconciliationYear?: number;
+}
+
 // Bank Transactions
 export interface BankTransaction {
   id: string;
@@ -286,6 +296,7 @@ export interface BankTransaction {
 export interface MatchSuggestion {
   transaction: BankTransaction;
   expectation?: FeeExpectation;
+  expectations?: FeeExpectation[];
   child?: Child;
   detectedType?: FeeType;
   confidence: number;
@@ -318,6 +329,9 @@ export interface ImportBatch {
   matchedCount: number;
   importedAt: string;
   importedBy: string;
+  importedByEmail?: string;
+  dateFrom?: string;
+  dateTo?: string;
 }
 
 // Paginated responses
@@ -353,12 +367,43 @@ export interface KnownIBAN {
 
 export interface RescanResult {
   scanned: number;
+  autoMatched: number;
+  newMatches: number;
   suggestions: MatchSuggestion[];
 }
 
 export interface DismissResult {
   iban: string;
   transactionsRemoved: number;
+}
+
+// Transaction Warnings
+export type WarningType = 'AMOUNT_MISMATCH' | 'DUPLICATE_PAYMENT' | 'UNKNOWN_IBAN' | 'LATE_PAYMENT';
+export type ResolutionType = 'DISMISSED' | 'MATCHED' | 'AUTO_RESOLVED';
+
+export interface TransactionWarning {
+  id: string;
+  warningType: WarningType;
+  message: string;
+  transactionId?: string;
+  childId?: string;
+  feeId?: string;
+  matchedFeeId?: string; // For LATE_PAYMENT: the fee that was paid late
+  createdAt: string;
+  resolvedAt?: string;
+  resolvedBy?: string;
+  resolutionType?: ResolutionType;
+  resolutionNote?: string;
+  transaction?: BankTransaction;
+  child?: Child;
+  fee?: FeeExpectation;
+  matchedFee?: FeeExpectation;
+}
+
+export interface ResolveLateFeeResult {
+  warningId: string;
+  lateFeeId: string;
+  lateFeeAmount: number;
 }
 
 // Child Import Types
@@ -499,3 +544,36 @@ export interface ChildcareFeeResult {
   notes: string[];
 }
 
+// Ledger Types
+export interface LedgerEntry {
+  id: string;
+  date: string;
+  type: 'fee' | 'payment';
+  description: string;
+  feeType?: FeeType;
+  year?: number;
+  month?: number;
+  debit: number;
+  credit: number;
+  balance: number;
+  isPaid?: boolean;
+  paidAt?: string;
+  fee?: FeeExpectation;
+  transaction?: BankTransaction;
+}
+
+export interface LedgerSummary {
+  totalFees: number;
+  totalPaid: number;
+  totalOpen: number;
+  openFeesCount: number;
+  paidFeesCount: number;
+  totalFeesCount: number;
+}
+
+export interface ChildLedger {
+  childId: string;
+  child?: Child;
+  entries: LedgerEntry[];
+  summary: LedgerSummary;
+}

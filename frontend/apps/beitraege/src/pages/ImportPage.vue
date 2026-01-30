@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { api } from '@/api';
-import type { ImportResult, ImportBatch, BankTransaction, MatchConfirmation, KnownIBAN } from '@/api/types';
+import type { ImportResult, ImportBatch, BankTransaction, MatchConfirmation, KnownIBAN, TransactionWarning, MatchSuggestion, FeeExpectation } from '@/api/types';
 import {
   Upload,
   FileSpreadsheet,
@@ -18,9 +18,13 @@ import {
   Ban,
   Trash2,
   ShieldOff,
+  Clock,
+  Euro,
+  LinkIcon,
+  Search,
 } from 'lucide-vue-next';
 
-type TabType = 'upload' | 'history' | 'unmatched' | 'blacklist';
+type TabType = 'upload' | 'history' | 'unmatched' | 'matched' | 'warnings' | 'blacklist';
 
 const activeTab = ref<TabType>('upload');
 
@@ -47,6 +51,35 @@ const isLoadingUnmatched = ref(false);
 const blacklistedIBANs = ref<KnownIBAN[]>([]);
 const blacklistTotal = ref(0);
 const isLoadingBlacklist = ref(false);
+
+// Warnings state
+const warnings = ref<TransactionWarning[]>([]);
+const warningsTotal = ref(0);
+const isLoadingWarnings = ref(false);
+const isResolvingWarning = ref<string | null>(null);
+const dismissWarningId = ref<string | null>(null);
+const dismissNote = ref('');
+
+// Matched transactions state
+const matchedTransactions = ref<BankTransaction[]>([]);
+const matchedTotal = ref(0);
+const isLoadingMatched = ref(false);
+
+// Manual match modal state
+const manualMatchTransaction = ref<BankTransaction | null>(null);
+const manualMatchSuggestion = ref<MatchSuggestion | null>(null);
+const isLoadingSuggestions = ref(false);
+const isLoadingFees = ref(false);
+const availableFees = ref<FeeExpectation[]>([]);
+const feeSearch = ref('');
+const isCreatingMatch = ref(false);
+const showAllFees = ref(false);
+
+const PREFILTER_CONFIDENCE = 0.6;
+
+// Rescan state
+const isRescanning = ref(false);
+const rescanResult = ref<{ scanned: number; autoMatched: number; newMatches: number; suggestions: MatchSuggestion[] } | null>(null);
 
 // Dismiss state
 const isDismissing = ref<string | null>(null);
@@ -219,6 +252,263 @@ async function loadBlacklist() {
   }
 }
 
+async function loadWarnings() {
+  isLoadingWarnings.value = true;
+  try {
+    const response = await api.getWarnings(0, 100);
+    warnings.value = response.data;
+    warningsTotal.value = response.total;
+  } catch (e) {
+    console.error('Failed to load warnings:', e);
+  } finally {
+    isLoadingWarnings.value = false;
+  }
+}
+
+async function loadMatched() {
+  isLoadingMatched.value = true;
+  try {
+    const response = await api.getMatchedTransactions(0, 100);
+    matchedTransactions.value = response.data;
+    matchedTotal.value = response.total;
+  } catch (e) {
+    console.error('Failed to load matched:', e);
+  } finally {
+    isLoadingMatched.value = false;
+  }
+}
+
+async function rescanTransactions() {
+  isRescanning.value = true;
+  rescanResult.value = null;
+  try {
+    const result = await api.rescanTransactions();
+    rescanResult.value = result;
+    // Reload unmatched transactions to show updated list
+    await loadUnmatched();
+  } catch (e) {
+    console.error('Failed to rescan:', e);
+    uploadError.value = e instanceof Error ? e.message : 'Erneutes Zuordnen fehlgeschlagen';
+  } finally {
+    isRescanning.value = false;
+  }
+}
+
+async function openManualMatch(transaction: BankTransaction) {
+  manualMatchTransaction.value = transaction;
+  manualMatchSuggestion.value = null;
+  isLoadingSuggestions.value = true;
+  feeSearch.value = '';
+  availableFees.value = [];
+  showAllFees.value = false;
+  
+  try {
+    // Load suggestions for this transaction
+    const suggestion = await api.getTransactionSuggestions(transaction.id);
+    manualMatchSuggestion.value = suggestion;
+  } catch (e) {
+    console.error('Failed to load suggestions:', e);
+  } finally {
+    isLoadingSuggestions.value = false;
+  }
+  
+  // Load available fees
+  await loadAvailableFees();
+}
+
+async function loadAvailableFees() {
+  isLoadingFees.value = true;
+  try {
+    const suggestedChildId = manualMatchSuggestion.value?.child?.id;
+
+    // Load general fees (with search filter if provided)
+    const generalResponse = await api.getFees({
+      search: feeSearch.value || undefined,
+      limit: 50,
+    });
+    let fees = generalResponse.data.filter(f => !f.isPaid);
+
+    // If we have a suggestion with a matched child and no search active,
+    // also load all fees for that child to ensure they're included
+    if (suggestedChildId && !feeSearch.value) {
+      const childFeesResponse = await api.getFees({
+        childId: suggestedChildId,
+        limit: 50,
+      });
+      const childFees = childFeesResponse.data.filter(f => !f.isPaid);
+
+      // Merge and deduplicate
+      const feeIds = new Set(fees.map(f => f.id));
+      for (const fee of childFees) {
+        if (!feeIds.has(fee.id)) {
+          fees.push(fee);
+        }
+      }
+    }
+
+    availableFees.value = fees;
+  } catch (e) {
+    console.error('Failed to load fees:', e);
+  } finally {
+    isLoadingFees.value = false;
+  }
+}
+
+function closeManualMatch() {
+  manualMatchTransaction.value = null;
+  manualMatchSuggestion.value = null;
+  availableFees.value = [];
+  feeSearch.value = '';
+  showAllFees.value = false;
+}
+
+async function confirmManualMatch(expectationId: string) {
+  if (!manualMatchTransaction.value) return;
+  
+  isCreatingMatch.value = true;
+  try {
+    await api.createManualMatch(manualMatchTransaction.value.id, expectationId);
+    // Remove from unmatched list
+    unmatchedTransactions.value = unmatchedTransactions.value.filter(
+      tx => tx.id !== manualMatchTransaction.value?.id
+    );
+    unmatchedTotal.value = Math.max(0, unmatchedTotal.value - 1);
+    closeManualMatch();
+  } catch (e) {
+    console.error('Failed to create match:', e);
+    uploadError.value = e instanceof Error ? e.message : 'Zuordnung fehlgeschlagen';
+  } finally {
+    isCreatingMatch.value = false;
+  }
+}
+
+type ScoredFee = {
+  fee: FeeExpectation;
+  confidence: number;
+};
+
+function computeFeeConfidence(fee: FeeExpectation): number {
+  const tx = manualMatchTransaction.value;
+  if (!tx) return 0;
+
+  const suggestion = manualMatchSuggestion.value;
+  const suggestionConfidence = typeof suggestion?.confidence === 'number' ? suggestion.confidence : 0;
+
+  if (suggestion?.expectation?.id && suggestion.expectation.id === fee.id) {
+    return 0.99;
+  }
+  if (suggestion?.expectations?.some(expectation => expectation.id === fee.id)) {
+    return 0.99;
+  }
+
+  const amountMatches = Math.abs((fee.amount || 0) - tx.amount) < 0.01;
+  const amountScore = amountMatches ? 0.25 : 0;
+  const typeScore = suggestion?.detectedType && fee.feeType === suggestion.detectedType ? 0.1 : 0;
+  const childScore = suggestion?.child?.id && fee.child?.id === suggestion.child.id ? suggestionConfidence * 0.6 : 0;
+
+  return Math.min(amountScore + typeScore + childScore, 0.99);
+}
+
+const scoredFees = computed<ScoredFee[]>(() =>
+  availableFees.value.map(fee => ({
+    fee,
+    confidence: computeFeeConfidence(fee),
+  }))
+);
+
+const searchedFees = computed<ScoredFee[]>(() => {
+  if (!feeSearch.value.trim()) return scoredFees.value;
+  const search = feeSearch.value.toLowerCase();
+  return scoredFees.value.filter(({ fee }) => {
+    const childName = `${fee.child?.firstName || ''} ${fee.child?.lastName || ''}`.toLowerCase();
+    const feeType = getFeeTypeName(fee.feeType).toLowerCase();
+    return childName.includes(search) || feeType.includes(search);
+  });
+});
+
+// Collect IDs of fees already shown in the suggestion section
+const suggestionFeeIds = computed<Set<string>>(() => {
+  const ids = new Set<string>();
+  if (manualMatchSuggestion.value?.expectation?.id) {
+    ids.add(manualMatchSuggestion.value.expectation.id);
+  }
+  if (manualMatchSuggestion.value?.expectations) {
+    for (const exp of manualMatchSuggestion.value.expectations) {
+      ids.add(exp.id);
+    }
+  }
+  return ids;
+});
+
+// Filter out suggestion fees first, then apply confidence filter
+const feesWithoutSuggestion = computed<ScoredFee[]>(() =>
+  searchedFees.value.filter(candidate => !suggestionFeeIds.value.has(candidate.fee.id))
+);
+
+const highConfidenceFees = computed<ScoredFee[]>(() =>
+  feesWithoutSuggestion.value.filter(candidate => candidate.confidence >= PREFILTER_CONFIDENCE)
+);
+
+const isConfidencePrefiltered = computed(() => {
+  const hasSuggestionConfidence = (manualMatchSuggestion.value?.confidence || 0) > 0;
+  return !showAllFees.value && !feeSearch.value.trim() && hasSuggestionConfidence && highConfidenceFees.value.length > 0;
+});
+
+const displayedFeeCandidates = computed<ScoredFee[]>(() => {
+  const source = isConfidencePrefiltered.value ? highConfidenceFees.value : feesWithoutSuggestion.value;
+
+  return [...source].sort((a, b) => {
+    if (a.confidence !== b.confidence) return b.confidence - a.confidence;
+    const dueA = a.fee.dueDate ? new Date(a.fee.dueDate).getTime() : Number.MAX_SAFE_INTEGER;
+    const dueB = b.fee.dueDate ? new Date(b.fee.dueDate).getTime() : Number.MAX_SAFE_INTEGER;
+    if (dueA !== dueB) return dueA - dueB;
+    const lastA = a.fee.child?.lastName || '';
+    const lastB = b.fee.child?.lastName || '';
+    return lastA.localeCompare(lastB);
+  });
+});
+
+
+function showWarningDismiss(warningId: string) {
+  dismissWarningId.value = warningId;
+  dismissNote.value = '';
+}
+
+function cancelWarningDismiss() {
+  dismissWarningId.value = null;
+  dismissNote.value = '';
+}
+
+async function dismissWarning(warning: TransactionWarning) {
+  isResolvingWarning.value = warning.id;
+  try {
+    await api.dismissWarning(warning.id, dismissNote.value);
+    warnings.value = warnings.value.filter(w => w.id !== warning.id);
+    warningsTotal.value = Math.max(0, warningsTotal.value - 1);
+    dismissWarningId.value = null;
+    dismissNote.value = '';
+  } catch (e) {
+    console.error('Failed to dismiss warning:', e);
+    uploadError.value = e instanceof Error ? e.message : 'Warnung konnte nicht verworfen werden';
+  } finally {
+    isResolvingWarning.value = null;
+  }
+}
+
+async function resolveLateFee(warning: TransactionWarning) {
+  isResolvingWarning.value = warning.id;
+  try {
+    await api.resolveLateFee(warning.id);
+    warnings.value = warnings.value.filter(w => w.id !== warning.id);
+    warningsTotal.value = Math.max(0, warningsTotal.value - 1);
+  } catch (e) {
+    console.error('Failed to resolve late fee:', e);
+    uploadError.value = e instanceof Error ? e.message : 'Mahngebuhr konnte nicht erstellt werden';
+  } finally {
+    isResolvingWarning.value = null;
+  }
+}
+
 function showDismissConfirm(transactionId: string) {
   dismissConfirmId.value = transactionId;
 }
@@ -266,6 +556,10 @@ function switchTab(tab: TabType) {
     loadHistory();
   } else if (tab === 'unmatched') {
     loadUnmatched();
+  } else if (tab === 'matched') {
+    loadMatched();
+  } else if (tab === 'warnings') {
+    loadWarnings();
   } else if (tab === 'blacklist') {
     loadBlacklist();
   }
@@ -274,6 +568,8 @@ function switchTab(tab: TabType) {
 onMounted(() => {
   // Pre-load history in background
   loadHistory();
+  // Pre-load warnings count for badge
+  loadWarnings();
 });
 
 function formatDate(dateStr: string): string {
@@ -289,6 +585,11 @@ function formatCurrency(amount: number): string {
     style: 'currency',
     currency: 'EUR',
   }).format(amount);
+}
+
+function getMonthName(month?: number): string {
+  if (!month) return '';
+  return new Date(2000, month - 1).toLocaleString('de-DE', { month: 'long' });
 }
 
 function getConfidenceColor(confidence: number): string {
@@ -321,6 +622,36 @@ function resetUpload() {
   uploadError.value = null;
   confirmResult.value = null;
   selectedMatches.value.clear();
+}
+
+function getWarningTypeLabel(type: string): string {
+  switch (type) {
+    case 'AMOUNT_MISMATCH':
+      return 'Betrag weicht ab';
+    case 'DUPLICATE_PAYMENT':
+      return 'Doppelte Zahlung';
+    case 'UNKNOWN_IBAN':
+      return 'Unbekannte IBAN';
+    case 'LATE_PAYMENT':
+      return 'Verspätete Zahlung';
+    default:
+      return type;
+  }
+}
+
+function getWarningTypeColor(type: string): string {
+  switch (type) {
+    case 'AMOUNT_MISMATCH':
+      return 'bg-amber-100 text-amber-700';
+    case 'DUPLICATE_PAYMENT':
+      return 'bg-red-100 text-red-700';
+    case 'UNKNOWN_IBAN':
+      return 'bg-gray-100 text-gray-700';
+    case 'LATE_PAYMENT':
+      return 'bg-orange-100 text-orange-700';
+    default:
+      return 'bg-gray-100 text-gray-700';
+  }
 }
 </script>
 
@@ -378,6 +709,37 @@ function resetUpload() {
           Nicht zugeordnet
           <span v-if="unmatchedTotal > 0" class="px-1.5 py-0.5 text-xs bg-amber-100 text-amber-700 rounded-full">
             {{ unmatchedTotal }}
+          </span>
+        </div>
+      </button>
+      <button
+        @click="switchTab('matched')"
+        :class="[
+          'px-4 py-2 text-sm font-medium border-b-2 transition-colors',
+          activeTab === 'matched'
+            ? 'border-primary text-primary'
+            : 'border-transparent text-gray-600 hover:text-gray-900',
+        ]"
+      >
+        <div class="flex items-center gap-2">
+          <CheckCircle class="h-4 w-4" />
+          Zugeordnet
+        </div>
+      </button>
+      <button
+        @click="switchTab('warnings')"
+        :class="[
+          'px-4 py-2 text-sm font-medium border-b-2 transition-colors',
+          activeTab === 'warnings'
+            ? 'border-primary text-primary'
+            : 'border-transparent text-gray-600 hover:text-gray-900',
+        ]"
+      >
+        <div class="flex items-center gap-2">
+          <AlertTriangle class="h-4 w-4" />
+          Warnungen
+          <span v-if="warningsTotal > 0" class="px-1.5 py-0.5 text-xs bg-orange-100 text-orange-700 rounded-full">
+            {{ warningsTotal }}
           </span>
         </div>
       </button>
@@ -735,6 +1097,7 @@ function resetUpload() {
           <thead class="bg-gray-50">
             <tr class="text-left text-sm text-gray-500">
               <th class="px-4 py-3 font-medium">Datei</th>
+              <th class="px-4 py-3 font-medium">Zeitraum</th>
               <th class="px-4 py-3 font-medium">Transaktionen</th>
               <th class="px-4 py-3 font-medium">Zugeordnet</th>
               <th class="px-4 py-3 font-medium">Importiert am</th>
@@ -752,6 +1115,12 @@ function resetUpload() {
                   <FileSpreadsheet class="h-4 w-4 text-gray-400" />
                   <span class="font-medium">{{ batch.fileName }}</span>
                 </div>
+              </td>
+              <td class="px-4 py-3 text-gray-600 text-sm">
+                <span v-if="batch.dateFrom && batch.dateTo">
+                  {{ formatDate(batch.dateFrom) }} - {{ formatDate(batch.dateTo) }}
+                </span>
+                <span v-else class="text-gray-400">-</span>
               </td>
               <td class="px-4 py-3">{{ batch.transactionCount }}</td>
               <td class="px-4 py-3">
@@ -771,7 +1140,9 @@ function resetUpload() {
               <td class="px-4 py-3 text-gray-600">
                 {{ formatDateTime(batch.importedAt) }}
               </td>
-              <td class="px-4 py-3 text-gray-600">{{ batch.importedBy }}</td>
+              <td class="px-4 py-3 text-gray-600">
+                {{ batch.importedByEmail || batch.importedBy }}
+              </td>
             </tr>
           </tbody>
         </table>
@@ -784,12 +1155,43 @@ function resetUpload() {
         <p class="text-sm text-gray-600">
           {{ unmatchedTotal }} nicht zugeordnete Transaktionen
         </p>
+        <div class="flex items-center gap-2">
+          <button
+            @click="rescanTransactions"
+            :disabled="isRescanning || unmatchedTotal === 0"
+            class="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Loader2 v-if="isRescanning" class="h-4 w-4 animate-spin" />
+            <RefreshCw v-else class="h-4 w-4" />
+            Erneut zuordnen
+          </button>
+          <button
+            @click="loadUnmatched"
+            class="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+          >
+            <RefreshCw class="h-4 w-4" />
+            Aktualisieren
+          </button>
+        </div>
+      </div>
+
+      <!-- Rescan Result -->
+      <div
+        v-if="rescanResult"
+        class="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-3"
+      >
+        <CheckCircle class="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
+        <div>
+          <p class="text-blue-700 font-medium">Erneute Zuordnung abgeschlossen</p>
+          <p class="text-sm text-blue-600">
+            {{ rescanResult.scanned }} Transaktionen gescannt<span v-if="rescanResult.autoMatched > 0">, {{ rescanResult.autoMatched }} automatisch zugeordnet</span><span v-if="rescanResult.newMatches > 0">, {{ rescanResult.newMatches }} Vorschläge zur Überprüfung</span>
+          </p>
+        </div>
         <button
-          @click="loadUnmatched"
-          class="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+          @click="rescanResult = null"
+          class="ml-auto text-blue-500 hover:text-blue-700"
         >
-          <RefreshCw class="h-4 w-4" />
-          Aktualisieren
+          <XCircle class="h-4 w-4" />
         </button>
       </div>
 
@@ -851,22 +1253,194 @@ function resetUpload() {
                     Nein
                   </button>
                 </div>
-                <!-- Dismiss Button -->
-                <button
-                  v-else
-                  @click="showDismissConfirm(tx.id)"
-                  :disabled="isDismissing === tx.id"
-                  class="inline-flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
-                  title="IBAN dauerhaft ignorieren"
-                >
-                  <Loader2 v-if="isDismissing === tx.id" class="h-3 w-3 animate-spin" />
-                  <Ban v-else class="h-3 w-3" />
-                  Ignorieren
-                </button>
+                <!-- Action Buttons -->
+                <div v-else class="flex items-center justify-end gap-2">
+                  <!-- Manual Match Button -->
+                  <button
+                    @click="openManualMatch(tx)"
+                    class="inline-flex items-center gap-1 px-2 py-1 text-xs text-primary hover:text-primary/80 hover:bg-primary/10 rounded transition-colors"
+                    title="Manuell zuordnen"
+                  >
+                    <LinkIcon class="h-3 w-3" />
+                    Zuordnen
+                  </button>
+                  <!-- Dismiss Button -->
+                  <button
+                    @click="showDismissConfirm(tx.id)"
+                    :disabled="isDismissing === tx.id"
+                    class="inline-flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
+                    title="IBAN dauerhaft ignorieren"
+                  >
+                    <Loader2 v-if="isDismissing === tx.id" class="h-3 w-3 animate-spin" />
+                    <Ban v-else class="h-3 w-3" />
+                    Ignorieren
+                  </button>
+                </div>
               </td>
             </tr>
           </tbody>
         </table>
+      </div>
+    </div>
+
+    <!-- Warnings Tab -->
+    <div v-if="activeTab === 'warnings'">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <p class="text-sm text-gray-600">
+            {{ warningsTotal }} offene Warnungen
+          </p>
+          <p class="text-xs text-gray-500 mt-1">
+            Warnungen zu Zahlungen, die manuell uberpruft werden sollten
+          </p>
+        </div>
+        <button
+          @click="loadWarnings"
+          class="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+        >
+          <RefreshCw class="h-4 w-4" />
+          Aktualisieren
+        </button>
+      </div>
+
+      <div v-if="isLoadingWarnings" class="flex items-center justify-center py-12">
+        <Loader2 class="h-8 w-8 animate-spin text-primary" />
+      </div>
+
+      <div v-else-if="warnings.length === 0" class="text-center py-12">
+        <CheckCircle class="h-12 w-12 text-green-300 mx-auto mb-4" />
+        <p class="text-gray-600">Keine offenen Warnungen</p>
+        <p class="text-sm text-gray-500 mt-1">
+          Alle Zahlungen wurden korrekt verarbeitet
+        </p>
+      </div>
+
+      <div v-else class="space-y-4">
+        <div
+          v-for="warning in warnings"
+          :key="warning.id"
+          class="bg-white rounded-xl border p-4"
+        >
+          <div class="flex items-start justify-between gap-4">
+            <!-- Warning Info -->
+            <div class="flex-1">
+              <div class="flex items-center gap-2 mb-2">
+                <span
+                  :class="[
+                    'px-2 py-0.5 rounded-full text-xs font-medium',
+                    getWarningTypeColor(warning.warningType),
+                  ]"
+                >
+                  {{ getWarningTypeLabel(warning.warningType) }}
+                </span>
+                <!-- Child Name Badge -->
+                <router-link
+                  v-if="warning.child"
+                  :to="`/kinder/${warning.child.id}`"
+                  class="px-2 py-0.5 bg-primary/10 text-primary rounded-full text-xs font-medium hover:bg-primary/20 transition-colors"
+                >
+                  {{ warning.child.firstName }} {{ warning.child.lastName }}
+                </router-link>
+                <span class="text-xs text-gray-500">
+                  {{ formatDateTime(warning.createdAt) }}
+                </span>
+              </div>
+              
+              <p class="text-gray-700 mb-3">{{ warning.message }}</p>
+              
+              <!-- Transaction Details -->
+              <div v-if="warning.transaction" class="p-3 bg-gray-50 rounded-lg text-sm space-y-1">
+                <div class="flex justify-between">
+                  <span class="text-gray-500">Transaktion:</span>
+                  <span class="font-medium">{{ warning.transaction.payerName || 'Unbekannt' }}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-gray-500">Betrag:</span>
+                  <span class="font-medium text-green-600">{{ formatCurrency(warning.transaction.amount) }}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-gray-500">Datum:</span>
+                  <span>{{ formatDate(warning.transaction.bookingDate) }}</span>
+                </div>
+                <div v-if="warning.transaction.description" class="text-gray-600 text-xs truncate">
+                  {{ warning.transaction.description }}
+                </div>
+              </div>
+
+              <!-- Matched Fee Details (for LATE_PAYMENT) -->
+              <div v-if="warning.warningType === 'LATE_PAYMENT' && warning.matchedFee" class="mt-2 p-3 bg-orange-50 rounded-lg text-sm space-y-1">
+                <div class="flex items-center gap-1 text-orange-700 font-medium mb-1">
+                  <Clock class="h-4 w-4" />
+                  Verspätete Zahlung für:
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-gray-500">Beitragsart:</span>
+                  <span class="font-medium">{{ getFeeTypeName(warning.matchedFee.feeType) }}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-gray-500">Zeitraum:</span>
+                  <span>{{ getMonthName(warning.matchedFee.month) }} {{ warning.matchedFee.year }}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span class="text-gray-500">Betrag:</span>
+                  <span class="font-medium">{{ formatCurrency(warning.matchedFee.amount) }}</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="flex flex-col gap-2">
+              <!-- Late Payment: Create Late Fee Button -->
+              <button
+                v-if="warning.warningType === 'LATE_PAYMENT'"
+                @click="resolveLateFee(warning)"
+                :disabled="isResolvingWarning === warning.id"
+                class="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50"
+                title="Mahngebuhr von 10 EUR erstellen"
+              >
+                <Loader2 v-if="isResolvingWarning === warning.id" class="h-4 w-4 animate-spin" />
+                <Euro v-else class="h-4 w-4" />
+                Mahngebuhr erstellen
+              </button>
+
+              <!-- Dismiss Dialog -->
+              <div v-if="dismissWarningId === warning.id" class="p-3 bg-gray-50 rounded-lg space-y-2">
+                <input
+                  v-model="dismissNote"
+                  type="text"
+                  placeholder="Notiz (optional)"
+                  class="w-full px-2 py-1 text-sm border rounded"
+                />
+                <div class="flex gap-2">
+                  <button
+                    @click="dismissWarning(warning)"
+                    :disabled="isResolvingWarning === warning.id"
+                    class="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50"
+                  >
+                    Verwerfen
+                  </button>
+                  <button
+                    @click="cancelWarningDismiss"
+                    class="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                  >
+                    Abbrechen
+                  </button>
+                </div>
+              </div>
+
+              <!-- Dismiss Button -->
+              <button
+                v-else
+                @click="showWarningDismiss(warning.id)"
+                :disabled="isResolvingWarning === warning.id"
+                class="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+              >
+                <XCircle class="h-4 w-4" />
+                Verwerfen
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -949,6 +1523,231 @@ function resetUpload() {
             </tr>
           </tbody>
         </table>
+      </div>
+    </div>
+
+    <!-- Matched Tab -->
+    <div v-if="activeTab === 'matched'">
+      <div class="flex items-center justify-between mb-4">
+        <p class="text-sm text-gray-600">
+          {{ matchedTotal }} zugeordnete Transaktionen
+        </p>
+        <button
+          @click="loadMatched"
+          class="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+        >
+          <RefreshCw class="h-4 w-4" />
+          Aktualisieren
+        </button>
+      </div>
+
+      <div v-if="isLoadingMatched" class="flex items-center justify-center py-12">
+        <Loader2 class="h-8 w-8 animate-spin text-primary" />
+      </div>
+
+      <div v-else-if="matchedTransactions.length === 0" class="text-center py-12">
+        <Link2 class="h-12 w-12 text-gray-300 mx-auto mb-4" />
+        <p class="text-gray-600">Noch keine zugeordneten Transaktionen</p>
+      </div>
+
+      <div v-else class="bg-white rounded-xl border overflow-hidden">
+        <table class="w-full">
+          <thead class="bg-gray-50">
+            <tr class="text-left text-sm text-gray-500">
+              <th class="px-4 py-3 font-medium">Datum</th>
+              <th class="px-4 py-3 font-medium">Zahler</th>
+              <th class="px-4 py-3 font-medium">Beschreibung</th>
+              <th class="px-4 py-3 font-medium text-right">Betrag</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="tx in matchedTransactions"
+              :key="tx.id"
+              class="border-t hover:bg-gray-50"
+            >
+              <td class="px-4 py-3 text-gray-600">
+                {{ formatDate(tx.bookingDate) }}
+              </td>
+              <td class="px-4 py-3">
+                <div class="font-medium">{{ tx.payerName || 'Unbekannt' }}</div>
+                <div v-if="tx.payerIban" class="text-xs text-gray-500 font-mono">
+                  {{ tx.payerIban }}
+                </div>
+              </td>
+              <td class="px-4 py-3 text-gray-600 truncate max-w-xs">
+                {{ tx.description }}
+              </td>
+              <td class="px-4 py-3 text-right font-medium text-green-600">
+                {{ formatCurrency(tx.amount) }}
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Manual Match Modal -->
+    <div
+      v-if="manualMatchTransaction"
+      class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+      @click.self="closeManualMatch"
+    >
+      <div class="bg-white rounded-xl shadow-xl max-w-3xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+        <!-- Modal Header -->
+        <div class="p-4 border-b">
+          <div class="flex items-center justify-between">
+            <h2 class="text-lg font-semibold">Transaktion manuell zuordnen</h2>
+            <button
+              @click="closeManualMatch"
+              class="text-gray-400 hover:text-gray-600"
+            >
+              <XCircle class="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+
+        <!-- Transaction Details -->
+        <div class="p-4 bg-gray-50 border-b">
+          <div class="grid grid-cols-2 gap-4 text-sm">
+            <div>
+              <span class="text-gray-500">Zahler:</span>
+              <span class="ml-2 font-medium">{{ manualMatchTransaction.payerName || 'Unbekannt' }}</span>
+            </div>
+            <div>
+              <span class="text-gray-500">Betrag:</span>
+              <span class="ml-2 font-medium text-green-600">{{ formatCurrency(manualMatchTransaction.amount) }}</span>
+            </div>
+            <div>
+              <span class="text-gray-500">Datum:</span>
+              <span class="ml-2">{{ formatDate(manualMatchTransaction.bookingDate) }}</span>
+            </div>
+            <div v-if="manualMatchTransaction.payerIban">
+              <span class="text-gray-500">IBAN:</span>
+              <span class="ml-2 font-mono text-xs">{{ manualMatchTransaction.payerIban }}</span>
+            </div>
+          </div>
+          <div v-if="manualMatchTransaction.description" class="mt-2 text-sm text-gray-600">
+            {{ manualMatchTransaction.description }}
+          </div>
+        </div>
+
+        <!-- Suggestion (if available) -->
+        <div v-if="isLoadingSuggestions" class="p-4 border-b">
+          <div class="flex items-center gap-2 text-gray-500">
+            <Loader2 class="h-4 w-4 animate-spin" />
+            Lade Vorschlage...
+          </div>
+        </div>
+        <div v-else-if="manualMatchSuggestion?.expectation" class="p-4 border-b">
+          <h3 class="text-sm font-medium text-gray-700 mb-2">Vorschlag</h3>
+          <div
+            class="p-3 bg-green-50 border border-green-200 rounded-lg flex items-center justify-between cursor-pointer hover:bg-green-100"
+            @click="confirmManualMatch(manualMatchSuggestion.expectation!.id)"
+          >
+            <div class="flex-1">
+              <div class="font-medium">
+                {{ manualMatchSuggestion.child?.firstName }} {{ manualMatchSuggestion.child?.lastName }}
+              </div>
+              <div class="text-sm text-gray-600">
+                {{ getFeeTypeName(manualMatchSuggestion.expectation?.feeType) }}
+                - {{ manualMatchSuggestion.expectation?.month }}/{{ manualMatchSuggestion.expectation?.year }}
+                - {{ formatCurrency(manualMatchSuggestion.expectation?.amount || 0) }}
+              </div>
+            </div>
+            <div class="flex items-center gap-2">
+              <span
+                :class="[
+                  'px-2 py-0.5 rounded-full text-xs font-medium',
+                  getConfidenceColor(manualMatchSuggestion.confidence),
+                ]"
+              >
+                {{ Math.round(manualMatchSuggestion.confidence * 100) }}%
+              </span>
+              <CheckCircle class="h-5 w-5 text-green-500" />
+            </div>
+          </div>
+        </div>
+
+        <!-- Fee Search -->
+        <div class="p-4 border-b">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-sm font-medium text-gray-700">Offene Beitrage durchsuchen</h3>
+            <button
+              v-if="manualMatchSuggestion?.confidence && highConfidenceFees.length > 0 && !feeSearch.trim()"
+              @click="showAllFees = !showAllFees"
+              class="text-xs text-primary hover:underline"
+            >
+              {{ showAllFees ? 'Nur hohe Konfidenz' : 'Alle offenen Beitrage anzeigen' }}
+            </button>
+          </div>
+          <p v-if="isConfidencePrefiltered" class="text-xs text-gray-500 mb-2">
+            Gefiltert nach hoher Konfidenz (>= {{ Math.round(PREFILTER_CONFIDENCE * 100) }}%).
+          </p>
+          <div class="relative">
+            <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input
+              v-model="feeSearch"
+              type="text"
+              placeholder="Nach Kind oder Beitragsart suchen..."
+              class="w-full pl-10 pr-4 py-2 border rounded-lg text-sm"
+              @input="loadAvailableFees"
+            />
+          </div>
+        </div>
+
+        <!-- Fee List -->
+        <div class="flex-1 overflow-y-auto p-4">
+          <div v-if="isLoadingFees" class="flex items-center justify-center py-8">
+            <Loader2 class="h-6 w-6 animate-spin text-primary" />
+          </div>
+          <div v-else-if="displayedFeeCandidates.length === 0" class="text-center py-8 text-gray-500">
+            Keine offenen Beitrage gefunden
+          </div>
+          <div v-else class="space-y-2">
+            <div
+              v-for="candidate in displayedFeeCandidates"
+              :key="candidate.fee.id"
+              class="p-3 border rounded-lg hover:bg-gray-50 cursor-pointer flex items-center justify-between"
+              @click="confirmManualMatch(candidate.fee.id)"
+            >
+              <div>
+                <div class="font-medium">
+                  {{ candidate.fee.child?.firstName }} {{ candidate.fee.child?.lastName }}
+                </div>
+                <div class="text-sm text-gray-600">
+                  {{ getFeeTypeName(candidate.fee.feeType) }}
+                  - {{ candidate.fee.month ? candidate.fee.month + '/' : '' }}{{ candidate.fee.year }}
+                </div>
+              </div>
+              <div class="text-right">
+                <div class="flex items-center justify-end gap-2">
+                  <span
+                    v-if="candidate.confidence > 0"
+                    :class="[
+                      'px-2 py-0.5 rounded-full text-xs font-medium',
+                      getConfidenceColor(candidate.confidence),
+                    ]"
+                  >
+                    {{ getConfidenceLabel(candidate.confidence) }} ({{ Math.round(candidate.confidence * 100) }}%)
+                  </span>
+                  <div class="font-medium">{{ formatCurrency(candidate.fee.amount) }}</div>
+                </div>
+                <div class="text-xs text-gray-500">Fallig: {{ formatDate(candidate.fee.dueDate) }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal Footer -->
+        <div class="p-4 border-t bg-gray-50 flex justify-end">
+          <button
+            @click="closeManualMatch"
+            class="px-4 py-2 text-sm text-gray-600 hover:text-gray-900"
+          >
+            Abbrechen
+          </button>
+        </div>
       </div>
     </div>
   </div>

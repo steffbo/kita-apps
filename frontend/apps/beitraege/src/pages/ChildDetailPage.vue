@@ -2,7 +2,7 @@
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api';
-import type { Child, FeeExpectation, UpdateChildRequest, Parent, CreateParentRequest, UpdateParentRequest, BankTransaction, IncomeStatus, UpdateHouseholdRequest, ChildcareFeeResult } from '@/api/types';
+import type { Child, FeeExpectation, UpdateChildRequest, Parent, CreateParentRequest, UpdateParentRequest, BankTransaction, IncomeStatus, UpdateHouseholdRequest, ChildcareFeeResult, ChildLedger } from '@/api/types';
 import {
   ArrowLeft,
   Edit,
@@ -26,6 +26,7 @@ import {
   CreditCard,
   Home,
   Euro,
+  BookOpen,
 } from 'lucide-vue-next';
 
 const route = useRoute();
@@ -96,6 +97,12 @@ const reminderError = ref<string | null>(null);
 const childcareFee = ref<ChildcareFeeResult | null>(null);
 const isLoadingChildcareFee = ref(false);
 
+// Ledger state
+const showLedger = ref(false);
+const ledger = ref<ChildLedger | null>(null);
+const isLoadingLedger = ref(false);
+const ledgerYear = ref<number | undefined>(undefined);
+
 const childId = computed(() => route.params.id as string);
 
 async function loadChild() {
@@ -165,6 +172,32 @@ async function loadChildcareFee() {
     isLoadingChildcareFee.value = false;
   }
 }
+
+async function loadLedger() {
+  isLoadingLedger.value = true;
+  try {
+    ledger.value = await api.getChildLedger(childId.value, ledgerYear.value);
+  } catch (e) {
+    console.error('Failed to load ledger:', e);
+    ledger.value = null;
+  } finally {
+    isLoadingLedger.value = false;
+  }
+}
+
+function toggleLedger() {
+  showLedger.value = !showLedger.value;
+  if (showLedger.value && !ledger.value) {
+    loadLedger();
+  }
+}
+
+// Watch for year filter changes
+watch(ledgerYear, () => {
+  if (showLedger.value) {
+    loadLedger();
+  }
+});
 
 onMounted(loadChild);
 
@@ -408,6 +441,12 @@ async function handleUnlinkParent() {
 
 const openFees = computed(() => fees.value.filter(f => !f.isPaid));
 const paidFees = computed(() => fees.value.filter(f => f.isPaid));
+
+// Available years for ledger filter (current year and previous 3 years)
+const availableYears = computed(() => {
+  const currentYear = new Date().getFullYear();
+  return [currentYear, currentYear - 1, currentYear - 2, currentYear - 3];
+});
 
 function openTransactionModal(fee: FeeExpectation) {
   if (fee.matchedBy?.transaction) {
@@ -977,96 +1016,205 @@ async function createReminder() {
 
       <!-- Fees section -->
       <div class="bg-white rounded-xl border p-6">
-        <div class="flex items-center gap-2 mb-6">
-          <Receipt class="h-5 w-5 text-primary" />
-          <h2 class="text-lg font-semibold">Beiträge</h2>
+        <div class="flex items-center justify-between mb-6">
+          <div class="flex items-center gap-2">
+            <Receipt class="h-5 w-5 text-primary" />
+            <h2 class="text-lg font-semibold">Beiträge</h2>
+          </div>
+          <button
+            @click="toggleLedger"
+            :class="[
+              'inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors',
+              showLedger
+                ? 'bg-primary text-white'
+                : 'text-primary border border-primary hover:bg-primary/10'
+            ]"
+          >
+            <BookOpen class="h-4 w-4" />
+            {{ showLedger ? 'Übersicht' : 'Kontobuch' }}
+          </button>
         </div>
 
-        <!-- Open fees -->
-        <div v-if="openFees.length > 0" class="mb-6">
-          <h3 class="text-sm font-medium text-gray-500 mb-3 flex items-center gap-2">
-            <Clock class="h-4 w-4" />
-            Offene Beiträge ({{ openFees.length }})
-          </h3>
-          <div class="space-y-2">
-            <div
-              v-for="fee in openFees"
-              :key="fee.id"
-              :class="[
-                'flex items-center justify-between p-3 rounded-lg',
-                fee.feeType === 'REMINDER' 
-                  ? 'bg-red-50 border border-red-200' 
-                  : 'bg-amber-50 border border-amber-200'
-              ]"
+        <!-- Ledger View -->
+        <div v-if="showLedger">
+          <!-- Year filter -->
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2">
+              <label class="text-sm text-gray-600">Jahr:</label>
+              <select
+                v-model="ledgerYear"
+                class="px-2 py-1 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              >
+                <option :value="undefined">Alle</option>
+                <option v-for="year in availableYears" :key="year" :value="year">{{ year }}</option>
+              </select>
+            </div>
+            <button
+              @click="loadLedger"
+              class="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              title="Aktualisieren"
             >
-              <div class="flex items-center gap-3">
-                <AlertTriangle
-                  v-if="new Date(fee.dueDate) < new Date()"
-                  :class="fee.feeType === 'REMINDER' ? 'h-5 w-5 text-red-500' : 'h-5 w-5 text-red-500'"
-                />
-                <Clock v-else :class="fee.feeType === 'REMINDER' ? 'h-5 w-5 text-red-500' : 'h-5 w-5 text-amber-500'" />
-                <div>
-                  <p :class="['font-medium', fee.feeType === 'REMINDER' ? 'text-red-700' : '']">{{ getFeeTypeName(fee.feeType) }}</p>
-                  <p class="text-sm text-gray-600">
-                    {{ fee.month ? getMonthName(fee.month) + ' ' : '' }}{{ fee.year }}
-                    · Fällig: {{ formatDate(fee.dueDate) }}
-                  </p>
-                </div>
-              </div>
-              <div class="flex items-center gap-2">
-                <p :class="['font-semibold', fee.feeType === 'REMINDER' ? 'text-red-700' : '']">{{ formatCurrency(fee.amount) }}</p>
-                <button
-                  v-if="canCreateReminder(fee)"
-                  @click="openReminderDialog(fee)"
-                  class="p-1.5 text-amber-600 hover:text-amber-800 hover:bg-amber-100 rounded-lg transition-colors"
-                  title="Mahngebühr erstellen"
+              <Loader2 v-if="isLoadingLedger" class="h-4 w-4 animate-spin" />
+              <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
+            </button>
+          </div>
+
+          <!-- Summary -->
+          <div v-if="ledger?.summary" class="grid grid-cols-3 gap-4 mb-4">
+            <div class="bg-gray-50 rounded-lg p-3 text-center">
+              <p class="text-xs text-gray-500 mb-1">Gesamt Beiträge</p>
+              <p class="font-semibold">{{ formatCurrency(ledger.summary.totalFees) }}</p>
+              <p class="text-xs text-gray-400">{{ ledger.summary.totalFeesCount }} Posten</p>
+            </div>
+            <div class="bg-green-50 rounded-lg p-3 text-center">
+              <p class="text-xs text-gray-500 mb-1">Bezahlt</p>
+              <p class="font-semibold text-green-700">{{ formatCurrency(ledger.summary.totalPaid) }}</p>
+              <p class="text-xs text-gray-400">{{ ledger.summary.paidFeesCount }} Posten</p>
+            </div>
+            <div :class="['rounded-lg p-3 text-center', ledger.summary.totalOpen > 0 ? 'bg-amber-50' : 'bg-gray-50']">
+              <p class="text-xs text-gray-500 mb-1">Offen</p>
+              <p :class="['font-semibold', ledger.summary.totalOpen > 0 ? 'text-amber-700' : '']">{{ formatCurrency(ledger.summary.totalOpen) }}</p>
+              <p class="text-xs text-gray-400">{{ ledger.summary.openFeesCount }} Posten</p>
+            </div>
+          </div>
+
+          <!-- Ledger table -->
+          <div v-if="isLoadingLedger" class="flex items-center justify-center py-8">
+            <Loader2 class="h-8 w-8 animate-spin text-primary" />
+          </div>
+          <div v-else-if="ledger?.entries?.length" class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="border-b text-left">
+                  <th class="pb-2 font-medium text-gray-500">Datum</th>
+                  <th class="pb-2 font-medium text-gray-500">Beschreibung</th>
+                  <th class="pb-2 font-medium text-gray-500 text-right">Soll</th>
+                  <th class="pb-2 font-medium text-gray-500 text-right">Haben</th>
+                  <th class="pb-2 font-medium text-gray-500 text-right">Saldo</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="entry in ledger.entries"
+                  :key="entry.id"
+                  :class="[
+                    'border-b border-gray-100 last:border-0',
+                    entry.type === 'payment' ? 'bg-green-50/50' : ''
+                  ]"
                 >
-                  <AlertCircle class="h-4 w-4" />
-                </button>
+                  <td class="py-2">{{ formatDate(entry.date) }}</td>
+                  <td class="py-2">
+                    <span v-if="entry.type === 'fee'">{{ entry.description }}</span>
+                    <span v-else class="text-green-700">{{ entry.description }}</span>
+                  </td>
+                  <td class="py-2 text-right">
+                    <span v-if="entry.debit > 0">{{ formatCurrency(entry.debit) }}</span>
+                  </td>
+                  <td class="py-2 text-right">
+                    <span v-if="entry.credit > 0" class="text-green-700">{{ formatCurrency(entry.credit) }}</span>
+                  </td>
+                  <td class="py-2 text-right font-medium">
+                    <span :class="entry.balance > 0 ? 'text-amber-700' : entry.balance < 0 ? 'text-green-700' : ''">
+                      {{ formatCurrency(entry.balance) }}
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div v-else class="text-center py-8 text-gray-500">
+            Keine Einträge im Kontobuch
+          </div>
+        </div>
+
+        <!-- Standard View (Open/Paid fees) -->
+        <div v-else>
+          <!-- Open fees -->
+          <div v-if="openFees.length > 0" class="mb-6">
+            <h3 class="text-sm font-medium text-gray-500 mb-3 flex items-center gap-2">
+              <Clock class="h-4 w-4" />
+              Offene Beiträge ({{ openFees.length }})
+            </h3>
+            <div class="space-y-2">
+              <div
+                v-for="fee in openFees"
+                :key="fee.id"
+                :class="[
+                  'flex items-center justify-between p-3 rounded-lg',
+                  fee.feeType === 'REMINDER' 
+                    ? 'bg-red-50 border border-red-200' 
+                    : 'bg-amber-50 border border-amber-200'
+                ]"
+              >
+                <div class="flex items-center gap-3">
+                  <AlertTriangle
+                    v-if="new Date(fee.dueDate) < new Date()"
+                    :class="fee.feeType === 'REMINDER' ? 'h-5 w-5 text-red-500' : 'h-5 w-5 text-red-500'"
+                  />
+                  <Clock v-else :class="fee.feeType === 'REMINDER' ? 'h-5 w-5 text-red-500' : 'h-5 w-5 text-amber-500'" />
+                  <div>
+                    <p :class="['font-medium', fee.feeType === 'REMINDER' ? 'text-red-700' : '']">{{ getFeeTypeName(fee.feeType) }}</p>
+                    <p class="text-sm text-gray-600">
+                      {{ fee.month ? getMonthName(fee.month) + ' ' : '' }}{{ fee.year }}
+                      · Fällig: {{ formatDate(fee.dueDate) }}
+                    </p>
+                  </div>
+                </div>
+                <div class="flex items-center gap-2">
+                  <p :class="['font-semibold', fee.feeType === 'REMINDER' ? 'text-red-700' : '']">{{ formatCurrency(fee.amount) }}</p>
+                  <button
+                    v-if="canCreateReminder(fee)"
+                    @click="openReminderDialog(fee)"
+                    class="p-1.5 text-amber-600 hover:text-amber-800 hover:bg-amber-100 rounded-lg transition-colors"
+                    title="Mahngebühr erstellen"
+                  >
+                    <AlertCircle class="h-4 w-4" />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <!-- Paid fees -->
-        <div v-if="paidFees.length > 0">
-          <h3 class="text-sm font-medium text-gray-500 mb-3 flex items-center gap-2">
-            <CheckCircle class="h-4 w-4" />
-            Bezahlte Beiträge ({{ paidFees.length }})
-          </h3>
-          <div class="space-y-2">
-            <button
-              v-for="fee in paidFees"
-              :key="fee.id"
-              @click="openTransactionModal(fee)"
-              :class="[
-                'w-full flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg text-left transition-colors',
-                fee.matchedBy?.transaction ? 'hover:bg-green-100 cursor-pointer' : ''
-              ]"
-              :disabled="!fee.matchedBy?.transaction"
-            >
-              <div class="flex items-center gap-3">
-                <CheckCircle class="h-5 w-5 text-green-500" />
-                <div>
-                  <p class="font-medium">{{ getFeeTypeName(fee.feeType) }}</p>
-                  <p class="text-sm text-gray-600">
-                    {{ fee.month ? getMonthName(fee.month) + ' ' : '' }}{{ fee.year }}
-                    <span v-if="formatTransactionDate(fee)" class="text-green-600">
-                      · Bezahlt am {{ formatTransactionDate(fee) }}
-                    </span>
-                  </p>
+          <!-- Paid fees -->
+          <div v-if="paidFees.length > 0">
+            <h3 class="text-sm font-medium text-gray-500 mb-3 flex items-center gap-2">
+              <CheckCircle class="h-4 w-4" />
+              Bezahlte Beiträge ({{ paidFees.length }})
+            </h3>
+            <div class="space-y-2">
+              <button
+                v-for="fee in paidFees"
+                :key="fee.id"
+                @click="openTransactionModal(fee)"
+                :class="[
+                  'w-full flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg text-left transition-colors',
+                  fee.matchedBy?.transaction ? 'hover:bg-green-100 cursor-pointer' : ''
+                ]"
+                :disabled="!fee.matchedBy?.transaction"
+              >
+                <div class="flex items-center gap-3">
+                  <CheckCircle class="h-5 w-5 text-green-500" />
+                  <div>
+                    <p class="font-medium">{{ getFeeTypeName(fee.feeType) }}</p>
+                    <p class="text-sm text-gray-600">
+                      {{ fee.month ? getMonthName(fee.month) + ' ' : '' }}{{ fee.year }}
+                      <span v-if="formatTransactionDate(fee)" class="text-green-600">
+                        · Bezahlt am {{ formatTransactionDate(fee) }}
+                      </span>
+                    </p>
+                  </div>
                 </div>
-              </div>
-              <div class="flex items-center gap-2">
-                <p class="font-semibold text-green-700">{{ formatCurrency(fee.amount) }}</p>
-                <CreditCard v-if="fee.matchedBy?.transaction" class="h-4 w-4 text-green-500" />
-              </div>
-            </button>
+                <div class="flex items-center gap-2">
+                  <p class="font-semibold text-green-700">{{ formatCurrency(fee.amount) }}</p>
+                  <CreditCard v-if="fee.matchedBy?.transaction" class="h-4 w-4 text-green-500" />
+                </div>
+              </button>
+            </div>
           </div>
-        </div>
 
-        <div v-if="fees.length === 0" class="text-center py-8 text-gray-500">
-          Keine Beiträge vorhanden
+          <div v-if="fees.length === 0" class="text-center py-8 text-gray-500">
+            Keine Beiträge vorhanden
+          </div>
         </div>
       </div>
     </div>

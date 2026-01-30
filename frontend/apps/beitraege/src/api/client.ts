@@ -18,6 +18,8 @@ import type {
   FeeOverview,
   GenerateFeeRequest,
   GenerateFeeResult,
+  CreateFeeRequest,
+  ChildLedger,
   ImportResult,
   MatchConfirmation,
   ConfirmResult,
@@ -27,12 +29,15 @@ import type {
   KnownIBAN,
   RescanResult,
   DismissResult,
+  TransactionWarning,
+  ResolveLateFeeResult,
   ChildImportParseResult,
   ChildImportPreviewRequest,
   ChildImportPreviewResult,
   ChildImportExecuteRequest,
   ChildImportExecuteResult,
   ChildcareFeeResult,
+  MatchSuggestion,
 } from './types';
 
 const API_BASE = '/api/fees/v1';
@@ -261,6 +266,15 @@ class ApiClient {
     });
   }
 
+  async getChildLedger(childId: string, year?: number): Promise<ChildLedger> {
+    const query = year ? `?year=${year}` : '';
+    const response = await this.request<ChildLedger>(`/children/${childId}/ledger${query}`);
+    return {
+      ...response,
+      entries: response.entries ?? [],
+    };
+  }
+
   // Parents endpoints
   async getParents(params?: {
     search?: string;
@@ -458,6 +472,13 @@ class ApiClient {
     });
   }
 
+  async createFee(data: CreateFeeRequest): Promise<FeeExpectation> {
+    return this.request<FeeExpectation>('/fees', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
   async updateFee(id: string, amount: number): Promise<FeeExpectation> {
     return this.request<FeeExpectation>(`/fees/${id}`, {
       method: 'PUT',
@@ -553,6 +574,19 @@ class ApiClient {
     });
   }
 
+  async getMatchedTransactions(offset?: number, limit?: number): Promise<PaginatedResponse<BankTransaction>> {
+    const query = new URLSearchParams();
+    if (offset) query.set('offset', String(offset));
+    if (limit) query.set('limit', String(limit));
+    const queryString = query.toString();
+    const response = await this.request<PaginatedResponse<BankTransaction>>(`/import/transactions/matched${queryString ? `?${queryString}` : ''}`);
+    return this.normalizePaginated(response);
+  }
+
+  async getTransactionSuggestions(transactionId: string): Promise<MatchSuggestion | null> {
+    return this.request<MatchSuggestion | null>(`/import/transactions/${transactionId}/suggestions`);
+  }
+
   // IBAN Learning System endpoints
   async rescanTransactions(): Promise<RescanResult> {
     const result = await this.request<RescanResult>('/import/rescan', {
@@ -604,6 +638,29 @@ class ApiClient {
   async unlinkIBANFromChild(iban: string): Promise<void> {
     return this.request<void>(`/import/trusted/${encodeURIComponent(iban)}/link`, {
       method: 'DELETE',
+    });
+  }
+
+  // Warnings endpoints
+  async getWarnings(offset?: number, limit?: number): Promise<PaginatedResponse<TransactionWarning>> {
+    const query = new URLSearchParams();
+    if (offset) query.set('offset', String(offset));
+    if (limit) query.set('limit', String(limit));
+    const queryString = query.toString();
+    const response = await this.request<PaginatedResponse<TransactionWarning>>(`/import/warnings${queryString ? `?${queryString}` : ''}`);
+    return this.normalizePaginated(response);
+  }
+
+  async dismissWarning(warningId: string, note?: string): Promise<void> {
+    return this.request<void>(`/import/warnings/${warningId}/dismiss`, {
+      method: 'POST',
+      body: JSON.stringify({ note: note || '' }),
+    });
+  }
+
+  async resolveLateFee(warningId: string): Promise<ResolveLateFeeResult> {
+    return this.request<ResolveLateFeeResult>(`/import/warnings/${warningId}/resolve-late-fee`, {
+      method: 'POST',
     });
   }
 
