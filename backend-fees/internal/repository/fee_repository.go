@@ -269,6 +269,26 @@ func (r *PostgresFeeRepository) FindBestUnpaid(ctx context.Context, childID uuid
 	return r.FindOldestUnpaid(ctx, childID, feeType, amount)
 }
 
+// CountUnpaidByType counts all unpaid fees of a specific type for a child.
+// This is used to determine if auto-matching should occur (only when count == 1).
+func (r *PostgresFeeRepository) CountUnpaidByType(ctx context.Context, childID uuid.UUID, feeType domain.FeeType, amount float64) (int, error) {
+	var count int
+
+	query := `
+		SELECT COUNT(*)
+		FROM fees.fee_expectations fe
+		LEFT JOIN fees.payment_matches pm ON fe.id = pm.expectation_id
+		WHERE fe.child_id = $1 AND fe.fee_type = $2 AND fe.amount = $3
+		  AND pm.id IS NULL
+	`
+
+	err := r.db.GetContext(ctx, &count, query, childID, feeType, amount)
+	if err != nil {
+		return 0, err
+	}
+	return count, nil
+}
+
 // FindOldestUnpaidWithReminder finds the oldest unpaid fee with its linked reminder
 // where the combined amount matches the transaction amount.
 // Returns both the original fee and the reminder if they exist and are both unpaid.

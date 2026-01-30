@@ -161,20 +161,15 @@ func (s *ImportService) ProcessCSV(ctx context.Context, file io.Reader, fileName
 		result.Imported++
 
 		// Try to match
-		suggestion := s.matchTransaction(ctx, tx, children)
+		suggestion, warning := s.matchTransaction(ctx, tx, children)
 		if suggestion != nil {
 			result.Suggestions = append(result.Suggestions, *suggestion)
+		} else if warning != nil {
+			s.saveWarning(ctx, warning, result)
 		} else {
-			// No match found - check if this is from a trusted IBAN
-			warning := s.checkForWarning(ctx, tx)
-			if warning != nil {
-				// Save warning to database
-				if s.warningRepo != nil {
-					if err := s.warningRepo.Create(ctx, warning); err == nil {
-						result.Warnings++
-						result.WarningList = append(result.WarningList, *warning)
-					}
-				}
+			// No match - check if trusted IBAN needs a warning
+			if w := s.checkForWarning(ctx, tx); w != nil {
+				s.saveWarning(ctx, w, result)
 			}
 		}
 	}
@@ -182,22 +177,27 @@ func (s *ImportService) ProcessCSV(ctx context.Context, file io.Reader, fileName
 	return result, nil
 }
 
-func (s *ImportService) matchTransaction(ctx context.Context, tx domain.BankTransaction, children []domain.Child) *domain.MatchSuggestion {
+func (s *ImportService) saveWarning(ctx context.Context, warning *domain.TransactionWarning, result *ImportResult) {
+	if s.warningRepo != nil {
+		if err := s.warningRepo.Create(ctx, warning); err == nil {
+			result.Warnings++
+			result.WarningList = append(result.WarningList, *warning)
+		}
+	}
+}
+
+func (s *ImportService) matchTransaction(ctx context.Context, tx domain.BankTransaction, children []domain.Child) (*domain.MatchSuggestion, *domain.TransactionWarning) {
 	suggestion := &domain.MatchSuggestion{
-		Transaction: tx,
-		Confidence:  0,
+		Transaction:  tx,
+		DetectedType: s.detectFeeType(tx.Amount),
 	}
 
-	// Detect fee type from amount
-	suggestion.DetectedType = s.detectFeeType(tx.Amount)
+	s.matchChild(buildMatchText(tx), children, suggestion)
 
-	// Match child by member number, name, or parent name
-	matchText := buildMatchText(tx)
-	s.matchChild(matchText, children, suggestion)
-
-	// Find the corresponding fee expectation
 	if suggestion.Child != nil && suggestion.DetectedType != nil {
-		s.matchFeeExpectation(ctx, tx, suggestion)
+		if warning := s.matchFeeExpectation(ctx, tx, suggestion); warning != nil {
+			return nil, warning
+		}
 	}
 
 	// Boost confidence for name-based matches with fee expectations
@@ -205,12 +205,10 @@ func (s *ImportService) matchTransaction(ctx context.Context, tx domain.BankTran
 		suggestion.Confidence = min(suggestion.Confidence+confidenceBoostNameMatch, maxConfidenceNameMatch)
 	}
 
-	// Only return if we have some confidence
 	if suggestion.Confidence > 0 {
-		return suggestion
+		return suggestion, nil
 	}
-
-	return nil
+	return nil, nil
 }
 
 func (s *ImportService) detectFeeType(amount float64) *domain.FeeType {
@@ -265,25 +263,47 @@ func (s *ImportService) matchChild(matchText string, children []domain.Child, su
 	}
 }
 
-func (s *ImportService) matchFeeExpectation(ctx context.Context, tx domain.BankTransaction, suggestion *domain.MatchSuggestion) {
-	// First try exact amount match - prefer fee for same month as payment date
-	fee, err := s.feeRepo.FindBestUnpaid(ctx, suggestion.Child.ID, *suggestion.DetectedType, tx.Amount, tx.BookingDate)
-	if err == nil && fee != nil {
-		suggestion.Expectation = fee
-		return
+func (s *ImportService) matchFeeExpectation(ctx context.Context, tx domain.BankTransaction, suggestion *domain.MatchSuggestion) *domain.TransactionWarning {
+	childID := suggestion.Child.ID
+	feeType := *suggestion.DetectedType
+
+	// Check how many unpaid fees exist with this exact amount
+	count, err := s.feeRepo.CountUnpaidByType(ctx, childID, feeType, tx.Amount)
+	if err != nil {
+		return nil
 	}
 
-	// No exact match found - try combined fee + reminder match
-	fees, err := s.feeRepo.FindOldestUnpaidWithReminder(ctx, suggestion.Child.ID, *suggestion.DetectedType, tx.Amount)
-	if err == nil && len(fees) == 2 {
+	// Multiple fees with same amount -> manual review required
+	if count > 1 {
+		return &domain.TransactionWarning{
+			ID:            uuid.New(),
+			TransactionID: tx.ID,
+			WarningType:   domain.WarningTypeMultipleOpenFees,
+			Message:       fmt.Sprintf("Mehrere offene Beiträge (%d) für dieses Kind gefunden - manuelle Zuordnung erforderlich", count),
+			ActualAmount:  &tx.Amount,
+			ChildID:       &childID,
+			CreatedAt:     time.Now(),
+		}
+	}
+
+	// Exactly one fee -> auto-match
+	if count == 1 {
+		if fee, err := s.feeRepo.FindBestUnpaid(ctx, childID, feeType, tx.Amount, tx.BookingDate); err == nil && fee != nil {
+			suggestion.Expectation = fee
+		}
+		return nil
+	}
+
+	// No exact match -> try combined fee + reminder (e.g., 55.40 = 45.40 + 10.00)
+	if fees, err := s.feeRepo.FindOldestUnpaidWithReminder(ctx, childID, feeType, tx.Amount); err == nil && len(fees) == 2 {
 		suggestion.Expectations = fees
 		suggestion.Expectation = &fees[0]
 		suggestion.MatchedBy = "combined"
-		// Boost confidence slightly for combined matches since amount is precise
 		if suggestion.Confidence > 0 {
 			suggestion.Confidence = min(suggestion.Confidence+confidenceBoostCombined, maxConfidenceCombined)
 		}
 	}
+	return nil
 }
 
 func (s *ImportService) enrichChildrenWithParents(ctx context.Context, children []domain.Child) {
@@ -538,21 +558,27 @@ func (s *ImportService) Rescan(ctx context.Context) (*RescanResult, error) {
 	// Re-scan each transaction
 	for _, tx := range transactions {
 		result.Scanned++
-		suggestion := s.matchTransaction(ctx, tx, children)
+		suggestion, warning := s.matchTransaction(ctx, tx, children)
+
+		if warning != nil {
+			if s.warningRepo != nil {
+				_ = s.warningRepo.Create(ctx, warning)
+			}
+			continue
+		}
+
 		if suggestion == nil {
 			continue
 		}
 
 		// High confidence with matching fee expectation(s) -> auto-confirm
 		if suggestion.Confidence >= autoMatchConfidenceThreshold && (suggestion.Expectation != nil || len(suggestion.Expectations) > 0) {
-			autoMatched := s.autoConfirmMatch(ctx, suggestion)
-			if autoMatched {
+			if s.autoConfirmMatch(ctx, suggestion) {
 				result.AutoMatched++
 				continue
 			}
 		}
 
-		// Lower confidence or no auto-match -> add to suggestions for manual review
 		result.Suggestions = append(result.Suggestions, *suggestion)
 	}
 
@@ -1026,15 +1052,12 @@ func (s *ImportService) GetSuggestionsForTransaction(ctx context.Context, transa
 	s.enrichChildrenWithParents(ctx, children)
 
 	// Run matching algorithm
-	suggestion := s.matchTransaction(ctx, *tx, children)
+	suggestion, _ := s.matchTransaction(ctx, *tx, children)
 	if suggestion == nil {
-		// No automatic match found, return transaction info only
 		return &domain.MatchSuggestion{
 			Transaction: *tx,
-			Confidence:  0,
 			MatchedBy:   "none",
 		}, nil
 	}
-
 	return suggestion, nil
 }

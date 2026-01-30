@@ -376,8 +376,10 @@ func TestImportService_LinkIBANToChild(t *testing.T) {
 	}
 }
 
-// TestImportService_OldestFeeMatchedFirst tests that when multiple unpaid fees exist,
-// the oldest one (by due_date) is matched first.
+// TestImportService_OldestFeeMatchedFirst tests that when there is only one unpaid fee,
+// it gets matched correctly. Also tests that after paying one fee, the next oldest gets matched.
+// Note: With the new logic, multiple unpaid fees do NOT auto-match (they create a warning instead).
+// This test verifies the sequential payment scenario works correctly.
 func TestImportService_OldestFeeMatchedFirst(t *testing.T) {
 	cleanupTestData()
 	defer cleanupTestData()
@@ -388,6 +390,7 @@ func TestImportService_OldestFeeMatchedFirst(t *testing.T) {
 	txRepo := repository.NewPostgresTransactionRepository(testDB)
 	matchRepo := repository.NewPostgresMatchRepository(testDB)
 	knownIBANRepo := repository.NewPostgresKnownIBANRepository(testDB)
+	warningRepo := repository.NewPostgresWarningRepository(testDB)
 
 	// Create child
 	child, err := createTestChild(childRepo, "OLDEST")
@@ -395,39 +398,26 @@ func TestImportService_OldestFeeMatchedFirst(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	// Create 3 unpaid food fees for different months (oldest first)
-	// January fee (oldest)
+	adminUserID := uuid.MustParse("a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11")
+
+	// Create only January fee first (single fee = should match)
 	feeJan, err := createTestFeeWithDueDate(feeRepo, child.ID, domain.FeeTypeFood, 45.40,
 		2025, 1, time.Date(2025, 1, 5, 0, 0, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// February fee
-	feeFeb, err := createTestFeeWithDueDate(feeRepo, child.ID, domain.FeeTypeFood, 45.40,
-		2025, 2, time.Date(2025, 2, 5, 0, 0, 0, 0, time.UTC))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// March fee (newest)
-	feeMar, err := createTestFeeWithDueDate(feeRepo, child.ID, domain.FeeTypeFood, 45.40,
-		2025, 3, time.Date(2025, 3, 5, 0, 0, 0, 0, time.UTC))
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	// Create transaction that should match oldest fee
-	tx, err := createTestTransaction(txRepo, "TESTDE123456789999", 45.40, time.Now(),
+	// Create transaction that should match the single fee
+	tx1, err := createTestTransaction(txRepo, "TESTDE123456789999", 45.40, time.Now(),
 		child.FirstName+" "+child.LastName+" "+child.MemberNumber+" Essensgeld")
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	// Initialize service
-	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, nil)
+	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, warningRepo)
 
-	// Rescan to get suggestions
+	// Rescan - should match January fee (only one unpaid)
 	result, err := importService.Rescan(context.Background())
 	if err != nil {
 		t.Fatalf("Rescan failed: %v", err)
@@ -442,35 +432,33 @@ func TestImportService_OldestFeeMatchedFirst(t *testing.T) {
 		t.Fatal("Expected suggestion to have an expectation")
 	}
 
-	// Verify the OLDEST fee (January) was matched, not February or March
+	// Verify January fee was matched
 	if suggestion.Expectation.ID != feeJan.ID {
-		t.Errorf("Expected oldest fee (Jan, ID=%s) to be matched, got ID=%s",
+		t.Errorf("Expected January fee (ID=%s) to be matched, got ID=%s",
 			feeJan.ID, suggestion.Expectation.ID)
 	}
 
-	// Verify it's not the newer fees
-	if suggestion.Expectation.ID == feeFeb.ID {
-		t.Error("February fee was matched instead of January (oldest)")
-	}
-	if suggestion.Expectation.ID == feeMar.ID {
-		t.Error("March fee was matched instead of January (oldest)")
-	}
-
-	// Now confirm this match and verify next transaction matches February
-	adminUserID := uuid.MustParse("a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11")
-	_, err = importService.CreateManualMatch(context.Background(), tx.ID, feeJan.ID, adminUserID)
+	// Confirm this match
+	_, err = importService.CreateManualMatch(context.Background(), tx1.ID, feeJan.ID, adminUserID)
 	if err != nil {
 		t.Fatalf("CreateManualMatch failed: %v", err)
 	}
 
-	// Create another transaction for the same amount
-	_, err = createTestTransaction(txRepo, "TESTDE123456789998", 45.40, time.Now(),
+	// Now create February fee (still only one unpaid since January is paid)
+	feeFeb, err := createTestFeeWithDueDate(feeRepo, child.ID, domain.FeeTypeFood, 45.40,
+		2025, 2, time.Date(2025, 2, 5, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Create another transaction
+	tx2, err := createTestTransaction(txRepo, "TESTDE123456789998", 45.40, time.Now(),
 		child.FirstName+" "+child.LastName+" "+child.MemberNumber+" Essensgeld")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	// Rescan again - should now match February (since January is paid)
+	// Rescan - should match February fee (only one unpaid)
 	result2, err := importService.Rescan(context.Background())
 	if err != nil {
 		t.Fatalf("Rescan failed: %v", err)
@@ -485,14 +473,14 @@ func TestImportService_OldestFeeMatchedFirst(t *testing.T) {
 		t.Fatal("Expected second suggestion to have an expectation")
 	}
 
-	// Verify February fee is now matched (oldest unpaid)
+	// Verify February fee is matched
 	if suggestion2.Expectation.ID != feeFeb.ID {
-		t.Errorf("Expected February fee (ID=%s) to be matched after January was paid, got ID=%s",
+		t.Errorf("Expected February fee (ID=%s) to be matched, got ID=%s",
 			feeFeb.ID, suggestion2.Expectation.ID)
 	}
 
-	// Suppress unused variable warnings
-	_ = feeMar
+	// Suppress unused variable warning
+	_ = tx2
 }
 
 // TestImportService_OldestFeeMatchedFirst_DifferentAmounts tests that amount matching
@@ -1025,6 +1013,178 @@ func TestWarningFromTrustedIBAN(t *testing.T) {
 	}
 	if total != 0 {
 		t.Errorf("Expected 0 unresolved warnings after dismiss, got %d", total)
+	}
+}
+
+// TestImportService_MultipleOpenFees_NoAutoMatch tests that when multiple unpaid fees
+// of the same type exist for a child, no auto-match occurs and a warning is created.
+func TestImportService_MultipleOpenFees_NoAutoMatch(t *testing.T) {
+	cleanupTestData()
+	defer cleanupTestData()
+
+	// Initialize repos
+	childRepo := repository.NewPostgresChildRepository(testDB)
+	feeRepo := repository.NewPostgresFeeRepository(testDB)
+	txRepo := repository.NewPostgresTransactionRepository(testDB)
+	matchRepo := repository.NewPostgresMatchRepository(testDB)
+	knownIBANRepo := repository.NewPostgresKnownIBANRepository(testDB)
+	warningRepo := repository.NewPostgresWarningRepository(testDB)
+
+	// Create child with a pure 5-digit member number for easier matching
+	memberNum := fmt.Sprintf("%05d", time.Now().UnixNano()%100000)
+	child := &domain.Child{
+		ID:           uuid.New(),
+		MemberNumber: memberNum,
+		FirstName:    "MultiTest",
+		LastName:     "Kindermann",
+		BirthDate:    time.Now().AddDate(-2, 0, 0),
+		EntryDate:    time.Now().AddDate(-1, 0, 0),
+		IsActive:     true,
+	}
+	err := childRepo.Create(context.Background(), child)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Create 2 unpaid food fees for different months (same amount)
+	fee1, err := createTestFeeWithDueDate(feeRepo, child.ID, domain.FeeTypeFood, 45.40,
+		2025, 1, time.Date(2025, 1, 5, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fee2, err := createTestFeeWithDueDate(feeRepo, child.ID, domain.FeeTypeFood, 45.40,
+		2025, 2, time.Date(2025, 2, 5, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Verify fees are created
+	count, err := feeRepo.CountUnpaidByType(context.Background(), child.ID, domain.FeeTypeFood, 45.40)
+	if err != nil {
+		t.Fatalf("CountUnpaidByType failed: %v", err)
+	}
+	if count != 2 {
+		t.Fatalf("Expected 2 unpaid fees, got %d (fee1=%s, fee2=%s)", count, fee1.ID, fee2.ID)
+	}
+
+	// Create transaction with member number in description for reliable matching
+	tx := &domain.BankTransaction{
+		ID:          uuid.New(),
+		BookingDate: time.Now(),
+		ValueDate:   time.Now(),
+		PayerName:   stringPtr("Parent Name"),
+		PayerIBAN:   stringPtr("TESTDE123456789111"),
+		Description: stringPtr(child.MemberNumber + " Essensgeld"), // e.g., "12345 Essensgeld"
+		Amount:      45.40,
+		Currency:    "EUR",
+		ImportedAt:  time.Now(),
+	}
+	err = txRepo.Create(context.Background(), tx)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Initialize service with warning repo
+	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, warningRepo)
+
+	// Rescan to get suggestions
+	result, err := importService.Rescan(context.Background())
+	if err != nil {
+		t.Fatalf("Rescan failed: %v", err)
+	}
+
+	// Should NOT have any suggestions (because multiple open fees exist)
+	if len(result.Suggestions) != 0 {
+		t.Errorf("Expected 0 suggestions when multiple open fees exist, got %d", len(result.Suggestions))
+		for i, s := range result.Suggestions {
+			t.Logf("Suggestion %d: Child=%v, Expectation=%v, Confidence=%.2f",
+				i, s.Child != nil, s.Expectation != nil, s.Confidence)
+		}
+	}
+
+	// Should have created a warning
+	warnings, total, err := importService.GetWarnings(context.Background(), 0, 100)
+	if err != nil {
+		t.Fatalf("GetWarnings failed: %v", err)
+	}
+
+	if total != 1 {
+		t.Fatalf("Expected 1 warning for multiple open fees, got %d", total)
+	}
+
+	// Verify warning type and content
+	if warnings[0].WarningType != domain.WarningTypeMultipleOpenFees {
+		t.Errorf("Expected warning type MULTIPLE_OPEN_FEES, got %s", warnings[0].WarningType)
+	}
+	if warnings[0].ChildID == nil || *warnings[0].ChildID != child.ID {
+		t.Error("Warning should be linked to the child")
+	}
+}
+
+// TestImportService_SingleOpenFee_AutoMatch tests that when only one unpaid fee
+// of a type exists, the transaction is auto-matched normally.
+func TestImportService_SingleOpenFee_AutoMatch(t *testing.T) {
+	cleanupTestData()
+	defer cleanupTestData()
+
+	// Initialize repos
+	childRepo := repository.NewPostgresChildRepository(testDB)
+	feeRepo := repository.NewPostgresFeeRepository(testDB)
+	txRepo := repository.NewPostgresTransactionRepository(testDB)
+	matchRepo := repository.NewPostgresMatchRepository(testDB)
+	knownIBANRepo := repository.NewPostgresKnownIBANRepository(testDB)
+	warningRepo := repository.NewPostgresWarningRepository(testDB)
+
+	// Create child
+	child, err := createTestChild(childRepo, "SINGLE")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Create only 1 unpaid food fee
+	fee, err := createTestFeeWithDueDate(feeRepo, child.ID, domain.FeeTypeFood, 45.40,
+		2025, 1, time.Date(2025, 1, 5, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Create transaction
+	_, err = createTestTransaction(txRepo, "TESTDE123456789222", 45.40, time.Now(),
+		child.FirstName+" "+child.LastName+" "+child.MemberNumber+" Essensgeld")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Initialize service
+	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, warningRepo)
+
+	// Rescan to get suggestions
+	result, err := importService.Rescan(context.Background())
+	if err != nil {
+		t.Fatalf("Rescan failed: %v", err)
+	}
+
+	// Should have 1 suggestion with matched expectation
+	if len(result.Suggestions) != 1 {
+		t.Fatalf("Expected 1 suggestion when single open fee exists, got %d", len(result.Suggestions))
+	}
+
+	suggestion := result.Suggestions[0]
+	if suggestion.Expectation == nil {
+		t.Fatal("Expected suggestion to have an expectation")
+	}
+	if suggestion.Expectation.ID != fee.ID {
+		t.Errorf("Expected fee ID %s to be matched, got %s", fee.ID, suggestion.Expectation.ID)
+	}
+
+	// Should NOT have any warnings
+	_, total, err := importService.GetWarnings(context.Background(), 0, 100)
+	if err != nil {
+		t.Fatalf("GetWarnings failed: %v", err)
+	}
+	if total != 0 {
+		t.Errorf("Expected 0 warnings when single open fee, got %d", total)
 	}
 }
 

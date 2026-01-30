@@ -84,6 +84,9 @@ type FeeRepository interface {
 	// If a fee exists for the same month/year as paymentDate, it is preferred over older fees.
 	FindBestUnpaid(ctx context.Context, childID uuid.UUID, feeType domain.FeeType, amount float64, paymentDate time.Time) (*domain.FeeExpectation, error)
 	FindOldestUnpaidWithReminder(ctx context.Context, childID uuid.UUID, feeType domain.FeeType, combinedAmount float64) ([]domain.FeeExpectation, error)
+	// CountUnpaidByType counts all unpaid fees of a specific type for a child.
+	// Used to determine if auto-matching should occur (only when count == 1).
+	CountUnpaidByType(ctx context.Context, childID uuid.UUID, feeType domain.FeeType, amount float64) (int, error)
 	GetOverview(ctx context.Context, year int) (*domain.FeeOverview, error)
 }
 

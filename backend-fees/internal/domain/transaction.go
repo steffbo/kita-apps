@@ -104,13 +104,14 @@ type KnownIBAN struct {
 type WarningType string
 
 const (
-	WarningTypeNoMatchingFee    WarningType = "NO_MATCHING_FEE"   // Trusted IBAN but no open fee found
-	WarningTypeUnexpectedAmount WarningType = "UNEXPECTED_AMOUNT" // Amount doesn't match any expected fee
-	WarningTypePartialPayment   WarningType = "PARTIAL_PAYMENT"   // Amount is less than expected
-	WarningTypeOverpayment      WarningType = "OVERPAYMENT"       // Amount is more than expected
-	WarningTypePossibleBulk     WarningType = "POSSIBLE_BULK"     // Amount could be multiple fees combined
-	WarningTypeDuplicatePayment WarningType = "DUPLICATE_PAYMENT" // Fee already paid, this might be duplicate
-	WarningTypeLatePayment      WarningType = "LATE_PAYMENT"      // Payment received after the 15th of fee month
+	WarningTypeNoMatchingFee     WarningType = "NO_MATCHING_FEE"     // Trusted IBAN but no open fee found
+	WarningTypeUnexpectedAmount  WarningType = "UNEXPECTED_AMOUNT"   // Amount doesn't match any expected fee
+	WarningTypePartialPayment    WarningType = "PARTIAL_PAYMENT"     // Amount is less than expected
+	WarningTypeOverpayment       WarningType = "OVERPAYMENT"         // Amount is more than expected
+	WarningTypePossibleBulk      WarningType = "POSSIBLE_BULK"       // Amount could be multiple fees combined
+	WarningTypeDuplicatePayment  WarningType = "DUPLICATE_PAYMENT"   // Fee already paid, this might be duplicate
+	WarningTypeLatePayment       WarningType = "LATE_PAYMENT"        // Payment received after the 15th of fee month
+	WarningTypeMultipleOpenFees  WarningType = "MULTIPLE_OPEN_FEES"  // Multiple unpaid fees exist, manual review needed
 )
 
 // ResolutionType represents how a warning was resolved.
