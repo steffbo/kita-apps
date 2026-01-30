@@ -115,32 +115,78 @@ func (r *PostgresTransactionRepository) Exists(ctx context.Context, bookingDate 
 	return count > 0, nil
 }
 
+// buildSearchFilter builds the search WHERE clause and returns the clause, args, and next arg index.
+func buildSearchFilter(baseWhereClause, search string, startArgIdx int) (string, []interface{}, int) {
+	whereClause := baseWhereClause
+	args := []interface{}{}
+	argIdx := startArgIdx
+
+	if search != "" {
+		whereClause += fmt.Sprintf(" AND (bt.payer_name ILIKE $%d OR bt.description ILIKE $%d)", argIdx, argIdx+1)
+		searchPattern := "%" + search + "%"
+		args = append(args, searchPattern, searchPattern)
+		argIdx += 2
+	}
+
+	return whereClause, args, argIdx
+}
+
+// buildOrderByClause builds the ORDER BY clause based on sortBy and sortDir parameters.
+func buildOrderByClause(sortBy, sortDir string) string {
+	orderColumn := "bt.booking_date"
+	switch sortBy {
+	case "payer":
+		orderColumn = "bt.payer_name"
+	case "description":
+		orderColumn = "bt.description"
+	case "amount":
+		orderColumn = "bt.amount"
+	case "date":
+		orderColumn = "bt.booking_date"
+	}
+
+	orderDirection := "DESC"
+	if sortDir == "asc" {
+		orderDirection = "ASC"
+	}
+
+	return fmt.Sprintf("%s %s", orderColumn, orderDirection)
+}
+
 // ListUnmatched retrieves transactions that haven't been matched to any fee.
-func (r *PostgresTransactionRepository) ListUnmatched(ctx context.Context, offset, limit int) ([]domain.BankTransaction, int64, error) {
+func (r *PostgresTransactionRepository) ListUnmatched(ctx context.Context, search, sortBy, sortDir string, offset, limit int) ([]domain.BankTransaction, int64, error) {
 	var transactions []domain.BankTransaction
 	var total int64
 
-	// Count total unmatched
-	err := r.db.GetContext(ctx, &total, `
+	whereClause, args, argIdx := buildSearchFilter("pm.id IS NULL AND bt.amount > 0", search, 1)
+
+	// Count total unmatched with search filter
+	countQuery := fmt.Sprintf(`
 		SELECT COUNT(*)
 		FROM fees.bank_transactions bt
 		LEFT JOIN fees.payment_matches pm ON bt.id = pm.transaction_id
-		WHERE pm.id IS NULL AND bt.amount > 0
-	`)
+		WHERE %s
+	`, whereClause)
+	err := r.db.GetContext(ctx, &total, countQuery, args...)
 	if err != nil {
 		return nil, 0, err
 	}
 
+	orderBy := buildOrderByClause(sortBy, sortDir)
+
 	// Fetch unmatched transactions
-	err = r.db.SelectContext(ctx, &transactions, `
+	selectQuery := fmt.Sprintf(`
 		SELECT bt.id, bt.booking_date, bt.value_date, bt.payer_name, bt.payer_iban,
 		       bt.description, bt.amount, bt.currency, bt.import_batch_id, bt.imported_at
 		FROM fees.bank_transactions bt
 		LEFT JOIN fees.payment_matches pm ON bt.id = pm.transaction_id
-		WHERE pm.id IS NULL AND bt.amount > 0
-		ORDER BY bt.booking_date DESC
-		LIMIT $1 OFFSET $2
-	`, limit, offset)
+		WHERE %s
+		ORDER BY %s
+		LIMIT $%d OFFSET $%d
+	`, whereClause, orderBy, argIdx, argIdx+1)
+	args = append(args, limit, offset)
+
+	err = r.db.SelectContext(ctx, &transactions, selectQuery, args...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -236,29 +282,39 @@ func (r *PostgresTransactionRepository) CreateBatch(ctx context.Context, id uuid
 }
 
 // ListMatched retrieves transactions that have been matched to fees.
-func (r *PostgresTransactionRepository) ListMatched(ctx context.Context, offset, limit int) ([]domain.BankTransaction, int64, error) {
+func (r *PostgresTransactionRepository) ListMatched(ctx context.Context, search, sortBy, sortDir string, offset, limit int) ([]domain.BankTransaction, int64, error) {
 	var transactions []domain.BankTransaction
 	var total int64
 
-	// Count total matched transactions
-	err := r.db.GetContext(ctx, &total, `
-		SELECT COUNT(*)
+	whereClause, args, argIdx := buildSearchFilter("1=1", search, 1)
+
+	// Count total distinct matched transactions with search filter
+	countQuery := fmt.Sprintf(`
+		SELECT COUNT(DISTINCT bt.id)
 		FROM fees.bank_transactions bt
 		INNER JOIN fees.payment_matches pm ON bt.id = pm.transaction_id
-	`)
+		WHERE %s
+	`, whereClause)
+	err := r.db.GetContext(ctx, &total, countQuery, args...)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	// Fetch matched transactions
-	err = r.db.SelectContext(ctx, &transactions, `
-		SELECT bt.id, bt.booking_date, bt.value_date, bt.payer_name, bt.payer_iban,
+	orderBy := buildOrderByClause(sortBy, sortDir)
+
+	// Fetch matched transactions (distinct)
+	selectQuery := fmt.Sprintf(`
+		SELECT DISTINCT bt.id, bt.booking_date, bt.value_date, bt.payer_name, bt.payer_iban,
 		       bt.description, bt.amount, bt.currency, bt.import_batch_id, bt.imported_at
 		FROM fees.bank_transactions bt
 		INNER JOIN fees.payment_matches pm ON bt.id = pm.transaction_id
-		ORDER BY bt.booking_date DESC
-		LIMIT $1 OFFSET $2
-	`, limit, offset)
+		WHERE %s
+		ORDER BY %s
+		LIMIT $%d OFFSET $%d
+	`, whereClause, orderBy, argIdx, argIdx+1)
+	args = append(args, limit, offset)
+
+	err = r.db.SelectContext(ctx, &transactions, selectQuery, args...)
 	if err != nil {
 		return nil, 0, err
 	}

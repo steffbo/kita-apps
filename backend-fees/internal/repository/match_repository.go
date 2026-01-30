@@ -7,6 +7,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
 )
@@ -96,4 +97,28 @@ func (r *PostgresMatchRepository) GetByExpectation(ctx context.Context, expectat
 func (r *PostgresMatchRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	_, err := r.db.ExecContext(ctx, `DELETE FROM fees.payment_matches WHERE id = $1`, id)
 	return err
+}
+
+// GetByTransactionIDs retrieves all matches for a list of transaction IDs.
+func (r *PostgresMatchRepository) GetByTransactionIDs(ctx context.Context, transactionIDs []uuid.UUID) (map[uuid.UUID][]domain.PaymentMatch, error) {
+	if len(transactionIDs) == 0 {
+		return make(map[uuid.UUID][]domain.PaymentMatch), nil
+	}
+
+	var matches []domain.PaymentMatch
+	err := r.db.SelectContext(ctx, &matches, `
+		SELECT id, transaction_id, expectation_id, match_type, confidence, matched_at, matched_by
+		FROM fees.payment_matches
+		WHERE transaction_id = ANY($1)
+		ORDER BY matched_at DESC
+	`, pq.Array(transactionIDs))
+	if err != nil {
+		return nil, err
+	}
+
+	result := make(map[uuid.UUID][]domain.PaymentMatch, len(transactionIDs))
+	for _, m := range matches {
+		result[m.TransactionID] = append(result[m.TransactionID], m)
+	}
+	return result, nil
 }

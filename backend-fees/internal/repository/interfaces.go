@@ -93,8 +93,8 @@ type TransactionRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.BankTransaction, error)
 	GetByIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]*domain.BankTransaction, error)
 	Exists(ctx context.Context, bookingDate time.Time, payerIBAN *string, amount float64, description *string) (bool, error)
-	ListUnmatched(ctx context.Context, offset, limit int) ([]domain.BankTransaction, int64, error)
-	ListMatched(ctx context.Context, offset, limit int) ([]domain.BankTransaction, int64, error)
+	ListUnmatched(ctx context.Context, search, sortBy, sortDir string, offset, limit int) ([]domain.BankTransaction, int64, error)
+	ListMatched(ctx context.Context, search, sortBy, sortDir string, offset, limit int) ([]domain.BankTransaction, int64, error)
 	GetBatches(ctx context.Context, offset, limit int) ([]domain.ImportBatch, int64, error)
 	CreateBatch(ctx context.Context, id uuid.UUID, fileName string, importedBy uuid.UUID) error
 	Delete(ctx context.Context, id uuid.UUID) error
@@ -108,6 +108,7 @@ type MatchRepository interface {
 	ExistsForExpectation(ctx context.Context, expectationID uuid.UUID) (bool, error)
 	ExistsForTransaction(ctx context.Context, transactionID uuid.UUID) (bool, error)
 	GetByExpectation(ctx context.Context, expectationID uuid.UUID) (*domain.PaymentMatch, error)
+	GetByTransactionIDs(ctx context.Context, transactionIDs []uuid.UUID) (map[uuid.UUID][]domain.PaymentMatch, error)
 	Delete(ctx context.Context, id uuid.UUID) error
 }
 
