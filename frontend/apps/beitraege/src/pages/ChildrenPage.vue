@@ -15,6 +15,7 @@ import {
   Check,
   Upload,
   AlertTriangle,
+  Coins,
   ChevronUp,
   ChevronDown,
   ChevronsUpDown,
@@ -38,6 +39,7 @@ const searchQuery = ref('');
 const showInactive = ref(false);
 const showOnlyU3 = ref(false);
 const showOnlyWarnings = ref(false);
+const showOnlyOpenFees = ref(false);
 
 // Pagination
 const currentPage = ref(1);
@@ -90,6 +92,7 @@ async function loadChildren() {
       activeOnly: !showInactive.value,
       u3Only: showOnlyU3.value,
       hasWarnings: showOnlyWarnings.value,
+      hasOpenFees: showOnlyOpenFees.value,
       search: searchQuery.value || undefined,
       sortBy: sortField.value,
       sortDir: sortDirection.value,
@@ -140,8 +143,13 @@ function handleWarningsChange() {
   loadChildren();
 }
 
+function handleOpenFeesChange() {
+  currentPage.value = 1;
+  loadChildren();
+}
+
 // Watch for filter changes (backup for programmatic v-model changes)
-watch([searchQuery, showInactive, showOnlyU3, showOnlyWarnings], () => {
+watch([searchQuery, showInactive, showOnlyU3, showOnlyWarnings, showOnlyOpenFees], () => {
   currentPage.value = 1;
   loadChildren();
 }, { flush: 'post' });
@@ -229,6 +237,10 @@ function getChildWarnings(child: Child): string[] {
   }
   
   return warnings;
+}
+
+function hasOpenFees(child: Child): boolean {
+  return (child.openFeesCount ?? 0) > 0;
 }
 
 // Sorting
@@ -429,6 +441,15 @@ const visiblePages = computed(() => {
         />
         <span class="text-sm text-gray-700">Nur mit Hinweisen</span>
       </label>
+      <label class="flex items-center gap-2 cursor-pointer">
+        <input
+          v-model="showOnlyOpenFees"
+          @change="handleOpenFeesChange"
+          type="checkbox"
+          class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+        />
+        <span class="text-sm text-gray-700">Nur mit offenen Beiträgen</span>
+      </label>
     </div>
 
     <!-- Bulk actions bar -->
@@ -582,8 +603,8 @@ const visiblePages = computed(() => {
               </td>
               <!-- Warnings -->
               <td class="px-4 py-3">
-                <div v-if="getChildWarnings(child).length > 0" class="flex items-center gap-1">
-                  <div class="group relative">
+                <div class="flex items-center gap-2">
+                  <div v-if="getChildWarnings(child).length > 0" class="group relative">
                     <div class="flex items-center gap-1 text-amber-600">
                       <AlertTriangle class="h-4 w-4" />
                       <span class="text-xs font-medium">{{ getChildWarnings(child).length }}</span>
@@ -602,10 +623,19 @@ const visiblePages = computed(() => {
                       </ul>
                     </div>
                   </div>
+                  <div v-if="hasOpenFees(child)" class="group relative">
+                    <div class="flex items-center gap-1 text-blue-600">
+                      <Coins class="h-4 w-4" />
+                      <span class="text-xs font-medium">{{ child.openFeesCount ?? 0 }}</span>
+                    </div>
+                    <div class="hidden group-hover:block absolute left-0 top-6 z-10 bg-white border rounded-lg shadow-lg p-3 w-56 text-xs text-gray-700">
+                      {{ child.openFeesCount ?? 0 }} offene Beiträge
+                    </div>
+                  </div>
+                  <span v-if="getChildWarnings(child).length === 0 && !hasOpenFees(child)" class="text-green-600">
+                    <Check class="h-4 w-4" />
+                  </span>
                 </div>
-                <span v-else class="text-green-600">
-                  <Check class="h-4 w-4" />
-                </span>
               </td>
               <!-- Status -->
               <td class="px-4 py-3">
