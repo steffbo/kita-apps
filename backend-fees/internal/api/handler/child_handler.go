@@ -98,6 +98,7 @@ type CreateChildRequest struct {
 // @Param active query bool false "Filter by active status"
 // @Param u3Only query bool false "Filter for children under 3"
 // @Param hasWarnings query bool false "Filter for children with warnings"
+// @Param hasOpenFees query bool false "Filter for children with open fees"
 // @Param search query string false "Search by name or member number"
 // @Param sortBy query string false "Sort field (name, birthDate, entryDate)" default(name)
 // @Param sortDir query string false "Sort direction (asc, desc)" default(asc)
@@ -110,6 +111,7 @@ func (h *ChildHandler) List(w http.ResponseWriter, r *http.Request) {
 	activeOnly := request.GetQueryBool(r, "active")
 	u3Only := request.GetQueryBool(r, "u3Only")
 	hasWarnings := request.GetQueryBool(r, "hasWarnings")
+	hasOpenFees := request.GetQueryBool(r, "hasOpenFees")
 	search := request.GetQueryString(r, "search", "")
 	sortBy := request.GetQueryString(r, "sortBy", "name")
 	sortDir := request.GetQueryString(r, "sortDir", "asc")
@@ -118,6 +120,7 @@ func (h *ChildHandler) List(w http.ResponseWriter, r *http.Request) {
 		ActiveOnly:  activeOnly != nil && *activeOnly,
 		U3Only:      u3Only != nil && *u3Only,
 		HasWarnings: hasWarnings != nil && *hasWarnings,
+		HasOpenFees: hasOpenFees != nil && *hasOpenFees,
 		Search:      search,
 		SortBy:      sortBy,
 		SortDir:     sortDir,

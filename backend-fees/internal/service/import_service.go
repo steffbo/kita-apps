@@ -16,7 +16,7 @@ import (
 
 const (
 	// Fee combination amounts
-	foodWithReminderAmount       = domain.FoodFeeAmount + domain.ReminderFeeAmount             // 55.40
+	foodWithReminderAmount       = domain.FoodFeeAmount + domain.ReminderFeeAmount                 // 55.40
 	membershipWithReminderAmount = domain.MembershipFeeAmount + domain.MembershipReminderFeeAmount // 35.00
 
 	// Late payment threshold: 15th day of the month
@@ -127,7 +127,7 @@ func (s *ImportService) ProcessCSV(ctx context.Context, file io.Reader, fileName
 	}
 
 	// Get all children for matching
-	children, _, _ := s.childRepo.List(ctx, true, false, false, "", "", "", 0, 1000)
+	children, _, _ := s.childRepo.List(ctx, true, false, false, false, "", "", "", 0, 1000)
 	s.enrichChildrenWithParents(ctx, children)
 
 	// Process each transaction
@@ -178,10 +178,13 @@ func (s *ImportService) ProcessCSV(ctx context.Context, file io.Reader, fileName
 }
 
 func (s *ImportService) saveWarning(ctx context.Context, warning *domain.TransactionWarning, result *ImportResult) {
-	if s.warningRepo != nil {
+	// Add to result list for frontend display during import
+	result.WarningList = append(result.WarningList, *warning)
+
+	// Persist to database except for MULTIPLE_OPEN_FEES (computed on-the-fly)
+	if s.warningRepo != nil && warning.WarningType != domain.WarningTypeMultipleOpenFees {
 		if err := s.warningRepo.Create(ctx, warning); err == nil {
 			result.Warnings++
-			result.WarningList = append(result.WarningList, *warning)
 		}
 	}
 }
@@ -552,7 +555,7 @@ func (s *ImportService) Rescan(ctx context.Context) (*RescanResult, error) {
 	}
 
 	// Get all children for matching
-	children, _, _ := s.childRepo.List(ctx, true, false, false, "", "", "", 0, 1000)
+	children, _, _ := s.childRepo.List(ctx, true, false, false, false, "", "", "", 0, 1000)
 	s.enrichChildrenWithParents(ctx, children)
 
 	// Re-scan each transaction
@@ -1048,7 +1051,7 @@ func (s *ImportService) GetSuggestionsForTransaction(ctx context.Context, transa
 	}
 
 	// Get all children for matching
-	children, _, _ := s.childRepo.List(ctx, true, false, false, "", "", "", 0, 1000)
+	children, _, _ := s.childRepo.List(ctx, true, false, false, false, "", "", "", 0, 1000)
 	s.enrichChildrenWithParents(ctx, children)
 
 	// Run matching algorithm

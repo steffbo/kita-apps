@@ -31,6 +31,7 @@ type ChildFilter struct {
 	ActiveOnly  bool
 	U3Only      bool
 	HasWarnings bool
+	HasOpenFees bool
 	Search      string
 	SortBy      string
 	SortDir     string
@@ -72,7 +73,7 @@ type UpdateChildInput struct {
 
 // List returns children matching the filter with parents and households loaded.
 func (s *ChildService) List(ctx context.Context, filter ChildFilter, offset, limit int) ([]domain.Child, int64, error) {
-	children, total, err := s.childRepo.List(ctx, filter.ActiveOnly, filter.U3Only, filter.HasWarnings, filter.Search, filter.SortBy, filter.SortDir, offset, limit)
+	children, total, err := s.childRepo.List(ctx, filter.ActiveOnly, filter.U3Only, filter.HasWarnings, filter.HasOpenFees, filter.Search, filter.SortBy, filter.SortDir, offset, limit)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -362,6 +363,6 @@ func (s *ChildService) UnlinkParent(ctx context.Context, childID, parentID uuid.
 
 // GetAll returns all active children (for matching purposes).
 func (s *ChildService) GetAll(ctx context.Context) ([]domain.Child, error) {
-	children, _, err := s.childRepo.List(ctx, true, false, false, "", "", "", 0, 1000)
+	children, _, err := s.childRepo.List(ctx, true, false, false, false, "", "", "", 0, 1000)
 	return children, err
 }

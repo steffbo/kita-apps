@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
+	"github.com/rs/zerolog/log"
 
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
 )
@@ -25,11 +26,20 @@ func NewPostgresChildRepository(db *sqlx.DB) *PostgresChildRepository {
 }
 
 // List retrieves children with optional filtering and sorting.
-func (r *PostgresChildRepository) List(ctx context.Context, activeOnly bool, u3Only bool, hasWarnings bool, search string, sortBy string, sortDir string, offset, limit int) ([]domain.Child, int64, error) {
+func (r *PostgresChildRepository) List(ctx context.Context, activeOnly bool, u3Only bool, hasWarnings bool, hasOpenFees bool, search string, sortBy string, sortDir string, offset, limit int) ([]domain.Child, int64, error) {
 	var children []domain.Child
 	var total int64
 
-	baseQuery := `FROM fees.children c WHERE 1=1`
+	baseQuery := `
+		FROM fees.children c
+		LEFT JOIN (
+			SELECT fe.child_id,
+				   COUNT(*) FILTER (WHERE pm.id IS NULL) AS open_fees_count
+			FROM fees.fee_expectations fe
+			LEFT JOIN fees.payment_matches pm ON fe.id = pm.expectation_id
+			GROUP BY fe.child_id
+		) ofe ON ofe.child_id = c.id
+		WHERE 1=1`
 	args := make([]interface{}, 0)
 	argIdx := 1
 
@@ -84,6 +94,10 @@ func (r *PostgresChildRepository) List(ctx context.Context, activeOnly bool, u3O
 		argIdx++
 	}
 
+	if hasOpenFees {
+		baseQuery += " AND COALESCE(ofe.open_fees_count, 0) > 0"
+	}
+
 	if search != "" {
 		baseQuery += fmt.Sprintf(" AND (c.first_name ILIKE $%d OR c.last_name ILIKE $%d OR c.member_number ILIKE $%d)", argIdx, argIdx, argIdx)
 		args = append(args, "%"+search+"%")
@@ -94,6 +108,7 @@ func (r *PostgresChildRepository) List(ctx context.Context, activeOnly bool, u3O
 	countQuery := "SELECT COUNT(*) " + baseQuery
 	err := r.db.GetContext(ctx, &total, countQuery, args...)
 	if err != nil {
+		log.Error().Err(err).Str("query", countQuery).Msg("Child count query failed")
 		return nil, 0, err
 	}
 
@@ -104,7 +119,7 @@ func (r *PostgresChildRepository) List(ctx context.Context, activeOnly bool, u3O
 	selectQuery := fmt.Sprintf(`
 		SELECT c.id, c.household_id, c.member_number, c.first_name, c.last_name, c.birth_date, c.entry_date, c.exit_date,
 		       c.street, c.street_no, c.postal_code, c.city, c.legal_hours, c.legal_hours_until, c.care_hours,
-		       c.is_active, c.created_at, c.updated_at
+		       c.is_active, c.created_at, c.updated_at, ofe.open_fees_count
 		%s
 		ORDER BY %s
 		LIMIT $%d OFFSET $%d
@@ -113,6 +128,7 @@ func (r *PostgresChildRepository) List(ctx context.Context, activeOnly bool, u3O
 
 	err = r.db.SelectContext(ctx, &children, selectQuery, args...)
 	if err != nil {
+		log.Error().Err(err).Str("query", selectQuery).Msg("Child list query failed")
 		return nil, 0, err
 	}
 
@@ -225,8 +241,8 @@ func (r *PostgresChildRepository) GetByMemberNumber(ctx context.Context, memberN
 func (r *PostgresChildRepository) Create(ctx context.Context, child *domain.Child) error {
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO fees.children (id, household_id, member_number, first_name, last_name, birth_date, entry_date, exit_date,
-		                           street, street_no, postal_code, city, legal_hours, legal_hours_until, care_hours,
-		                           is_active, created_at, updated_at)
+			                           street, street_no, postal_code, city, legal_hours, legal_hours_until, care_hours,
+			                           is_active, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
 	`, child.ID, child.HouseholdID, child.MemberNumber, child.FirstName, child.LastName, child.BirthDate, child.EntryDate, child.ExitDate,
 		child.Street, child.StreetNo, child.PostalCode, child.City, child.LegalHours, child.LegalHoursUntil, child.CareHours,

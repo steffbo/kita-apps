@@ -26,6 +26,8 @@ type Child struct {
 	IsActive        bool       `json:"isActive" db:"is_active"`
 	CreatedAt       time.Time  `json:"createdAt" db:"created_at"`
 	UpdatedAt       time.Time  `json:"updatedAt" db:"updated_at"`
+	// Computed fields (not stored in DB, populated by queries)
+	OpenFeesCount *int64 `json:"openFeesCount,omitempty" db:"open_fees_count"`
 	// Loaded relations (not stored in DB)
 	Parents   []Parent   `json:"parents,omitempty" db:"-"`
 	Household *Household `json:"household,omitempty" db:"-"`
