@@ -9,9 +9,14 @@ import {
   AlertTriangle,
   TrendingUp,
   Loader2,
+  Users,
+  Link2,
 } from 'lucide-vue-next';
+import { useRouter } from 'vue-router';
 
+const router = useRouter();
 const overview = ref<FeeOverview | null>(null);
+const unmatchedTotal = ref(0);
 const isLoading = ref(true);
 const error = ref<string | null>(null);
 const selectedYear = ref(new Date().getFullYear());
@@ -25,7 +30,12 @@ async function loadOverview() {
   isLoading.value = true;
   error.value = null;
   try {
-    overview.value = await api.getFeeOverview(selectedYear.value);
+    const [overviewData, unmatchedData] = await Promise.all([
+      api.getFeeOverview(selectedYear.value),
+      api.getUnmatchedTransactions({ limit: 1 }),
+    ]);
+    overview.value = overviewData;
+    unmatchedTotal.value = unmatchedData.total;
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Fehler beim Laden';
   } finally {
@@ -138,6 +148,57 @@ const stats = computed(() => {
               <p class="text-sm text-gray-600">{{ stat.name }}</p>
               <p class="text-2xl font-bold text-gray-900">{{ stat.value }}</p>
               <p :class="['text-sm font-medium', stat.color]">{{ stat.amount }}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Warning Cards Grid -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+        <!-- Children with Missing Payments Warning Card -->
+        <div
+          v-if="overview.childrenWithOpenFees > 0"
+          class="bg-amber-50 border border-amber-200 rounded-xl p-6 cursor-pointer hover:bg-amber-100 transition-colors"
+          @click="router.push('/kinder?openFees=true')"
+        >
+          <div class="flex items-center gap-4">
+            <div class="p-3 bg-amber-100 rounded-lg">
+              <Users class="h-6 w-6 text-amber-600" />
+            </div>
+            <div class="flex-1">
+              <p class="text-sm text-amber-700 font-medium">Fehlende Zahlungen</p>
+              <p class="text-lg text-amber-900">
+                {{ overview.childrenWithOpenFees }} Kinder haben offene Beiträge
+              </p>
+            </div>
+            <div class="text-amber-600">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- Unmatched Transactions Warning Card -->
+        <div
+          v-if="unmatchedTotal > 0"
+          class="bg-orange-50 border border-orange-200 rounded-xl p-6 cursor-pointer hover:bg-orange-100 transition-colors"
+          @click="router.push('/import?tab=unmatched')"
+        >
+          <div class="flex items-center gap-4">
+            <div class="p-3 bg-orange-100 rounded-lg">
+              <Link2 class="h-6 w-6 text-orange-600" />
+            </div>
+            <div class="flex-1">
+              <p class="text-sm text-orange-700 font-medium">Nicht zugeordnet</p>
+              <p class="text-lg text-orange-900">
+                {{ unmatchedTotal }} Transaktionen nicht zugeordnet
+              </p>
+            </div>
+            <div class="text-orange-600">
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+              </svg>
             </div>
           </div>
         </div>

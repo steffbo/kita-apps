@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import { api } from '@/api';
 import type { ImportResult, ImportBatch, BankTransaction, MatchConfirmation, KnownIBAN, TransactionWarning, MatchSuggestion, FeeExpectation } from '@/api/types';
 import {
@@ -31,6 +32,7 @@ import {
 
 type TabType = 'upload' | 'history' | 'unmatched' | 'matched' | 'warnings' | 'blacklist';
 
+const route = useRoute();
 const activeTab = ref<TabType>('upload');
 
 // Upload state
@@ -669,10 +671,18 @@ function switchTab(tab: TabType): void {
 }
 
 onMounted(() => {
-  // Pre-load history in background
-  loadHistory();
-  // Pre-load warnings count for badge
-  loadWarnings();
+  // Check for query param to auto-switch tab
+  const tabParam = route.query.tab as TabType | undefined;
+  if (tabParam && ['upload', 'history', 'unmatched', 'matched', 'warnings', 'blacklist'].includes(tabParam)) {
+    activeTab.value = tabParam;
+    // Load the tab's data
+    switchTab(tabParam);
+  } else {
+    // Default behavior: pre-load counts in background
+    loadHistory();
+    loadWarnings();
+    loadUnmatched();
+  }
 });
 
 function formatDate(dateStr: string): string {

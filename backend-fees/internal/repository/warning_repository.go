@@ -71,24 +71,28 @@ func (r *PostgresWarningRepository) GetByTransactionID(ctx context.Context, tran
 }
 
 // ListUnresolved retrieves all unresolved warnings with pagination.
+// Excludes MULTIPLE_OPEN_FEES warnings as they are not actionable.
 func (r *PostgresWarningRepository) ListUnresolved(ctx context.Context, offset, limit int) ([]domain.TransactionWarning, int64, error) {
 	var warnings []domain.TransactionWarning
 	var total int64
 
-	// Count total unresolved
+	// Count total unresolved (excluding MULTIPLE_OPEN_FEES)
 	err := r.db.GetContext(ctx, &total, `
-		SELECT COUNT(*) FROM fees.transaction_warnings WHERE resolved_at IS NULL
+		SELECT COUNT(*) FROM fees.transaction_warnings 
+		WHERE resolved_at IS NULL 
+		AND warning_type != 'MULTIPLE_OPEN_FEES'
 	`)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	// Fetch with pagination
+	// Fetch with pagination (excluding MULTIPLE_OPEN_FEES)
 	err = r.db.SelectContext(ctx, &warnings, `
 		SELECT w.id, w.transaction_id, w.warning_type, w.message, w.expected_amount, w.actual_amount,
 			   w.child_id, w.matched_fee_id, w.resolved_at, w.resolved_by, w.resolution_type, w.resolution_note, w.created_at
 		FROM fees.transaction_warnings w
 		WHERE w.resolved_at IS NULL
+		AND w.warning_type != 'MULTIPLE_OPEN_FEES'
 		ORDER BY w.created_at DESC
 		LIMIT $1 OFFSET $2
 	`, limit, offset)

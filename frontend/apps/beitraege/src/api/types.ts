@@ -248,6 +248,7 @@ export interface FeeOverview {
   amountPaid: number;
   amountOverdue: number;
   byMonth: MonthSummary[];
+  childrenWithOpenFees: number;
 }
 
 export interface MonthSummary {

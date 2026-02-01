@@ -18,11 +18,11 @@ const (
 
 // FeeAmounts defines the standard fee amounts.
 const (
-	MembershipFeeAmount = 30.00
-	FoodFeeAmount       = 45.40
-	DefaultChildcareFee = 100.00 // Default until income-based calculation is implemented
-	ReminderFeeAmount           = 10.00 // Mahngebühr for Food/Childcare
-	MembershipReminderFeeAmount = 5.00  // Mahngebühr for Membership
+	MembershipFeeAmount         = 30.00
+	FoodFeeAmount               = 45.40
+	DefaultChildcareFee         = 100.00 // Default until income-based calculation is implemented
+	ReminderFeeAmount           = 10.00  // Mahngebühr for Food/Childcare
+	MembershipReminderFeeAmount = 5.00   // Mahngebühr for Membership
 )
 
 // FeeExpectation represents an expected fee payment.
@@ -67,13 +67,14 @@ func (f *FeeExpectation) Status(atDate time.Time) FeeStatus {
 
 // FeeOverview represents a summary of fees for reporting.
 type FeeOverview struct {
-	TotalOpen     int            `json:"totalOpen"`
-	TotalPaid     int            `json:"totalPaid"`
-	TotalOverdue  int            `json:"totalOverdue"`
-	AmountOpen    float64        `json:"amountOpen"`
-	AmountPaid    float64        `json:"amountPaid"`
-	AmountOverdue float64        `json:"amountOverdue"`
-	ByMonth       []MonthSummary `json:"byMonth"`
+	TotalOpen            int            `json:"totalOpen"`
+	TotalPaid            int            `json:"totalPaid"`
+	TotalOverdue         int            `json:"totalOverdue"`
+	AmountOpen           float64        `json:"amountOpen"`
+	AmountPaid           float64        `json:"amountPaid"`
+	AmountOverdue        float64        `json:"amountOverdue"`
+	ByMonth              []MonthSummary `json:"byMonth"`
+	ChildrenWithOpenFees int            `json:"childrenWithOpenFees"`
 }
 
 // MonthSummary represents fee summary for a specific month.

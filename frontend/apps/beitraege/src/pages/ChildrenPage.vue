@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import { api } from '@/api';
 import { useAuthStore } from '@/stores/auth';
 import type { Child, CreateChildRequest } from '@/api/types';
@@ -26,6 +26,7 @@ import {
 } from 'lucide-vue-next';
 
 const router = useRouter();
+const route = useRoute();
 const authStore = useAuthStore();
 
 // Data
@@ -164,7 +165,13 @@ watch([sortField, sortDirection], () => {
   loadChildren();
 });
 
-onMounted(loadChildren);
+onMounted(() => {
+  // Check for query param to auto-enable open fees filter
+  if (route.query.openFees === 'true') {
+    showOnlyOpenFees.value = true;
+  }
+  loadChildren();
+});
 
 // ESC key handler to close modals
 function handleKeydown(e: KeyboardEvent) {

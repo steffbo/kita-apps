@@ -407,5 +407,16 @@ func (r *PostgresFeeRepository) GetOverview(ctx context.Context, year int) (*dom
 		overview.ByMonth = append(overview.ByMonth, ms)
 	}
 
+	// Count children with open fees
+	err = r.db.GetContext(ctx, &overview.ChildrenWithOpenFees, `
+		SELECT COUNT(DISTINCT fe.child_id)
+		FROM fees.fee_expectations fe
+		LEFT JOIN fees.payment_matches pm ON fe.id = pm.expectation_id
+		WHERE fe.year = $1 AND pm.id IS NULL
+	`, year)
+	if err != nil {
+		return nil, err
+	}
+
 	return overview, nil
 }
