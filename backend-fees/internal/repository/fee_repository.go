@@ -103,11 +103,39 @@ func (r *PostgresFeeRepository) GetByID(ctx context.Context, id uuid.UUID) (*dom
 	`, id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrNotFound
+			return nil, errors.New("fee not found")
 		}
 		return nil, err
 	}
 	return &fee, nil
+}
+
+// GetForChild retrieves all fee expectations for a child, optionally filtered by year.
+func (r *PostgresFeeRepository) GetForChild(ctx context.Context, childID uuid.UUID, year *int) ([]domain.FeeExpectation, error) {
+	var fees []domain.FeeExpectation
+	var query string
+	var args []interface{}
+
+	if year != nil {
+		query = `
+			SELECT id, child_id, fee_type, year, month, amount, due_date, created_at, reminder_for_id, reconciliation_year
+			FROM fees.fee_expectations
+			WHERE child_id = $1 AND year = $2
+			ORDER BY year DESC, month ASC NULLS LAST
+		`
+		args = []interface{}{childID, *year}
+	} else {
+		query = `
+			SELECT id, child_id, fee_type, year, month, amount, due_date, created_at, reminder_for_id, reconciliation_year
+			FROM fees.fee_expectations
+			WHERE child_id = $1
+			ORDER BY year DESC, month ASC NULLS LAST
+		`
+		args = []interface{}{childID}
+	}
+
+	err := r.db.SelectContext(ctx, &fees, query, args...)
+	return fees, err
 }
 
 // GetByIDs retrieves multiple fee expectations by their IDs.

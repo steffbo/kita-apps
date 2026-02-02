@@ -39,10 +39,44 @@ type FeeExpectation struct {
 	ReconciliationYear *int       `json:"reconciliationYear,omitempty" db:"reconciliation_year"` // For Kalendarjahresabrechnung: the year this Nachzahlung is for
 
 	// Joined fields
-	Child     *Child        `json:"child,omitempty" db:"-"`
-	IsPaid    bool          `json:"isPaid" db:"-"`
-	PaidAt    *time.Time    `json:"paidAt,omitempty" db:"-"`
-	MatchedBy *PaymentMatch `json:"matchedBy,omitempty" db:"-"`
+	Child          *Child         `json:"child,omitempty" db:"-"`
+	IsPaid         bool           `json:"isPaid" db:"-"`
+	PaidAt         *time.Time     `json:"paidAt,omitempty" db:"-"`
+	MatchedBy      *PaymentMatch  `json:"matchedBy,omitempty" db:"-"`
+	MatchedAmount  float64        `json:"matchedAmount,omitempty" db:"-"`  // Total matched across all transactions
+	Remaining      float64        `json:"remaining,omitempty" db:"-"`      // Amount still needed
+	PartialMatches []PaymentMatch `json:"partialMatches,omitempty" db:"-"` // All transactions covering this fee
+}
+
+// FeeCoverage represents the coverage status of fees by transactions.
+type FeeCoverage struct {
+	ChildID       uuid.UUID            `json:"childId"`
+	Year          int                  `json:"year"`
+	Month         int                  `json:"month"`
+	ExpectedTotal float64              `json:"expectedTotal"`
+	ReceivedTotal float64              `json:"receivedTotal"`
+	Balance       float64              `json:"balance"` // negative = overpaid, positive = owes
+	Status        CoverageStatus       `json:"status"`
+	Transactions  []CoveredTransaction `json:"transactions"`
+}
+
+// CoverageStatus represents the payment coverage status.
+type CoverageStatus string
+
+const (
+	CoverageStatusUnpaid   CoverageStatus = "UNPAID"   // No payments received
+	CoverageStatusPartial  CoverageStatus = "PARTIAL"  // Some payment received, not enough
+	CoverageStatusCovered  CoverageStatus = "COVERED"  // Exactly covered
+	CoverageStatusOverpaid CoverageStatus = "OVERPAID" // Paid more than expected
+)
+
+// CoveredTransaction represents a transaction that covers a fee period.
+type CoveredTransaction struct {
+	TransactionID  uuid.UUID `json:"transactionId"`
+	Amount         float64   `json:"amount"`
+	BookingDate    time.Time `json:"bookingDate"`
+	Description    *string   `json:"description,omitempty"`
+	IsForThisMonth bool      `json:"isForThisMonth"` // true if transaction date matches fee month
 }
 
 // FeeStatus represents the payment status of a fee.

@@ -16,6 +16,8 @@ import (
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/api"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/api/handler"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/auth"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/banking"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/banking/encrypt"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/config"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/email"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/repository"
@@ -50,6 +52,8 @@ import (
 // @tag.description Beitragsverwaltung
 // @tag.name Import
 // @tag.description Bankdaten-Import
+// @tag.name Banking
+// @tag.description Bank-Synchronisation (FinTS)
 // @tag.name Calculator
 // @tag.description Gebührenrechner
 
@@ -81,6 +85,7 @@ func main() {
 	matchRepo := repository.NewPostgresMatchRepository(db)
 	knownIBANRepo := repository.NewPostgresKnownIBANRepository(db)
 	warningRepo := repository.NewPostgresWarningRepository(db)
+	bankingConfigRepo := repository.NewPostgresBankingConfigRepository(db)
 
 	// Initialize services
 	jwtService := auth.NewJWTService(cfg.JWT.Secret, cfg.JWT.AccessExpiry, cfg.JWT.RefreshExpiry, cfg.JWT.Issuer)
@@ -93,6 +98,32 @@ func main() {
 		UseTLS:   cfg.SMTP.UseTLS,
 	})
 	authService := service.NewAuthService(userRepo, refreshTokenRepo, emailService, cfg.SMTP.BaseURL, cfg.JWT.RefreshExpiry)
+
+	// Initialize banking encryptor (optional - only if BANKING_ENCRYPTION_KEY is set)
+	var bankingEncryptor *encrypt.Encryptor
+	if encryptionKey := os.Getenv("BANKING_ENCRYPTION_KEY"); encryptionKey != "" {
+		var err error
+		bankingEncryptor, err = encrypt.NewEncryptor()
+		if err != nil {
+			log.Warn().Err(err).Msg("Failed to initialize banking encryptor - banking sync will be disabled")
+		}
+	}
+
+	// Initialize banking service (only if encryptor is available)
+	var bankingSvc *banking.Service
+	if bankingEncryptor != nil {
+		bankingSvc = banking.NewService(
+			bankingConfigRepo,
+			transactionRepo,
+			childRepo,
+			feeRepo,
+			matchRepo,
+			knownIBANRepo,
+			warningRepo,
+			bankingEncryptor,
+		)
+	}
+
 	childService := service.NewChildService(childRepo, parentRepo, householdRepo)
 	parentService := service.NewParentService(parentRepo, childRepo, memberRepo)
 	householdService := service.NewHouseholdService(householdRepo, parentRepo, childRepo)
@@ -100,12 +131,14 @@ func main() {
 	feeService := service.NewFeeService(feeRepo, childRepo, householdRepo, matchRepo, transactionRepo)
 	importService := service.NewImportService(transactionRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, warningRepo)
 	childImportService := service.NewChildImportService(childRepo, parentRepo)
+	coverageService := service.NewCoverageService(feeRepo, childRepo, transactionRepo, matchRepo)
 
 	// Initialize handlers
 	handlers := &api.Handlers{
 		Auth:        handler.NewAuthHandler(authService, jwtService),
-		Child:       handler.NewChildHandler(childService, feeService),
+		Child:       handler.NewChildHandler(childService, feeService, coverageService, feeRepo, matchRepo, transactionRepo),
 		ChildImport: handler.NewChildImportHandler(childImportService),
+		Banking:     handler.NewBankingHandler(bankingConfigRepo, bankingSvc, bankingEncryptor),
 		Parent:      handler.NewParentHandler(parentService),
 		Household:   handler.NewHouseholdHandler(householdService),
 		Member:      handler.NewMemberHandler(memberService),

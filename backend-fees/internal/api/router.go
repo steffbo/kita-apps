@@ -56,6 +56,9 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 		// Public childcare fee calculator
 		r.Get("/childcare-fee/calculate", handlers.Fee.CalculateChildcareFee)
 
+		// Debug endpoint - temporarily public for diagnosis
+		r.Get("/children/{id}/debug-timeline", handlers.Child.DebugTimeline)
+
 		// Protected routes
 		r.Group(func(r chi.Router) {
 			r.Use(customMiddleware.AuthMiddleware(handlers.JWTService))
@@ -73,6 +76,8 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 				r.Put("/{id}", handlers.Child.Update)
 				r.Delete("/{id}", handlers.Child.Delete)
 				r.Get("/{id}/ledger", handlers.Child.GetLedger)
+				r.Get("/{id}/timeline", handlers.Child.GetTimeline)
+				r.Get("/{id}/debug-timeline", handlers.Child.DebugTimeline)
 				r.Post("/{id}/parents", handlers.Child.LinkParent)
 				r.Delete("/{id}/parents/{parentId}", handlers.Child.UnlinkParent)
 
@@ -147,6 +152,11 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 				r.Post("/warnings/{id}/dismiss", handlers.Import.DismissWarning)
 				r.Post("/warnings/{id}/resolve-late-fee", handlers.Import.ResolveLateFee)
 			})
+
+			// Banking (FinTS sync)
+			if handlers.Banking != nil {
+				handlers.Banking.RegisterRoutes(r, customMiddleware.AuthMiddleware(handlers.JWTService))
+			}
 		})
 	})
 
@@ -163,5 +173,6 @@ type Handlers struct {
 	Member      *handler.MemberHandler
 	Fee         *handler.FeeHandler
 	Import      *handler.ImportHandler
+	Banking     *handler.BankingHandler
 	JWTService  *auth.JWTService
 }

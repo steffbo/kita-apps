@@ -88,6 +88,8 @@ type FeeRepository interface {
 	// Used to determine if auto-matching should occur (only when count == 1).
 	CountUnpaidByType(ctx context.Context, childID uuid.UUID, feeType domain.FeeType, amount float64) (int, error)
 	GetOverview(ctx context.Context, year int) (*domain.FeeOverview, error)
+	// GetForChild retrieves all fee expectations for a child, optionally filtered by year.
+	GetForChild(ctx context.Context, childID uuid.UUID, year *int) ([]domain.FeeExpectation, error)
 }
 
 // TransactionRepository handles bank transaction persistence.
@@ -111,6 +113,8 @@ type MatchRepository interface {
 	ExistsForExpectation(ctx context.Context, expectationID uuid.UUID) (bool, error)
 	ExistsForTransaction(ctx context.Context, transactionID uuid.UUID) (bool, error)
 	GetByExpectation(ctx context.Context, expectationID uuid.UUID) (*domain.PaymentMatch, error)
+	GetAllByExpectation(ctx context.Context, expectationID uuid.UUID) ([]domain.PaymentMatch, error)
+	GetTotalMatchedAmount(ctx context.Context, expectationID uuid.UUID) (float64, error)
 	GetByTransactionIDs(ctx context.Context, transactionIDs []uuid.UUID) (map[uuid.UUID][]domain.PaymentMatch, error)
 	Delete(ctx context.Context, id uuid.UUID) error
 }
@@ -161,4 +165,13 @@ type WarningRepository interface {
 	Resolve(ctx context.Context, id uuid.UUID, resolvedBy uuid.UUID, resolutionType domain.ResolutionType, note string) error
 	ResolveByTransactionID(ctx context.Context, transactionID uuid.UUID, resolutionType domain.ResolutionType, note string) error
 	Delete(ctx context.Context, id uuid.UUID) error
+}
+
+// BankingConfigRepository handles banking configuration persistence.
+type BankingConfigRepository interface {
+	Get(ctx context.Context) (*domain.BankingConfig, error)
+	Create(ctx context.Context, config *domain.BankingConfig) error
+	Update(ctx context.Context, config *domain.BankingConfig) error
+	Delete(ctx context.Context) error
+	UpdateLastSync(ctx context.Context, syncTime time.Time) error
 }

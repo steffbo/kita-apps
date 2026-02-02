@@ -77,12 +77,15 @@ func (r *PostgresMatchRepository) ExistsForTransaction(ctx context.Context, tran
 }
 
 // GetByExpectation retrieves a match by its fee expectation ID.
+// Returns the first match only. Use GetAllByExpectation to get all matches.
 func (r *PostgresMatchRepository) GetByExpectation(ctx context.Context, expectationID uuid.UUID) (*domain.PaymentMatch, error) {
 	var match domain.PaymentMatch
 	err := r.db.GetContext(ctx, &match, `
 		SELECT id, transaction_id, expectation_id, match_type, confidence, matched_at, matched_by
 		FROM fees.payment_matches
 		WHERE expectation_id = $1
+		ORDER BY matched_at DESC
+		LIMIT 1
 	`, expectationID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -91,6 +94,30 @@ func (r *PostgresMatchRepository) GetByExpectation(ctx context.Context, expectat
 		return nil, err
 	}
 	return &match, nil
+}
+
+// GetAllByExpectation retrieves all matches for a fee expectation.
+func (r *PostgresMatchRepository) GetAllByExpectation(ctx context.Context, expectationID uuid.UUID) ([]domain.PaymentMatch, error) {
+	var matches []domain.PaymentMatch
+	err := r.db.SelectContext(ctx, &matches, `
+		SELECT id, transaction_id, expectation_id, match_type, confidence, matched_at, matched_by
+		FROM fees.payment_matches
+		WHERE expectation_id = $1
+		ORDER BY matched_at DESC
+	`, expectationID)
+	return matches, err
+}
+
+// GetTotalMatchedAmount calculates the total amount matched to a fee expectation.
+func (r *PostgresMatchRepository) GetTotalMatchedAmount(ctx context.Context, expectationID uuid.UUID) (float64, error) {
+	var total float64
+	err := r.db.GetContext(ctx, &total, `
+		SELECT COALESCE(SUM(bt.amount), 0)
+		FROM fees.payment_matches pm
+		JOIN fees.bank_transactions bt ON pm.transaction_id = bt.id
+		WHERE pm.expectation_id = $1
+	`, expectationID)
+	return total, err
 }
 
 // Delete deletes a payment match.
