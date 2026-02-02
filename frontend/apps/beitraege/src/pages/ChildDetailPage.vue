@@ -2,7 +2,7 @@
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api';
-import type { Child, FeeExpectation, UpdateChildRequest, Parent, CreateParentRequest, UpdateParentRequest, BankTransaction, IncomeStatus, UpdateHouseholdRequest, ChildcareFeeResult, ChildLedger } from '@/api/types';
+import type { Child, FeeExpectation, UpdateChildRequest, Parent, CreateParentRequest, UpdateParentRequest, BankTransaction, IncomeStatus, UpdateHouseholdRequest, ChildcareFeeResult, ChildLedger, FeeCoverage, CoverageStatus } from '@/api/types';
 import {
   ArrowLeft,
   Edit,
@@ -27,6 +27,7 @@ import {
   Home,
   Euro,
   BookOpen,
+  History,
 } from 'lucide-vue-next';
 
 const route = useRoute();
@@ -102,6 +103,12 @@ const showLedger = ref(false);
 const ledger = ref<ChildLedger | null>(null);
 const isLoadingLedger = ref(false);
 const ledgerYear = ref<number | undefined>(undefined);
+
+// Timeline state
+const showTimeline = ref(false);
+const timeline = ref<FeeCoverage[] | null>(null);
+const isLoadingTimeline = ref(false);
+const timelineYear = ref<number>(new Date().getFullYear());
 
 const childId = computed(() => route.params.id as string);
 
@@ -187,8 +194,31 @@ async function loadLedger() {
 
 function toggleLedger() {
   showLedger.value = !showLedger.value;
+  showTimeline.value = false;
   if (showLedger.value && !ledger.value) {
     loadLedger();
+  }
+}
+
+async function loadTimeline() {
+  isLoadingTimeline.value = true;
+  try {
+    const data = await api.getChildTimeline(childId.value, timelineYear.value);
+    console.log('Timeline loaded:', data);
+    timeline.value = data;
+  } catch (e) {
+    console.error('Failed to load timeline:', e);
+    timeline.value = null;
+  } finally {
+    isLoadingTimeline.value = false;
+  }
+}
+
+function toggleTimeline() {
+  showTimeline.value = !showTimeline.value;
+  showLedger.value = false;
+  if (showTimeline.value && !timeline.value) {
+    loadTimeline();
   }
 }
 
@@ -196,6 +226,12 @@ function toggleLedger() {
 watch(ledgerYear, () => {
   if (showLedger.value) {
     loadLedger();
+  }
+});
+
+watch(timelineYear, () => {
+  if (showTimeline.value) {
+    loadTimeline();
   }
 });
 
@@ -533,6 +569,36 @@ function formatIncome(income?: number): string {
     currency: 'EUR',
     maximumFractionDigits: 0,
   }).format(income);
+}
+
+function getTimelineStatusColor(status: CoverageStatus): string {
+  switch (status) {
+    case 'UNPAID':
+      return 'bg-red-50 border-red-200 text-red-700';
+    case 'PARTIAL':
+      return 'bg-amber-50 border-amber-200 text-amber-700';
+    case 'COVERED':
+      return 'bg-green-50 border-green-200 text-green-700';
+    case 'OVERPAID':
+      return 'bg-blue-50 border-blue-200 text-blue-700';
+    default:
+      return 'bg-gray-50 border-gray-200 text-gray-700';
+  }
+}
+
+function getTimelineStatusLabel(status: CoverageStatus): string {
+  switch (status) {
+    case 'UNPAID':
+      return 'Unbezahlt';
+    case 'PARTIAL':
+      return 'Teilbezahlt';
+    case 'COVERED':
+      return 'Vollständig bezahlt';
+    case 'OVERPAID':
+      return 'Überbezahlt';
+    default:
+      return status;
+  }
 }
 
 function getIncomeStatusLabel(status?: IncomeStatus): string {
@@ -1021,18 +1087,127 @@ async function createReminder() {
             <Receipt class="h-5 w-5 text-primary" />
             <h2 class="text-lg font-semibold">Beiträge</h2>
           </div>
-          <button
-            @click="toggleLedger"
-            :class="[
-              'inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors',
-              showLedger
-                ? 'bg-primary text-white'
-                : 'text-primary border border-primary hover:bg-primary/10'
-            ]"
-          >
-            <BookOpen class="h-4 w-4" />
-            {{ showLedger ? 'Übersicht' : 'Kontobuch' }}
-          </button>
+          <div class="flex items-center gap-2">
+            <button
+              @click="toggleTimeline"
+              :class="[
+                'inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors',
+                showTimeline
+                  ? 'bg-primary text-white'
+                  : 'text-primary border border-primary hover:bg-primary/10'
+              ]"
+            >
+              <History class="h-4 w-4" />
+              {{ showTimeline ? 'Übersicht' : 'Zeitstrahl' }}
+            </button>
+            <button
+              @click="toggleLedger"
+              :class="[
+                'inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors',
+                showLedger
+                  ? 'bg-primary text-white'
+                  : 'text-primary border border-primary hover:bg-primary/10'
+              ]"
+            >
+              <BookOpen class="h-4 w-4" />
+              {{ showLedger ? 'Übersicht' : 'Kontobuch' }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Timeline View -->
+        <div v-if="showTimeline">
+          <!-- Year filter -->
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2">
+              <label class="text-sm text-gray-600">Jahr:</label>
+              <select
+                v-model="timelineYear"
+                class="px-2 py-1 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              >
+                <option v-for="year in availableYears" :key="year" :value="year">{{ year }}</option>
+              </select>
+            </div>
+            <button
+              @click="loadTimeline"
+              class="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              title="Aktualisieren"
+            >
+              <Loader2 v-if="isLoadingTimeline" class="h-4 w-4 animate-spin" />
+              <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
+            </button>
+          </div>
+
+          <!-- Timeline Grid -->
+          <div v-if="isLoadingTimeline" class="flex items-center justify-center py-8">
+            <Loader2 class="h-8 w-8 animate-spin text-primary" />
+          </div>
+          <div v-else-if="timeline?.length" class="space-y-3">
+            <div
+              v-for="month in timeline"
+              :key="`${month.year}-${month.month}`"
+              :class="['rounded-lg border p-4', getTimelineStatusColor(month.status)]"
+            >
+              <div class="flex items-center justify-between mb-3">
+                <div class="flex items-center gap-3">
+                  <h3 class="font-semibold">{{ getMonthName(month.month) }} {{ month.year }}</h3>
+                  <span
+                    :class="[
+                      'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium',
+                      month.status === 'UNPAID' ? 'bg-red-100 text-red-700' :
+                      month.status === 'PARTIAL' ? 'bg-amber-100 text-amber-700' :
+                      month.status === 'COVERED' ? 'bg-green-100 text-green-700' :
+                      'bg-blue-100 text-blue-700'
+                    ]"
+                  >
+                    <AlertTriangle v-if="month.status === 'UNPAID'" class="h-3 w-3" />
+                    <Clock v-else-if="month.status === 'PARTIAL'" class="h-3 w-3" />
+                    <CheckCircle v-else-if="month.status === 'COVERED'" class="h-3 w-3" />
+                    <Check v-else class="h-3 w-3" />
+                    {{ getTimelineStatusLabel(month.status) }}
+                  </span>
+                </div>
+                <div class="text-right">
+                  <p class="text-sm">
+                    <span class="text-gray-500">Soll:</span> {{ formatCurrency(month.expectedTotal) }}
+                  </p>
+                  <p class="text-sm">
+                    <span class="text-gray-500">Ist:</span> {{ formatCurrency(month.receivedTotal) }}
+                  </p>
+                  <p class="text-sm font-medium" :class="month.balance !== 0 ? 'text-red-600' : 'text-green-600'">
+                    <span class="text-gray-500">Saldo:</span> {{ formatCurrency(month.balance) }}
+                  </p>
+                </div>
+              </div>
+
+              <!-- Transactions -->
+              <div v-if="month.transactions?.length > 0" class="mt-3 pt-3 border-t border-current/20">
+                <p class="text-xs font-medium mb-2">Zahlungen:</p>
+                <div class="space-y-2">
+                  <div
+                    v-for="tx in month.transactions"
+                    :key="tx.transactionId"
+                    class="flex items-center justify-between text-sm"
+                  >
+                    <div class="flex items-center gap-2">
+                      <span :class="tx.isForThisMonth ? 'text-gray-600' : 'text-blue-600'">
+                        {{ formatDate(tx.bookingDate) }}
+                      </span>
+                      <span v-if="!tx.isForThisMonth" class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-xs">
+                        Fremdmonat
+                      </span>
+                    </div>
+                    <div class="text-right">
+                      <span class="font-medium">{{ formatCurrency(tx.amount) }}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div v-else class="text-center py-8 text-gray-500">
+            Keine Daten für {{ timelineYear }}
+          </div>
         </div>
 
         <!-- Ledger View -->
@@ -1128,7 +1303,7 @@ async function createReminder() {
         </div>
 
         <!-- Standard View (Open/Paid fees) -->
-        <div v-else>
+        <div v-else-if="!showTimeline">
           <!-- Open fees -->
           <div v-if="openFees.length > 0" class="mb-6">
             <h3 class="text-sm font-medium text-gray-500 mb-3 flex items-center gap-2">

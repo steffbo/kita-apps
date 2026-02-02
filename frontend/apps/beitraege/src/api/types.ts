@@ -521,11 +521,40 @@ export interface ChildImportError {
 }
 
 export interface ChildImportExecuteResult {
-  childrenCreated: number;
-  childrenUpdated: number;
-  parentsCreated: number;
-  parentsLinked: number;
-  errors: ChildImportError[];
+  imported: number;
+  errors: string[];
+}
+
+// Banking (FinTS Sync)
+export interface BankingConfig {
+  id?: string;
+  bankName: string;
+  bankBlz: string;
+  userId: string; // Online banking username (NetKey for SozialBank)
+  accountNumber?: string; // Optional: specific account number to fetch
+  pin?: string; // Only sent to API, never received
+  fintsUrl: string;
+  productId?: string; // Product ID for registration (default: "KITABEITRAEGE")
+  lastSyncAt?: string;
+  syncEnabled: boolean;
+  isConfigured: boolean;
+}
+
+export interface SyncStatus {
+  lastSyncAt?: string;
+  lastSyncError?: string;
+  transactionsCount: number;
+  isConfigured: boolean;
+  syncEnabled: boolean;
+}
+
+export interface SyncResult {
+  success: boolean;
+  transactionsFetched: number;
+  transactionsImported: number;
+  transactionsSkipped: number;
+  errors: string[];
+  lastSyncAt: string;
 }
 
 // System fields for mapping UI
@@ -590,4 +619,25 @@ export interface ChildLedger {
   child?: Child;
   entries: LedgerEntry[];
   summary: LedgerSummary;
+}
+
+// Fee Coverage Timeline
+export type CoverageStatus = 'UNPAID' | 'PARTIAL' | 'COVERED' | 'OVERPAID';
+
+export interface CoveredTransaction {
+  transactionId: string;
+  amount: number;
+  bookingDate: string;
+  description?: string;
+  isForThisMonth: boolean;
+}
+
+export interface FeeCoverage {
+  year: number;
+  month: number;
+  expectedTotal: number;
+  receivedTotal: number;
+  balance: number;
+  status: CoverageStatus;
+  transactions: CoveredTransaction[];
 }

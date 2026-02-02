@@ -20,6 +20,7 @@ import type {
   GenerateFeeResult,
   CreateFeeRequest,
   ChildLedger,
+  FeeCoverage,
   ImportResult,
   MatchConfirmation,
   ConfirmResult,
@@ -38,6 +39,9 @@ import type {
   ChildImportExecuteResult,
   ChildcareFeeResult,
   MatchSuggestion,
+  BankingConfig,
+  SyncStatus,
+  SyncResult,
 } from './types';
 
 const API_BASE = '/api/fees/v1';
@@ -275,6 +279,11 @@ class ApiClient {
       ...response,
       entries: response.entries ?? [],
     };
+  }
+
+  async getChildTimeline(childId: string, year?: number): Promise<FeeCoverage[]> {
+    const query = year ? `?year=${year}` : '';
+    return this.request<FeeCoverage[]>(`/children/${childId}/timeline${query}`);
   }
 
   // Parents endpoints
@@ -732,6 +741,37 @@ class ApiClient {
       ...result,
       errors: result.errors ?? [],
     };
+  }
+
+  // Banking (FinTS Sync) endpoints
+  async getBankingConfig(): Promise<BankingConfig> {
+    return this.request<BankingConfig>('/banking/config');
+  }
+
+  async saveBankingConfig(config: BankingConfig): Promise<BankingConfig> {
+    const { isConfigured, lastSyncAt, id, ...configToSend } = config;
+    return this.request<BankingConfig>('/banking/config', {
+      method: 'POST',
+      body: JSON.stringify(configToSend),
+    });
+  }
+
+  async deleteBankingConfig(): Promise<void> {
+    return this.request<void>('/banking/config', { method: 'DELETE' });
+  }
+
+  async getSyncStatus(): Promise<SyncStatus> {
+    return this.request<SyncStatus>('/banking/sync/status');
+  }
+
+  async triggerSync(): Promise<SyncResult> {
+    return this.request<SyncResult>('/banking/sync', { method: 'POST' });
+  }
+
+  async testBankConnection(): Promise<{ status: string; message: string }> {
+    return this.request<{ status: string; message: string }>('/banking/test-connection', {
+      method: 'POST',
+    });
   }
 }
 
