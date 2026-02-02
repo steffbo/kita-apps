@@ -14,6 +14,7 @@ import {
   X,
   KeyRound,
   ChevronDown,
+  Building2,
 } from 'lucide-vue-next';
 import ChangePasswordModal from './ChangePasswordModal.vue';
 
@@ -30,6 +31,7 @@ const navigation = [
   { name: 'Mitglieder', to: '/mitglieder', icon: UserPlus },
   { name: 'Beiträge', to: '/beitraege', icon: Receipt },
   { name: 'Import', to: '/import', icon: Upload },
+  { name: 'Banking', to: '/banking', icon: Building2 },
 ];
 
 const currentPath = computed(() => route.path);

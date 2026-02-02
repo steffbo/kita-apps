@@ -1,0 +1,16 @@
+{
+  "name": "banking-sync",
+  "version": "1.0.0",
+  "description": "Automated banking CSV sync via Playwright",
+  "main": "sync.js",
+  "scripts": {
+    "sync": "node sync.js",
+    "test": "node sync.js --test"
+  },
+  "dependencies": {
+    "playwright": "^1.41.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

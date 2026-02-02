@@ -77,6 +77,11 @@ const router = createRouter({
           name: 'import',
           component: () => import('@/pages/ImportPage.vue'),
         },
+        {
+          path: 'banking',
+          name: 'banking',
+          component: () => import('@/pages/BankingSettingsPage.vue'),
+        },
       ],
     },
   ],
