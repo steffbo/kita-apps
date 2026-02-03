@@ -1,4 +1,4 @@
-FROM node:20-slim
+FROM oven/bun:1.1.29
 
 # Install Playwright dependencies
 RUN apt-get update && apt-get install -y \
@@ -20,16 +20,16 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Copy package files
-COPY package*.json ./
+COPY package.json bun.lockb* ./
 
 # Install dependencies
-RUN npm install
+RUN bun install
 
 # Install Playwright browsers
-RUN npx playwright install chromium
+RUN bunx playwright install chromium
 
 # Copy app files
-COPY sync.js ./
+COPY sync.js upload.js ./
 COPY entrypoint.sh ./
 
 # Make entrypoint executable
@@ -39,5 +39,5 @@ RUN chmod +x entrypoint.sh
 ENV NODE_ENV=production \
     HEADLESS=true
 
-# Run sync once then exit (for cron scheduling)
+# Run sync once then exit
 CMD ["./entrypoint.sh"]

@@ -391,6 +391,12 @@ export interface DismissResult {
   transactionsRemoved: number;
 }
 
+export interface UnmatchResult {
+  transactionId: string;
+  matchesRemoved: number;
+  transactionDeleted: boolean;
+}
+
 // Transaction Warnings
 export type WarningType = 'AMOUNT_MISMATCH' | 'DUPLICATE_PAYMENT' | 'UNKNOWN_IBAN' | 'LATE_PAYMENT';
 export type ResolutionType = 'DISMISSED' | 'MATCHED' | 'AUTO_RESOLVED';
@@ -523,38 +529,6 @@ export interface ChildImportError {
 export interface ChildImportExecuteResult {
   imported: number;
   errors: string[];
-}
-
-// Banking (FinTS Sync)
-export interface BankingConfig {
-  id?: string;
-  bankName: string;
-  bankBlz: string;
-  userId: string; // Online banking username (NetKey for SozialBank)
-  accountNumber?: string; // Optional: specific account number to fetch
-  pin?: string; // Only sent to API, never received
-  fintsUrl: string;
-  productId?: string; // Product ID for registration (default: "KITABEITRAEGE")
-  lastSyncAt?: string;
-  syncEnabled: boolean;
-  isConfigured: boolean;
-}
-
-export interface SyncStatus {
-  lastSyncAt?: string;
-  lastSyncError?: string;
-  transactionsCount: number;
-  isConfigured: boolean;
-  syncEnabled: boolean;
-}
-
-export interface SyncResult {
-  success: boolean;
-  transactionsFetched: number;
-  transactionsImported: number;
-  transactionsSkipped: number;
-  errors: string[];
-  lastSyncAt: string;
 }
 
 // System fields for mapping UI

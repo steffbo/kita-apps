@@ -126,6 +126,18 @@ func (r *PostgresMatchRepository) Delete(ctx context.Context, id uuid.UUID) erro
 	return err
 }
 
+// DeleteByTransactionID deletes all matches for a transaction and returns the number removed.
+func (r *PostgresMatchRepository) DeleteByTransactionID(ctx context.Context, transactionID uuid.UUID) (int64, error) {
+	result, err := r.db.ExecContext(ctx, `
+		DELETE FROM fees.payment_matches WHERE transaction_id = $1
+	`, transactionID)
+	if err != nil {
+		return 0, err
+	}
+
+	return result.RowsAffected()
+}
+
 // GetByTransactionIDs retrieves all matches for a list of transaction IDs.
 func (r *PostgresMatchRepository) GetByTransactionIDs(ctx context.Context, transactionIDs []uuid.UUID) (map[uuid.UUID][]domain.PaymentMatch, error) {
 	if len(transactionIDs) == 0 {

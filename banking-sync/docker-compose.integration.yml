@@ -1,5 +1,5 @@
 # Banking Sync Integration
-# 
+#
 # Add this to your docker-compose.yml or docker-compose.prod.yml:
 
   banking-sync:
@@ -7,24 +7,20 @@
       context: ../banking-sync
       dockerfile: Dockerfile
     container_name: kita-banking-sync
-    # IMPORTANT: No restart policy - container exits after sync
     environment:
-      # SozialBank credentials
       BANK_URL: https://banking.sozialbank.de
       BANK_USERNAME: ${BANK_USERNAME}
       BANK_PASSWORD: ${BANK_PASSWORD}
-      
-      # API connection
-      API_URL: http://backend:8080/api/fees/v1
+      API_URL: http://backend-fees:8081/api/fees/v1
       CRON_API_TOKEN: ${CRON_API_TOKEN}
-      
-      # Schedule (cron format): Daily at 6:00 AM
-      # Format: minute hour day month weekday
-      SYNC_SCHEDULE: "0 6 * * *"
-      
-      # Or remove SYNC_SCHEDULE to run once and exit
+      USER_DATA_DIR: /data/profile
+      DOWNLOAD_DIR: /data/downloads
+      DATE_RANGE_DAYS: "90"
+      HEADLESS: "true"
+    volumes:
+      - banking_sync_data:/data
     depends_on:
-      - backend
+      - backend-fees
     profiles: ["banking-sync"]
     # Resource limits (optional)
     deploy:
@@ -34,19 +30,18 @@
         reservations:
           memory: 200M
 
+# volumes:
+#   banking_sync_data:
+
 # Usage:
-# 
+#
 # 1. Add to .env:
 #    BANK_USERNAME=your-netkey
 #    BANK_PASSWORD=your-password
 #    CRON_API_TOKEN=secure-token-from-backend
 #
 # 2. Test once:
-#    docker compose --profile banking-sync run --rm banking-sync node sync.js --test
+#    docker compose --profile banking-sync run --rm banking-sync bun sync.js --test
 #
-# 3. Start with cron:
-#    docker compose --profile banking-sync up -d
-#
-# 4. Check logs:
-#    docker logs kita-banking-sync
-#    cat /var/log/banking-sync.log
+# 3. Run once (e.g. from host cron):
+#    docker compose --profile banking-sync run --rm banking-sync

@@ -4,15 +4,15 @@
 
 ```bash
 cd banking-sync
-npm install
-npx playwright install chromium
+bun install
+bunx playwright install chromium
 ```
 
 ## Schritt 2: Code aufnehmen
 
 ```bash
 # Headless=false damit du siehst was passiert
-npx playwright codegen --target=javascript --browser=chromium \
+bunx playwright codegen --target=javascript --browser=chromium \
   --viewport-size=1280,720 \
   https://www.sozialbank-onlinebanking.de/services_cloud/portal/
 ```
@@ -79,7 +79,7 @@ Nachdem es im sichtbaren Browser klappt:
 
 ```bash
 # Teste im headless Container
-HEADLESS=true node sync.js --test
+HEADLESS=true bun sync.js --test
 ```
 
 ## Schritt 6: Sicherheit
@@ -114,15 +114,15 @@ await page.fill('#username', CONFIG.username);
 
 ```bash
 # 1. Codegen starten
-npx playwright codegen https://www.sozialbank-onlinebanking.de/...
+bunx playwright codegen https://www.sozialbank-onlinebanking.de/...
 
 # 2. Manuell durchklicken, Code wird generiert
 
 # 3. In sync.js einfügen
 
 # 4. Test mit sichtbarem Browser
-HEADLESS=false node sync.js --test
+HEADLESS=false bun sync.js --test
 
 # 5. Test im Container
-docker compose --profile banking-sync run --rm banking-sync node sync.js --test
+docker compose --profile banking-sync run --rm banking-sync bun sync.js --test
 ```

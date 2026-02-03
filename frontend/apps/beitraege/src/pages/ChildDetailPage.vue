@@ -73,6 +73,10 @@ const isUnlinking = ref(false);
 // Transaction detail modal state
 const selectedTransaction = ref<BankTransaction | null>(null);
 const showTransactionModal = ref(false);
+const transactionAction = ref<'unmatch' | 'delete' | null>(null);
+const isUnmatchingTransaction = ref(false);
+const isDeletingTransaction = ref(false);
+const transactionActionError = ref<string | null>(null);
 
 // Parent detail modal state
 const showParentDetailModal = ref(false);
@@ -487,6 +491,8 @@ const availableYears = computed(() => {
 function openTransactionModal(fee: FeeExpectation) {
   if (fee.matchedBy?.transaction) {
     selectedTransaction.value = fee.matchedBy.transaction;
+    transactionAction.value = null;
+    transactionActionError.value = null;
     showTransactionModal.value = true;
   }
 }
@@ -494,6 +500,8 @@ function openTransactionModal(fee: FeeExpectation) {
 function closeTransactionModal() {
   showTransactionModal.value = false;
   selectedTransaction.value = null;
+  transactionAction.value = null;
+  transactionActionError.value = null;
 }
 
 function formatTransactionDate(fee: FeeExpectation): string {
@@ -505,6 +513,40 @@ function formatTransactionDate(fee: FeeExpectation): string {
     return formatDate(fee.paidAt);
   }
   return '';
+}
+
+function requestTransactionAction(action: 'unmatch' | 'delete'): void {
+  transactionAction.value = action;
+  transactionActionError.value = null;
+}
+
+function cancelTransactionAction(): void {
+  transactionAction.value = null;
+  transactionActionError.value = null;
+}
+
+async function confirmTransactionAction(): Promise<void> {
+  if (!selectedTransaction.value || !transactionAction.value) return;
+  const deleteTransaction = transactionAction.value === 'delete';
+  if (deleteTransaction) {
+    isDeletingTransaction.value = true;
+  } else {
+    isUnmatchingTransaction.value = true;
+  }
+  transactionActionError.value = null;
+  try {
+    await api.unmatchTransaction(selectedTransaction.value.id, { deleteTransaction });
+    await loadChild();
+    closeTransactionModal();
+  } catch (e) {
+    transactionActionError.value = e instanceof Error ? e.message : 'Aktion fehlgeschlagen';
+  } finally {
+    if (deleteTransaction) {
+      isDeletingTransaction.value = false;
+    } else {
+      isUnmatchingTransaction.value = false;
+    }
+  }
 }
 
 // Parent detail modal functions
@@ -1936,13 +1978,76 @@ async function createReminder() {
           </div>
         </div>
 
-        <div class="flex justify-end mt-6">
-          <button
-            @click="closeTransactionModal"
-            class="px-4 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
+        <div class="mt-6 space-y-3">
+          <div
+            v-if="transactionAction"
+            :class="[
+              'p-3 rounded-lg text-sm',
+              transactionAction === 'delete' ? 'bg-red-50 text-red-800' : 'bg-amber-50 text-amber-800'
+            ]"
           >
-            Schließen
-          </button>
+            <p class="font-medium">
+              {{ transactionAction === 'delete'
+                ? 'Transaktion wirklich löschen?'
+                : 'Zuordnung wirklich aufheben?' }}
+            </p>
+            <p class="text-xs mt-1">
+              {{ transactionAction === 'delete'
+                ? 'Die Transaktion wird gelöscht (inklusive aller Zuordnungen).'
+                : 'Der Beitrag wird wieder als offen geführt. Falls mehrere Beiträge mit der Transaktion verknüpft sind, werden alle Zuordnungen aufgehoben.' }}
+            </p>
+            <div class="flex justify-end gap-2 mt-3">
+              <button
+                @click="confirmTransactionAction"
+                :disabled="isUnmatchingTransaction || isDeletingTransaction"
+                :class="[
+                  'px-3 py-1.5 text-xs text-white rounded transition-colors disabled:opacity-50',
+                  transactionAction === 'delete' ? 'bg-red-600 hover:bg-red-700' : 'bg-amber-600 hover:bg-amber-700'
+                ]"
+              >
+                <Loader2 v-if="isUnmatchingTransaction || isDeletingTransaction" class="h-3 w-3 animate-spin" />
+                <span v-else>Ja</span>
+              </button>
+              <button
+                @click="cancelTransactionAction"
+                class="px-3 py-1.5 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+              >
+                Nein
+              </button>
+            </div>
+          </div>
+
+          <p v-if="transactionActionError" class="text-sm text-red-600">
+            {{ transactionActionError }}
+          </p>
+
+          <div v-if="!transactionAction" class="flex flex-col gap-2">
+            <button
+              @click="requestTransactionAction('unmatch')"
+              :disabled="isUnmatchingTransaction || isDeletingTransaction"
+              class="inline-flex items-center gap-2 px-3 py-2 text-sm text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors disabled:opacity-50"
+            >
+              <Unlink class="h-4 w-4" />
+              Zuordnung aufheben
+            </button>
+            <button
+              @click="requestTransactionAction('delete')"
+              :disabled="isUnmatchingTransaction || isDeletingTransaction"
+              class="inline-flex items-center gap-2 px-3 py-2 text-sm text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-colors disabled:opacity-50"
+            >
+              <Trash2 class="h-4 w-4" />
+              Transaktion löschen
+            </button>
+          </div>
+
+          <div class="flex justify-end">
+            <button
+              @click="closeTransactionModal"
+              class="px-4 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
+            >
+              Schließen
+            </button>
+          </div>
         </div>
       </div>
     </div>

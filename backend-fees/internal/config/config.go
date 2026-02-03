@@ -4,8 +4,6 @@ import (
 	"os"
 	"strconv"
 	"time"
-
-	"github.com/joho/godotenv"
 )
 
 // Config holds all application configuration.
@@ -52,12 +50,7 @@ type JWTConfig struct {
 }
 
 // Load reads configuration from environment variables.
-// It also loads .env file if present (for local development).
 func Load() *Config {
-	// Load .env file if it exists (ignored in production)
-	_ = godotenv.Load(".env")
-	_ = godotenv.Load("../../.env") // Try parent directories too
-
 	return &Config{
 		Server: ServerConfig{
 			Port:         getEnv("PORT", "8081"),

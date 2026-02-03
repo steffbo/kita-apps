@@ -117,6 +117,7 @@ type MatchRepository interface {
 	GetTotalMatchedAmount(ctx context.Context, expectationID uuid.UUID) (float64, error)
 	GetByTransactionIDs(ctx context.Context, transactionIDs []uuid.UUID) (map[uuid.UUID][]domain.PaymentMatch, error)
 	Delete(ctx context.Context, id uuid.UUID) error
+	DeleteByTransactionID(ctx context.Context, transactionID uuid.UUID) (int64, error)
 }
 
 // KnownIBANRepository handles known IBAN persistence.
@@ -165,13 +166,4 @@ type WarningRepository interface {
 	Resolve(ctx context.Context, id uuid.UUID, resolvedBy uuid.UUID, resolutionType domain.ResolutionType, note string) error
 	ResolveByTransactionID(ctx context.Context, transactionID uuid.UUID, resolutionType domain.ResolutionType, note string) error
 	Delete(ctx context.Context, id uuid.UUID) error
-}
-
-// BankingConfigRepository handles banking configuration persistence.
-type BankingConfigRepository interface {
-	Get(ctx context.Context) (*domain.BankingConfig, error)
-	Create(ctx context.Context, config *domain.BankingConfig) error
-	Update(ctx context.Context, config *domain.BankingConfig) error
-	Delete(ctx context.Context) error
-	UpdateLastSync(ctx context.Context, syncTime time.Time) error
 }

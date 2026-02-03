@@ -98,6 +98,13 @@ type DismissResult struct {
 	TransactionsRemoved int64  `json:"transactionsRemoved"`
 }
 
+// UnmatchResult represents the result of unmatching a transaction.
+type UnmatchResult struct {
+	TransactionID      uuid.UUID `json:"transactionId"`
+	MatchesRemoved     int64     `json:"matchesRemoved"`
+	TransactionDeleted bool      `json:"transactionDeleted"`
+}
+
 // ProcessCSV processes a CSV file and returns match suggestions.
 func (s *ImportService) ProcessCSV(ctx context.Context, file io.Reader, fileName string, userID uuid.UUID) (*ImportResult, error) {
 	// Parse CSV
@@ -683,6 +690,49 @@ func (s *ImportService) DismissTransaction(ctx context.Context, transactionID uu
 	return &DismissResult{
 		IBAN:                iban,
 		TransactionsRemoved: deleted,
+	}, nil
+}
+
+// UnmatchTransaction removes matches for a transaction and optionally deletes the transaction itself.
+func (s *ImportService) UnmatchTransaction(ctx context.Context, transactionID uuid.UUID, deleteTransaction bool) (*UnmatchResult, error) {
+	// Ensure transaction exists
+	if _, err := s.transactionRepo.GetByID(ctx, transactionID); err != nil {
+		return nil, ErrNotFound
+	}
+
+	if deleteTransaction {
+		matchesByTx, err := s.matchRepo.GetByTransactionIDs(ctx, []uuid.UUID{transactionID})
+		if err != nil {
+			return nil, err
+		}
+		matchesRemoved := int64(len(matchesByTx[transactionID]))
+
+		if err := s.transactionRepo.Delete(ctx, transactionID); err != nil {
+			if err == repository.ErrNotFound {
+				return nil, ErrNotFound
+			}
+			return nil, err
+		}
+
+		return &UnmatchResult{
+			TransactionID:      transactionID,
+			MatchesRemoved:     matchesRemoved,
+			TransactionDeleted: true,
+		}, nil
+	}
+
+	matchesRemoved, err := s.matchRepo.DeleteByTransactionID(ctx, transactionID)
+	if err != nil {
+		return nil, err
+	}
+	if matchesRemoved == 0 {
+		return nil, ErrInvalidInput
+	}
+
+	return &UnmatchResult{
+		TransactionID:      transactionID,
+		MatchesRemoved:     matchesRemoved,
+		TransactionDeleted: false,
 	}, nil
 }
 

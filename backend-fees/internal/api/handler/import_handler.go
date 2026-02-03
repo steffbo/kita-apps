@@ -476,6 +476,20 @@ type DismissTransactionResponse struct {
 	AddedToBlacklist bool   `json:"addedToBlacklist" example:"true"`
 } //@name DismissTransactionResponse
 
+// UnmatchTransactionRequest represents a request to unmatch (and optionally delete) a transaction
+// @Description Unmatch transaction request
+type UnmatchTransactionRequest struct {
+	DeleteTransaction bool `json:"deleteTransaction" example:"false"`
+} //@name UnmatchTransactionRequest
+
+// UnmatchTransactionResponse represents the result of unmatching a transaction
+// @Description Unmatch transaction result
+type UnmatchTransactionResponse struct {
+	TransactionID      string `json:"transactionId" example:"550e8400-e29b-41d4-a716-446655440000"`
+	MatchesRemoved     int64  `json:"matchesRemoved" example:"1"`
+	TransactionDeleted bool   `json:"transactionDeleted" example:"false"`
+} //@name UnmatchTransactionResponse
+
 // DismissTransaction handles POST /import/transactions/{id}/dismiss
 // @Summary Dismiss a transaction
 // @Description Dismiss an unmatched transaction and optionally add its IBAN to blacklist
@@ -512,6 +526,56 @@ func (h *ImportHandler) DismissTransaction(w http.ResponseWriter, r *http.Reques
 	}
 
 	response.Success(w, result)
+}
+
+// UnmatchTransaction handles POST /import/transactions/{id}/unmatch
+// @Summary Unmatch a transaction
+// @Description Remove all matches for a transaction and optionally delete the transaction itself
+// @Tags Import
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Transaction ID (UUID)"
+// @Param request body UnmatchTransactionRequest true "Unmatch options"
+// @Success 200 {object} UnmatchTransactionResponse "Unmatch result"
+// @Failure 400 {object} response.ErrorBody "Invalid transaction ID or transaction has no matches"
+// @Failure 401 {object} response.ErrorBody "Not authenticated"
+// @Failure 404 {object} response.ErrorBody "Transaction not found"
+// @Failure 500 {object} response.ErrorBody "Internal server error"
+// @Router /import/transactions/{id}/unmatch [post]
+func (h *ImportHandler) UnmatchTransaction(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		response.BadRequest(w, "invalid transaction ID")
+		return
+	}
+
+	var req UnmatchTransactionRequest
+	if err := request.DecodeJSON(r, &req); err != nil {
+		response.BadRequest(w, "invalid request body")
+		return
+	}
+
+	result, err := h.importService.UnmatchTransaction(r.Context(), id, req.DeleteTransaction)
+	if err != nil {
+		if err == service.ErrNotFound {
+			response.NotFound(w, "transaction not found")
+			return
+		}
+		if err == service.ErrInvalidInput {
+			response.BadRequest(w, "transaction has no matches")
+			return
+		}
+		response.InternalError(w, "failed to unmatch transaction")
+		return
+	}
+
+	resp := UnmatchTransactionResponse{
+		TransactionID:      result.TransactionID.String(),
+		MatchesRemoved:     result.MatchesRemoved,
+		TransactionDeleted: result.TransactionDeleted,
+	}
+	response.Success(w, resp)
 }
 
 // GetBlacklist handles GET /import/blacklist

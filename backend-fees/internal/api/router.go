@@ -56,8 +56,9 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 		// Public childcare fee calculator
 		r.Get("/childcare-fee/calculate", handlers.Fee.CalculateChildcareFee)
 
-		// Debug endpoint - temporarily public for diagnosis
-		r.Get("/children/{id}/debug-timeline", handlers.Child.DebugTimeline)
+		// CSV import upload (JWT or import token)
+		r.With(customMiddleware.ImportAuthMiddleware(handlers.JWTService)).
+			Post("/import/upload", handlers.Import.Upload)
 
 		// Protected routes
 		r.Group(func(r chi.Router) {
@@ -77,7 +78,6 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 				r.Delete("/{id}", handlers.Child.Delete)
 				r.Get("/{id}/ledger", handlers.Child.GetLedger)
 				r.Get("/{id}/timeline", handlers.Child.GetTimeline)
-				r.Get("/{id}/debug-timeline", handlers.Child.DebugTimeline)
 				r.Post("/{id}/parents", handlers.Child.LinkParent)
 				r.Delete("/{id}/parents/{parentId}", handlers.Child.UnlinkParent)
 
@@ -134,13 +134,13 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 
 			// Import
 			r.Route("/import", func(r chi.Router) {
-				r.Post("/upload", handlers.Import.Upload)
 				r.Post("/confirm", handlers.Import.Confirm)
 				r.Get("/history", handlers.Import.History)
 				r.Get("/transactions", handlers.Import.UnmatchedTransactions)
 				r.Get("/transactions/matched", handlers.Import.MatchedTransactions)
 				r.Get("/transactions/{id}/suggestions", handlers.Import.TransactionSuggestions)
 				r.Post("/transactions/{id}/dismiss", handlers.Import.DismissTransaction)
+				r.Post("/transactions/{id}/unmatch", handlers.Import.UnmatchTransaction)
 				r.Post("/match", handlers.Import.ManualMatch)
 				r.Post("/rescan", handlers.Import.Rescan)
 				r.Get("/blacklist", handlers.Import.GetBlacklist)
@@ -153,10 +153,6 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 				r.Post("/warnings/{id}/resolve-late-fee", handlers.Import.ResolveLateFee)
 			})
 
-			// Banking (FinTS sync)
-			if handlers.Banking != nil {
-				handlers.Banking.RegisterRoutes(r, customMiddleware.AuthMiddleware(handlers.JWTService))
-			}
 		})
 	})
 
@@ -173,6 +169,5 @@ type Handlers struct {
 	Member      *handler.MemberHandler
 	Fee         *handler.FeeHandler
 	Import      *handler.ImportHandler
-	Banking     *handler.BankingHandler
 	JWTService  *auth.JWTService
 }

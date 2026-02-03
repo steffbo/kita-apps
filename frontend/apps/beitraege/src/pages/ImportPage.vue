@@ -24,6 +24,7 @@ import {
   Clock,
   Euro,
   LinkIcon,
+  Unlink,
   Search,
   ArrowUp,
   ArrowDown,
@@ -91,6 +92,10 @@ const rescanResult = ref<{ scanned: number; autoMatched: number; newMatches: num
 // Dismiss state
 const isDismissing = ref<string | null>(null);
 const dismissConfirmId = ref<string | null>(null);
+const unmatchConfirmId = ref<string | null>(null);
+const deleteConfirmId = ref<string | null>(null);
+const isUnmatching = ref<string | null>(null);
+const isDeletingMatched = ref<string | null>(null);
 
 // Transaction search and sorting state (server-side)
 const transactionSearch = ref('');
@@ -621,6 +626,21 @@ function cancelDismiss(): void {
   dismissConfirmId.value = null;
 }
 
+function showUnmatchConfirm(transactionId: string): void {
+  unmatchConfirmId.value = transactionId;
+  deleteConfirmId.value = null;
+}
+
+function showDeleteConfirm(transactionId: string): void {
+  deleteConfirmId.value = transactionId;
+  unmatchConfirmId.value = null;
+}
+
+function cancelMatchAction(): void {
+  unmatchConfirmId.value = null;
+  deleteConfirmId.value = null;
+}
+
 async function dismissTransaction(transaction: BankTransaction): Promise<void> {
   isDismissing.value = transaction.id;
   dismissConfirmId.value = null;
@@ -638,6 +658,29 @@ async function dismissTransaction(transaction: BankTransaction): Promise<void> {
     uploadError.value = error instanceof Error ? error.message : 'Ignorieren fehlgeschlagen';
   } finally {
     isDismissing.value = null;
+  }
+}
+
+async function unmatchTransaction(transaction: BankTransaction, deleteTransaction = false): Promise<void> {
+  if (deleteTransaction) {
+    isDeletingMatched.value = transaction.id;
+  } else {
+    isUnmatching.value = transaction.id;
+  }
+  cancelMatchAction();
+  try {
+    await api.unmatchTransaction(transaction.id, { deleteTransaction });
+    await loadMatched();
+    await loadUnmatched();
+  } catch (error) {
+    console.error('Failed to unmatch transaction:', error);
+    uploadError.value = error instanceof Error ? error.message : 'Zuordnung konnte nicht aufgehoben werden';
+  } finally {
+    if (deleteTransaction) {
+      isDeletingMatched.value = null;
+    } else {
+      isUnmatching.value = null;
+    }
   }
 }
 
@@ -1838,6 +1881,7 @@ function getWarningTypeColor(type: string): string {
                 </div>
               </th>
               <th class="px-4 py-3 font-medium">Zugeordnete Beiträge</th>
+              <th class="px-4 py-3 font-medium text-right">Aktionen</th>
             </tr>
           </thead>
           <tbody>
@@ -1876,6 +1920,62 @@ function getWarningTypeColor(type: string): string {
                   </span>
                 </div>
                 <span v-else class="text-gray-400 text-sm">-</span>
+              </td>
+              <td class="px-4 py-3 text-right">
+                <!-- Confirm Dialogs -->
+                <div v-if="unmatchConfirmId === tx.id" class="flex items-center justify-end gap-2">
+                  <span class="text-xs text-gray-500">Zuordnung aufheben?</span>
+                  <button
+                    @click="unmatchTransaction(tx)"
+                    class="px-2 py-1 text-xs bg-amber-500 text-white rounded hover:bg-amber-600"
+                  >
+                    Ja
+                  </button>
+                  <button
+                    @click="cancelMatchAction"
+                    class="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                  >
+                    Nein
+                  </button>
+                </div>
+                <div v-else-if="deleteConfirmId === tx.id" class="flex items-center justify-end gap-2">
+                  <span class="text-xs text-gray-500">Transaktion löschen?</span>
+                  <button
+                    @click="unmatchTransaction(tx, true)"
+                    class="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600"
+                  >
+                    Ja
+                  </button>
+                  <button
+                    @click="cancelMatchAction"
+                    class="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                  >
+                    Nein
+                  </button>
+                </div>
+                <!-- Action Buttons -->
+                <div v-else class="flex items-center justify-end gap-2">
+                  <button
+                    @click="showUnmatchConfirm(tx.id)"
+                    :disabled="isUnmatching === tx.id || isDeletingMatched === tx.id"
+                    class="inline-flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:text-amber-700 hover:bg-amber-50 rounded transition-colors disabled:opacity-50"
+                    title="Zuordnung aufheben"
+                  >
+                    <Loader2 v-if="isUnmatching === tx.id" class="h-3 w-3 animate-spin" />
+                    <Unlink v-else class="h-3 w-3" />
+                    Aufheben
+                  </button>
+                  <button
+                    @click="showDeleteConfirm(tx.id)"
+                    :disabled="isUnmatching === tx.id || isDeletingMatched === tx.id"
+                    class="inline-flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
+                    title="Transaktion löschen"
+                  >
+                    <Loader2 v-if="isDeletingMatched === tx.id" class="h-3 w-3 animate-spin" />
+                    <Trash2 v-else class="h-3 w-3" />
+                    Löschen
+                  </button>
+                </div>
               </td>
             </tr>
           </tbody>

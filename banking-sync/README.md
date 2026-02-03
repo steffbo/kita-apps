@@ -1,97 +1,110 @@
 # Banking Sync Service
 
-Automatische CSV-Exporte von der SozialBank via Browser-Automatisierung.
+Automatische CSV-Exporte von der SozialBank via Browser-Automatisierung (Playwright) inkl. Import in das Fees-Backend.
 
-## Konzept
+## Wie der Flow exakt funktioniert
 
-Da die SozialBank EBICS statt FinTS/HBCI unterstützt, nutzen wir Playwright für Browser-Automatisierung:
+1. **Start** (manuell oder per Host-Cron)
+2. **Playwright startet Chromium** mit persistentem Profil (`USER_DATA_DIR`)
+3. **Login** im Online-Banking (ggf. 2FA beim ersten Mal)
+4. **Navigation** zur Umsatzansicht
+5. **Zeitraum** setzen (Standard: letzte 90 Tage)
+6. **CSV exportieren** und im Download-Ordner speichern
+7. **Upload** der CSV per `multipart/form-data` an `POST /api/fees/v1/import/upload`
+   - Auth via `X-Import-Token: ${CRON_API_TOKEN}`
+8. **Container beendet sich** (bei Host-Cron Variante)
 
-1. **Headless Chrome** loggt sich bei sozialbank.de ein
-2. **Exportiert** CSV der letzten 90 Tage
-3. **Sendet** Daten an das Backend API
-4. **Läuft** per Cron (z.B. täglich 6:00 Uhr)
+## Anforderungen
 
-## Ressourcen
+- **bun** (lokal)
+- `CRON_API_TOKEN` muss im Backend gesetzt sein
+- Backend erwartet einen System-User mit UUID `00000000-0000-0000-0000-000000000001` (Migration `000016_seed_import_user.*`)
 
-- **RAM**: ~400MB Spitze beim Sync, sonst 0 (Container stoppt nach Sync)
-- **CPU**: Moderate Spitze beim Login/Download
-- **Storage**: ~1.2GB für Chromium-Image
-- **Netzwerk**: Nur beim Sync aktiv
+## Umgebungsvariablen
 
-## Deployment
+| Variable | Pflicht | Default | Bedeutung |
+|---|---|---|---|
+| `BANK_URL` | optional | SozialBank Portal URL | Login URL |
+| `BANK_USERNAME` | ja | - | NetKey/Username |
+| `BANK_PASSWORD` | ja | - | Passwort |
+| `API_URL` | optional | `http://localhost:8081/api/fees/v1` | Fees-API Base |
+| `CRON_API_TOKEN` | ja | - | Import-Token für `/import/upload` |
+| `USER_DATA_DIR` | optional | `./profile` | Persistentes Browser-Profil |
+| `DOWNLOAD_DIR` | optional | `./output` | CSV Download-Ordner |
+| `DATE_RANGE_DAYS` | optional | `90` | Zeitraum (Tage) |
+| `HEADLESS` | optional | `true` | Browser sichtbar machen |
 
-### Option A: Sidecar Container (empfohlen)
+## Lokal testen (sichtbar)
 
-Container läuft im gleichen Compose, startet nur für den Sync:
+```bash
+cd banking-sync
+bun install
+bunx playwright install chromium
+HEADLESS=false BANK_USERNAME=... BANK_PASSWORD=... CRON_API_TOKEN=... bun sync.js --test
+```
+
+`--test` lädt die CSV herunter und zeigt einen Preview-Output, **ohne** Upload.
+
+## CSV später importieren (manueller Upload)
+
+Wenn du eine CSV bereits im Download-Ordner hast, kannst du den Import später ausführen:
+
+```bash
+CRON_API_TOKEN=... bun upload.js --file ./output/sozialbank_2026-02-01_to_2026-05-01.csv
+```
+
+## Docker (Run-Once)
+
+`docker-compose` Service ist auf Run-Once ausgelegt. Beispiel (siehe auch `docker-compose.integration.yml`):
 
 ```yaml
-# In docker-compose.prod.yml hinzufügen:
-
   banking-sync:
     build:
       context: ../banking-sync
       dockerfile: Dockerfile
     container_name: kita-banking-sync
-    # Wichtig: Kein restart! Container stoppt nach Sync
     environment:
       BANK_URL: https://banking.sozialbank.de
       BANK_USERNAME: ${BANK_USERNAME}
       BANK_PASSWORD: ${BANK_PASSWORD}
-      API_URL: http://backend:8080/api/fees/v1
-      API_TOKEN: ${CRON_API_TOKEN}
-      SYNC_SCHEDULE: "0 6 * * *"  # Täglich 6:00
+      API_URL: http://backend-fees:8081/api/fees/v1
+      CRON_API_TOKEN: ${CRON_API_TOKEN}
+      USER_DATA_DIR: /data/profile
+      DOWNLOAD_DIR: /data/downloads
+      DATE_RANGE_DAYS: "90"
+      HEADLESS: "true"
+    volumes:
+      - banking_sync_data:/data
     depends_on:
-      - backend
-    profiles: ["banking-sync"]  # Nur bei explizitem Start
+      - backend-fees
+    profiles: ["banking-sync"]
+
+volumes:
+  banking_sync_data:
 ```
 
-### Option B: Externer Cron-Service
+### Run-Once ausführen
 
- separater VPS/Raspberry Pi:
-- Weniger Ressourcen auf dem Hauptserver
-- Einfacher zu warten
-- Kann auch externer Service wie GitHub Actions sein (kostenlos!)
-
-## Files
-
-- `Dockerfile` - Playwright + Node.js
-- `sync.js` - Das Automatisierungs-Script
-- `entrypoint.sh` - Cron-Setup
-
-## Setup
-
-1. `.env` erstellen:
 ```bash
-BANK_USERNAME=dein-netkey
-BANK_PASSWORD=dein-passwort
-CRON_API_TOKEN=secure-random-token
+docker compose --profile banking-sync run --rm banking-sync
 ```
 
-2. Erstes Mal manuell testen:
+## Scheduler (ressourcensparend)
+
+**Empfohlen:** Host-Cron. Container läuft nur während des Jobs.
+
 ```bash
-docker compose run --rm banking-sync node sync.js --test
+# Server-Zeitzone: Europe/Berlin
+0 6 * * * cd /opt/kita-apps && docker compose --profile banking-sync run --rm banking-sync
 ```
 
-3. Cron aktivieren:
-```bash
-docker compose --profile banking-sync up -d
-```
+## Troubleshooting
 
-## Vorteile
+- **Timeout bei Login:** Selektoren in `sync.js` per Playwright Codegen anpassen
+- **2FA hängt:** ersten Run mit `HEADLESS=false`, danach profiliertes Login nutzen
+- **Upload 401:** `CRON_API_TOKEN` prüfen (Backend + Container müssen identisch sein)
 
-✅ Funktioniert mit **jedem** Online-Banking (auch EBICS)  
-✅ Keine extra Bank-Verträge nötig  
-✅ Gleiche Login-Daten wie manuell  
-✅ Container stoppt nach Sync (keine Ressourcen-Last)  
+## Sicherheit
 
-## Nachteile
-
-⚠️ 2FA beim ersten Setup nötig (SecureGo Plus App)  
-⚠️ Wenn Bank UI ändert, bricht es (selten)  
-⚠️ ~1.2GB zusätzliches Docker Image  
-
-## Alternative: FinTS Fallback
-
-Falls du eine andere Bank mit FinTS hast, kannst du das Go-Backend nutzen:
-- Entferne/comment den `banking-sync` Service
-- Nutze die FinTS-Integration direkt im Backend
+- Keine Credentials im Code speichern
+- `CRON_API_TOKEN` wie ein Passwort behandeln

@@ -30,6 +30,7 @@ import type {
   KnownIBAN,
   RescanResult,
   DismissResult,
+  UnmatchResult,
   TransactionWarning,
   ResolveLateFeeResult,
   ChildImportParseResult,
@@ -39,9 +40,6 @@ import type {
   ChildImportExecuteResult,
   ChildcareFeeResult,
   MatchSuggestion,
-  BankingConfig,
-  SyncStatus,
-  SyncResult,
 } from './types';
 
 const API_BASE = '/api/fees/v1';
@@ -633,6 +631,13 @@ class ApiClient {
     });
   }
 
+  async unmatchTransaction(transactionId: string, options?: { deleteTransaction?: boolean }): Promise<UnmatchResult> {
+    return this.request<UnmatchResult>(`/import/transactions/${transactionId}/unmatch`, {
+      method: 'POST',
+      body: JSON.stringify({ deleteTransaction: options?.deleteTransaction ?? false }),
+    });
+  }
+
   async getBlacklist(offset?: number, limit?: number): Promise<PaginatedResponse<KnownIBAN>> {
     const query = new URLSearchParams();
     if (offset) query.set('offset', String(offset));
@@ -743,36 +748,6 @@ class ApiClient {
     };
   }
 
-  // Banking (FinTS Sync) endpoints
-  async getBankingConfig(): Promise<BankingConfig> {
-    return this.request<BankingConfig>('/banking/config');
-  }
-
-  async saveBankingConfig(config: BankingConfig): Promise<BankingConfig> {
-    const { isConfigured, lastSyncAt, id, ...configToSend } = config;
-    return this.request<BankingConfig>('/banking/config', {
-      method: 'POST',
-      body: JSON.stringify(configToSend),
-    });
-  }
-
-  async deleteBankingConfig(): Promise<void> {
-    return this.request<void>('/banking/config', { method: 'DELETE' });
-  }
-
-  async getSyncStatus(): Promise<SyncStatus> {
-    return this.request<SyncStatus>('/banking/sync/status');
-  }
-
-  async triggerSync(): Promise<SyncResult> {
-    return this.request<SyncResult>('/banking/sync', { method: 'POST' });
-  }
-
-  async testBankConnection(): Promise<{ status: string; message: string }> {
-    return this.request<{ status: string; message: string }>('/banking/test-connection', {
-      method: 'POST',
-    });
-  }
 }
 
 export const api = new ApiClient();
