@@ -214,6 +214,8 @@ function handleKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape') {
     if (showReminderDialog.value) {
       showReminderDialog.value = false;
+    } else if (showAllocationModal.value) {
+      closeAllocationModal();
     } else if (showTransactionModal.value) {
       closeTransactionModal();
     } else if (showParentDetailModal.value) {
