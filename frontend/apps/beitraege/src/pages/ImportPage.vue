@@ -510,12 +510,29 @@ function computeFeeConfidence(fee: FeeExpectation): number {
     return 0.99;
   }
 
+  const txDate = tx.bookingDate ? new Date(tx.bookingDate) : null;
+  const hasSuggestionChild = !!suggestion?.child?.id && fee.child?.id === suggestion.child.id;
   const amountMatches = Math.abs((fee.amount || 0) - tx.amount) < 0.01;
   const amountScore = amountMatches ? 0.25 : 0;
   const typeScore = suggestion?.detectedType && fee.feeType === suggestion.detectedType ? 0.1 : 0;
-  const childScore = suggestion?.child?.id && fee.child?.id === suggestion.child.id ? suggestionConfidence * 0.6 : 0;
+  const childScore = hasSuggestionChild ? suggestionConfidence * 0.6 : 0;
+  let dateScore = 0;
+  if (hasSuggestionChild && txDate && fee.month && fee.year) {
+    const txYear = txDate.getFullYear();
+    const txMonth = txDate.getMonth() + 1;
+    if (txYear === fee.year && txMonth === fee.month) {
+      dateScore = 0.25;
+    } else {
+      const monthDiff = Math.abs((txYear - fee.year) * 12 + (txMonth - fee.month));
+      if (monthDiff === 1) {
+        dateScore = 0.15;
+      } else if (monthDiff === 2) {
+        dateScore = 0.05;
+      }
+    }
+  }
 
-  return Math.min(amountScore + typeScore + childScore, 0.99);
+  return Math.min(amountScore + typeScore + childScore + dateScore, 0.99);
 }
 
 const scoredFees = computed<ScoredFee[]>(() =>
