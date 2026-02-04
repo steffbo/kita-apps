@@ -170,6 +170,11 @@ const stats = computed(() => {
               <p class="text-lg text-amber-900">
                 {{ overview.childrenWithOpenFees }} Kinder haben offene Beiträge
               </p>
+              <p v-if="overview" class="text-xs text-amber-700 mt-1">
+                Vereinsbeitrag: {{ overview.openMembershipCount }}
+                · Essensgeld: {{ overview.openFoodCount }}
+                · Platzgeld: {{ overview.openChildcareCount }}
+              </p>
             </div>
             <div class="text-amber-600">
               <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -109,6 +109,9 @@ type FeeOverview struct {
 	AmountOverdue        float64        `json:"amountOverdue"`
 	ByMonth              []MonthSummary `json:"byMonth"`
 	ChildrenWithOpenFees int            `json:"childrenWithOpenFees"`
+	OpenMembershipCount  int            `json:"openMembershipCount"`
+	OpenFoodCount        int            `json:"openFoodCount"`
+	OpenChildcareCount   int            `json:"openChildcareCount"`
 }
 
 // MonthSummary represents fee summary for a specific month.

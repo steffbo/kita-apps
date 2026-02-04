@@ -257,6 +257,9 @@ export interface FeeOverview {
   amountOverdue: number;
   byMonth: MonthSummary[];
   childrenWithOpenFees: number;
+  openMembershipCount: number;
+  openFoodCount: number;
+  openChildcareCount: number;
 }
 
 export interface MonthSummary {

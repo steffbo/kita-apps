@@ -225,6 +225,9 @@ type OverviewResponse struct {
 	AmountPaid    float64         `json:"amountPaid" example:"37500.00"`
 	AmountOverdue float64         `json:"amountOverdue" example:"1250.00"`
 	ByMonth       []MonthOverview `json:"byMonth"`
+	OpenMembershipCount int       `json:"openMembershipCount" example:"3"`
+	OpenFoodCount       int       `json:"openFoodCount" example:"18"`
+	OpenChildcareCount  int       `json:"openChildcareCount" example:"12"`
 } //@name FeeOverview
 
 // MonthOverview represents fee overview for a single month.

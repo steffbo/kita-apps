@@ -494,5 +494,37 @@ func (r *PostgresFeeRepository) GetOverview(ctx context.Context, year int) (*dom
 		return nil, err
 	}
 
+	// Count open fees by type (unpaid regardless of overdue)
+	typeRows, err := r.db.QueryContext(ctx, `
+		SELECT fe.fee_type, COUNT(*) FILTER (WHERE pm.id IS NULL) as open_count
+		FROM fees.fee_expectations fe
+		LEFT JOIN fees.payment_matches pm ON fe.id = pm.expectation_id
+		WHERE fe.year = $1
+		GROUP BY fe.fee_type
+	`, year)
+	if err != nil {
+		return nil, err
+	}
+	defer typeRows.Close()
+
+	for typeRows.Next() {
+		var feeType string
+		var openCount int
+		if err := typeRows.Scan(&feeType, &openCount); err != nil {
+			return nil, err
+		}
+		if openCount == 0 {
+			continue
+		}
+		switch feeType {
+		case string(domain.FeeTypeMembership):
+			overview.OpenMembershipCount = openCount
+		case string(domain.FeeTypeFood):
+			overview.OpenFoodCount = openCount
+		case string(domain.FeeTypeChildcare):
+			overview.OpenChildcareCount = openCount
+		}
+	}
+
 	return overview, nil
 }
