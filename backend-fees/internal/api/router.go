@@ -72,6 +72,7 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 			// Children
 			r.Route("/children", func(r chi.Router) {
 				r.Get("/", handlers.Child.List)
+				r.Get("/next-member-number", handlers.Child.NextMemberNumber)
 				r.Post("/", handlers.Child.Create)
 				r.Get("/{id}", handlers.Child.Get)
 				r.Put("/{id}", handlers.Child.Update)
@@ -141,6 +142,7 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 				r.Get("/transactions/{id}/suggestions", handlers.Import.TransactionSuggestions)
 				r.Get("/transactions/unmatched/child/{id}", handlers.Import.ChildUnmatchedSuggestions)
 				r.Post("/transactions/{id}/dismiss", handlers.Import.DismissTransaction)
+				r.Post("/transactions/{id}/hide", handlers.Import.HideTransaction)
 				r.Post("/transactions/{id}/unmatch", handlers.Import.UnmatchTransaction)
 				r.Post("/transactions/{id}/allocate", handlers.Import.AllocateTransaction)
 				r.Post("/match", handlers.Import.ManualMatch)

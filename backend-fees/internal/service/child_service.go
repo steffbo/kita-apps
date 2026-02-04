@@ -366,3 +366,8 @@ func (s *ChildService) GetAll(ctx context.Context) ([]domain.Child, error) {
 	children, _, err := s.childRepo.List(ctx, true, false, false, false, "", "", "", 0, 1000)
 	return children, err
 }
+
+// GetNextMemberNumber returns the next available numeric member number.
+func (s *ChildService) GetNextMemberNumber(ctx context.Context) (string, error) {
+	return s.childRepo.GetNextMemberNumber(ctx)
+}

@@ -21,6 +21,7 @@ import {
   Ban,
   Trash2,
   ShieldOff,
+  EyeOff,
   Clock,
   Euro,
   LinkIcon,
@@ -92,6 +93,8 @@ const rescanResult = ref<{ scanned: number; autoMatched: number; newMatches: num
 // Dismiss state
 const isDismissing = ref<string | null>(null);
 const dismissConfirmId = ref<string | null>(null);
+const isHiding = ref<string | null>(null);
+const hideConfirmId = ref<string | null>(null);
 const unmatchConfirmId = ref<string | null>(null);
 const deleteConfirmId = ref<string | null>(null);
 const isUnmatching = ref<string | null>(null);
@@ -637,10 +640,20 @@ async function resolveLateFee(warning: TransactionWarning): Promise<void> {
 
 function showDismissConfirm(transactionId: string): void {
   dismissConfirmId.value = transactionId;
+  hideConfirmId.value = null;
 }
 
 function cancelDismiss(): void {
   dismissConfirmId.value = null;
+}
+
+function showHideConfirm(transactionId: string): void {
+  hideConfirmId.value = transactionId;
+  dismissConfirmId.value = null;
+}
+
+function cancelHide(): void {
+  hideConfirmId.value = null;
 }
 
 function showUnmatchConfirm(transactionId: string): void {
@@ -675,6 +688,21 @@ async function dismissTransaction(transaction: BankTransaction): Promise<void> {
     uploadError.value = error instanceof Error ? error.message : 'Ignorieren fehlgeschlagen';
   } finally {
     isDismissing.value = null;
+  }
+}
+
+async function hideTransaction(transaction: BankTransaction): Promise<void> {
+  isHiding.value = transaction.id;
+  hideConfirmId.value = null;
+  try {
+    await api.hideTransaction(transaction.id);
+    unmatchedTransactions.value = unmatchedTransactions.value.filter(tx => tx.id !== transaction.id);
+    unmatchedTotal.value = Math.max(0, unmatchedTotal.value - 1);
+  } catch (error) {
+    console.error('Failed to hide transaction:', error);
+    uploadError.value = error instanceof Error ? error.message : 'Ausblenden fehlgeschlagen';
+  } finally {
+    isHiding.value = null;
   }
 }
 
@@ -1504,6 +1532,21 @@ function getWarningTypeColor(type: string): string {
                     Nein
                   </button>
                 </div>
+                <div v-else-if="hideConfirmId === tx.id" class="flex items-center justify-end gap-2">
+                  <span class="text-xs text-gray-500">Ausblenden?</span>
+                  <button
+                    @click="hideTransaction(tx)"
+                    class="px-2 py-1 text-xs bg-gray-700 text-white rounded hover:bg-gray-800"
+                  >
+                    Ja
+                  </button>
+                  <button
+                    @click="cancelHide"
+                    class="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                  >
+                    Nein
+                  </button>
+                </div>
                 <!-- Action Buttons -->
                 <div v-else class="flex items-center justify-end gap-2">
                   <!-- Manual Match Button -->
@@ -1514,6 +1557,17 @@ function getWarningTypeColor(type: string): string {
                   >
                     <LinkIcon class="h-3 w-3" />
                     Zuordnen
+                  </button>
+                  <!-- Hide Button -->
+                  <button
+                    @click="showHideConfirm(tx.id)"
+                    :disabled="isHiding === tx.id"
+                    class="inline-flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
+                    title="Transaktion ausblenden"
+                  >
+                    <Loader2 v-if="isHiding === tx.id" class="h-3 w-3 animate-spin" />
+                    <EyeOff v-else class="h-3 w-3" />
+                    Ausblenden
                   </button>
                   <!-- Dismiss Button -->
                   <button

@@ -18,6 +18,9 @@ type BankTransaction struct {
 	Currency      string     `json:"currency" db:"currency"`
 	ImportBatchID *uuid.UUID `json:"importBatchId,omitempty" db:"import_batch_id"`
 	ImportedAt    time.Time  `json:"importedAt" db:"imported_at"`
+	IsHidden      bool       `json:"isHidden" db:"is_hidden"`
+	HiddenAt      *time.Time `json:"hiddenAt,omitempty" db:"hidden_at"`
+	HiddenBy      *uuid.UUID `json:"hiddenBy,omitempty" db:"hidden_by"`
 
 	// Joined fields
 	Matches []PaymentMatch `json:"matches,omitempty" db:"-"`

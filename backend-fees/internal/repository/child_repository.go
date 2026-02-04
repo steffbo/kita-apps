@@ -237,6 +237,26 @@ func (r *PostgresChildRepository) GetByMemberNumber(ctx context.Context, memberN
 	return &child, nil
 }
 
+// GetNextMemberNumber generates the next available numeric member number.
+func (r *PostgresChildRepository) GetNextMemberNumber(ctx context.Context) (string, error) {
+	var maxNum sql.NullInt64
+	err := r.db.GetContext(ctx, &maxNum, `
+		SELECT MAX(CAST(member_number AS INTEGER))
+		FROM fees.children
+		WHERE member_number ~ '^[0-9]+$'
+	`)
+	if err != nil {
+		return "", err
+	}
+
+	nextNum := int64(1)
+	if maxNum.Valid {
+		nextNum = maxNum.Int64 + 1
+	}
+
+	return fmt.Sprintf("%d", nextNum), nil
+}
+
 // Create creates a new child.
 func (r *PostgresChildRepository) Create(ctx context.Context, child *domain.Child) error {
 	_, err := r.db.ExecContext(ctx, `

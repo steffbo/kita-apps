@@ -5,6 +5,7 @@ import type {
   Child,
   CreateChildRequest,
   UpdateChildRequest,
+  NextMemberNumberResponse,
   Parent,
   CreateParentRequest,
   UpdateParentRequest,
@@ -30,6 +31,7 @@ import type {
   KnownIBAN,
   RescanResult,
   DismissResult,
+  HideResult,
   UnmatchResult,
   ChildUnmatchedSuggestionsResponse,
   AllocationInput,
@@ -236,6 +238,10 @@ class ApiClient {
     const queryString = query.toString();
     const response = await this.request<PaginatedResponse<Child>>(`/children${queryString ? `?${queryString}` : ''}`);
     return this.normalizePaginated(response);
+  }
+
+  async getNextChildMemberNumber(): Promise<NextMemberNumberResponse> {
+    return this.request<NextMemberNumberResponse>('/children/next-member-number');
   }
 
   async getChild(id: string): Promise<Child> {
@@ -636,6 +642,12 @@ class ApiClient {
 
   async dismissTransaction(transactionId: string): Promise<DismissResult> {
     return this.request<DismissResult>(`/import/transactions/${transactionId}/dismiss`, {
+      method: 'POST',
+    });
+  }
+
+  async hideTransaction(transactionId: string): Promise<HideResult> {
+    return this.request<HideResult>(`/import/transactions/${transactionId}/hide`, {
       method: 'POST',
     });
   }

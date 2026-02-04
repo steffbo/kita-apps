@@ -478,6 +478,12 @@ type DismissTransactionResponse struct {
 	AddedToBlacklist bool   `json:"addedToBlacklist" example:"true"`
 } //@name DismissTransactionResponse
 
+// HideTransactionResponse represents the result of hiding a transaction
+// @Description Hide transaction result
+type HideTransactionResponse struct {
+	TransactionID string `json:"transactionId" example:"550e8400-e29b-41d4-a716-446655440000"`
+} //@name HideTransactionResponse
+
 // UnmatchTransactionRequest represents a request to unmatch (and optionally delete) a transaction
 // @Description Unmatch transaction request
 type UnmatchTransactionRequest struct {
@@ -554,6 +560,47 @@ func (h *ImportHandler) DismissTransaction(w http.ResponseWriter, r *http.Reques
 			return
 		}
 		response.InternalError(w, "failed to dismiss transaction")
+		return
+	}
+
+	response.Success(w, result)
+}
+
+// HideTransaction handles POST /import/transactions/{id}/hide
+// @Summary Hide a transaction
+// @Description Hide an unmatched transaction without blacklisting its IBAN
+// @Tags Import
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Transaction ID (UUID)"
+// @Success 200 {object} HideTransactionResponse "Hide result"
+// @Failure 400 {object} response.ErrorBody "Invalid transaction ID"
+// @Failure 401 {object} response.ErrorBody "Not authenticated"
+// @Failure 404 {object} response.ErrorBody "Transaction not found"
+// @Failure 500 {object} response.ErrorBody "Internal server error"
+// @Router /import/transactions/{id}/hide [post]
+func (h *ImportHandler) HideTransaction(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		response.BadRequest(w, "invalid transaction ID")
+		return
+	}
+
+	userCtx := middleware.GetUserFromContext(r)
+	if userCtx == nil {
+		response.Unauthorized(w, "not authenticated")
+		return
+	}
+	userID, _ := uuid.Parse(userCtx.UserID)
+
+	result, err := h.importService.HideTransaction(r.Context(), id, userID)
+	if err != nil {
+		if err == service.ErrNotFound {
+			response.NotFound(w, "transaction not found")
+			return
+		}
+		response.InternalError(w, "failed to hide transaction")
 		return
 	}
 

@@ -296,6 +296,24 @@ function goToPage(page: number) {
 }
 
 // Create
+async function openCreateDialog() {
+  createError.value = null;
+  createForm.value = {
+    memberNumber: '',
+    firstName: '',
+    lastName: '',
+    birthDate: '',
+    entryDate: '',
+  };
+  showCreateDialog.value = true;
+  try {
+    const result = await api.getNextChildMemberNumber();
+    createForm.value.memberNumber = result.memberNumber;
+  } catch (e) {
+    createError.value = e instanceof Error ? e.message : 'Mitgliedsnummer konnte nicht geladen werden';
+  }
+}
+
 async function handleCreate() {
   isCreating.value = true;
   createError.value = null;
@@ -400,7 +418,7 @@ const visiblePages = computed(() => {
           Importieren
         </button>
         <button
-          @click="showCreateDialog = true"
+          @click="openCreateDialog"
           class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
         >
           <Plus class="h-4 w-4" />

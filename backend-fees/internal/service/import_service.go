@@ -101,6 +101,11 @@ type DismissResult struct {
 	TransactionsRemoved int64  `json:"transactionsRemoved"`
 }
 
+// HideResult represents the result of hiding a transaction.
+type HideResult struct {
+	TransactionID uuid.UUID `json:"transactionId"`
+}
+
 // UnmatchResult represents the result of unmatching a transaction.
 type UnmatchResult struct {
 	TransactionID      uuid.UUID `json:"transactionId"`
@@ -781,6 +786,23 @@ func (s *ImportService) DismissTransaction(ctx context.Context, transactionID uu
 		IBAN:                iban,
 		TransactionsRemoved: deleted,
 	}, nil
+}
+
+// HideTransaction marks a transaction as hidden (no blacklist).
+func (s *ImportService) HideTransaction(ctx context.Context, transactionID uuid.UUID, userID uuid.UUID) (*HideResult, error) {
+	// Ensure transaction exists
+	if _, err := s.transactionRepo.GetByID(ctx, transactionID); err != nil {
+		return nil, ErrNotFound
+	}
+
+	if err := s.transactionRepo.Hide(ctx, transactionID, userID); err != nil {
+		if err == repository.ErrNotFound {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+
+	return &HideResult{TransactionID: transactionID}, nil
 }
 
 // AllocateTransaction allocates a transaction across multiple fee expectations.

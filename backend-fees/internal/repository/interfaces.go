@@ -39,6 +39,7 @@ type ChildRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.Child, error)
 	GetByIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]*domain.Child, error)
 	GetByMemberNumber(ctx context.Context, memberNumber string) (*domain.Child, error)
+	GetNextMemberNumber(ctx context.Context) (string, error)
 	Create(ctx context.Context, child *domain.Child) error
 	Update(ctx context.Context, child *domain.Child) error
 	Delete(ctx context.Context, id uuid.UUID) error
@@ -105,6 +106,7 @@ type TransactionRepository interface {
 	ListMatched(ctx context.Context, search, sortBy, sortDir string, offset, limit int) ([]domain.BankTransaction, int64, error)
 	GetBatches(ctx context.Context, offset, limit int) ([]domain.ImportBatch, int64, error)
 	CreateBatch(ctx context.Context, id uuid.UUID, fileName string, importedBy uuid.UUID) error
+	Hide(ctx context.Context, id uuid.UUID, userID uuid.UUID) error
 	Delete(ctx context.Context, id uuid.UUID) error
 	DeleteUnmatchedByIBAN(ctx context.Context, iban string) (int64, error)
 }

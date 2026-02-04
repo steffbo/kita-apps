@@ -68,6 +68,12 @@ type ChildListResponse struct {
 	TotalPages int             `json:"totalPages" example:"5"`
 } //@name ChildList
 
+// NextMemberNumberResponse represents the next available member number.
+// @Description Next available member number
+type NextMemberNumberResponse struct {
+	MemberNumber string `json:"memberNumber" example:"12002"`
+} //@name NextMemberNumberResponse
+
 // ParentResponse represents a parent in API responses (summary).
 // @Description Parent information (summary)
 type ParentResponse struct {
@@ -142,6 +148,26 @@ func (h *ChildHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.Paginated(w, children, total, pagination.Page, pagination.PerPage)
+}
+
+// NextMemberNumber returns the next available numeric member number.
+// @Summary Get next available member number
+// @Description Returns the next available numeric member number for a new child
+// @Tags Children
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} NextMemberNumberResponse "Next member number"
+// @Failure 401 {object} response.ErrorBody "Not authenticated"
+// @Failure 500 {object} response.ErrorBody "Internal server error"
+// @Router /children/next-member-number [get]
+func (h *ChildHandler) NextMemberNumber(w http.ResponseWriter, r *http.Request) {
+	memberNumber, err := h.childService.GetNextMemberNumber(r.Context())
+	if err != nil {
+		response.InternalError(w, "failed to get next member number")
+		return
+	}
+
+	response.Success(w, NextMemberNumberResponse{MemberNumber: memberNumber})
 }
 
 // Create creates a new child

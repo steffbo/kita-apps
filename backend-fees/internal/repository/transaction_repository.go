@@ -47,7 +47,8 @@ func (r *PostgresTransactionRepository) GetByID(ctx context.Context, id uuid.UUI
 	var tx domain.BankTransaction
 	err := r.db.GetContext(ctx, &tx, `
 		SELECT id, booking_date, value_date, payer_name, payer_iban,
-		       description, amount, currency, import_batch_id, imported_at
+		       description, amount, currency, import_batch_id, imported_at,
+		       is_hidden, hidden_at, hidden_by
 		FROM fees.bank_transactions
 		WHERE id = $1
 	`, id)
@@ -69,7 +70,8 @@ func (r *PostgresTransactionRepository) GetByIDs(ctx context.Context, ids []uuid
 	var transactions []domain.BankTransaction
 	err := r.db.SelectContext(ctx, &transactions, `
 		SELECT id, booking_date, value_date, payer_name, payer_iban,
-		       description, amount, currency, import_batch_id, imported_at
+		       description, amount, currency, import_batch_id, imported_at,
+		       is_hidden, hidden_at, hidden_by
 		FROM fees.bank_transactions
 		WHERE id = ANY($1)
 	`, pq.Array(ids))
@@ -158,7 +160,7 @@ func (r *PostgresTransactionRepository) ListUnmatched(ctx context.Context, searc
 	var transactions []domain.BankTransaction
 	var total int64
 
-	whereClause, args, argIdx := buildSearchFilter("pm.id IS NULL AND bt.amount > 0", search, 1)
+	whereClause, args, argIdx := buildSearchFilter("pm.id IS NULL AND bt.amount > 0 AND bt.is_hidden = false", search, 1)
 
 	// Count total unmatched with search filter
 	countQuery := fmt.Sprintf(`
@@ -177,7 +179,8 @@ func (r *PostgresTransactionRepository) ListUnmatched(ctx context.Context, searc
 	// Fetch unmatched transactions
 	selectQuery := fmt.Sprintf(`
 		SELECT bt.id, bt.booking_date, bt.value_date, bt.payer_name, bt.payer_iban,
-		       bt.description, bt.amount, bt.currency, bt.import_batch_id, bt.imported_at
+		       bt.description, bt.amount, bt.currency, bt.import_batch_id, bt.imported_at,
+		       bt.is_hidden, bt.hidden_at, bt.hidden_by
 		FROM fees.bank_transactions bt
 		LEFT JOIN fees.payment_matches pm ON bt.id = pm.transaction_id
 		WHERE %s
@@ -192,6 +195,26 @@ func (r *PostgresTransactionRepository) ListUnmatched(ctx context.Context, searc
 	}
 
 	return transactions, total, nil
+}
+
+// Hide marks a transaction as hidden.
+func (r *PostgresTransactionRepository) Hide(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
+	result, err := r.db.ExecContext(ctx, `
+		UPDATE fees.bank_transactions
+		SET is_hidden = true, hidden_at = NOW(), hidden_by = $2
+		WHERE id = $1
+	`, id, userID)
+	if err != nil {
+		return err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 // GetBatches retrieves import batch history.

@@ -47,6 +47,10 @@ export interface Child {
   household?: Household;
 }
 
+export interface NextMemberNumberResponse {
+  memberNumber: string;
+}
+
 export interface CreateChildRequest {
   memberNumber: string;
   firstName: string;
@@ -394,6 +398,10 @@ export interface RescanResult {
 export interface DismissResult {
   iban: string;
   transactionsRemoved: number;
+}
+
+export interface HideResult {
+  transactionId: string;
 }
 
 export interface UnmatchResult {
