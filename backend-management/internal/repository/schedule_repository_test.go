@@ -66,7 +66,7 @@ func TestScheduleRepository_Create(t *testing.T) {
 }
 
 func TestScheduleRepository_Create_WithNotes(t *testing.T) {
-	repo, employee, _, cleanup := setupScheduleTest(t)
+	repo, employee, group, cleanup := setupScheduleTest(t)
 	defer cleanup()
 	ctx := context.Background()
 
@@ -78,6 +78,7 @@ func TestScheduleRepository_Create_WithNotes(t *testing.T) {
 		Date:       today,
 		EntryType:  domain.ScheduleEntryTypeEvent,
 		Notes:      &notes,
+		GroupID:    &group.ID,
 	}
 
 	err := repo.Create(ctx, entry)
@@ -325,7 +326,7 @@ func TestScheduleRepository_Delete(t *testing.T) {
 }
 
 func TestScheduleRepository_DifferentEntryTypes(t *testing.T) {
-	repo, employee, _, cleanup := setupScheduleTest(t)
+	repo, employee, group, cleanup := setupScheduleTest(t)
 	defer cleanup()
 	ctx := context.Background()
 
@@ -345,6 +346,7 @@ func TestScheduleRepository_DifferentEntryTypes(t *testing.T) {
 			WithEmployeeID(employee.ID).
 			WithDate(today.AddDate(0, 0, i)).
 			WithType(entryType).
+			WithGroupID(group.ID).
 			Create(ctx, testContainer.DB)
 		require.NoError(t, err)
 
