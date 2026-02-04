@@ -21,57 +21,46 @@ git commit -m "your commit message"
 git push
 ```
 
+Note: the Docker image build workflow only runs on `main` (or via manual dispatch). If you work on a branch, merge to `main` before expecting images to be built.
+
 ### 2. Monitor GitHub Actions Build
 
 Watch the build progress using the GitHub CLI:
 
 ```bash
 # List recent workflow runs
-gh run list --limit 5
+gh run list -R steffbo/kita-apps --branch main --limit 5
 
 # Watch a specific run (get run ID from list above)
-gh run watch <run-id>
+gh run watch <run-id> -R steffbo/kita-apps
 
 # Or watch the latest run
-gh run watch $(gh run list --limit 1 --json databaseId --jq '.[0].databaseId')
+gh run watch $(gh run list -R steffbo/kita-apps --branch main --limit 1 --json databaseId --jq '.[0].databaseId')
 ```
 
 The workflow builds Docker images and pushes them to `ghcr.io/steffbo/kita-backend-fees:latest` and `ghcr.io/steffbo/kita-backend-management:latest`.
 
 ### 3. Deploy to Server
 
-SSH into the infra-dev VM and pull/restart the containers:
+Deployment is handled via ansible (pulls latest image from GHCR and restarts the container):
 
 ```bash
-# SSH to server
-ssh -i ~/.ssh/PVE_id_ed25519 stefan@192.168.188.207
-
-# Navigate to stack directory
-cd /srv/homelab/stacks/infra-dev
-
-# Pull new images and restart containers
-sudo docker compose pull backend-fees
-sudo docker compose up -d --force-recreate backend-fees
-
-# Or for backend-management:
-sudo docker compose pull backend-management
-sudo docker compose up -d --force-recreate backend-management
-
-# Or pull and restart all kita services:
-sudo docker compose pull backend-fees backend-management
-sudo docker compose up -d --force-recreate backend-fees backend-management
+cd ~/workspace/homelab/ansible
+ansible-playbook playbooks/deploy-app.yml -e "app=kita"
 ```
 
 ### 4. Run Database Migrations (if needed)
 
-Migrations are NOT run automatically. If you added new migrations, run them manually:
+`backend-fees` runs migrations automatically on container start (compose command is `/app/migrate -direction up && /app/server`).
+
+If you added new migrations for `backend-management`, run them manually:
 
 ```bash
 # SSH to server (if not already connected)
 ssh -i ~/.ssh/PVE_id_ed25519 stefan@192.168.188.207
 
-# Run migrations for backend-fees
-sudo docker exec kita-backend-fees ./migrate -direction up
+# Run migrations for backend-management (manual)
+sudo docker exec kita-backend-management ./migrate -direction up
 
 # Check current migration version
 sudo docker exec kita-db psql -U kita -d kita -c "SELECT * FROM fees.schema_migrations;"
