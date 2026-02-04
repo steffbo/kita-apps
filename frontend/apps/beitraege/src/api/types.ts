@@ -388,6 +388,12 @@ export interface KnownIBAN {
   child?: Child;
 }
 
+export interface KnownIBANSummary {
+  iban: string;
+  payerName?: string;
+  transactionCount: number;
+}
+
 export interface RescanResult {
   scanned: number;
   autoMatched: number;

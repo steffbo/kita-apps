@@ -104,6 +104,13 @@ type KnownIBAN struct {
 	Child *Child `json:"child,omitempty" db:"-"`
 }
 
+// KnownIBANSummary represents a trusted IBAN with usage stats.
+type KnownIBANSummary struct {
+	IBAN             string  `json:"iban" db:"iban"`
+	PayerName        *string `json:"payerName,omitempty" db:"payer_name"`
+	TransactionCount int64   `json:"transactionCount" db:"transaction_count"`
+}
+
 // WarningType represents the type of transaction warning.
 type WarningType string
 

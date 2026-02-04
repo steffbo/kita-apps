@@ -132,6 +132,7 @@ type KnownIBANRepository interface {
 	IsBlacklisted(ctx context.Context, iban string) (bool, error)
 	IsTrusted(ctx context.Context, iban string) (bool, error)
 	ListByStatus(ctx context.Context, status domain.KnownIBANStatus, offset, limit int) ([]domain.KnownIBAN, int64, error)
+	ListTrustedByChildWithCounts(ctx context.Context, childID uuid.UUID) ([]domain.KnownIBANSummary, error)
 	Delete(ctx context.Context, iban string) error
 	UpdateChildLink(ctx context.Context, iban string, childID *uuid.UUID) error
 	GetBlacklistedIBANs(ctx context.Context) (map[string]bool, error)

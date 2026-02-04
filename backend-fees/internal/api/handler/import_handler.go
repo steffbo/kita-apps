@@ -506,6 +506,14 @@ type ChildUnmatchedSuggestionsResponse struct {
 	Suggestions []domain.MatchSuggestion `json:"suggestions"`
 } //@name ChildUnmatchedSuggestionsResponse
 
+// ChildTrustedIBANsResponse represents trusted IBANs for a child.
+// @Description Trusted IBANs with usage counts
+type ChildTrustedIBANsResponse struct {
+	IBAN             string  `json:"iban" example:"DE89370400440532013000"`
+	PayerName        *string `json:"payerName,omitempty" example:"Max Mustermann"`
+	TransactionCount int64   `json:"transactionCount" example:"4"`
+} //@name ChildTrustedIBANsResponse
+
 // AllocationRequest represents a single fee allocation.
 // @Description Fee allocation entry
 type AllocationRequest struct {
@@ -798,6 +806,35 @@ func (h *ImportHandler) ChildUnmatchedSuggestions(w http.ResponseWriter, r *http
 		Suggestions: result.Suggestions,
 	}
 	response.Success(w, resp)
+}
+
+// ChildTrustedIBANs handles GET /import/trusted/child/{id}
+// @Summary Get trusted IBANs for a child
+// @Description Returns trusted IBANs linked to the child with transaction counts
+// @Tags Import
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Child ID (UUID)"
+// @Success 200 {array} ChildTrustedIBANsResponse "Trusted IBANs"
+// @Failure 400 {object} response.ErrorBody "Invalid child ID"
+// @Failure 401 {object} response.ErrorBody "Not authenticated"
+// @Failure 500 {object} response.ErrorBody "Internal server error"
+// @Router /import/trusted/child/{id} [get]
+func (h *ImportHandler) ChildTrustedIBANs(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	childID, err := uuid.Parse(idStr)
+	if err != nil {
+		response.BadRequest(w, "invalid child ID")
+		return
+	}
+
+	result, err := h.importService.GetTrustedIBANsForChild(r.Context(), childID)
+	if err != nil {
+		response.InternalError(w, "failed to load trusted ibans")
+		return
+	}
+
+	response.Success(w, result)
 }
 
 // GetBlacklist handles GET /import/blacklist

@@ -127,6 +127,28 @@ func (r *PostgresKnownIBANRepository) ListByStatus(ctx context.Context, status d
 	return entries, total, nil
 }
 
+// ListTrustedByChildWithCounts returns trusted IBANs for a child with transaction counts.
+func (r *PostgresKnownIBANRepository) ListTrustedByChildWithCounts(ctx context.Context, childID uuid.UUID) ([]domain.KnownIBANSummary, error) {
+	var entries []domain.KnownIBANSummary
+	err := r.db.SelectContext(ctx, &entries, `
+		SELECT
+			ki.iban,
+			ki.payer_name,
+			COALESCE(COUNT(DISTINCT pm.transaction_id) FILTER (WHERE fe.child_id = $1), 0) AS transaction_count
+		FROM fees.known_ibans ki
+		LEFT JOIN fees.bank_transactions bt ON bt.payer_iban = ki.iban
+		LEFT JOIN fees.payment_matches pm ON pm.transaction_id = bt.id
+		LEFT JOIN fees.fee_expectations fe ON fe.id = pm.expectation_id
+		WHERE ki.child_id = $1 AND ki.status = 'trusted'
+		GROUP BY ki.iban, ki.payer_name
+		ORDER BY MAX(ki.updated_at) DESC
+	`, childID)
+	if err != nil {
+		return nil, err
+	}
+	return entries, nil
+}
+
 // Delete removes a known IBAN entry.
 func (r *PostgresKnownIBANRepository) Delete(ctx context.Context, iban string) error {
 	result, err := r.db.ExecContext(ctx, `

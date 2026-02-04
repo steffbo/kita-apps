@@ -150,6 +150,7 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 				r.Get("/blacklist", handlers.Import.GetBlacklist)
 				r.Delete("/blacklist/{iban}", handlers.Import.RemoveFromBlacklist)
 				r.Get("/trusted", handlers.Import.GetTrustedIBANs)
+				r.Get("/trusted/child/{id}", handlers.Import.ChildTrustedIBANs)
 				r.Post("/trusted/{iban}/link", handlers.Import.LinkIBANToChild)
 				r.Delete("/trusted/{iban}/link", handlers.Import.UnlinkIBANFromChild)
 				r.Get("/warnings", handlers.Import.GetWarnings)

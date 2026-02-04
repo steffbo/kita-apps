@@ -1089,6 +1089,14 @@ func (s *ImportService) GetTrustedIBANs(ctx context.Context, offset, limit int) 
 	return s.knownIBANRepo.ListByStatus(ctx, domain.KnownIBANStatusTrusted, offset, limit)
 }
 
+// GetTrustedIBANsForChild returns trusted IBANs for a child with usage counts.
+func (s *ImportService) GetTrustedIBANsForChild(ctx context.Context, childID uuid.UUID) ([]domain.KnownIBANSummary, error) {
+	if s.knownIBANRepo == nil {
+		return []domain.KnownIBANSummary{}, nil
+	}
+	return s.knownIBANRepo.ListTrustedByChildWithCounts(ctx, childID)
+}
+
 // GetWarnings returns all unresolved transaction warnings with related entities.
 func (s *ImportService) GetWarnings(ctx context.Context, offset, limit int) ([]domain.TransactionWarning, int64, error) {
 	if s.warningRepo == nil {

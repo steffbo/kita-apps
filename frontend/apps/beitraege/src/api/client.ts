@@ -29,6 +29,7 @@ import type {
   BankTransaction,
   PaginatedResponse,
   KnownIBAN,
+  KnownIBANSummary,
   RescanResult,
   DismissResult,
   HideResult,
@@ -705,6 +706,10 @@ class ApiClient {
     const queryString = query.toString();
     const response = await this.request<PaginatedResponse<KnownIBAN>>(`/import/trusted${queryString ? `?${queryString}` : ''}`);
     return this.normalizePaginated(response);
+  }
+
+  async getChildTrustedIBANs(childId: string): Promise<KnownIBANSummary[]> {
+    return this.request<KnownIBANSummary[]>(`/import/trusted/child/${childId}`);
   }
 
   async linkIBANToChild(iban: string, childId: string): Promise<void> {

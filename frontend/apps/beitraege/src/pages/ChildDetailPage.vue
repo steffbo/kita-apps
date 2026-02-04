@@ -2,7 +2,7 @@
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api';
-import type { Child, FeeExpectation, UpdateChildRequest, Parent, CreateParentRequest, UpdateParentRequest, BankTransaction, IncomeStatus, UpdateHouseholdRequest, ChildcareFeeResult, MatchSuggestion, PaymentMatch } from '@/api/types';
+import type { Child, FeeExpectation, UpdateChildRequest, Parent, CreateParentRequest, UpdateParentRequest, BankTransaction, IncomeStatus, UpdateHouseholdRequest, ChildcareFeeResult, MatchSuggestion, PaymentMatch, KnownIBANSummary } from '@/api/types';
 import {
   ArrowLeft,
   Edit,
@@ -101,6 +101,10 @@ const reminderError = ref<string | null>(null);
 const childcareFee = ref<ChildcareFeeResult | null>(null);
 const isLoadingChildcareFee = ref(false);
 
+// Trusted IBANs
+const trustedIbans = ref<KnownIBANSummary[]>([]);
+const isLoadingTrustedIbans = ref(false);
+
 // Likely unmatched transactions
 const likelyTransactions = ref<MatchSuggestion[]>([]);
 const isLoadingLikelyTransactions = ref(false);
@@ -125,11 +129,23 @@ async function loadChild() {
     fees.value = feesResponse.data;
     // Load childcare fee if applicable
     await loadChildcareFee();
+    await loadTrustedIbans();
     await loadLikelyTransactions();
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Fehler beim Laden';
   } finally {
     isLoading.value = false;
+  }
+}
+
+async function loadTrustedIbans() {
+  isLoadingTrustedIbans.value = true;
+  try {
+    trustedIbans.value = await api.getChildTrustedIBANs(childId.value);
+  } catch (e) {
+    trustedIbans.value = [];
+  } finally {
+    isLoadingTrustedIbans.value = false;
   }
 }
 
@@ -519,6 +535,13 @@ function getFeeRemainingAmount(fee: FeeExpectation): number {
   const matched = fee.matchedAmount ?? 0;
   const remaining = fee.amount - matched;
   return remaining > 0 ? remaining : 0;
+}
+
+function maskIban(iban?: string): string {
+  if (!iban) return '';
+  const trimmed = iban.replace(/\s+/g, '');
+  if (trimmed.length <= 8) return trimmed;
+  return `${trimmed.slice(0, 4)}…${trimmed.slice(-4)}`;
 }
 
 const allocationTotal = computed(() =>
@@ -1014,6 +1037,21 @@ async function createReminder() {
               <div v-if="child.household.childrenCountForFees">
                 <p class="text-sm text-gray-500">Kinder (Beitragsberechnung)</p>
                 <p class="font-medium">{{ child.household.childrenCountForFees }}</p>
+              </div>
+            </div>
+
+            <div v-if="trustedIbans.length > 0" class="pt-3 border-t">
+              <p class="text-sm text-gray-500 mb-2">Bekannte IBANs</p>
+              <div class="flex flex-wrap gap-2">
+                <span
+                  v-for="iban in trustedIbans"
+                  :key="iban.iban"
+                  :title="iban.payerName ? `${iban.payerName} · ${iban.iban}` : iban.iban"
+                  class="inline-flex items-center gap-1 px-2 py-1 bg-gray-50 border border-gray-200 rounded-full text-xs text-gray-700"
+                >
+                  <span class="font-mono">{{ maskIban(iban.iban) }}</span>
+                  <span v-if="iban.transactionCount > 0" class="text-gray-500">· {{ iban.transactionCount }} Zahlungen</span>
+                </span>
               </div>
             </div>
 
