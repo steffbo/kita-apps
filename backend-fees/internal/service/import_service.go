@@ -1382,7 +1382,22 @@ func (s *ImportService) GetSuggestionsForTransaction(ctx context.Context, transa
 	s.enrichChildrenWithParents(ctx, children)
 
 	// Run matching algorithm
-	suggestion, _ := s.matchTransaction(ctx, *tx, children)
+	suggestion, warning := s.matchTransaction(ctx, *tx, children)
+	if suggestion == nil && warning != nil && warning.WarningType == domain.WarningTypeMultipleOpenFees {
+		// Provide child/type confidence even when multiple open fees exist,
+		// so the manual matching UI can still surface high-confidence candidates.
+		fallback := &domain.MatchSuggestion{
+			Transaction:  *tx,
+			DetectedType: s.detectFeeType(tx.Amount),
+		}
+		s.matchTrustedIBAN(ctx, *tx, children, fallback)
+		if fallback.Child == nil {
+			s.matchChild(buildMatchText(*tx), children, fallback)
+		}
+		if fallback.Confidence > 0 {
+			return fallback, nil
+		}
+	}
 	if suggestion == nil {
 		return &domain.MatchSuggestion{
 			Transaction: *tx,
