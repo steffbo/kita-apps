@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -12,6 +13,7 @@ import (
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/api/middleware"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/api/request"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/api/response"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/service"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/util"
 )
@@ -490,6 +492,36 @@ type UnmatchTransactionResponse struct {
 	TransactionDeleted bool   `json:"transactionDeleted" example:"false"`
 } //@name UnmatchTransactionResponse
 
+// ChildUnmatchedSuggestionsResponse represents likely unmatched transactions for a child
+// @Description Likely unmatched transactions for a child
+type ChildUnmatchedSuggestionsResponse struct {
+	ChildID     string            `json:"childId" example:"550e8400-e29b-41d4-a716-446655440000"`
+	Scanned     int               `json:"scanned" example:"250"`
+	Suggestions []domain.MatchSuggestion `json:"suggestions"`
+} //@name ChildUnmatchedSuggestionsResponse
+
+// AllocationRequest represents a single fee allocation.
+// @Description Fee allocation entry
+type AllocationRequest struct {
+	ExpectationID string  `json:"expectationId" example:"550e8400-e29b-41d4-a716-446655440001"`
+	Amount        float64 `json:"amount" example:"45.40"`
+} //@name AllocationRequest
+
+// AllocateTransactionRequest represents a request to allocate a transaction.
+// @Description Allocate a transaction across multiple fees
+type AllocateTransactionRequest struct {
+	Allocations []AllocationRequest `json:"allocations"`
+} //@name AllocateTransactionRequest
+
+// AllocateTransactionResponse represents the result of an allocation.
+// @Description Allocation result
+type AllocateTransactionResponse struct {
+	TransactionID      string  `json:"transactionId" example:"550e8400-e29b-41d4-a716-446655440000"`
+	AllocationsCreated int     `json:"allocationsCreated" example:"2"`
+	TotalAllocated     float64 `json:"totalAllocated" example:"90.80"`
+	Overpayment        float64 `json:"overpayment" example:"0.00"`
+} //@name AllocateTransactionResponse
+
 // DismissTransaction handles POST /import/transactions/{id}/dismiss
 // @Summary Dismiss a transaction
 // @Description Dismiss an unmatched transaction and optionally add its IBAN to blacklist
@@ -574,6 +606,149 @@ func (h *ImportHandler) UnmatchTransaction(w http.ResponseWriter, r *http.Reques
 		TransactionID:      result.TransactionID.String(),
 		MatchesRemoved:     result.MatchesRemoved,
 		TransactionDeleted: result.TransactionDeleted,
+	}
+	response.Success(w, resp)
+}
+
+// AllocateTransaction handles POST /import/transactions/{id}/allocate
+// @Summary Allocate a transaction across multiple fees
+// @Description Allocate a transaction across multiple fee expectations
+// @Tags Import
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Transaction ID (UUID)"
+// @Param request body AllocateTransactionRequest true "Allocation data"
+// @Success 200 {object} AllocateTransactionResponse "Allocation result"
+// @Failure 400 {object} response.ErrorBody "Invalid request or allocation"
+// @Failure 401 {object} response.ErrorBody "Not authenticated"
+// @Failure 404 {object} response.ErrorBody "Transaction or fee not found"
+// @Failure 500 {object} response.ErrorBody "Internal server error"
+// @Router /import/transactions/{id}/allocate [post]
+func (h *ImportHandler) AllocateTransaction(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		response.BadRequest(w, "invalid transaction ID")
+		return
+	}
+
+	userCtx := middleware.GetUserFromContext(r)
+	if userCtx == nil {
+		response.Unauthorized(w, "not authenticated")
+		return
+	}
+	userID, _ := uuid.Parse(userCtx.UserID)
+
+	var req AllocateTransactionRequest
+	if err := request.DecodeJSON(r, &req); err != nil {
+		response.BadRequest(w, "invalid request body")
+		return
+	}
+
+	if len(req.Allocations) == 0 {
+		response.BadRequest(w, "no allocations provided")
+		return
+	}
+
+	inputs := make([]service.AllocationInput, 0, len(req.Allocations))
+	for _, alloc := range req.Allocations {
+		expectationID, err := uuid.Parse(alloc.ExpectationID)
+		if err != nil {
+			response.BadRequest(w, "invalid expectation ID")
+			return
+		}
+		inputs = append(inputs, service.AllocationInput{
+			ExpectationID: expectationID,
+			Amount:        alloc.Amount,
+		})
+	}
+
+	result, err := h.importService.AllocateTransaction(r.Context(), id, userID, inputs)
+	if err != nil {
+		if err == service.ErrNotFound {
+			response.NotFound(w, "transaction or fee not found")
+			return
+		}
+		if err == service.ErrInvalidInput {
+			response.BadRequest(w, "invalid allocation")
+			return
+		}
+		response.InternalError(w, "failed to allocate transaction")
+		return
+	}
+
+	resp := AllocateTransactionResponse{
+		TransactionID:      result.TransactionID.String(),
+		AllocationsCreated: result.AllocationsCreated,
+		TotalAllocated:     result.TotalAllocated,
+		Overpayment:        result.Overpayment,
+	}
+	response.Success(w, resp)
+}
+
+// ChildUnmatchedSuggestions handles GET /import/transactions/unmatched/child/{id}
+// @Summary Get likely unmatched transactions for a child
+// @Description Returns unmatched transactions that likely belong to the given child
+// @Tags Import
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "Child ID (UUID)"
+// @Param minConfidence query number false "Minimum confidence (0-1)" default(0.6)
+// @Param limit query int false "Max suggestions to return" default(10)
+// @Success 200 {object} ChildUnmatchedSuggestionsResponse "Suggestions"
+// @Failure 400 {object} response.ErrorBody "Invalid child ID"
+// @Failure 401 {object} response.ErrorBody "Not authenticated"
+// @Failure 404 {object} response.ErrorBody "Child not found"
+// @Failure 500 {object} response.ErrorBody "Internal server error"
+// @Router /import/transactions/unmatched/child/{id} [get]
+func (h *ImportHandler) ChildUnmatchedSuggestions(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := uuid.Parse(idStr)
+	if err != nil {
+		response.BadRequest(w, "invalid child ID")
+		return
+	}
+
+	minConfidence := 0.6
+	if minConfidenceStr := r.URL.Query().Get("minConfidence"); minConfidenceStr != "" {
+		if parsed, err := strconv.ParseFloat(minConfidenceStr, 64); err == nil {
+			minConfidence = parsed
+		}
+	}
+	if minConfidence < 0 {
+		minConfidence = 0
+	}
+	if minConfidence > 1 {
+		minConfidence = 1
+	}
+
+	limit := 10
+	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
+		if parsed, err := strconv.Atoi(limitStr); err == nil {
+			limit = parsed
+		}
+	}
+	if limit < 1 {
+		limit = 1
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	result, err := h.importService.GetUnmatchedSuggestionsForChild(r.Context(), id, minConfidence, limit)
+	if err != nil {
+		if err == service.ErrNotFound {
+			response.NotFound(w, "child not found")
+			return
+		}
+		response.InternalError(w, "failed to get suggestions")
+		return
+	}
+
+	resp := ChildUnmatchedSuggestionsResponse{
+		ChildID:     result.ChildID.String(),
+		Scanned:     result.Scanned,
+		Suggestions: result.Suggestions,
 	}
 	response.Success(w, resp)
 }

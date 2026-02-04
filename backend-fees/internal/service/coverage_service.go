@@ -84,9 +84,12 @@ func (s *CoverageService) getMatchedTransactionsForChild(
 	childID uuid.UUID,
 	fees []domain.FeeExpectation,
 ) ([]domain.BankTransaction, error) {
-	// Get all matches for these fees
-	var matchedTxs []domain.BankTransaction
-	seenTxs := make(map[uuid.UUID]bool)
+	type txAggregate struct {
+		tx     *domain.BankTransaction
+		amount float64
+	}
+
+	aggregates := make(map[uuid.UUID]*txAggregate)
 
 	for _, fee := range fees {
 		matches, err := s.matchRepo.GetAllByExpectation(ctx, fee.ID)
@@ -95,18 +98,27 @@ func (s *CoverageService) getMatchedTransactionsForChild(
 		}
 
 		for _, match := range matches {
-			if seenTxs[match.TransactionID] {
-				continue
+			entry, ok := aggregates[match.TransactionID]
+			if !ok {
+				tx, err := s.transactionRepo.GetByID(ctx, match.TransactionID)
+				if err != nil {
+					continue
+				}
+				entry = &txAggregate{tx: tx, amount: 0}
+				aggregates[match.TransactionID] = entry
 			}
-			seenTxs[match.TransactionID] = true
-
-			// Get transaction details
-			tx, err := s.transactionRepo.GetByID(ctx, match.TransactionID)
-			if err != nil {
-				continue
-			}
-			matchedTxs = append(matchedTxs, *tx)
+			entry.amount += match.Amount
 		}
+	}
+
+	matchedTxs := make([]domain.BankTransaction, 0, len(aggregates))
+	for _, entry := range aggregates {
+		if entry.tx == nil {
+			continue
+		}
+		tx := *entry.tx
+		tx.Amount = entry.amount
+		matchedTxs = append(matchedTxs, tx)
 	}
 
 	return matchedTxs, nil

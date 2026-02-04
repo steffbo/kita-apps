@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/csvparser"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
@@ -25,6 +26,7 @@ const (
 	// Confidence thresholds
 	autoMatchConfidenceThreshold = 0.95
 	memberNumberConfidence       = 0.95
+	trustedIBANConfidence        = 0.99
 	confidenceBoostCombined      = 0.02
 	confidenceBoostNameMatch     = 0.05
 	maxConfidenceNameMatch       = 0.93
@@ -66,6 +68,7 @@ type ImportResult struct {
 	FileName    string                      `json:"fileName"`
 	TotalRows   int                         `json:"totalRows"`
 	Imported    int                         `json:"imported"`
+	AutoMatched int                         `json:"autoMatched"`
 	Skipped     int                         `json:"skipped"`
 	Blacklisted int                         `json:"blacklisted"`
 	Warnings    int                         `json:"warnings"`
@@ -103,6 +106,27 @@ type UnmatchResult struct {
 	TransactionID      uuid.UUID `json:"transactionId"`
 	MatchesRemoved     int64     `json:"matchesRemoved"`
 	TransactionDeleted bool      `json:"transactionDeleted"`
+}
+
+// ChildUnmatchedSuggestionsResult represents likely unmatched transactions for a child.
+type ChildUnmatchedSuggestionsResult struct {
+	ChildID     uuid.UUID               `json:"childId"`
+	Scanned     int                     `json:"scanned"`
+	Suggestions []domain.MatchSuggestion `json:"suggestions"`
+}
+
+// AllocationInput represents a manual allocation for a transaction.
+type AllocationInput struct {
+	ExpectationID uuid.UUID
+	Amount        float64
+}
+
+// AllocateResult represents the result of allocating a transaction.
+type AllocateResult struct {
+	TransactionID      uuid.UUID `json:"transactionId"`
+	AllocationsCreated int       `json:"allocationsCreated"`
+	TotalAllocated     float64   `json:"totalAllocated"`
+	Overpayment        float64   `json:"overpayment"`
 }
 
 // ProcessCSV processes a CSV file and returns match suggestions.
@@ -170,6 +194,14 @@ func (s *ImportService) ProcessCSV(ctx context.Context, file io.Reader, fileName
 		// Try to match
 		suggestion, warning := s.matchTransaction(ctx, tx, children)
 		if suggestion != nil {
+			// High confidence with matching fee expectation(s) -> auto-confirm
+			if suggestion.Confidence >= autoMatchConfidenceThreshold && (suggestion.Expectation != nil || len(suggestion.Expectations) > 0) {
+				if s.autoConfirmMatch(ctx, suggestion) {
+					result.AutoMatched++
+					continue
+				}
+			}
+
 			result.Suggestions = append(result.Suggestions, *suggestion)
 		} else if warning != nil {
 			s.saveWarning(ctx, warning, result)
@@ -202,7 +234,10 @@ func (s *ImportService) matchTransaction(ctx context.Context, tx domain.BankTran
 		DetectedType: s.detectFeeType(tx.Amount),
 	}
 
-	s.matchChild(buildMatchText(tx), children, suggestion)
+	s.matchTrustedIBAN(ctx, tx, children, suggestion)
+	if suggestion.Child == nil {
+		s.matchChild(buildMatchText(tx), children, suggestion)
+	}
 
 	if suggestion.Child != nil && suggestion.DetectedType != nil {
 		if warning := s.matchFeeExpectation(ctx, tx, suggestion); warning != nil {
@@ -219,6 +254,36 @@ func (s *ImportService) matchTransaction(ctx context.Context, tx domain.BankTran
 		return suggestion, nil
 	}
 	return nil, nil
+}
+
+func (s *ImportService) matchTrustedIBAN(ctx context.Context, tx domain.BankTransaction, children []domain.Child, suggestion *domain.MatchSuggestion) {
+	if s.knownIBANRepo == nil || tx.PayerIBAN == nil {
+		return
+	}
+
+	knownIBAN, err := s.knownIBANRepo.GetByIBAN(ctx, *tx.PayerIBAN)
+	if err != nil || knownIBAN == nil || knownIBAN.Status != domain.KnownIBANStatusTrusted || knownIBAN.ChildID == nil {
+		return
+	}
+
+	childID := *knownIBAN.ChildID
+	for i := range children {
+		if children[i].ID == childID {
+			suggestion.Child = &children[i]
+			suggestion.MatchedBy = "trusted_iban"
+			suggestion.Confidence = trustedIBANConfidence
+			return
+		}
+	}
+
+	if s.childRepo != nil {
+		child, err := s.childRepo.GetByID(ctx, childID)
+		if err == nil && child != nil {
+			suggestion.Child = child
+			suggestion.MatchedBy = "trusted_iban"
+			suggestion.Confidence = trustedIBANConfidence
+		}
+	}
 }
 
 func (s *ImportService) detectFeeType(amount float64) *domain.FeeType {
@@ -460,10 +525,16 @@ func (s *ImportService) ConfirmMatches(ctx context.Context, matches []MatchConfi
 	result := &ConfirmResult{}
 
 	for _, m := range matches {
+		fee, err := s.feeRepo.GetByID(ctx, m.ExpectationID)
+		if err != nil {
+			result.Failed++
+			continue
+		}
 		match := &domain.PaymentMatch{
 			ID:            uuid.New(),
 			TransactionID: m.TransactionID,
 			ExpectationID: m.ExpectationID,
+			Amount:        fee.Amount,
 			MatchType:     domain.MatchTypeManual,
 			MatchedAt:     time.Now(),
 			MatchedBy:     &userID,
@@ -527,7 +598,7 @@ func (s *ImportService) CreateManualMatch(ctx context.Context, transactionID, ex
 	}
 
 	// Verify expectation exists
-	_, err = s.feeRepo.GetByID(ctx, expectationID)
+	fee, err := s.feeRepo.GetByID(ctx, expectationID)
 	if err != nil {
 		return nil, ErrNotFound
 	}
@@ -536,6 +607,7 @@ func (s *ImportService) CreateManualMatch(ctx context.Context, transactionID, ex
 		ID:            uuid.New(),
 		TransactionID: transactionID,
 		ExpectationID: expectationID,
+		Amount:        fee.Amount,
 		MatchType:     domain.MatchTypeManual,
 		MatchedAt:     time.Now(),
 		MatchedBy:     &userID,
@@ -600,11 +672,14 @@ func (s *ImportService) Rescan(ctx context.Context) (*RescanResult, error) {
 func (s *ImportService) autoConfirmMatch(ctx context.Context, suggestion *domain.MatchSuggestion) bool {
 	// Handle combined matches (fee + reminder)
 	if len(suggestion.Expectations) > 0 {
+		expectationIDs := make([]string, 0, len(suggestion.Expectations))
 		for _, fee := range suggestion.Expectations {
+			expectationIDs = append(expectationIDs, fee.ID.String())
 			match := &domain.PaymentMatch{
 				ID:            uuid.New(),
 				TransactionID: suggestion.Transaction.ID,
 				ExpectationID: fee.ID,
+				Amount:        fee.Amount,
 				MatchType:     domain.MatchTypeAuto,
 				Confidence:    &suggestion.Confidence,
 				MatchedAt:     time.Now(),
@@ -615,6 +690,13 @@ func (s *ImportService) autoConfirmMatch(ctx context.Context, suggestion *domain
 			}
 		}
 		s.postMatchActions(ctx, suggestion.Transaction.ID, uuid.Nil, "Auto-matched: Hohe Übereinstimmung (95%+)")
+		log.Info().
+			Str("transactionId", suggestion.Transaction.ID.String()).
+			Float64("confidence", suggestion.Confidence).
+			Str("matchedBy", suggestion.MatchedBy).
+			Int("expectationCount", len(suggestion.Expectations)).
+			Strs("expectationIds", expectationIDs).
+			Msg("auto-matched transaction (high confidence)")
 		return true
 	}
 
@@ -624,6 +706,7 @@ func (s *ImportService) autoConfirmMatch(ctx context.Context, suggestion *domain
 			ID:            uuid.New(),
 			TransactionID: suggestion.Transaction.ID,
 			ExpectationID: suggestion.Expectation.ID,
+			Amount:        suggestion.Expectation.Amount,
 			MatchType:     domain.MatchTypeAuto,
 			Confidence:    &suggestion.Confidence,
 			MatchedAt:     time.Now(),
@@ -633,6 +716,13 @@ func (s *ImportService) autoConfirmMatch(ctx context.Context, suggestion *domain
 			return false
 		}
 		s.postMatchActions(ctx, suggestion.Transaction.ID, suggestion.Expectation.ID, "Auto-matched: Hohe Übereinstimmung (95%+)")
+		log.Info().
+			Str("transactionId", suggestion.Transaction.ID.String()).
+			Float64("confidence", suggestion.Confidence).
+			Str("matchedBy", suggestion.MatchedBy).
+			Int("expectationCount", 1).
+			Strs("expectationIds", []string{suggestion.Expectation.ID.String()}).
+			Msg("auto-matched transaction (high confidence)")
 		return true
 	}
 
@@ -691,6 +781,193 @@ func (s *ImportService) DismissTransaction(ctx context.Context, transactionID uu
 		IBAN:                iban,
 		TransactionsRemoved: deleted,
 	}, nil
+}
+
+// AllocateTransaction allocates a transaction across multiple fee expectations.
+func (s *ImportService) AllocateTransaction(ctx context.Context, transactionID, userID uuid.UUID, allocations []AllocationInput) (*AllocateResult, error) {
+	const epsilon = 0.01
+
+	if len(allocations) == 0 {
+		return nil, ErrInvalidInput
+	}
+
+	tx, err := s.transactionRepo.GetByID(ctx, transactionID)
+	if err != nil {
+		return nil, ErrNotFound
+	}
+
+	// Ensure transaction has no existing matches
+	exists, err := s.matchRepo.ExistsForTransaction(ctx, transactionID)
+	if err != nil {
+		return nil, err
+	}
+	if exists {
+		return nil, ErrInvalidInput
+	}
+
+	var childID *uuid.UUID
+	var totalAllocated float64
+	fees := make(map[uuid.UUID]*domain.FeeExpectation, len(allocations))
+
+	for _, alloc := range allocations {
+		if alloc.Amount <= 0 {
+			return nil, ErrInvalidInput
+		}
+
+		fee, err := s.feeRepo.GetByID(ctx, alloc.ExpectationID)
+		if err != nil {
+			return nil, ErrNotFound
+		}
+		fees[alloc.ExpectationID] = fee
+
+		if childID == nil {
+			id := fee.ChildID
+			childID = &id
+		} else if fee.ChildID != *childID {
+			return nil, ErrInvalidInput
+		}
+
+		matchedAmount, err := s.matchRepo.GetTotalMatchedAmount(ctx, fee.ID)
+		if err != nil {
+			return nil, err
+		}
+		remaining := fee.Amount - matchedAmount
+		if remaining <= epsilon {
+			return nil, ErrInvalidInput
+		}
+		if alloc.Amount-remaining > epsilon {
+			return nil, ErrInvalidInput
+		}
+
+		totalAllocated += alloc.Amount
+	}
+
+	if totalAllocated-tx.Amount > epsilon {
+		return nil, ErrInvalidInput
+	}
+
+	overpayment := tx.Amount - totalAllocated
+	if overpayment < 0 {
+		overpayment = 0
+	}
+
+	result := &AllocateResult{
+		TransactionID:      transactionID,
+		TotalAllocated:     totalAllocated,
+		Overpayment:        overpayment,
+		AllocationsCreated: 0,
+	}
+
+	for _, alloc := range allocations {
+		match := &domain.PaymentMatch{
+			ID:            uuid.New(),
+			TransactionID: transactionID,
+			ExpectationID: alloc.ExpectationID,
+			Amount:        alloc.Amount,
+			MatchType:     domain.MatchTypeManual,
+			MatchedAt:     time.Now(),
+			MatchedBy:     &userID,
+		}
+
+		if err := s.matchRepo.Create(ctx, match); err != nil {
+			return nil, err
+		}
+		result.AllocationsCreated++
+	}
+
+	// Post-match actions
+	s.markIBANAsTrusted(ctx, transactionID)
+	if s.warningRepo != nil {
+		s.warningRepo.ResolveByTransactionID(ctx, transactionID, domain.ResolutionTypeMatched, "Zahlung wurde manuell verteilt")
+	}
+	for _, alloc := range allocations {
+		s.checkLatePaymentAndCreateWarning(ctx, transactionID, alloc.ExpectationID)
+	}
+
+	// Create overpayment warning if any remainder exists
+	if result.Overpayment > epsilon && s.warningRepo != nil && childID != nil {
+		warning := &domain.TransactionWarning{
+			ID:             uuid.New(),
+			TransactionID:  tx.ID,
+			WarningType:    domain.WarningTypeOverpayment,
+			Message:        fmt.Sprintf("Überzahlung: %.2f EUR nicht zugeordnet", result.Overpayment),
+			ExpectedAmount: &totalAllocated,
+			ActualAmount:   &tx.Amount,
+			ChildID:        childID,
+			CreatedAt:      time.Now(),
+		}
+		_ = s.warningRepo.Create(ctx, warning)
+	}
+
+	return result, nil
+}
+
+// GetUnmatchedSuggestionsForChild returns likely unmatched transactions for a specific child.
+func (s *ImportService) GetUnmatchedSuggestionsForChild(ctx context.Context, childID uuid.UUID, minConfidence float64, limit int) (*ChildUnmatchedSuggestionsResult, error) {
+	if limit < 1 {
+		limit = 10
+	}
+	if minConfidence < 0 {
+		minConfidence = 0
+	}
+	if minConfidence > 1 {
+		minConfidence = 1
+	}
+
+	child, err := s.childRepo.GetByID(ctx, childID)
+	if err != nil {
+		return nil, ErrNotFound
+	}
+
+	children := []domain.Child{*child}
+	s.enrichChildrenWithParents(ctx, children)
+
+	scanLimit := 500
+	if limit > scanLimit {
+		scanLimit = limit
+	}
+
+	transactions, _, err := s.transactionRepo.ListUnmatched(ctx, "", "date", "desc", 0, scanLimit)
+	if err != nil {
+		return nil, err
+	}
+
+	result := &ChildUnmatchedSuggestionsResult{
+		ChildID: childID,
+	}
+
+	for _, tx := range transactions {
+		result.Scanned++
+		suggestion := &domain.MatchSuggestion{
+			Transaction:  tx,
+			DetectedType: s.detectFeeType(tx.Amount),
+		}
+
+		s.matchChild(buildMatchText(tx), children, suggestion)
+		if suggestion.Child == nil || suggestion.Child.ID != childID {
+			continue
+		}
+
+		if suggestion.DetectedType != nil {
+			_ = s.matchFeeExpectation(ctx, tx, suggestion)
+		}
+
+		// Boost confidence for name-based matches with fee expectations
+		if suggestion.Expectation != nil && (suggestion.MatchedBy == "name" || suggestion.MatchedBy == "parent_name") {
+			suggestion.Confidence = min(suggestion.Confidence+confidenceBoostNameMatch, maxConfidenceNameMatch)
+		}
+
+		if suggestion.Confidence < minConfidence {
+			continue
+		}
+
+		result.Suggestions = append(result.Suggestions, *suggestion)
+		if len(result.Suggestions) >= limit {
+			break
+		}
+	}
+
+	return result, nil
 }
 
 // UnmatchTransaction removes matches for a transaction and optionally deletes the transaction itself.

@@ -807,6 +807,8 @@ function getWarningTypeLabel(type: string): string {
       return 'Unbekannte IBAN';
     case 'LATE_PAYMENT':
       return 'Verspätete Zahlung';
+    case 'OVERPAYMENT':
+      return 'Überzahlung';
     default:
       return type;
   }
@@ -822,6 +824,8 @@ function getWarningTypeColor(type: string): string {
       return 'bg-gray-100 text-gray-700';
     case 'LATE_PAYMENT':
       return 'bg-orange-100 text-orange-700';
+    case 'OVERPAYMENT':
+      return 'bg-amber-100 text-amber-700';
     default:
       return 'bg-gray-100 text-gray-700';
   }

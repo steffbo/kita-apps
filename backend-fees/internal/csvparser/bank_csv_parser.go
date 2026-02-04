@@ -35,6 +35,7 @@ var memberNumberRegex = regexp.MustCompile(`\b(\d{5})\b`)
 var whitespaceRegex = regexp.MustCompile(`\s+`)
 var letterDigitRegex = regexp.MustCompile(`([\p{L}])(\d)`)
 var digitLetterRegex = regexp.MustCompile(`(\d)([\p{L}])`)
+var nonNameCharRegex = regexp.MustCompile(`[^\p{L}\d]+`)
 var germanFoldReplacer = strings.NewReplacer(
 	"ã¤", "a",
 	"ã¶", "o",
@@ -296,6 +297,16 @@ func calculatePersonNameMatchScore(descNormalized string, firstNameRaw string, l
 
 	for _, pattern := range fullNamePatterns {
 		if strings.Contains(descNormalized, pattern) {
+			return 0.85
+		}
+	}
+
+	// Compact match (no separators)
+	compactDesc := nonNameCharRegex.ReplaceAllString(descNormalized, "")
+	compactFirst := nonNameCharRegex.ReplaceAllString(firstName, "")
+	compactLast := nonNameCharRegex.ReplaceAllString(lastName, "")
+	if compactFirst != "" && compactLast != "" {
+		if strings.Contains(compactDesc, compactFirst+compactLast) || strings.Contains(compactDesc, compactLast+compactFirst) {
 			return 0.85
 		}
 	}

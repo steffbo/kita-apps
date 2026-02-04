@@ -31,6 +31,9 @@ import type {
   RescanResult,
   DismissResult,
   UnmatchResult,
+  ChildUnmatchedSuggestionsResponse,
+  AllocationInput,
+  AllocateTransactionResult,
   TransactionWarning,
   ResolveLateFeeResult,
   ChildImportParseResult,
@@ -642,6 +645,30 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify({ deleteTransaction: options?.deleteTransaction ?? false }),
     });
+  }
+
+  async allocateTransaction(transactionId: string, allocations: AllocationInput[]): Promise<AllocateTransactionResult> {
+    return this.request<AllocateTransactionResult>(`/import/transactions/${transactionId}/allocate`, {
+      method: 'POST',
+      body: JSON.stringify({ allocations }),
+    });
+  }
+
+  async getChildUnmatchedSuggestions(
+    childId: string,
+    params?: { minConfidence?: number; limit?: number }
+  ): Promise<ChildUnmatchedSuggestionsResponse> {
+    const query = new URLSearchParams();
+    if (typeof params?.minConfidence === 'number') {
+      query.set('minConfidence', String(params.minConfidence));
+    }
+    if (typeof params?.limit === 'number') {
+      query.set('limit', String(params.limit));
+    }
+    const queryString = query.toString();
+    return this.request<ChildUnmatchedSuggestionsResponse>(
+      `/import/transactions/unmatched/child/${childId}${queryString ? `?${queryString}` : ''}`
+    );
   }
 
   async getBlacklist(offset?: number, limit?: number): Promise<PaginatedResponse<KnownIBAN>> {

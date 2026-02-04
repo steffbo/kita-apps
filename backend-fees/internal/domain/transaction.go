@@ -41,6 +41,7 @@ type PaymentMatch struct {
 	ID            uuid.UUID  `json:"id" db:"id"`
 	TransactionID uuid.UUID  `json:"transactionId" db:"transaction_id"`
 	ExpectationID uuid.UUID  `json:"expectationId" db:"expectation_id"`
+	Amount        float64    `json:"amount" db:"amount"`
 	MatchType     MatchType  `json:"matchType" db:"match_type"`
 	Confidence    *float64   `json:"confidence,omitempty" db:"confidence"`
 	MatchedAt     time.Time  `json:"matchedAt" db:"matched_at"`

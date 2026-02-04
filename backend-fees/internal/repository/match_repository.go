@@ -25,9 +25,9 @@ func NewPostgresMatchRepository(db *sqlx.DB) *PostgresMatchRepository {
 // Create creates a new payment match.
 func (r *PostgresMatchRepository) Create(ctx context.Context, match *domain.PaymentMatch) error {
 	_, err := r.db.ExecContext(ctx, `
-		INSERT INTO fees.payment_matches (id, transaction_id, expectation_id, match_type, confidence, matched_at, matched_by)
-		VALUES ($1, $2, $3, $4, $5, $6, $7)
-	`, match.ID, match.TransactionID, match.ExpectationID, match.MatchType, match.Confidence, match.MatchedAt, match.MatchedBy)
+		INSERT INTO fees.payment_matches (id, transaction_id, expectation_id, amount, match_type, confidence, matched_at, matched_by)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+	`, match.ID, match.TransactionID, match.ExpectationID, match.Amount, match.MatchType, match.Confidence, match.MatchedAt, match.MatchedBy)
 	return err
 }
 
@@ -35,7 +35,7 @@ func (r *PostgresMatchRepository) Create(ctx context.Context, match *domain.Paym
 func (r *PostgresMatchRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.PaymentMatch, error) {
 	var match domain.PaymentMatch
 	err := r.db.GetContext(ctx, &match, `
-		SELECT id, transaction_id, expectation_id, match_type, confidence, matched_at, matched_by
+		SELECT id, transaction_id, expectation_id, amount, match_type, confidence, matched_at, matched_by
 		FROM fees.payment_matches
 		WHERE id = $1
 	`, id)
@@ -81,7 +81,7 @@ func (r *PostgresMatchRepository) ExistsForTransaction(ctx context.Context, tran
 func (r *PostgresMatchRepository) GetByExpectation(ctx context.Context, expectationID uuid.UUID) (*domain.PaymentMatch, error) {
 	var match domain.PaymentMatch
 	err := r.db.GetContext(ctx, &match, `
-		SELECT id, transaction_id, expectation_id, match_type, confidence, matched_at, matched_by
+		SELECT id, transaction_id, expectation_id, amount, match_type, confidence, matched_at, matched_by
 		FROM fees.payment_matches
 		WHERE expectation_id = $1
 		ORDER BY matched_at DESC
@@ -100,7 +100,7 @@ func (r *PostgresMatchRepository) GetByExpectation(ctx context.Context, expectat
 func (r *PostgresMatchRepository) GetAllByExpectation(ctx context.Context, expectationID uuid.UUID) ([]domain.PaymentMatch, error) {
 	var matches []domain.PaymentMatch
 	err := r.db.SelectContext(ctx, &matches, `
-		SELECT id, transaction_id, expectation_id, match_type, confidence, matched_at, matched_by
+		SELECT id, transaction_id, expectation_id, amount, match_type, confidence, matched_at, matched_by
 		FROM fees.payment_matches
 		WHERE expectation_id = $1
 		ORDER BY matched_at DESC
@@ -112,9 +112,8 @@ func (r *PostgresMatchRepository) GetAllByExpectation(ctx context.Context, expec
 func (r *PostgresMatchRepository) GetTotalMatchedAmount(ctx context.Context, expectationID uuid.UUID) (float64, error) {
 	var total float64
 	err := r.db.GetContext(ctx, &total, `
-		SELECT COALESCE(SUM(bt.amount), 0)
+		SELECT COALESCE(SUM(pm.amount), 0)
 		FROM fees.payment_matches pm
-		JOIN fees.bank_transactions bt ON pm.transaction_id = bt.id
 		WHERE pm.expectation_id = $1
 	`, expectationID)
 	return total, err
@@ -146,7 +145,7 @@ func (r *PostgresMatchRepository) GetByTransactionIDs(ctx context.Context, trans
 
 	var matches []domain.PaymentMatch
 	err := r.db.SelectContext(ctx, &matches, `
-		SELECT id, transaction_id, expectation_id, match_type, confidence, matched_at, matched_by
+		SELECT id, transaction_id, expectation_id, amount, match_type, confidence, matched_at, matched_by
 		FROM fees.payment_matches
 		WHERE transaction_id = ANY($1)
 		ORDER BY matched_at DESC

@@ -62,15 +62,18 @@ func TestLatePayment_OnTime_Within15th(t *testing.T) {
 	// Initialize service
 	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, warningRepo)
 
-	// Rescan to get suggestions
+	// Rescan should auto-match (trusted IBAN has highest confidence)
 	result, err := importService.Rescan(context.Background())
 	if err != nil {
 		t.Fatalf("Rescan failed: %v", err)
 	}
 
-	// Should have 1 suggestion
-	if len(result.Suggestions) != 1 {
-		t.Fatalf("Expected 1 suggestion, got %d", len(result.Suggestions))
+	// Should auto-match instead of creating a suggestion
+	if result.AutoMatched != 1 {
+		t.Fatalf("Expected 1 auto-matched transaction, got %d", result.AutoMatched)
+	}
+	if len(result.Suggestions) != 0 {
+		t.Fatalf("Expected 0 suggestions, got %d", len(result.Suggestions))
 	}
 
 	// Verify no late payment warning exists for this transaction

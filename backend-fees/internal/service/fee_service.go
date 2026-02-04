@@ -756,27 +756,28 @@ func (s *FeeService) GetChildLedger(ctx context.Context, childID uuid.UUID, year
 	var openFeesCount, paidFeesCount int
 
 	for _, fee := range fees {
-		// Check payment status
-		match, _ := s.matchRepo.GetByExpectation(ctx, fee.ID)
-		isPaid := match != nil
+		const epsilon = 0.01
+		matches, _ := s.matchRepo.GetAllByExpectation(ctx, fee.ID)
+		var totalMatched float64
 		var paidAt *time.Time
-		var transaction *domain.BankTransaction
 
-		if isPaid {
-			paidAt = &match.MatchedAt
+		for i := range matches {
+			totalMatched += matches[i].Amount
+		}
+
+		isPaid := totalMatched >= fee.Amount-epsilon
+		if isPaid && len(matches) > 0 {
+			paidAt = &matches[0].MatchedAt
 			paidFeesCount++
-			totalPaid += fee.Amount
-
-			// Load transaction details
-			if s.transactionRepo != nil {
-				tx, err := s.transactionRepo.GetByID(ctx, match.TransactionID)
-				if err == nil {
-					transaction = tx
-				}
-			}
 		} else {
 			openFeesCount++
 		}
+
+		paidAmount := totalMatched
+		if paidAmount > fee.Amount {
+			paidAmount = fee.Amount
+		}
+		totalPaid += paidAmount
 
 		totalFees += fee.Amount
 
@@ -804,14 +805,24 @@ func (s *FeeService) GetChildLedger(ctx context.Context, childID uuid.UUID, year
 		}
 		entries = append(entries, feeEntry)
 
-		// Add payment entry if paid
-		if isPaid && transaction != nil {
+		// Add payment entries for each match
+		for i := range matches {
+			var transaction *domain.BankTransaction
+			if s.transactionRepo != nil {
+				tx, err := s.transactionRepo.GetByID(ctx, matches[i].TransactionID)
+				if err == nil {
+					transaction = tx
+				}
+			}
+			if transaction == nil {
+				continue
+			}
+
 			paymentDesc := "Zahlung"
 			if transaction.PayerName != nil && *transaction.PayerName != "" {
 				paymentDesc += " von " + *transaction.PayerName
 			}
 			if transaction.PayerIBAN != nil && *transaction.PayerIBAN != "" {
-				// Show last 4 digits of IBAN
 				iban := *transaction.PayerIBAN
 				if len(iban) > 4 {
 					paymentDesc += " (..." + iban[len(iban)-4:] + ")"
@@ -819,12 +830,12 @@ func (s *FeeService) GetChildLedger(ctx context.Context, childID uuid.UUID, year
 			}
 
 			paymentEntry := LedgerEntry{
-				ID:          match.ID,
+				ID:          matches[i].ID,
 				Date:        transaction.BookingDate,
 				Type:        "payment",
 				Description: paymentDesc,
 				Debit:       0,
-				Credit:      fee.Amount,
+				Credit:      matches[i].Amount,
 				Transaction: transaction,
 			}
 			entries = append(entries, paymentEntry)
@@ -860,19 +871,39 @@ func (s *FeeService) GetChildLedger(ctx context.Context, childID uuid.UUID, year
 
 // enrichWithPaymentStatus checks if a fee is paid and loads match details with transaction.
 func (s *FeeService) enrichWithPaymentStatus(ctx context.Context, fee *domain.FeeExpectation) {
-	match, _ := s.matchRepo.GetByExpectation(ctx, fee.ID)
-	if match != nil {
-		fee.IsPaid = true
-		fee.PaidAt = &match.MatchedAt
-		// Load transaction data for the match
+	const epsilon = 0.01
+
+	matches, _ := s.matchRepo.GetAllByExpectation(ctx, fee.ID)
+	if len(matches) == 0 {
+		return
+	}
+
+	var totalMatched float64
+	for i := range matches {
+		totalMatched += matches[i].Amount
 		if s.transactionRepo != nil {
-			tx, err := s.transactionRepo.GetByID(ctx, match.TransactionID)
+			tx, err := s.transactionRepo.GetByID(ctx, matches[i].TransactionID)
 			if err == nil {
-				match.Transaction = tx
+				matches[i].Transaction = tx
 			}
 		}
-		fee.MatchedBy = match
 	}
+
+	fee.MatchedAmount = totalMatched
+	if totalMatched >= fee.Amount-epsilon {
+		fee.IsPaid = true
+		paidAt := matches[0].MatchedAt
+		fee.PaidAt = &paidAt
+	} else {
+		fee.IsPaid = false
+	}
+	remaining := fee.Amount - totalMatched
+	if remaining < 0 {
+		remaining = 0
+	}
+	fee.Remaining = remaining
+	fee.PartialMatches = matches
+	fee.MatchedBy = &matches[0]
 }
 
 // sortLedgerEntries sorts entries by date (oldest first).

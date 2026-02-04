@@ -226,6 +226,9 @@ export interface FeeExpectation {
   isPaid: boolean;
   paidAt?: string;
   matchedBy?: PaymentMatch;
+  matchedAmount?: number;
+  remaining?: number;
+  partialMatches?: PaymentMatch[];
   reminderForId?: string; // Links REMINDER fee to original fee
 }
 
@@ -233,6 +236,7 @@ export interface PaymentMatch {
   id: string;
   transactionId: string;
   expectationId: string;
+  amount: number;
   matchType: 'AUTO' | 'MANUAL';
   confidence?: number;
   matchedAt: string;
@@ -285,6 +289,7 @@ export interface PaymentMatch {
   id: string;
   transactionId: string;
   expectationId: string;
+  amount: number;
   matchType: 'AUTO' | 'MANUAL';
   confidence?: number;
   matchedAt: string;
@@ -397,8 +402,31 @@ export interface UnmatchResult {
   transactionDeleted: boolean;
 }
 
+export interface ChildUnmatchedSuggestionsResponse {
+  childId: string;
+  scanned: number;
+  suggestions: MatchSuggestion[];
+}
+
+export interface AllocationInput {
+  expectationId: string;
+  amount: number;
+}
+
+export interface AllocateTransactionResult {
+  transactionId: string;
+  allocationsCreated: number;
+  totalAllocated: number;
+  overpayment: number;
+}
+
 // Transaction Warnings
-export type WarningType = 'AMOUNT_MISMATCH' | 'DUPLICATE_PAYMENT' | 'UNKNOWN_IBAN' | 'LATE_PAYMENT';
+export type WarningType =
+  | 'AMOUNT_MISMATCH'
+  | 'DUPLICATE_PAYMENT'
+  | 'UNKNOWN_IBAN'
+  | 'LATE_PAYMENT'
+  | 'OVERPAYMENT';
 export type ResolutionType = 'DISMISSED' | 'MATCHED' | 'AUTO_RESOLVED';
 
 export interface TransactionWarning {

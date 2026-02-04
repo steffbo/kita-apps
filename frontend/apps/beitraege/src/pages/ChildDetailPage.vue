@@ -2,7 +2,7 @@
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api';
-import type { Child, FeeExpectation, UpdateChildRequest, Parent, CreateParentRequest, UpdateParentRequest, BankTransaction, IncomeStatus, UpdateHouseholdRequest, ChildcareFeeResult, ChildLedger, FeeCoverage, CoverageStatus } from '@/api/types';
+import type { Child, FeeExpectation, UpdateChildRequest, Parent, CreateParentRequest, UpdateParentRequest, BankTransaction, IncomeStatus, UpdateHouseholdRequest, ChildcareFeeResult, MatchSuggestion } from '@/api/types';
 import {
   ArrowLeft,
   Edit,
@@ -26,8 +26,6 @@ import {
   CreditCard,
   Home,
   Euro,
-  BookOpen,
-  History,
 } from 'lucide-vue-next';
 
 const route = useRoute();
@@ -102,17 +100,18 @@ const reminderError = ref<string | null>(null);
 const childcareFee = ref<ChildcareFeeResult | null>(null);
 const isLoadingChildcareFee = ref(false);
 
-// Ledger state
-const showLedger = ref(false);
-const ledger = ref<ChildLedger | null>(null);
-const isLoadingLedger = ref(false);
-const ledgerYear = ref<number | undefined>(undefined);
+// Likely unmatched transactions
+const likelyTransactions = ref<MatchSuggestion[]>([]);
+const isLoadingLikelyTransactions = ref(false);
+const likelyTransactionsError = ref<string | null>(null);
+const likelyTransactionsScanned = ref(0);
 
-// Timeline state
-const showTimeline = ref(false);
-const timeline = ref<FeeCoverage[] | null>(null);
-const isLoadingTimeline = ref(false);
-const timelineYear = ref<number>(new Date().getFullYear());
+// Allocation modal state
+const showAllocationModal = ref(false);
+const allocationSuggestion = ref<MatchSuggestion | null>(null);
+const allocationRows = ref<{ fee: FeeExpectation; amount: number }[]>([]);
+const allocationError = ref<string | null>(null);
+const isAllocating = ref(false);
 
 const childId = computed(() => route.params.id as string);
 
@@ -125,6 +124,7 @@ async function loadChild() {
     fees.value = feesResponse.data;
     // Load childcare fee if applicable
     await loadChildcareFee();
+    await loadLikelyTransactions();
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Fehler beim Laden';
   } finally {
@@ -184,60 +184,22 @@ async function loadChildcareFee() {
   }
 }
 
-async function loadLedger() {
-  isLoadingLedger.value = true;
+async function loadLikelyTransactions() {
+  isLoadingLikelyTransactions.value = true;
+  likelyTransactionsError.value = null;
   try {
-    ledger.value = await api.getChildLedger(childId.value, ledgerYear.value);
+    const result = await api.getChildUnmatchedSuggestions(childId.value, {
+      minConfidence: 0.6,
+      limit: 10,
+    });
+    likelyTransactions.value = result.suggestions ?? [];
+    likelyTransactionsScanned.value = result.scanned ?? 0;
   } catch (e) {
-    console.error('Failed to load ledger:', e);
-    ledger.value = null;
+    likelyTransactionsError.value = e instanceof Error ? e.message : 'Transaktionen konnten nicht geladen werden';
   } finally {
-    isLoadingLedger.value = false;
+    isLoadingLikelyTransactions.value = false;
   }
 }
-
-function toggleLedger() {
-  showLedger.value = !showLedger.value;
-  showTimeline.value = false;
-  if (showLedger.value && !ledger.value) {
-    loadLedger();
-  }
-}
-
-async function loadTimeline() {
-  isLoadingTimeline.value = true;
-  try {
-    const data = await api.getChildTimeline(childId.value, timelineYear.value);
-    console.log('Timeline loaded:', data);
-    timeline.value = data;
-  } catch (e) {
-    console.error('Failed to load timeline:', e);
-    timeline.value = null;
-  } finally {
-    isLoadingTimeline.value = false;
-  }
-}
-
-function toggleTimeline() {
-  showTimeline.value = !showTimeline.value;
-  showLedger.value = false;
-  if (showTimeline.value && !timeline.value) {
-    loadTimeline();
-  }
-}
-
-// Watch for year filter changes
-watch(ledgerYear, () => {
-  if (showLedger.value) {
-    loadLedger();
-  }
-});
-
-watch(timelineYear, () => {
-  if (showTimeline.value) {
-    loadTimeline();
-  }
-});
 
 onMounted(loadChild);
 
@@ -309,6 +271,34 @@ function getMonthName(month: number): string {
   return new Date(2000, month - 1).toLocaleString('de-DE', { month: 'long' });
 }
 
+function formatConfidence(confidence: number): string {
+  return `${Math.round(confidence * 100)}%`;
+}
+
+function formatMatchedBy(reason?: string): string {
+  switch (reason) {
+    case 'trusted_iban':
+      return 'IBAN (bekannt)';
+    case 'member_number':
+      return 'Mitgliedsnummer';
+    case 'name':
+      return 'Name';
+    case 'parent_name':
+      return 'Elternname';
+    case 'combined':
+      return 'Sammelzahlung';
+    default:
+      return 'Unbekannt';
+  }
+}
+
+function formatSuggestionExpectation(suggestion: MatchSuggestion): string {
+  const expectation = suggestion.expectation;
+  if (!expectation) return '';
+  const monthLabel = expectation.month ? `${getMonthName(expectation.month)} ` : '';
+  return `${getFeeTypeName(expectation.feeType)} ${monthLabel}${expectation.year}`;
+}
+
 function calculateAge(birthDate: string): number {
   const birth = new Date(birthDate);
   const today = new Date();
@@ -350,8 +340,8 @@ async function handleEdit() {
   isEditing.value = true;
   editError.value = null;
   try {
-    const updated = await api.updateChild(childId.value, editForm.value);
-    child.value = updated;
+    await api.updateChild(childId.value, editForm.value);
+    await loadChild();
     showEditDialog.value = false;
   } catch (e) {
     editError.value = e instanceof Error ? e.message : 'Fehler beim Speichern';
@@ -482,12 +472,6 @@ async function handleUnlinkParent() {
 const openFees = computed(() => fees.value.filter(f => !f.isPaid));
 const paidFees = computed(() => fees.value.filter(f => f.isPaid));
 
-// Available years for ledger filter (current year and previous 3 years)
-const availableYears = computed(() => {
-  const currentYear = new Date().getFullYear();
-  return [currentYear, currentYear - 1, currentYear - 2, currentYear - 3];
-});
-
 function openTransactionModal(fee: FeeExpectation) {
   if (fee.matchedBy?.transaction) {
     selectedTransaction.value = fee.matchedBy.transaction;
@@ -515,6 +499,92 @@ function formatTransactionDate(fee: FeeExpectation): string {
   return '';
 }
 
+function getFeeRemainingAmount(fee: FeeExpectation): number {
+  const matched = fee.matchedAmount ?? 0;
+  const remaining = fee.amount - matched;
+  return remaining > 0 ? remaining : 0;
+}
+
+const allocationTotal = computed(() =>
+  allocationRows.value.reduce((sum, row) => sum + (row.amount || 0), 0)
+);
+
+const allocationRemaining = computed(() => {
+  const total = allocationSuggestion.value?.transaction.amount ?? 0;
+  return total - allocationTotal.value;
+});
+
+function openAllocationModal(suggestion: MatchSuggestion): void {
+  allocationSuggestion.value = suggestion;
+  const rows = openFees.value.map(fee => ({ fee, amount: 0 }));
+  let remaining = suggestion.transaction.amount;
+
+  const applyAllocation = (feeId: string, desiredAmount: number) => {
+    const row = rows.find(item => item.fee.id === feeId);
+    if (!row || remaining <= 0) {
+      return;
+    }
+    const maxAmount = getFeeRemainingAmount(row.fee);
+    const amount = Math.min(desiredAmount, maxAmount, remaining);
+    if (amount > 0) {
+      row.amount = amount;
+      remaining -= amount;
+    }
+  };
+
+  if (suggestion.expectations && suggestion.expectations.length > 0) {
+    for (const expectation of suggestion.expectations) {
+      applyAllocation(expectation.id, expectation.amount);
+    }
+  } else if (suggestion.expectation) {
+    applyAllocation(suggestion.expectation.id, suggestion.expectation.amount);
+  }
+
+  allocationRows.value = rows;
+  allocationError.value = null;
+  showAllocationModal.value = true;
+}
+
+function closeAllocationModal(): void {
+  showAllocationModal.value = false;
+  allocationSuggestion.value = null;
+  allocationRows.value = [];
+  allocationError.value = null;
+}
+
+async function confirmAllocation(): Promise<void> {
+  if (!allocationSuggestion.value) return;
+  const allocations = allocationRows.value
+    .filter(row => row.amount > 0)
+    .map(row => ({
+      expectationId: row.fee.id,
+      amount: row.amount,
+    }));
+
+  if (allocations.length === 0) {
+    allocationError.value = 'Bitte mindestens einen Betrag zuordnen.';
+    return;
+  }
+
+  if (allocationRemaining.value < -0.01) {
+    allocationError.value = 'Die Summe übersteigt den Transaktionsbetrag.';
+    return;
+  }
+
+  isAllocating.value = true;
+  allocationError.value = null;
+  try {
+    await api.allocateTransaction(allocationSuggestion.value.transaction.id, allocations);
+    await loadChild();
+    await loadLikelyTransactions();
+    closeAllocationModal();
+  } catch (e) {
+    allocationError.value = e instanceof Error ? e.message : 'Zuordnung fehlgeschlagen';
+  } finally {
+    isAllocating.value = false;
+  }
+}
+
 function requestTransactionAction(action: 'unmatch' | 'delete'): void {
   transactionAction.value = action;
   transactionActionError.value = null;
@@ -537,6 +607,7 @@ async function confirmTransactionAction(): Promise<void> {
   try {
     await api.unmatchTransaction(selectedTransaction.value.id, { deleteTransaction });
     await loadChild();
+    await loadLikelyTransactions();
     closeTransactionModal();
   } catch (e) {
     transactionActionError.value = e instanceof Error ? e.message : 'Aktion fehlgeschlagen';
@@ -613,36 +684,6 @@ function formatIncome(income?: number): string {
   }).format(income);
 }
 
-function getTimelineStatusColor(status: CoverageStatus): string {
-  switch (status) {
-    case 'UNPAID':
-      return 'bg-red-50 border-red-200 text-red-700';
-    case 'PARTIAL':
-      return 'bg-amber-50 border-amber-200 text-amber-700';
-    case 'COVERED':
-      return 'bg-green-50 border-green-200 text-green-700';
-    case 'OVERPAID':
-      return 'bg-blue-50 border-blue-200 text-blue-700';
-    default:
-      return 'bg-gray-50 border-gray-200 text-gray-700';
-  }
-}
-
-function getTimelineStatusLabel(status: CoverageStatus): string {
-  switch (status) {
-    case 'UNPAID':
-      return 'Unbezahlt';
-    case 'PARTIAL':
-      return 'Teilbezahlt';
-    case 'COVERED':
-      return 'Vollständig bezahlt';
-    case 'OVERPAID':
-      return 'Überbezahlt';
-    default:
-      return status;
-  }
-}
-
 function getIncomeStatusLabel(status?: IncomeStatus): string {
   switch (status) {
     case 'PROVIDED':
@@ -670,7 +711,7 @@ const siblings = computed(() => {
 
 // Household parents computed property
 const householdParents = computed(() => {
-  return child.value?.household?.parents || [];
+  return child.value?.parents || [];
 });
 
 // Household functions
@@ -997,6 +1038,7 @@ async function createReminder() {
                       @click="confirmUnlinkParent(parent)"
                       class="p-1.5 text-blue-400 hover:text-red-500 hover:bg-red-50 rounded-r-lg border-l border-blue-200 transition-colors"
                       title="Verknüpfung aufheben"
+                      aria-label="Verknüpfung aufheben"
                     >
                       <Unlink class="h-3.5 w-3.5" />
                     </button>
@@ -1129,223 +1171,65 @@ async function createReminder() {
             <Receipt class="h-5 w-5 text-primary" />
             <h2 class="text-lg font-semibold">Beiträge</h2>
           </div>
-          <div class="flex items-center gap-2">
-            <button
-              @click="toggleTimeline"
-              :class="[
-                'inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors',
-                showTimeline
-                  ? 'bg-primary text-white'
-                  : 'text-primary border border-primary hover:bg-primary/10'
-              ]"
-            >
-              <History class="h-4 w-4" />
-              {{ showTimeline ? 'Übersicht' : 'Zeitstrahl' }}
-            </button>
-            <button
-              @click="toggleLedger"
-              :class="[
-                'inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors',
-                showLedger
-                  ? 'bg-primary text-white'
-                  : 'text-primary border border-primary hover:bg-primary/10'
-              ]"
-            >
-              <BookOpen class="h-4 w-4" />
-              {{ showLedger ? 'Übersicht' : 'Kontobuch' }}
-            </button>
-          </div>
-        </div>
-
-        <!-- Timeline View -->
-        <div v-if="showTimeline">
-          <!-- Year filter -->
-          <div class="flex items-center justify-between mb-4">
-            <div class="flex items-center gap-2">
-              <label class="text-sm text-gray-600">Jahr:</label>
-              <select
-                v-model="timelineYear"
-                class="px-2 py-1 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-              >
-                <option v-for="year in availableYears" :key="year" :value="year">{{ year }}</option>
-              </select>
-            </div>
-            <button
-              @click="loadTimeline"
-              class="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-              title="Aktualisieren"
-            >
-              <Loader2 v-if="isLoadingTimeline" class="h-4 w-4 animate-spin" />
-              <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
-            </button>
-          </div>
-
-          <!-- Timeline Grid -->
-          <div v-if="isLoadingTimeline" class="flex items-center justify-center py-8">
-            <Loader2 class="h-8 w-8 animate-spin text-primary" />
-          </div>
-          <div v-else-if="timeline?.length" class="space-y-3">
-            <div
-              v-for="month in timeline"
-              :key="`${month.year}-${month.month}`"
-              :class="['rounded-lg border p-4', getTimelineStatusColor(month.status)]"
-            >
-              <div class="flex items-center justify-between mb-3">
-                <div class="flex items-center gap-3">
-                  <h3 class="font-semibold">{{ getMonthName(month.month) }} {{ month.year }}</h3>
-                  <span
-                    :class="[
-                      'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium',
-                      month.status === 'UNPAID' ? 'bg-red-100 text-red-700' :
-                      month.status === 'PARTIAL' ? 'bg-amber-100 text-amber-700' :
-                      month.status === 'COVERED' ? 'bg-green-100 text-green-700' :
-                      'bg-blue-100 text-blue-700'
-                    ]"
-                  >
-                    <AlertTriangle v-if="month.status === 'UNPAID'" class="h-3 w-3" />
-                    <Clock v-else-if="month.status === 'PARTIAL'" class="h-3 w-3" />
-                    <CheckCircle v-else-if="month.status === 'COVERED'" class="h-3 w-3" />
-                    <Check v-else class="h-3 w-3" />
-                    {{ getTimelineStatusLabel(month.status) }}
-                  </span>
-                </div>
-                <div class="text-right">
-                  <p class="text-sm">
-                    <span class="text-gray-500">Soll:</span> {{ formatCurrency(month.expectedTotal) }}
-                  </p>
-                  <p class="text-sm">
-                    <span class="text-gray-500">Ist:</span> {{ formatCurrency(month.receivedTotal) }}
-                  </p>
-                  <p class="text-sm font-medium" :class="month.balance !== 0 ? 'text-red-600' : 'text-green-600'">
-                    <span class="text-gray-500">Saldo:</span> {{ formatCurrency(month.balance) }}
-                  </p>
-                </div>
-              </div>
-
-              <!-- Transactions -->
-              <div v-if="month.transactions?.length > 0" class="mt-3 pt-3 border-t border-current/20">
-                <p class="text-xs font-medium mb-2">Zahlungen:</p>
-                <div class="space-y-2">
-                  <div
-                    v-for="tx in month.transactions"
-                    :key="tx.transactionId"
-                    class="flex items-center justify-between text-sm"
-                  >
-                    <div class="flex items-center gap-2">
-                      <span :class="tx.isForThisMonth ? 'text-gray-600' : 'text-blue-600'">
-                        {{ formatDate(tx.bookingDate) }}
-                      </span>
-                      <span v-if="!tx.isForThisMonth" class="inline-flex items-center gap-1 px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded text-xs">
-                        Fremdmonat
-                      </span>
-                    </div>
-                    <div class="text-right">
-                      <span class="font-medium">{{ formatCurrency(tx.amount) }}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div v-else class="text-center py-8 text-gray-500">
-            Keine Daten für {{ timelineYear }}
-          </div>
-        </div>
-
-        <!-- Ledger View -->
-        <div v-if="showLedger">
-          <!-- Year filter -->
-          <div class="flex items-center justify-between mb-4">
-            <div class="flex items-center gap-2">
-              <label class="text-sm text-gray-600">Jahr:</label>
-              <select
-                v-model="ledgerYear"
-                class="px-2 py-1 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-              >
-                <option :value="undefined">Alle</option>
-                <option v-for="year in availableYears" :key="year" :value="year">{{ year }}</option>
-              </select>
-            </div>
-            <button
-              @click="loadLedger"
-              class="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-              title="Aktualisieren"
-            >
-              <Loader2 v-if="isLoadingLedger" class="h-4 w-4 animate-spin" />
-              <svg v-else xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
-            </button>
-          </div>
-
-          <!-- Summary -->
-          <div v-if="ledger?.summary" class="grid grid-cols-3 gap-4 mb-4">
-            <div class="bg-gray-50 rounded-lg p-3 text-center">
-              <p class="text-xs text-gray-500 mb-1">Gesamt Beiträge</p>
-              <p class="font-semibold">{{ formatCurrency(ledger.summary.totalFees) }}</p>
-              <p class="text-xs text-gray-400">{{ ledger.summary.totalFeesCount }} Posten</p>
-            </div>
-            <div class="bg-green-50 rounded-lg p-3 text-center">
-              <p class="text-xs text-gray-500 mb-1">Bezahlt</p>
-              <p class="font-semibold text-green-700">{{ formatCurrency(ledger.summary.totalPaid) }}</p>
-              <p class="text-xs text-gray-400">{{ ledger.summary.paidFeesCount }} Posten</p>
-            </div>
-            <div :class="['rounded-lg p-3 text-center', ledger.summary.totalOpen > 0 ? 'bg-amber-50' : 'bg-gray-50']">
-              <p class="text-xs text-gray-500 mb-1">Offen</p>
-              <p :class="['font-semibold', ledger.summary.totalOpen > 0 ? 'text-amber-700' : '']">{{ formatCurrency(ledger.summary.totalOpen) }}</p>
-              <p class="text-xs text-gray-400">{{ ledger.summary.openFeesCount }} Posten</p>
-            </div>
-          </div>
-
-          <!-- Ledger table -->
-          <div v-if="isLoadingLedger" class="flex items-center justify-center py-8">
-            <Loader2 class="h-8 w-8 animate-spin text-primary" />
-          </div>
-          <div v-else-if="ledger?.entries?.length" class="overflow-x-auto">
-            <table class="w-full text-sm">
-              <thead>
-                <tr class="border-b text-left">
-                  <th class="pb-2 font-medium text-gray-500">Datum</th>
-                  <th class="pb-2 font-medium text-gray-500">Beschreibung</th>
-                  <th class="pb-2 font-medium text-gray-500 text-right">Soll</th>
-                  <th class="pb-2 font-medium text-gray-500 text-right">Haben</th>
-                  <th class="pb-2 font-medium text-gray-500 text-right">Saldo</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr
-                  v-for="entry in ledger.entries"
-                  :key="entry.id"
-                  :class="[
-                    'border-b border-gray-100 last:border-0',
-                    entry.type === 'payment' ? 'bg-green-50/50' : ''
-                  ]"
-                >
-                  <td class="py-2">{{ formatDate(entry.date) }}</td>
-                  <td class="py-2">
-                    <span v-if="entry.type === 'fee'">{{ entry.description }}</span>
-                    <span v-else class="text-green-700">{{ entry.description }}</span>
-                  </td>
-                  <td class="py-2 text-right">
-                    <span v-if="entry.debit > 0">{{ formatCurrency(entry.debit) }}</span>
-                  </td>
-                  <td class="py-2 text-right">
-                    <span v-if="entry.credit > 0" class="text-green-700">{{ formatCurrency(entry.credit) }}</span>
-                  </td>
-                  <td class="py-2 text-right font-medium">
-                    <span :class="entry.balance > 0 ? 'text-amber-700' : entry.balance < 0 ? 'text-green-700' : ''">
-                      {{ formatCurrency(entry.balance) }}
-                    </span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-          <div v-else class="text-center py-8 text-gray-500">
-            Keine Einträge im Kontobuch
-          </div>
         </div>
 
         <!-- Standard View (Open/Paid fees) -->
-        <div v-else-if="!showTimeline">
+        <div>
+          <!-- Likely unmatched transactions -->
+          <div class="mb-6">
+            <h3 class="text-sm font-medium text-gray-500 mb-3 flex items-center gap-2">
+              <Receipt class="h-4 w-4" />
+              Wahrscheinlich zugehörige Transaktionen
+            </h3>
+
+            <div v-if="isLoadingLikelyTransactions" class="flex items-center gap-2 text-sm text-gray-500">
+              <Loader2 class="h-4 w-4 animate-spin" />
+              Lade Vorschläge...
+            </div>
+            <div v-else-if="likelyTransactionsError" class="text-sm text-red-600">
+              {{ likelyTransactionsError }}
+            </div>
+            <div v-else-if="likelyTransactions.length === 0" class="text-sm text-gray-500">
+              Keine offenen Transaktionen mit hoher Wahrscheinlichkeit gefunden.
+            </div>
+            <div v-else class="space-y-2">
+              <div
+                v-for="suggestion in likelyTransactions"
+                :key="suggestion.transaction.id"
+                class="flex items-start justify-between gap-4 p-3 bg-blue-50 border border-blue-200 rounded-lg"
+              >
+                <div class="space-y-1">
+                  <p class="font-medium text-blue-900">
+                    {{ suggestion.transaction.payerName || 'Unbekannt' }}
+                    <span class="text-xs text-blue-600 ml-2">· {{ formatDate(suggestion.transaction.bookingDate) }}</span>
+                  </p>
+                  <p v-if="suggestion.transaction.description" class="text-sm text-blue-800 break-words">
+                    {{ suggestion.transaction.description }}
+                  </p>
+                  <div class="text-xs text-blue-700 flex items-center gap-2">
+                    <span>Konfidenz: {{ formatConfidence(suggestion.confidence) }}</span>
+                    <span>· Match: {{ formatMatchedBy(suggestion.matchedBy) }}</span>
+                    <span v-if="formatSuggestionExpectation(suggestion)">
+                      · Vorschlag: {{ formatSuggestionExpectation(suggestion) }}
+                    </span>
+                  </div>
+                </div>
+                <div class="text-right space-y-2">
+                  <p class="font-semibold text-blue-900">{{ formatCurrency(suggestion.transaction.amount) }}</p>
+                  <button
+                    @click="openAllocationModal(suggestion)"
+                    class="inline-flex items-center gap-1 px-2 py-1 text-xs text-blue-700 bg-white hover:bg-blue-100 border border-blue-200 rounded transition-colors"
+                  >
+                    Zuordnen
+                  </button>
+                </div>
+              </div>
+              <p v-if="likelyTransactionsScanned > 0" class="text-xs text-gray-400">
+                {{ likelyTransactions.length }} Treffer aus {{ likelyTransactionsScanned }} offenen Transaktionen.
+              </p>
+            </div>
+          </div>
+
           <!-- Open fees -->
           <div v-if="openFees.length > 0" class="mb-6">
             <h3 class="text-sm font-medium text-gray-500 mb-3 flex items-center gap-2">
@@ -1374,6 +1258,9 @@ async function createReminder() {
                     <p class="text-sm text-gray-600">
                       {{ fee.month ? getMonthName(fee.month) + ' ' : '' }}{{ fee.year }}
                       · Fällig: {{ formatDate(fee.dueDate) }}
+                    </p>
+                    <p v-if="fee.matchedAmount && fee.matchedAmount > 0" class="text-xs text-amber-700">
+                      Bereits bezahlt: {{ formatCurrency(fee.matchedAmount) }} · Rest: {{ formatCurrency(getFeeRemainingAmount(fee)) }}
                     </p>
                   </div>
                 </div>
@@ -2052,6 +1939,111 @@ async function createReminder() {
       </div>
     </div>
 
+    <!-- Allocation Modal -->
+    <div
+      v-if="showAllocationModal && allocationSuggestion"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      @click.self="closeAllocationModal"
+    >
+      <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl mx-4 p-6 max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between mb-6">
+          <h2 class="text-xl font-semibold">Transaktion zuordnen</h2>
+          <button @click="closeAllocationModal" class="p-1 hover:bg-gray-100 rounded">
+            <X class="h-5 w-5" />
+          </button>
+        </div>
+
+        <div class="p-4 bg-blue-50 rounded-lg mb-6">
+          <div class="flex justify-between text-sm">
+            <span class="text-gray-500">Zahler</span>
+            <span class="font-medium">{{ allocationSuggestion.transaction.payerName || 'Unbekannt' }}</span>
+          </div>
+          <div class="flex justify-between text-sm">
+            <span class="text-gray-500">Datum</span>
+            <span class="font-medium">{{ formatDate(allocationSuggestion.transaction.bookingDate) }}</span>
+          </div>
+          <div class="flex justify-between text-sm">
+            <span class="text-gray-500">Betrag</span>
+            <span class="font-semibold text-blue-700">{{ formatCurrency(allocationSuggestion.transaction.amount) }}</span>
+          </div>
+          <div v-if="allocationSuggestion.transaction.description" class="text-xs text-gray-600 mt-2 break-words">
+            {{ allocationSuggestion.transaction.description }}
+          </div>
+        </div>
+
+        <div class="space-y-3">
+          <h3 class="text-sm font-medium text-gray-600">Offene Beiträge</h3>
+          <div v-if="allocationRows.length === 0" class="text-sm text-gray-500">
+            Keine offenen Beiträge vorhanden.
+          </div>
+          <div v-else class="space-y-2">
+            <div
+              v-for="row in allocationRows"
+              :key="row.fee.id"
+              class="flex items-center justify-between gap-4 p-3 border rounded-lg"
+            >
+              <div>
+                <p class="font-medium">{{ getFeeTypeName(row.fee.feeType) }}</p>
+                <p class="text-xs text-gray-500">
+                  {{ row.fee.month ? getMonthName(row.fee.month) + ' ' : '' }}{{ row.fee.year }}
+                </p>
+                <p class="text-xs text-gray-500">
+                  Rest: {{ formatCurrency(getFeeRemainingAmount(row.fee)) }}
+                </p>
+              </div>
+              <div class="w-32">
+                <input
+                  v-model.number="row.amount"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  :max="getFeeRemainingAmount(row.fee)"
+                  class="w-full px-2 py-1 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                  placeholder="0,00"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-6 space-y-2">
+          <div class="flex justify-between text-sm">
+            <span class="text-gray-500">Zugeteilt</span>
+            <span class="font-medium">{{ formatCurrency(allocationTotal) }}</span>
+          </div>
+          <div class="flex justify-between text-sm">
+            <span class="text-gray-500">Restbetrag</span>
+            <span :class="allocationRemaining < -0.01 ? 'text-red-600 font-medium' : 'font-medium'">
+              {{ formatCurrency(allocationRemaining) }}
+            </span>
+          </div>
+          <p v-if="allocationRemaining > 0.01" class="text-xs text-amber-700">
+            Ein Restbetrag wird als Überzahlung markiert.
+          </p>
+          <p v-if="allocationError" class="text-sm text-red-600">
+            {{ allocationError }}
+          </p>
+        </div>
+
+        <div class="flex justify-end gap-3 mt-6">
+          <button
+            @click="closeAllocationModal"
+            class="px-4 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
+          >
+            Abbrechen
+          </button>
+          <button
+            @click="confirmAllocation"
+            :disabled="isAllocating || allocationTotal <= 0 || allocationRemaining < -0.01"
+            class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+          >
+            <Loader2 v-if="isAllocating" class="h-4 w-4 animate-spin" />
+            Zuordnen
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Parent Detail Modal -->
     <div
       v-if="showParentDetailModal && selectedParentForDetail"
@@ -2080,9 +2072,9 @@ async function createReminder() {
             >
               <Edit class="h-5 w-5" />
             </button>
-            <button @click="closeParentDetailModal" class="p-1 hover:bg-gray-100 rounded">
-              <X class="h-5 w-5" />
-            </button>
+              <button @click="closeParentDetailModal" class="p-1 hover:bg-gray-100 rounded" aria-label="Schließen">
+                <X class="h-5 w-5" />
+              </button>
           </div>
         </div>
 

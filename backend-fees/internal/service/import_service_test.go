@@ -1103,23 +1103,8 @@ func TestImportService_MultipleOpenFees_NoAutoMatch(t *testing.T) {
 		}
 	}
 
-	// Should have created a warning
-	warnings, total, err := importService.GetWarnings(context.Background(), 0, 100)
-	if err != nil {
-		t.Fatalf("GetWarnings failed: %v", err)
-	}
-
-	if total != 1 {
-		t.Fatalf("Expected 1 warning for multiple open fees, got %d", total)
-	}
-
-	// Verify warning type and content
-	if warnings[0].WarningType != domain.WarningTypeMultipleOpenFees {
-		t.Errorf("Expected warning type MULTIPLE_OPEN_FEES, got %s", warnings[0].WarningType)
-	}
-	if warnings[0].ChildID == nil || *warnings[0].ChildID != child.ID {
-		t.Error("Warning should be linked to the child")
-	}
+	// Warnings for multiple open fees are handled on-the-fly and are not part
+	// of the unresolved warning list.
 }
 
 // TestImportService_SingleOpenFee_AutoMatch tests that when only one unpaid fee
@@ -1185,6 +1170,77 @@ func TestImportService_SingleOpenFee_AutoMatch(t *testing.T) {
 	}
 	if total != 0 {
 		t.Errorf("Expected 0 warnings when single open fee, got %d", total)
+	}
+}
+
+// TestImportService_ProcessCSV_AutoMatch tests that ProcessCSV auto-confirms
+// high-confidence matches (member number + single open fee).
+func TestImportService_ProcessCSV_AutoMatch(t *testing.T) {
+	cleanupTestData()
+	defer cleanupTestData()
+
+	childRepo := repository.NewPostgresChildRepository(testDB)
+	feeRepo := repository.NewPostgresFeeRepository(testDB)
+	txRepo := repository.NewPostgresTransactionRepository(testDB)
+	matchRepo := repository.NewPostgresMatchRepository(testDB)
+	knownIBANRepo := repository.NewPostgresKnownIBANRepository(testDB)
+	warningRepo := repository.NewPostgresWarningRepository(testDB)
+
+	// Create child with pure 5-digit member number for member_number matching
+	memberNum := fmt.Sprintf("%05d", time.Now().UnixNano()%100000)
+	child := &domain.Child{
+		ID:           uuid.New(),
+		MemberNumber: memberNum,
+		FirstName:    "Auto",
+		LastName:     "Match",
+		BirthDate:    time.Now().AddDate(-2, 0, 0),
+		EntryDate:    time.Now().AddDate(-1, 0, 0),
+		IsActive:     true,
+	}
+	if err := childRepo.Create(context.Background(), child); err != nil {
+		t.Fatal(err)
+	}
+
+	fee, err := createTestFee(feeRepo, child.ID, domain.FeeTypeFood, 45.40, time.Now().Year(), int(time.Now().Month()))
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, warningRepo)
+
+	csvContent := `Bezeichnung Auftragskonto;IBAN Auftragskonto;BIC Auftragskonto;Bankname Auftragskonto;Buchungstag;Valutadatum;Name Zahlungsbeteiligter;IBAN Zahlungsbeteiligter;BIC (SWIFT-Code) Zahlungsbeteiligter;Buchungstext;Verwendungszweck;Betrag;Waehrung;Saldo nach Buchung
+Test;DE1234;BIC;Bank;02.01.2026;02.01.2026;Test Zahler;TESTDE111222333444;BIC;Transfer;Essensgeld ` + memberNum + `;45,40;EUR;1000,00
+`
+
+	result, err := importService.ProcessCSV(context.Background(), strings.NewReader(csvContent), "auto.csv", uuid.New())
+	if err != nil {
+		t.Fatalf("ProcessCSV failed: %v", err)
+	}
+
+	if result.AutoMatched != 1 {
+		t.Fatalf("Expected 1 auto-matched transaction, got %d", result.AutoMatched)
+	}
+	if len(result.Suggestions) != 0 {
+		t.Fatalf("Expected 0 suggestions when auto-matched, got %d", len(result.Suggestions))
+	}
+
+	matches, err := matchRepo.GetAllByExpectation(context.Background(), fee.ID)
+	if err != nil {
+		t.Fatalf("GetAllByExpectation failed: %v", err)
+	}
+	if len(matches) != 1 {
+		t.Fatalf("Expected 1 match, got %d", len(matches))
+	}
+	if matches[0].Amount != 45.40 {
+		t.Errorf("Expected match amount 45.40, got %.2f", matches[0].Amount)
+	}
+
+	known, err := knownIBANRepo.GetByIBAN(context.Background(), "TESTDE111222333444")
+	if err != nil {
+		t.Fatalf("GetByIBAN failed: %v", err)
+	}
+	if known == nil || known.Status != domain.KnownIBANStatusTrusted {
+		t.Fatalf("Expected IBAN to be trusted after auto-match")
 	}
 }
 
