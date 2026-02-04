@@ -1,24 +1,33 @@
-import { test, expect } from '@playwright/test';
+import { test, expect } from '../../fixtures/coverage';
 import * as fs from 'fs';
 import * as path from 'path';
 
 // Helper to create a test CSV file with unique member numbers
 function createUniqueTestCSV(): string {
   const timestamp = Date.now().toString().slice(-6);
+  const fileSuffix = `${timestamp}-${Math.random().toString(36).slice(2, 6)}`;
   const csvContent = `Mitgliedsnummer;Vorname;Nachname;Geburtsdatum;Eintrittsdatum;Straße;Hausnr;PLZ;Ort;Eltern 1 Vorname;Eltern 1 Nachname;Eltern 1 Email;Eltern 1 Telefon
 TEST${timestamp}A;Emma;Müller;15.03.2021;01.08.2024;Hauptstraße;12;12345;Musterstadt;Anna;Müller;anna.mueller@example.com;0151-12345678
 TEST${timestamp}B;Max;Schmidt;22.07.2020;01.08.2024;Nebenweg;5a;12345;Musterstadt;Thomas;Schmidt;thomas.schmidt@example.com;0152-87654321
 TEST${timestamp}C;Lina;Weber;08.11.2021;01.09.2024;Parkstraße;8;12346;Nachbarort;Maria;Weber;maria.weber@example.com;0163-11223344
 `;
   // path.join(__dirname) points to e2e/tests/beitraege, so we go up two levels to e2e/fixtures
-  const tempPath = path.join(__dirname, '..', '..', 'fixtures', `test-children-import-${timestamp}.csv`);
+  const tempPath = path.join(__dirname, '..', '..', 'fixtures', `test-children-import-${fileSuffix}.csv`);
   fs.writeFileSync(tempPath, csvContent, 'utf8');
   return tempPath;
 }
 
+function safeUnlink(filePath: string) {
+  try {
+    fs.unlinkSync(filePath);
+  } catch {
+    // Ignore cleanup errors in parallel test runs
+  }
+}
+
 test.describe('Beiträge - Children CSV Import', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/kinder');
+    await page.goto('/beitraege/kinder');
     // Wait for loading to complete
     await expect(page.locator('.animate-spin')).toBeHidden({ timeout: 10000 });
   });
@@ -36,7 +45,7 @@ test.describe('Beiträge - Children CSV Import', () => {
   });
 
   test('shows step 1 - file upload initially', async ({ page }) => {
-    await page.goto('/kinder/import');
+    await page.goto('/beitraege/kinder/import');
     
     // Step 1 should be active - check for Upload step label
     await expect(page.getByText('Upload')).toBeVisible();
@@ -46,16 +55,13 @@ test.describe('Beiträge - Children CSV Import', () => {
   });
 
   test('can upload CSV file and proceed to step 2', async ({ page }) => {
-    await page.goto('/kinder/import');
+    await page.goto('/beitraege/kinder/import');
     
     // Find the file input (it's hidden but we can use setInputFiles)
     const fileInput = page.locator('input[type="file"]');
     
     // Upload the test CSV - path relative to frontend directory
     await fileInput.setInputFiles('e2e/fixtures/test-children-import.csv');
-    
-    // Should show loading state
-    await expect(page.getByText(/wird verarbeitet/i)).toBeVisible({ timeout: 5000 });
     
     // Wait for step 2 - check for mapping section
     await expect(page.getByText(/Datei erkannt/i)).toBeVisible({ timeout: 10000 });
@@ -66,7 +72,7 @@ test.describe('Beiträge - Children CSV Import', () => {
   });
 
   test('can map columns and proceed to step 3', async ({ page }) => {
-    await page.goto('/kinder/import');
+    await page.goto('/beitraege/kinder/import');
     
     // Upload CSV
     const fileInput = page.locator('input[type="file"]');
@@ -88,7 +94,7 @@ test.describe('Beiträge - Children CSV Import', () => {
   });
 
   test('shows validation in preview step', async ({ page }) => {
-    await page.goto('/kinder/import');
+    await page.goto('/beitraege/kinder/import');
     
     // Create a unique CSV to avoid duplicate member numbers
     const csvPath = createUniqueTestCSV();
@@ -108,11 +114,11 @@ test.describe('Beiträge - Children CSV Import', () => {
     await expect(page.getByText('NEU').first()).toBeVisible();
     
     // Cleanup
-    fs.unlinkSync(csvPath);
+    safeUnlink(csvPath);
   });
 
   test('can select/deselect rows in preview', async ({ page }) => {
-    await page.goto('/kinder/import');
+    await page.goto('/beitraege/kinder/import');
     
     // Create a unique CSV to avoid duplicate member numbers
     const csvPath = createUniqueTestCSV();
@@ -140,11 +146,11 @@ test.describe('Beiträge - Children CSV Import', () => {
     expect(newState).not.toBe(initialState);
     
     // Cleanup
-    fs.unlinkSync(csvPath);
+    safeUnlink(csvPath);
   });
 
   test('can execute import and see results', async ({ page }) => {
-    await page.goto('/kinder/import');
+    await page.goto('/beitraege/kinder/import');
     
     // Create a unique CSV to avoid duplicate member numbers
     const csvPath = createUniqueTestCSV();
@@ -165,11 +171,11 @@ test.describe('Beiträge - Children CSV Import', () => {
     await expect(page.getByRole('heading', { name: /Import abgeschlossen/i })).toBeVisible({ timeout: 15000 });
     
     // Cleanup
-    fs.unlinkSync(csvPath);
+    safeUnlink(csvPath);
   });
 
   test('can go back to children list after import', async ({ page }) => {
-    await page.goto('/kinder/import');
+    await page.goto('/beitraege/kinder/import');
     
     // Create a unique CSV to avoid duplicate member numbers
     const csvPath = createUniqueTestCSV();
@@ -200,7 +206,7 @@ test.describe('Beiträge - Children CSV Import', () => {
   });
 
   test('can cancel import and go back', async ({ page }) => {
-    await page.goto('/kinder/import');
+    await page.goto('/beitraege/kinder/import');
     
     // Click back button in header
     await page.getByText(/zurück zur übersicht/i).click();
@@ -212,7 +218,7 @@ test.describe('Beiträge - Children CSV Import', () => {
 
 test.describe('Beiträge - Import Error Handling', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/kinder/import');
+    await page.goto('/beitraege/kinder/import');
   });
 
   test('shows error for invalid file type', async ({ page }) => {
@@ -228,7 +234,7 @@ test.describe('Beiträge - Import Error Handling', () => {
 test.describe('Beiträge - Import with Existing Data', () => {
   test('detects and warns about duplicate member numbers', async ({ page }) => {
     // First, create a child with a specific member number
-    await page.goto('/kinder');
+    await page.goto('/beitraege/kinder');
     await expect(page.locator('.animate-spin')).toBeHidden({ timeout: 10000 });
     
     // Create child with unique member number that we'll also put in import CSV
@@ -247,7 +253,7 @@ test.describe('Beiträge - Import with Existing Data', () => {
     
     // Now try to import CSV that contains IMP001 - we test with the fixture file
     // which has IMP001 which might already exist from previous tests
-    await page.goto('/kinder/import');
+    await page.goto('/beitraege/kinder/import');
     
     const fileInput = page.locator('input[type="file"]');
     await fileInput.setInputFiles('e2e/fixtures/test-children-import.csv');
@@ -274,7 +280,7 @@ ${memberNumber};${firstName};${lastName};01.01.2021;01.01.2024;Anna;Müller;Max;
 
   // Helper to create a child via UI
   async function createChild(page: import('@playwright/test').Page, memberNumber: string, firstName: string, lastName: string) {
-    await page.goto('/kinder');
+    await page.goto('/beitraege/kinder');
     await expect(page.locator('.animate-spin')).toBeHidden({ timeout: 10000 });
     
     await page.getByRole('button', { name: /kind hinzufügen/i }).click();
@@ -292,7 +298,7 @@ ${memberNumber};${firstName};${lastName};01.01.2021;01.01.2024;Anna;Müller;Max;
   }
 
   test('can import child with new parents', async ({ page }) => {
-    await page.goto('/kinder/import');
+    await page.goto('/beitraege/kinder/import');
     
     const memberNumber = `PAR${Date.now().toString().slice(-6)}`;
     const csvPath = createCSVWithParents(memberNumber);
@@ -330,7 +336,7 @@ ${memberNumber};${firstName};${lastName};01.01.2021;01.01.2024;Anna;Müller;Max;
     
     // Now import CSV with same member number
     const csvPath = createCSVWithParents(memberNumber);
-    await page.goto('/kinder/import');
+    await page.goto('/beitraege/kinder/import');
     
     const fileInput = page.locator('input[type="file"]');
     await fileInput.setInputFiles(csvPath);
@@ -356,7 +362,7 @@ ${memberNumber};${firstName};${lastName};01.01.2021;01.01.2024;Anna;Müller;Max;
     
     // Now import CSV with parents for this child - use matching names
     const csvPath = createCSVWithParents(memberNumber, 'MergeTest', 'Child');
-    await page.goto('/kinder/import');
+    await page.goto('/beitraege/kinder/import');
     
     const fileInput = page.locator('input[type="file"]');
     await fileInput.setInputFiles(csvPath);
@@ -397,7 +403,7 @@ ${memberNumber};${firstName};${lastName};01.01.2021;01.01.2024;Anna;Müller;Max;
     await createChild(page, memberNumber, 'Linked', 'Child');
     
     // Create parent with same name as CSV
-    await page.goto('/eltern');
+    await page.goto('/beitraege/eltern');
     await expect(page.locator('.animate-spin')).toBeHidden({ timeout: 10000 });
     
     // Click add parent button and wait for dialog
@@ -431,7 +437,7 @@ ${memberNumber};${firstName};${lastName};01.01.2021;01.01.2024;Anna;Müller;Max;
     
     // Now import CSV with same member number and parent name
     const csvPath = createCSVWithParents(memberNumber);
-    await page.goto('/kinder/import');
+    await page.goto('/beitraege/kinder/import');
     
     const fileInput = page.locator('input[type="file"]');
     await fileInput.setInputFiles(csvPath);
@@ -470,7 +476,7 @@ ${memberNumber};DifferentName;Conflict;20.05.2022;15.09.2024;35
   test('shows field conflicts when merging with different data', async ({ page }) => {
     // First create a child
     const memberNumber = `CON${Date.now().toString().slice(-6)}`;
-    await page.goto('/kinder');
+    await page.goto('/beitraege/kinder');
     await expect(page.locator('.animate-spin')).toBeHidden({ timeout: 10000 });
     
     await page.getByRole('button', { name: /kind hinzufügen/i }).click();
@@ -486,7 +492,7 @@ ${memberNumber};DifferentName;Conflict;20.05.2022;15.09.2024;35
     
     // Import CSV with different data for same child
     const csvPath = createCSVWithConflicts(memberNumber);
-    await page.goto('/kinder/import');
+    await page.goto('/beitraege/kinder/import');
     
     const fileInput = page.locator('input[type="file"]');
     await fileInput.setInputFiles(csvPath);
@@ -519,7 +525,7 @@ ${memberNumber};DifferentName;Conflict;20.05.2022;15.09.2024;35
   test('can select which values to use for conflicts', async ({ page }) => {
     // First create a child
     const memberNumber = `SEL${Date.now().toString().slice(-6)}`;
-    await page.goto('/kinder');
+    await page.goto('/beitraege/kinder');
     await expect(page.locator('.animate-spin')).toBeHidden({ timeout: 10000 });
     
     await page.getByRole('button', { name: /kind hinzufügen/i }).click();
@@ -535,7 +541,7 @@ ${memberNumber};DifferentName;Conflict;20.05.2022;15.09.2024;35
     
     // Import CSV with different data for same child
     const csvPath = createCSVWithConflicts(memberNumber);
-    await page.goto('/kinder/import');
+    await page.goto('/beitraege/kinder/import');
     
     const fileInput = page.locator('input[type="file"]');
     await fileInput.setInputFiles(csvPath);

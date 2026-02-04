@@ -157,13 +157,20 @@ onUnmounted(() => {
             </div>
           </div>
           <div v-if="isAdmin" class="flex items-center gap-1">
-            <Button variant="ghost" size="icon" @click="openEditDialog(group)" class="h-8 w-8">
+            <Button
+              variant="ghost"
+              size="icon"
+              class="h-8 w-8"
+              aria-label="Bearbeiten"
+              @click="openEditDialog(group)"
+            >
               <Pencil class="w-4 h-4" />
             </Button>
             <Button 
               variant="ghost" 
               size="icon"
               class="h-8 w-8 text-destructive hover:text-destructive"
+              aria-label="Löschen"
               @click="confirmDelete(group)"
             >
               <Trash2 class="w-4 h-4" />

@@ -49,6 +49,8 @@ logs/
 # Test coverage
 coverage/
 .nyc_output/
+backend-fees/coverage.out
+backend-management/coverage.out
 
 # Playwright test artifacts
 frontend/e2e/fixtures/test-*.csv

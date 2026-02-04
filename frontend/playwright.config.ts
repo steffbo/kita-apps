@@ -45,7 +45,7 @@ export default defineConfig({
     /* Setup project - runs authentication */
     {
       name: 'setup',
-      testMatch: '**/*.setup.ts',
+      testMatch: '**/auth.setup.ts',
     },
     
     /* Dienstplan App Tests */
@@ -87,6 +87,9 @@ export default defineConfig({
     /* Beiträge Auth Setup */
     {
       name: 'beitraege-setup',
+      use: {
+        baseURL: 'http://localhost:5175',
+      },
       testMatch: '**/beitraege.setup.ts',
     },
     
@@ -104,24 +107,37 @@ export default defineConfig({
   ],
 
   /* Run local dev servers before starting the tests */
-  webServer: [
-    {
-      command: 'bun run dev:plan',
-      url: 'http://localhost:5173',
-      reuseExistingServer: !process.env.CI,
-      timeout: 120 * 1000,
-    },
-    {
-      command: 'bun run dev:zeit',
-      url: 'http://localhost:5174',
-      reuseExistingServer: !process.env.CI,
-      timeout: 120 * 1000,
-    },
-    {
-      command: 'bun run dev:beitraege',
-      url: 'http://localhost:5175',
-      reuseExistingServer: !process.env.CI,
-      timeout: 120 * 1000,
-    },
-  ],
+  webServer: (() => {
+    const onlyBeitraege = process.env.PW_ONLY_BEITRAEGE === '1';
+    if (onlyBeitraege) {
+      return [
+        {
+          command: 'bun run dev:beitraege',
+          url: 'http://localhost:5175',
+          reuseExistingServer: !process.env.CI,
+          timeout: 120 * 1000,
+        },
+      ];
+    }
+    return [
+      {
+        command: 'bun run dev:plan',
+        url: 'http://localhost:5173',
+        reuseExistingServer: !process.env.CI,
+        timeout: 120 * 1000,
+      },
+      {
+        command: 'bun run dev:zeit',
+        url: 'http://localhost:5174',
+        reuseExistingServer: !process.env.CI,
+        timeout: 120 * 1000,
+      },
+      {
+        command: 'bun run dev:beitraege',
+        url: 'http://localhost:5175',
+        reuseExistingServer: !process.env.CI,
+        timeout: 120 * 1000,
+      },
+    ];
+  })(),
 });

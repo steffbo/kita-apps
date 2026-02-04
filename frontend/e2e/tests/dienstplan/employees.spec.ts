@@ -10,7 +10,8 @@ test.describe('Employees Management', () => {
     await expect(page.getByRole('heading', { name: /mitarbeiter/i })).toBeVisible();
     
     // Should show at least the admin user in the table
-    await expect(page.getByRole('cell', { name: /admin@knirpsenstadt.de/i })).toBeVisible();
+    const adminRow = page.getByRole('row').filter({ hasText: /admin leitung/i });
+    await expect(adminRow).toBeVisible();
   });
 
   test('can open create employee dialog', async ({ page }) => {
@@ -29,10 +30,10 @@ test.describe('Employees Management', () => {
     await page.getByRole('button', { name: /neuer mitarbeiter|hinzufügen|\+/i }).click();
     
     // Fill form with unique email
-    const uniqueEmail = `test.${Date.now()}@knirpsenstadt.de`;
+    const uniqueLastName = `Mitarbeiter-${Date.now()}`;
     await page.getByLabel(/vorname/i).fill('Test');
-    await page.getByLabel(/nachname/i).fill('Mitarbeiter');
-    await page.getByLabel(/e-mail/i).fill(uniqueEmail);
+    await page.getByLabel(/nachname/i).fill(uniqueLastName);
+    await page.getByLabel(/e-mail/i).fill(`test.${Date.now()}@knirpsenstadt.de`);
     
     // Set weekly hours if field exists
     const weeklyHoursField = page.getByLabel(/wochenstunden|stunden/i);
@@ -46,14 +47,14 @@ test.describe('Employees Management', () => {
     // Dialog should close
     await expect(page.getByRole('dialog')).toBeHidden();
     
-    // New employee should appear in list - check by email which is unique
-    await expect(page.getByRole('cell', { name: uniqueEmail })).toBeVisible();
+    // New employee should appear in list - check by unique last name
+    await expect(page.getByRole('row').filter({ hasText: uniqueLastName })).toBeVisible();
   });
 
   test('can edit an employee', async ({ page }) => {
     // Find and click edit button for admin user row
-    const adminRow = page.getByRole('row').filter({ hasText: /admin@knirpsenstadt.de/i });
-    await adminRow.getByRole('button', { name: /bearbeiten|edit/i }).click();
+    const adminRow = page.getByRole('row').filter({ hasText: /admin leitung/i });
+    await adminRow.getByRole('button', { name: /bearbeiten/i }).click();
     
     // Dialog should open with existing data
     await expect(page.getByRole('dialog')).toBeVisible();
@@ -63,11 +64,12 @@ test.describe('Employees Management', () => {
   test('shows employee details in table', async ({ page }) => {
     // Table should show key columns
     await expect(page.getByRole('columnheader', { name: /name/i })).toBeVisible();
-    await expect(page.getByRole('columnheader', { name: /e-mail/i })).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: /rolle/i })).toBeVisible();
+    await expect(page.getByRole('columnheader', { name: /status/i })).toBeVisible();
     
     // Admin user row should show role badge - use exact match for the badge
-    const adminRow = page.getByRole('row').filter({ hasText: /admin@knirpsenstadt.de/i });
-    await expect(adminRow.locator('.rounded-full').filter({ hasText: 'Leitung' })).toBeVisible();
+    const adminRow = page.getByRole('row').filter({ hasText: /admin leitung/i });
+    await expect(adminRow.getByText(/leitung/i)).toBeVisible();
   });
 
   test('can filter or search employees', async ({ page }) => {
@@ -78,7 +80,7 @@ test.describe('Employees Management', () => {
       await searchField.fill('admin');
       
       // Should filter results
-      await expect(page.getByRole('cell', { name: /admin@knirpsenstadt.de/i })).toBeVisible();
+      await expect(page.getByRole('row').filter({ hasText: /admin leitung/i })).toBeVisible();
     }
   });
 });

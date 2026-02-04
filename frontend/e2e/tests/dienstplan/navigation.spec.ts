@@ -82,6 +82,9 @@ test.describe('Navigation', () => {
   test('can logout', async ({ page }) => {
     await page.goto('/');
     
+    // Open user menu first
+    await page.getByRole('button', { name: /admin leitung/i }).click();
+    
     // Find logout button
     await page.getByRole('button', { name: /abmelden|logout/i }).click();
     

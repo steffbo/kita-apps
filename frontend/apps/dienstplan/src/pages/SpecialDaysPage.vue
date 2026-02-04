@@ -214,7 +214,13 @@ function formatDateRange(day: SpecialDay): string {
             <Calendar class="w-5 h-5 text-orange-500" />
             Schließzeiten
           </h2>
-          <Button v-if="isAdmin" variant="ghost" size="icon" @click="openCreateDialog('CLOSURE')">
+          <Button
+            v-if="isAdmin"
+            variant="ghost"
+            size="icon"
+            aria-label="Neuer Eintrag"
+            @click="openCreateDialog('CLOSURE')"
+          >
             <CirclePlus class="w-5 h-5 text-orange-500" />
           </Button>
         </div>
@@ -235,6 +241,7 @@ function formatDateRange(day: SpecialDay): string {
                 v-if="isAdmin"
                 variant="ghost" 
                 size="icon" 
+                aria-label="Löschen"
                 @click.stop="handleDelete(day)"
               >
                 <Trash2 class="w-4 h-4 text-destructive" />
@@ -254,7 +261,13 @@ function formatDateRange(day: SpecialDay): string {
             <Calendar class="w-5 h-5 text-purple-500" />
             Teamtage / Bildungstage
           </h2>
-          <Button v-if="isAdmin" variant="ghost" size="icon" @click="openCreateDialog('TEAM_DAY')">
+          <Button
+            v-if="isAdmin"
+            variant="ghost"
+            size="icon"
+            aria-label="Neuer Eintrag"
+            @click="openCreateDialog('TEAM_DAY')"
+          >
             <CirclePlus class="w-5 h-5 text-purple-500" />
           </Button>
         </div>
@@ -275,6 +288,7 @@ function formatDateRange(day: SpecialDay): string {
                 v-if="isAdmin"
                 variant="ghost" 
                 size="icon" 
+                aria-label="Löschen"
                 @click.stop="handleDelete(day)"
               >
                 <Trash2 class="w-4 h-4 text-destructive" />
@@ -294,7 +308,13 @@ function formatDateRange(day: SpecialDay): string {
             <Calendar class="w-5 h-5 text-blue-500" />
             Veranstaltungen
           </h2>
-          <Button v-if="isAdmin" variant="ghost" size="icon" @click="openCreateDialog('EVENT')">
+          <Button
+            v-if="isAdmin"
+            variant="ghost"
+            size="icon"
+            aria-label="Neuer Eintrag"
+            @click="openCreateDialog('EVENT')"
+          >
             <CirclePlus class="w-5 h-5 text-blue-500" />
           </Button>
         </div>
@@ -316,6 +336,7 @@ function formatDateRange(day: SpecialDay): string {
                 v-if="isAdmin"
                 variant="ghost" 
                 size="icon" 
+                aria-label="Löschen"
                 @click.stop="handleDelete(day)"
               >
                 <Trash2 class="w-4 h-4 text-destructive" />

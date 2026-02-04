@@ -4,7 +4,7 @@ test.describe('Password Reset Flow', () => {
   test.use({ storageState: { cookies: [], origins: [] } }); // Don't use saved auth
 
   test('shows forgot password link on login page', async ({ page }) => {
-    await page.goto('/login');
+    await page.goto('/beitraege/login');
     
     // Should have a "Passwort vergessen?" link
     const forgotPasswordLink = page.getByRole('link', { name: /passwort vergessen/i });
@@ -12,7 +12,7 @@ test.describe('Password Reset Flow', () => {
   });
 
   test('can navigate to password reset page', async ({ page }) => {
-    await page.goto('/login');
+    await page.goto('/beitraege/login');
     
     // Click forgot password link
     await page.getByRole('link', { name: /passwort vergessen/i }).click();
@@ -25,7 +25,7 @@ test.describe('Password Reset Flow', () => {
   });
 
   test('password reset request form has email field', async ({ page }) => {
-    await page.goto('/password-reset');
+    await page.goto('/beitraege/password-reset');
     
     // Should show email input
     await expect(page.getByLabel(/e-mail/i)).toBeVisible();
@@ -35,7 +35,7 @@ test.describe('Password Reset Flow', () => {
   });
 
   test('shows validation for empty email', async ({ page }) => {
-    await page.goto('/password-reset');
+    await page.goto('/beitraege/password-reset');
     
     // Click submit without entering email
     await page.getByRole('button', { name: /anfordern|senden/i }).click();
@@ -45,7 +45,7 @@ test.describe('Password Reset Flow', () => {
   });
 
   test('can submit password reset request', async ({ page }) => {
-    await page.goto('/password-reset');
+    await page.goto('/beitraege/password-reset');
     
     // Enter email
     await page.getByLabel(/e-mail/i).fill('test@example.com');
@@ -59,7 +59,7 @@ test.describe('Password Reset Flow', () => {
   });
 
   test('can navigate back to login from password reset', async ({ page }) => {
-    await page.goto('/password-reset');
+    await page.goto('/beitraege/password-reset');
     
     // Find back to login link
     const backLink = page.getByRole('link', { name: /zurück.*anmeldung|anmelden/i });
@@ -72,7 +72,7 @@ test.describe('Password Reset Flow', () => {
 
   test('password reset confirm page with token shows password fields', async ({ page }) => {
     // Navigate to password reset with a token (German URL from email)
-    await page.goto('/passwort-zuruecksetzen?token=test-token');
+    await page.goto('/beitraege/passwort-zuruecksetzen?token=test-token');
     
     // Should show new password input
     await expect(page.getByLabel(/neues passwort/i).first()).toBeVisible();
@@ -88,7 +88,7 @@ test.describe('Password Reset Flow', () => {
   });
 
   test('password reset confirm validates password length', async ({ page }) => {
-    await page.goto('/passwort-zuruecksetzen?token=test-token');
+    await page.goto('/beitraege/passwort-zuruecksetzen?token=test-token');
     
     // Enter short password
     await page.getByLabel(/neues passwort/i).first().fill('short');
@@ -98,11 +98,7 @@ test.describe('Password Reset Flow', () => {
       await confirmPassword.fill('short');
     }
     
-    // Submit
-    await page.getByRole('button', { name: /zurücksetzen|speichern|ändern/i }).click();
-    
-    // Should show error or validation message (password too short)
-    // Page should not crash
-    await expect(page.locator('body')).toBeVisible();
+    // Submit should remain disabled for invalid password length
+    await expect(page.getByRole('button', { name: /zurücksetzen|speichern|ändern/i })).toBeDisabled();
   });
 });

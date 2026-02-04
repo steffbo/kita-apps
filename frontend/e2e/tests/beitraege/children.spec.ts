@@ -1,4 +1,5 @@
-import { test, expect, Locator, Page } from '@playwright/test';
+import { test, expect } from '../../fixtures/coverage';
+import type { Locator, Page } from '@playwright/test';
 
 // Helper to fill a search input and trigger Vue's v-model properly
 async function fillSearchInput(page: Page, locator: Locator, value: string) {
@@ -22,7 +23,7 @@ async function fillSearchInput(page: Page, locator: Locator, value: string) {
 
 test.describe('Beiträge - Children Management', () => {
   test.beforeEach(async ({ page }) => {
-    await page.goto('/kinder');
+    await page.goto('/beitraege/kinder');
     // Wait for loading to complete
     await expect(page.locator('.animate-spin')).toBeHidden({ timeout: 10000 });
   });
@@ -70,7 +71,9 @@ test.describe('Beiträge - Children Management', () => {
     
     // New child should appear in list
     await expect(page.getByText(memberNumber)).toBeVisible();
-    await expect(page.getByText(`${firstName} ${lastName}`)).toBeVisible();
+    const childRow = page.getByRole('row').filter({ hasText: memberNumber }).filter({ hasText: lastName });
+    await expect(childRow).toBeVisible();
+    await expect(childRow.getByText(firstName)).toBeVisible();
   });
 
   test('validates required fields when creating child', async ({ page }) => {
@@ -118,7 +121,7 @@ test.describe('Beiträge - Child Detail & Edit', () => {
     testMemberNumber = `D${Date.now().toString().slice(-6)}`;
     testChildName = `Detail-${Date.now().toString().slice(-4)}`;
     
-    await page.goto('/kinder');
+    await page.goto('/beitraege/kinder');
     await expect(page.locator('.animate-spin')).toBeHidden({ timeout: 10000 });
     
     await page.getByRole('button', { name: /kind hinzufügen/i }).click();
@@ -237,7 +240,7 @@ test.describe('Beiträge - Login', () => {
     const context = await browser.newContext();
     const page = await context.newPage();
     
-    await page.goto('http://localhost:5175/login');
+    await page.goto('/beitraege/login');
     
     // Wait for page to actually load
     await page.waitForLoadState('networkidle');
@@ -247,7 +250,7 @@ test.describe('Beiträge - Login', () => {
     if (!page.url().includes('/login')) {
       // Need to clear localStorage and reload
       await page.evaluate(() => localStorage.clear());
-      await page.goto('http://localhost:5175/login');
+      await page.goto('/beitraege/login');
       await page.waitForLoadState('networkidle');
     }
     
@@ -274,9 +277,9 @@ test.describe('Beiträge - Login', () => {
     const page = await context.newPage();
     
     // Clear localStorage first
-    await page.goto('http://localhost:5175/login');
+    await page.goto('/beitraege/login');
     await page.evaluate(() => localStorage.clear());
-    await page.goto('http://localhost:5175/login');
+    await page.goto('/beitraege/login');
     await page.waitForLoadState('networkidle');
     
     // Wait for login form to be ready

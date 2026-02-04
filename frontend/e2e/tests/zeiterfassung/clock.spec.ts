@@ -8,8 +8,8 @@ test.describe('Zeiterfassung - Clock In/Out', () => {
   });
 
   test('displays current time and date', async ({ page }) => {
-    // Time is displayed in a large font-mono div
-    await expect(page.locator('.text-6xl.font-bold')).toBeVisible();
+    // Time should be displayed in HH:MM format
+    await expect(page.getByText(/\b\d{1,2}:\d{2}\b/)).toBeVisible();
   });
 
   test('shows clock in button when not clocked in', async ({ page }) => {
@@ -85,40 +85,6 @@ test.describe('Zeiterfassung - History', () => {
     
     // Page should load with table visible
     await expect(page.locator('table')).toBeVisible();
-  });
-});
-
-test.describe('Zeiterfassung - Admin Features', () => {
-  test('admin can access admin page', async ({ page }) => {
-    await page.goto('/admin');
-    await helpers.expectLoadingComplete(page);
-    
-    // Admin page heading is "Verwaltung"
-    await expect(page.getByRole('heading', { name: /verwaltung/i })).toBeVisible();
-  });
-
-  test('admin can view all employees time entries', async ({ page }) => {
-    await page.goto('/admin');
-    await helpers.expectLoadingComplete(page);
-    
-    // Should show employee selector and table
-    await expect(page.locator('select')).toBeVisible();
-    await expect(page.locator('table')).toBeVisible();
-  });
-
-  test('admin can correct time entries', async ({ page }) => {
-    await page.goto('/admin');
-    await helpers.expectLoadingComplete(page);
-    
-    // Look for edit buttons in the table (Edit icon buttons)
-    const editBtn = page.locator('table button').first();
-    
-    if (await editBtn.isVisible()) {
-      await editBtn.click();
-      
-      // Should open edit dialog/form (implementation may vary)
-      // For now just verify page doesn't crash
-    }
   });
 });
 

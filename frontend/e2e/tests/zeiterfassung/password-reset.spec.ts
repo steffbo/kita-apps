@@ -98,11 +98,7 @@ test.describe('Password Reset Flow', () => {
       await confirmPassword.fill('short');
     }
     
-    // Submit
-    await page.getByRole('button', { name: /zurücksetzen|speichern|ändern/i }).click();
-    
-    // Should show error or validation message (password too short)
-    // Page should not crash
-    await expect(page.locator('body')).toBeVisible();
+    // Submit should remain disabled for invalid password length
+    await expect(page.getByRole('button', { name: /zurücksetzen|speichern|ändern/i })).toBeDisabled();
   });
 });

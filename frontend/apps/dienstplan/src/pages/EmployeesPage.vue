@@ -385,6 +385,7 @@ onUnmounted(() => {
                   size="icon" 
                   class="h-8 w-8"
                   title="Bearbeiten"
+                  aria-label="Bearbeiten"
                   @click.stop="openEditDialog(employee)"
                 >
                   <Pencil class="w-4 h-4" />
@@ -394,6 +395,7 @@ onUnmounted(() => {
                   size="icon" 
                   class="h-8 w-8"
                   title="Passwort zurücksetzen"
+                  aria-label="Passwort zurücksetzen"
                   @click.stop="handleResetPassword(employee)"
                 >
                   <KeyRound class="w-4 h-4" />
@@ -404,6 +406,7 @@ onUnmounted(() => {
                   size="icon" 
                   class="h-8 w-8 text-destructive hover:text-destructive"
                   title="Deaktivieren"
+                  aria-label="Deaktivieren"
                   @click.stop="confirmDelete(employee)"
                 >
                   <UserX class="w-4 h-4" />
@@ -414,6 +417,7 @@ onUnmounted(() => {
                   size="icon" 
                   class="h-8 w-8 text-green-600 hover:text-green-700"
                   title="Aktivieren"
+                  aria-label="Aktivieren"
                   @click.stop="handleActivate(employee)"
                 >
                   <UserCheck class="w-4 h-4" />
@@ -423,6 +427,7 @@ onUnmounted(() => {
                   size="icon" 
                   class="h-8 w-8 text-destructive hover:text-destructive"
                   title="Endgültig löschen"
+                  aria-label="Endgültig löschen"
                   @click.stop="confirmPermanentDelete(employee)"
                 >
                   <Trash2 class="w-4 h-4" />

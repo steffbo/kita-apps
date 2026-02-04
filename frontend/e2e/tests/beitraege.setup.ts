@@ -1,4 +1,4 @@
-import { test as setup, expect } from '@playwright/test';
+import { test as setup, expect } from '../fixtures/coverage';
 
 const authFile = 'e2e/.auth/beitraege.json';
 
@@ -7,7 +7,7 @@ const authFile = 'e2e/.auth/beitraege.json';
  * Uses separate JWT auth system on port 8081
  */
 setup('authenticate beitraege', async ({ page, context }) => {
-  await page.goto('http://localhost:5175/login');
+  await page.goto('/beitraege/login');
   
   // Fill in credentials
   await page.getByLabel(/e-mail/i).fill('admin@knirpsenstadt.de');
