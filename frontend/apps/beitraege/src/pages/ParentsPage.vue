@@ -3,7 +3,7 @@ import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { api } from '@/api';
 import { useAuthStore } from '@/stores/auth';
-import type { Parent } from '@/api/types';
+import type { Parent, CreateParentRequest } from '@/api/types';
 import {
   Plus,
   Search,
@@ -18,6 +18,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Trash2,
+  X,
 } from 'lucide-vue-next';
 
 const router = useRouter();
@@ -55,8 +56,23 @@ const isSomeSelected = computed(() => {
 
 // Dialogs
 const showDeleteDialog = ref(false);
+const showCreateDialog = ref(false);
 const isBulkActionLoading = ref(false);
 const bulkActionError = ref<string | null>(null);
+const isCreatingParent = ref(false);
+const createError = ref<string | null>(null);
+
+const parentForm = ref<CreateParentRequest>({
+  firstName: '',
+  lastName: '',
+  birthDate: '',
+  email: '',
+  phone: '',
+  street: '',
+  streetNo: '',
+  postalCode: '',
+  city: '',
+});
 
 // Computed
 const totalPages = computed(() => Math.ceil(total.value / pageSize.value));
@@ -116,6 +132,7 @@ onMounted(loadParents);
 function handleKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape') {
     if (showDeleteDialog.value) showDeleteDialog.value = false;
+    if (showCreateDialog.value) showCreateDialog.value = false;
   }
 }
 
@@ -169,6 +186,44 @@ function goToParent(id: string) {
 function goToPage(page: number) {
   if (page >= 1 && page <= totalPages.value) {
     currentPage.value = page;
+  }
+}
+
+function openCreateParentDialog() {
+  parentForm.value = {
+    firstName: '',
+    lastName: '',
+    birthDate: '',
+    email: '',
+    phone: '',
+    street: '',
+    streetNo: '',
+    postalCode: '',
+    city: '',
+  };
+  createError.value = null;
+  showCreateDialog.value = true;
+}
+
+async function handleCreateParent() {
+  if (!parentForm.value.firstName?.trim() || !parentForm.value.lastName?.trim()) {
+    createError.value = 'Vorname und Nachname sind erforderlich.';
+    return;
+  }
+  isCreatingParent.value = true;
+  createError.value = null;
+  try {
+    await api.createParent({
+      ...parentForm.value,
+      firstName: parentForm.value.firstName.trim(),
+      lastName: parentForm.value.lastName.trim(),
+    });
+    showCreateDialog.value = false;
+    loadParents();
+  } catch (e) {
+    createError.value = e instanceof Error ? e.message : 'Fehler beim Erstellen';
+  } finally {
+    isCreatingParent.value = false;
   }
 }
 
@@ -226,6 +281,7 @@ const visiblePages = computed(() => {
         <p class="text-gray-600 mt-1">{{ total }} Eltern registriert</p>
       </div>
       <button
+        @click="openCreateParentDialog"
         class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
       >
         <Plus class="h-4 w-4" />
@@ -501,6 +557,143 @@ const visiblePages = computed(() => {
             Endgültig löschen
           </button>
         </div>
+      </div>
+    </div>
+
+    <!-- Create Parent Dialog -->
+    <div
+      v-if="showCreateDialog"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      @click.self="showCreateDialog = false"
+    >
+      <div class="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 p-6">
+        <div class="flex items-center justify-between mb-6">
+          <h2 class="text-xl font-semibold">Elternteil anlegen</h2>
+          <button @click="showCreateDialog = false" class="p-1 hover:bg-gray-100 rounded">
+            <X class="h-5 w-5" />
+          </button>
+        </div>
+
+        <form @submit.prevent="handleCreateParent" class="space-y-4">
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label for="parent-firstName" class="block text-sm font-medium text-gray-700 mb-1">Vorname *</label>
+              <input
+                id="parent-firstName"
+                v-model="parentForm.firstName"
+                type="text"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                required
+              />
+            </div>
+            <div>
+              <label for="parent-lastName" class="block text-sm font-medium text-gray-700 mb-1">Nachname *</label>
+              <input
+                id="parent-lastName"
+                v-model="parentForm.lastName"
+                type="text"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                required
+              />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label for="parent-birthDate" class="block text-sm font-medium text-gray-700 mb-1">Geburtsdatum</label>
+              <input
+                id="parent-birthDate"
+                v-model="parentForm.birthDate"
+                type="date"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              />
+            </div>
+            <div>
+              <label for="parent-phone" class="block text-sm font-medium text-gray-700 mb-1">Telefon</label>
+              <input
+                id="parent-phone"
+                v-model="parentForm.phone"
+                type="tel"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label for="parent-email" class="block text-sm font-medium text-gray-700 mb-1">E-Mail</label>
+            <input
+              id="parent-email"
+              v-model="parentForm.email"
+              type="email"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+            />
+          </div>
+
+          <div class="grid grid-cols-4 gap-4">
+            <div class="col-span-3">
+              <label for="parent-street" class="block text-sm font-medium text-gray-700 mb-1">Straße</label>
+              <input
+                id="parent-street"
+                v-model="parentForm.street"
+                type="text"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              />
+            </div>
+            <div>
+              <label for="parent-streetNo" class="block text-sm font-medium text-gray-700 mb-1">Hausnr.</label>
+              <input
+                id="parent-streetNo"
+                v-model="parentForm.streetNo"
+                type="text"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 gap-4">
+            <div>
+              <label for="parent-postalCode" class="block text-sm font-medium text-gray-700 mb-1">PLZ</label>
+              <input
+                id="parent-postalCode"
+                v-model="parentForm.postalCode"
+                type="text"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              />
+            </div>
+            <div>
+              <label for="parent-city" class="block text-sm font-medium text-gray-700 mb-1">Ort</label>
+              <input
+                id="parent-city"
+                v-model="parentForm.city"
+                type="text"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              />
+            </div>
+          </div>
+
+          <div v-if="createError" class="p-3 bg-red-50 border border-red-200 rounded-lg">
+            <p class="text-sm text-red-600">{{ createError }}</p>
+          </div>
+
+          <div class="flex justify-end gap-3">
+            <button
+              type="button"
+              @click="showCreateDialog = false"
+              class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            >
+              Abbrechen
+            </button>
+            <button
+              type="submit"
+              :disabled="isCreatingParent"
+              class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+            >
+              <Loader2 v-if="isCreatingParent" class="h-4 w-4 animate-spin" />
+              <Plus v-else class="h-4 w-4" />
+              Speichern
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   </div>
