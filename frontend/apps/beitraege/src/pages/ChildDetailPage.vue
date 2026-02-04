@@ -2,7 +2,7 @@
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api';
-import type { Child, FeeExpectation, UpdateChildRequest, Parent, CreateParentRequest, UpdateParentRequest, BankTransaction, IncomeStatus, UpdateHouseholdRequest, ChildcareFeeResult, MatchSuggestion } from '@/api/types';
+import type { Child, FeeExpectation, UpdateChildRequest, Parent, CreateParentRequest, UpdateParentRequest, BankTransaction, IncomeStatus, UpdateHouseholdRequest, ChildcareFeeResult, MatchSuggestion, PaymentMatch } from '@/api/types';
 import {
   ArrowLeft,
   Edit,
@@ -69,6 +69,7 @@ const showUnlinkDialog = ref(false);
 const isUnlinking = ref(false);
 
 // Transaction detail modal state
+const selectedFee = ref<FeeExpectation | null>(null);
 const selectedTransaction = ref<BankTransaction | null>(null);
 const showTransactionModal = ref(false);
 const transactionAction = ref<'unmatch' | 'delete' | null>(null);
@@ -472,31 +473,44 @@ async function handleUnlinkParent() {
 const openFees = computed(() => fees.value.filter(f => !f.isPaid));
 const paidFees = computed(() => fees.value.filter(f => f.isPaid));
 
+function getFeeMatches(fee: FeeExpectation): PaymentMatch[] {
+  if (fee.partialMatches && fee.partialMatches.length > 0) return fee.partialMatches;
+  if (fee.matchedBy) return [fee.matchedBy];
+  return [];
+}
+
 function openTransactionModal(fee: FeeExpectation) {
-  if (fee.matchedBy?.transaction) {
-    selectedTransaction.value = fee.matchedBy.transaction;
-    transactionAction.value = null;
-    transactionActionError.value = null;
-    showTransactionModal.value = true;
-  }
+  const matches = getFeeMatches(fee);
+  if (matches.length === 0) return;
+  selectedFee.value = fee;
+  selectedTransaction.value = matches[0].transaction ?? null;
+  transactionAction.value = null;
+  transactionActionError.value = null;
+  showTransactionModal.value = true;
 }
 
 function closeTransactionModal() {
   showTransactionModal.value = false;
+  selectedFee.value = null;
   selectedTransaction.value = null;
   transactionAction.value = null;
   transactionActionError.value = null;
 }
 
-function formatTransactionDate(fee: FeeExpectation): string {
-  // Use the transaction's booking date if available, otherwise fall back to paidAt
-  if (fee.matchedBy?.transaction?.bookingDate) {
-    return formatDate(fee.matchedBy.transaction.bookingDate);
+function getPaymentSummary(fee: FeeExpectation): string {
+  const matches = getFeeMatches(fee);
+  if (matches.length === 0) return '';
+  if (matches.length === 1) {
+    const txDate = matches[0].transaction?.bookingDate;
+    if (txDate) {
+      return `Bezahlt am ${formatDate(txDate)}`;
+    }
+    if (fee.paidAt) {
+      return `Bezahlt am ${formatDate(fee.paidAt)}`;
+    }
+    return 'Bezahlt';
   }
-  if (fee.paidAt) {
-    return formatDate(fee.paidAt);
-  }
-  return '';
+  return `Bezahlt mit ${matches.length} Zahlungen`;
 }
 
 function getFeeRemainingAmount(fee: FeeExpectation): number {
@@ -1316,9 +1330,9 @@ async function createReminder() {
                 @click="openTransactionModal(fee)"
                 :class="[
                   'w-full flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg text-left transition-colors',
-                  fee.matchedBy?.transaction ? 'hover:bg-green-100 cursor-pointer' : ''
+                  getFeeMatches(fee).length > 0 ? 'hover:bg-green-100 cursor-pointer' : ''
                 ]"
-                :disabled="!fee.matchedBy?.transaction"
+                :disabled="getFeeMatches(fee).length === 0"
               >
                 <div class="flex items-center gap-3">
                   <CheckCircle class="h-5 w-5 text-green-500" />
@@ -1326,15 +1340,21 @@ async function createReminder() {
                     <p class="font-medium">{{ getFeeTypeName(fee.feeType) }}</p>
                     <p class="text-sm text-gray-600">
                       {{ fee.month ? getMonthName(fee.month) + ' ' : '' }}{{ fee.year }}
-                      <span v-if="formatTransactionDate(fee)" class="text-green-600">
-                        · Bezahlt am {{ formatTransactionDate(fee) }}
+                      <span v-if="getPaymentSummary(fee)" class="text-green-600">
+                        · {{ getPaymentSummary(fee) }}
                       </span>
                     </p>
                   </div>
                 </div>
                 <div class="flex items-center gap-2">
                   <p class="font-semibold text-green-700">{{ formatCurrency(fee.amount) }}</p>
-                  <CreditCard v-if="fee.matchedBy?.transaction" class="h-4 w-4 text-green-500" />
+                  <span
+                    v-if="getFeeMatches(fee).length > 1"
+                    class="text-xs font-medium text-green-700 bg-green-100 px-2 py-0.5 rounded-full"
+                  >
+                    {{ getFeeMatches(fee).length }}x
+                  </span>
+                  <CreditCard v-if="getFeeMatches(fee).length > 0" class="h-4 w-4 text-green-500" />
                 </div>
               </button>
             </div>
@@ -1840,7 +1860,7 @@ async function createReminder() {
 
     <!-- Transaction Detail Modal -->
     <div
-      v-if="showTransactionModal && selectedTransaction"
+      v-if="showTransactionModal && selectedFee"
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
       @click.self="closeTransactionModal"
     >
@@ -1857,7 +1877,32 @@ async function createReminder() {
           </button>
         </div>
 
-        <div class="space-y-4">
+        <div v-if="selectedFee && getFeeMatches(selectedFee).length > 1" class="mb-6">
+          <p class="text-sm font-medium text-gray-600 mb-2">Zahlungen ({{ getFeeMatches(selectedFee).length }})</p>
+          <div class="space-y-2">
+            <button
+              v-for="match in getFeeMatches(selectedFee)"
+              :key="match.id"
+              @click="selectedTransaction = match.transaction ?? null"
+              class="w-full flex items-center justify-between p-2 border rounded-lg text-left hover:bg-gray-50"
+            >
+              <div>
+                <p class="text-sm font-medium">{{ match.transaction?.payerName || 'Unbekannt' }}</p>
+                <p class="text-xs text-gray-500">
+                  {{ match.transaction?.bookingDate ? formatDate(match.transaction.bookingDate) : 'Kein Datum' }}
+                </p>
+              </div>
+              <div class="text-sm font-semibold text-green-600">
+                {{ formatCurrency(match.amount) }}
+              </div>
+            </button>
+          </div>
+          <p v-if="!selectedTransaction" class="text-xs text-gray-500 mt-2">
+            Wähle eine Zahlung, um die Details anzuzeigen.
+          </p>
+        </div>
+
+        <div v-if="selectedTransaction" class="space-y-4">
           <div>
             <p class="text-sm text-gray-500">Zahler</p>
             <p class="font-medium">{{ selectedTransaction.payerName || 'Unbekannt' }}</p>
@@ -1932,7 +1977,7 @@ async function createReminder() {
             {{ transactionActionError }}
           </p>
 
-          <div v-if="!transactionAction" class="flex flex-col gap-2">
+          <div v-if="!transactionAction && selectedTransaction" class="flex flex-col gap-2">
             <button
               @click="requestTransactionAction('unmatch')"
               :disabled="isUnmatchingTransaction || isDeletingTransaction"
