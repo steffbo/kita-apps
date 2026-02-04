@@ -443,8 +443,11 @@ class ApiClient {
     year?: number;
     month?: number;
     feeType?: string;
+    status?: string;
     childId?: string;
     search?: string;
+    sortBy?: string;
+    sortDir?: string;
     offset?: number;
     limit?: number;
   }): Promise<PaginatedResponse<FeeExpectation>> {
@@ -452,8 +455,11 @@ class ApiClient {
     if (params?.year) query.set('year', String(params.year));
     if (params?.month) query.set('month', String(params.month));
     if (params?.feeType) query.set('type', params.feeType);
+    if (params?.status) query.set('status', params.status);
     if (params?.childId) query.set('childId', params.childId);
     if (params?.search) query.set('search', params.search);
+    if (params?.sortBy) query.set('sortBy', params.sortBy);
+    if (params?.sortDir) query.set('sortDir', params.sortDir);
     if (params?.offset) query.set('offset', String(params.offset));
     if (params?.limit) query.set('limit', String(params.limit));
     const queryString = query.toString();

@@ -48,6 +48,8 @@ type FeeFilter struct {
 	Status  string
 	ChildID *uuid.UUID
 	Search  string // Search by member number or child name
+	SortBy  string
+	SortDir string
 }
 
 // GenerateResult represents the result of fee generation.
@@ -124,8 +126,11 @@ func (s *FeeService) List(ctx context.Context, filter FeeFilter, offset, limit i
 		Year:    filter.Year,
 		Month:   filter.Month,
 		FeeType: filter.FeeType,
+		Status:  filter.Status,
 		ChildID: filter.ChildID,
 		Search:  filter.Search,
+		SortBy:  filter.SortBy,
+		SortDir: filter.SortDir,
 	}, offset, limit)
 	if err != nil {
 		return nil, 0, err

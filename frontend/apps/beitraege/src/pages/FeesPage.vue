@@ -15,6 +15,11 @@ import {
   Search,
   AlertCircle,
   User,
+  ChevronUp,
+  ChevronDown,
+  ChevronsUpDown,
+  ChevronLeft,
+  ChevronRight,
 } from 'lucide-vue-next';
 
 const router = useRouter();
@@ -24,12 +29,21 @@ const total = ref(0);
 const isLoading = ref(true);
 const error = ref<string | null>(null);
 
-const selectedYear = ref(new Date().getFullYear());
-const selectedMonth = ref<number | null>(null);
 const selectedType = ref<string>('');
 const selectedStatus = ref<'open' | 'paid' | 'all'>('open');
 const searchQuery = ref('');
 const debouncedSearch = ref('');
+
+type FeeSortKey = 'memberNumber' | 'childName' | 'feeType' | 'period' | 'amount';
+const sortBy = ref<FeeSortKey>('period');
+const sortDir = ref<'asc' | 'desc'>('desc');
+const defaultSortDir: Record<FeeSortKey, 'asc' | 'desc'> = {
+  memberNumber: 'asc',
+  childName: 'asc',
+  feeType: 'asc',
+  period: 'desc',
+  amount: 'desc',
+};
 
 const showGenerateDialog = ref(false);
 const generateForm = ref<GenerateFeeRequest>({
@@ -38,6 +52,11 @@ const generateForm = ref<GenerateFeeRequest>({
 });
 const isGenerating = ref(false);
 const generateResult = ref<{ created: number; skipped: number } | null>(null);
+
+// Pagination
+const currentPage = ref(1);
+const pageSize = ref(25);
+const pageSizeOptions = [10, 25, 50, 100];
 
 // Selection state
 const selectedFeeIds = ref<Set<string>>(new Set());
@@ -85,7 +104,7 @@ const months = [
 ];
 
 const feeTypes = [
-  { value: '', label: 'Alle Typen' },
+  { value: '', label: 'Alle' },
   { value: 'MEMBERSHIP', label: 'Vereinsbeitrag' },
   { value: 'FOOD', label: 'Essensgeld' },
   { value: 'CHILDCARE', label: 'Platzgeld' },
@@ -110,15 +129,47 @@ const selectedDeletableCount = computed(() => {
   }).length;
 });
 
-// Debounce search
-let searchTimeout: ReturnType<typeof setTimeout>;
-watch(searchQuery, (newVal) => {
-  clearTimeout(searchTimeout);
-  searchTimeout = setTimeout(() => {
-    debouncedSearch.value = newVal;
-    loadFees();
-  }, 300);
+// Pagination display helpers
+const visiblePages = computed(() => {
+  const pages: (number | '...')[] = [];
+  const totalPgs = totalPages.value;
+  const current = currentPage.value;
+  
+  if (totalPgs <= 7) {
+    for (let i = 1; i <= totalPgs; i++) pages.push(i);
+  } else {
+    pages.push(1);
+    if (current > 3) pages.push('...');
+    
+    const start = Math.max(2, current - 1);
+    const end = Math.min(totalPgs - 1, current + 1);
+    
+    for (let i = start; i <= end; i++) pages.push(i);
+    
+    if (current < totalPgs - 2) pages.push('...');
+    pages.push(totalPgs);
+  }
+  
+  return pages;
 });
+
+// Computed pagination helpers
+const totalPages = computed(() => Math.ceil(total.value / pageSize.value));
+const offset = computed(() => (currentPage.value - 1) * pageSize.value);
+
+// Debounce timer for search
+let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
+function handleSearchInput() {
+  if (searchDebounceTimer) {
+    clearTimeout(searchDebounceTimer);
+  }
+  searchDebounceTimer = setTimeout(() => {
+    debouncedSearch.value = searchQuery.value;
+    currentPage.value = 1;
+    loadFees();
+  }, 150);
+}
 
 async function loadFees() {
   isLoading.value = true;
@@ -126,20 +177,15 @@ async function loadFees() {
   selectedFeeIds.value = new Set(); // Clear selection on reload
   try {
     const response = await api.getFees({
-      year: selectedYear.value,
-      month: selectedMonth.value || undefined,
       feeType: selectedType.value || undefined,
+      status: selectedStatus.value !== 'all' ? selectedStatus.value : undefined,
       search: debouncedSearch.value || undefined,
-      limit: 200,
+      offset: offset.value,
+      limit: pageSize.value,
+      sortBy: sortBy.value,
+      sortDir: sortDir.value,
     });
-    // Filter by status on client side
-    let data = response.data;
-    if (selectedStatus.value === 'open') {
-      data = data.filter(f => !f.isPaid);
-    } else if (selectedStatus.value === 'paid') {
-      data = data.filter(f => f.isPaid);
-    }
-    fees.value = data;
+    fees.value = response.data;
     total.value = response.total;
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Fehler beim Laden';
@@ -148,8 +194,46 @@ async function loadFees() {
   }
 }
 
+function toggleSort(column: FeeSortKey) {
+  if (sortBy.value === column) {
+    sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortBy.value = column;
+    sortDir.value = defaultSortDir[column];
+  }
+}
+
+function getSortIcon(column: FeeSortKey) {
+  if (sortBy.value !== column) {
+    return ChevronsUpDown;
+  }
+  return sortDir.value === 'asc' ? ChevronUp : ChevronDown;
+}
+
+function isSorted(column: FeeSortKey) {
+  return sortBy.value === column;
+}
+
+function setTypeFilter(value: string) {
+  selectedType.value = value;
+  currentPage.value = 1;
+  loadFees();
+}
+
+function setStatusFilter(value: 'open' | 'paid' | 'all') {
+  selectedStatus.value = value;
+  currentPage.value = 1;
+  loadFees();
+}
+
 function goToChild(childId: string) {
   router.push(`/kinder/${childId}`);
+}
+
+function goToPage(page: number) {
+  if (page >= 1 && page <= totalPages.value) {
+    currentPage.value = page;
+  }
 }
 
 // ESC key handler to close modals
@@ -169,6 +253,17 @@ onMounted(() => {
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeydown);
+});
+
+// Reload when pagination changes
+watch([currentPage, pageSize], () => {
+  loadFees();
+});
+
+// Reload when sort changes
+watch([sortBy, sortDir], () => {
+  currentPage.value = 1;
+  loadFees();
 });
 
 function formatDate(dateStr: string): string {
@@ -521,6 +616,7 @@ async function handleCreateFee() {
           v-model="searchQuery"
           type="text"
           placeholder="Mitgl.-Nr. oder Name..."
+          @input="handleSearchInput"
           class="pl-9 pr-3 py-1.5 w-48 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
         />
       </div>
@@ -528,7 +624,7 @@ async function handleCreateFee() {
       <!-- Status Filter Buttons -->
       <div class="flex items-center gap-1 p-1 bg-gray-100 rounded-lg">
         <button
-          @click="selectedStatus = 'open'; loadFees()"
+          @click="setStatusFilter('open')"
           :class="[
             'flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
             selectedStatus === 'open'
@@ -541,7 +637,7 @@ async function handleCreateFee() {
           <span class="hidden sm:inline">Offen</span>
         </button>
         <button
-          @click="selectedStatus = 'paid'; loadFees()"
+          @click="setStatusFilter('paid')"
           :class="[
             'flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
             selectedStatus === 'paid'
@@ -554,7 +650,7 @@ async function handleCreateFee() {
           <span class="hidden sm:inline">Bezahlt</span>
         </button>
         <button
-          @click="selectedStatus = 'all'; loadFees()"
+          @click="setStatusFilter('all')"
           :class="[
             'flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
             selectedStatus === 'all'
@@ -567,32 +663,21 @@ async function handleCreateFee() {
         </button>
       </div>
 
-      <select
-        v-model="selectedYear"
-        @change="loadFees"
-        class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-      >
-        <option v-for="year in years" :key="year" :value="year">{{ year }}</option>
-      </select>
-      <select
-        v-model="selectedMonth"
-        @change="loadFees"
-        class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-      >
-        <option :value="null">Alle Monate</option>
-        <option v-for="month in months" :key="month.value" :value="month.value">
-          {{ month.label }}
-        </option>
-      </select>
-      <select
-        v-model="selectedType"
-        @change="loadFees"
-        class="px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-      >
-        <option v-for="type in feeTypes" :key="type.value" :value="type.value">
+      <div class="flex items-center gap-1 p-1 bg-gray-100 rounded-lg">
+        <button
+          v-for="type in feeTypes"
+          :key="type.value || 'all'"
+          @click="setTypeFilter(type.value)"
+          :class="[
+            'px-3 py-1.5 text-sm font-medium rounded-md transition-colors whitespace-nowrap',
+            selectedType === type.value
+              ? 'bg-white text-primary shadow-sm'
+              : 'text-gray-600 hover:text-gray-900'
+          ]"
+        >
           {{ type.label }}
-        </option>
-      </select>
+        </button>
+      </div>
     </div>
 
     <!-- Loading state -->
@@ -610,112 +695,227 @@ async function handleCreateFee() {
 
     <!-- Fees table -->
     <div v-else class="bg-white rounded-xl border overflow-hidden">
-      <table class="w-full">
-        <thead class="bg-gray-50">
-          <tr class="text-left text-sm text-gray-500">
-            <th class="px-4 py-3 font-medium w-10">
-              <input
-                type="checkbox"
-                :checked="allSelected"
-                :indeterminate="someSelected"
-                @change="toggleSelectAll"
-                class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
-              />
-            </th>
-            <th class="px-4 py-3 font-medium">Mitgl.-Nr.</th>
-            <th class="px-4 py-3 font-medium">Kind</th>
-            <th class="px-4 py-3 font-medium">Typ</th>
-            <th class="px-4 py-3 font-medium">Zeitraum</th>
-            <th class="px-4 py-3 font-medium text-right">Betrag</th>
-            <th class="px-4 py-3 font-medium">Fällig</th>
-            <th class="px-4 py-3 font-medium">Status</th>
-            <th class="px-4 py-3 font-medium w-10"></th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="fee in fees"
-            :key="fee.id"
-            :class="[
-              'border-t transition-colors',
-              isSelected(fee.id) ? 'bg-blue-50' : 'hover:bg-gray-50'
-            ]"
-          >
-            <td class="px-4 py-3">
-              <input
-                type="checkbox"
-                :checked="isSelected(fee.id)"
-                @change="toggleSelect(fee.id)"
-                class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
-              />
-            </td>
-            <td class="px-4 py-3 text-gray-600 font-mono text-sm">
-              {{ fee.child?.memberNumber }}
-            </td>
-            <td class="px-4 py-3">
-              <button
-                @click="goToChild(fee.childId)"
-                class="font-medium text-primary hover:underline text-left"
-              >
-                {{ fee.child?.firstName }} {{ fee.child?.lastName }}
-              </button>
-            </td>
-            <td class="px-4 py-3">
-              <span
-                :class="[
-                  'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium',
-                  getFeeTypeColor(fee.feeType),
-                ]"
-              >
-                {{ getFeeTypeName(fee.feeType) }}
-              </span>
-            </td>
-            <td class="px-4 py-3 text-gray-600">
-              {{ fee.month ? getMonthName(fee.month) + ' ' : '' }}{{ fee.year }}
-            </td>
-            <td class="px-4 py-3 text-right font-medium">
-              {{ formatCurrency(fee.amount) }}
-            </td>
-            <td class="px-4 py-3 text-gray-600">
-              {{ formatDate(fee.dueDate) }}
-            </td>
-            <td class="px-4 py-3">
-              <div class="flex items-center gap-1.5">
-                <component
-                  :is="getStatusInfo(fee).icon"
-                  :class="['h-4 w-4', getStatusInfo(fee).color]"
+      <div class="overflow-x-auto">
+        <table class="w-full">
+          <thead class="bg-gray-50">
+            <tr class="text-left text-sm text-gray-500">
+              <th class="px-4 py-3 font-medium w-10">
+                <input
+                  type="checkbox"
+                  :checked="allSelected"
+                  :indeterminate="someSelected"
+                  @change="toggleSelectAll"
+                  class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
                 />
-                <span class="text-sm">{{ getStatusInfo(fee).label }}</span>
-              </div>
-            </td>
-            <td class="px-4 py-3">
-              <div class="flex items-center gap-1">
+              </th>
+              <th class="px-4 py-3 font-medium">
                 <button
-                  v-if="canCreateReminder(fee)"
-                  @click="openReminderDialog(fee)"
-                  class="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded transition-colors"
-                  title="Mahngebühr erstellen"
+                  @click="toggleSort('memberNumber')"
+                  class="inline-flex items-center gap-1 hover:text-gray-700"
+                  type="button"
+                  :aria-sort="isSorted('memberNumber') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'"
                 >
-                  <AlertCircle class="h-4 w-4" />
+                  <span>Mitgl.-Nr.</span>
+                  <component
+                    :is="getSortIcon('memberNumber')"
+                    :class="['h-4 w-4', isSorted('memberNumber') ? 'text-gray-700' : 'text-gray-400']"
+                  />
                 </button>
+              </th>
+              <th class="px-4 py-3 font-medium">
                 <button
-                  v-if="!fee.isPaid"
-                  @click="deleteSingleFee(fee)"
-                  class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                  title="Löschen"
+                  @click="toggleSort('childName')"
+                  class="inline-flex items-center gap-1 hover:text-gray-700"
+                  type="button"
+                  :aria-sort="isSorted('childName') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'"
                 >
-                  <Trash2 class="h-4 w-4" />
+                  <span>Kind</span>
+                  <component
+                    :is="getSortIcon('childName')"
+                    :class="['h-4 w-4', isSorted('childName') ? 'text-gray-700' : 'text-gray-400']"
+                  />
                 </button>
-              </div>
-            </td>
-          </tr>
-          <tr v-if="fees.length === 0">
-            <td colspan="9" class="px-4 py-8 text-center text-gray-500">
-              Keine Beiträge gefunden
-            </td>
-          </tr>
-        </tbody>
-      </table>
+              </th>
+              <th class="px-4 py-3 font-medium">
+                <button
+                  @click="toggleSort('feeType')"
+                  class="inline-flex items-center gap-1 hover:text-gray-700"
+                  type="button"
+                  :aria-sort="isSorted('feeType') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'"
+                >
+                  <span>Typ</span>
+                  <component
+                    :is="getSortIcon('feeType')"
+                    :class="['h-4 w-4', isSorted('feeType') ? 'text-gray-700' : 'text-gray-400']"
+                  />
+                </button>
+              </th>
+              <th class="px-4 py-3 font-medium">
+                <button
+                  @click="toggleSort('period')"
+                  class="inline-flex items-center gap-1 hover:text-gray-700"
+                  type="button"
+                  :aria-sort="isSorted('period') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'"
+                >
+                  <span>Zeitraum</span>
+                  <component
+                    :is="getSortIcon('period')"
+                    :class="['h-4 w-4', isSorted('period') ? 'text-gray-700' : 'text-gray-400']"
+                  />
+                </button>
+              </th>
+              <th class="px-4 py-3 font-medium text-right">
+                <button
+                  @click="toggleSort('amount')"
+                  class="inline-flex items-center gap-1 hover:text-gray-700 justify-end w-full"
+                  type="button"
+                  :aria-sort="isSorted('amount') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'"
+                >
+                  <span>Betrag</span>
+                  <component
+                    :is="getSortIcon('amount')"
+                    :class="['h-4 w-4', isSorted('amount') ? 'text-gray-700' : 'text-gray-400']"
+                  />
+                </button>
+              </th>
+              <th class="px-4 py-3 font-medium">Fällig</th>
+              <th class="px-4 py-3 font-medium">Status</th>
+              <th class="px-4 py-3 font-medium w-10"></th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="fee in fees"
+              :key="fee.id"
+              :class="[
+                'border-t transition-colors',
+                isSelected(fee.id) ? 'bg-blue-50' : 'hover:bg-gray-50'
+              ]"
+            >
+              <td class="px-4 py-3">
+                <input
+                  type="checkbox"
+                  :checked="isSelected(fee.id)"
+                  @change="toggleSelect(fee.id)"
+                  class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+                />
+              </td>
+              <td class="px-4 py-3 text-gray-600 font-mono text-sm">
+                {{ fee.child?.memberNumber }}
+              </td>
+              <td class="px-4 py-3">
+                <button
+                  @click="goToChild(fee.childId)"
+                  class="font-medium text-primary hover:underline text-left"
+                >
+                  {{ fee.child?.firstName }} {{ fee.child?.lastName }}
+                </button>
+              </td>
+              <td class="px-4 py-3">
+                <span
+                  :class="[
+                    'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium',
+                    getFeeTypeColor(fee.feeType),
+                  ]"
+                >
+                  {{ getFeeTypeName(fee.feeType) }}
+                </span>
+              </td>
+              <td class="px-4 py-3 text-gray-600">
+                {{ fee.month ? getMonthName(fee.month) + ' ' : '' }}{{ fee.year }}
+              </td>
+              <td class="px-4 py-3 text-right font-medium">
+                {{ formatCurrency(fee.amount) }}
+              </td>
+              <td class="px-4 py-3 text-gray-600">
+                {{ formatDate(fee.dueDate) }}
+              </td>
+              <td class="px-4 py-3">
+                <div class="flex items-center gap-1.5">
+                  <component
+                    :is="getStatusInfo(fee).icon"
+                    :class="['h-4 w-4', getStatusInfo(fee).color]"
+                  />
+                  <span class="text-sm">{{ getStatusInfo(fee).label }}</span>
+                </div>
+              </td>
+              <td class="px-4 py-3">
+                <div class="flex items-center gap-1">
+                  <button
+                    v-if="canCreateReminder(fee)"
+                    @click="openReminderDialog(fee)"
+                    class="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded transition-colors"
+                    title="Mahngebühr erstellen"
+                  >
+                    <AlertCircle class="h-4 w-4" />
+                  </button>
+                  <button
+                    v-if="!fee.isPaid"
+                    @click="deleteSingleFee(fee)"
+                    class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                    title="Löschen"
+                  >
+                    <Trash2 class="h-4 w-4" />
+                  </button>
+                </div>
+              </td>
+            </tr>
+            <tr v-if="fees.length === 0">
+              <td colspan="9" class="px-4 py-8 text-center text-gray-500">
+                Keine Beiträge gefunden
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      <div class="flex items-center justify-between px-4 py-3 border-t bg-gray-50">
+        <div class="flex items-center gap-4">
+          <span class="text-sm text-gray-600">
+            {{ offset + 1 }}-{{ Math.min(offset + pageSize, total) }} von {{ total }}
+          </span>
+          <select
+            v-model="pageSize"
+            class="text-sm border border-gray-300 rounded px-2 py-1 focus:ring-primary focus:border-primary"
+          >
+            <option v-for="size in pageSizeOptions" :key="size" :value="size">
+              {{ size }} pro Seite
+            </option>
+          </select>
+        </div>
+        <div class="flex items-center gap-1">
+          <button
+            @click="goToPage(currentPage - 1)"
+            :disabled="currentPage === 1"
+            class="p-1.5 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <ChevronLeft class="h-4 w-4" />
+          </button>
+          <template v-for="page in visiblePages" :key="page">
+            <span v-if="page === '...'" class="px-2 text-gray-400">...</span>
+            <button
+              v-else
+              @click="goToPage(page)"
+              :class="[
+                'px-3 py-1 rounded text-sm',
+                page === currentPage
+                  ? 'bg-primary text-white'
+                  : 'hover:bg-gray-200',
+              ]"
+            >
+              {{ page }}
+            </button>
+          </template>
+          <button
+            @click="goToPage(currentPage + 1)"
+            :disabled="currentPage === totalPages"
+            class="p-1.5 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <ChevronRight class="h-4 w-4" />
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- Generate Dialog -->
@@ -737,8 +937,9 @@ async function handleCreateFee() {
 
         <div class="space-y-4">
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Jahr</label>
+            <label for="generate-year" class="block text-sm font-medium text-gray-700 mb-1">Jahr</label>
             <select
+              id="generate-year"
               v-model="generateForm.year"
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
             >
@@ -747,8 +948,9 @@ async function handleCreateFee() {
           </div>
 
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Monat</label>
+            <label for="generate-month" class="block text-sm font-medium text-gray-700 mb-1">Monat</label>
             <select
+              id="generate-month"
               v-model="generateForm.month"
               class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
             >

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -29,9 +30,22 @@ func (r *PostgresFeeRepository) List(ctx context.Context, filter FeeFilter, offs
 	var fees []domain.FeeExpectation
 	var total int64
 
-	// Base query with JOIN for search functionality
+	// Determine sort order and whether we need to join children
+	orderClause, needsChildJoin := getFeeSortOrder(filter.SortBy, filter.SortDir)
+
+	statusFilter := strings.ToLower(strings.TrimSpace(filter.Status))
+	needsStatusJoin := statusFilter == "paid" || statusFilter == "open" || statusFilter == "overdue"
+
+	// Base query with optional JOIN for search/sorting by child
 	baseQuery := `FROM fees.fee_expectations fe`
-	if filter.Search != "" {
+	if needsStatusJoin {
+		baseQuery += ` LEFT JOIN (
+			SELECT expectation_id, COALESCE(SUM(amount), 0) AS matched_amount
+			FROM fees.payment_matches
+			GROUP BY expectation_id
+		) pm_sum ON fe.id = pm_sum.expectation_id`
+	}
+	if filter.Search != "" || needsChildJoin {
 		baseQuery += ` JOIN fees.children c ON fe.child_id = c.id`
 	}
 	baseQuery += ` WHERE 1=1`
@@ -54,6 +68,17 @@ func (r *PostgresFeeRepository) List(ctx context.Context, filter FeeFilter, offs
 		baseQuery += fmt.Sprintf(" AND fe.fee_type = $%d", argIdx)
 		args = append(args, filter.FeeType)
 		argIdx++
+	}
+
+	if needsStatusJoin {
+		switch statusFilter {
+		case "paid":
+			baseQuery += " AND COALESCE(pm_sum.matched_amount, 0) >= fe.amount - 0.01"
+		case "open":
+			baseQuery += " AND COALESCE(pm_sum.matched_amount, 0) < fe.amount - 0.01"
+		case "overdue":
+			baseQuery += " AND COALESCE(pm_sum.matched_amount, 0) < fe.amount - 0.01 AND fe.due_date < NOW()"
+		}
 	}
 
 	if filter.ChildID != nil {
@@ -80,9 +105,9 @@ func (r *PostgresFeeRepository) List(ctx context.Context, filter FeeFilter, offs
 	selectQuery := fmt.Sprintf(`
 		SELECT fe.id, fe.child_id, fe.fee_type, fe.year, fe.month, fe.amount, fe.due_date, fe.created_at, fe.reminder_for_id, fe.reconciliation_year
 		%s
-		ORDER BY fe.year DESC, fe.month DESC NULLS LAST, fe.created_at DESC
+		ORDER BY %s
 		LIMIT $%d OFFSET $%d
-	`, baseQuery, argIdx, argIdx+1)
+	`, baseQuery, orderClause, argIdx, argIdx+1)
 	args = append(args, limit, offset)
 
 	err = r.db.SelectContext(ctx, &fees, selectQuery, args...)
@@ -91,6 +116,29 @@ func (r *PostgresFeeRepository) List(ctx context.Context, filter FeeFilter, offs
 	}
 
 	return fees, total, nil
+}
+
+// getFeeSortOrder returns a safe ORDER BY clause for fees and whether a child join is required.
+func getFeeSortOrder(sortBy, sortDir string) (string, bool) {
+	direction := "ASC"
+	if sortDir == "desc" {
+		direction = "DESC"
+	}
+
+	switch sortBy {
+	case "memberNumber":
+		return fmt.Sprintf("c.member_number %s, fe.year DESC, fe.month DESC NULLS LAST, fe.created_at DESC, fe.id DESC", direction), true
+	case "childName":
+		return fmt.Sprintf("c.last_name %s, c.first_name %s, fe.year DESC, fe.month DESC NULLS LAST, fe.created_at DESC, fe.id DESC", direction, direction), true
+	case "feeType":
+		return fmt.Sprintf("fe.fee_type %s, fe.year DESC, fe.month DESC NULLS LAST, fe.created_at DESC, fe.id DESC", direction), false
+	case "period":
+		return fmt.Sprintf("fe.year %s, fe.month %s NULLS LAST, fe.created_at DESC, fe.id DESC", direction, direction), false
+	case "amount":
+		return fmt.Sprintf("fe.amount %s, fe.year DESC, fe.month DESC NULLS LAST, fe.created_at DESC, fe.id DESC", direction), false
+	default:
+		return "fe.year DESC, fe.month DESC NULLS LAST, fe.created_at DESC, fe.id DESC", false
+	}
 }
 
 // GetByID retrieves a fee expectation by ID.
