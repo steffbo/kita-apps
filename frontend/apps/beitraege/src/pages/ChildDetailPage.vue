@@ -514,6 +514,30 @@ const allocationRemaining = computed(() => {
   return total - allocationTotal.value;
 });
 
+function clampAllocationAmount(amount: number, fee: FeeExpectation): number {
+  const maxFee = getFeeRemainingAmount(fee);
+  const maxTx = allocationSuggestion.value?.transaction.amount ?? 0;
+  if (amount <= 0) return 0;
+  return Math.min(amount, maxFee, maxTx);
+}
+
+function assignOnlyToFee(feeId: string): void {
+  const row = allocationRows.value.find(item => item.fee.id === feeId);
+  if (!row) return;
+  const amount = clampAllocationAmount(getFeeRemainingAmount(row.fee), row.fee);
+  allocationRows.value = allocationRows.value.map(item => ({
+    ...item,
+    amount: item.fee.id === feeId ? amount : 0,
+  }));
+}
+
+function assignRemainingToFee(feeId: string): void {
+  const row = allocationRows.value.find(item => item.fee.id === feeId);
+  if (!row) return;
+  const remaining = allocationRemaining.value + (row.amount || 0);
+  row.amount = clampAllocationAmount(remaining, row.fee);
+}
+
 function openAllocationModal(suggestion: MatchSuggestion): void {
   allocationSuggestion.value = suggestion;
   const rows = openFees.value.map(fee => ({ fee, amount: 0 }));
@@ -1991,7 +2015,7 @@ async function createReminder() {
                   Rest: {{ formatCurrency(getFeeRemainingAmount(row.fee)) }}
                 </p>
               </div>
-              <div class="w-32">
+              <div class="w-40">
                 <input
                   v-model.number="row.amount"
                   type="number"
@@ -2001,6 +2025,22 @@ async function createReminder() {
                   class="w-full px-2 py-1 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
                   placeholder="0,00"
                 />
+                <div class="flex items-center justify-end gap-2 mt-2">
+                  <button
+                    type="button"
+                    @click="assignRemainingToFee(row.fee.id)"
+                    class="text-xs text-gray-500 hover:text-gray-700"
+                  >
+                    Restbetrag
+                  </button>
+                  <button
+                    type="button"
+                    @click="assignOnlyToFee(row.fee.id)"
+                    class="text-xs text-primary hover:text-primary/80 font-medium"
+                  >
+                    Nur diesen Beitrag
+                  </button>
+                </div>
               </div>
             </div>
           </div>
