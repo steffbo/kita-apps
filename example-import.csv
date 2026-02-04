@@ -1,0 +1,7 @@
+Bezeichnung Auftragskonto;IBAN Auftragskonto;BIC Auftragskonto;Bankname Auftragskonto;Buchungstag;Valutadatum;Name Zahlungsbeteiligter;IBAN Zahlungsbeteiligter;BIC (SWIFT-Code) Zahlungsbeteiligter;Buchungstext;Verwendungszweck;Betrag;Waehrung;Saldo nach Buchung
+Girokonto;DE00112233445566778899;BICDEFFXXX;Beispielbank;04.02.2026;04.02.2026;Lisa Keller;DE44500105175432193001;BICDEFFXXX;Überweisung;Essensgeld Noah Keller 13001;45,40;EUR;10.000,00
+Girokonto;DE00112233445566778899;BICDEFFXXX;Beispielbank;04.02.2026;04.02.2026;Nina Sommer;DE66500105175432193002;BICDEFFXXX;Überweisung;Essensgeld Mila Sommer 13002;45,40;EUR;9.954,60
+Girokonto;DE00112233445566778899;BICDEFFXXX;Beispielbank;04.02.2026;04.02.2026;Mara Brandt;DE88500105175432193003;BICDEFFXXX;Überweisung;Essensgeld Lukas Brandt 13003;45,40;EUR;9.909,20
+Girokonto;DE00112233445566778899;BICDEFFXXX;Beispielbank;04.02.2026;04.02.2026;Mara Brandt;DE44500105175432193004;BICDEFFXXX;Überweisung;Essensgeld Ella Brandt 13004;45,40;EUR;9.863,80
+Girokonto;DE00112233445566778899;BICDEFFXXX;Beispielbank;04.02.2026;04.02.2026;Lea Fischer;DE99500105175432193005;BICDEFFXXX;Überweisung;Essensgeld Jonas Fischer 13005;45,40;EUR;9.818,40
+Girokonto;DE00112233445566778899;BICDEFFXXX;Beispielbank;04.02.2026;04.02.2026;Katrin Schroeder;DE77500105175432193006;BICDEFFXXX;Überweisung;Essensgeld Lea Schroeder 13006;45,40;EUR;9.773,00
