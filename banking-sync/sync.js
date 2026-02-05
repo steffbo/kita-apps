@@ -36,6 +36,69 @@ function createLogger(onLog) {
   };
 }
 
+async function findFirstVisible(locators, label, timeoutMs = 2000) {
+  for (const locator of locators) {
+    const candidate = locator.first();
+    try {
+      await candidate.waitFor({ state: 'visible', timeout: timeoutMs });
+      return candidate;
+    } catch (error) {
+      // try next
+    }
+  }
+  throw new Error(`Could not find visible element for ${label}`);
+}
+
+async function dismissCookieBanner(page, log) {
+  const buttons = [
+    page.getByRole('button', { name: /Alle akzeptieren|Akzeptieren|Zustimmen|Accept all|Accept/i }),
+    page.locator('button:has-text("Alle akzeptieren")'),
+    page.locator('button:has-text("Akzeptieren")'),
+    page.locator('button:has-text("Zustimmen")'),
+  ];
+
+  try {
+    const button = await findFirstVisible(buttons, 'cookie banner', 1500);
+    await button.click().catch(() => undefined);
+    log('🍪 Cookie banner dismissed');
+  } catch (error) {
+    // Ignore if not present
+  }
+}
+
+async function fillCredentials(page, log) {
+  const usernameCandidates = [
+    page.getByRole('textbox', { name: /NetKey|Alias|Benutzer|User|Login/i }),
+    page.getByLabel(/NetKey|Alias|Benutzer|User|Login/i),
+    page.locator('input[autocomplete="username"]'),
+    page.locator('input[name*="user" i], input[name*="login" i]'),
+    page.locator('input[type="text"]'),
+  ];
+
+  const passwordCandidates = [
+    page.getByLabel(/PIN|Passwort|Password/i),
+    page.getByRole('textbox', { name: /PIN|Passwort|Password/i }),
+    page.locator('input[autocomplete="current-password"]'),
+    page.locator('input[name*="pin" i], input[name*="password" i]'),
+    page.locator('input[type="password"]'),
+  ];
+
+  const submitCandidates = [
+    page.getByRole('button', { name: /Log in|Login|Anmelden|Einloggen|Weiter/i }),
+    page.locator('button[type="submit"]'),
+    page.locator('input[type="submit"]'),
+  ];
+
+  const usernameInput = await findFirstVisible(usernameCandidates, 'username');
+  await usernameInput.fill(CONFIG.username);
+
+  const passwordInput = await findFirstVisible(passwordCandidates, 'pin');
+  await passwordInput.fill(CONFIG.password);
+
+  const submitButton = await findFirstVisible(submitCandidates, 'login button');
+  await submitButton.click();
+}
+
 async function downloadCSV(options = {}) {
   const { onStatus, onLog } = options;
   const log = createLogger(onLog);
@@ -62,14 +125,12 @@ async function downloadCSV(options = {}) {
     // 1. Login page (recorded via playwright codegen)
     log('📱 Navigating to login...');
     await page.goto(CONFIG.bankUrl);
+    await page.waitForLoadState('domcontentloaded');
+    await dismissCookieBanner(page, log);
 
     // Fill credentials
     log('🔑 Entering credentials...');
-    await page.locator('div').filter({ hasText: /^NetKey or alias$/ }).nth(3).click();
-    await page.getByRole('textbox', { name: 'NetKey or alias' }).fill(CONFIG.username);
-    await page.locator('div').filter({ hasText: /^PIN$/ }).click();
-    await page.getByRole('textbox', { name: 'PIN' }).fill(CONFIG.password);
-    await page.getByRole('button', { name: 'Log in' }).click();
+    await fillCredentials(page, log);
 
     // 2. Wait for login or 2FA
     log('⏳ Waiting for login/2FA...');
