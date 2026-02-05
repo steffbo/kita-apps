@@ -38,6 +38,7 @@ Automatische CSV-Exporte von der SozialBank via Browser-Automatisierung (Playwri
 | `SYNC_API_TOKEN` | optional | - | Token für Runner-API (Header `X-Sync-Token`) |
 | `STATE_DIR` | optional | `./state` | Status/Log-Ordner für Runner-API |
 | `LOG_LINES` | optional | `200` | Anzahl Logzeilen im Status |
+| `SCREENSHOT_DIR` | optional | `./output` | Ordner für Debug-Screenshots |
 
 ## Lokal testen (sichtbar)
 

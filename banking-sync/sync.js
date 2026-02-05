@@ -17,6 +17,7 @@ const CONFIG = {
   userDataDir: process.env.USER_DATA_DIR || path.resolve(__dirname, 'profile'),
   dateRangeDays: Number(process.env.DATE_RANGE_DAYS || 90),
   twoFaTimeoutMs: Number(process.env.TWO_FA_TIMEOUT_SECONDS || 600) * 1000,
+  screenshotDir: process.env.SCREENSHOT_DIR || process.env.DOWNLOAD_DIR || path.resolve(__dirname, 'output'),
 };
 
 function ensureDir(dirPath) {
@@ -36,29 +37,54 @@ function createLogger(onLog) {
   };
 }
 
-async function findFirstVisible(locators, label, timeoutMs = 2000) {
-  for (const locator of locators) {
-    const candidate = locator.first();
-    try {
-      await candidate.waitFor({ state: 'visible', timeout: timeoutMs });
-      return candidate;
-    } catch (error) {
-      // try next
+function getRoots(page) {
+  const frames = page.frames();
+  if (!frames.length) return [page];
+  return [page, ...frames];
+}
+
+async function findFirstVisible(page, builders, label, timeoutMs = 10000) {
+  const roots = getRoots(page);
+  for (const root of roots) {
+    for (const build of builders) {
+      let locator;
+      try {
+        locator = build(root);
+      } catch (error) {
+        continue;
+      }
+      const candidate = locator.first();
+      try {
+        await candidate.waitFor({ state: 'visible', timeout: timeoutMs });
+        return candidate;
+      } catch (error) {
+        // try next
+      }
     }
   }
   throw new Error(`Could not find visible element for ${label}`);
 }
 
+async function clickIfVisible(page, builders, label) {
+  try {
+    const element = await findFirstVisible(page, builders, label, 2000);
+    await element.click().catch(() => undefined);
+    return true;
+  } catch (error) {
+    return false;
+  }
+}
+
 async function dismissCookieBanner(page, log) {
   const buttons = [
-    page.getByRole('button', { name: /Alle akzeptieren|Akzeptieren|Zustimmen|Accept all|Accept/i }),
-    page.locator('button:has-text("Alle akzeptieren")'),
-    page.locator('button:has-text("Akzeptieren")'),
-    page.locator('button:has-text("Zustimmen")'),
+    root => root.getByRole('button', { name: /Alle akzeptieren|Akzeptieren|Zustimmen|Accept all|Accept/i }),
+    root => root.locator('button:has-text("Alle akzeptieren")'),
+    root => root.locator('button:has-text("Akzeptieren")'),
+    root => root.locator('button:has-text("Zustimmen")'),
   ];
 
   try {
-    const button = await findFirstVisible(buttons, 'cookie banner', 1500);
+    const button = await findFirstVisible(page, buttons, 'cookie banner', 1500);
     await button.click().catch(() => undefined);
     log('🍪 Cookie banner dismissed');
   } catch (error) {
@@ -67,49 +93,55 @@ async function dismissCookieBanner(page, log) {
 }
 
 async function fillCredentials(page, log) {
+  await clickIfVisible(
+    page,
+    [root => root.getByRole('tab', { name: /Zugangsdaten/i }), root => root.locator('button:has-text("Mit Zugangsdaten anmelden")')],
+    'login tab'
+  );
+
   const usernameCandidates = [
-    page.locator('[data-automation-id="vvrnKey-input"]'),
-    page.locator('input[name="vvrnKeyFormControl"]'),
-    page.locator('input#vvrnKey'),
-    page.getByRole('textbox', { name: /NetKey|Alias|Benutzer|User|Login/i }),
-    page.getByLabel(/NetKey|Alias|Benutzer|User|Login/i),
-    page.locator('input[autocomplete="username"]'),
-    page.locator('input[name*="user" i], input[name*="login" i]'),
-    page.locator('input[type="text"]'),
+    root => root.locator('[data-automation-id="vvrnKey-input"]'),
+    root => root.locator('input[name="vvrnKeyFormControl"]'),
+    root => root.locator('input#vvrnKey'),
+    root => root.getByRole('textbox', { name: /NetKey|Alias|Benutzer|User|Login/i }),
+    root => root.getByLabel(/NetKey|Alias|Benutzer|User|Login/i),
+    root => root.locator('input[autocomplete="username"]'),
+    root => root.locator('input[name*="user" i], input[name*="login" i]'),
+    root => root.locator('input[type="text"]'),
   ];
 
   const passwordCandidates = [
-    page.locator('[data-automation-id="pin-input"]'),
-    page.locator('input[name="pinFormControl"]'),
-    page.locator('input#pin'),
-    page.getByLabel(/PIN|Passwort|Password/i),
-    page.getByRole('textbox', { name: /PIN|Passwort|Password/i }),
-    page.locator('input[autocomplete="current-password"]'),
-    page.locator('input[name*="pin" i], input[name*="password" i]'),
-    page.locator('input[type="password"]'),
+    root => root.locator('[data-automation-id="pin-input"]'),
+    root => root.locator('input[name="pinFormControl"]'),
+    root => root.locator('input#pin'),
+    root => root.getByLabel(/PIN|Passwort|Password/i),
+    root => root.getByRole('textbox', { name: /PIN|Passwort|Password/i }),
+    root => root.locator('input[autocomplete="current-password"]'),
+    root => root.locator('input[name*="pin" i], input[name*="password" i]'),
+    root => root.locator('input[type="password"]'),
   ];
 
   const submitCandidates = [
-    page.locator('[data-automation-id="sign-in-button"]'),
-    page.locator('app-signin-button button'),
-    page.locator('button:has-text("Anmelden")'),
-    page.getByRole('button', { name: /Log in|Login|Anmelden|Einloggen|Weiter/i }),
-    page.locator('button[type="submit"]'),
-    page.locator('input[type="submit"]'),
+    root => root.locator('[data-automation-id="sign-in-button"]'),
+    root => root.locator('app-signin-button button'),
+    root => root.locator('button:has-text("Anmelden")'),
+    root => root.getByRole('button', { name: /Log in|Login|Anmelden|Einloggen|Weiter/i }),
+    root => root.locator('button[type="submit"]'),
+    root => root.locator('input[type="submit"]'),
   ];
 
-  const usernameInput = await findFirstVisible(usernameCandidates, 'username');
+  const usernameInput = await findFirstVisible(page, usernameCandidates, 'username');
   await usernameInput.fill(CONFIG.username);
 
-  const passwordInput = await findFirstVisible(passwordCandidates, 'pin');
+  const passwordInput = await findFirstVisible(page, passwordCandidates, 'pin');
   await passwordInput.fill(CONFIG.password);
 
-  const submitButton = await findFirstVisible(submitCandidates, 'login button');
+  const submitButton = await findFirstVisible(page, submitCandidates, 'login button');
   await submitButton.click();
 }
 
 async function downloadCSV(options = {}) {
-  const { onStatus, onLog } = options;
+  const { onStatus, onLog, onScreenshot } = options;
   const log = createLogger(onLog);
 
   log('🚀 Starting banking sync...');
@@ -193,6 +225,18 @@ async function downloadCSV(options = {}) {
 
     return targetPath;
   } catch (error) {
+    try {
+      ensureDir(CONFIG.screenshotDir);
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const screenshotPath = path.join(CONFIG.screenshotDir, `login_error_${timestamp}.png`);
+      await page.screenshot({ path: screenshotPath, fullPage: true });
+      log(`📸 Saved screenshot to ${screenshotPath}`);
+      if (onScreenshot) {
+        onScreenshot(screenshotPath);
+      }
+    } catch (screenshotError) {
+      log(`⚠️  Failed to capture screenshot: ${screenshotError.message}`);
+    }
     await context.close();
     throw error;
   }
