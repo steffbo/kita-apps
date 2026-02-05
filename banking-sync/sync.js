@@ -5,7 +5,9 @@ const path = require('path');
 
 // Configuration from environment
 const CONFIG = {
-  bankUrl: process.env.BANK_URL || 'https://www.sozialbank-onlinebanking.de/services_cloud/portal/',
+  bankUrl:
+    process.env.BANK_URL ||
+    'https://www.sozialbank-onlinebanking.de/services_auth/auth-frontend/?v=d2037d6fa58a8828878a28a81fe07257&client_id=fkp&redirect_uri=https:%2F%2Fwww.sozialbank-onlinebanking.de%2Fservices_cloud%2Fportal%2Fportal-oauth%2Flogin',
   username: process.env.BANK_USERNAME,
   password: process.env.BANK_PASSWORD,
   apiUrl: process.env.API_URL || 'http://localhost:8081/api/fees/v1',
@@ -14,6 +16,7 @@ const CONFIG = {
   downloadDir: process.env.DOWNLOAD_DIR || path.resolve(__dirname, 'output'),
   userDataDir: process.env.USER_DATA_DIR || path.resolve(__dirname, 'profile'),
   dateRangeDays: Number(process.env.DATE_RANGE_DAYS || 90),
+  twoFaTimeoutMs: Number(process.env.TWO_FA_TIMEOUT_SECONDS || 600) * 1000,
 };
 
 function ensureDir(dirPath) {
@@ -24,9 +27,21 @@ function joinUrl(base, suffix) {
   return `${base.replace(/\/$/, '')}${suffix}`;
 }
 
-async function downloadCSV() {
-  console.log('🚀 Starting banking sync...');
-  console.log(`   URL: ${CONFIG.bankUrl}`);
+function createLogger(onLog) {
+  return message => {
+    console.log(message);
+    if (onLog) {
+      onLog(message);
+    }
+  };
+}
+
+async function downloadCSV(options = {}) {
+  const { onStatus, onLog } = options;
+  const log = createLogger(onLog);
+
+  log('🚀 Starting banking sync...');
+  log(`   URL: ${CONFIG.bankUrl}`);
 
   if (!CONFIG.username || !CONFIG.password) {
     throw new Error('BANK_USERNAME and BANK_PASSWORD required');
@@ -44,80 +59,65 @@ async function downloadCSV() {
   const page = await context.newPage();
 
   try {
-    // 1. Login page
-    console.log('📱 Navigating to login...');
-    await page.goto(CONFIG.bankUrl, { waitUntil: 'networkidle' });
-
-    // Wait for login form (adjust selectors based on actual page)
-    await page.waitForSelector('input[type="text"], input[name="username"], #username', { timeout: 10000 });
+    // 1. Login page (recorded via playwright codegen)
+    log('📱 Navigating to login...');
+    await page.goto(CONFIG.bankUrl);
 
     // Fill credentials
-    console.log('🔑 Entering credentials...');
-    await page.fill('input[type="text"], input[name="username"], #username', CONFIG.username);
-    await page.fill('input[type="password"], input[name="password"], #password', CONFIG.password);
+    log('🔑 Entering credentials...');
+    await page.locator('div').filter({ hasText: /^NetKey or alias$/ }).nth(3).click();
+    await page.getByRole('textbox', { name: 'NetKey or alias' }).fill(CONFIG.username);
+    await page.locator('div').filter({ hasText: /^PIN$/ }).click();
+    await page.getByRole('textbox', { name: 'PIN' }).fill(CONFIG.password);
+    await page.getByRole('button', { name: 'Log in' }).click();
 
-    // Submit login
-    await page.click('button[type="submit"], input[type="submit"], .login-button');
-
-    // 2. Handle 2FA if needed (first time or security check)
-    console.log('⏳ Waiting for login/2FA...');
+    // 2. Wait for login or 2FA
+    log('⏳ Waiting for login/2FA...');
+    const transactionsButton = page.getByRole('button', { name: 'Umsätze von BFS Komfort' });
     try {
-      // Wait for either dashboard OR 2FA prompt
-      await Promise.race([
-        page.waitForSelector('.dashboard, .account-overview, [data-testid="dashboard"]', { timeout: 30000 }),
-        page.waitForSelector('.tan-prompt, .securego, [data-testid="2fa"]', { timeout: 30000 }),
-      ]);
-
-      // Check if we're on 2FA page
-      const is2FA = await page.$('.tan-prompt, .securego, [data-testid="2fa"]');
-      if (is2FA) {
-        console.log('⚠️  2FA required - please approve in SecureGo Plus app');
-        // Wait for user to approve (or timeout)
-        await page.waitForSelector('.dashboard, .account-overview', { timeout: 120000 });
+      await transactionsButton.waitFor({ state: 'visible', timeout: 60000 });
+    } catch (error) {
+      const secureGoVisible = await page
+        .locator('text=/SecureGo|TAN|Freigabe|2FA/i')
+        .first()
+        .isVisible()
+        .catch(() => false);
+      if (secureGoVisible) {
+        if (onStatus) {
+          onStatus('waiting_for_2fa');
+        }
+        log('⚠️  2FA required - please approve in SecureGo Plus app');
+        await transactionsButton.waitFor({ state: 'visible', timeout: CONFIG.twoFaTimeoutMs });
+      } else {
+        throw new Error('Login timeout - check credentials or 2FA');
       }
-    } catch (e) {
-      throw new Error('Login timeout - check credentials or 2FA');
     }
 
-    console.log('✅ Logged in successfully');
+    if (onStatus) {
+      onStatus('running');
+    }
+    log('✅ Logged in successfully');
 
-    // 3. Navigate to transactions
-    console.log('📊 Navigating to transactions...');
-    await page.click('a[href*="transaction"], a[href*="umsatz"], .menu-transactions');
-    await page.waitForLoadState('networkidle');
+    // 3. Navigate to transactions (recorded)
+    log('📊 Navigating to transactions...');
+    await transactionsButton.click();
 
-    // 4. Set date range (last N days)
-    const endDate = new Date();
-    const startDate = new Date();
-    startDate.setDate(startDate.getDate() - CONFIG.dateRangeDays);
+    // 4. Download CSV (recorded)
+    log('💾 Downloading CSV...');
+    await page.getByRole('button', { name: 'Exportieren: Modal öffnen zum' }).click();
+    await page.locator('label').filter({ hasText: 'CSV' }).click();
+    const downloadPromise = page.waitForEvent('download');
+    await page.getByRole('button', { name: 'Exportieren' }).click();
+    const download = await downloadPromise;
 
-    const startStr = startDate.toISOString().split('T')[0];
-    const endStr = endDate.toISOString().split('T')[0];
-
-    console.log(`📅 Setting date range: ${startStr} to ${endStr}`);
-
-    // Fill date range (adjust selectors)
-    await page.fill('input[name="startDate"], input[name="from"]', startStr);
-    await page.fill('input[name="endDate"], input[name="to"]', endStr);
-
-    // Search/Apply
-    await page.click('button[type="submit"], .search-button, .apply-filter');
-    await page.waitForLoadState('networkidle');
-
-    // 5. Download CSV
-    console.log('💾 Downloading CSV...');
-
-    const [download] = await Promise.all([
-      page.waitForEvent('download'),
-      page.click('button:has-text("CSV"), a:has-text("CSV"), .export-csv'),
-    ]);
-
-    const fileName = `sozialbank_${startStr}_to_${endStr}.csv`;
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const suggestedName = download.suggestedFilename();
+    const fileName = `sozialbank_${timestamp}_${suggestedName}`;
     const targetPath = path.join(CONFIG.downloadDir, fileName);
     await download.saveAs(targetPath);
 
     const fileSize = fs.statSync(targetPath).size;
-    console.log(`✅ Downloaded ${fileSize} bytes to ${targetPath}`);
+    log(`✅ Downloaded ${fileSize} bytes to ${targetPath}`);
 
     await context.close();
 
@@ -128,8 +128,10 @@ async function downloadCSV() {
   }
 }
 
-async function uploadToAPI(csvPath) {
-  console.log('📤 Uploading to API...');
+async function uploadToAPI(csvPath, options = {}) {
+  const { onLog } = options;
+  const log = createLogger(onLog);
+  log('📤 Uploading to API...');
 
   if (!CONFIG.apiToken) {
     throw new Error('CRON_API_TOKEN required');
@@ -153,7 +155,7 @@ async function uploadToAPI(csvPath) {
   }
 
   const result = await response.json();
-  console.log('✅ Upload successful:', result);
+  log(`✅ Upload successful: ${JSON.stringify(result)}`);
   return result;
 }
 

@@ -33,6 +33,11 @@ Automatische CSV-Exporte von der SozialBank via Browser-Automatisierung (Playwri
 | `DOWNLOAD_DIR` | optional | `./output` | CSV Download-Ordner |
 | `DATE_RANGE_DAYS` | optional | `90` | Zeitraum (Tage) |
 | `HEADLESS` | optional | `true` | Browser sichtbar machen |
+| `TWO_FA_TIMEOUT_SECONDS` | optional | `600` | Timeout für 2FA-Freigabe |
+| `PORT` | optional | `3333` | Port für Runner-API |
+| `SYNC_API_TOKEN` | optional | - | Token für Runner-API (Header `X-Sync-Token`) |
+| `STATE_DIR` | optional | `./state` | Status/Log-Ordner für Runner-API |
+| `LOG_LINES` | optional | `200` | Anzahl Logzeilen im Status |
 
 ## Lokal testen (sichtbar)
 
@@ -52,6 +57,20 @@ Wenn du eine CSV bereits im Download-Ordner hast, kannst du den Import später a
 ```bash
 CRON_API_TOKEN=... bun upload.js --file ./output/sozialbank_2026-02-01_to_2026-05-01.csv
 ```
+
+## Runner-Modus (API)
+
+Für einen UI-Trigger kann der Sync als kleiner HTTP-Runner laufen:
+
+```bash
+cd banking-sync
+SYNC_API_TOKEN=... BANK_USERNAME=... BANK_PASSWORD=... CRON_API_TOKEN=... bun server.js
+```
+
+Endpoints:
+- `POST /run` (startet Sync; Header `X-Sync-Token`)
+- `GET /status` (Status + letzte Logs; Header `X-Sync-Token`)
+- `GET /health` (ohne Auth)
 
 ## Docker (Run-Once)
 

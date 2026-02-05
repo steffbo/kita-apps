@@ -29,7 +29,7 @@ RUN bun install
 RUN bunx playwright install chromium
 
 # Copy app files
-COPY sync.js upload.js ./
+COPY sync.js upload.js server.js ./
 COPY entrypoint.sh ./
 
 # Make entrypoint executable

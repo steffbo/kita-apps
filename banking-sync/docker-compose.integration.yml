@@ -30,6 +30,31 @@
         reservations:
           memory: 200M
 
+  banking-sync-runner:
+    build:
+      context: ../banking-sync
+      dockerfile: Dockerfile
+    container_name: kita-banking-sync-runner
+    command: ["bun", "server.js"]
+    environment:
+      BANK_URL: https://banking.sozialbank.de
+      BANK_USERNAME: ${BANK_USERNAME}
+      BANK_PASSWORD: ${BANK_PASSWORD}
+      API_URL: http://backend-fees:8081/api/fees/v1
+      CRON_API_TOKEN: ${CRON_API_TOKEN}
+      USER_DATA_DIR: /data/profile
+      DOWNLOAD_DIR: /data/downloads
+      DATE_RANGE_DAYS: "90"
+      HEADLESS: "true"
+      SYNC_API_TOKEN: ${SYNC_API_TOKEN}
+      STATE_DIR: /data/state
+      PORT: "3333"
+    volumes:
+      - banking_sync_data:/data
+    depends_on:
+      - backend-fees
+    profiles: ["banking-sync-runner"]
+
 # volumes:
 #   banking_sync_data:
 
