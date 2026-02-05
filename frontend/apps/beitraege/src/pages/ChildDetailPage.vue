@@ -141,7 +141,8 @@ async function loadChild() {
 async function loadTrustedIbans() {
   isLoadingTrustedIbans.value = true;
   try {
-    trustedIbans.value = await api.getChildTrustedIBANs(childId.value);
+    const result = await api.getChildTrustedIBANs(childId.value);
+    trustedIbans.value = result ?? [];
   } catch (e) {
     trustedIbans.value = [];
   } finally {
