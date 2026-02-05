@@ -19,6 +19,10 @@ const CONFIG = {
   twoFaTimeoutMs: Number(process.env.TWO_FA_TIMEOUT_SECONDS || 600) * 1000,
   screenshotDir: process.env.SCREENSHOT_DIR || process.env.DOWNLOAD_DIR || path.resolve(__dirname, 'output'),
   debugScreenshots: process.env.DEBUG_SCREENSHOTS === 'true',
+  loginTimeoutMs: Number(process.env.LOGIN_TIMEOUT_SECONDS || 30) * 1000,
+  traceEnabled: process.env.DEBUG_TRACE === 'true',
+  traceDir:
+    process.env.TRACE_DIR || process.env.SCREENSHOT_DIR || process.env.DOWNLOAD_DIR || path.resolve(__dirname, 'output'),
   userAgent:
     process.env.USER_AGENT ||
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 13_6_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
@@ -146,17 +150,32 @@ async function fillCredentials(page, log) {
     root => root.locator('input[type="submit"]'),
   ];
 
-  const usernameInput = await findFirstVisible(page, usernameCandidates, 'username');
+  const usernameInput = await findFirstVisible(page, usernameCandidates, 'username', CONFIG.loginTimeoutMs);
   await usernameInput.fill(CONFIG.username);
 
-  const passwordInput = await findFirstVisible(page, passwordCandidates, 'pin');
+  const passwordInput = await findFirstVisible(page, passwordCandidates, 'pin', CONFIG.loginTimeoutMs);
   await passwordInput.fill(CONFIG.password);
 
-  const submitButton = await findFirstVisible(page, submitCandidates, 'login button');
+  const submitButton = await findFirstVisible(page, submitCandidates, 'login button', CONFIG.loginTimeoutMs);
   await submitButton.click();
 }
 
+async function isPageValid(page) {
+  try {
+    await page.evaluate(() => document.title);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 async function captureArtifacts(page, log, onScreenshot, onHtmlSnapshot, label) {
+  const isValid = await isPageValid(page).catch(() => false);
+  if (!isValid) {
+    log(`⚠️  Cannot capture ${label} artifacts: page is closed or crashed`);
+    return;
+  }
+
   try {
     ensureDir(CONFIG.screenshotDir);
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
@@ -184,8 +203,43 @@ async function captureArtifacts(page, log, onScreenshot, onHtmlSnapshot, label) 
   }
 }
 
+async function startTracing(context, log) {
+  if (!CONFIG.traceEnabled) return false;
+  try {
+    ensureDir(CONFIG.traceDir);
+    await context.tracing.start({ screenshots: true, snapshots: true, sources: false });
+    log('🧵 Tracing enabled');
+    return true;
+  } catch (error) {
+    log(`⚠️  Failed to start tracing: ${error.message}`);
+    return false;
+  }
+}
+
+async function stopTracing(context, log, onTrace, label, save) {
+  if (!CONFIG.traceEnabled) return false;
+  try {
+    if (!save) {
+      await context.tracing.stop();
+      return false;
+    }
+    ensureDir(CONFIG.traceDir);
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const tracePath = path.join(CONFIG.traceDir, `${label}_${timestamp}.zip`);
+    await context.tracing.stop({ path: tracePath });
+    log(`🧵 Saved trace to ${tracePath}`);
+    if (onTrace) {
+      onTrace(tracePath);
+    }
+    return true;
+  } catch (error) {
+    log(`⚠️  Failed to stop tracing: ${error.message}`);
+    return false;
+  }
+}
+
 async function downloadCSV(options = {}) {
-  const { onStatus, onLog, onScreenshot, onHtmlSnapshot } = options;
+  const { onStatus, onLog, onScreenshot, onHtmlSnapshot, onTrace } = options;
   const log = createLogger(onLog);
 
   log('🚀 Starting banking sync...');
@@ -218,7 +272,12 @@ async function downloadCSV(options = {}) {
     Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
   });
 
+  let traceStarted = false;
+  let traceSaved = false;
+
   try {
+    traceStarted = await startTracing(context, log);
+
     // 1. Login page (recorded via playwright codegen)
     log('📱 Navigating to login...');
     await page.goto(CONFIG.bankUrl);
@@ -230,6 +289,7 @@ async function downloadCSV(options = {}) {
 
     // Fill credentials
     log('🔑 Entering credentials...');
+    await captureArtifacts(page, log, onScreenshot, onHtmlSnapshot, 'before_credentials');
     await fillCredentials(page, log);
 
     // 2. Wait for login or 2FA
@@ -280,11 +340,34 @@ async function downloadCSV(options = {}) {
     const fileSize = fs.statSync(targetPath).size;
     log(`✅ Downloaded ${fileSize} bytes to ${targetPath}`);
 
+    if (traceStarted) {
+      await stopTracing(context, log, onTrace, 'trace_success', false);
+      traceStarted = false;
+    }
+
     await context.close();
 
     return targetPath;
   } catch (error) {
-    await captureArtifacts(page, log, onScreenshot, onHtmlSnapshot, 'login_error');
+    log(`❌ Error during sync: ${error.message}`);
+    
+    // Try to capture current URL for debugging
+    try {
+      const currentUrl = page.url();
+      log(`📍 Current URL at error: ${currentUrl}`);
+    } catch {
+      log('📍 Could not get current URL (page may be closed)');
+    }
+    
+    // Capture artifacts before stopping trace
+    await captureArtifacts(page, log, onScreenshot, onHtmlSnapshot, 'error_state');
+    
+    // Stop tracing and save on error
+    if (traceStarted) {
+      traceSaved = await stopTracing(context, log, onTrace, 'trace_error', true);
+      traceStarted = false;
+    }
+    
     await context.close();
     throw error;
   }
