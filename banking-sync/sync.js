@@ -15,14 +15,7 @@ const CONFIG = {
   headless: process.env.HEADLESS !== 'false',
   downloadDir: process.env.DOWNLOAD_DIR || path.resolve(__dirname, 'output'),
   userDataDir: process.env.USER_DATA_DIR || path.resolve(__dirname, 'profile'),
-  dateRangeDays: Number(process.env.DATE_RANGE_DAYS || 90),
   twoFaTimeoutMs: Number(process.env.TWO_FA_TIMEOUT_SECONDS || 600) * 1000,
-  screenshotDir: process.env.SCREENSHOT_DIR || process.env.DOWNLOAD_DIR || path.resolve(__dirname, 'output'),
-  debugScreenshots: process.env.DEBUG_SCREENSHOTS === 'true',
-  loginTimeoutMs: Number(process.env.LOGIN_TIMEOUT_SECONDS || 30) * 1000,
-  traceEnabled: process.env.DEBUG_TRACE === 'true',
-  traceDir:
-    process.env.TRACE_DIR || process.env.SCREENSHOT_DIR || process.env.DOWNLOAD_DIR || path.resolve(__dirname, 'output'),
   userAgent:
     process.env.USER_AGENT ||
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 13_6_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
@@ -32,235 +25,89 @@ function ensureDir(dirPath) {
   fs.mkdirSync(dirPath, { recursive: true });
 }
 
-function joinUrl(base, suffix) {
-  return `${base.replace(/\/$/, '')}${suffix}`;
-}
-
 function createLogger(onLog) {
   return message => {
     console.log(message);
-    if (onLog) {
-      onLog(message);
-    }
+    if (onLog) onLog(message);
   };
 }
 
-function getRootUrl(root) {
-  try {
-    if (typeof root.url === 'function') {
-      return root.url();
-    }
-  } catch (error) {
-    return 'unknown';
-  }
-  return 'unknown';
-}
-
-function getRoots(page) {
-  const frames = page.frames();
-  if (!frames.length) return [page];
-  return [page, ...frames];
-}
-
-async function findFirstVisible(page, builders, label, timeoutMs = 10000, log = null) {
-  const roots = getRoots(page);
-  for (const root of roots) {
-    for (let i = 0; i < builders.length; i++) {
-      const build = builders[i];
-      let locator;
-      try {
-        locator = build(root);
-      } catch (error) {
-        continue;
-      }
-      const candidate = locator.first();
-      try {
-        await candidate.waitFor({ state: 'visible', timeout: timeoutMs });
-        if (log) log(`  Found ${label} using selector #${i + 1}`);
-        return candidate;
-      } catch (error) {
-        // try next
-      }
+async function findFirstVisible(page, builders, label, timeoutMs = 10000) {
+  for (const build of builders) {
+    try {
+      const locator = build(page).first();
+      await locator.waitFor({ state: 'visible', timeout: timeoutMs });
+      return locator;
+    } catch {
+      // try next
     }
   }
-  const frameInfo = roots.map(root => getRootUrl(root)).join(', ');
-  throw new Error(`Could not find visible element for ${label}. Frames: ${frameInfo}`);
+  throw new Error(`Could not find visible element for ${label}`);
 }
 
-async function clickIfVisible(page, builders, label) {
+async function clickIfVisible(page, builders) {
   try {
-    const element = await findFirstVisible(page, builders, label, 2000);
+    const element = await findFirstVisible(page, builders, 'element', 2000);
     await element.click().catch(() => undefined);
-    return true;
-  } catch (error) {
-    return false;
-  }
-}
-
-async function dismissCookieBanner(page, log) {
-  const buttons = [
-    root => root.getByRole('button', { name: /Alle akzeptieren|Akzeptieren|Zustimmen|Accept all|Accept/i }),
-    root => root.locator('button:has-text("Alle akzeptieren")'),
-    root => root.locator('button:has-text("Akzeptieren")'),
-    root => root.locator('button:has-text("Zustimmen")'),
-  ];
-
-  try {
-    const button = await findFirstVisible(page, buttons, 'cookie banner', 1500);
-    await button.click().catch(() => undefined);
-    log('🍪 Cookie banner dismissed');
-  } catch (error) {
-    // Ignore if not present
-  }
-}
-
-async function fillCredentials(page, log, onScreenshot, onHtmlSnapshot) {
-  await clickIfVisible(
-    page,
-    [root => root.getByRole('tab', { name: /Zugangsdaten/i }), root => root.locator('button:has-text("Mit Zugangsdaten anmelden")')],
-    'login tab'
-  );
-
-  log('  Looking for username field...');
-  const usernameCandidates = [
-    root => root.locator('[data-automation-id="vrNetKey-input"]'),
-    root => root.locator('input[name="vrNetKeyFormControl"]'),
-    root => root.locator('input#vrNetKey'),
-    root => root.getByRole('textbox', { name: /NetKey|Alias|Benutzer|User|Login/i }),
-    root => root.getByLabel(/NetKey|Alias|Benutzer|User|Login/i),
-    root => root.locator('input[autocomplete="off"]'),
-    root => root.locator('input[type="text"]'),
-  ];
-
-  const passwordCandidates = [
-    root => root.locator('[data-automation-id="pin-input"]'),
-    root => root.locator('input[name="pinFormControl"]'),
-    root => root.locator('input#pin'),
-    root => root.getByLabel(/PIN|Passwort|Password/i),
-    root => root.getByRole('textbox', { name: /PIN|Passwort|Password/i }),
-    root => root.locator('input[autocomplete="current-password"]'),
-    root => root.locator('input[name*="pin" i], input[name*="password" i]'),
-    root => root.locator('input[type="password"]'),
-  ];
-
-  const submitCandidates = [
-    root => root.locator('[data-automation-id="sign-in-button"]'),
-    root => root.locator('app-signin-button button'),
-    root => root.locator('button:has-text("Anmelden")'),
-    root => root.getByRole('button', { name: /Log in|Login|Anmelden|Einloggen|Weiter/i }),
-    root => root.locator('button[type="submit"]'),
-    root => root.locator('input[type="submit"]'),
-  ];
-
-  // Wait a moment for form to be fully interactive
-  await page.waitForTimeout(500);
-  
-  log('  Filling username...');
-  const usernameInput = await findFirstVisible(page, usernameCandidates, 'username', CONFIG.loginTimeoutMs, log);
-  await usernameInput.fill(CONFIG.username);
-  log(`  ✓ Username filled`);
-
-  log('  Filling PIN...');
-  const passwordInput = await findFirstVisible(page, passwordCandidates, 'pin', CONFIG.loginTimeoutMs, log);
-  await passwordInput.fill(CONFIG.password);
-  log(`  ✓ PIN filled`);
-
-  log('  Clicking submit...');
-  const submitButton = await findFirstVisible(page, submitCandidates, 'login button', CONFIG.loginTimeoutMs, log);
-  await submitButton.click();
-  log(`  ✓ Submit clicked`);
-  
-  // Wait for navigation and capture state
-  await page.waitForTimeout(2000);
-  if (CONFIG.debugScreenshots) {
-    await captureArtifacts(page, log, onScreenshot, onHtmlSnapshot, 'after_submit');
-  }
-}
-
-async function isPageValid(page) {
-  try {
-    await page.evaluate(() => document.title);
     return true;
   } catch {
     return false;
   }
 }
 
-async function captureArtifacts(page, log, onScreenshot, onHtmlSnapshot, label) {
-  const isValid = await isPageValid(page).catch(() => false);
-  if (!isValid) {
-    log(`⚠️  Cannot capture ${label} artifacts: page is closed or crashed`);
-    return;
-  }
-
-  try {
-    ensureDir(CONFIG.screenshotDir);
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const screenshotPath = path.join(CONFIG.screenshotDir, `${label}_${timestamp}.png`);
-    await page.screenshot({ path: screenshotPath, fullPage: false, timeout: 10000, animations: 'disabled' });
-    log(`📸 Saved screenshot to ${screenshotPath}`);
-    if (onScreenshot) {
-      onScreenshot(screenshotPath);
-    }
-  } catch (screenshotError) {
-    log(`⚠️  Failed to capture screenshot: ${screenshotError.message}`);
-  }
-
-  try {
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const htmlPath = path.join(CONFIG.screenshotDir, `${label}_${timestamp}.html`);
-    const content = await page.content();
-    fs.writeFileSync(htmlPath, content, 'utf-8');
-    log(`🧾 Saved HTML snapshot to ${htmlPath}`);
-    if (onHtmlSnapshot) {
-      onHtmlSnapshot(htmlPath);
-    }
-  } catch (htmlError) {
-    log(`⚠️  Failed to capture HTML snapshot: ${htmlError.message}`);
-  }
+async function dismissCookieBanner(page) {
+  await clickIfVisible(page, [
+    root => root.getByRole('button', { name: /Alle akzeptieren|Akzeptieren/i }),
+    root => root.locator('button:has-text("Alle akzeptieren")'),
+  ]);
 }
 
-async function startTracing(context, log) {
-  if (!CONFIG.traceEnabled) return false;
-  try {
-    ensureDir(CONFIG.traceDir);
-    await context.tracing.start({ screenshots: true, snapshots: true, sources: false });
-    log('🧵 Tracing enabled');
-    return true;
-  } catch (error) {
-    log(`⚠️  Failed to start tracing: ${error.message}`);
-    return false;
-  }
-}
+async function fillCredentials(page) {
+  await clickIfVisible(page, [
+    root => root.getByRole('tab', { name: /Zugangsdaten/i }),
+    root => root.locator('button:has-text("Mit Zugangsdaten anmelden")'),
+  ]);
 
-async function stopTracing(context, log, onTrace, label, save) {
-  if (!CONFIG.traceEnabled) return false;
-  try {
-    if (!save) {
-      await context.tracing.stop();
-      return false;
-    }
-    ensureDir(CONFIG.traceDir);
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const tracePath = path.join(CONFIG.traceDir, `${label}_${timestamp}.zip`);
-    await context.tracing.stop({ path: tracePath });
-    log(`🧵 Saved trace to ${tracePath}`);
-    if (onTrace) {
-      onTrace(tracePath);
-    }
-    return true;
-  } catch (error) {
-    log(`⚠️  Failed to stop tracing: ${error.message}`);
-    return false;
-  }
+  // Wait for form to be fully interactive
+  await page.waitForTimeout(500);
+
+  const usernameInput = await findFirstVisible(page, [
+    root => root.locator('[data-automation-id="vrNetKey-input"]'),
+    root => root.locator('input[name="vrNetKeyFormControl"]'),
+    root => root.locator('input#vrNetKey'),
+    root => root.getByRole('textbox', { name: /NetKey|Benutzer/i }),
+    root => root.getByLabel(/NetKey|Benutzer/i),
+    root => root.locator('input[autocomplete="off"]'),
+    root => root.locator('input[type="text"]'),
+  ], 'username', 30000);
+  await usernameInput.fill(CONFIG.username);
+
+  const passwordInput = await findFirstVisible(page, [
+    root => root.locator('[data-automation-id="pin-input"]'),
+    root => root.locator('input[name="pinFormControl"]'),
+    root => root.locator('input#pin'),
+    root => root.getByLabel(/PIN/i),
+    root => root.locator('input[type="password"]'),
+  ], 'pin', 30000);
+  await passwordInput.fill(CONFIG.password);
+
+  const submitButton = await findFirstVisible(page, [
+    root => root.locator('[data-automation-id="sign-in-button"]'),
+    root => root.locator('button:has-text("Anmelden")'),
+    root => root.getByRole('button', { name: /Anmelden|Login/i }),
+    root => root.locator('button[type="submit"]'),
+  ], 'login button', 30000);
+  await submitButton.click();
+
+  // Wait for navigation
+  await page.waitForTimeout(2000);
 }
 
 async function downloadCSV(options = {}) {
-  const { onStatus, onLog, onScreenshot, onHtmlSnapshot, onTrace } = options;
+  const { onStatus, onLog } = options;
   const log = createLogger(onLog);
 
   log('🚀 Starting banking sync...');
-  log(`   URL: ${CONFIG.bankUrl}`);
 
   if (!CONFIG.username || !CONFIG.password) {
     throw new Error('BANK_USERNAME and BANK_PASSWORD required');
@@ -289,47 +136,37 @@ async function downloadCSV(options = {}) {
     Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
   });
 
-  let traceStarted = false;
-  let traceSaved = false;
-
   try {
-    traceStarted = await startTracing(context, log);
-
-    // 1. Login page (recorded via playwright codegen)
+    // 1. Navigate and login
     log('📱 Navigating to login...');
     await page.goto(CONFIG.bankUrl);
     await page.waitForLoadState('domcontentloaded');
-    // Wait for Angular/React app to fully initialize
     await page.waitForTimeout(2000);
-    await dismissCookieBanner(page, log);
-    if (CONFIG.debugScreenshots) {
-      await captureArtifacts(page, log, onScreenshot, onHtmlSnapshot, 'login_page');
-    }
+    await dismissCookieBanner(page);
 
-    // Fill credentials
     log('🔑 Entering credentials...');
-    await captureArtifacts(page, log, onScreenshot, onHtmlSnapshot, 'before_credentials');
-    await fillCredentials(page, log, onScreenshot, onHtmlSnapshot);
+    await fillCredentials(page);
 
     // 2. Wait for login or 2FA
     log('⏳ Waiting for login/2FA...');
     
-    // Look for the BFS Komfort account - click on the account row itself
-    // The first account (KONTOKORRENT/BFS Komfort) doesn't have a visible button
-    // but the entire account row is clickable
-    const transactionsCandidates = [
-      // Try to find clickable account row by IBAN or account name
+    // Wait for account list to load
+    await page.waitForTimeout(2000);
+    
+    const accountSelector = [
+      // Primary: Find by IBAN data attribute
       root => root.locator('[data-e2e-konto-business-ident="DE33370205000003321400"]'),
+      // Fallback: First konto-list-item with clickable area
       root => root.locator('app-konto-list-item').first().locator('.konto-list-item'),
       root => root.locator('app-konto-item').first(),
-      root => root.getByText('BFS Komfort').first().locator('..').locator('..'),
-      // Fallback: click the first account list item
+      // Last resort: first account list item
       root => root.locator('app-konto-list-item').first(),
     ];
     
-    let transactionsButton;
+    let accountElement;
     try {
-      transactionsButton = await findFirstVisible(page, transactionsCandidates, 'BFS Komfort account', 60000, log);
+      accountElement = await findFirstVisible(page, accountSelector, 'BFS Komfort account', 60000);
+      log('  Found account element');
     } catch (error) {
       const secureGoVisible = await page
         .locator('text=/SecureGo|TAN|Freigabe|2FA/i')
@@ -337,26 +174,22 @@ async function downloadCSV(options = {}) {
         .isVisible()
         .catch(() => false);
       if (secureGoVisible) {
-        if (onStatus) {
-          onStatus('waiting_for_2fa');
-        }
+        if (onStatus) onStatus('waiting_for_2fa');
         log('⚠️  2FA required - please approve in SecureGo Plus app');
-        transactionsButton = await findFirstVisible(page, transactionsCandidates, 'BFS Komfort account', CONFIG.twoFaTimeoutMs, log);
+        accountElement = await findFirstVisible(page, accountSelector, 'BFS Komfort account', CONFIG.twoFaTimeoutMs);
       } else {
         throw new Error('Login timeout - check credentials or 2FA');
       }
     }
 
-    if (onStatus) {
-      onStatus('running');
-    }
+    if (onStatus) onStatus('running');
     log('✅ Logged in successfully');
 
-    // 3. Navigate to transactions (recorded)
+    // 3. Navigate to transactions
     log('📊 Navigating to transactions...');
-    await transactionsButton.click();
+    await accountElement.click();
 
-    // 4. Download CSV (recorded)
+    // 4. Download CSV
     log('💾 Downloading CSV...');
     await page.getByRole('button', { name: 'Exportieren: Modal öffnen zum' }).click();
     await page.locator('label').filter({ hasText: 'CSV' }).click();
@@ -365,42 +198,15 @@ async function downloadCSV(options = {}) {
     const download = await downloadPromise;
 
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const suggestedName = download.suggestedFilename();
-    const fileName = `sozialbank_${timestamp}_${suggestedName}`;
+    const fileName = `sozialbank_${timestamp}_${download.suggestedFilename()}`;
     const targetPath = path.join(CONFIG.downloadDir, fileName);
     await download.saveAs(targetPath);
 
-    const fileSize = fs.statSync(targetPath).size;
-    log(`✅ Downloaded ${fileSize} bytes to ${targetPath}`);
-
-    if (traceStarted) {
-      await stopTracing(context, log, onTrace, 'trace_success', false);
-      traceStarted = false;
-    }
-
+    log(`✅ Downloaded ${fs.statSync(targetPath).size} bytes to ${targetPath}`);
     await context.close();
-
     return targetPath;
   } catch (error) {
-    log(`❌ Error during sync: ${error.message}`);
-    
-    // Try to capture current URL for debugging
-    try {
-      const currentUrl = page.url();
-      log(`📍 Current URL at error: ${currentUrl}`);
-    } catch {
-      log('📍 Could not get current URL (page may be closed)');
-    }
-    
-    // Capture artifacts before stopping trace
-    await captureArtifacts(page, log, onScreenshot, onHtmlSnapshot, 'error_state');
-    
-    // Stop tracing and save on error
-    if (traceStarted) {
-      traceSaved = await stopTracing(context, log, onTrace, 'trace_error', true);
-      traceStarted = false;
-    }
-    
+    log(`❌ Error: ${error.message}`);
     await context.close();
     throw error;
   }
@@ -419,11 +225,9 @@ async function uploadToAPI(csvPath, options = {}) {
   const form = new FormData();
   form.append('file', new Blob([fileBuffer], { type: 'text/csv' }), path.basename(csvPath));
 
-  const response = await fetch(joinUrl(CONFIG.apiUrl, '/import/upload'), {
+  const response = await fetch(CONFIG.apiUrl.replace(/\/$/, '') + '/import/upload', {
     method: 'POST',
-    headers: {
-      'X-Import-Token': CONFIG.apiToken,
-    },
+    headers: { 'X-Import-Token': CONFIG.apiToken },
     body: form,
   });
 
@@ -445,21 +249,20 @@ async function main() {
 
     if (isTest) {
       const csvContent = fs.readFileSync(csvPath, 'utf-8');
-      console.log('\n🧪 Test mode - CSV content preview:');
+      console.log('\n🧪 Test mode - CSV preview:');
       console.log(csvContent.substring(0, 500) + '...');
-      console.log('\n✅ Test successful - ready for production');
+      console.log('\n✅ Test successful');
       return;
     }
 
     await uploadToAPI(csvPath);
-    console.log('\n🎉 Banking sync completed successfully!');
+    console.log('\n🎉 Banking sync completed!');
   } catch (error) {
     console.error('\n❌ Banking sync failed:', error.message);
     process.exit(1);
   }
 }
 
-// Run if called directly
 if (require.main === module) {
   main();
 }
