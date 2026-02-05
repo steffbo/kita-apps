@@ -26,6 +26,9 @@ jobs:
           - name: backend-fees
             context: .
             dockerfile: backend-fees/Dockerfile
+          - name: banking-sync
+            context: banking-sync
+            dockerfile: banking-sync/Dockerfile
 
     steps:
       - name: Checkout repository
