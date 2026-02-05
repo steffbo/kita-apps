@@ -237,6 +237,10 @@ func (s *FeeService) Generate(ctx context.Context, year int, month *int) (*Gener
 					HighestRate:   info.IsHighestRate,
 					FosterFamily:  info.IsFosterFamily,
 				})
+				if feeResult.Fee <= 0 {
+					// Beitrag frei: kein Platzgeld erzeugen
+					continue
+				}
 				created, err := s.createFeeIfNotExists(ctx, child.ID, domain.FeeTypeChildcare, year, month, feeResult.Fee, dueDate)
 				if err != nil {
 					return nil, err
