@@ -1,0 +1,16 @@
+# Dependencies
+node_modules/
+
+# Output files (keep CSVs but ignore debug artifacts)
+output/*.png
+output/*.html
+output/*.zip
+
+# Browser profile
+profile/
+
+# Environment variables
+.env
+
+# Logs
+*.log
