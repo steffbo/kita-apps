@@ -492,6 +492,54 @@ async function handleUnlinkParent() {
 const openFees = computed(() => fees.value.filter(f => !f.isPaid));
 const paidFees = computed(() => fees.value.filter(f => f.isPaid));
 
+type FeeGroup = {
+  fee: FeeExpectation;
+  reminders: FeeExpectation[];
+};
+
+const feeGroups = computed<FeeGroup[]>(() => {
+  const baseFees = fees.value.filter(f => f.feeType !== 'REMINDER');
+  const baseIds = new Set(baseFees.map(f => f.id));
+  const remindersByBase = new Map<string, FeeExpectation[]>();
+  const orphanReminders: FeeExpectation[] = [];
+
+  for (const fee of fees.value) {
+    if (fee.feeType !== 'REMINDER') continue;
+    if (fee.reminderForId && baseIds.has(fee.reminderForId)) {
+      const list = remindersByBase.get(fee.reminderForId) ?? [];
+      list.push(fee);
+      remindersByBase.set(fee.reminderForId, list);
+    } else {
+      orphanReminders.push(fee);
+    }
+  }
+
+  const groups: FeeGroup[] = baseFees.map(fee => ({
+    fee,
+    reminders: remindersByBase.get(fee.id) ?? [],
+  }));
+
+  for (const reminder of orphanReminders) {
+    groups.push({ fee: reminder, reminders: [] });
+  }
+
+  return groups;
+});
+
+const openFeeGroups = computed(() =>
+  feeGroups.value.filter(group => {
+    const hasOpenReminders = group.reminders.some(rem => !rem.isPaid);
+    return !group.fee.isPaid || hasOpenReminders;
+  })
+);
+
+const paidFeeGroups = computed(() =>
+  feeGroups.value.filter(group => {
+    if (!group.fee.isPaid) return false;
+    return group.reminders.every(rem => rem.isPaid);
+  })
+);
+
 function getFeeMatches(fee: FeeExpectation): PaymentMatch[] {
   if (fee.partialMatches && fee.partialMatches.length > 0) return fee.partialMatches;
   if (fee.matchedBy) return [fee.matchedBy];
@@ -536,6 +584,21 @@ function getFeeRemainingAmount(fee: FeeExpectation): number {
   const matched = fee.matchedAmount ?? 0;
   const remaining = fee.amount - matched;
   return remaining > 0 ? remaining : 0;
+}
+
+function getReminderCounts(reminders: FeeExpectation[]) {
+  const total = reminders.length;
+  const paid = reminders.filter(r => r.isPaid).length;
+  return { total, paid, open: total - paid };
+}
+
+function getReminderSummary(reminders: FeeExpectation[]): string {
+  if (reminders.length === 0) return '';
+  const { total, paid, open } = getReminderCounts(reminders);
+  const label = total === 1 ? 'Mahngebühr' : 'Mahngebühren';
+  if (open === 0) return `${total} ${label} bezahlt`;
+  if (paid === 0) return `${total} ${label} offen`;
+  return `${paid} bezahlt · ${open} offen`;
 }
 
 function maskIban(iban?: string): string {
@@ -1310,44 +1373,59 @@ async function createReminder() {
           </div>
 
           <!-- Open fees -->
-          <div v-if="openFees.length > 0" class="mb-6">
+          <div v-if="openFeeGroups.length > 0" class="mb-6">
             <h3 class="text-sm font-medium text-gray-500 mb-3 flex items-center gap-2">
               <Clock class="h-4 w-4" />
-              Offene Beiträge ({{ openFees.length }})
+              Offene Beiträge ({{ openFeeGroups.length }})
             </h3>
             <div class="space-y-2">
               <div
-                v-for="fee in openFees"
-                :key="fee.id"
+                v-for="group in openFeeGroups"
+                :key="group.fee.id"
                 :class="[
                   'flex items-center justify-between p-3 rounded-lg',
-                  fee.feeType === 'REMINDER' 
+                  group.fee.feeType === 'REMINDER' 
                     ? 'bg-red-50 border border-red-200' 
                     : 'bg-amber-50 border border-amber-200'
                 ]"
               >
                 <div class="flex items-center gap-3">
                   <AlertTriangle
-                    v-if="new Date(fee.dueDate) < new Date()"
-                    :class="fee.feeType === 'REMINDER' ? 'h-5 w-5 text-red-500' : 'h-5 w-5 text-red-500'"
+                    v-if="new Date(group.fee.dueDate) < new Date()"
+                    :class="group.fee.feeType === 'REMINDER' ? 'h-5 w-5 text-red-500' : 'h-5 w-5 text-red-500'"
                   />
-                  <Clock v-else :class="fee.feeType === 'REMINDER' ? 'h-5 w-5 text-red-500' : 'h-5 w-5 text-amber-500'" />
+                  <Clock v-else :class="group.fee.feeType === 'REMINDER' ? 'h-5 w-5 text-red-500' : 'h-5 w-5 text-amber-500'" />
                   <div>
-                    <p :class="['font-medium', fee.feeType === 'REMINDER' ? 'text-red-700' : '']">{{ getFeeTypeName(fee.feeType) }}</p>
+                    <p :class="['font-medium', group.fee.feeType === 'REMINDER' ? 'text-red-700' : '']">{{ getFeeTypeName(group.fee.feeType) }}</p>
                     <p class="text-sm text-gray-600">
-                      {{ fee.month ? getMonthName(fee.month) + ' ' : '' }}{{ fee.year }}
-                      · Fällig: {{ formatDate(fee.dueDate) }}
+                      {{ group.fee.month ? getMonthName(group.fee.month) + ' ' : '' }}{{ group.fee.year }}
+                      · Fällig: {{ formatDate(group.fee.dueDate) }}
                     </p>
-                    <p v-if="fee.matchedAmount && fee.matchedAmount > 0" class="text-xs text-amber-700">
-                      Bereits bezahlt: {{ formatCurrency(fee.matchedAmount) }} · Rest: {{ formatCurrency(getFeeRemainingAmount(fee)) }}
+                    <p v-if="group.fee.matchedAmount && group.fee.matchedAmount > 0" class="text-xs text-amber-700">
+                      Bereits bezahlt: {{ formatCurrency(group.fee.matchedAmount) }} · Rest: {{ formatCurrency(getFeeRemainingAmount(group.fee)) }}
+                    </p>
+                    <p
+                      v-if="group.reminders.length > 0"
+                      :class="[
+                        'text-xs',
+                        group.reminders.some(rem => !rem.isPaid) ? 'text-red-700' : 'text-green-700'
+                      ]"
+                    >
+                      Mahngebühren: {{ getReminderSummary(group.reminders) }}
+                    </p>
+                    <p
+                      v-if="group.fee.isPaid && group.reminders.some(rem => !rem.isPaid)"
+                      class="text-xs text-amber-700"
+                    >
+                      Beitrag bezahlt · Mahngebühren offen
                     </p>
                   </div>
                 </div>
                 <div class="flex items-center gap-2">
-                  <p :class="['font-semibold', fee.feeType === 'REMINDER' ? 'text-red-700' : '']">{{ formatCurrency(fee.amount) }}</p>
+                  <p :class="['font-semibold', group.fee.feeType === 'REMINDER' ? 'text-red-700' : '']">{{ formatCurrency(group.fee.amount) }}</p>
                   <button
-                    v-if="canCreateReminder(fee)"
-                    @click="openReminderDialog(fee)"
+                    v-if="canCreateReminder(group.fee)"
+                    @click="openReminderDialog(group.fee)"
                     class="p-1.5 text-amber-600 hover:text-amber-800 hover:bg-amber-100 rounded-lg transition-colors"
                     title="Mahngebühr erstellen"
                   >
@@ -1359,43 +1437,46 @@ async function createReminder() {
           </div>
 
           <!-- Paid fees -->
-          <div v-if="paidFees.length > 0">
+          <div v-if="paidFeeGroups.length > 0">
             <h3 class="text-sm font-medium text-gray-500 mb-3 flex items-center gap-2">
               <CheckCircle class="h-4 w-4" />
-              Bezahlte Beiträge ({{ paidFees.length }})
+              Bezahlte Beiträge ({{ paidFeeGroups.length }})
             </h3>
             <div class="space-y-2">
               <button
-                v-for="fee in paidFees"
-                :key="fee.id"
-                @click="openTransactionModal(fee)"
+                v-for="group in paidFeeGroups"
+                :key="group.fee.id"
+                @click="openTransactionModal(group.fee)"
                 :class="[
                   'w-full flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg text-left transition-colors',
-                  getFeeMatches(fee).length > 0 ? 'hover:bg-green-100 cursor-pointer' : ''
+                  getFeeMatches(group.fee).length > 0 ? 'hover:bg-green-100 cursor-pointer' : ''
                 ]"
-                :disabled="getFeeMatches(fee).length === 0"
+                :disabled="getFeeMatches(group.fee).length === 0"
               >
                 <div class="flex items-center gap-3">
                   <CheckCircle class="h-5 w-5 text-green-500" />
                   <div>
-                    <p class="font-medium">{{ getFeeTypeName(fee.feeType) }}</p>
+                    <p class="font-medium">{{ getFeeTypeName(group.fee.feeType) }}</p>
                     <p class="text-sm text-gray-600">
-                      {{ fee.month ? getMonthName(fee.month) + ' ' : '' }}{{ fee.year }}
-                      <span v-if="getPaymentSummary(fee)" class="text-green-600">
-                        · {{ getPaymentSummary(fee) }}
+                      {{ group.fee.month ? getMonthName(group.fee.month) + ' ' : '' }}{{ group.fee.year }}
+                      <span v-if="getPaymentSummary(group.fee)" class="text-green-600">
+                        · {{ getPaymentSummary(group.fee) }}
                       </span>
+                    </p>
+                    <p v-if="group.reminders.length > 0" class="text-xs text-green-700">
+                      Mahngebühren: {{ getReminderSummary(group.reminders) }}
                     </p>
                   </div>
                 </div>
                 <div class="flex items-center gap-2">
-                  <p class="font-semibold text-green-700">{{ formatCurrency(fee.amount) }}</p>
+                  <p class="font-semibold text-green-700">{{ formatCurrency(group.fee.amount) }}</p>
                   <span
-                    v-if="getFeeMatches(fee).length > 1"
+                    v-if="getFeeMatches(group.fee).length > 1"
                     class="text-xs font-medium text-green-700 bg-green-100 px-2 py-0.5 rounded-full"
                   >
-                    {{ getFeeMatches(fee).length }}x
+                    {{ getFeeMatches(group.fee).length }}x
                   </span>
-                  <CreditCard v-if="getFeeMatches(fee).length > 0" class="h-4 w-4 text-green-500" />
+                  <CreditCard v-if="getFeeMatches(group.fee).length > 0" class="h-4 w-4 text-green-500" />
                 </div>
               </button>
             </div>
