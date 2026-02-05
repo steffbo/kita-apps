@@ -71,6 +71,27 @@ function appendLog(message) {
   updateState({ logs, lastMessage: message });
 }
 
+function recoverStaleInProgressState() {
+  if (state.status !== 'running' && state.status !== 'waiting_for_2fa') {
+    return;
+  }
+
+  const recoveredAt = nowIso();
+  const reason = 'Runner restarted while sync was in progress; state recovered.';
+  const logs = [...(state.logs || []), `${recoveredAt} ⚠️ ${reason}`].slice(-CONFIG.maxLogLines);
+
+  state = {
+    ...state,
+    status: 'error',
+    finishedAt: state.finishedAt || recoveredAt,
+    lastError: reason,
+    lastMessage: reason,
+    logs,
+    updatedAt: recoveredAt,
+  };
+  saveState();
+}
+
 function isAuthorized(req) {
   if (!CONFIG.syncToken) {
     return true;
@@ -106,6 +127,7 @@ let running = false;
 
 ensureDir(CONFIG.stateDir);
 state = loadState();
+recoverStaleInProgressState();
 
 async function runSync({ test = false } = {}) {
   if (running) {

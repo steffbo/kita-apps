@@ -71,13 +71,16 @@ async function findFirstVisible(page, builders, label, timeoutMs = 10000, log = 
       }
       const candidates = await buildCandidateLocators(locator);
       for (const candidate of candidates) {
-        attempts.push(
-          candidate.waitFor({ state: 'visible', timeout: timeoutMs }).then(() => ({
+        try {
+          const attempt = candidate.waitFor({ state: 'visible', timeout: timeoutMs }).then(() => ({
             candidate,
             selectorIndex: i + 1,
             root,
-          }))
-        );
+          }));
+          attempts.push(attempt);
+        } catch {
+          // Element/page may already be gone (browser crash/navigation); skip this candidate.
+        }
       }
     }
   }
