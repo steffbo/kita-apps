@@ -68,6 +68,9 @@ async function dismissCookieBanner(page, log) {
 
 async function fillCredentials(page, log) {
   const usernameCandidates = [
+    page.locator('[data-automation-id="vvrnKey-input"]'),
+    page.locator('input[name="vvrnKeyFormControl"]'),
+    page.locator('input#vvrnKey'),
     page.getByRole('textbox', { name: /NetKey|Alias|Benutzer|User|Login/i }),
     page.getByLabel(/NetKey|Alias|Benutzer|User|Login/i),
     page.locator('input[autocomplete="username"]'),
@@ -76,6 +79,9 @@ async function fillCredentials(page, log) {
   ];
 
   const passwordCandidates = [
+    page.locator('[data-automation-id="pin-input"]'),
+    page.locator('input[name="pinFormControl"]'),
+    page.locator('input#pin'),
     page.getByLabel(/PIN|Passwort|Password/i),
     page.getByRole('textbox', { name: /PIN|Passwort|Password/i }),
     page.locator('input[autocomplete="current-password"]'),
@@ -84,6 +90,9 @@ async function fillCredentials(page, log) {
   ];
 
   const submitCandidates = [
+    page.locator('[data-automation-id="sign-in-button"]'),
+    page.locator('app-signin-button button'),
+    page.locator('button:has-text("Anmelden")'),
     page.getByRole('button', { name: /Log in|Login|Anmelden|Einloggen|Weiter/i }),
     page.locator('button[type="submit"]'),
     page.locator('input[type="submit"]'),
