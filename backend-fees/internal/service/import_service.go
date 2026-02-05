@@ -551,14 +551,14 @@ func (s *ImportService) ConfirmMatches(ctx context.Context, matches []MatchConfi
 		}
 		result.Confirmed++
 
-		s.postMatchActions(ctx, m.TransactionID, m.ExpectationID, "Auto-resolved: Zahlung wurde zugeordnet")
+		s.postMatchActions(ctx, m.TransactionID, m.ExpectationID, &fee.ChildID, "Auto-resolved: Zahlung wurde zugeordnet")
 	}
 
 	return result, nil
 }
 
 // markIBANAsTrusted marks the IBAN from a transaction as trusted.
-func (s *ImportService) markIBANAsTrusted(ctx context.Context, transactionID uuid.UUID) {
+func (s *ImportService) markIBANAsTrusted(ctx context.Context, transactionID uuid.UUID, childID *uuid.UUID) {
 	tx, err := s.transactionRepo.GetByID(ctx, transactionID)
 	if err != nil || tx.PayerIBAN == nil {
 		return
@@ -567,7 +567,12 @@ func (s *ImportService) markIBANAsTrusted(ctx context.Context, transactionID uui
 	// Check if already known
 	existing, _ := s.knownIBANRepo.GetByIBAN(ctx, *tx.PayerIBAN)
 	if existing != nil {
-		// Already known, don't overwrite
+		if existing.Status == domain.KnownIBANStatusBlacklisted {
+			return
+		}
+		if existing.ChildID == nil && childID != nil {
+			_ = s.knownIBANRepo.UpdateChildLink(ctx, existing.IBAN, childID)
+		}
 		return
 	}
 
@@ -575,6 +580,7 @@ func (s *ImportService) markIBANAsTrusted(ctx context.Context, transactionID uui
 		IBAN:                  *tx.PayerIBAN,
 		PayerName:             tx.PayerName,
 		Status:                domain.KnownIBANStatusTrusted,
+		ChildID:               childID,
 		Reason:                stringPtr("Automatically marked as trusted after successful match"),
 		OriginalTransactionID: &tx.ID,
 		OriginalDescription:   tx.Description,
@@ -622,7 +628,7 @@ func (s *ImportService) CreateManualMatch(ctx context.Context, transactionID, ex
 		return nil, err
 	}
 
-	s.postMatchActions(ctx, transactionID, expectationID, "Auto-resolved: Zahlung wurde manuell zugeordnet")
+	s.postMatchActions(ctx, transactionID, expectationID, &fee.ChildID, "Auto-resolved: Zahlung wurde manuell zugeordnet")
 
 	return match, nil
 }
@@ -694,7 +700,8 @@ func (s *ImportService) autoConfirmMatch(ctx context.Context, suggestion *domain
 				return false
 			}
 		}
-		s.postMatchActions(ctx, suggestion.Transaction.ID, uuid.Nil, "Auto-matched: Hohe Übereinstimmung (95%+)")
+		childID := suggestion.Expectations[0].ChildID
+		s.postMatchActions(ctx, suggestion.Transaction.ID, uuid.Nil, &childID, "Auto-matched: Hohe Übereinstimmung (95%+)")
 		log.Info().
 			Str("transactionId", suggestion.Transaction.ID.String()).
 			Float64("confidence", suggestion.Confidence).
@@ -720,7 +727,8 @@ func (s *ImportService) autoConfirmMatch(ctx context.Context, suggestion *domain
 		if err := s.matchRepo.Create(ctx, match); err != nil {
 			return false
 		}
-		s.postMatchActions(ctx, suggestion.Transaction.ID, suggestion.Expectation.ID, "Auto-matched: Hohe Übereinstimmung (95%+)")
+		childID := suggestion.Expectation.ChildID
+		s.postMatchActions(ctx, suggestion.Transaction.ID, suggestion.Expectation.ID, &childID, "Auto-matched: Hohe Übereinstimmung (95%+)")
 		log.Info().
 			Str("transactionId", suggestion.Transaction.ID.String()).
 			Float64("confidence", suggestion.Confidence).
@@ -735,8 +743,17 @@ func (s *ImportService) autoConfirmMatch(ctx context.Context, suggestion *domain
 }
 
 // postMatchActions performs common actions after a match is created.
-func (s *ImportService) postMatchActions(ctx context.Context, transactionID, feeID uuid.UUID, warningResolutionNote string) {
-	s.markIBANAsTrusted(ctx, transactionID)
+func (s *ImportService) postMatchActions(ctx context.Context, transactionID, feeID uuid.UUID, childID *uuid.UUID, warningResolutionNote string) {
+	resolvedChildID := childID
+	if resolvedChildID == nil && feeID != uuid.Nil {
+		fee, err := s.feeRepo.GetByID(ctx, feeID)
+		if err == nil {
+			id := fee.ChildID
+			resolvedChildID = &id
+		}
+	}
+
+	s.markIBANAsTrusted(ctx, transactionID, resolvedChildID)
 
 	if s.warningRepo != nil {
 		s.warningRepo.ResolveByTransactionID(ctx, transactionID, domain.ResolutionTypeMatched, warningResolutionNote)
@@ -898,7 +915,7 @@ func (s *ImportService) AllocateTransaction(ctx context.Context, transactionID, 
 	}
 
 	// Post-match actions
-	s.markIBANAsTrusted(ctx, transactionID)
+	s.markIBANAsTrusted(ctx, transactionID, childID)
 	if s.warningRepo != nil {
 		s.warningRepo.ResolveByTransactionID(ctx, transactionID, domain.ResolutionTypeMatched, "Zahlung wurde manuell verteilt")
 	}
