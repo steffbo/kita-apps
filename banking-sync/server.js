@@ -32,6 +32,7 @@ const defaultState = {
   downloadPath: null,
   uploadResult: null,
   lastScreenshot: null,
+  lastHtmlSnapshot: null,
   logs: [],
   updatedAt: nowIso(),
 };
@@ -123,6 +124,7 @@ async function runSync({ test = false } = {}) {
     downloadPath: null,
     uploadResult: null,
     lastScreenshot: null,
+    lastHtmlSnapshot: null,
   });
 
   try {
@@ -138,6 +140,9 @@ async function runSync({ test = false } = {}) {
       onLog: appendLog,
       onScreenshot: screenshotPath => {
         updateState({ lastScreenshot: screenshotPath });
+      },
+      onHtmlSnapshot: htmlPath => {
+        updateState({ lastHtmlSnapshot: htmlPath });
       },
     });
 

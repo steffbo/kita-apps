@@ -18,6 +18,10 @@ const CONFIG = {
   dateRangeDays: Number(process.env.DATE_RANGE_DAYS || 90),
   twoFaTimeoutMs: Number(process.env.TWO_FA_TIMEOUT_SECONDS || 600) * 1000,
   screenshotDir: process.env.SCREENSHOT_DIR || process.env.DOWNLOAD_DIR || path.resolve(__dirname, 'output'),
+  debugScreenshots: process.env.DEBUG_SCREENSHOTS === 'true',
+  userAgent:
+    process.env.USER_AGENT ||
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 13_6_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
 };
 
 function ensureDir(dirPath) {
@@ -35,6 +39,17 @@ function createLogger(onLog) {
       onLog(message);
     }
   };
+}
+
+function getRootUrl(root) {
+  try {
+    if (typeof root.url === 'function') {
+      return root.url();
+    }
+  } catch (error) {
+    return 'unknown';
+  }
+  return 'unknown';
 }
 
 function getRoots(page) {
@@ -62,7 +77,8 @@ async function findFirstVisible(page, builders, label, timeoutMs = 10000) {
       }
     }
   }
-  throw new Error(`Could not find visible element for ${label}`);
+  const frameInfo = roots.map(root => getRootUrl(root)).join(', ');
+  throw new Error(`Could not find visible element for ${label}. Frames: ${frameInfo}`);
 }
 
 async function clickIfVisible(page, builders, label) {
@@ -140,8 +156,36 @@ async function fillCredentials(page, log) {
   await submitButton.click();
 }
 
+async function captureArtifacts(page, log, onScreenshot, onHtmlSnapshot, label) {
+  try {
+    ensureDir(CONFIG.screenshotDir);
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const screenshotPath = path.join(CONFIG.screenshotDir, `${label}_${timestamp}.png`);
+    await page.screenshot({ path: screenshotPath, fullPage: false, timeout: 10000, animations: 'disabled' });
+    log(`📸 Saved screenshot to ${screenshotPath}`);
+    if (onScreenshot) {
+      onScreenshot(screenshotPath);
+    }
+  } catch (screenshotError) {
+    log(`⚠️  Failed to capture screenshot: ${screenshotError.message}`);
+  }
+
+  try {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const htmlPath = path.join(CONFIG.screenshotDir, `${label}_${timestamp}.html`);
+    const content = await page.content();
+    fs.writeFileSync(htmlPath, content, 'utf-8');
+    log(`🧾 Saved HTML snapshot to ${htmlPath}`);
+    if (onHtmlSnapshot) {
+      onHtmlSnapshot(htmlPath);
+    }
+  } catch (htmlError) {
+    log(`⚠️  Failed to capture HTML snapshot: ${htmlError.message}`);
+  }
+}
+
 async function downloadCSV(options = {}) {
-  const { onStatus, onLog, onScreenshot } = options;
+  const { onStatus, onLog, onScreenshot, onHtmlSnapshot } = options;
   const log = createLogger(onLog);
 
   log('🚀 Starting banking sync...');
@@ -157,10 +201,22 @@ async function downloadCSV(options = {}) {
   const context = await chromium.launchPersistentContext(CONFIG.userDataDir, {
     headless: CONFIG.headless,
     acceptDownloads: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    viewport: { width: 1280, height: 720 },
+    userAgent: CONFIG.userAgent,
+    locale: 'de-DE',
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-gpu',
+      '--disable-blink-features=AutomationControlled',
+    ],
   });
 
   const page = await context.newPage();
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+  });
 
   try {
     // 1. Login page (recorded via playwright codegen)
@@ -168,6 +224,9 @@ async function downloadCSV(options = {}) {
     await page.goto(CONFIG.bankUrl);
     await page.waitForLoadState('domcontentloaded');
     await dismissCookieBanner(page, log);
+    if (CONFIG.debugScreenshots) {
+      await captureArtifacts(page, log, onScreenshot, onHtmlSnapshot, 'login_page');
+    }
 
     // Fill credentials
     log('🔑 Entering credentials...');
@@ -225,18 +284,7 @@ async function downloadCSV(options = {}) {
 
     return targetPath;
   } catch (error) {
-    try {
-      ensureDir(CONFIG.screenshotDir);
-      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-      const screenshotPath = path.join(CONFIG.screenshotDir, `login_error_${timestamp}.png`);
-      await page.screenshot({ path: screenshotPath, fullPage: true });
-      log(`📸 Saved screenshot to ${screenshotPath}`);
-      if (onScreenshot) {
-        onScreenshot(screenshotPath);
-      }
-    } catch (screenshotError) {
-      log(`⚠️  Failed to capture screenshot: ${screenshotError.message}`);
-    }
+    await captureArtifacts(page, log, onScreenshot, onHtmlSnapshot, 'login_error');
     await context.close();
     throw error;
   }
