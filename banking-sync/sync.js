@@ -62,10 +62,11 @@ function getRoots(page) {
   return [page, ...frames];
 }
 
-async function findFirstVisible(page, builders, label, timeoutMs = 10000) {
+async function findFirstVisible(page, builders, label, timeoutMs = 10000, log = null) {
   const roots = getRoots(page);
   for (const root of roots) {
-    for (const build of builders) {
+    for (let i = 0; i < builders.length; i++) {
+      const build = builders[i];
       let locator;
       try {
         locator = build(root);
@@ -75,6 +76,7 @@ async function findFirstVisible(page, builders, label, timeoutMs = 10000) {
       const candidate = locator.first();
       try {
         await candidate.waitFor({ state: 'visible', timeout: timeoutMs });
+        if (log) log(`  Found ${label} using selector #${i + 1}`);
         return candidate;
       } catch (error) {
         // try next
@@ -112,21 +114,21 @@ async function dismissCookieBanner(page, log) {
   }
 }
 
-async function fillCredentials(page, log) {
+async function fillCredentials(page, log, onScreenshot, onHtmlSnapshot) {
   await clickIfVisible(
     page,
     [root => root.getByRole('tab', { name: /Zugangsdaten/i }), root => root.locator('button:has-text("Mit Zugangsdaten anmelden")')],
     'login tab'
   );
 
+  log('  Looking for username field...');
   const usernameCandidates = [
-    root => root.locator('[data-automation-id="vvrnKey-input"]'),
-    root => root.locator('input[name="vvrnKeyFormControl"]'),
-    root => root.locator('input#vvrnKey'),
+    root => root.locator('[data-automation-id="vrNetKey-input"]'),
+    root => root.locator('input[name="vrNetKeyFormControl"]'),
+    root => root.locator('input#vrNetKey'),
     root => root.getByRole('textbox', { name: /NetKey|Alias|Benutzer|User|Login/i }),
     root => root.getByLabel(/NetKey|Alias|Benutzer|User|Login/i),
-    root => root.locator('input[autocomplete="username"]'),
-    root => root.locator('input[name*="user" i], input[name*="login" i]'),
+    root => root.locator('input[autocomplete="off"]'),
     root => root.locator('input[type="text"]'),
   ];
 
@@ -150,14 +152,29 @@ async function fillCredentials(page, log) {
     root => root.locator('input[type="submit"]'),
   ];
 
-  const usernameInput = await findFirstVisible(page, usernameCandidates, 'username', CONFIG.loginTimeoutMs);
+  // Wait a moment for form to be fully interactive
+  await page.waitForTimeout(500);
+  
+  log('  Filling username...');
+  const usernameInput = await findFirstVisible(page, usernameCandidates, 'username', CONFIG.loginTimeoutMs, log);
   await usernameInput.fill(CONFIG.username);
+  log(`  ✓ Username filled`);
 
-  const passwordInput = await findFirstVisible(page, passwordCandidates, 'pin', CONFIG.loginTimeoutMs);
+  log('  Filling PIN...');
+  const passwordInput = await findFirstVisible(page, passwordCandidates, 'pin', CONFIG.loginTimeoutMs, log);
   await passwordInput.fill(CONFIG.password);
+  log(`  ✓ PIN filled`);
 
-  const submitButton = await findFirstVisible(page, submitCandidates, 'login button', CONFIG.loginTimeoutMs);
+  log('  Clicking submit...');
+  const submitButton = await findFirstVisible(page, submitCandidates, 'login button', CONFIG.loginTimeoutMs, log);
   await submitButton.click();
+  log(`  ✓ Submit clicked`);
+  
+  // Wait for navigation and capture state
+  await page.waitForTimeout(2000);
+  if (CONFIG.debugScreenshots) {
+    await captureArtifacts(page, log, onScreenshot, onHtmlSnapshot, 'after_submit');
+  }
 }
 
 async function isPageValid(page) {
@@ -282,6 +299,8 @@ async function downloadCSV(options = {}) {
     log('📱 Navigating to login...');
     await page.goto(CONFIG.bankUrl);
     await page.waitForLoadState('domcontentloaded');
+    // Wait for Angular/React app to fully initialize
+    await page.waitForTimeout(2000);
     await dismissCookieBanner(page, log);
     if (CONFIG.debugScreenshots) {
       await captureArtifacts(page, log, onScreenshot, onHtmlSnapshot, 'login_page');
@@ -290,13 +309,27 @@ async function downloadCSV(options = {}) {
     // Fill credentials
     log('🔑 Entering credentials...');
     await captureArtifacts(page, log, onScreenshot, onHtmlSnapshot, 'before_credentials');
-    await fillCredentials(page, log);
+    await fillCredentials(page, log, onScreenshot, onHtmlSnapshot);
 
     // 2. Wait for login or 2FA
     log('⏳ Waiting for login/2FA...');
-    const transactionsButton = page.getByRole('button', { name: 'Umsätze von BFS Komfort' });
+    
+    // Look for the BFS Komfort account - click on the account row itself
+    // The first account (KONTOKORRENT/BFS Komfort) doesn't have a visible button
+    // but the entire account row is clickable
+    const transactionsCandidates = [
+      // Try to find clickable account row by IBAN or account name
+      root => root.locator('[data-e2e-konto-business-ident="DE33370205000003321400"]'),
+      root => root.locator('app-konto-list-item').first().locator('.konto-list-item'),
+      root => root.locator('app-konto-item').first(),
+      root => root.getByText('BFS Komfort').first().locator('..').locator('..'),
+      // Fallback: click the first account list item
+      root => root.locator('app-konto-list-item').first(),
+    ];
+    
+    let transactionsButton;
     try {
-      await transactionsButton.waitFor({ state: 'visible', timeout: 60000 });
+      transactionsButton = await findFirstVisible(page, transactionsCandidates, 'BFS Komfort account', 60000, log);
     } catch (error) {
       const secureGoVisible = await page
         .locator('text=/SecureGo|TAN|Freigabe|2FA/i')
@@ -308,7 +341,7 @@ async function downloadCSV(options = {}) {
           onStatus('waiting_for_2fa');
         }
         log('⚠️  2FA required - please approve in SecureGo Plus app');
-        await transactionsButton.waitFor({ state: 'visible', timeout: CONFIG.twoFaTimeoutMs });
+        transactionsButton = await findFirstVisible(page, transactionsCandidates, 'BFS Komfort account', CONFIG.twoFaTimeoutMs, log);
       } else {
         throw new Error('Login timeout - check credentials or 2FA');
       }
