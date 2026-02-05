@@ -47,42 +47,57 @@ function getRoots(page) {
   return frames.length ? [page, ...frames] : [page];
 }
 
+async function buildCandidateLocators(locator) {
+  const candidates = [locator.first()];
+  const count = await locator.count().catch(() => 0);
+  const limit = Math.min(count, 5);
+  for (let idx = 1; idx < limit; idx++) {
+    candidates.push(locator.nth(idx));
+  }
+  return candidates;
+}
+
 async function findFirstVisible(page, builders, label, timeoutMs = 10000, log = null) {
   const roots = getRoots(page);
+  const attempts = [];
+
   for (const root of roots) {
     for (let i = 0; i < builders.length; i++) {
-      const build = builders[i];
       let locator;
       try {
-        locator = build(root);
+        locator = builders[i](root);
       } catch {
         continue;
       }
-
-      try {
-        const deadline = Date.now() + timeoutMs;
-
-        while (Date.now() < deadline) {
-          const count = await locator.count();
-          const limit = Math.min(count, 5);
-          for (let idx = 0; idx < limit; idx++) {
-            const candidate = locator.nth(idx);
-            const visible = await candidate.isVisible().catch(() => false);
-            if (visible) {
-              if (log) {
-                const rootInfo = roots.length > 1 ? ` (frame: ${getRootUrl(root)})` : '';
-                log(`  Found ${label} using selector #${i + 1}${rootInfo}`);
-              }
-              return candidate;
-            }
-          }
-          await page.waitForTimeout(200);
-        }
-      } catch {
-        // try next
+      const candidates = await buildCandidateLocators(locator);
+      for (const candidate of candidates) {
+        attempts.push(
+          candidate.waitFor({ state: 'visible', timeout: timeoutMs }).then(() => ({
+            candidate,
+            selectorIndex: i + 1,
+            root,
+          }))
+        );
       }
     }
   }
+
+  if (!attempts.length) {
+    const frameInfo = roots.map(getRootUrl).join(', ');
+    throw new Error(`Could not find visible element for ${label}. Frames: ${frameInfo}`);
+  }
+
+  try {
+    const result = await Promise.any(attempts);
+    if (log) {
+      const rootInfo = roots.length > 1 ? ` (frame: ${getRootUrl(result.root)})` : '';
+      log(`  Found ${label} using selector #${result.selectorIndex}${rootInfo}`);
+    }
+    return result.candidate;
+  } catch {
+    // handled below with frame details
+  }
+
   const frameInfo = roots.map(getRootUrl).join(', ');
   throw new Error(`Could not find visible element for ${label}. Frames: ${frameInfo}`);
 }
@@ -110,23 +125,12 @@ async function fillCredentials(page, log) {
     root => root.locator('button:has-text("Mit Zugangsdaten anmelden")'),
   ]);
 
-  // Wait for form to be fully interactive
-  await page.waitForTimeout(500);
-
   log('  Looking for username field...');
   const usernameInput = await findFirstVisible(
     page,
     [
-      root => root.locator('[data-automation-id="vvrnKey-input"]'),
-      root => root.locator('input[name="vvrnKeyFormControl"]'),
-      root => root.locator('input#vvrnKey'),
       // Fallback for older naming
-      root => root.locator('[data-automation-id="vrNetKey-input"]'),
-      root => root.locator('input[name="vrNetKeyFormControl"]'),
-      root => root.locator('input#vrNetKey'),
-      root => root.getByRole('textbox', { name: /NetKey|Alias|Benutzer|User|Login/i }),
-      root => root.getByLabel(/NetKey|Alias|Benutzer|User|Login/i),
-      root => root.locator('input[autocomplete="username"]'),
+      root => root.locator('#vrNetKey'),
     ],
     'username',
     CONFIG.loginTimeoutMs,
@@ -139,11 +143,7 @@ async function fillCredentials(page, log) {
   const passwordInput = await findFirstVisible(
     page,
     [
-      root => root.locator('[data-automation-id="pin-input"]'),
-      root => root.locator('input[name="pinFormControl"]'),
       root => root.locator('input#pin'),
-      root => root.getByLabel(/PIN|Passwort|Password/i),
-      root => root.locator('input[autocomplete="current-password"]'),
       root => root.locator('input[type="password"]'),
     ],
     'pin',
@@ -168,9 +168,26 @@ async function fillCredentials(page, log) {
   );
   await submitButton.click();
   log('  ✓ Submit clicked');
+}
 
-  // Wait for navigation
-  await page.waitForTimeout(2000);
+async function waitForLoginOutcome(page, accountSelectors, timeoutMs, log) {
+  const accountPromise = findFirstVisible(page, accountSelectors, 'BFS Komfort account', timeoutMs, log).then(accountElement => ({
+    type: 'account',
+    accountElement,
+  }));
+  const twoFaPromise = findFirstVisible(
+    page,
+    [root => root.locator('text=/SecureGo|TAN|Freigabe|2FA/i')],
+    '2FA challenge',
+    timeoutMs,
+    log
+  ).then(() => ({ type: '2fa' }));
+
+  try {
+    return await Promise.any([accountPromise, twoFaPromise]);
+  } catch {
+    throw new Error('Login timeout - check credentials or 2FA');
+  }
 }
 
 async function downloadCSV(options = {}) {
@@ -209,9 +226,7 @@ async function downloadCSV(options = {}) {
   try {
     // 1. Navigate and login
     log('📱 Navigating to login...');
-    await page.goto(CONFIG.bankUrl);
-    await page.waitForLoadState('domcontentloaded');
-    await page.waitForTimeout(2000);
+    await page.goto(CONFIG.bankUrl, { waitUntil: 'domcontentloaded' });
     await dismissCookieBanner(page);
 
     log('🔑 Entering credentials...');
@@ -219,10 +234,7 @@ async function downloadCSV(options = {}) {
 
     // 2. Wait for login or 2FA
     log('⏳ Waiting for login/2FA...');
-    
-    // Wait for account list to load
-    await page.waitForTimeout(2000);
-    
+
     const accountSelector = [
       // Primary: Find by IBAN data attribute
       root => root.locator('[data-e2e-konto-business-ident="DE33370205000003321400"]'),
@@ -232,24 +244,16 @@ async function downloadCSV(options = {}) {
       // Last resort: first account list item
       root => root.locator('app-konto-list-item').first(),
     ];
-    
+
     let accountElement;
-    try {
-      accountElement = await findFirstVisible(page, accountSelector, 'BFS Komfort account', 60000);
+    const loginOutcome = await waitForLoginOutcome(page, accountSelector, 60000, log);
+    if (loginOutcome.type === '2fa') {
+      if (onStatus) onStatus('waiting_for_2fa');
+      log('⚠️  2FA required - please approve in SecureGo Plus app');
+      accountElement = await findFirstVisible(page, accountSelector, 'BFS Komfort account', CONFIG.twoFaTimeoutMs, log);
+    } else {
+      accountElement = loginOutcome.accountElement;
       log('  Found account element');
-    } catch (error) {
-      const secureGoVisible = await page
-        .locator('text=/SecureGo|TAN|Freigabe|2FA/i')
-        .first()
-        .isVisible()
-        .catch(() => false);
-      if (secureGoVisible) {
-        if (onStatus) onStatus('waiting_for_2fa');
-        log('⚠️  2FA required - please approve in SecureGo Plus app');
-        accountElement = await findFirstVisible(page, accountSelector, 'BFS Komfort account', CONFIG.twoFaTimeoutMs);
-      } else {
-        throw new Error('Login timeout - check credentials or 2FA');
-      }
     }
 
     if (onStatus) onStatus('running');
@@ -261,10 +265,36 @@ async function downloadCSV(options = {}) {
 
     // 4. Download CSV
     log('💾 Downloading CSV...');
-    await page.getByRole('button', { name: 'Exportieren: Modal öffnen zum' }).click();
-    await page.locator('label').filter({ hasText: 'CSV' }).click();
+    const openExportButton = await findFirstVisible(
+      page,
+      [
+        root => root.getByRole('button', { name: 'Exportieren: Modal öffnen zum' }),
+        root => root.getByRole('button', { name: /^Exportieren$/ }),
+      ],
+      'export open button',
+      30000,
+      log
+    );
+    await openExportButton.click();
+
+    const csvOption = await findFirstVisible(
+      page,
+      [root => root.locator('label').filter({ hasText: 'CSV' }), root => root.getByText('CSV', { exact: true })],
+      'CSV option',
+      30000,
+      log
+    );
+    await csvOption.click();
+
     const downloadPromise = page.waitForEvent('download');
-    await page.getByRole('button', { name: 'Exportieren' }).click();
+    const confirmExportButton = await findFirstVisible(
+      page,
+      [root => root.getByRole('button', { name: /^Exportieren$/ })],
+      'export confirm button',
+      30000,
+      log
+    );
+    await confirmExportButton.click();
     const download = await downloadPromise;
 
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
