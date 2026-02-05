@@ -33,6 +33,7 @@ type AuthService struct {
 	userRepo         repository.UserRepository
 	refreshTokenRepo repository.RefreshTokenRepository
 	emailService     EmailSender
+	emailLogRepo     repository.EmailLogRepository
 	baseURL          string
 	refreshExpiry    time.Duration
 	resetExpiry      time.Duration
@@ -44,7 +45,8 @@ type AuthService struct {
 func NewAuthService(
 	userRepo repository.UserRepository,
 	refreshTokenRepo repository.RefreshTokenRepository,
-	emailService *email.Service,
+	emailService EmailSender,
+	emailLogRepo repository.EmailLogRepository,
 	baseURL string,
 	refreshExpiry time.Duration,
 ) *AuthService {
@@ -52,6 +54,7 @@ func NewAuthService(
 		userRepo:         userRepo,
 		refreshTokenRepo: refreshTokenRepo,
 		emailService:     emailService,
+		emailLogRepo:     emailLogRepo,
 		baseURL:          baseURL,
 		refreshExpiry:    refreshExpiry,
 		resetExpiry:      time.Hour,
@@ -170,6 +173,9 @@ func (s *AuthService) RequestPasswordReset(ctx context.Context, emailAddr string
 	if s.emailService != nil && s.emailService.IsEnabled() {
 		if err := s.emailService.SendPasswordResetEmail(user.Email, token, s.baseURL); err != nil {
 			log.Error().Err(err).Str("email", user.Email).Msg("failed to send password reset email")
+		} else {
+			subject, body := email.BuildPasswordResetEmail(token, s.baseURL)
+			s.logPasswordResetEmail(ctx, user.Email, subject, body)
 		}
 	} else {
 		// Fallback to logging when email is not configured
@@ -219,6 +225,25 @@ func (s *AuthService) ConfirmPasswordReset(ctx context.Context, token, newPasswo
 	s.resetMutex.Unlock()
 
 	return nil
+}
+
+func (s *AuthService) logPasswordResetEmail(ctx context.Context, recipient, subject, body string) {
+	if s.emailLogRepo == nil {
+		return
+	}
+
+	bodyCopy := body
+	logEntry := &domain.EmailLog{
+		ID:        uuid.New(),
+		SentAt:    time.Now().UTC(),
+		ToEmail:   recipient,
+		Subject:   subject,
+		Body:      &bodyCopy,
+		EmailType: domain.EmailLogTypePasswordReset,
+	}
+	if err := s.emailLogRepo.Create(ctx, logEntry); err != nil {
+		log.Error().Err(err).Str("email", recipient).Msg("failed to log password reset email")
+	}
 }
 
 func hashToken(token string) string {

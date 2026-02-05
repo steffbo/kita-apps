@@ -3,20 +3,25 @@ package handler
 import (
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
 
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/api/middleware"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/api/request"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/api/response"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/repository"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/service"
 )
 
 // FeeHandler handles fee-related requests.
 type FeeHandler struct {
-	feeService    *service.FeeService
-	importService *service.ImportService
+	feeService      *service.FeeService
+	importService   *service.ImportService
+	reminderService *service.ReminderService
+	emailLogRepo    repository.EmailLogRepository
 }
 
 // FeeResponse represents a fee in API responses
@@ -46,6 +51,53 @@ type FeeListResponse struct {
 	TotalPages int           `json:"totalPages" example:"5"`
 } //@name FeeList
 
+// ReminderRunResponse represents the result of a reminder run.
+// @Description Ergebnis einer Erinnerungs-/Mahnungsprüfung
+type ReminderRunResponse struct {
+	Stage           string `json:"stage" example:"initial" enums:"auto,initial,final,none"`
+	Date            string `json:"date" example:"2026-02-05"`
+	Recipient       string `json:"recipient" example:"admin@knirpsenstadt.de"`
+	UnpaidCount     int    `json:"unpaidCount" example:"12"`
+	ReminderCreated int    `json:"reminderCreated" example:"8"`
+	EmailSent       bool   `json:"emailSent" example:"true"`
+	DryRun          bool   `json:"dryRun" example:"false"`
+	Message         string `json:"message,omitempty" example:"no unpaid fees for this period"`
+} //@name ReminderRunResponse
+
+// ReminderSettingsResponse represents reminder settings.
+// @Description Reminder settings
+type ReminderSettingsResponse struct {
+	AutoEnabled bool `json:"autoEnabled" example:"false"`
+} //@name ReminderSettingsResponse
+
+// UpdateReminderSettingsRequest represents request body for reminder settings.
+// @Description Reminder settings update
+type UpdateReminderSettingsRequest struct {
+	AutoEnabled bool `json:"autoEnabled" example:"true"`
+} //@name UpdateReminderSettingsRequest
+
+// EmailLogResponse represents an email log entry.
+// @Description Email log entry
+type EmailLogResponse struct {
+	ID        string  `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
+	SentAt    string  `json:"sentAt" example:"2026-02-05T10:15:00Z"`
+	ToEmail   string  `json:"toEmail" example:"admin@knirpsenstadt.de"`
+	Subject   string  `json:"subject" example:"Zahlungserinnerung Essens- und Platzgeld Februar 2026"`
+	Body      *string `json:"body,omitempty" example:"Hallo,..."`
+	EmailType string  `json:"emailType" example:"REMINDER_INITIAL"`
+	SentBy    *string `json:"sentBy,omitempty" example:"550e8400-e29b-41d4-a716-446655440001"`
+} //@name EmailLogResponse
+
+// EmailLogListResponse represents a paginated list of email logs.
+// @Description Paginated list of email logs
+type EmailLogListResponse struct {
+	Data       []EmailLogResponse `json:"data"`
+	Total      int                `json:"total" example:"100"`
+	Page       int                `json:"page" example:"1"`
+	PerPage    int                `json:"perPage" example:"20"`
+	TotalPages int                `json:"totalPages" example:"5"`
+} //@name EmailLogListResponse
+
 // CreateFeeRequest represents a request to create a single fee.
 // @Description Request body for creating a single fee
 type CreateFeeRequest struct {
@@ -59,10 +111,17 @@ type CreateFeeRequest struct {
 } //@name CreateFeeRequest
 
 // NewFeeHandler creates a new fee handler.
-func NewFeeHandler(feeService *service.FeeService, importService *service.ImportService) *FeeHandler {
+func NewFeeHandler(
+	feeService *service.FeeService,
+	importService *service.ImportService,
+	reminderService *service.ReminderService,
+	emailLogRepo repository.EmailLogRepository,
+) *FeeHandler {
 	return &FeeHandler{
-		feeService:    feeService,
-		importService: importService,
+		feeService:      feeService,
+		importService:   importService,
+		reminderService: reminderService,
+		emailLogRepo:    emailLogRepo,
 	}
 }
 
@@ -218,16 +277,16 @@ func (h *FeeHandler) Create(w http.ResponseWriter, r *http.Request) {
 // OverviewResponse represents the fee overview response.
 // @Description Fee overview with totals and monthly breakdown
 type OverviewResponse struct {
-	TotalOpen     int             `json:"totalOpen" example:"25"`
-	TotalPaid     int             `json:"totalPaid" example:"150"`
-	TotalOverdue  int             `json:"totalOverdue" example:"5"`
-	AmountOpen    float64         `json:"amountOpen" example:"6250.00"`
-	AmountPaid    float64         `json:"amountPaid" example:"37500.00"`
-	AmountOverdue float64         `json:"amountOverdue" example:"1250.00"`
-	ByMonth       []MonthOverview `json:"byMonth"`
-	OpenMembershipCount int       `json:"openMembershipCount" example:"3"`
-	OpenFoodCount       int       `json:"openFoodCount" example:"18"`
-	OpenChildcareCount  int       `json:"openChildcareCount" example:"12"`
+	TotalOpen           int             `json:"totalOpen" example:"25"`
+	TotalPaid           int             `json:"totalPaid" example:"150"`
+	TotalOverdue        int             `json:"totalOverdue" example:"5"`
+	AmountOpen          float64         `json:"amountOpen" example:"6250.00"`
+	AmountPaid          float64         `json:"amountPaid" example:"37500.00"`
+	AmountOverdue       float64         `json:"amountOverdue" example:"1250.00"`
+	ByMonth             []MonthOverview `json:"byMonth"`
+	OpenMembershipCount int             `json:"openMembershipCount" example:"3"`
+	OpenFoodCount       int             `json:"openFoodCount" example:"18"`
+	OpenChildcareCount  int             `json:"openChildcareCount" example:"12"`
 } //@name FeeOverview
 
 // MonthOverview represents fee overview for a single month.
@@ -564,4 +623,170 @@ func (h *FeeHandler) CalculateChildcareFee(w http.ResponseWriter, r *http.Reques
 	result := h.feeService.CalculateChildcareFee(input)
 
 	response.Success(w, result)
+}
+
+// RunReminders handles POST /fees/reminders/run
+// @Summary Run payment reminder checks
+// @Description Sends reminder emails for unpaid Food/Childcare fees and optionally creates reminder fees
+// @Tags Fees
+// @Produce json
+// @Security BearerAuth
+// @Param date query string false "Run date (YYYY-MM-DD, defaults to today)"
+// @Param stage query string false "Stage: auto, initial, final" Enums(auto, initial, final)
+// @Param dryRun query bool false "If true, don't send emails or create reminders"
+// @Success 200 {object} ReminderRunResponse "Reminder run result"
+// @Failure 400 {object} response.ErrorBody "Invalid request"
+// @Failure 401 {object} response.ErrorBody "Not authenticated"
+// @Failure 500 {object} response.ErrorBody "Internal server error"
+// @Router /fees/reminders/run [post]
+func (h *FeeHandler) RunReminders(w http.ResponseWriter, r *http.Request) {
+	userCtx := middleware.GetUserFromContext(r)
+	if userCtx == nil {
+		response.Error(w, http.StatusUnauthorized, "user not authenticated")
+		return
+	}
+
+	runDate := time.Now()
+	if dateStr := request.GetQueryString(r, "date", ""); dateStr != "" {
+		parsed, err := time.Parse("2006-01-02", dateStr)
+		if err != nil {
+			response.BadRequest(w, "invalid date format (expected YYYY-MM-DD)")
+			return
+		}
+		runDate = parsed
+	}
+
+	stageRaw := strings.ToLower(request.GetQueryString(r, "stage", "auto"))
+	stage, err := service.ParseReminderStage(stageRaw)
+	if err != nil {
+		response.BadRequest(w, "invalid stage (expected auto, initial, final)")
+		return
+	}
+
+	dryRun := false
+	if dryRunPtr := request.GetQueryBool(r, "dryRun"); dryRunPtr != nil {
+		dryRun = *dryRunPtr
+	}
+
+	var sentBy *uuid.UUID
+	if userCtx.UserID != "" {
+		if parsed, err := uuid.Parse(userCtx.UserID); err == nil {
+			sentBy = &parsed
+		}
+	}
+
+	result, err := h.reminderService.Run(r.Context(), runDate, stage, userCtx.Email, sentBy, dryRun)
+	if err != nil {
+		if err == service.ErrInvalidInput {
+			response.BadRequest(w, "invalid request")
+			return
+		}
+		response.InternalError(w, "failed to run reminders")
+		return
+	}
+
+	resp := ReminderRunResponse{
+		Stage:           string(result.Stage),
+		Date:            result.Date.Format("2006-01-02"),
+		Recipient:       result.Recipient,
+		UnpaidCount:     result.UnpaidCount,
+		ReminderCreated: result.RemindersCreated,
+		EmailSent:       result.EmailSent,
+		DryRun:          result.DryRun,
+		Message:         result.Message,
+	}
+
+	response.Success(w, resp)
+}
+
+// GetReminderSettings handles GET /fees/reminders/settings
+// @Summary Get reminder settings
+// @Description Returns reminder settings
+// @Tags Fees
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {object} ReminderSettingsResponse "Reminder settings"
+// @Failure 401 {object} response.ErrorBody "Not authenticated"
+// @Failure 500 {object} response.ErrorBody "Internal server error"
+// @Router /fees/reminders/settings [get]
+func (h *FeeHandler) GetReminderSettings(w http.ResponseWriter, r *http.Request) {
+	autoEnabled, err := h.reminderService.GetAutoEnabled(r.Context())
+	if err != nil {
+		response.InternalError(w, "failed to load reminder settings")
+		return
+	}
+
+	response.Success(w, ReminderSettingsResponse{AutoEnabled: autoEnabled})
+}
+
+// UpdateReminderSettings handles PUT /fees/reminders/settings
+// @Summary Update reminder settings
+// @Description Updates reminder settings
+// @Tags Fees
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body UpdateReminderSettingsRequest true "Reminder settings"
+// @Success 200 {object} ReminderSettingsResponse "Updated reminder settings"
+// @Failure 400 {object} response.ErrorBody "Invalid request"
+// @Failure 401 {object} response.ErrorBody "Not authenticated"
+// @Failure 500 {object} response.ErrorBody "Internal server error"
+// @Router /fees/reminders/settings [put]
+func (h *FeeHandler) UpdateReminderSettings(w http.ResponseWriter, r *http.Request) {
+	var req UpdateReminderSettingsRequest
+	if err := request.DecodeJSON(r, &req); err != nil {
+		response.BadRequest(w, "invalid request body")
+		return
+	}
+
+	if err := h.reminderService.SetAutoEnabled(r.Context(), req.AutoEnabled); err != nil {
+		response.InternalError(w, "failed to update reminder settings")
+		return
+	}
+
+	response.Success(w, ReminderSettingsResponse{AutoEnabled: req.AutoEnabled})
+}
+
+// GetEmailLogs handles GET /fees/email-logs
+// @Summary List email logs
+// @Description Get a paginated list of sent email logs
+// @Tags Fees
+// @Produce json
+// @Security BearerAuth
+// @Param page query int false "Page number" default(1)
+// @Param perPage query int false "Items per page" default(20)
+// @Param offset query int false "Offset (alternative to page/perPage)"
+// @Param limit query int false "Limit (alternative to page/perPage)"
+// @Success 200 {object} EmailLogListResponse "Paginated list of email logs"
+// @Failure 401 {object} response.ErrorBody "Not authenticated"
+// @Failure 500 {object} response.ErrorBody "Internal server error"
+// @Router /fees/email-logs [get]
+func (h *FeeHandler) GetEmailLogs(w http.ResponseWriter, r *http.Request) {
+	pagination := request.GetPagination(r)
+
+	logs, total, err := h.emailLogRepo.List(r.Context(), pagination.Offset, pagination.PerPage)
+	if err != nil {
+		response.InternalError(w, "failed to list email logs")
+		return
+	}
+
+	resp := make([]EmailLogResponse, 0, len(logs))
+	for _, entry := range logs {
+		var sentBy *string
+		if entry.SentBy != nil {
+			value := entry.SentBy.String()
+			sentBy = &value
+		}
+		resp = append(resp, EmailLogResponse{
+			ID:        entry.ID.String(),
+			SentAt:    entry.SentAt.Format(time.RFC3339),
+			ToEmail:   entry.ToEmail,
+			Subject:   entry.Subject,
+			Body:      entry.Body,
+			EmailType: string(entry.EmailType),
+			SentBy:    sentBy,
+		})
+	}
+
+	response.Paginated(w, resp, total, pagination.Page, pagination.PerPage)
 }

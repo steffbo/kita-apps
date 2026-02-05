@@ -44,6 +44,16 @@ func (s *Service) IsEnabled() bool {
 	return s.enabled
 }
 
+// SendTextEmail sends a plain text email.
+func (s *Service) SendTextEmail(to, subject, body string) error {
+	if !s.enabled {
+		log.Info().Str("to", to).Str("subject", subject).Msg("Email sending disabled, skipping email")
+		return nil
+	}
+
+	return s.send(to, subject, body)
+}
+
 // SendPasswordResetEmail sends a password reset email.
 func (s *Service) SendPasswordResetEmail(to, token, baseURL string) error {
 	if !s.enabled {
@@ -51,6 +61,13 @@ func (s *Service) SendPasswordResetEmail(to, token, baseURL string) error {
 		return nil
 	}
 
+	subject, body := BuildPasswordResetEmail(token, baseURL)
+
+	return s.send(to, subject, body)
+}
+
+// BuildPasswordResetEmail builds the subject and body for password reset emails.
+func BuildPasswordResetEmail(token, baseURL string) (string, string) {
 	resetLink := fmt.Sprintf("%s/passwort-zuruecksetzen?token=%s", strings.TrimSuffix(baseURL, "/"), token)
 
 	subject := "Passwort zurücksetzen - Knirpsenstadt Beiträge"
@@ -68,7 +85,7 @@ Falls Sie diese Anfrage nicht gestellt haben, können Sie diese E-Mail ignoriere
 Mit freundlichen Grüßen
 Ihr Knirpsenstadt-Team`, resetLink)
 
-	return s.send(to, subject, body)
+	return subject, body
 }
 
 // send sends an email via SMTP.

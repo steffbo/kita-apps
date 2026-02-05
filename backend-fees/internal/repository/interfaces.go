@@ -94,6 +94,22 @@ type FeeRepository interface {
 	GetOverview(ctx context.Context, year int) (*domain.FeeOverview, error)
 	// GetForChild retrieves all fee expectations for a child, optionally filtered by year.
 	GetForChild(ctx context.Context, childID uuid.UUID, year *int) ([]domain.FeeExpectation, error)
+	// ListUnpaidByMonthAndTypes returns unpaid fees for a specific year/month and fee types.
+	ListUnpaidByMonthAndTypes(ctx context.Context, year int, month int, feeTypes []domain.FeeType) ([]domain.FeeExpectation, error)
+	// ListUnpaidWithoutReminderByMonthAndTypes returns unpaid fees without reminders for a specific year/month and fee types.
+	ListUnpaidWithoutReminderByMonthAndTypes(ctx context.Context, year int, month int, feeTypes []domain.FeeType) ([]domain.FeeExpectation, error)
+}
+
+// SettingsRepository handles app settings persistence.
+type SettingsRepository interface {
+	Get(ctx context.Context, key string) (*domain.AppSetting, error)
+	Upsert(ctx context.Context, setting *domain.AppSetting) error
+}
+
+// EmailLogRepository handles email log persistence.
+type EmailLogRepository interface {
+	Create(ctx context.Context, log *domain.EmailLog) error
+	List(ctx context.Context, offset, limit int) ([]domain.EmailLog, int64, error)
 }
 
 // TransactionRepository handles bank transaction persistence.

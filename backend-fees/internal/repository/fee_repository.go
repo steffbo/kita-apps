@@ -186,6 +186,61 @@ func (r *PostgresFeeRepository) GetForChild(ctx context.Context, childID uuid.UU
 	return fees, err
 }
 
+// ListUnpaidByMonthAndTypes returns unpaid fees for a given month/year and fee types.
+func (r *PostgresFeeRepository) ListUnpaidByMonthAndTypes(ctx context.Context, year int, month int, feeTypes []domain.FeeType) ([]domain.FeeExpectation, error) {
+	if len(feeTypes) == 0 {
+		return []domain.FeeExpectation{}, nil
+	}
+
+	var fees []domain.FeeExpectation
+	query := `
+		SELECT fe.id, fe.child_id, fe.fee_type, fe.year, fe.month, fe.amount, fe.due_date, fe.created_at, fe.reminder_for_id, fe.reconciliation_year
+		FROM fees.fee_expectations fe
+		LEFT JOIN (
+			SELECT expectation_id, COALESCE(SUM(amount), 0) AS matched_amount
+			FROM fees.payment_matches
+			GROUP BY expectation_id
+		) pm_sum ON fe.id = pm_sum.expectation_id
+		WHERE fe.year = $1 AND fe.month = $2
+		  AND fe.fee_type = ANY($3)
+		  AND COALESCE(pm_sum.matched_amount, 0) < fe.amount - 0.01
+		ORDER BY fe.due_date ASC, fe.created_at ASC
+	`
+
+	err := r.db.SelectContext(ctx, &fees, query, year, month, pq.Array(feeTypes))
+	return fees, err
+}
+
+// ListUnpaidWithoutReminderByMonthAndTypes returns unpaid fees without reminders for a given month/year and fee types.
+func (r *PostgresFeeRepository) ListUnpaidWithoutReminderByMonthAndTypes(ctx context.Context, year int, month int, feeTypes []domain.FeeType) ([]domain.FeeExpectation, error) {
+	if len(feeTypes) == 0 {
+		return []domain.FeeExpectation{}, nil
+	}
+
+	var fees []domain.FeeExpectation
+	query := `
+		SELECT fe.id, fe.child_id, fe.fee_type, fe.year, fe.month, fe.amount, fe.due_date, fe.created_at, fe.reminder_for_id, fe.reconciliation_year
+		FROM fees.fee_expectations fe
+		LEFT JOIN (
+			SELECT expectation_id, COALESCE(SUM(amount), 0) AS matched_amount
+			FROM fees.payment_matches
+			GROUP BY expectation_id
+		) pm_sum ON fe.id = pm_sum.expectation_id
+		WHERE fe.year = $1 AND fe.month = $2
+		  AND fe.fee_type = ANY($3)
+		  AND COALESCE(pm_sum.matched_amount, 0) < fe.amount - 0.01
+		  AND NOT EXISTS (
+			SELECT 1
+			FROM fees.fee_expectations rem
+			WHERE rem.reminder_for_id = fe.id
+		  )
+		ORDER BY fe.due_date ASC, fe.created_at ASC
+	`
+
+	err := r.db.SelectContext(ctx, &fees, query, year, month, pq.Array(feeTypes))
+	return fees, err
+}
+
 // GetByIDs retrieves multiple fee expectations by their IDs.
 func (r *PostgresFeeRepository) GetByIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]*domain.FeeExpectation, error) {
 	if len(ids) == 0 {
