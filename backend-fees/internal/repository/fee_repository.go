@@ -417,15 +417,19 @@ func (r *PostgresFeeRepository) GetOverview(ctx context.Context, year int) (*dom
 	overview := &domain.FeeOverview{}
 	now := time.Now()
 
-	// Get totals
+	// Get totals (consider partial payments)
 	rows, err := r.db.QueryContext(ctx, `
 		SELECT 
 			fe.id,
 			fe.amount,
 			fe.due_date,
-			CASE WHEN pm.id IS NOT NULL THEN true ELSE false END as is_paid
+			CASE WHEN COALESCE(pm_sum.matched_amount, 0) >= fe.amount - 0.01 THEN true ELSE false END as is_paid
 		FROM fees.fee_expectations fe
-		LEFT JOIN fees.payment_matches pm ON fe.id = pm.expectation_id
+		LEFT JOIN (
+			SELECT expectation_id, COALESCE(SUM(amount), 0) AS matched_amount
+			FROM fees.payment_matches
+			GROUP BY expectation_id
+		) pm_sum ON fe.id = pm_sum.expectation_id
 		WHERE fe.year = $1
 	`, year)
 	if err != nil {
@@ -459,12 +463,16 @@ func (r *PostgresFeeRepository) GetOverview(ctx context.Context, year int) (*dom
 	monthRows, err := r.db.QueryContext(ctx, `
 		SELECT 
 			fe.month,
-			COUNT(*) FILTER (WHERE pm.id IS NULL) as open_count,
-			COUNT(*) FILTER (WHERE pm.id IS NOT NULL) as paid_count,
-			COALESCE(SUM(fe.amount) FILTER (WHERE pm.id IS NULL), 0) as open_amount,
-			COALESCE(SUM(fe.amount) FILTER (WHERE pm.id IS NOT NULL), 0) as paid_amount
+			COUNT(*) FILTER (WHERE COALESCE(pm_sum.matched_amount, 0) < fe.amount - 0.01) as open_count,
+			COUNT(*) FILTER (WHERE COALESCE(pm_sum.matched_amount, 0) >= fe.amount - 0.01) as paid_count,
+			COALESCE(SUM(fe.amount) FILTER (WHERE COALESCE(pm_sum.matched_amount, 0) < fe.amount - 0.01), 0) as open_amount,
+			COALESCE(SUM(fe.amount) FILTER (WHERE COALESCE(pm_sum.matched_amount, 0) >= fe.amount - 0.01), 0) as paid_amount
 		FROM fees.fee_expectations fe
-		LEFT JOIN fees.payment_matches pm ON fe.id = pm.expectation_id
+		LEFT JOIN (
+			SELECT expectation_id, COALESCE(SUM(amount), 0) AS matched_amount
+			FROM fees.payment_matches
+			GROUP BY expectation_id
+		) pm_sum ON fe.id = pm_sum.expectation_id
 		WHERE fe.year = $1 AND fe.month IS NOT NULL
 		GROUP BY fe.month
 		ORDER BY fe.month
@@ -487,8 +495,12 @@ func (r *PostgresFeeRepository) GetOverview(ctx context.Context, year int) (*dom
 	err = r.db.GetContext(ctx, &overview.ChildrenWithOpenFees, `
 		SELECT COUNT(DISTINCT fe.child_id)
 		FROM fees.fee_expectations fe
-		LEFT JOIN fees.payment_matches pm ON fe.id = pm.expectation_id
-		WHERE fe.year = $1 AND pm.id IS NULL
+		LEFT JOIN (
+			SELECT expectation_id, COALESCE(SUM(amount), 0) AS matched_amount
+			FROM fees.payment_matches
+			GROUP BY expectation_id
+		) pm_sum ON fe.id = pm_sum.expectation_id
+		WHERE fe.year = $1 AND COALESCE(pm_sum.matched_amount, 0) < fe.amount - 0.01
 	`, year)
 	if err != nil {
 		return nil, err
@@ -496,9 +508,13 @@ func (r *PostgresFeeRepository) GetOverview(ctx context.Context, year int) (*dom
 
 	// Count open fees by type (unpaid regardless of overdue)
 	typeRows, err := r.db.QueryContext(ctx, `
-		SELECT fe.fee_type, COUNT(*) FILTER (WHERE pm.id IS NULL) as open_count
+		SELECT fe.fee_type, COUNT(*) FILTER (WHERE COALESCE(pm_sum.matched_amount, 0) < fe.amount - 0.01) as open_count
 		FROM fees.fee_expectations fe
-		LEFT JOIN fees.payment_matches pm ON fe.id = pm.expectation_id
+		LEFT JOIN (
+			SELECT expectation_id, COALESCE(SUM(amount), 0) AS matched_amount
+			FROM fees.payment_matches
+			GROUP BY expectation_id
+		) pm_sum ON fe.id = pm_sum.expectation_id
 		WHERE fe.year = $1
 		GROUP BY fe.fee_type
 	`, year)
