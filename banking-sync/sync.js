@@ -124,8 +124,16 @@ async function fillCredentials(page, log) {
   const usernameInput = await findFirstVisible(
     page,
     [
-      // Fallback for older naming
       root => root.locator('#vrNetKey'),
+      root => root.locator('[data-automation-id="vrNetKey-input"]'),
+      root => root.locator('input[name="vrNetKeyFormControl"]'),
+      root => root.locator('#vvrnKey'),
+      root => root.locator('[data-automation-id="vvrnKey-input"]'),
+      root => root.locator('input[name="vvrnKeyFormControl"]'),
+      root => root.getByLabel(/NetKey|Alias|Benutzer|User|Login/i),
+      root => root.getByRole('textbox', { name: /NetKey|Alias|Benutzer|User|Login/i }),
+      root => root.locator('input[autocomplete="username"]'),
+      root => root.locator('input[type="text"]'),
     ],
     'username',
     CONFIG.loginTimeoutMs,
