@@ -23,6 +23,40 @@ export interface User {
   updatedAt: string;
 }
 
+// Reminder settings and runs
+export interface ReminderSettingsResponse {
+  autoEnabled: boolean;
+}
+
+export interface UpdateReminderSettingsRequest {
+  autoEnabled: boolean;
+}
+
+export type ReminderRunStage = 'auto' | 'initial' | 'final' | 'none';
+
+export interface ReminderRunResponse {
+  stage: ReminderRunStage;
+  date: string;
+  recipient: string;
+  unpaidCount: number;
+  reminderCreated: number;
+  emailSent: boolean;
+  dryRun: boolean;
+  message?: string;
+}
+
+export type EmailLogType = 'REMINDER_INITIAL' | 'REMINDER_FINAL' | 'PASSWORD_RESET' | string;
+
+export interface EmailLog {
+  id: string;
+  sentAt: string;
+  toEmail: string;
+  subject: string;
+  body?: string | null;
+  emailType: EmailLogType;
+  sentBy?: string | null;
+}
+
 // Children
 export interface Child {
   id: string;
@@ -358,6 +392,21 @@ export interface ImportBatch {
   importedByEmail?: string;
   dateFrom?: string;
   dateTo?: string;
+}
+
+export type BankingSyncStatusType = 'idle' | 'running' | 'waiting_for_2fa' | 'success' | 'error';
+
+export interface BankingSyncStatus {
+  status: BankingSyncStatusType;
+  runId?: string | null;
+  startedAt?: string | null;
+  finishedAt?: string | null;
+  lastError?: string | null;
+  lastMessage?: string | null;
+  downloadPath?: string | null;
+  uploadResult?: unknown;
+  logs?: string[];
+  updatedAt?: string;
 }
 
 // Paginated responses

@@ -20,6 +20,10 @@ import type {
   GenerateFeeRequest,
   GenerateFeeResult,
   CreateFeeRequest,
+  ReminderSettingsResponse,
+  UpdateReminderSettingsRequest,
+  ReminderRunResponse,
+  EmailLog,
   ChildLedger,
   FeeCoverage,
   ImportResult,
@@ -46,6 +50,7 @@ import type {
   ChildImportExecuteResult,
   ChildcareFeeResult,
   MatchSuggestion,
+  BankingSyncStatus,
 } from './types';
 
 const API_BASE = '/api/fees/v1';
@@ -521,6 +526,41 @@ class ApiClient {
     });
   }
 
+  async getReminderSettings(): Promise<ReminderSettingsResponse> {
+    return this.request<ReminderSettingsResponse>('/fees/reminders/settings');
+  }
+
+  async updateReminderSettings(data: UpdateReminderSettingsRequest): Promise<ReminderSettingsResponse> {
+    return this.request<ReminderSettingsResponse>('/fees/reminders/settings', {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async runReminders(params?: {
+    stage?: 'auto' | 'initial' | 'final';
+    date?: string;
+    dryRun?: boolean;
+  }): Promise<ReminderRunResponse> {
+    const query = new URLSearchParams();
+    if (params?.stage) query.set('stage', params.stage);
+    if (params?.date) query.set('date', params.date);
+    if (typeof params?.dryRun === 'boolean') query.set('dryRun', params.dryRun ? 'true' : 'false');
+    const queryString = query.toString();
+    return this.request<ReminderRunResponse>(`/fees/reminders/run${queryString ? `?${queryString}` : ''}`, {
+      method: 'POST',
+    });
+  }
+
+  async getEmailLogs(params?: { offset?: number; limit?: number }): Promise<PaginatedResponse<EmailLog>> {
+    const query = new URLSearchParams();
+    if (typeof params?.offset === 'number') query.set('offset', String(params.offset));
+    if (typeof params?.limit === 'number') query.set('limit', String(params.limit));
+    const queryString = query.toString();
+    const response = await this.request<PaginatedResponse<EmailLog>>(`/fees/email-logs${queryString ? `?${queryString}` : ''}`);
+    return this.normalizePaginated(response);
+  }
+
   async calculateChildcareFee(params: {
     income: number;
     childAgeType?: 'krippe' | 'kindergarten';
@@ -540,6 +580,14 @@ class ApiClient {
   }
 
   // Import endpoints
+  async runBankingSync(): Promise<BankingSyncStatus> {
+    return this.request<BankingSyncStatus>('/banking-sync/run', { method: 'POST' });
+  }
+
+  async getBankingSyncStatus(): Promise<BankingSyncStatus> {
+    return this.request<BankingSyncStatus>('/banking-sync/status');
+  }
+
   async uploadCSV(file: File): Promise<ImportResult> {
     const formData = new FormData();
     formData.append('file', file);
