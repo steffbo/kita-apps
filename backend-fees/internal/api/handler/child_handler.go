@@ -327,9 +327,9 @@ func (h *ChildHandler) Update(w http.ResponseWriter, r *http.Request) {
 	response.Success(w, child)
 }
 
-// Delete deactivates a child
+// Delete removes a child
 // @Summary Delete child
-// @Description Soft-delete (deactivate) a child record
+// @Description Permanently delete a child record
 // @Tags Children
 // @Security BearerAuth
 // @Param id path string true "Child ID (UUID)"
@@ -345,12 +345,12 @@ func (h *ChildHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.childService.Deactivate(r.Context(), id); err != nil {
+	if err := h.childService.Delete(r.Context(), id); err != nil {
 		if err == service.ErrNotFound {
 			response.NotFound(w, "child not found")
 			return
 		}
-		response.InternalError(w, "failed to deactivate child")
+		response.InternalError(w, "failed to delete child")
 		return
 	}
 

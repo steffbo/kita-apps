@@ -296,6 +296,16 @@ func (s *ChildService) Deactivate(ctx context.Context, id uuid.UUID) error {
 	return s.childRepo.Update(ctx, child)
 }
 
+// Delete permanently removes a child.
+func (s *ChildService) Delete(ctx context.Context, id uuid.UUID) error {
+	_, err := s.childRepo.GetByID(ctx, id)
+	if err != nil {
+		return ErrNotFound
+	}
+
+	return s.childRepo.Delete(ctx, id)
+}
+
 // LinkParent links a parent to a child, creating a household if needed.
 func (s *ChildService) LinkParent(ctx context.Context, childID, parentID uuid.UUID, isPrimary bool) error {
 	child, err := s.childRepo.GetByID(ctx, childID)
