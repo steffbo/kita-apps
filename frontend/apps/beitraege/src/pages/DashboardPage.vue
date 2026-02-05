@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { api } from '@/api';
-import type { FeeOverview } from '@/api/types';
+import type { FeeOverview, ReminderRunResponse, EmailLog } from '@/api/types';
 import {
   Receipt,
   CheckCircle,
@@ -13,13 +13,31 @@ import {
   Link2,
 } from 'lucide-vue-next';
 import { useRouter } from 'vue-router';
+import { useAuthStore } from '@/stores/auth';
 
 const router = useRouter();
+const authStore = useAuthStore();
 const overview = ref<FeeOverview | null>(null);
 const unmatchedTotal = ref(0);
 const isLoading = ref(true);
 const error = ref<string | null>(null);
 const selectedYear = ref(new Date().getFullYear());
+
+const reminderAutoEnabled = ref(false);
+const isReminderSettingsLoading = ref(false);
+const reminderSettingsError = ref<string | null>(null);
+const reminderRunError = ref<string | null>(null);
+const reminderRunResult = ref<ReminderRunResponse | null>(null);
+const reminderDate = ref(new Date().toLocaleDateString('en-CA'));
+const reminderDryRun = ref(true);
+const isRunningReminders = ref(false);
+
+const emailLogs = ref<EmailLog[]>([]);
+const emailLogsTotal = ref(0);
+const emailLogsOffset = ref(0);
+const emailLogsLimit = 20;
+const isEmailLogsLoading = ref(false);
+const emailLogsError = ref<string | null>(null);
 
 const years = computed(() => {
   const currentYear = new Date().getFullYear();
@@ -44,6 +62,20 @@ async function loadOverview() {
 }
 
 onMounted(loadOverview);
+onMounted(loadReminderSettings);
+onMounted(() => {
+  if (authStore.isAdmin) {
+    loadEmailLogs(true);
+  }
+});
+watch(
+  () => authStore.isAdmin,
+  (isAdmin) => {
+    if (isAdmin) {
+      loadEmailLogs(true);
+    }
+  }
+);
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('de-DE', {
@@ -95,6 +127,95 @@ const stats = computed(() => {
     },
   ];
 });
+
+async function loadReminderSettings() {
+  if (!authStore.isAdmin) return;
+  isReminderSettingsLoading.value = true;
+  reminderSettingsError.value = null;
+  try {
+    const settings = await api.getReminderSettings();
+    reminderAutoEnabled.value = settings.autoEnabled;
+  } catch (e) {
+    reminderSettingsError.value = e instanceof Error ? e.message : 'Einstellungen konnten nicht geladen werden';
+  } finally {
+    isReminderSettingsLoading.value = false;
+  }
+}
+
+async function updateReminderAutoEnabled() {
+  if (!authStore.isAdmin) return;
+  isReminderSettingsLoading.value = true;
+  reminderSettingsError.value = null;
+  try {
+    const settings = await api.updateReminderSettings({ autoEnabled: reminderAutoEnabled.value });
+    reminderAutoEnabled.value = settings.autoEnabled;
+  } catch (e) {
+    reminderSettingsError.value = e instanceof Error ? e.message : 'Einstellungen konnten nicht gespeichert werden';
+  } finally {
+    isReminderSettingsLoading.value = false;
+  }
+}
+
+async function runReminders(stage: 'initial' | 'final') {
+  if (!authStore.isAdmin) return;
+  isRunningReminders.value = true;
+  reminderRunError.value = null;
+  reminderRunResult.value = null;
+  try {
+    const result = await api.runReminders({
+      stage,
+      date: reminderDate.value,
+      dryRun: reminderDryRun.value,
+    });
+    reminderRunResult.value = result;
+  } catch (e) {
+    reminderRunError.value = e instanceof Error ? e.message : 'Erinnerung konnte nicht ausgelöst werden';
+  } finally {
+    isRunningReminders.value = false;
+  }
+}
+
+async function loadEmailLogs(reset = false) {
+  if (!authStore.isAdmin) return;
+  if (isEmailLogsLoading.value) return;
+
+  isEmailLogsLoading.value = true;
+  emailLogsError.value = null;
+  try {
+    if (reset) {
+      emailLogsOffset.value = 0;
+      emailLogs.value = [];
+    }
+    const result = await api.getEmailLogs({
+      offset: emailLogsOffset.value,
+      limit: emailLogsLimit,
+    });
+    emailLogs.value = [...emailLogs.value, ...result.data];
+    emailLogsTotal.value = result.total;
+    emailLogsOffset.value = emailLogs.value.length;
+  } catch (e) {
+    emailLogsError.value = e instanceof Error ? e.message : 'E-Mail-Protokoll konnte nicht geladen werden';
+  } finally {
+    isEmailLogsLoading.value = false;
+  }
+}
+
+function formatEmailType(type: string): string {
+  switch (type) {
+    case 'REMINDER_INITIAL':
+      return 'Zahlungserinnerung';
+    case 'REMINDER_FINAL':
+      return 'Mahnung';
+    case 'PASSWORD_RESET':
+      return 'Passwort-Reset';
+    default:
+      return type;
+  }
+}
+
+function formatDateTime(date: string): string {
+  return new Date(date).toLocaleString('de-DE');
+}
 </script>
 
 <template>
@@ -206,6 +327,160 @@ const stats = computed(() => {
               </svg>
             </div>
           </div>
+        </div>
+      </div>
+
+      <!-- Reminder Controls -->
+      <div v-if="authStore.isAdmin" class="bg-white rounded-xl border p-6 mb-8">
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
+          <div>
+            <h2 class="text-lg font-semibold text-gray-900">Zahlungserinnerungen</h2>
+            <p class="text-sm text-gray-600">
+              Erinnerungen und Mahnungen werden an deine Login-E-Mail gesendet.
+            </p>
+          </div>
+          <div class="flex items-center gap-3">
+            <span class="text-sm text-gray-600">Automatik</span>
+            <label class="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                class="sr-only peer"
+                v-model="reminderAutoEnabled"
+                :disabled="isReminderSettingsLoading"
+                @change="updateReminderAutoEnabled"
+              />
+              <div
+                class="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:bg-primary transition-colors"
+              ></div>
+              <div
+                class="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-5"
+              ></div>
+            </label>
+          </div>
+        </div>
+
+        <div class="flex flex-col lg:flex-row lg:items-end gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Datum</label>
+            <input
+              type="date"
+              v-model="reminderDate"
+              class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+            />
+          </div>
+          <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+            <input type="checkbox" v-model="reminderDryRun" />
+            Nur Vorschau (keine E-Mails, keine Mahngebühren)
+          </label>
+          <div class="flex flex-col sm:flex-row gap-2">
+            <button
+              class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+              :disabled="isRunningReminders"
+              @click="runReminders('initial')"
+            >
+              Erinnerung senden
+            </button>
+            <button
+              class="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-50"
+              :disabled="isRunningReminders"
+              @click="runReminders('final')"
+            >
+              Mahnung senden
+            </button>
+          </div>
+        </div>
+
+        <div v-if="isReminderSettingsLoading" class="mt-3 text-sm text-gray-500">
+          Einstellungen werden aktualisiert...
+        </div>
+        <div v-if="reminderSettingsError" class="mt-3 text-sm text-red-600">
+          {{ reminderSettingsError }}
+        </div>
+
+        <div v-if="reminderRunError" class="mt-3 text-sm text-red-600">
+          {{ reminderRunError }}
+        </div>
+        <div v-if="reminderRunResult" class="mt-3 text-sm text-gray-700">
+          <p class="font-medium">Ergebnis</p>
+          <p>
+            Stufe: {{ reminderRunResult.stage }}
+            · Offene Beiträge: {{ reminderRunResult.unpaidCount }}
+            · Mahngebühren erstellt: {{ reminderRunResult.reminderCreated }}
+          </p>
+          <p>
+            E-Mail gesendet: {{ reminderRunResult.emailSent ? 'Ja' : 'Nein' }}
+            · Trockenlauf: {{ reminderRunResult.dryRun ? 'Ja' : 'Nein' }}
+          </p>
+          <p v-if="reminderRunResult.message" class="text-gray-500">
+            {{ reminderRunResult.message }}
+          </p>
+        </div>
+      </div>
+
+      <!-- Email Logs -->
+      <div v-if="authStore.isAdmin" class="bg-white rounded-xl border p-6 mb-8">
+        <div class="flex items-center justify-between mb-4">
+          <div>
+            <h2 class="text-lg font-semibold text-gray-900">E-Mail-Protokoll</h2>
+            <p class="text-sm text-gray-600">Alle versendeten E-Mails inklusive Inhalt.</p>
+          </div>
+          <button
+            class="text-sm text-primary hover:underline"
+            :disabled="isEmailLogsLoading"
+            @click="loadEmailLogs(true)"
+          >
+            Neu laden
+          </button>
+        </div>
+
+        <div v-if="emailLogsError" class="text-sm text-red-600 mb-3">
+          {{ emailLogsError }}
+        </div>
+
+        <div v-if="emailLogs.length === 0 && !isEmailLogsLoading" class="text-sm text-gray-500">
+          Noch keine E-Mails protokolliert.
+        </div>
+
+        <div v-else class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="text-left text-gray-500 border-b">
+                <th class="pb-3 font-medium">Zeitpunkt</th>
+                <th class="pb-3 font-medium">Typ</th>
+                <th class="pb-3 font-medium">Empfänger</th>
+                <th class="pb-3 font-medium">Betreff</th>
+                <th class="pb-3 font-medium">Inhalt</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="log in emailLogs" :key="log.id" class="border-b last:border-0 align-top">
+                <td class="py-3 whitespace-nowrap">{{ formatDateTime(log.sentAt) }}</td>
+                <td class="py-3 whitespace-nowrap">{{ formatEmailType(log.emailType) }}</td>
+                <td class="py-3 whitespace-nowrap">{{ log.toEmail }}</td>
+                <td class="py-3">{{ log.subject }}</td>
+                <td class="py-3">
+                  <details class="text-sm">
+                    <summary class="cursor-pointer text-primary">Anzeigen</summary>
+                    <pre class="mt-2 whitespace-pre-wrap text-gray-700 bg-gray-50 border rounded-lg p-3">{{ log.body || '-' }}</pre>
+                  </details>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div v-if="isEmailLogsLoading" class="mt-3 text-sm text-gray-500">
+          E-Mail-Protokoll wird geladen...
+        </div>
+
+        <div v-if="emailLogs.length < emailLogsTotal" class="mt-4">
+          <button
+            class="px-3 py-2 rounded-lg border text-sm font-medium hover:bg-gray-50 disabled:opacity-50"
+            :disabled="isEmailLogsLoading"
+            @click="loadEmailLogs()"
+          >
+            Mehr laden
+          </button>
         </div>
       </div>
 
