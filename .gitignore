@@ -57,6 +57,10 @@ frontend/e2e/fixtures/test-*.csv
 playwright-report/
 test-results/
 
+# Automated CSV Export with playwright
+banking-sync/output
+banking-sync/profile
+
 # Generated API code (optional - könnte auch committed werden)
 # backend/src/main/java/de/knirpsenstadt/api/
 # frontend/packages/shared/src/api/

@@ -1,0 +1,19 @@
+{
+  "lockfileVersion": 1,
+  "configVersion": 1,
+  "workspaces": {
+    "": {
+      "name": "banking-sync",
+      "dependencies": {
+        "playwright": "^1.41.0",
+      },
+    },
+  },
+  "packages": {
+    "fsevents": ["fsevents@2.3.2", "https://artifactory.mpi-internal.com/artifactory/api/npm/kleinanzeigen-npm-virtual/fsevents/-/fsevents-2.3.2.tgz", { "os": "darwin" }, "sha512-xiqMQR4xAeHTuB9uWm+fFRcIOgKBMiOBP+eXiyT7jsgVCq1bkVygt00oASowB7EdtpOHaaPgKt812P9ab+DDKA=="],
+
+    "playwright": ["playwright@1.58.1", "https://artifactory.mpi-internal.com/artifactory/api/npm/kleinanzeigen-npm-virtual/playwright/-/playwright-1.58.1.tgz", { "dependencies": { "playwright-core": "1.58.1" }, "optionalDependencies": { "fsevents": "2.3.2" }, "bin": { "playwright": "cli.js" } }, "sha512-+2uTZHxSCcxjvGc5C891LrS1/NlxglGxzrC4seZiVjcYVQfUa87wBL6rTDqzGjuoWNjnBzRqKmF6zRYGMvQUaQ=="],
+
+    "playwright-core": ["playwright-core@1.58.1", "https://artifactory.mpi-internal.com/artifactory/api/npm/kleinanzeigen-npm-virtual/playwright-core/-/playwright-core-1.58.1.tgz", { "bin": { "playwright-core": "cli.js" } }, "sha512-bcWzOaTxcW+VOOGBCQgnaKToLJ65d6AqfLVKEWvexyS3AS6rbXl+xdpYRMGSRBClPvyj44njOWoxjNdL/H9UNg=="],
+  }
+}
