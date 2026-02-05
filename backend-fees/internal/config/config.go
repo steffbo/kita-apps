@@ -8,10 +8,11 @@ import (
 
 // Config holds all application configuration.
 type Config struct {
-	Server   ServerConfig
-	Database DatabaseConfig
-	JWT      JWTConfig
-	SMTP     SMTPConfig
+	Server      ServerConfig
+	Database    DatabaseConfig
+	JWT         JWTConfig
+	SMTP        SMTPConfig
+	BankingSync BankingSyncConfig
 }
 
 // SMTPConfig holds SMTP email configuration.
@@ -49,6 +50,13 @@ type JWTConfig struct {
 	Issuer        string
 }
 
+// BankingSyncConfig holds configuration for the banking sync runner.
+type BankingSyncConfig struct {
+	BaseURL string
+	Token   string
+	Timeout time.Duration
+}
+
 // Load reads configuration from environment variables.
 func Load() *Config {
 	return &Config{
@@ -78,6 +86,11 @@ func Load() *Config {
 			Password: getEnv("SMTP_PASSWORD", ""),
 			UseTLS:   getEnvBool("SMTP_USE_TLS", true),
 			BaseURL:  getEnv("APP_BASE_URL", "http://localhost:5175"),
+		},
+		BankingSync: BankingSyncConfig{
+			BaseURL: getEnv("BANKING_SYNC_URL", ""),
+			Token:   getEnv("BANKING_SYNC_TOKEN", ""),
+			Timeout: getEnvDuration("BANKING_SYNC_TIMEOUT", 30*time.Second),
 		},
 	}
 }

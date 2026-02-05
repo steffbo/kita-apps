@@ -81,6 +81,8 @@ func main() {
 	matchRepo := repository.NewPostgresMatchRepository(db)
 	knownIBANRepo := repository.NewPostgresKnownIBANRepository(db)
 	warningRepo := repository.NewPostgresWarningRepository(db)
+	settingsRepo := repository.NewPostgresSettingsRepository(db)
+	emailLogRepo := repository.NewPostgresEmailLogRepository(db)
 
 	// Initialize services
 	jwtService := auth.NewJWTService(cfg.JWT.Secret, cfg.JWT.AccessExpiry, cfg.JWT.RefreshExpiry, cfg.JWT.Issuer)
@@ -92,7 +94,7 @@ func main() {
 		Password: cfg.SMTP.Password,
 		UseTLS:   cfg.SMTP.UseTLS,
 	})
-	authService := service.NewAuthService(userRepo, refreshTokenRepo, emailService, cfg.SMTP.BaseURL, cfg.JWT.RefreshExpiry)
+	authService := service.NewAuthService(userRepo, refreshTokenRepo, emailService, emailLogRepo, cfg.SMTP.BaseURL, cfg.JWT.RefreshExpiry)
 
 	childService := service.NewChildService(childRepo, parentRepo, householdRepo)
 	parentService := service.NewParentService(parentRepo, childRepo, memberRepo)
@@ -102,6 +104,7 @@ func main() {
 	importService := service.NewImportService(transactionRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, warningRepo)
 	childImportService := service.NewChildImportService(childRepo, parentRepo)
 	coverageService := service.NewCoverageService(feeRepo, childRepo, transactionRepo, matchRepo)
+	reminderService := service.NewReminderService(feeRepo, childRepo, settingsRepo, emailLogRepo, emailService)
 
 	// Initialize handlers
 	handlers := &api.Handlers{
@@ -111,8 +114,9 @@ func main() {
 		Parent:      handler.NewParentHandler(parentService),
 		Household:   handler.NewHouseholdHandler(householdService),
 		Member:      handler.NewMemberHandler(memberService),
-		Fee:         handler.NewFeeHandler(feeService, importService),
+		Fee:         handler.NewFeeHandler(feeService, importService, reminderService, emailLogRepo),
 		Import:      handler.NewImportHandler(importService),
+		BankingSync: handler.NewBankingSyncHandler(cfg.BankingSync.BaseURL, cfg.BankingSync.Token, cfg.BankingSync.Timeout),
 		JWTService:  jwtService,
 	}
 

@@ -121,12 +121,22 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 				r.Delete("/{id}", handlers.Member.Delete)
 			})
 
+			// Banking sync (admin only)
+			r.Route("/banking-sync", func(r chi.Router) {
+				r.With(customMiddleware.RequireRole("ADMIN")).Post("/run", handlers.BankingSync.Run)
+				r.With(customMiddleware.RequireRole("ADMIN")).Get("/status", handlers.BankingSync.Status)
+			})
+
 			// Fees
 			r.Route("/fees", func(r chi.Router) {
 				r.Get("/", handlers.Fee.List)
 				r.Post("/", handlers.Fee.Create)
 				r.Get("/overview", handlers.Fee.Overview)
 				r.Post("/generate", handlers.Fee.Generate)
+				r.With(customMiddleware.RequireRole("ADMIN")).Post("/reminders/run", handlers.Fee.RunReminders)
+				r.With(customMiddleware.RequireRole("ADMIN")).Get("/reminders/settings", handlers.Fee.GetReminderSettings)
+				r.With(customMiddleware.RequireRole("ADMIN")).Put("/reminders/settings", handlers.Fee.UpdateReminderSettings)
+				r.With(customMiddleware.RequireRole("ADMIN")).Get("/email-logs", handlers.Fee.GetEmailLogs)
 				r.Get("/{id}", handlers.Fee.Get)
 				r.Put("/{id}", handlers.Fee.Update)
 				r.Delete("/{id}", handlers.Fee.Delete)
@@ -174,5 +184,6 @@ type Handlers struct {
 	Member      *handler.MemberHandler
 	Fee         *handler.FeeHandler
 	Import      *handler.ImportHandler
+	BankingSync *handler.BankingSyncHandler
 	JWTService  *auth.JWTService
 }
