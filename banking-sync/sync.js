@@ -47,58 +47,50 @@ function getRoots(page) {
   return frames.length ? [page, ...frames] : [page];
 }
 
-async function buildCandidateLocators(locator) {
-  const candidates = [locator.first()];
-  const count = await locator.count().catch(() => 0);
-  const limit = Math.min(count, 5);
-  for (let idx = 1; idx < limit; idx++) {
-    candidates.push(locator.nth(idx));
+function isPageClosed(page) {
+  try {
+    return page.isClosed();
+  } catch {
+    return true;
   }
-  return candidates;
 }
 
 async function findFirstVisible(page, builders, label, timeoutMs = 10000, log = null) {
   const roots = getRoots(page);
-  const attempts = [];
+  const deadline = Date.now() + timeoutMs;
 
-  for (const root of roots) {
-    for (let i = 0; i < builders.length; i++) {
-      let locator;
-      try {
-        locator = builders[i](root);
-      } catch {
-        continue;
-      }
-      const candidates = await buildCandidateLocators(locator);
-      for (const candidate of candidates) {
+  while (Date.now() < deadline) {
+    if (isPageClosed(page)) {
+      throw new Error(`Page closed while waiting for ${label}`);
+    }
+
+    for (const root of roots) {
+      for (let i = 0; i < builders.length; i++) {
+        let locator;
         try {
-          const attempt = candidate.waitFor({ state: 'visible', timeout: timeoutMs }).then(() => ({
-            candidate,
-            selectorIndex: i + 1,
-            root,
-          }));
-          attempts.push(attempt);
+          locator = builders[i](root);
         } catch {
-          // Element/page may already be gone (browser crash/navigation); skip this candidate.
+          continue;
+        }
+
+        const remainingMs = Math.max(1, deadline - Date.now());
+        const attemptTimeoutMs = Math.min(1200, remainingMs);
+
+        try {
+          const first = locator.first();
+          await first.waitFor({ state: 'visible', timeout: attemptTimeoutMs });
+          if (log) {
+            const rootInfo = roots.length > 1 ? ` (frame: ${getRootUrl(root)})` : '';
+            log(`  Found ${label} using selector #${i + 1}${rootInfo}`);
+          }
+          return first;
+        } catch {
+          // try next selector
         }
       }
     }
-  }
 
-  if (!attempts.length) {
-    const frameInfo = roots.map(getRootUrl).join(', ');
-    throw new Error(`Could not find visible element for ${label}. Frames: ${frameInfo}`);
-  }
-
-  try {
-    const result = await Promise.any(attempts);
-    if (log) {
-      const rootInfo = roots.length > 1 ? ` (frame: ${getRootUrl(result.root)})` : '';
-      log(`  Found ${label} using selector #${result.selectorIndex}${rootInfo}`);
-    }
-    return result.candidate;
-  } catch {
-    // handled below with frame details
+    await page.waitForLoadState('domcontentloaded', { timeout: 300 }).catch(() => undefined);
   }
 
   const frameInfo = roots.map(getRootUrl).join(', ');
@@ -240,8 +232,10 @@ async function downloadCSV(options = {}) {
 
     const accountSelector = [
       // Primary: Find by IBAN data attribute
+      root => root.locator('[data-e2e-konto-business-ident="DE33370205000003321400"] button.konto-item-action'),
       root => root.locator('[data-e2e-konto-business-ident="DE33370205000003321400"]'),
       // Fallback: First konto-list-item with clickable area
+      root => root.locator('app-konto-item').first().locator('button.konto-item-action'),
       root => root.locator('app-konto-list-item').first().locator('.konto-list-item'),
       root => root.locator('app-konto-item').first(),
       // Last resort: first account list item
@@ -264,7 +258,12 @@ async function downloadCSV(options = {}) {
 
     // 3. Navigate to transactions
     log('📊 Navigating to transactions...');
-    await accountElement.click();
+    try {
+      await accountElement.click();
+    } catch (error) {
+      log('  Account click intercepted, retrying with force click...');
+      await accountElement.click({ force: true });
+    }
 
     // 4. Download CSV
     log('💾 Downloading CSV...');
