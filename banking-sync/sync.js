@@ -16,6 +16,7 @@ const CONFIG = {
   downloadDir: process.env.DOWNLOAD_DIR || path.resolve(__dirname, 'output'),
   userDataDir: process.env.USER_DATA_DIR || path.resolve(__dirname, 'profile'),
   twoFaTimeoutMs: Number(process.env.TWO_FA_TIMEOUT_SECONDS || 600) * 1000,
+  loginTimeoutMs: Number(process.env.LOGIN_TIMEOUT_SECONDS || 30) * 1000,
   userAgent:
     process.env.USER_AGENT ||
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 13_6_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
@@ -32,17 +33,58 @@ function createLogger(onLog) {
   };
 }
 
-async function findFirstVisible(page, builders, label, timeoutMs = 10000) {
-  for (const build of builders) {
-    try {
-      const locator = build(page).first();
-      await locator.waitFor({ state: 'visible', timeout: timeoutMs });
-      return locator;
-    } catch {
-      // try next
+function getRootUrl(root) {
+  try {
+    if (typeof root.url === 'function') return root.url();
+  } catch {
+    return 'unknown';
+  }
+  return 'unknown';
+}
+
+function getRoots(page) {
+  const frames = page.frames();
+  return frames.length ? [page, ...frames] : [page];
+}
+
+async function findFirstVisible(page, builders, label, timeoutMs = 10000, log = null) {
+  const roots = getRoots(page);
+  for (const root of roots) {
+    for (let i = 0; i < builders.length; i++) {
+      const build = builders[i];
+      let locator;
+      try {
+        locator = build(root);
+      } catch {
+        continue;
+      }
+
+      try {
+        const deadline = Date.now() + timeoutMs;
+
+        while (Date.now() < deadline) {
+          const count = await locator.count();
+          const limit = Math.min(count, 5);
+          for (let idx = 0; idx < limit; idx++) {
+            const candidate = locator.nth(idx);
+            const visible = await candidate.isVisible().catch(() => false);
+            if (visible) {
+              if (log) {
+                const rootInfo = roots.length > 1 ? ` (frame: ${getRootUrl(root)})` : '';
+                log(`  Found ${label} using selector #${i + 1}${rootInfo}`);
+              }
+              return candidate;
+            }
+          }
+          await page.waitForTimeout(200);
+        }
+      } catch {
+        // try next
+      }
     }
   }
-  throw new Error(`Could not find visible element for ${label}`);
+  const frameInfo = roots.map(getRootUrl).join(', ');
+  throw new Error(`Could not find visible element for ${label}. Frames: ${frameInfo}`);
 }
 
 async function clickIfVisible(page, builders) {
@@ -62,7 +104,7 @@ async function dismissCookieBanner(page) {
   ]);
 }
 
-async function fillCredentials(page) {
+async function fillCredentials(page, log) {
   await clickIfVisible(page, [
     root => root.getByRole('tab', { name: /Zugangsdaten/i }),
     root => root.locator('button:has-text("Mit Zugangsdaten anmelden")'),
@@ -71,33 +113,61 @@ async function fillCredentials(page) {
   // Wait for form to be fully interactive
   await page.waitForTimeout(500);
 
-  const usernameInput = await findFirstVisible(page, [
-    root => root.locator('[data-automation-id="vrNetKey-input"]'),
-    root => root.locator('input[name="vrNetKeyFormControl"]'),
-    root => root.locator('input#vrNetKey'),
-    root => root.getByRole('textbox', { name: /NetKey|Benutzer/i }),
-    root => root.getByLabel(/NetKey|Benutzer/i),
-    root => root.locator('input[autocomplete="off"]'),
-    root => root.locator('input[type="text"]'),
-  ], 'username', 30000);
+  log('  Looking for username field...');
+  const usernameInput = await findFirstVisible(
+    page,
+    [
+      root => root.locator('[data-automation-id="vvrnKey-input"]'),
+      root => root.locator('input[name="vvrnKeyFormControl"]'),
+      root => root.locator('input#vvrnKey'),
+      // Fallback for older naming
+      root => root.locator('[data-automation-id="vrNetKey-input"]'),
+      root => root.locator('input[name="vrNetKeyFormControl"]'),
+      root => root.locator('input#vrNetKey'),
+      root => root.getByRole('textbox', { name: /NetKey|Alias|Benutzer|User|Login/i }),
+      root => root.getByLabel(/NetKey|Alias|Benutzer|User|Login/i),
+      root => root.locator('input[autocomplete="username"]'),
+    ],
+    'username',
+    CONFIG.loginTimeoutMs,
+    log
+  );
   await usernameInput.fill(CONFIG.username);
+  log('  ✓ Username filled');
 
-  const passwordInput = await findFirstVisible(page, [
-    root => root.locator('[data-automation-id="pin-input"]'),
-    root => root.locator('input[name="pinFormControl"]'),
-    root => root.locator('input#pin'),
-    root => root.getByLabel(/PIN/i),
-    root => root.locator('input[type="password"]'),
-  ], 'pin', 30000);
+  log('  Looking for PIN field...');
+  const passwordInput = await findFirstVisible(
+    page,
+    [
+      root => root.locator('[data-automation-id="pin-input"]'),
+      root => root.locator('input[name="pinFormControl"]'),
+      root => root.locator('input#pin'),
+      root => root.getByLabel(/PIN|Passwort|Password/i),
+      root => root.locator('input[autocomplete="current-password"]'),
+      root => root.locator('input[type="password"]'),
+    ],
+    'pin',
+    CONFIG.loginTimeoutMs,
+    log
+  );
   await passwordInput.fill(CONFIG.password);
+  log('  ✓ PIN filled');
 
-  const submitButton = await findFirstVisible(page, [
-    root => root.locator('[data-automation-id="sign-in-button"]'),
-    root => root.locator('button:has-text("Anmelden")'),
-    root => root.getByRole('button', { name: /Anmelden|Login/i }),
-    root => root.locator('button[type="submit"]'),
-  ], 'login button', 30000);
+  log('  Looking for submit button...');
+  const submitButton = await findFirstVisible(
+    page,
+    [
+      root => root.locator('[data-automation-id="sign-in-button"]'),
+      root => root.locator('button:has-text("Anmelden")'),
+      root => root.getByRole('button', { name: /Anmelden|Login|Einloggen|Weiter/i }),
+      root => root.locator('button[type="submit"]'),
+    ],
+    'login button',
+    CONFIG.loginTimeoutMs,
+    log
+  );
   await submitButton.click();
+  log('  ✓ Submit clicked');
 
   // Wait for navigation
   await page.waitForTimeout(2000);
@@ -145,7 +215,7 @@ async function downloadCSV(options = {}) {
     await dismissCookieBanner(page);
 
     log('🔑 Entering credentials...');
-    await fillCredentials(page);
+    await fillCredentials(page, log);
 
     // 2. Wait for login or 2FA
     log('⏳ Waiting for login/2FA...');
