@@ -1,21 +1,6 @@
 FROM oven/bun:1.1.29
 
-# Install Playwright dependencies
-RUN apt-get update && apt-get install -y \
-    libnss3 \
-    libnspr4 \
-    libatk1.0-0 \
-    libatk-bridge2.0-0 \
-    libcups2 \
-    libdrm2 \
-    libxkbcommon0 \
-    libxcomposite1 \
-    libxdamage1 \
-    libxfixes3 \
-    libxrandr2 \
-    libgbm1 \
-    libasound2 \
-    && rm -rf /var/lib/apt/lists/*
+ENV DEBIAN_FRONTEND=noninteractive
 
 WORKDIR /app
 
@@ -25,8 +10,8 @@ COPY package.json bun.lockb* ./
 # Install dependencies
 RUN bun install
 
-# Install Playwright browsers
-RUN bunx playwright install chromium
+# Install Playwright browsers and all required system dependencies
+RUN bunx playwright install --with-deps chromium
 
 # Copy app files
 COPY sync.js upload.js server.js ./
