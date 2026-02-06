@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, watch } from 'vue';
 import { api } from '@/api';
-import type { FeeOverview, StichtagsmeldungStats } from '@/api/types';
+import type { FeeOverview, StichtagsmeldungStats, U3ChildDetail } from '@/api/types';
 import {
   Receipt,
   CheckCircle,
@@ -14,6 +14,8 @@ import {
   Baby,
   Calendar,
   Users2,
+  X,
+  CircleDollarSign,
 } from 'lucide-vue-next';
 import { useRouter } from 'vue-router';
 
@@ -24,12 +26,18 @@ const unmatchedTotal = ref(0);
 const stichtagStats = ref<StichtagsmeldungStats | null>(null);
 const u3Count = ref(0);
 const totalChildrenCount = ref(0);
+const childrenWithWarnings = ref(0);
 const isLoading = ref(true);
 const error = ref<string | null>(null);
 
 // Year selector only for monthly overview
 const selectedYear = ref(new Date().getFullYear());
 const isLoadingMonthly = ref(false);
+
+// Modal state
+const showStichtagModal = ref(false);
+const u3Children = ref<U3ChildDetail[]>([]);
+const isLoadingU3Children = ref(false);
 
 const years = computed(() => {
   const currentYear = new Date().getFullYear();
@@ -42,13 +50,14 @@ async function loadDashboard() {
   isLoading.value = true;
   error.value = null;
   try {
-    const [overviewData, monthlyData, unmatchedData, stichtagData, u3Data, totalData] = await Promise.all([
+    const [overviewData, monthlyData, unmatchedData, stichtagData, u3Data, totalData, warningsData] = await Promise.all([
       api.getFeeOverview(), // Current state - no year filter
       api.getFeeOverview(selectedYear.value), // Monthly overview with year
       api.getUnmatchedTransactions({ limit: 1 }),
       api.getStichtagsmeldungStats(),
       api.getChildren({ activeOnly: true, u3Only: true, limit: 1 }),
       api.getChildren({ activeOnly: true, limit: 1 }),
+      api.getChildren({ activeOnly: true, hasWarnings: true, limit: 1 }),
     ]);
     overview.value = overviewData;
     monthlyOverview.value = monthlyData;
@@ -56,6 +65,7 @@ async function loadDashboard() {
     stichtagStats.value = stichtagData;
     u3Count.value = u3Data.total;
     totalChildrenCount.value = totalData.total;
+    childrenWithWarnings.value = warningsData.total;
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Fehler beim Laden';
   } finally {
@@ -74,6 +84,18 @@ async function loadMonthlyOverview() {
   }
 }
 
+async function openStichtagModal() {
+  showStichtagModal.value = true;
+  isLoadingU3Children.value = true;
+  try {
+    u3Children.value = await api.getU3Children();
+  } catch (e) {
+    // Silently fail
+  } finally {
+    isLoadingU3Children.value = false;
+  }
+}
+
 watch(selectedYear, () => {
   loadMonthlyOverview();
 });
@@ -87,6 +109,15 @@ function formatCurrency(amount: number): string {
   }).format(amount);
 }
 
+function formatIncome(income: number | null): string {
+  if (income === null) return '—';
+  return new Intl.NumberFormat('de-DE', {
+    style: 'currency',
+    currency: 'EUR',
+    maximumFractionDigits: 0,
+  }).format(income);
+}
+
 function getMonthName(month: number): string {
   return new Date(2000, month - 1).toLocaleString('de-DE', { month: 'short' });
 }
@@ -97,6 +128,16 @@ function formatDate(dateStr: string): string {
     month: '2-digit',
     year: 'numeric',
   });
+}
+
+function getIncomeStatusLabel(status: string | null): string {
+  if (!status) return '';
+  const labels: Record<string, string> = {
+    CURRENT: 'Aktuell',
+    HISTORIC: 'Historisch',
+    FOSTER_FAMILY: 'Pflegefamilie',
+  };
+  return labels[status] || status;
 }
 </script>
 
@@ -188,7 +229,7 @@ function formatDate(dateStr: string): string {
       </div>
 
       <!-- Secondary Cards Row -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <!-- U3/Ü3 Children Card -->
         <div class="bg-white rounded-xl border p-5">
           <div class="flex items-center gap-3">
@@ -206,8 +247,12 @@ function formatDate(dateStr: string): string {
           </div>
         </div>
 
-        <!-- Stichtagsmeldung Card -->
-        <div v-if="stichtagStats" class="bg-white rounded-xl border p-5">
+        <!-- Stichtagsmeldung Card (clickable) -->
+        <div
+          v-if="stichtagStats"
+          class="bg-white rounded-xl border p-5 cursor-pointer hover:bg-gray-50 transition-colors"
+          @click="openStichtagModal"
+        >
           <div class="flex items-start gap-3">
             <div class="p-2.5 bg-emerald-100 rounded-lg">
               <Calendar class="h-5 w-5 text-emerald-600" />
@@ -238,6 +283,26 @@ function formatDate(dateStr: string): string {
           </div>
         </div>
 
+        <!-- Missing Income Warning Card -->
+        <div
+          v-if="childrenWithWarnings > 0"
+          class="bg-red-50 border border-red-200 rounded-xl p-5 cursor-pointer hover:bg-red-100 transition-colors"
+          @click="router.push('/kinder?warnings=true')"
+        >
+          <div class="flex items-center gap-3">
+            <div class="p-2.5 bg-red-100 rounded-lg">
+              <CircleDollarSign class="h-5 w-5 text-red-600" />
+            </div>
+            <div class="flex-1">
+              <p class="text-xs text-red-700 font-medium">Fehlende Daten</p>
+              <p class="text-lg font-bold text-red-900">{{ childrenWithWarnings }} Kinder</p>
+            </div>
+            <svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+          </div>
+        </div>
+
         <!-- Unmatched Transactions Card -->
         <div
           v-if="unmatchedTotal > 0"
@@ -258,15 +323,18 @@ function formatDate(dateStr: string): string {
           </div>
         </div>
 
-        <!-- Placeholder if no unmatched -->
-        <div v-else class="bg-gray-50 rounded-xl border border-dashed border-gray-200 p-5">
+        <!-- Placeholder if no warnings and no unmatched -->
+        <div
+          v-if="childrenWithWarnings === 0 && unmatchedTotal === 0"
+          class="bg-gray-50 rounded-xl border border-dashed border-gray-200 p-5"
+        >
           <div class="flex items-center gap-3">
             <div class="p-2.5 bg-gray-100 rounded-lg">
               <CheckCircle class="h-5 w-5 text-gray-400" />
             </div>
             <div>
-              <p class="text-xs text-gray-400 font-medium">Transaktionen</p>
-              <p class="text-sm text-gray-500">Alle zugeordnet</p>
+              <p class="text-xs text-gray-400 font-medium">Alles in Ordnung</p>
+              <p class="text-sm text-gray-500">Keine Warnungen</p>
             </div>
           </div>
         </div>
@@ -371,5 +439,116 @@ function formatDate(dateStr: string): string {
         </div>
       </div>
     </div>
+
+    <!-- Stichtagsmeldung Modal -->
+    <Teleport to="body">
+      <div
+        v-if="showStichtagModal"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4"
+      >
+        <!-- Backdrop -->
+        <div
+          class="absolute inset-0 bg-black/50"
+          @click="showStichtagModal = false"
+        />
+
+        <!-- Modal -->
+        <div class="relative bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[80vh] flex flex-col">
+          <!-- Header -->
+          <div class="flex items-center justify-between p-6 border-b">
+            <div>
+              <h2 class="text-lg font-semibold text-gray-900">Stichtagsmeldung - U3-Kinder</h2>
+              <p v-if="stichtagStats" class="text-sm text-gray-500 mt-0.5">
+                Stichtag: {{ formatDate(stichtagStats.nextStichtag) }}
+              </p>
+            </div>
+            <button
+              @click="showStichtagModal = false"
+              class="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"
+            >
+              <X class="h-5 w-5" />
+            </button>
+          </div>
+
+          <!-- Content -->
+          <div class="flex-1 overflow-auto p-6">
+            <div v-if="isLoadingU3Children" class="flex items-center justify-center py-8">
+              <Loader2 class="h-6 w-6 animate-spin text-primary" />
+            </div>
+
+            <div v-else-if="u3Children.length === 0" class="text-center py-8 text-gray-500">
+              Keine U3-Kinder gefunden
+            </div>
+
+            <table v-else class="w-full">
+              <thead>
+                <tr class="text-left text-sm text-gray-500 border-b">
+                  <th class="pb-3 font-medium">Name</th>
+                  <th class="pb-3 font-medium">Geb.</th>
+                  <th class="pb-3 font-medium text-right">Einkommen</th>
+                  <th class="pb-3 font-medium text-right">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr
+                  v-for="child in u3Children"
+                  :key="child.id"
+                  class="border-b last:border-0 hover:bg-gray-50 cursor-pointer"
+                  @click="router.push(`/kinder/${child.id}`); showStichtagModal = false"
+                >
+                  <td class="py-3">
+                    <span class="font-medium text-gray-900">{{ child.lastName }}, {{ child.firstName }}</span>
+                    <span class="text-xs text-gray-400 ml-2">#{{ child.memberNumber }}</span>
+                  </td>
+                  <td class="py-3 text-sm text-gray-600">{{ formatDate(child.birthDate) }}</td>
+                  <td class="py-3 text-right">
+                    <span
+                      :class="[
+                        'font-medium',
+                        child.householdIncome === null ? 'text-red-600' : 'text-gray-900'
+                      ]"
+                    >
+                      {{ formatIncome(child.householdIncome) }}
+                    </span>
+                  </td>
+                  <td class="py-3 text-right">
+                    <span
+                      v-if="child.isFosterFamily"
+                      class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700"
+                    >
+                      Pflegefamilie
+                    </span>
+                    <span
+                      v-else-if="child.incomeStatus"
+                      :class="[
+                        'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium',
+                        child.incomeStatus === 'CURRENT' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                      ]"
+                    >
+                      {{ getIncomeStatusLabel(child.incomeStatus) }}
+                    </span>
+                    <span v-else class="text-xs text-gray-400">—</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Footer -->
+          <div class="p-6 border-t bg-gray-50 rounded-b-xl">
+            <div class="flex items-center justify-between text-sm">
+              <div class="text-gray-600">
+                <span class="font-medium">{{ u3Children.filter(c => !c.isFosterFamily).length }}</span> U3-Kinder (ohne Pflegefamilien)
+              </div>
+              <div v-if="stichtagStats" class="flex gap-4 text-gray-500">
+                <span>≤20k: <span class="font-medium text-gray-700">{{ stichtagStats.u3IncomeBreakdown.upTo20k }}</span></span>
+                <span>20–35k: <span class="font-medium text-gray-700">{{ stichtagStats.u3IncomeBreakdown.from20To35k }}</span></span>
+                <span>35–55k: <span class="font-medium text-gray-700">{{ stichtagStats.u3IncomeBreakdown.from35To55k }}</span></span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>

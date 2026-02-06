@@ -429,3 +429,55 @@ func (r *PostgresChildRepository) GetStichtagsmeldungStats(ctx context.Context, 
 		TotalChildrenInKita: totalChildren,
 	}, nil
 }
+
+// GetU3ChildrenDetails retrieves details of U3 children for the Stichtagsmeldung modal.
+func (r *PostgresChildRepository) GetU3ChildrenDetails(ctx context.Context, stichtag time.Time) ([]domain.U3ChildDetail, error) {
+	u3Threshold := stichtag.AddDate(-3, 0, 0)
+
+	var children []struct {
+		ID              string  `db:"id"`
+		MemberNumber    string  `db:"member_number"`
+		FirstName       string  `db:"first_name"`
+		LastName        string  `db:"last_name"`
+		BirthDate       string  `db:"birth_date"`
+		HouseholdIncome *int    `db:"annual_household_income"`
+		IncomeStatus    *string `db:"income_status"`
+	}
+
+	err := r.db.SelectContext(ctx, &children, `
+		SELECT
+			c.id::text,
+			c.member_number,
+			c.first_name,
+			c.last_name,
+			TO_CHAR(c.birth_date, 'YYYY-MM-DD') AS birth_date,
+			h.annual_household_income,
+			h.income_status
+		FROM fees.children c
+		LEFT JOIN fees.households h ON c.household_id = h.id
+		WHERE c.is_active = true
+		  AND c.entry_date <= $1
+		  AND c.birth_date > $2
+		ORDER BY c.last_name, c.first_name
+	`, stichtag, u3Threshold)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]domain.U3ChildDetail, len(children))
+	for i, c := range children {
+		isFoster := c.IncomeStatus != nil && *c.IncomeStatus == "FOSTER_FAMILY"
+		result[i] = domain.U3ChildDetail{
+			ID:              c.ID,
+			MemberNumber:    c.MemberNumber,
+			FirstName:       c.FirstName,
+			LastName:        c.LastName,
+			BirthDate:       c.BirthDate,
+			HouseholdIncome: c.HouseholdIncome,
+			IncomeStatus:    c.IncomeStatus,
+			IsFosterFamily:  isFoster,
+		}
+	}
+
+	return result, nil
+}

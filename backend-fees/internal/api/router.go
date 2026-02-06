@@ -144,6 +144,7 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 			// Stichtagsmeldung
 			r.Route("/stichtagsmeldung", func(r chi.Router) {
 				r.Get("/stats", handlers.Stichtagsmeldung.GetStats)
+				r.Get("/children", handlers.Stichtagsmeldung.GetU3Children)
 			})
 
 			// Import

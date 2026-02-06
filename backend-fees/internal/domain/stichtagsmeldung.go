@@ -18,3 +18,15 @@ type U3IncomeBreakdown struct {
 	From35To55k int `json:"from35To55k"` // >35,000 && ≤55,000
 	Total       int `json:"total"`       // total U3 (excluding foster families)
 }
+
+// U3ChildDetail contains details of a U3 child for the Stichtagsmeldung modal.
+type U3ChildDetail struct {
+	ID              string  `json:"id"`
+	MemberNumber    string  `json:"memberNumber"`
+	FirstName       string  `json:"firstName"`
+	LastName        string  `json:"lastName"`
+	BirthDate       string  `json:"birthDate"`
+	HouseholdIncome *int    `json:"householdIncome"`
+	IncomeStatus    *string `json:"incomeStatus"`
+	IsFosterFamily  bool    `json:"isFosterFamily"`
+}

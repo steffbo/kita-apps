@@ -166,9 +166,12 @@ watch([sortField, sortDirection], () => {
 });
 
 onMounted(() => {
-  // Check for query param to auto-enable open fees filter
+  // Check for query params to auto-enable filters
   if (route.query.openFees === 'true') {
     showOnlyOpenFees.value = true;
+  }
+  if (route.query.warnings === 'true') {
+    showOnlyWarnings.value = true;
   }
   loadChildren();
 });

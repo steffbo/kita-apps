@@ -52,6 +52,7 @@ import type {
   MatchSuggestion,
   BankingSyncStatus,
   StichtagsmeldungStats,
+  U3ChildDetail,
 } from './types';
 
 const API_BASE = '/api/fees/v1';
@@ -829,6 +830,10 @@ class ApiClient {
   // Stichtagsmeldung endpoints
   async getStichtagsmeldungStats(): Promise<StichtagsmeldungStats> {
     return this.request<StichtagsmeldungStats>('/stichtagsmeldung/stats');
+  }
+
+  async getU3Children(): Promise<U3ChildDetail[]> {
+    return this.request<U3ChildDetail[]>('/stichtagsmeldung/children');
   }
 
 }

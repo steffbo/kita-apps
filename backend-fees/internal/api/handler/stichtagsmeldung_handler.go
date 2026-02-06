@@ -68,3 +68,49 @@ func (h *StichtagsmeldungHandler) GetStats(w http.ResponseWriter, r *http.Reques
 
 	response.Success(w, resp)
 }
+
+// U3ChildDetailResponse represents a U3 child detail for the modal.
+type U3ChildDetailResponse struct {
+	ID              string  `json:"id"`
+	MemberNumber    string  `json:"memberNumber"`
+	FirstName       string  `json:"firstName"`
+	LastName        string  `json:"lastName"`
+	BirthDate       string  `json:"birthDate"`
+	HouseholdIncome *int    `json:"householdIncome"`
+	IncomeStatus    *string `json:"incomeStatus"`
+	IsFosterFamily  bool    `json:"isFosterFamily"`
+}
+
+// GetU3Children handles GET /stichtagsmeldung/children
+// @Summary Get U3 children details
+// @Description Get list of U3 children with household income for Stichtagsmeldung verification
+// @Tags Stichtagsmeldung
+// @Produce json
+// @Security BearerAuth
+// @Success 200 {array} U3ChildDetailResponse "List of U3 children"
+// @Failure 401 {object} response.ErrorBody "Not authenticated"
+// @Failure 500 {object} response.ErrorBody "Internal server error"
+// @Router /stichtagsmeldung/children [get]
+func (h *StichtagsmeldungHandler) GetU3Children(w http.ResponseWriter, r *http.Request) {
+	children, err := h.stichtagService.GetU3Children(r.Context())
+	if err != nil {
+		response.InternalError(w, "failed to get U3 children")
+		return
+	}
+
+	resp := make([]U3ChildDetailResponse, len(children))
+	for i, c := range children {
+		resp[i] = U3ChildDetailResponse{
+			ID:              c.ID,
+			MemberNumber:    c.MemberNumber,
+			FirstName:       c.FirstName,
+			LastName:        c.LastName,
+			BirthDate:       c.BirthDate,
+			HouseholdIncome: c.HouseholdIncome,
+			IncomeStatus:    c.IncomeStatus,
+			IsFosterFamily:  c.IsFosterFamily,
+		}
+	}
+
+	response.Success(w, resp)
+}

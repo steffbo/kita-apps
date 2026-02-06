@@ -704,6 +704,17 @@ export interface U3IncomeBreakdown {
   total: number;
 }
 
+export interface U3ChildDetail {
+  id: string;
+  memberNumber: string;
+  firstName: string;
+  lastName: string;
+  birthDate: string;
+  householdIncome: number | null;
+  incomeStatus: string | null;
+  isFosterFamily: boolean;
+}
+
 // Fee Coverage Timeline
 export type CoverageStatus = 'UNPAID' | 'PARTIAL' | 'COVERED' | 'OVERPAID';
 

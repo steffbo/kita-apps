@@ -37,6 +37,13 @@ func (s *StichtagsmeldungService) GetStats(ctx context.Context) (*domain.Stichta
 	return stats, nil
 }
 
+// GetU3Children returns details of U3 children for the Stichtagsmeldung modal.
+func (s *StichtagsmeldungService) GetU3Children(ctx context.Context) ([]domain.U3ChildDetail, error) {
+	now := time.Now()
+	nextStichtag := calculateNextStichtag(now)
+	return s.childRepo.GetU3ChildrenDetails(ctx, nextStichtag)
+}
+
 // calculateNextStichtag finds the next Stichtag date (15th of Dec/Mar/Jun/Sep).
 func calculateNextStichtag(now time.Time) time.Time {
 	// Stichtag months: March (3), June (6), September (9), December (12)

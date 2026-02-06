@@ -39,6 +39,7 @@ type ChildRepository interface {
 	LinkParent(ctx context.Context, childID, parentID uuid.UUID, isPrimary bool) error
 	UnlinkParent(ctx context.Context, childID, parentID uuid.UUID) error
 	GetStichtagsmeldungStats(ctx context.Context, stichtag time.Time) (*domain.StichtagsmeldungStats, error)
+	GetU3ChildrenDetails(ctx context.Context, stichtag time.Time) ([]domain.U3ChildDetail, error)
 }
 
 // ParentRepository handles parent persistence.
