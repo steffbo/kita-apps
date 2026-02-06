@@ -17,6 +17,9 @@ const CONFIG = {
   userDataDir: process.env.USER_DATA_DIR || path.resolve(__dirname, 'profile'),
   twoFaTimeoutMs: Number(process.env.TWO_FA_TIMEOUT_SECONDS || 600) * 1000,
   loginTimeoutMs: Number(process.env.LOGIN_TIMEOUT_SECONDS || 30) * 1000,
+  loginOutcomeTimeoutMs: Number(process.env.LOGIN_OUTCOME_TIMEOUT_SECONDS || 45) * 1000,
+  waitProgressIntervalMs: Number(process.env.WAIT_PROGRESS_INTERVAL_SECONDS || 10) * 1000,
+  debugDir: process.env.DEBUG_DIR || path.join(process.env.DOWNLOAD_DIR || path.resolve(__dirname, 'output'), 'debug'),
   userAgent:
     process.env.USER_AGENT ||
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 13_6_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
@@ -24,6 +27,12 @@ const CONFIG = {
 
 function ensureDir(dirPath) {
   fs.mkdirSync(dirPath, { recursive: true });
+}
+
+function createDebugFileName(label, extension) {
+  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const safeLabel = String(label || 'debug').replace(/[^a-zA-Z0-9_-]/g, '_');
+  return `${timestamp}_${safeLabel}.${extension}`;
 }
 
 function createLogger(onLog) {
@@ -204,6 +213,36 @@ async function hasVisibleLoginForm(page) {
   return visibleElement !== null;
 }
 
+async function captureDebugArtifacts(page, label, options, log) {
+  const { onScreenshot, onHtmlSnapshot } = options || {};
+
+  if (!page || isPageClosed(page)) {
+    log(`⚠️  Cannot capture ${label} artifacts: page is closed or crashed`);
+    return;
+  }
+
+  ensureDir(CONFIG.debugDir);
+
+  const screenshotPath = path.join(CONFIG.debugDir, createDebugFileName(label, 'png'));
+  try {
+    await page.screenshot({ path: screenshotPath, fullPage: true, timeout: 15000 });
+    log(`📸 Captured screenshot: ${screenshotPath}`);
+    if (onScreenshot) onScreenshot(screenshotPath);
+  } catch (error) {
+    log(`⚠️  Failed to capture screenshot: ${error.message}`);
+  }
+
+  const htmlPath = path.join(CONFIG.debugDir, createDebugFileName(label, 'html'));
+  try {
+    const html = await page.content();
+    fs.writeFileSync(htmlPath, html, 'utf-8');
+    log(`🧾 Saved HTML snapshot: ${htmlPath}`);
+    if (onHtmlSnapshot) onHtmlSnapshot(htmlPath);
+  } catch (error) {
+    log(`⚠️  Failed to capture HTML snapshot: ${error.message}`);
+  }
+}
+
 async function waitForLikelyTwoFaChallenge(page, timeoutMs, log) {
   const twoFaSelectors = [
     root => root.locator('text=/Freigabe.*(SecureGo|App)|(SecureGo|App).*Freigabe/i'),
@@ -214,6 +253,7 @@ async function waitForLikelyTwoFaChallenge(page, timeoutMs, log) {
 
   const deadline = Date.now() + timeoutMs;
   let loggedIgnoredMatch = false;
+  let nextProgressAt = Date.now() + CONFIG.waitProgressIntervalMs;
 
   while (Date.now() < deadline) {
     if (isPageClosed(page)) {
@@ -234,6 +274,17 @@ async function waitForLikelyTwoFaChallenge(page, timeoutMs, log) {
         log('  Ignoring early 2FA text while login form is still visible');
         loggedIgnoredMatch = true;
       }
+    }
+
+    if (Date.now() >= nextProgressAt) {
+      let currentUrl = 'unknown';
+      try {
+        currentUrl = page.url();
+      } catch {
+        // ignore
+      }
+      log(`  Still waiting for account overview or explicit 2FA challenge (url: ${currentUrl})`);
+      nextProgressAt = Date.now() + CONFIG.waitProgressIntervalMs;
     }
 
     await page.waitForLoadState('domcontentloaded', { timeout: 300 }).catch(() => undefined);
@@ -257,7 +308,7 @@ async function waitForLoginOutcome(page, accountSelectors, timeoutMs, log) {
 }
 
 async function downloadCSV(options = {}) {
-  const { onStatus, onLog } = options;
+  const { onStatus, onLog, onScreenshot, onHtmlSnapshot } = options;
   const log = createLogger(onLog);
 
   log('🚀 Starting banking sync...');
@@ -314,7 +365,7 @@ async function downloadCSV(options = {}) {
     ];
 
     let accountElement;
-    const loginOutcome = await waitForLoginOutcome(page, accountSelector, 60000, log);
+    const loginOutcome = await waitForLoginOutcome(page, accountSelector, CONFIG.loginOutcomeTimeoutMs, log);
     if (loginOutcome.type === '2fa') {
       if (onStatus) onStatus('waiting_for_2fa');
       log('⚠️  2FA required - please approve in SecureGo Plus app');
@@ -379,6 +430,19 @@ async function downloadCSV(options = {}) {
     await context.close();
     return targetPath;
   } catch (error) {
+    try {
+      log(`📍 Current URL at error: ${page.url()}`);
+    } catch {
+      // ignore
+    }
+    try {
+      const frameInfo = getRoots(page).map(getRootUrl).join(', ');
+      log(`🧭 Frames at error: ${frameInfo}`);
+    } catch {
+      // ignore
+    }
+
+    await captureDebugArtifacts(page, 'error_state', { onScreenshot, onHtmlSnapshot }, log);
     log(`❌ Error: ${error.message}`);
     await context.close();
     throw error;
