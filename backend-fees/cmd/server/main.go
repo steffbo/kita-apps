@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/jmoiron/sqlx"
+	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
@@ -54,6 +55,9 @@ import (
 // @tag.description Gebührenrechner
 
 func main() {
+	// Load .env file if it exists (for local development)
+	_ = godotenv.Load()
+
 	// Configure logging
 	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
 	log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339})
@@ -70,7 +74,6 @@ func main() {
 	defer db.Close()
 
 	// Initialize repositories
-	userRepo := repository.NewPostgresUserRepository(db)
 	refreshTokenRepo := repository.NewPostgresRefreshTokenRepository(db)
 	childRepo := repository.NewPostgresChildRepository(db)
 	parentRepo := repository.NewPostgresParentRepository(db)
@@ -94,7 +97,7 @@ func main() {
 		Password: cfg.SMTP.Password,
 		UseTLS:   cfg.SMTP.UseTLS,
 	})
-	authService := service.NewAuthService(userRepo, refreshTokenRepo, emailService, emailLogRepo, cfg.SMTP.BaseURL, cfg.JWT.RefreshExpiry)
+	authService := service.NewAuthService(cfg.User.Username, cfg.User.Password, cfg.JWT.RefreshExpiry, refreshTokenRepo)
 
 	childService := service.NewChildService(childRepo, parentRepo, householdRepo)
 	parentService := service.NewParentService(parentRepo, childRepo, memberRepo)

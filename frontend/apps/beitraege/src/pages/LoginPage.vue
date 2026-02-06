@@ -81,21 +81,9 @@ async function handleSubmit() {
             {{ authStore.isLoading ? 'Anmelden...' : 'Anmelden' }}
           </button>
 
-          <div class="text-center">
-            <router-link
-              to="/password-reset"
-              class="text-sm text-primary hover:text-primary/80"
-            >
-              Passwort vergessen?
-            </router-link>
-          </div>
         </form>
       </div>
 
-      <!-- Footer -->
-      <p class="text-center text-sm text-gray-500 mt-6">
-        Standard-Login: admin@knirpsenstadt.de / admin123
-      </p>
     </div>
   </div>
 </template>

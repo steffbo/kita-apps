@@ -119,51 +119,6 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  async function changePassword(currentPassword: string, newPassword: string) {
-    isLoading.value = true;
-    error.value = null;
-
-    try {
-      await api.changePassword(currentPassword, newPassword);
-      return true;
-    } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Passwort konnte nicht geändert werden';
-      throw e;
-    } finally {
-      isLoading.value = false;
-    }
-  }
-
-  async function requestPasswordReset(email: string) {
-    isLoading.value = true;
-    error.value = null;
-
-    try {
-      await api.requestPasswordReset(email);
-      return true;
-    } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Anfrage fehlgeschlagen';
-      throw e;
-    } finally {
-      isLoading.value = false;
-    }
-  }
-
-  async function confirmPasswordReset(token: string, newPassword: string) {
-    isLoading.value = true;
-    error.value = null;
-
-    try {
-      await api.confirmPasswordReset(token, newPassword);
-      return true;
-    } catch (e) {
-      error.value = e instanceof Error ? e.message : 'Passwort konnte nicht zurückgesetzt werden';
-      throw e;
-    } finally {
-      isLoading.value = false;
-    }
-  }
-
   return {
     user,
     isAuthenticated,
@@ -175,8 +130,5 @@ export const useAuthStore = defineStore('auth', () => {
     fetchUser,
     tryRefresh,
     initialize,
-    changePassword,
-    requestPasswordReset,
-    confirmPasswordReset,
   };
 });

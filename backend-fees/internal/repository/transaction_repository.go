@@ -241,14 +241,16 @@ func (r *PostgresTransactionRepository) GetBatches(ctx context.Context, offset, 
 			COALESCE(COUNT(pm.id), 0) as matched_count,
 			COALESCE(ib.file_name, '') as file_name,
 			COALESCE(ib.imported_by, '00000000-0000-0000-0000-000000000000') as imported_by,
-			COALESCE(u.email, '') as imported_by_email,
+			CASE 
+				WHEN ib.imported_by = '00000000-0000-0000-0000-000000000001' THEN 'Automated (Banking Sync)'
+				ELSE 'Manual Upload'
+			END as imported_by_email,
 			MIN(bt.booking_date) as date_from,
 			MAX(bt.booking_date) as date_to
 		FROM fees.import_batches ib
 		LEFT JOIN fees.bank_transactions bt ON bt.import_batch_id = ib.id
 		LEFT JOIN fees.payment_matches pm ON bt.id = pm.transaction_id
-		LEFT JOIN fees.users u ON ib.imported_by = u.id
-		GROUP BY ib.id, ib.file_name, ib.imported_by, ib.imported_at, u.email
+		GROUP BY ib.id, ib.file_name, ib.imported_by, ib.imported_at
 		ORDER BY ib.imported_at DESC
 		LIMIT $1 OFFSET $2
 	`, limit, offset)

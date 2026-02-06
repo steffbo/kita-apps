@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { RouterLink, RouterView, useRoute } from 'vue-router';
+import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import {
   LayoutDashboard,
@@ -12,16 +12,16 @@ import {
   LogOut,
   Menu,
   X,
-  KeyRound,
   ChevronDown,
 } from 'lucide-vue-next';
-import ChangePasswordModal from './ChangePasswordModal.vue';
 
 const authStore = useAuthStore();
 const route = useRoute();
+const router = useRouter();
 const mobileMenuOpen = ref(false);
 const showUserMenu = ref(false);
-const showChangePassword = ref(false);
+
+const currentPath = computed(() => route.path);
 
 const navigation = [
   { name: 'Dashboard', to: '/', icon: LayoutDashboard },
@@ -32,8 +32,6 @@ const navigation = [
   { name: 'Import', to: '/import', icon: Upload },
 ];
 
-const currentPath = computed(() => route.path);
-
 function isActive(path: string) {
   if (path === '/') {
     return currentPath.value === '/';
@@ -43,19 +41,11 @@ function isActive(path: string) {
 
 async function handleLogout() {
   await authStore.logout();
+  router.push('/login');
 }
 
 function toggleUserMenu() {
   showUserMenu.value = !showUserMenu.value;
-}
-
-function openChangePassword() {
-  showUserMenu.value = false;
-  showChangePassword.value = true;
-}
-
-async function handleChangePassword(currentPassword: string, newPassword: string) {
-  await authStore.changePassword(currentPassword, newPassword);
 }
 </script>
 
@@ -147,13 +137,6 @@ async function handleChangePassword(currentPassword: string, newPassword: string
                 class="absolute bottom-full left-0 right-0 mb-1 bg-white rounded-lg shadow-lg border py-1"
               >
                 <button
-                  @click="openChangePassword"
-                  class="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                >
-                  <KeyRound class="h-4 w-4" />
-                  Passwort ändern
-                </button>
-                <button
                   @click="handleLogout"
                   class="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
                 >
@@ -181,10 +164,5 @@ async function handleChangePassword(currentPassword: string, newPassword: string
       </div>
     </main>
 
-    <!-- Change Password Modal -->
-    <ChangePasswordModal
-      v-model:visible="showChangePassword"
-      :change-password-fn="handleChangePassword"
-    />
   </div>
 </template>

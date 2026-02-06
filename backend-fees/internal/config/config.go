@@ -13,6 +13,13 @@ type Config struct {
 	JWT         JWTConfig
 	SMTP        SMTPConfig
 	BankingSync BankingSyncConfig
+	User        UserConfig
+}
+
+// UserConfig holds user authentication configuration.
+type UserConfig struct {
+	Username string
+	Password string
 }
 
 // SMTPConfig holds SMTP email configuration.
@@ -91,6 +98,10 @@ func Load() *Config {
 			BaseURL: getEnv("BANKING_SYNC_URL", ""),
 			Token:   getEnv("BANKING_SYNC_TOKEN", ""),
 			Timeout: getEnvDuration("BANKING_SYNC_TIMEOUT", 30*time.Second),
+		},
+		User: UserConfig{
+			Username: getEnv("USER_NAME", ""),
+			Password: getEnv("USER_PASSWORD", ""),
 		},
 	}
 }
