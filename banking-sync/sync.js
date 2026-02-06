@@ -55,6 +55,23 @@ function isPageClosed(page) {
   }
 }
 
+async function findFirstCurrentlyVisible(page, builders) {
+  const roots = getRoots(page);
+  for (const root of roots) {
+    for (let i = 0; i < builders.length; i++) {
+      try {
+        const locator = builders[i](root).first();
+        if (await locator.isVisible()) {
+          return { locator, selectorIndex: i, root };
+        }
+      } catch {
+        // try next selector
+      }
+    }
+  }
+  return null;
+}
+
 async function findFirstVisible(page, builders, label, timeoutMs = 10000, log = null) {
   const roots = getRoots(page);
   const deadline = Date.now() + timeoutMs;
@@ -173,18 +190,64 @@ async function fillCredentials(page, log) {
   log('  ✓ Submit clicked');
 }
 
+async function hasVisibleLoginForm(page) {
+  const loginFieldSelectors = [
+    root => root.locator('#vrNetKey'),
+    root => root.locator('#vvrnKey'),
+    root => root.locator('input[name="vrNetKeyFormControl"]'),
+    root => root.locator('input[name="vvrnKeyFormControl"]'),
+    root => root.locator('input#pin'),
+    root => root.locator('input[type="password"]'),
+  ];
+
+  const visibleElement = await findFirstCurrentlyVisible(page, loginFieldSelectors);
+  return visibleElement !== null;
+}
+
+async function waitForLikelyTwoFaChallenge(page, timeoutMs, log) {
+  const twoFaSelectors = [
+    root => root.locator('text=/Freigabe.*(SecureGo|App)|(SecureGo|App).*Freigabe/i'),
+    root => root.locator('text=/Push.*(SecureGo|App)|(SecureGo|App).*Push/i'),
+    root => root.locator('text=/TAN\\s*(eingeben|Eingabe)|Scan\\s*QR/i'),
+    root => root.locator('[data-automation-id*="tan" i], [data-automation-id*="securego" i], [data-automation-id*="push" i]'),
+  ];
+
+  const deadline = Date.now() + timeoutMs;
+  let loggedIgnoredMatch = false;
+
+  while (Date.now() < deadline) {
+    if (isPageClosed(page)) {
+      throw new Error('Page closed while waiting for 2FA challenge');
+    }
+
+    const visibleTwoFa = await findFirstCurrentlyVisible(page, twoFaSelectors);
+    if (visibleTwoFa) {
+      const loginFormVisible = await hasVisibleLoginForm(page);
+      if (!loginFormVisible) {
+        const roots = getRoots(page);
+        const rootInfo = roots.length > 1 ? ` (frame: ${getRootUrl(visibleTwoFa.root)})` : '';
+        log(`  Found 2FA challenge using selector #${visibleTwoFa.selectorIndex + 1}${rootInfo}`);
+        return { type: '2fa' };
+      }
+
+      if (!loggedIgnoredMatch) {
+        log('  Ignoring early 2FA text while login form is still visible');
+        loggedIgnoredMatch = true;
+      }
+    }
+
+    await page.waitForLoadState('domcontentloaded', { timeout: 300 }).catch(() => undefined);
+  }
+
+  throw new Error('Login timeout - check credentials or 2FA');
+}
+
 async function waitForLoginOutcome(page, accountSelectors, timeoutMs, log) {
   const accountPromise = findFirstVisible(page, accountSelectors, 'BFS Komfort account', timeoutMs, log).then(accountElement => ({
     type: 'account',
     accountElement,
   }));
-  const twoFaPromise = findFirstVisible(
-    page,
-    [root => root.locator('text=/SecureGo|TAN|Freigabe|2FA/i')],
-    '2FA challenge',
-    timeoutMs,
-    log
-  ).then(() => ({ type: '2fa' }));
+  const twoFaPromise = waitForLikelyTwoFaChallenge(page, timeoutMs, log);
 
   try {
     return await Promise.any([accountPromise, twoFaPromise]);
