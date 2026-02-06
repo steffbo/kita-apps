@@ -377,31 +377,33 @@ func (r *PostgresChildRepository) UnlinkParent(ctx context.Context, childID, par
 
 // GetStichtagsmeldungStats retrieves statistics for the Stichtagsmeldung report.
 // It counts active children at the given stichtag date and breaks down U3 children by income.
-// Foster families (income_status = 'FOSTER_FAMILY') are excluded from income breakdown counts.
 func (r *PostgresChildRepository) GetStichtagsmeldungStats(ctx context.Context, stichtag time.Time) (*domain.StichtagsmeldungStats, error) {
 	// U3 threshold: children born after stichtag - 3 years are U3
 	u3Threshold := stichtag.AddDate(-3, 0, 0)
 
-	// Query for income breakdown - only U3 children, excluding foster families
+	// Query for income breakdown - all 5 brackets
 	var breakdown struct {
-		UpTo20k     int `db:"up_to_20k"`
-		From20To35k int `db:"from_20_to_35k"`
-		From35To55k int `db:"from_35_to_55k"`
-		Total       int `db:"total"`
+		UpTo20k      int `db:"up_to_20k"`
+		From20To35k  int `db:"from_20_to_35k"`
+		From35To55k  int `db:"from_35_to_55k"`
+		MaxAccepted  int `db:"max_accepted"`
+		FosterFamily int `db:"foster_family"`
+		Total        int `db:"total"`
 	}
 
 	err := r.db.GetContext(ctx, &breakdown, `
 		SELECT
-			COUNT(*) FILTER (WHERE COALESCE(h.annual_household_income, 0) <= 20000) AS up_to_20k,
-			COUNT(*) FILTER (WHERE h.annual_household_income > 20000 AND h.annual_household_income <= 35000) AS from_20_to_35k,
-			COUNT(*) FILTER (WHERE h.annual_household_income > 35000 AND h.annual_household_income <= 55000) AS from_35_to_55k,
+			COUNT(*) FILTER (WHERE COALESCE(h.income_status, '') NOT IN ('MAX_ACCEPTED', 'FOSTER_FAMILY') AND COALESCE(h.annual_household_income, 0) <= 20000) AS up_to_20k,
+			COUNT(*) FILTER (WHERE COALESCE(h.income_status, '') NOT IN ('MAX_ACCEPTED', 'FOSTER_FAMILY') AND h.annual_household_income > 20000 AND h.annual_household_income <= 35000) AS from_20_to_35k,
+			COUNT(*) FILTER (WHERE COALESCE(h.income_status, '') NOT IN ('MAX_ACCEPTED', 'FOSTER_FAMILY') AND h.annual_household_income > 35000 AND h.annual_household_income <= 55000) AS from_35_to_55k,
+			COUNT(*) FILTER (WHERE h.income_status = 'MAX_ACCEPTED') AS max_accepted,
+			COUNT(*) FILTER (WHERE h.income_status = 'FOSTER_FAMILY') AS foster_family,
 			COUNT(*) AS total
 		FROM fees.children c
 		LEFT JOIN fees.households h ON c.household_id = h.id
 		WHERE c.is_active = true
 		  AND c.entry_date <= $1
 		  AND c.birth_date > $2
-		  AND COALESCE(h.income_status, '') != 'FOSTER_FAMILY'
 	`, stichtag, u3Threshold)
 	if err != nil {
 		return nil, err
@@ -421,10 +423,12 @@ func (r *PostgresChildRepository) GetStichtagsmeldungStats(ctx context.Context, 
 
 	return &domain.StichtagsmeldungStats{
 		U3IncomeBreakdown: domain.U3IncomeBreakdown{
-			UpTo20k:     breakdown.UpTo20k,
-			From20To35k: breakdown.From20To35k,
-			From35To55k: breakdown.From35To55k,
-			Total:       breakdown.Total,
+			UpTo20k:      breakdown.UpTo20k,
+			From20To35k:  breakdown.From20To35k,
+			From35To55k:  breakdown.From35To55k,
+			MaxAccepted:  breakdown.MaxAccepted,
+			FosterFamily: breakdown.FosterFamily,
+			Total:        breakdown.Total,
 		},
 		TotalChildrenInKita: totalChildren,
 	}, nil
@@ -435,18 +439,18 @@ func (r *PostgresChildRepository) GetU3ChildrenDetails(ctx context.Context, stic
 	u3Threshold := stichtag.AddDate(-3, 0, 0)
 
 	var children []struct {
-		ID              string  `db:"id"`
-		MemberNumber    string  `db:"member_number"`
-		FirstName       string  `db:"first_name"`
-		LastName        string  `db:"last_name"`
-		BirthDate       string  `db:"birth_date"`
-		HouseholdIncome *int    `db:"annual_household_income"`
-		IncomeStatus    *string `db:"income_status"`
+		ID              string   `db:"id"`
+		MemberNumber    string   `db:"member_number"`
+		FirstName       string   `db:"first_name"`
+		LastName        string   `db:"last_name"`
+		BirthDate       string   `db:"birth_date"`
+		HouseholdIncome *float64 `db:"annual_household_income"`
+		IncomeStatus    *string  `db:"income_status"`
 	}
 
 	err := r.db.SelectContext(ctx, &children, `
 		SELECT
-			c.id::text,
+			c.id::text AS id,
 			c.member_number,
 			c.first_name,
 			c.last_name,
@@ -461,19 +465,25 @@ func (r *PostgresChildRepository) GetU3ChildrenDetails(ctx context.Context, stic
 		ORDER BY c.last_name, c.first_name
 	`, stichtag, u3Threshold)
 	if err != nil {
+		log.Error().Err(err).Msg("GetU3ChildrenDetails query failed")
 		return nil, err
 	}
 
 	result := make([]domain.U3ChildDetail, len(children))
 	for i, c := range children {
 		isFoster := c.IncomeStatus != nil && *c.IncomeStatus == "FOSTER_FAMILY"
+		var income *int
+		if c.HouseholdIncome != nil {
+			incomeInt := int(*c.HouseholdIncome)
+			income = &incomeInt
+		}
 		result[i] = domain.U3ChildDetail{
 			ID:              c.ID,
 			MemberNumber:    c.MemberNumber,
 			FirstName:       c.FirstName,
 			LastName:        c.LastName,
 			BirthDate:       c.BirthDate,
-			HouseholdIncome: c.HouseholdIncome,
+			HouseholdIncome: income,
 			IncomeStatus:    c.IncomeStatus,
 			IsFosterFamily:  isFoster,
 		}

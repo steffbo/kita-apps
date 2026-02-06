@@ -11,12 +11,13 @@ type StichtagsmeldungStats struct {
 }
 
 // U3IncomeBreakdown groups U3 children by household income ranges.
-// Foster families are excluded from these counts.
 type U3IncomeBreakdown struct {
-	UpTo20k     int `json:"upTo20k"`     // income ≤20,000
-	From20To35k int `json:"from20To35k"` // >20,000 && ≤35,000
-	From35To55k int `json:"from35To55k"` // >35,000 && ≤55,000
-	Total       int `json:"total"`       // total U3 (excluding foster families)
+	UpTo20k      int `json:"upTo20k"`      // income ≤20,000
+	From20To35k  int `json:"from20To35k"`  // >20,000 && ≤35,000
+	From35To55k  int `json:"from35To55k"`  // >35,000 && ≤55,000
+	MaxAccepted  int `json:"maxAccepted"`  // income_status = MAX_ACCEPTED
+	FosterFamily int `json:"fosterFamily"` // income_status = FOSTER_FAMILY
+	Total        int `json:"total"`        // total U3 children
 }
 
 // U3ChildDetail contains details of a U3 child for the Stichtagsmeldung modal.

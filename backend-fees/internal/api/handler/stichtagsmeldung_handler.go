@@ -29,12 +29,14 @@ type StichtagsmeldungStatsResponse struct {
 } //@name StichtagsmeldungStats
 
 // U3IncomeBreakdownResponse represents U3 children grouped by income.
-// @Description U3 children income breakdown (foster families excluded)
+// @Description U3 children income breakdown by 5 brackets
 type U3IncomeBreakdownResponse struct {
-	UpTo20k     int `json:"upTo20k" example:"5"`
-	From20To35k int `json:"from20To35k" example:"8"`
-	From35To55k int `json:"from35To55k" example:"12"`
-	Total       int `json:"total" example:"25"`
+	UpTo20k      int `json:"upTo20k" example:"5"`
+	From20To35k  int `json:"from20To35k" example:"8"`
+	From35To55k  int `json:"from35To55k" example:"12"`
+	MaxAccepted  int `json:"maxAccepted" example:"2"`
+	FosterFamily int `json:"fosterFamily" example:"1"`
+	Total        int `json:"total" example:"28"`
 } //@name U3IncomeBreakdown
 
 // GetStats handles GET /stichtagsmeldung/stats
@@ -58,10 +60,12 @@ func (h *StichtagsmeldungHandler) GetStats(w http.ResponseWriter, r *http.Reques
 		NextStichtag:      stats.NextStichtag.Format("2006-01-02"),
 		DaysUntilStichtag: stats.DaysUntilStichtag,
 		U3IncomeBreakdown: U3IncomeBreakdownResponse{
-			UpTo20k:     stats.U3IncomeBreakdown.UpTo20k,
-			From20To35k: stats.U3IncomeBreakdown.From20To35k,
-			From35To55k: stats.U3IncomeBreakdown.From35To55k,
-			Total:       stats.U3IncomeBreakdown.Total,
+			UpTo20k:      stats.U3IncomeBreakdown.UpTo20k,
+			From20To35k:  stats.U3IncomeBreakdown.From20To35k,
+			From35To55k:  stats.U3IncomeBreakdown.From35To55k,
+			MaxAccepted:  stats.U3IncomeBreakdown.MaxAccepted,
+			FosterFamily: stats.U3IncomeBreakdown.FosterFamily,
+			Total:        stats.U3IncomeBreakdown.Total,
 		},
 		TotalChildrenInKita: stats.TotalChildrenInKita,
 	}

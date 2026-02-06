@@ -701,6 +701,8 @@ export interface U3IncomeBreakdown {
   upTo20k: number;
   from20To35k: number;
   from35To55k: number;
+  maxAccepted: number;
+  fosterFamily: number;
   total: number;
 }
 

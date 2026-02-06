@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { api } from '@/api';
 import type { FeeOverview, StichtagsmeldungStats, U3ChildDetail } from '@/api/types';
 import {
@@ -45,6 +45,40 @@ const years = computed(() => {
 });
 
 const ue3Count = computed(() => totalChildrenCount.value - u3Count.value);
+
+// Group U3 children by income bracket
+type IncomeBracket = 'upTo20k' | 'from20To35k' | 'from35To55k' | 'maxAccepted' | 'fosterFamily';
+
+const bracketLabels: Record<IncomeBracket, string> = {
+  upTo20k: '≤20.000€',
+  from20To35k: '>20.000 – ≤35.000€',
+  from35To55k: '>35.000 – ≤55.000€',
+  maxAccepted: 'Höchstbetrag',
+  fosterFamily: 'Pflegefamilie',
+};
+
+function getChildBracket(child: U3ChildDetail): IncomeBracket {
+  if (child.isFosterFamily) return 'fosterFamily';
+  if (child.incomeStatus === 'MAX_ACCEPTED') return 'maxAccepted';
+  const income = child.householdIncome ?? 0;
+  if (income <= 20000) return 'upTo20k';
+  if (income <= 35000) return 'from20To35k';
+  return 'from35To55k';
+}
+
+const groupedU3Children = computed(() => {
+  const groups: Record<IncomeBracket, U3ChildDetail[]> = {
+    upTo20k: [],
+    from20To35k: [],
+    from35To55k: [],
+    maxAccepted: [],
+    fosterFamily: [],
+  };
+  for (const child of u3Children.value) {
+    groups[getChildBracket(child)].push(child);
+  }
+  return groups;
+});
 
 async function loadDashboard() {
   isLoading.value = true;
@@ -100,7 +134,20 @@ watch(selectedYear, () => {
   loadMonthlyOverview();
 });
 
-onMounted(loadDashboard);
+function handleKeydown(e: KeyboardEvent) {
+  if (e.key === 'Escape' && showStichtagModal.value) {
+    showStichtagModal.value = false;
+  }
+}
+
+onMounted(() => {
+  loadDashboard();
+  document.addEventListener('keydown', handleKeydown);
+});
+
+onUnmounted(() => {
+  document.removeEventListener('keydown', handleKeydown);
+});
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('de-DE', {
@@ -128,6 +175,25 @@ function formatDate(dateStr: string): string {
     month: '2-digit',
     year: 'numeric',
   });
+}
+
+function formatAge(birthDateStr: string): string {
+  const birth = new Date(birthDateStr);
+  const now = new Date();
+  let years = now.getFullYear() - birth.getFullYear();
+  let months = now.getMonth() - birth.getMonth();
+  if (months < 0) {
+    years--;
+    months += 12;
+  }
+  if (now.getDate() < birth.getDate()) {
+    months--;
+    if (months < 0) {
+      years--;
+      months += 12;
+    }
+  }
+  return `${years}J ${months}M`;
 }
 
 function getIncomeStatusLabel(status: string | null): string {
@@ -277,6 +343,14 @@ function getIncomeStatusLabel(status: string | null): string {
                 <div class="flex justify-between">
                   <span>35–55k</span>
                   <span class="font-medium text-gray-700">{{ stichtagStats.u3IncomeBreakdown.from35To55k }}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span>Höchstbetrag</span>
+                  <span class="font-medium text-gray-700">{{ stichtagStats.u3IncomeBreakdown.maxAccepted }}</span>
+                </div>
+                <div class="flex justify-between text-gray-400">
+                  <span>Pflegefamilie</span>
+                  <span class="font-medium">{{ stichtagStats.u3IncomeBreakdown.fosterFamily }}</span>
                 </div>
               </div>
             </div>
@@ -480,71 +554,79 @@ function getIncomeStatusLabel(status: string | null): string {
               Keine U3-Kinder gefunden
             </div>
 
-            <table v-else class="w-full">
-              <thead>
-                <tr class="text-left text-sm text-gray-500 border-b">
-                  <th class="pb-3 font-medium">Name</th>
-                  <th class="pb-3 font-medium">Geb.</th>
-                  <th class="pb-3 font-medium text-right">Einkommen</th>
-                  <th class="pb-3 font-medium text-right">Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr
-                  v-for="child in u3Children"
-                  :key="child.id"
-                  class="border-b last:border-0 hover:bg-gray-50 cursor-pointer"
-                  @click="router.push(`/kinder/${child.id}`); showStichtagModal = false"
-                >
-                  <td class="py-3">
-                    <span class="font-medium text-gray-900">{{ child.lastName }}, {{ child.firstName }}</span>
-                    <span class="text-xs text-gray-400 ml-2">#{{ child.memberNumber }}</span>
-                  </td>
-                  <td class="py-3 text-sm text-gray-600">{{ formatDate(child.birthDate) }}</td>
-                  <td class="py-3 text-right">
-                    <span
+            <div v-else class="space-y-6">
+              <!-- Group by bracket -->
+              <template v-for="bracket in (['upTo20k', 'from20To35k', 'from35To55k', 'maxAccepted', 'fosterFamily'] as const)" :key="bracket">
+                <div>
+                  <!-- Bracket header -->
+                  <div
+                    :class="[
+                      'flex items-center justify-between px-3 py-2 rounded-lg mb-2',
+                      bracket === 'fosterFamily' || bracket === 'maxAccepted' ? 'bg-gray-100' : 'bg-emerald-50'
+                    ]"
+                  >
+                    <div class="flex items-center gap-2">
+                      <span :class="['text-sm font-medium', bracket === 'fosterFamily' || bracket === 'maxAccepted' ? 'text-gray-500' : 'text-emerald-800']">
+                        {{ bracketLabels[bracket] }}
+                      </span>
+                      <span v-if="bracket === 'fosterFamily' || bracket === 'maxAccepted'" class="text-xs text-gray-400">(nicht gezählt)</span>
+                    </div>
+                    <span :class="['text-sm font-bold', bracket === 'fosterFamily' || bracket === 'maxAccepted' ? 'text-gray-500' : 'text-emerald-800']">
+                      {{ groupedU3Children[bracket].length }}
+                    </span>
+                  </div>
+
+                  <!-- Children in bracket -->
+                  <div class="space-y-1">
+                    <div
+                      v-for="child in groupedU3Children[bracket]"
+                      :key="child.id"
                       :class="[
-                        'font-medium',
-                        child.householdIncome === null ? 'text-red-600' : 'text-gray-900'
+                        'flex items-center justify-between px-3 py-2 rounded cursor-pointer transition-colors',
+                        bracket === 'fosterFamily' || bracket === 'maxAccepted'
+                          ? 'text-gray-400 hover:bg-gray-50'
+                          : 'hover:bg-gray-50'
                       ]"
+                      @click="router.push(`/kinder/${child.id}`); showStichtagModal = false"
                     >
-                      {{ formatIncome(child.householdIncome) }}
-                    </span>
-                  </td>
-                  <td class="py-3 text-right">
-                    <span
-                      v-if="child.isFosterFamily"
-                      class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700"
-                    >
-                      Pflegefamilie
-                    </span>
-                    <span
-                      v-else-if="child.incomeStatus"
-                      :class="[
-                        'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium',
-                        child.incomeStatus === 'CURRENT' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
-                      ]"
-                    >
-                      {{ getIncomeStatusLabel(child.incomeStatus) }}
-                    </span>
-                    <span v-else class="text-xs text-gray-400">—</span>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+                      <div class="flex items-center gap-3">
+                        <span :class="['font-medium', bracket === 'fosterFamily' || bracket === 'maxAccepted' ? 'text-gray-400' : 'text-gray-900']">
+                          {{ child.lastName }}, {{ child.firstName }}
+                        </span>
+                        <span class="text-xs text-gray-400">#{{ child.memberNumber }}</span>
+                      </div>
+                      <div class="flex items-center gap-4">
+                        <span :class="['text-sm w-12', bracket === 'fosterFamily' || bracket === 'maxAccepted' ? 'text-gray-400' : 'text-gray-600']">
+                          {{ formatAge(child.birthDate) }}
+                        </span>
+                        <span
+                          v-if="bracket !== 'fosterFamily' && bracket !== 'maxAccepted'"
+                          :class="[
+                            'text-sm font-medium w-20 text-right',
+                            child.householdIncome === null ? 'text-red-600' : 'text-gray-700'
+                          ]"
+                        >
+                          {{ formatIncome(child.householdIncome) }}
+                        </span>
+                        <span v-else class="text-sm text-gray-400 w-20 text-right">—</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </template>
+            </div>
           </div>
 
           <!-- Footer -->
           <div class="p-6 border-t bg-gray-50 rounded-b-xl">
-            <div class="flex items-center justify-between text-sm">
-              <div class="text-gray-600">
-                <span class="font-medium">{{ u3Children.filter(c => !c.isFosterFamily).length }}</span> U3-Kinder (ohne Pflegefamilien)
-              </div>
-              <div v-if="stichtagStats" class="flex gap-4 text-gray-500">
-                <span>≤20k: <span class="font-medium text-gray-700">{{ stichtagStats.u3IncomeBreakdown.upTo20k }}</span></span>
-                <span>20–35k: <span class="font-medium text-gray-700">{{ stichtagStats.u3IncomeBreakdown.from20To35k }}</span></span>
-                <span>35–55k: <span class="font-medium text-gray-700">{{ stichtagStats.u3IncomeBreakdown.from35To55k }}</span></span>
-              </div>
+            <div class="flex items-center justify-between text-sm text-gray-600">
+              <span>
+                <span class="font-medium">{{ u3Children.length }}</span> U3-Kinder ·
+                <span class="font-medium">{{ stichtagStats?.totalChildrenInKita ?? 0 }}</span> Kinder gesamt in Kita
+              </span>
+              <span>
+                <span class="font-medium">{{ u3Children.filter(c => !c.isFosterFamily && c.incomeStatus !== 'MAX_ACCEPTED').length }}</span> für Stichtagsmeldung
+              </span>
             </div>
           </div>
         </div>
