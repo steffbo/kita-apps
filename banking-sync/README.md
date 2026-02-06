@@ -72,7 +72,7 @@ SYNC_API_TOKEN=... BANK_USERNAME=... BANK_PASSWORD=... CRON_API_TOKEN=... bun se
 
 Endpoints:
 - `POST /run` (startet Sync; Header `X-Sync-Token`)
-- `GET /status` (Status + letzte Logs; Header `X-Sync-Token`)
+- `GET /status` (Status + Logs vom letzten Lauf; Header `X-Sync-Token`)
 - `GET /health` (ohne Auth)
 
 ## Docker (Run-Once)

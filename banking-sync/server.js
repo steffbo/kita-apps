@@ -37,12 +37,38 @@ const defaultState = {
   updatedAt: nowIso(),
 };
 
+function keepLogsForLastRun(rawLogs) {
+  if (!Array.isArray(rawLogs)) {
+    return [];
+  }
+
+  const logs = rawLogs.filter(entry => typeof entry === 'string');
+  if (logs.length === 0) {
+    return [];
+  }
+
+  let lastRunStartIndex = -1;
+  for (let i = logs.length - 1; i >= 0; i -= 1) {
+    if (logs[i].includes('🚀 Starting banking sync...')) {
+      lastRunStartIndex = i;
+      break;
+    }
+  }
+
+  const currentRunLogs = lastRunStartIndex >= 0 ? logs.slice(lastRunStartIndex) : logs;
+  return currentRunLogs.slice(-CONFIG.maxLogLines);
+}
+
 function loadState() {
   try {
     if (fs.existsSync(STATE_FILE)) {
       const raw = fs.readFileSync(STATE_FILE, 'utf-8');
       const parsed = JSON.parse(raw);
-      return { ...defaultState, ...parsed };
+      return {
+        ...defaultState,
+        ...parsed,
+        logs: keepLogsForLastRun(parsed.logs),
+      };
     }
   } catch (error) {
     console.warn('Failed to load state file:', error.message);
@@ -67,7 +93,7 @@ function updateState(partial) {
 
 function appendLog(message) {
   const entry = `${nowIso()} ${message}`;
-  const logs = [...(state.logs || []), entry].slice(-CONFIG.maxLogLines);
+  const logs = keepLogsForLastRun([...(state.logs || []), entry]);
   updateState({ logs, lastMessage: message });
 }
 
@@ -78,7 +104,7 @@ function recoverStaleInProgressState() {
 
   const recoveredAt = nowIso();
   const reason = 'Runner restarted while sync was in progress; state recovered.';
-  const logs = [...(state.logs || []), `${recoveredAt} ⚠️ ${reason}`].slice(-CONFIG.maxLogLines);
+  const logs = keepLogsForLastRun([...(state.logs || []), `${recoveredAt} ⚠️ ${reason}`]);
 
   state = {
     ...state,
@@ -147,6 +173,7 @@ async function runSync({ test = false } = {}) {
     uploadResult: null,
     lastScreenshot: null,
     lastHtmlSnapshot: null,
+    logs: [],
   });
 
   try {

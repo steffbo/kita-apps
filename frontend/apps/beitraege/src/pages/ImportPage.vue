@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
+import { ref, onMounted, onUnmounted, computed, watch, type Ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { api } from '@/api';
 import type { ImportResult, ImportBatch, BankTransaction, MatchConfirmation, KnownIBAN, TransactionWarning, MatchSuggestion, FeeExpectation, BankingSyncStatus } from '@/api/types';
@@ -380,6 +380,11 @@ const bankingSyncStatusHint = computed(() => {
     return 'Letzter Lauf erfolgreich abgeschlossen.';
   }
   return null;
+});
+
+const bankingSyncShowLastMessage = computed(() => {
+  if (!bankingSyncStatus.value?.lastMessage) return false;
+  return bankingSyncStatus.value.status !== 'success';
 });
 
 const bankingSyncIsBusy = computed(() => {
@@ -1138,8 +1143,8 @@ function getWarningTypeColor(type: string): string {
           <span v-if="bankingSyncStatus?.finishedAt">
             Ende: {{ formatDateTime(bankingSyncStatus.finishedAt) }}
           </span>
-          <span v-if="bankingSyncStatus?.lastMessage" class="text-gray-500">
-            {{ bankingSyncStatus.lastMessage }}
+          <span v-if="bankingSyncShowLastMessage" class="text-gray-500">
+            {{ bankingSyncStatus?.lastMessage }}
           </span>
         </div>
 
