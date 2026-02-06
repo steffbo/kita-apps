@@ -222,36 +222,34 @@ func (r *PostgresTransactionRepository) GetBatches(ctx context.Context, offset, 
 	var batches []domain.ImportBatch
 	var total int64
 
-	// Count total batches
+	// Count total batches from import_batches table (includes batches with 0 transactions)
 	err := r.db.GetContext(ctx, &total, `
-		SELECT COUNT(DISTINCT import_batch_id)
-		FROM fees.bank_transactions
-		WHERE import_batch_id IS NOT NULL
+		SELECT COUNT(*)
+		FROM fees.import_batches
 	`)
 	if err != nil {
 		return nil, 0, err
 	}
 
 	// Fetch batch summaries with date range and user info
-	// LEFT JOIN import_batches for newer imports that have batch records
+	// Start from import_batches to include batches with 0 transactions
 	err = r.db.SelectContext(ctx, &batches, `
 		SELECT 
-			bt.import_batch_id as id,
-			MIN(bt.imported_at) as imported_at,
-			COUNT(*) as transaction_count,
-			COUNT(pm.id) as matched_count,
+			ib.id as id,
+			ib.imported_at as imported_at,
+			COALESCE(COUNT(bt.id), 0) as transaction_count,
+			COALESCE(COUNT(pm.id), 0) as matched_count,
 			COALESCE(ib.file_name, '') as file_name,
 			COALESCE(ib.imported_by, '00000000-0000-0000-0000-000000000000') as imported_by,
 			COALESCE(u.email, '') as imported_by_email,
 			MIN(bt.booking_date) as date_from,
 			MAX(bt.booking_date) as date_to
-		FROM fees.bank_transactions bt
+		FROM fees.import_batches ib
+		LEFT JOIN fees.bank_transactions bt ON bt.import_batch_id = ib.id
 		LEFT JOIN fees.payment_matches pm ON bt.id = pm.transaction_id
-		LEFT JOIN fees.import_batches ib ON bt.import_batch_id = ib.id
 		LEFT JOIN fees.users u ON ib.imported_by = u.id
-		WHERE bt.import_batch_id IS NOT NULL
-		GROUP BY bt.import_batch_id, ib.file_name, ib.imported_by, u.email
-		ORDER BY MIN(bt.imported_at) DESC
+		GROUP BY ib.id, ib.file_name, ib.imported_by, ib.imported_at, u.email
+		ORDER BY ib.imported_at DESC
 		LIMIT $1 OFFSET $2
 	`, limit, offset)
 	if err != nil {
