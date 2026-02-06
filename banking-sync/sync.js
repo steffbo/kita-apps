@@ -15,6 +15,7 @@ const CONFIG = {
   headless: process.env.HEADLESS !== 'false',
   downloadDir: process.env.DOWNLOAD_DIR || path.resolve(__dirname, 'output'),
   userDataDir: process.env.USER_DATA_DIR || path.resolve(__dirname, 'profile'),
+  usePersistentContext: process.env.USE_PERSISTENT_CONTEXT === 'true',
   twoFaTimeoutMs: Number(process.env.TWO_FA_TIMEOUT_SECONDS || 600) * 1000,
   loginTimeoutMs: Number(process.env.LOGIN_TIMEOUT_SECONDS || 30) * 1000,
   loginOutcomeTimeoutMs: Number(process.env.LOGIN_OUTCOME_TIMEOUT_SECONDS || 45) * 1000,
@@ -307,6 +308,49 @@ async function waitForLoginOutcome(page, accountSelectors, timeoutMs, log) {
   }
 }
 
+async function createBrowserContext() {
+  const launchArgs = [
+    '--no-sandbox',
+    '--disable-setuid-sandbox',
+    '--disable-dev-shm-usage',
+    '--disable-gpu',
+    '--disable-blink-features=AutomationControlled',
+  ];
+
+  if (CONFIG.usePersistentContext) {
+    ensureDir(CONFIG.userDataDir);
+    const context = await chromium.launchPersistentContext(CONFIG.userDataDir, {
+      headless: CONFIG.headless,
+      acceptDownloads: true,
+      viewport: { width: 1280, height: 720 },
+      userAgent: CONFIG.userAgent,
+      locale: 'de-DE',
+      args: launchArgs,
+    });
+    return { browser: null, context };
+  }
+
+  const browser = await chromium.launch({
+    headless: CONFIG.headless,
+    args: launchArgs,
+  });
+  const context = await browser.newContext({
+    acceptDownloads: true,
+    viewport: { width: 1280, height: 720 },
+    userAgent: CONFIG.userAgent,
+    locale: 'de-DE',
+  });
+  return { browser, context };
+}
+
+async function closeBrowserContext(context, browser) {
+  try {
+    if (context) await context.close();
+  } finally {
+    if (browser) await browser.close().catch(() => undefined);
+  }
+}
+
 async function downloadCSV(options = {}) {
   const { onStatus, onLog, onScreenshot, onHtmlSnapshot } = options;
   const log = createLogger(onLog);
@@ -318,22 +362,7 @@ async function downloadCSV(options = {}) {
   }
 
   ensureDir(CONFIG.downloadDir);
-  ensureDir(CONFIG.userDataDir);
-
-  const context = await chromium.launchPersistentContext(CONFIG.userDataDir, {
-    headless: CONFIG.headless,
-    acceptDownloads: true,
-    viewport: { width: 1280, height: 720 },
-    userAgent: CONFIG.userAgent,
-    locale: 'de-DE',
-    args: [
-      '--no-sandbox',
-      '--disable-setuid-sandbox',
-      '--disable-dev-shm-usage',
-      '--disable-gpu',
-      '--disable-blink-features=AutomationControlled',
-    ],
-  });
+  const { browser, context } = await createBrowserContext();
 
   const page = await context.newPage();
   await page.addInitScript(() => {
@@ -427,7 +456,7 @@ async function downloadCSV(options = {}) {
     await download.saveAs(targetPath);
 
     log(`✅ Downloaded ${fs.statSync(targetPath).size} bytes to ${targetPath}`);
-    await context.close();
+    await closeBrowserContext(context, browser);
     return targetPath;
   } catch (error) {
     try {
@@ -444,7 +473,7 @@ async function downloadCSV(options = {}) {
 
     await captureDebugArtifacts(page, 'error_state', { onScreenshot, onHtmlSnapshot }, log);
     log(`❌ Error: ${error.message}`);
-    await context.close();
+    await closeBrowserContext(context, browser);
     throw error;
   }
 }
