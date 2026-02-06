@@ -65,6 +65,11 @@ const router = createRouter({
           name: 'import',
           component: () => import('@/pages/ImportPage.vue'),
         },
+        {
+          path: 'automatisierung',
+          name: 'automation',
+          component: () => import('@/pages/AutomationPage.vue'),
+        },
       ],
     },
   ],

@@ -9,6 +9,7 @@ import {
   UserPlus,
   Receipt,
   Upload,
+  Zap,
   LogOut,
   Menu,
   X,
@@ -30,6 +31,7 @@ const navigation = [
   { name: 'Mitglieder', to: '/mitglieder', icon: UserPlus },
   { name: 'Beiträge', to: '/beitraege', icon: Receipt },
   { name: 'Import', to: '/import', icon: Upload },
+  { name: 'Automatisierung', to: '/automatisierung', icon: Zap },
 ];
 
 function isActive(path: string) {
