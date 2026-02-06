@@ -51,6 +51,7 @@ import type {
   ChildcareFeeResult,
   MatchSuggestion,
   BankingSyncStatus,
+  StichtagsmeldungStats,
 } from './types';
 
 const API_BASE = '/api/fees/v1';
@@ -823,6 +824,11 @@ class ApiClient {
       ...result,
       errors: result.errors ?? [],
     };
+  }
+
+  // Stichtagsmeldung endpoints
+  async getStichtagsmeldungStats(): Promise<StichtagsmeldungStats> {
+    return this.request<StichtagsmeldungStats>('/stichtagsmeldung/stats');
   }
 
 }

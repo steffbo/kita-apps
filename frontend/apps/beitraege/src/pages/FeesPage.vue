@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
-import { useRouter } from 'vue-router';
+import { useRouter, useRoute } from 'vue-router';
 import { api } from '@/api';
 import type { FeeExpectation, GenerateFeeRequest, Child, CreateFeeRequest } from '@/api/types';
 import {
@@ -23,6 +23,7 @@ import {
 } from 'lucide-vue-next';
 
 const router = useRouter();
+const route = useRoute();
 
 const fees = ref<FeeExpectation[]>([]);
 const total = ref(0);
@@ -247,6 +248,17 @@ function handleKeydown(e: KeyboardEvent) {
 }
 
 onMounted(() => {
+  // Read URL query params for deep-linking from dashboard
+  const feeTypeParam = route.query.feeType as string;
+  if (feeTypeParam && ['MEMBERSHIP', 'FOOD', 'CHILDCARE', 'REMINDER'].includes(feeTypeParam)) {
+    selectedType.value = feeTypeParam;
+  }
+
+  const statusParam = route.query.status as string;
+  if (statusParam && ['open', 'paid', 'all'].includes(statusParam)) {
+    selectedStatus.value = statusParam as 'open' | 'paid' | 'all';
+  }
+
   loadFees();
   document.addEventListener('keydown', handleKeydown);
 });

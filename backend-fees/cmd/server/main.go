@@ -108,19 +108,21 @@ func main() {
 	childImportService := service.NewChildImportService(childRepo, parentRepo)
 	coverageService := service.NewCoverageService(feeRepo, childRepo, transactionRepo, matchRepo)
 	reminderService := service.NewReminderService(feeRepo, childRepo, settingsRepo, emailLogRepo, emailService)
+	stichtagService := service.NewStichtagsmeldungService(childRepo)
 
 	// Initialize handlers
 	handlers := &api.Handlers{
-		Auth:        handler.NewAuthHandler(authService, jwtService),
-		Child:       handler.NewChildHandler(childService, feeService, coverageService, feeRepo, matchRepo, transactionRepo),
-		ChildImport: handler.NewChildImportHandler(childImportService),
-		Parent:      handler.NewParentHandler(parentService),
-		Household:   handler.NewHouseholdHandler(householdService),
-		Member:      handler.NewMemberHandler(memberService),
-		Fee:         handler.NewFeeHandler(feeService, importService, reminderService, emailLogRepo),
-		Import:      handler.NewImportHandler(importService),
-		BankingSync: handler.NewBankingSyncHandler(cfg.BankingSync.BaseURL, cfg.BankingSync.Token, cfg.BankingSync.Timeout),
-		JWTService:  jwtService,
+		Auth:            handler.NewAuthHandler(authService, jwtService),
+		Child:           handler.NewChildHandler(childService, feeService, coverageService, feeRepo, matchRepo, transactionRepo),
+		ChildImport:     handler.NewChildImportHandler(childImportService),
+		Parent:          handler.NewParentHandler(parentService),
+		Household:       handler.NewHouseholdHandler(householdService),
+		Member:          handler.NewMemberHandler(memberService),
+		Fee:             handler.NewFeeHandler(feeService, importService, reminderService, emailLogRepo),
+		Import:          handler.NewImportHandler(importService),
+		BankingSync:     handler.NewBankingSyncHandler(cfg.BankingSync.BaseURL, cfg.BankingSync.Token, cfg.BankingSync.Timeout),
+		Stichtagsmeldung: handler.NewStichtagsmeldungHandler(stichtagService),
+		JWTService:      jwtService,
 	}
 
 	// Create router

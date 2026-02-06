@@ -141,6 +141,11 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 				r.Post("/{id}/reminder", handlers.Fee.CreateReminder)
 			})
 
+			// Stichtagsmeldung
+			r.Route("/stichtagsmeldung", func(r chi.Router) {
+				r.Get("/stats", handlers.Stichtagsmeldung.GetStats)
+			})
+
 			// Import
 			r.Route("/import", func(r chi.Router) {
 				r.Post("/confirm", handlers.Import.Confirm)
@@ -174,14 +179,15 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 
 // Handlers holds all HTTP handlers.
 type Handlers struct {
-	Auth        *handler.AuthHandler
-	Child       *handler.ChildHandler
-	ChildImport *handler.ChildImportHandler
-	Parent      *handler.ParentHandler
-	Household   *handler.HouseholdHandler
-	Member      *handler.MemberHandler
-	Fee         *handler.FeeHandler
-	Import      *handler.ImportHandler
-	BankingSync *handler.BankingSyncHandler
-	JWTService  *auth.JWTService
+	Auth             *handler.AuthHandler
+	Child            *handler.ChildHandler
+	ChildImport      *handler.ChildImportHandler
+	Parent           *handler.ParentHandler
+	Household        *handler.HouseholdHandler
+	Member           *handler.MemberHandler
+	Fee              *handler.FeeHandler
+	Import           *handler.ImportHandler
+	BankingSync      *handler.BankingSyncHandler
+	Stichtagsmeldung *handler.StichtagsmeldungHandler
+	JWTService       *auth.JWTService
 }

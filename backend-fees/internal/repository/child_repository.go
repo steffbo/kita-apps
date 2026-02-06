@@ -374,3 +374,58 @@ func (r *PostgresChildRepository) UnlinkParent(ctx context.Context, childID, par
 	`, childID, parentID)
 	return err
 }
+
+// GetStichtagsmeldungStats retrieves statistics for the Stichtagsmeldung report.
+// It counts active children at the given stichtag date and breaks down U3 children by income.
+// Foster families (income_status = 'FOSTER_FAMILY') are excluded from income breakdown counts.
+func (r *PostgresChildRepository) GetStichtagsmeldungStats(ctx context.Context, stichtag time.Time) (*domain.StichtagsmeldungStats, error) {
+	// U3 threshold: children born after stichtag - 3 years are U3
+	u3Threshold := stichtag.AddDate(-3, 0, 0)
+
+	// Query for income breakdown - only U3 children, excluding foster families
+	var breakdown struct {
+		UpTo20k     int `db:"up_to_20k"`
+		From20To35k int `db:"from_20_to_35k"`
+		From35To55k int `db:"from_35_to_55k"`
+		Total       int `db:"total"`
+	}
+
+	err := r.db.GetContext(ctx, &breakdown, `
+		SELECT
+			COUNT(*) FILTER (WHERE COALESCE(h.annual_household_income, 0) <= 20000) AS up_to_20k,
+			COUNT(*) FILTER (WHERE h.annual_household_income > 20000 AND h.annual_household_income <= 35000) AS from_20_to_35k,
+			COUNT(*) FILTER (WHERE h.annual_household_income > 35000 AND h.annual_household_income <= 55000) AS from_35_to_55k,
+			COUNT(*) AS total
+		FROM fees.children c
+		LEFT JOIN fees.households h ON c.household_id = h.id
+		WHERE c.is_active = true
+		  AND c.entry_date <= $1
+		  AND c.birth_date > $2
+		  AND COALESCE(h.income_status, '') != 'FOSTER_FAMILY'
+	`, stichtag, u3Threshold)
+	if err != nil {
+		return nil, err
+	}
+
+	// Query for total active children
+	var totalChildren int
+	err = r.db.GetContext(ctx, &totalChildren, `
+		SELECT COUNT(*)
+		FROM fees.children
+		WHERE is_active = true
+		  AND entry_date <= $1
+	`, stichtag)
+	if err != nil {
+		return nil, err
+	}
+
+	return &domain.StichtagsmeldungStats{
+		U3IncomeBreakdown: domain.U3IncomeBreakdown{
+			UpTo20k:     breakdown.UpTo20k,
+			From20To35k: breakdown.From20To35k,
+			From35To55k: breakdown.From35To55k,
+			Total:       breakdown.Total,
+		},
+		TotalChildrenInKita: totalChildren,
+	}, nil
+}

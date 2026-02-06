@@ -38,6 +38,7 @@ type ChildRepository interface {
 	GetParentsForChildren(ctx context.Context, childIDs []uuid.UUID) (map[uuid.UUID][]domain.Parent, error)
 	LinkParent(ctx context.Context, childID, parentID uuid.UUID, isPrimary bool) error
 	UnlinkParent(ctx context.Context, childID, parentID uuid.UUID) error
+	GetStichtagsmeldungStats(ctx context.Context, stichtag time.Time) (*domain.StichtagsmeldungStats, error)
 }
 
 // ParentRepository handles parent persistence.

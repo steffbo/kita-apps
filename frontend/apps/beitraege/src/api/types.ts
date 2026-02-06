@@ -689,6 +689,21 @@ export interface ChildLedger {
   summary: LedgerSummary;
 }
 
+// Stichtagsmeldung
+export interface StichtagsmeldungStats {
+  nextStichtag: string;
+  daysUntilStichtag: number;
+  u3IncomeBreakdown: U3IncomeBreakdown;
+  totalChildrenInKita: number;
+}
+
+export interface U3IncomeBreakdown {
+  upTo20k: number;
+  from20To35k: number;
+  from35To55k: number;
+  total: number;
+}
+
 // Fee Coverage Timeline
 export type CoverageStatus = 'UNPAID' | 'PARTIAL' | 'COVERED' | 'OVERPAID';
 
