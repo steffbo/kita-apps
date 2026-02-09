@@ -123,6 +123,7 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 			r.Route("/banking-sync", func(r chi.Router) {
 				r.With(customMiddleware.RequireRole("ADMIN")).Post("/run", handlers.BankingSync.Run)
 				r.With(customMiddleware.RequireRole("ADMIN")).Get("/status", handlers.BankingSync.Status)
+				r.With(customMiddleware.RequireRole("ADMIN")).Post("/cancel", handlers.BankingSync.Cancel)
 			})
 
 			// Fees

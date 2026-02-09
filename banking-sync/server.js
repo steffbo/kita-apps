@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-const { downloadCSV, uploadToAPI } = require('./sync');
+const { downloadCSV, uploadToAPI, cancelSync, getAbortController } = require('./sync');
 
 const CONFIG = {
   port: Number(process.env.PORT || 3333),
@@ -245,6 +245,29 @@ const server = http.createServer(async (req, res) => {
 
     void runSync({ test });
     return respondJson(res, 200, state);
+  }
+
+  if (pathname === '/cancel' && req.method === 'POST') {
+    if (!running && state.status !== 'running' && state.status !== 'waiting_for_2fa') {
+      return respondJson(res, 400, { error: 'no sync in progress to cancel', status: state });
+    }
+
+    const previousStatus = state.status;
+    appendLog('🛑 Cancel requested by user');
+    cancelSync();
+    
+    updateState({
+      status: 'cancelled',
+      finishedAt: nowIso(),
+      lastError: 'Cancelled by user',
+    });
+    running = false;
+    
+    return respondJson(res, 200, { 
+      message: 'sync cancelled', 
+      previousStatus,
+      status: state 
+    });
   }
 
   respondJson(res, 404, { error: 'not found' });

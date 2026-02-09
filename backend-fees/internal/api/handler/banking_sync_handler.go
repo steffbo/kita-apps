@@ -69,6 +69,27 @@ func (h *BankingSyncHandler) Status(w http.ResponseWriter, r *http.Request) {
 	response.JSON(w, status, json.RawMessage(payload))
 }
 
+// Cancel handles POST /banking-sync/cancel
+func (h *BankingSyncHandler) Cancel(w http.ResponseWriter, r *http.Request) {
+	if !h.isConfigured() {
+		response.Error(w, http.StatusServiceUnavailable, "banking sync not configured")
+		return
+	}
+
+	payload, status, err := h.call(r.Context(), http.MethodPost, "/cancel")
+	if err != nil {
+		response.InternalError(w, "failed to cancel banking sync")
+		return
+	}
+
+	if status >= 300 {
+		response.Error(w, status, parseErrorMessage(payload))
+		return
+	}
+
+	response.JSON(w, status, json.RawMessage(payload))
+}
+
 func (h *BankingSyncHandler) isConfigured() bool {
 	return h.baseURL != "" && h.token != ""
 }

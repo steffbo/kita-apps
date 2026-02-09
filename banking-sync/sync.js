@@ -24,7 +24,30 @@ const CONFIG = {
   userAgent:
     process.env.USER_AGENT ||
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 13_6_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+  // Global timeout for entire sync operation (default 15 minutes)
+  globalTimeoutMs: Number(process.env.GLOBAL_TIMEOUT_SECONDS || 900) * 1000,
 };
+
+// Global state for cancellation
+let abortController = null;
+let browserContext = null;
+let browserInstance = null;
+
+function getAbortController() {
+  return abortController;
+}
+
+function cancelSync() {
+  if (abortController) {
+    abortController.abort();
+  }
+  // Force close browser if exists
+  if (browserContext || browserInstance) {
+    closeBrowserContext(browserContext, browserInstance).catch(() => undefined);
+    browserContext = null;
+    browserInstance = null;
+  }
+}
 
 function ensureDir(dirPath) {
   fs.mkdirSync(dirPath, { recursive: true });
@@ -352,7 +375,7 @@ async function closeBrowserContext(context, browser) {
 }
 
 async function downloadCSV(options = {}) {
-  const { onStatus, onLog, onScreenshot, onHtmlSnapshot } = options;
+  const { onStatus, onLog, onScreenshot, onHtmlSnapshot, signal } = options;
   const log = createLogger(onLog);
 
   log('🚀 Starting banking sync...');
@@ -361,15 +384,40 @@ async function downloadCSV(options = {}) {
     throw new Error('BANK_USERNAME and BANK_PASSWORD required');
   }
 
+  // Create abort controller for this run
+  abortController = new AbortController();
+  const localSignal = signal || abortController.signal;
+
+  // Set global timeout
+  const globalTimeoutId = setTimeout(() => {
+    log(`⏰ Global timeout (${CONFIG.globalTimeoutMs / 1000}s) exceeded, aborting...`);
+    if (abortController) {
+      abortController.abort();
+    }
+  }, CONFIG.globalTimeoutMs);
+
   ensureDir(CONFIG.downloadDir);
   const { browser, context } = await createBrowserContext();
+
+  // Store globally for cancellation
+  browserInstance = browser;
+  browserContext = context;
 
   const page = await context.newPage();
   await page.addInitScript(() => {
     Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
   });
 
+  // Helper to check if aborted
+  const checkAborted = () => {
+    if (localSignal.aborted) {
+      throw new Error('Sync cancelled by user');
+    }
+  };
+
   try {
+    // Check for cancellation before major operations
+    checkAborted();
     // 1. Navigate and login
     log('📱 Navigating to login...');
     await page.goto(CONFIG.bankUrl, { waitUntil: 'domcontentloaded' });
@@ -456,9 +504,20 @@ async function downloadCSV(options = {}) {
     await download.saveAs(targetPath);
 
     log(`✅ Downloaded ${fs.statSync(targetPath).size} bytes to ${targetPath}`);
+    clearTimeout(globalTimeoutId);
     await closeBrowserContext(context, browser);
+    browserContext = null;
+    browserInstance = null;
+    abortController = null;
     return targetPath;
   } catch (error) {
+    clearTimeout(globalTimeoutId);
+    
+    // Check if cancelled
+    if (localSignal.aborted) {
+      log('⚠️ Sync was cancelled');
+    }
+    
     try {
       log(`📍 Current URL at error: ${page.url()}`);
     } catch {
@@ -474,6 +533,9 @@ async function downloadCSV(options = {}) {
     await captureDebugArtifacts(page, 'error_state', { onScreenshot, onHtmlSnapshot }, log);
     log(`❌ Error: ${error.message}`);
     await closeBrowserContext(context, browser);
+    browserContext = null;
+    browserInstance = null;
+    abortController = null;
     throw error;
   }
 }
@@ -533,4 +595,4 @@ if (require.main === module) {
   main();
 }
 
-module.exports = { downloadCSV, uploadToAPI };
+module.exports = { downloadCSV, uploadToAPI, cancelSync, getAbortController };
