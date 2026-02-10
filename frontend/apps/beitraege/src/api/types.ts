@@ -737,3 +737,93 @@ export interface FeeCoverage {
   status: CoverageStatus;
   transactions: CoveredTransaction[];
 }
+
+// Einstufung (Fee Classification)
+
+export interface IncomeDetails {
+  grossIncome: number;
+  otherIncome: number;
+  socialSecurityShare: number;
+  privateInsurance: number;
+  tax: number;
+  advertisingCosts: number;
+  profit: number;
+  welfareExpense: number;
+  selfEmployedTax: number;
+  parentalBenefit: number;
+  maternityBenefit: number;
+  insurances: number;
+  maintenanceToPay: number;
+  maintenanceReceived: number;
+}
+
+export interface HouseholdIncomeCalculation {
+  parent1: IncomeDetails;
+  parent2: IncomeDetails;
+}
+
+export interface EinstufungMonthRow {
+  month: number;
+  year: number;
+  careHoursPerWeek: number;
+  careType: string;
+  childcareFee: number;
+  foodFee: number;
+  membershipFee: number;
+}
+
+export interface Einstufung {
+  id: string;
+  childId: string;
+  householdId: string;
+  year: number;
+  validFrom: string;
+  incomeCalculation: HouseholdIncomeCalculation;
+  annualNetIncome: number;
+  highestRateVoluntary: boolean;
+  careHoursPerWeek: number;
+  careType: ChildAgeType;
+  childrenCount: number;
+  monthlyChildcareFee: number;
+  monthlyFoodFee: number;
+  annualMembershipFee: number;
+  feeRule: string;
+  discountPercent: number;
+  discountFactor: number;
+  baseFee: number;
+  notes?: string;
+  monthlyTable?: EinstufungMonthRow[];
+  createdAt: string;
+  updatedAt: string;
+  child?: Child;
+  household?: Household;
+}
+
+export interface CreateEinstufungRequest {
+  childId: string;
+  year: number;
+  validFrom: string;
+  incomeCalculation: HouseholdIncomeCalculation;
+  highestRateVoluntary: boolean;
+  careHoursPerWeek: number;
+  childrenCount: number;
+  notes?: string;
+}
+
+export interface UpdateEinstufungRequest {
+  incomeCalculation?: HouseholdIncomeCalculation;
+  highestRateVoluntary?: boolean;
+  careHoursPerWeek?: number;
+  childrenCount?: number;
+  validFrom?: string;
+  notes?: string;
+}
+
+export interface CalculateIncomeResponse {
+  parent1NetIncome: number;
+  parent2NetIncome: number;
+  parent1FeeRelevantIncome: number;
+  parent2FeeRelevantIncome: number;
+  householdFeeIncome: number;
+  householdFullIncome: number;
+}

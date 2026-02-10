@@ -1093,6 +1093,13 @@ async function createReminder() {
               <div>
                 <p class="text-sm text-gray-500">Einkommensstatus</p>
                 <p class="font-medium">{{ getIncomeStatusLabel(child.household.incomeStatus) }}</p>
+                <router-link
+                  v-if="!child.household.incomeStatus || child.household.incomeStatus === 'PENDING'"
+                  :to="`/einstufungen/neu?childId=${child.id}`"
+                  class="inline-flex items-center gap-1 mt-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
+                >
+                  Einstufung erstellen →
+                </router-link>
               </div>
               <div v-if="child.household.incomeStatus === 'PROVIDED' || child.household.incomeStatus === 'HISTORIC'">
                 <p class="text-sm text-gray-500">Jahreshaushaltseinkommen</p>

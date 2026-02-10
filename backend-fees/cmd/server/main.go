@@ -86,6 +86,7 @@ func main() {
 	warningRepo := repository.NewPostgresWarningRepository(db)
 	settingsRepo := repository.NewPostgresSettingsRepository(db)
 	emailLogRepo := repository.NewPostgresEmailLogRepository(db)
+	einstufungRepo := repository.NewPostgresEinstufungRepository(db)
 
 	// Initialize services
 	jwtService := auth.NewJWTService(cfg.JWT.Secret, cfg.JWT.AccessExpiry, cfg.JWT.RefreshExpiry, cfg.JWT.Issuer)
@@ -109,6 +110,7 @@ func main() {
 	coverageService := service.NewCoverageService(feeRepo, childRepo, transactionRepo, matchRepo)
 	reminderService := service.NewReminderService(feeRepo, childRepo, settingsRepo, emailLogRepo, emailService)
 	stichtagService := service.NewStichtagsmeldungService(childRepo)
+	einstufungService := service.NewEinstufungService(einstufungRepo, householdRepo, childRepo, feeService)
 
 	// Initialize handlers
 	handlers := &api.Handlers{
@@ -121,6 +123,7 @@ func main() {
 		Fee:             handler.NewFeeHandler(feeService, importService, reminderService, emailLogRepo),
 		Import:          handler.NewImportHandler(importService),
 		BankingSync:     handler.NewBankingSyncHandler(cfg.BankingSync.BaseURL, cfg.BankingSync.Token, cfg.BankingSync.Timeout),
+		Einstufung:       handler.NewEinstufungHandler(einstufungService),
 		Stichtagsmeldung: handler.NewStichtagsmeldungHandler(stichtagService),
 		JWTService:      jwtService,
 	}

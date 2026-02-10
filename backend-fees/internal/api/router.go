@@ -142,6 +142,18 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 				r.Post("/{id}/reminder", handlers.Fee.CreateReminder)
 			})
 
+			// Einstufungen (fee classifications)
+			r.Route("/einstufungen", func(r chi.Router) {
+				r.Get("/", handlers.Einstufung.List)
+				r.Post("/", handlers.Einstufung.Create)
+				r.Post("/calculate-income", handlers.Einstufung.CalculateIncome)
+				r.Get("/child/{childId}", handlers.Einstufung.GetForChild)
+				r.Get("/household/{householdId}", handlers.Einstufung.ListForHousehold)
+				r.Get("/{id}", handlers.Einstufung.Get)
+				r.Put("/{id}", handlers.Einstufung.Update)
+				r.Delete("/{id}", handlers.Einstufung.Delete)
+			})
+
 			// Stichtagsmeldung
 			r.Route("/stichtagsmeldung", func(r chi.Router) {
 				r.Get("/stats", handlers.Stichtagsmeldung.GetStats)
@@ -188,6 +200,7 @@ type Handlers struct {
 	Household        *handler.HouseholdHandler
 	Member           *handler.MemberHandler
 	Fee              *handler.FeeHandler
+	Einstufung       *handler.EinstufungHandler
 	Import           *handler.ImportHandler
 	BankingSync      *handler.BankingSyncHandler
 	Stichtagsmeldung *handler.StichtagsmeldungHandler

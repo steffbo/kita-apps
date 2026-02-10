@@ -70,6 +70,16 @@ const router = createRouter({
           name: 'automation',
           component: () => import('@/pages/AutomationPage.vue'),
         },
+        {
+          path: 'einstufungen',
+          name: 'einstufungen',
+          component: () => import('@/pages/EinstufungenPage.vue'),
+        },
+        {
+          path: 'einstufungen/:id',
+          name: 'einstufung-detail',
+          component: () => import('@/pages/EinstufungDetailPage.vue'),
+        },
       ],
     },
   ],

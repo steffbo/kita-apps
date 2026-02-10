@@ -53,6 +53,11 @@ import type {
   BankingSyncStatus,
   StichtagsmeldungStats,
   U3ChildDetail,
+  Einstufung,
+  CreateEinstufungRequest,
+  UpdateEinstufungRequest,
+  IncomeDetails,
+  CalculateIncomeResponse,
 } from './types';
 
 const API_BASE = '/api/fees/v1';
@@ -834,6 +839,63 @@ class ApiClient {
 
   async getU3Children(): Promise<U3ChildDetail[]> {
     return this.request<U3ChildDetail[]>('/stichtagsmeldung/children');
+  }
+
+  // Einstufung (Fee Classification) endpoints
+  async getEinstufungen(params?: {
+    year?: number;
+    page?: number;
+    perPage?: number;
+  }): Promise<PaginatedResponse<Einstufung>> {
+    const query = new URLSearchParams();
+    if (params?.year) query.set('year', String(params.year));
+    if (params?.page) query.set('page', String(params.page));
+    if (params?.perPage) query.set('perPage', String(params.perPage));
+    const queryString = query.toString();
+    const response = await this.request<PaginatedResponse<Einstufung>>(
+      `/einstufungen${queryString ? `?${queryString}` : ''}`
+    );
+    return this.normalizePaginated(response);
+  }
+
+  async getEinstufung(id: string): Promise<Einstufung> {
+    return this.request<Einstufung>(`/einstufungen/${id}`);
+  }
+
+  async getEinstufungForChild(childId: string, year?: number): Promise<Einstufung> {
+    const query = year ? `?year=${year}` : '';
+    return this.request<Einstufung>(`/einstufungen/child/${childId}${query}`);
+  }
+
+  async getEinstufungenForHousehold(householdId: string): Promise<Einstufung[]> {
+    return this.request<Einstufung[]>(`/einstufungen/household/${householdId}`);
+  }
+
+  async createEinstufung(data: CreateEinstufungRequest): Promise<Einstufung> {
+    return this.request<Einstufung>('/einstufungen', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateEinstufung(id: string, data: UpdateEinstufungRequest): Promise<Einstufung> {
+    return this.request<Einstufung>(`/einstufungen/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteEinstufung(id: string): Promise<void> {
+    return this.request<void>(`/einstufungen/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async calculateIncome(parent1: IncomeDetails, parent2: IncomeDetails): Promise<CalculateIncomeResponse> {
+    return this.request<CalculateIncomeResponse>('/einstufungen/calculate-income', {
+      method: 'POST',
+      body: JSON.stringify({ parent1, parent2 }),
+    });
   }
 
 }

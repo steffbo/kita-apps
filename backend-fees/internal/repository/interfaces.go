@@ -182,3 +182,15 @@ type WarningRepository interface {
 	ResolveByTransactionID(ctx context.Context, transactionID uuid.UUID, resolutionType domain.ResolutionType, note string) error
 	Delete(ctx context.Context, id uuid.UUID) error
 }
+
+// EinstufungRepository handles Einstufung (fee classification) persistence.
+type EinstufungRepository interface {
+	Create(ctx context.Context, e *domain.Einstufung) error
+	GetByID(ctx context.Context, id uuid.UUID) (*domain.Einstufung, error)
+	GetByChildAndYear(ctx context.Context, childID uuid.UUID, year int) (*domain.Einstufung, error)
+	Update(ctx context.Context, e *domain.Einstufung) error
+	Delete(ctx context.Context, id uuid.UUID) error
+	ListByHousehold(ctx context.Context, householdID uuid.UUID) ([]domain.Einstufung, error)
+	ListByYear(ctx context.Context, year int, offset, limit int) ([]domain.Einstufung, int64, error)
+	GetLatestForChild(ctx context.Context, childID uuid.UUID) (*domain.Einstufung, error)
+}

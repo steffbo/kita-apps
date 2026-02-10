@@ -14,6 +14,7 @@ import {
   Menu,
   X,
   ChevronDown,
+  ClipboardList,
 } from 'lucide-vue-next';
 
 const authStore = useAuthStore();
@@ -30,6 +31,7 @@ const navigation = [
   { name: 'Eltern', to: '/eltern', icon: UserCircle },
   { name: 'Mitglieder', to: '/mitglieder', icon: UserPlus },
   { name: 'Beiträge', to: '/beitraege', icon: Receipt },
+  { name: 'Einstufungen', to: '/einstufungen', icon: ClipboardList },
   { name: 'Import', to: '/import', icon: Upload },
   { name: 'Automatisierung', to: '/automatisierung', icon: Zap },
 ];

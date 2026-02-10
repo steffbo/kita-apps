@@ -3930,6 +3930,416 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/einstufungen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List fee classifications
+         * @description Returns Einstufungen for a year with pagination
+         */
+        get: {
+            parameters: {
+                query: {
+                    /** @description Year */
+                    year: number;
+                    /** @description Page number */
+                    page?: number;
+                    /** @description Items per page */
+                    perPage?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Paginated list of Einstufungen */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EinstufungList"];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Create fee classification
+         * @description Creates a new Einstufung by calculating fees from income proofs
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Einstufung data */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateEinstufungRequest"];
+                };
+            };
+            responses: {
+                /** @description Einstufung created successfully */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Einstufung"];
+                    };
+                };
+                /** @description Invalid request body */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Child or household not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/einstufungen/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get fee classification
+         * @description Returns a single Einstufung by ID
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Einstufung ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Einstufung details */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Einstufung"];
+                    };
+                };
+                /** @description Einstufung not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        /**
+         * Update fee classification
+         * @description Updates an existing Einstufung and recalculates fees
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Einstufung ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Update data */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateEinstufungRequest"];
+                };
+            };
+            responses: {
+                /** @description Einstufung updated */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Einstufung"];
+                    };
+                };
+                /** @description Invalid request body */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Einstufung not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        /**
+         * Delete fee classification
+         * @description Deletes an Einstufung
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Einstufung ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Einstufung deleted */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Einstufung not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/einstufungen/child/{childId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Einstufung for child
+         * @description Returns the Einstufung for a child in a given year or the latest
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Year (defaults to latest) */
+                    year?: number;
+                };
+                header?: never;
+                path: {
+                    /** @description Child ID */
+                    childId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Einstufung for child */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Einstufung"];
+                    };
+                };
+                /** @description No Einstufung found for this child */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/einstufungen/household/{householdId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Einstufungen for household
+         * @description Returns all Einstufungen for a household
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Household ID */
+                    householdId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description List of Einstufungen */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Einstufung"][];
+                    };
+                };
+                /** @description Invalid household ID */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/einstufungen/calculate-income": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Calculate household income
+         * @description Calculates fee-relevant household income from parent income details without creating a record
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Parent income details */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CalculateIncomeRequest"];
+                };
+            };
+            responses: {
+                /** @description Calculated income breakdown */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CalculateIncomeResponse"];
+                    };
+                };
+                /** @description Invalid request body */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -5042,6 +5452,204 @@ export interface components {
             /** @description ID of the already linked parent */
             linkedParentId?: string;
             phone?: string;
+        };
+        /** @description Detailed income components for one parent (annual amounts in EUR) */
+        IncomeDetails: {
+            /**
+             * @description Bruttoeinkommen (Jahressumme)
+             * @example 0
+             */
+            grossIncome?: number;
+            /**
+             * @description Sonstige Einnahmen
+             * @example 0
+             */
+            otherIncome?: number;
+            /**
+             * @description AN-Anteile Sozialversicherung
+             * @example 0
+             */
+            socialSecurityShare?: number;
+            /**
+             * @description Private KV/PV
+             * @example 0
+             */
+            privateInsurance?: number;
+            /**
+             * @description Lohnsteuer / Kirchensteuer / Solidaritätszuschlag
+             * @example 0
+             */
+            tax?: number;
+            /**
+             * @description Werbungskosten-Pauschale
+             * @example 0
+             */
+            advertisingCosts?: number;
+            /**
+             * @description Gewinn aus Gewerbebetrieb oder selbständiger Arbeit
+             * @example 0
+             */
+            profit?: number;
+            /**
+             * @description Abgabe für persönliche Daseinsfürsorge
+             * @example 0
+             */
+            welfareExpense?: number;
+            /**
+             * @description Steuern (ESt, KiSt, SolZu)
+             * @example 0
+             */
+            selfEmployedTax?: number;
+            /**
+             * @description Elterngeld (nicht beitragsrelevant)
+             * @example 0
+             */
+            parentalBenefit?: number;
+            /**
+             * @description Mutterschaftsgeld (nicht beitragsrelevant)
+             * @example 0
+             */
+            maternityBenefit?: number;
+            /**
+             * @description Versicherungen
+             * @example 0
+             */
+            insurances?: number;
+            /**
+             * @description Unterhalt (zu zahlen)
+             * @example 0
+             */
+            maintenanceToPay?: number;
+            /**
+             * @description Unterhalt (erhalten)
+             * @example 0
+             */
+            maintenanceReceived?: number;
+        };
+        /** @description Full income calculation sheet for a household (both parents) */
+        HouseholdIncomeCalculation: {
+            parent1?: components["schemas"]["IncomeDetails"];
+            parent2?: components["schemas"]["IncomeDetails"];
+        };
+        /** @description One month in the Einstufung letter table */
+        EinstufungMonthRow: {
+            /** @example 1 */
+            month?: number;
+            /** @example 2026 */
+            year?: number;
+            /** @example 45 */
+            careHoursPerWeek?: number;
+            /** @example Kindergarten */
+            careType?: string;
+            /** @example 66 */
+            childcareFee?: number;
+            /** @example 45.4 */
+            foodFee?: number;
+            /** @example 30 */
+            membershipFee?: number;
+        };
+        /** @description Fee classification for a child */
+        Einstufung: {
+            id?: string;
+            childId?: string;
+            householdId?: string;
+            /** @example 2026 */
+            year?: number;
+            /** @example 2026-01-01 */
+            validFrom?: string;
+            incomeCalculation?: components["schemas"]["HouseholdIncomeCalculation"];
+            /**
+             * @description Fee-relevant household income
+             * @example 36412.8
+             */
+            annualNetIncome?: number;
+            /** @example false */
+            highestRateVoluntary?: boolean;
+            /** @example 45 */
+            careHoursPerWeek?: number;
+            /**
+             * @example kindergarten
+             * @enum {string}
+             */
+            careType?: "krippe" | "kindergarten";
+            /** @example 1 */
+            childrenCount?: number;
+            /** @example 66 */
+            monthlyChildcareFee?: number;
+            /** @example 45.4 */
+            monthlyFoodFee?: number;
+            /** @example 30 */
+            annualMembershipFee?: number;
+            /** @example Entlastung */
+            feeRule?: string;
+            /** @example 0 */
+            discountPercent?: number;
+            /** @example 1 */
+            discountFactor?: number;
+            /** @example 66 */
+            baseFee?: number;
+            notes?: string;
+            monthlyTable?: components["schemas"]["EinstufungMonthRow"][];
+            createdAt?: string;
+            updatedAt?: string;
+            /** @description Loaded child relation */
+            child?: Record<string, never>;
+            /** @description Loaded household relation */
+            household?: Record<string, never>;
+        };
+        /** @description Paginated list of Einstufungen */
+        EinstufungList: {
+            data?: components["schemas"]["Einstufung"][];
+            /** @example 1 */
+            page?: number;
+            /** @example 20 */
+            perPage?: number;
+            /** @example 100 */
+            total?: number;
+            /** @example 5 */
+            totalPages?: number;
+        };
+        /** @description Request body for creating a fee classification */
+        CreateEinstufungRequest: {
+            childId?: string;
+            /** @example 2026 */
+            year?: number;
+            /**
+             * @description ISO date (YYYY-MM-DD)
+             * @example 2026-01-01
+             */
+            validFrom?: string;
+            incomeCalculation?: components["schemas"]["HouseholdIncomeCalculation"];
+            /** @example false */
+            highestRateVoluntary?: boolean;
+            /** @example 45 */
+            careHoursPerWeek?: number;
+            /** @example 1 */
+            childrenCount?: number;
+            notes?: string;
+        };
+        /** @description Request body for updating a fee classification */
+        UpdateEinstufungRequest: {
+            incomeCalculation?: components["schemas"]["HouseholdIncomeCalculation"];
+            highestRateVoluntary?: boolean;
+            careHoursPerWeek?: number;
+            childrenCount?: number;
+            validFrom?: string;
+            notes?: string;
+        };
+        /** @description Request to calculate household income from parent details */
+        CalculateIncomeRequest: {
+            parent1?: components["schemas"]["IncomeDetails"];
+            parent2?: components["schemas"]["IncomeDetails"];
+        };
+        /** @description Computed income breakdown */
+        CalculateIncomeResponse: {
+            parent1NetIncome?: number;
+            parent2NetIncome?: number;
+            parent1FeeRelevantIncome?: number;
+            parent2FeeRelevantIncome?: number;
+            householdFeeIncome?: number;
+            householdFullIncome?: number;
         };
     };
     responses: never;

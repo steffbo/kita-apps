@@ -2573,6 +2573,271 @@ paths:
       summary: Create member for parent
       tags:
         - Parents
+  /einstufungen:
+    get:
+      description: Returns Einstufungen for a year with pagination
+      parameters:
+        - description: Year
+          in: query
+          name: year
+          required: true
+          schema:
+            type: integer
+        - description: Page number
+          in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - description: Items per page
+          in: query
+          name: perPage
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Paginated list of Einstufungen
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EinstufungList"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: List fee classifications
+      tags:
+        - Einstufungen
+    post:
+      description: Creates a new Einstufung by calculating fees from income proofs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEinstufungRequest"
+        description: Einstufung data
+        required: true
+      responses:
+        "201":
+          description: Einstufung created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Einstufung"
+        "400":
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Child or household not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Create fee classification
+      tags:
+        - Einstufungen
+  /einstufungen/{id}:
+    get:
+      description: Returns a single Einstufung by ID
+      parameters:
+        - description: Einstufung ID
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Einstufung details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Einstufung"
+        "404":
+          description: Einstufung not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Get fee classification
+      tags:
+        - Einstufungen
+    put:
+      description: Updates an existing Einstufung and recalculates fees
+      parameters:
+        - description: Einstufung ID
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateEinstufungRequest"
+        description: Update data
+        required: true
+      responses:
+        "200":
+          description: Einstufung updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Einstufung"
+        "400":
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Einstufung not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Update fee classification
+      tags:
+        - Einstufungen
+    delete:
+      description: Deletes an Einstufung
+      parameters:
+        - description: Einstufung ID
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Einstufung deleted
+        "404":
+          description: Einstufung not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Delete fee classification
+      tags:
+        - Einstufungen
+  /einstufungen/child/{childId}:
+    get:
+      description: Returns the Einstufung for a child in a given year or the latest
+      parameters:
+        - description: Child ID
+          in: path
+          name: childId
+          required: true
+          schema:
+            type: string
+        - description: Year (defaults to latest)
+          in: query
+          name: year
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Einstufung for child
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Einstufung"
+        "404":
+          description: No Einstufung found for this child
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Get Einstufung for child
+      tags:
+        - Einstufungen
+  /einstufungen/household/{householdId}:
+    get:
+      description: Returns all Einstufungen for a household
+      parameters:
+        - description: Household ID
+          in: path
+          name: householdId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of Einstufungen
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Einstufung"
+        "400":
+          description: Invalid household ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: List Einstufungen for household
+      tags:
+        - Einstufungen
+  /einstufungen/calculate-income:
+    post:
+      description: Calculates fee-relevant household income from parent income details without creating a record
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CalculateIncomeRequest"
+        description: Parent income details
+        required: true
+      responses:
+        "200":
+          description: Calculated income breakdown
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalculateIncomeResponse"
+        "400":
+          description: Invalid request body
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      summary: Calculate household income
+      tags:
+        - Einstufungen
 tags:
   - description: Authentifizierung und Autorisierung
     name: Auth
@@ -2590,6 +2855,8 @@ tags:
     name: Import
   - description: Gebührenrechner
     name: Calculator
+  - description: Beitragseinstufungen
+    name: Einstufungen
 servers:
   - url: http://localhost:8081/api/fees/v1
   - url: https://localhost:8081/api/fees/v1
@@ -4413,4 +4680,257 @@ components:
           type: string
         phone:
           type: string
+      type: object
+    IncomeDetails:
+      description: Detailed income components for one parent (annual amounts in EUR)
+      properties:
+        grossIncome:
+          description: Bruttoeinkommen (Jahressumme)
+          type: number
+          example: 0
+        otherIncome:
+          description: Sonstige Einnahmen
+          type: number
+          example: 0
+        socialSecurityShare:
+          description: AN-Anteile Sozialversicherung
+          type: number
+          example: 0
+        privateInsurance:
+          description: Private KV/PV
+          type: number
+          example: 0
+        tax:
+          description: Lohnsteuer / Kirchensteuer / Solidaritätszuschlag
+          type: number
+          example: 0
+        advertisingCosts:
+          description: Werbungskosten-Pauschale
+          type: number
+          example: 0
+        profit:
+          description: Gewinn aus Gewerbebetrieb oder selbständiger Arbeit
+          type: number
+          example: 0
+        welfareExpense:
+          description: Abgabe für persönliche Daseinsfürsorge
+          type: number
+          example: 0
+        selfEmployedTax:
+          description: Steuern (ESt, KiSt, SolZu)
+          type: number
+          example: 0
+        parentalBenefit:
+          description: Elterngeld (nicht beitragsrelevant)
+          type: number
+          example: 0
+        maternityBenefit:
+          description: Mutterschaftsgeld (nicht beitragsrelevant)
+          type: number
+          example: 0
+        insurances:
+          description: Versicherungen
+          type: number
+          example: 0
+        maintenanceToPay:
+          description: Unterhalt (zu zahlen)
+          type: number
+          example: 0
+        maintenanceReceived:
+          description: Unterhalt (erhalten)
+          type: number
+          example: 0
+      type: object
+    HouseholdIncomeCalculation:
+      description: Full income calculation sheet for a household (both parents)
+      properties:
+        parent1:
+          $ref: "#/components/schemas/IncomeDetails"
+        parent2:
+          $ref: "#/components/schemas/IncomeDetails"
+      type: object
+    EinstufungMonthRow:
+      description: One month in the Einstufung letter table
+      properties:
+        month:
+          type: integer
+          example: 1
+        year:
+          type: integer
+          example: 2026
+        careHoursPerWeek:
+          type: integer
+          example: 45
+        careType:
+          type: string
+          example: Kindergarten
+        childcareFee:
+          type: number
+          example: 66
+        foodFee:
+          type: number
+          example: 45.4
+        membershipFee:
+          type: number
+          example: 30
+      type: object
+    Einstufung:
+      description: Fee classification for a child
+      properties:
+        id:
+          type: string
+        childId:
+          type: string
+        householdId:
+          type: string
+        year:
+          type: integer
+          example: 2026
+        validFrom:
+          type: string
+          example: "2026-01-01"
+        incomeCalculation:
+          $ref: "#/components/schemas/HouseholdIncomeCalculation"
+        annualNetIncome:
+          description: Fee-relevant household income
+          type: number
+          example: 36412.80
+        highestRateVoluntary:
+          type: boolean
+          example: false
+        careHoursPerWeek:
+          type: integer
+          example: 45
+        careType:
+          type: string
+          enum:
+            - krippe
+            - kindergarten
+          example: kindergarten
+        childrenCount:
+          type: integer
+          example: 1
+        monthlyChildcareFee:
+          type: number
+          example: 66
+        monthlyFoodFee:
+          type: number
+          example: 45.4
+        annualMembershipFee:
+          type: number
+          example: 30
+        feeRule:
+          type: string
+          example: Entlastung
+        discountPercent:
+          type: integer
+          example: 0
+        discountFactor:
+          type: number
+          example: 1
+        baseFee:
+          type: number
+          example: 66
+        notes:
+          type: string
+        monthlyTable:
+          type: array
+          items:
+            $ref: "#/components/schemas/EinstufungMonthRow"
+        createdAt:
+          type: string
+        updatedAt:
+          type: string
+        child:
+          description: Loaded child relation
+          type: object
+        household:
+          description: Loaded household relation
+          type: object
+      type: object
+    EinstufungList:
+      description: Paginated list of Einstufungen
+      properties:
+        data:
+          items:
+            $ref: "#/components/schemas/Einstufung"
+          type: array
+        page:
+          type: integer
+          example: 1
+        perPage:
+          type: integer
+          example: 20
+        total:
+          type: integer
+          example: 100
+        totalPages:
+          type: integer
+          example: 5
+      type: object
+    CreateEinstufungRequest:
+      description: Request body for creating a fee classification
+      properties:
+        childId:
+          type: string
+        year:
+          type: integer
+          example: 2026
+        validFrom:
+          description: ISO date (YYYY-MM-DD)
+          type: string
+          example: "2026-01-01"
+        incomeCalculation:
+          $ref: "#/components/schemas/HouseholdIncomeCalculation"
+        highestRateVoluntary:
+          type: boolean
+          example: false
+        careHoursPerWeek:
+          type: integer
+          example: 45
+        childrenCount:
+          type: integer
+          example: 1
+        notes:
+          type: string
+      type: object
+    UpdateEinstufungRequest:
+      description: Request body for updating a fee classification
+      properties:
+        incomeCalculation:
+          $ref: "#/components/schemas/HouseholdIncomeCalculation"
+        highestRateVoluntary:
+          type: boolean
+        careHoursPerWeek:
+          type: integer
+        childrenCount:
+          type: integer
+        validFrom:
+          type: string
+        notes:
+          type: string
+      type: object
+    CalculateIncomeRequest:
+      description: Request to calculate household income from parent details
+      properties:
+        parent1:
+          $ref: "#/components/schemas/IncomeDetails"
+        parent2:
+          $ref: "#/components/schemas/IncomeDetails"
+      type: object
+    CalculateIncomeResponse:
+      description: Computed income breakdown
+      properties:
+        parent1NetIncome:
+          type: number
+        parent2NetIncome:
+          type: number
+        parent1FeeRelevantIncome:
+          type: number
+        parent2FeeRelevantIncome:
+          type: number
+        householdFeeIncome:
+          type: number
+        householdFullIncome:
+          type: number
       type: object
