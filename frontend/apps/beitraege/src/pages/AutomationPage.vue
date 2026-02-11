@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { api } from '@/api';
 import type { BankingSyncStatus, ReminderRunResponse, EmailLog } from '@/api/types';
-import { Loader2, RefreshCw } from 'lucide-vue-next';
+import { Loader2, RefreshCw, Square } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/auth';
 
 const authStore = useAuthStore();
@@ -11,6 +11,7 @@ const authStore = useAuthStore();
 const bankingSyncStatus = ref<BankingSyncStatus | null>(null);
 const bankingSyncError = ref<string | null>(null);
 const isStartingBankingSync = ref(false);
+const isCancellingBankingSync = ref(false);
 const isLoadingBankingSync = ref(false);
 let bankingSyncPollInterval: ReturnType<typeof setInterval> | null = null;
 
@@ -86,6 +87,24 @@ async function runBankingSync(): Promise<void> {
   }
 }
 
+async function cancelBankingSync(): Promise<void> {
+  isCancellingBankingSync.value = true;
+  bankingSyncError.value = null;
+  try {
+    const status = await api.cancelBankingSync();
+    bankingSyncStatus.value = status;
+    if (shouldPollBankingSync(status)) {
+      startBankingSyncPolling();
+    } else {
+      clearBankingSyncPolling();
+    }
+  } catch (error) {
+    bankingSyncError.value = error instanceof Error ? error.message : 'Sync konnte nicht gestoppt werden';
+  } finally {
+    isCancellingBankingSync.value = false;
+  }
+}
+
 const bankingSyncStatusLabel = computed(() => {
   switch (bankingSyncStatus.value?.status) {
     case 'running':
@@ -139,7 +158,11 @@ const bankingSyncShowLastMessage = computed(() => {
 });
 
 const bankingSyncIsBusy = computed(() => {
-  return isStartingBankingSync.value || shouldPollBankingSync(bankingSyncStatus.value);
+  return (
+    isStartingBankingSync.value ||
+    isCancellingBankingSync.value ||
+    shouldPollBankingSync(bankingSyncStatus.value)
+  );
 });
 
 // Reminder Functions
@@ -290,6 +313,16 @@ watch(
             <Loader2 v-if="isStartingBankingSync" class="h-4 w-4 animate-spin" />
             <RefreshCw v-else class="h-4 w-4" />
             Jetzt synchronisieren
+          </button>
+          <button
+            v-if="shouldPollBankingSync(bankingSyncStatus)"
+            @click="cancelBankingSync"
+            :disabled="isCancellingBankingSync || isLoadingBankingSync"
+            class="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+          >
+            <Loader2 v-if="isCancellingBankingSync" class="h-4 w-4 animate-spin" />
+            <Square v-else class="h-4 w-4" />
+            Stoppen
           </button>
         </div>
       </div>

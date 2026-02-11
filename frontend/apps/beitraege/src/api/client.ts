@@ -574,6 +574,10 @@ class ApiClient {
     return this.request<BankingSyncStatus>('/banking-sync/status');
   }
 
+  async cancelBankingSync(): Promise<BankingSyncStatus> {
+    return this.request<BankingSyncStatus>('/banking-sync/cancel', { method: 'POST' });
+  }
+
   async uploadCSV(file: File): Promise<ImportResult> {
     const formData = new FormData();
     formData.append('file', file);
