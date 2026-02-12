@@ -7,7 +7,7 @@ const path = require('path');
 const CONFIG = {
   bankUrl:
     process.env.BANK_URL ||
-    'https://www.sozialbank-onlinebanking.de/services_auth/auth-frontend/?v=d2037d6fa58a8828878a28a81fe07257&client_id=fkp&redirect_uri=https:%2F%2Fwww.sozialbank-onlinebanking.de%2Fservices_cloud%2Fportal%2Fportal-oauth%2Flogin',
+    'https://www.sozialbank-onlinebanking.de/services_cloud/portal/',
   username: process.env.BANK_USERNAME,
   password: process.env.BANK_PASSWORD,
   apiUrl: process.env.API_URL || 'http://localhost:8081/api/fees/v1',
