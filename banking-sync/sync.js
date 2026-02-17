@@ -66,6 +66,18 @@ function createLogger(onLog) {
   };
 }
 
+function withTimeout(promise, timeoutMs, label) {
+  let timeoutId;
+  const timeoutPromise = new Promise((_, reject) => {
+    timeoutId = setTimeout(() => {
+      reject(new Error(`${label} timed out after ${timeoutMs}ms`));
+    }, timeoutMs);
+  });
+  return Promise.race([promise, timeoutPromise]).finally(() => {
+    if (timeoutId) clearTimeout(timeoutId);
+  });
+}
+
 function getRootUrl(root) {
   try {
     if (typeof root.url === 'function') return root.url();
@@ -249,7 +261,11 @@ async function captureDebugArtifacts(page, label, options, log) {
 
   const screenshotPath = path.join(CONFIG.debugDir, createDebugFileName(label, 'png'));
   try {
-    await page.screenshot({ path: screenshotPath, fullPage: true, timeout: 15000 });
+    await withTimeout(
+      page.screenshot({ path: screenshotPath, fullPage: true, timeout: 15000 }),
+      17000,
+      'Screenshot capture'
+    );
     log(`📸 Captured screenshot: ${screenshotPath}`);
     if (onScreenshot) onScreenshot(screenshotPath);
   } catch (error) {
@@ -258,7 +274,7 @@ async function captureDebugArtifacts(page, label, options, log) {
 
   const htmlPath = path.join(CONFIG.debugDir, createDebugFileName(label, 'html'));
   try {
-    const html = await page.content();
+    const html = await withTimeout(page.content(), 10000, 'HTML snapshot capture');
     fs.writeFileSync(htmlPath, html, 'utf-8');
     log(`🧾 Saved HTML snapshot: ${htmlPath}`);
     if (onHtmlSnapshot) onHtmlSnapshot(htmlPath);
@@ -530,7 +546,15 @@ async function downloadCSV(options = {}) {
       // ignore
     }
 
-    await captureDebugArtifacts(page, 'error_state', { onScreenshot, onHtmlSnapshot }, log);
+    try {
+      await withTimeout(
+        captureDebugArtifacts(page, 'error_state', { onScreenshot, onHtmlSnapshot }, log),
+        30000,
+        'Debug artifact capture'
+      );
+    } catch (artifactError) {
+      log(`⚠️  Debug artifact capture aborted: ${artifactError.message}`);
+    }
     log(`❌ Error: ${error.message}`);
     await closeBrowserContext(context, browser);
     browserContext = null;
