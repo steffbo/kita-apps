@@ -155,6 +155,9 @@ ensureDir(CONFIG.stateDir);
 state = loadState();
 recoverStaleInProgressState();
 
+// Safety timeout for entire runSync (slightly longer than the global browser timeout)
+const RUN_SYNC_TIMEOUT_MS = Number(process.env.RUN_SYNC_TIMEOUT_SECONDS || 1200) * 1000;
+
 async function runSync({ test = false } = {}) {
   if (running) {
     return state;
@@ -175,6 +178,22 @@ async function runSync({ test = false } = {}) {
     lastHtmlSnapshot: null,
     logs: [],
   });
+
+  // Safety timeout: force-finish if runSync hangs
+  const safetyTimeout = setTimeout(() => {
+    if (running) {
+      const reason = `Safety timeout (${RUN_SYNC_TIMEOUT_MS / 1000}s) exceeded; forcing error state.`;
+      console.error(reason);
+      appendLog(`⏰ ${reason}`);
+      cancelSync();
+      updateState({
+        status: 'error',
+        finishedAt: nowIso(),
+        lastError: reason,
+      });
+      running = false;
+    }
+  }, RUN_SYNC_TIMEOUT_MS);
 
   try {
     const csvPath = await downloadCSV({
@@ -210,6 +229,7 @@ async function runSync({ test = false } = {}) {
       lastError: error && error.message ? error.message : String(error),
     });
   } finally {
+    clearTimeout(safetyTimeout);
     running = false;
   }
 
@@ -233,7 +253,19 @@ const server = http.createServer(async (req, res) => {
   }
 
   if (pathname === '/run' && req.method === 'POST') {
-    if (running || state.status === 'waiting_for_2fa') {
+    // Auto-recover stale in-progress state (e.g. after a crash or hung promise)
+    if (!running && (state.status === 'running' || state.status === 'waiting_for_2fa')) {
+      const staleReason = 'Stale in-progress state detected (process not running); auto-recovering.';
+      console.warn(staleReason);
+      updateState({
+        status: 'error',
+        finishedAt: state.finishedAt || nowIso(),
+        lastError: staleReason,
+        lastMessage: staleReason,
+      });
+    }
+
+    if (running) {
       return respondJson(res, 409, { error: 'run already in progress', status: state });
     }
 
