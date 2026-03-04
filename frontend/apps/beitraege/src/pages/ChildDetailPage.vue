@@ -23,6 +23,7 @@ import {
   Link,
   Search,
   Unlink,
+  Copy,
   CreditCard,
   Home,
   Euro,
@@ -84,6 +85,8 @@ const isEditingParent = ref(false);
 const parentEditForm = ref<UpdateParentRequest>({});
 const isSavingParent = ref(false);
 const parentDetailError = ref<string | null>(null);
+const isParentEmailCopied = ref(false);
+let parentEmailCopyResetTimer: ReturnType<typeof setTimeout> | null = null;
 
 // Household editing state
 const isEditingHousehold = ref(false);
@@ -255,6 +258,9 @@ onMounted(() => {
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeydown);
+  if (parentEmailCopyResetTimer) {
+    clearTimeout(parentEmailCopyResetTimer);
+  }
 });
 
 function formatDate(dateStr: string): string {
@@ -752,6 +758,7 @@ function openParentDetailModal(parent: Parent) {
   selectedParentForDetail.value = parent;
   isEditingParent.value = false;
   parentDetailError.value = null;
+  isParentEmailCopied.value = false;
   showParentDetailModal.value = true;
 }
 
@@ -761,6 +768,32 @@ function closeParentDetailModal() {
   isEditingParent.value = false;
   parentEditForm.value = {};
   parentDetailError.value = null;
+  isParentEmailCopied.value = false;
+  if (parentEmailCopyResetTimer) {
+    clearTimeout(parentEmailCopyResetTimer);
+    parentEmailCopyResetTimer = null;
+  }
+}
+
+async function copyParentEmailToClipboard() {
+  const email = selectedParentForDetail.value?.email;
+  if (!email || typeof navigator === 'undefined' || !navigator.clipboard) return;
+
+  try {
+    await navigator.clipboard.writeText(email);
+    isParentEmailCopied.value = true;
+
+    if (parentEmailCopyResetTimer) {
+      clearTimeout(parentEmailCopyResetTimer);
+    }
+
+    parentEmailCopyResetTimer = setTimeout(() => {
+      isParentEmailCopied.value = false;
+      parentEmailCopyResetTimer = null;
+    }, 2000);
+  } catch {
+    isParentEmailCopied.value = false;
+  }
 }
 
 function startEditingParent() {
@@ -2301,9 +2334,21 @@ async function createReminder() {
 
           <div v-if="selectedParentForDetail.email">
             <p class="text-sm text-gray-500">E-Mail</p>
-            <a :href="`mailto:${selectedParentForDetail.email}`" class="font-medium text-primary hover:underline">
-              {{ selectedParentForDetail.email }}
-            </a>
+            <div class="mt-1 flex items-center gap-2">
+              <a :href="`mailto:${selectedParentForDetail.email}`" class="font-medium text-primary hover:underline break-all">
+                {{ selectedParentForDetail.email }}
+              </a>
+              <button
+                type="button"
+                @click="copyParentEmailToClipboard"
+                class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+                :title="isParentEmailCopied ? 'E-Mail kopiert' : 'E-Mail kopieren'"
+              >
+                <Check v-if="isParentEmailCopied" class="h-3.5 w-3.5" />
+                <Copy v-else class="h-3.5 w-3.5" />
+                {{ isParentEmailCopied ? 'Kopiert' : 'Kopieren' }}
+              </button>
+            </div>
           </div>
 
           <div v-if="selectedParentForDetail.phone">
