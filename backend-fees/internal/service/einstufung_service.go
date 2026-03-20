@@ -85,15 +85,15 @@ func (s *EinstufungService) Create(ctx context.Context, input CreateEinstufungIn
 	// Default children count
 	childrenCount := input.ChildrenCount
 	if childrenCount == 0 {
-		// Count active children in household
-		activeCount := 0
+		// Count children enrolled at the Einstufung date
+		enrolledCount := 0
 		for _, c := range household.Children {
-			if c.IsActive {
-				activeCount++
+			if c.IsEnrolledAt(input.ValidFrom) {
+				enrolledCount++
 			}
 		}
-		if activeCount > 0 {
-			childrenCount = activeCount
+		if enrolledCount > 0 {
+			childrenCount = enrolledCount
 		} else {
 			childrenCount = 1
 		}

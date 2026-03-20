@@ -33,6 +33,17 @@ type Child struct {
 	Household *Household `json:"household,omitempty" db:"-"`
 }
 
+// IsEnrolledAt checks if the child is enrolled at the given date based on entry/exit dates.
+func (c *Child) IsEnrolledAt(date time.Time) bool {
+	if c.EntryDate.After(date) {
+		return false
+	}
+	if c.ExitDate != nil && c.ExitDate.Before(date) {
+		return false
+	}
+	return true
+}
+
 // IsUnderThree checks if the child is under 3 years old at the given date.
 func (c *Child) IsUnderThree(atDate time.Time) bool {
 	thirdBirthday := c.BirthDate.AddDate(3, 0, 0)

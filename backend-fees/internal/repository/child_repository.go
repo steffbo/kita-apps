@@ -569,8 +569,7 @@ func (r *PostgresChildRepository) GetU3ChildrenDetails(ctx context.Context, stic
 			h.income_status
 		FROM fees.children c
 		LEFT JOIN fees.households h ON c.household_id = h.id
-		WHERE c.is_active = true
-		  AND c.entry_date <= $1
+		WHERE c.entry_date <= $1
 		  AND (c.exit_date IS NULL OR c.exit_date >= $1)
 		  AND c.birth_date > $2
 		ORDER BY c.last_name, c.first_name
@@ -691,8 +690,7 @@ func (r *PostgresChildRepository) getStichtagSummary(ctx context.Context, sticht
 			COUNT(*) AS total
 		FROM fees.children c
 		LEFT JOIN fees.households h ON c.household_id = h.id
-		WHERE c.is_active = true
-		  AND c.entry_date <= $1
+		WHERE c.entry_date <= $1
 		  AND (c.exit_date IS NULL OR c.exit_date >= $1)
 		  AND c.birth_date > $2
 	`, stichtag, u3Threshold)
@@ -704,8 +702,7 @@ func (r *PostgresChildRepository) getStichtagSummary(ctx context.Context, sticht
 	err = r.db.GetContext(ctx, &totalChildren, `
 		SELECT COUNT(*)
 		FROM fees.children
-		WHERE is_active = true
-		  AND entry_date <= $1
+		WHERE entry_date <= $1
 		  AND (exit_date IS NULL OR exit_date >= $1)
 	`, stichtag)
 	if err != nil {
@@ -1066,8 +1063,7 @@ func (r *PostgresChildRepository) loadHoursBreakdown(ctx context.Context, dest i
 			ORDER BY h.effective_from DESC, h.created_at DESC
 			LIMIT 1
 		) history_match ON TRUE
-		WHERE c.is_active = true
-		  AND c.entry_date <= $1
+		WHERE c.entry_date <= $1
 		  AND (c.exit_date IS NULL OR c.exit_date >= $1)
 		GROUP BY 1
 		ORDER BY (CASE

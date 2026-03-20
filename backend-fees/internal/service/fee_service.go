@@ -87,14 +87,15 @@ func (s *FeeService) getIncomeInfo(ctx context.Context, child *domain.Child) inc
 			if household.ChildrenCountForFees != nil && *household.ChildrenCountForFees > 0 {
 				info.SiblingsCount = *household.ChildrenCountForFees
 			} else if len(household.Children) > 0 {
-				activeCount := 0
+				now := time.Now()
+				enrolledCount := 0
 				for _, c := range household.Children {
-					if c.IsActive {
-						activeCount++
+					if c.IsEnrolledAt(now) {
+						enrolledCount++
 					}
 				}
-				if activeCount > 0 {
-					info.SiblingsCount = activeCount
+				if enrolledCount > 0 {
+					info.SiblingsCount = enrolledCount
 				}
 			}
 		}
