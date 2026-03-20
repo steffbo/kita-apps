@@ -12,7 +12,8 @@ Automatische CSV-Exporte von der SozialBank via Browser-Automatisierung (Playwri
 6. **CSV exportieren** und im Download-Ordner speichern
 7. **Upload** der CSV per `multipart/form-data` an `POST /api/fees/v1/import/upload`
    - Auth via `X-Import-Token: ${CRON_API_TOKEN}`
-8. **Container beendet sich** (bei Host-Cron Variante)
+8. **Success-Ping an Uptime Kuma** (wenn `UPTIME_KUMA_PUSH_URL` gesetzt ist)
+9. **Container beendet sich** (bei Host-Cron Variante)
 
 ## Anforderungen
 
@@ -29,6 +30,7 @@ Automatische CSV-Exporte von der SozialBank via Browser-Automatisierung (Playwri
 | `BANK_PASSWORD` | ja | - | Passwort |
 | `API_URL` | optional | `http://localhost:8081/api/fees/v1` | Fees-API Base |
 | `CRON_API_TOKEN` | ja | - | Import-Token für `/import/upload` |
+| `UPTIME_KUMA_PUSH_URL` | optional | - | Vollständige Uptime Kuma Push-URL für Success-Status |
 | `USER_DATA_DIR` | optional | `./profile` | Persistentes Browser-Profil |
 | `DOWNLOAD_DIR` | optional | `./output` | CSV Download-Ordner |
 | `DATE_RANGE_DAYS` | optional | `90` | Zeitraum (Tage) |
@@ -51,7 +53,7 @@ bunx playwright install chromium
 HEADLESS=false BANK_USERNAME=... BANK_PASSWORD=... CRON_API_TOKEN=... bun sync.js --test
 ```
 
-`--test` lädt die CSV herunter und zeigt einen Preview-Output, **ohne** Upload.
+`--test` lädt die CSV herunter und zeigt einen Preview-Output, **ohne** Upload und **ohne** Uptime-Kuma-Ping.
 
 ## CSV später importieren (manueller Upload)
 
@@ -67,7 +69,7 @@ Für einen UI-Trigger kann der Sync als kleiner HTTP-Runner laufen:
 
 ```bash
 cd banking-sync
-SYNC_API_TOKEN=... BANK_USERNAME=... BANK_PASSWORD=... CRON_API_TOKEN=... bun server.js
+SYNC_API_TOKEN=... BANK_USERNAME=... BANK_PASSWORD=... CRON_API_TOKEN=... UPTIME_KUMA_PUSH_URL=... bun server.js
 ```
 
 Endpoints:
@@ -91,6 +93,7 @@ Endpoints:
       BANK_PASSWORD: ${BANK_PASSWORD}
       API_URL: http://backend-fees:8081/api/fees/v1
       CRON_API_TOKEN: ${CRON_API_TOKEN}
+      UPTIME_KUMA_PUSH_URL: ${UPTIME_KUMA_PUSH_URL}
       USER_DATA_DIR: /data/profile
       DOWNLOAD_DIR: /data/downloads
       DATE_RANGE_DAYS: "90"
@@ -125,6 +128,7 @@ docker compose --profile banking-sync run --rm banking-sync
 - **Timeout bei Login:** Selektoren in `sync.js` per Playwright Codegen anpassen
 - **2FA hängt:** ersten Run mit `HEADLESS=false`, danach profiliertes Login nutzen
 - **Upload 401:** `CRON_API_TOKEN` prüfen (Backend + Container müssen identisch sein)
+- **Kein Kuma-Ping:** `UPTIME_KUMA_PUSH_URL` setzen (sonst nur einmalige Startup-Warnung)
 
 ## Sicherheit
 

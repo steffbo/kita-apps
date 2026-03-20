@@ -12,6 +12,7 @@ const CONFIG = {
   password: process.env.BANK_PASSWORD,
   apiUrl: process.env.API_URL || 'http://localhost:8081/api/fees/v1',
   apiToken: process.env.CRON_API_TOKEN,
+  uptimeKumaPushUrl: process.env.UPTIME_KUMA_PUSH_URL || '',
   headless: process.env.HEADLESS !== 'false',
   downloadDir: process.env.DOWNLOAD_DIR || path.resolve(__dirname, 'output'),
   userDataDir: process.env.USER_DATA_DIR || path.resolve(__dirname, 'profile'),
@@ -28,10 +29,13 @@ const CONFIG = {
   globalTimeoutMs: Number(process.env.GLOBAL_TIMEOUT_SECONDS || 900) * 1000,
 };
 
+const UPTIME_KUMA_PING_TIMEOUT_MS = Number(process.env.UPTIME_KUMA_TIMEOUT_SECONDS || 10) * 1000;
+
 // Global state for cancellation
 let abortController = null;
 let browserContext = null;
 let browserInstance = null;
+let uptimeKumaWarningShown = false;
 
 function getAbortController() {
   return abortController;
@@ -64,6 +68,14 @@ function createLogger(onLog) {
     console.log(message);
     if (onLog) onLog(message);
   };
+}
+
+function warnIfUptimeKumaNotConfigured(logger = console.warn) {
+  if (CONFIG.uptimeKumaPushUrl || uptimeKumaWarningShown) {
+    return;
+  }
+  uptimeKumaWarningShown = true;
+  logger('UPTIME_KUMA_PUSH_URL not set. Uptime Kuma success ping is disabled.');
 }
 
 function withTimeout(promise, timeoutMs, label) {
@@ -593,8 +605,58 @@ async function uploadToAPI(csvPath, options = {}) {
   return result;
 }
 
+async function pingUptimeKumaSuccess(options = {}) {
+  const { onLog } = options;
+  const log = createLogger(onLog);
+
+  if (!CONFIG.uptimeKumaPushUrl) {
+    return {
+      sent: false,
+      ok: false,
+      error: 'UPTIME_KUMA_PUSH_URL not set',
+    };
+  }
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+  }, UPTIME_KUMA_PING_TIMEOUT_MS);
+
+  try {
+    const response = await fetch(CONFIG.uptimeKumaPushUrl, {
+      method: 'GET',
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      const body = await response.text().catch(() => '');
+      return {
+        sent: true,
+        ok: false,
+        error: `HTTP ${response.status}${body ? ` ${body}` : ''}`,
+      };
+    }
+
+    log('📡 Uptime Kuma success ping sent');
+    return {
+      sent: true,
+      ok: true,
+      error: null,
+    };
+  } catch (error) {
+    return {
+      sent: true,
+      ok: false,
+      error: error && error.message ? error.message : String(error),
+    };
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 async function main() {
   const isTest = process.argv.includes('--test');
+  warnIfUptimeKumaNotConfigured(console.warn);
 
   try {
     const csvPath = await downloadCSV();
@@ -608,6 +670,10 @@ async function main() {
     }
 
     await uploadToAPI(csvPath);
+    const pingResult = await pingUptimeKumaSuccess();
+    if (pingResult.sent && !pingResult.ok) {
+      console.warn(`⚠️ Uptime Kuma success ping failed: ${pingResult.error}`);
+    }
     console.log('\n🎉 Banking sync completed!');
   } catch (error) {
     console.error('\n❌ Banking sync failed:', error.message);
@@ -619,4 +685,11 @@ if (require.main === module) {
   main();
 }
 
-module.exports = { downloadCSV, uploadToAPI, cancelSync, getAbortController };
+module.exports = {
+  downloadCSV,
+  uploadToAPI,
+  pingUptimeKumaSuccess,
+  warnIfUptimeKumaNotConfigured,
+  cancelSync,
+  getAbortController,
+};

@@ -3,7 +3,13 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
-const { downloadCSV, uploadToAPI, cancelSync, getAbortController } = require('./sync');
+const {
+  downloadCSV,
+  uploadToAPI,
+  pingUptimeKumaSuccess,
+  warnIfUptimeKumaNotConfigured,
+  cancelSync,
+} = require('./sync');
 
 const CONFIG = {
   port: Number(process.env.PORT || 3333),
@@ -154,6 +160,7 @@ let running = false;
 ensureDir(CONFIG.stateDir);
 state = loadState();
 recoverStaleInProgressState();
+warnIfUptimeKumaNotConfigured(console.warn);
 
 // Safety timeout for entire runSync (slightly longer than the global browser timeout)
 const RUN_SYNC_TIMEOUT_MS = Number(process.env.RUN_SYNC_TIMEOUT_SECONDS || 1200) * 1000;
@@ -219,6 +226,11 @@ async function runSync({ test = false } = {}) {
     if (!test) {
       const result = await uploadToAPI(csvPath, { onLog: appendLog });
       updateState({ uploadResult: result });
+
+      const pingResult = await pingUptimeKumaSuccess({ onLog: appendLog });
+      if (pingResult.sent && !pingResult.ok) {
+        appendLog(`⚠️ Uptime Kuma success ping failed: ${pingResult.error}`);
+      }
     }
 
     updateState({ status: 'success', finishedAt: nowIso() });

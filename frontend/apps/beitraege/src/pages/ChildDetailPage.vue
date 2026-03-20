@@ -315,6 +315,17 @@ function formatLegalHoursRange(entry: LegalHoursHistoryEntry): string {
   return `${from} bis ${formatDate(entry.effectiveUntil)}`;
 }
 
+function getLatestEffectiveFrom(
+  history: Array<{ effectiveFrom: string }>,
+  fallbackDate: string,
+): string {
+  const latestEntry = history[0];
+  if (latestEntry?.effectiveFrom) {
+    return formatDateForInput(latestEntry.effectiveFrom);
+  }
+  return formatDateForInput(fallbackDate);
+}
+
 function normalizeCareHoursValue(value: unknown): number | null {
   if (value === '' || value === undefined || value === null) return null;
   if (typeof value === 'number') {
@@ -395,7 +406,6 @@ function isUnderThree(birthDate: string): boolean {
 
 function openEditDialog() {
   if (!child.value) return;
-  const today = new Date().toISOString().split('T')[0];
   editForm.value = {
     firstName: child.value.firstName,
     lastName: child.value.lastName,
@@ -407,9 +417,9 @@ function openEditDialog() {
     postalCode: child.value.postalCode,
     city: child.value.city,
     legalHours: child.value.legalHours,
-    legalHoursValidFrom: today,
+    legalHoursValidFrom: getLatestEffectiveFrom(legalHoursHistory.value, child.value.entryDate),
     careHours: child.value.careHours,
-    careHoursValidFrom: today,
+    careHoursValidFrom: getLatestEffectiveFrom(careHoursHistory.value, child.value.entryDate),
     isActive: child.value.isActive,
   };
   editError.value = null;
