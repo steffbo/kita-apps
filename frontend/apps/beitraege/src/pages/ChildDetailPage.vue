@@ -2,7 +2,23 @@
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api';
-import type { Child, FeeExpectation, UpdateChildRequest, Parent, CreateParentRequest, UpdateParentRequest, BankTransaction, IncomeStatus, UpdateHouseholdRequest, ChildcareFeeResult, MatchSuggestion, PaymentMatch, KnownIBANSummary } from '@/api/types';
+import type {
+  BankTransaction,
+  CareHoursHistoryEntry,
+  Child,
+  ChildcareFeeResult,
+  CreateParentRequest,
+  FeeExpectation,
+  IncomeStatus,
+  KnownIBANSummary,
+  LegalHoursHistoryEntry,
+  MatchSuggestion,
+  Parent,
+  PaymentMatch,
+  UpdateChildRequest,
+  UpdateHouseholdRequest,
+  UpdateParentRequest,
+} from '@/api/types';
 import {
   ArrowLeft,
   Edit,
@@ -37,11 +53,20 @@ const fees = ref<FeeExpectation[]>([]);
 const isLoading = ref(true);
 const error = ref<string | null>(null);
 
+type UpdateChildForm = UpdateChildRequest & {
+  legalHoursValidFrom?: string;
+  careHoursValidFrom?: string;
+};
+
 // Edit dialog state
 const showEditDialog = ref(false);
-const editForm = ref<UpdateChildRequest>({});
+const editForm = ref<UpdateChildForm>({});
 const isEditing = ref(false);
 const editError = ref<string | null>(null);
+
+// Care hours history
+const careHoursHistory = ref<CareHoursHistoryEntry[]>([]);
+const legalHoursHistory = ref<LegalHoursHistoryEntry[]>([]);
 
 // Delete dialog state
 const showDeleteDialog = ref(false);
@@ -128,6 +153,8 @@ async function loadChild() {
   error.value = null;
   try {
     child.value = await api.getChild(childId.value);
+    careHoursHistory.value = await api.getCareHoursHistory(childId.value);
+    legalHoursHistory.value = await api.getLegalHoursHistory(childId.value);
     const feesResponse = await api.getFees({ childId: childId.value, limit: 50 });
     fees.value = feesResponse.data;
     // Load childcare fee if applicable
@@ -271,6 +298,32 @@ function formatDateForInput(dateStr: string): string {
   return dateStr.split('T')[0];
 }
 
+function formatCareHours(careHours?: number | null): string {
+  if (careHours === undefined || careHours === null) return 'Unbekannt';
+  return `${careHours} Std./Woche`;
+}
+
+function formatCareHoursRange(entry: CareHoursHistoryEntry): string {
+  const from = formatDate(entry.effectiveFrom);
+  if (!entry.effectiveUntil) return `ab ${from}`;
+  return `${from} bis ${formatDate(entry.effectiveUntil)}`;
+}
+
+function formatLegalHoursRange(entry: LegalHoursHistoryEntry): string {
+  const from = formatDate(entry.effectiveFrom);
+  if (!entry.effectiveUntil) return `ab ${from}`;
+  return `${from} bis ${formatDate(entry.effectiveUntil)}`;
+}
+
+function normalizeCareHoursValue(value: unknown): number | null {
+  if (value === '' || value === undefined || value === null) return null;
+  if (typeof value === 'number') {
+    return Number.isNaN(value) ? null : value;
+  }
+  const parsed = Number(value);
+  return Number.isNaN(parsed) ? null : parsed;
+}
+
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('de-DE', {
     style: 'currency',
@@ -342,6 +395,7 @@ function isUnderThree(birthDate: string): boolean {
 
 function openEditDialog() {
   if (!child.value) return;
+  const today = new Date().toISOString().split('T')[0];
   editForm.value = {
     firstName: child.value.firstName,
     lastName: child.value.lastName,
@@ -353,8 +407,9 @@ function openEditDialog() {
     postalCode: child.value.postalCode,
     city: child.value.city,
     legalHours: child.value.legalHours,
-    legalHoursUntil: child.value.legalHoursUntil ? formatDateForInput(child.value.legalHoursUntil) : undefined,
+    legalHoursValidFrom: today,
     careHours: child.value.careHours,
+    careHoursValidFrom: today,
     isActive: child.value.isActive,
   };
   editError.value = null;
@@ -366,7 +421,40 @@ async function handleEdit() {
   isEditing.value = true;
   editError.value = null;
   try {
-    await api.updateChild(childId.value, editForm.value);
+    const originalCareHours = normalizeCareHoursValue(child.value.careHours);
+    const nextCareHours = normalizeCareHoursValue(editForm.value.careHours);
+    const careHoursChanged = originalCareHours !== nextCareHours;
+    const originalLegalHours = normalizeCareHoursValue(child.value.legalHours);
+    const nextLegalHours = normalizeCareHoursValue(editForm.value.legalHours);
+    const legalHoursChanged = originalLegalHours !== nextLegalHours;
+    const {
+      legalHoursValidFrom,
+      careHoursValidFrom,
+      legalHours: _legalHours,
+      legalHoursUntil: _legalHoursUntil,
+      careHours: _careHours,
+      ...childUpdate
+    } = editForm.value;
+
+    await api.updateChild(childId.value, childUpdate);
+    if (legalHoursChanged) {
+      if (!legalHoursValidFrom) {
+        throw new Error('Bitte ein Gültig-ab-Datum für den Rechtsanspruch angeben.');
+      }
+      await api.addLegalHoursHistory(childId.value, {
+        legalHours: nextLegalHours,
+        validFrom: legalHoursValidFrom,
+      });
+    }
+    if (careHoursChanged) {
+      if (!careHoursValidFrom) {
+        throw new Error('Bitte ein Gültig-ab-Datum für die Betreuungszeit angeben.');
+      }
+      await api.addCareHoursHistory(childId.value, {
+        careHours: nextCareHours,
+        validFrom: careHoursValidFrom,
+      });
+    }
     await loadChild();
     showEditDialog.value = false;
   } catch (e) {
@@ -1058,19 +1146,41 @@ async function createReminder() {
               <p class="text-sm text-gray-500">{{ child.postalCode }} {{ child.city }}</p>
             </div>
           </div>
-          <div v-if="child.legalHours || child.careHours" class="flex items-start gap-3">
+          <div v-if="child.legalHours || child.careHours || legalHoursHistory.length > 0 || careHoursHistory.length > 0" class="flex items-start gap-3">
             <Clock class="h-5 w-5 text-gray-400 mt-0.5" />
             <div>
               <p class="text-sm text-gray-500">Betreuungszeiten</p>
-              <p v-if="child.legalHours" class="font-medium">
-                Rechtsanspruch: {{ child.legalHours }} Std./Woche
+              <p class="font-medium">
+                Rechtsanspruch: {{ formatCareHours(child.legalHours) }}
                 <span v-if="child.legalHoursUntil" class="text-sm text-gray-500">
                   (bis {{ formatDate(child.legalHoursUntil) }})
                 </span>
               </p>
-              <p v-if="child.careHours" class="font-medium">
-                Betreuungszeit: {{ child.careHours }} Std./Woche
+              <p class="font-medium">
+                Betreuungszeit: {{ formatCareHours(child.careHours) }}
               </p>
+              <div v-if="legalHoursHistory.length > 0" class="mt-2 space-y-1">
+                <p class="text-xs uppercase tracking-wide text-gray-400">Historie Rechtsanspruch</p>
+                <div
+                  v-for="entry in legalHoursHistory"
+                  :key="entry.id"
+                  class="flex items-center justify-between text-sm text-gray-600"
+                >
+                  <span>{{ formatLegalHoursRange(entry) }}</span>
+                  <span class="font-medium text-gray-700">{{ formatCareHours(entry.legalHours) }}</span>
+                </div>
+              </div>
+              <div v-if="careHoursHistory.length > 0" class="mt-2 space-y-1">
+                <p class="text-xs uppercase tracking-wide text-gray-400">Historie Betreuungszeit</p>
+                <div
+                  v-for="entry in careHoursHistory"
+                  :key="entry.id"
+                  class="flex items-center justify-between text-sm text-gray-600"
+                >
+                  <span>{{ formatCareHoursRange(entry) }}</span>
+                  <span class="font-medium text-gray-700">{{ formatCareHours(entry.careHours) }}</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -1655,10 +1765,10 @@ async function createReminder() {
                 />
               </div>
               <div>
-                <label for="edit-legalHoursUntil" class="block text-sm font-medium text-gray-700 mb-1">Rechtsanspruch bis</label>
+                <label for="edit-legalHoursValidFrom" class="block text-sm font-medium text-gray-700 mb-1">Rechtsanspruch gültig ab</label>
                 <input
-                  id="edit-legalHoursUntil"
-                  v-model="editForm.legalHoursUntil"
+                  id="edit-legalHoursValidFrom"
+                  v-model="editForm.legalHoursValidFrom"
                   type="date"
                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
                 />
@@ -1674,7 +1784,16 @@ async function createReminder() {
                 max="50"
                 class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
               />
-              <p class="text-xs text-gray-500 mt-1">Vereinbarte wöchentliche Betreuungszeit mit der Kita</p>
+              <p class="text-xs text-gray-500 mt-1">Änderungen werden als Historieneintrag gespeichert und gelten ab dem gewählten Datum.</p>
+            </div>
+            <div class="mt-4">
+              <label for="edit-careHoursValidFrom" class="block text-sm font-medium text-gray-700 mb-1">Betreuungszeit gültig ab</label>
+              <input
+                id="edit-careHoursValidFrom"
+                v-model="editForm.careHoursValidFrom"
+                type="date"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              />
             </div>
           </div>
 

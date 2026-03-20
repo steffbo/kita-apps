@@ -75,6 +75,10 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 				r.Get("/{id}", handlers.Child.Get)
 				r.Put("/{id}", handlers.Child.Update)
 				r.Delete("/{id}", handlers.Child.Delete)
+				r.Get("/{id}/care-hours-history", handlers.Child.GetCareHoursHistory)
+				r.Post("/{id}/care-hours-history", handlers.Child.AddCareHoursHistory)
+				r.Get("/{id}/legal-hours-history", handlers.Child.GetLegalHoursHistory)
+				r.Post("/{id}/legal-hours-history", handlers.Child.AddLegalHoursHistory)
 				r.Get("/{id}/ledger", handlers.Child.GetLedger)
 				r.Get("/{id}/timeline", handlers.Child.GetTimeline)
 				r.Post("/{id}/parents", handlers.Child.LinkParent)
@@ -157,6 +161,7 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 			// Stichtagsmeldung
 			r.Route("/stichtagsmeldung", func(r chi.Router) {
 				r.Get("/stats", handlers.Stichtagsmeldung.GetStats)
+				r.Get("/report", handlers.Stichtagsmeldung.GetReport)
 				r.Get("/children", handlers.Stichtagsmeldung.GetU3Children)
 			})
 

@@ -39,7 +39,12 @@ type ChildRepository interface {
 	LinkParent(ctx context.Context, childID, parentID uuid.UUID, isPrimary bool) error
 	UnlinkParent(ctx context.Context, childID, parentID uuid.UUID) error
 	GetStichtagsmeldungStats(ctx context.Context, stichtag time.Time) (*domain.StichtagsmeldungStats, error)
+	GetStichtagsmeldungReport(ctx context.Context, stichtag time.Time) (*domain.StichtagsmeldungReport, error)
 	GetU3ChildrenDetails(ctx context.Context, stichtag time.Time) ([]domain.U3ChildDetail, error)
+	ListCareHoursHistory(ctx context.Context, childID uuid.UUID) ([]domain.ChildCareHoursHistory, error)
+	UpsertCareHoursHistory(ctx context.Context, childID uuid.UUID, careHours *int, validFrom time.Time) error
+	ListLegalHoursHistory(ctx context.Context, childID uuid.UUID) ([]domain.ChildLegalHoursHistory, error)
+	UpsertLegalHoursHistory(ctx context.Context, childID uuid.UUID, legalHours *int, validFrom time.Time) error
 }
 
 // ParentRepository handles parent persistence.

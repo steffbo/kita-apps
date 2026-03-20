@@ -25,6 +25,26 @@ func NewPostgresChildRepository(db *sqlx.DB) *PostgresChildRepository {
 	return &PostgresChildRepository{db: db}
 }
 
+type careHoursHistoryRow struct {
+	ID             uuid.UUID  `db:"id"`
+	ChildID        uuid.UUID  `db:"child_id"`
+	CareHours      *int       `db:"care_hours"`
+	EffectiveFrom  time.Time  `db:"effective_from"`
+	EffectiveUntil *time.Time `db:"effective_until"`
+	CreatedAt      time.Time  `db:"created_at"`
+	UpdatedAt      time.Time  `db:"updated_at"`
+}
+
+type legalHoursHistoryRow struct {
+	ID             uuid.UUID  `db:"id"`
+	ChildID        uuid.UUID  `db:"child_id"`
+	LegalHours     *int       `db:"legal_hours"`
+	EffectiveFrom  time.Time  `db:"effective_from"`
+	EffectiveUntil *time.Time `db:"effective_until"`
+	CreatedAt      time.Time  `db:"created_at"`
+	UpdatedAt      time.Time  `db:"updated_at"`
+}
+
 // List retrieves children with optional filtering and sorting.
 func (r *PostgresChildRepository) List(ctx context.Context, activeOnly bool, u3Only bool, hasWarnings bool, hasOpenFees bool, search string, sortBy string, sortDir string, offset, limit int) ([]domain.Child, int64, error) {
 	var children []domain.Child
@@ -259,7 +279,13 @@ func (r *PostgresChildRepository) GetNextMemberNumber(ctx context.Context) (stri
 
 // Create creates a new child.
 func (r *PostgresChildRepository) Create(ctx context.Context, child *domain.Child) error {
-	_, err := r.db.ExecContext(ctx, `
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	_, err = tx.ExecContext(ctx, `
 		INSERT INTO fees.children (id, household_id, member_number, first_name, last_name, birth_date, entry_date, exit_date,
 			                           street, street_no, postal_code, city, legal_hours, legal_hours_until, care_hours,
 			                           is_active, created_at, updated_at)
@@ -267,13 +293,62 @@ func (r *PostgresChildRepository) Create(ctx context.Context, child *domain.Chil
 	`, child.ID, child.HouseholdID, child.MemberNumber, child.FirstName, child.LastName, child.BirthDate, child.EntryDate, child.ExitDate,
 		child.Street, child.StreetNo, child.PostalCode, child.City, child.LegalHours, child.LegalHoursUntil, child.CareHours,
 		child.IsActive, child.CreatedAt, child.UpdatedAt)
-	return err
+	if err != nil {
+		return err
+	}
+
+	if child.CareHours != nil {
+		if err := r.upsertCareHoursHistoryTx(ctx, tx, child.ID, child.CareHours, child.EntryDate); err != nil {
+			return err
+		}
+	}
+	if child.LegalHours != nil || child.LegalHoursUntil != nil {
+		if err := r.upsertLegalHoursHistoryTx(ctx, tx, child.ID, child.LegalHours, child.EntryDate, child.LegalHoursUntil); err != nil {
+			return err
+		}
+	}
+	if err := r.syncCurrentLegalHoursTx(ctx, tx, child.ID, time.Now()); err != nil {
+		return err
+	}
+	if err := r.syncCurrentCareHoursTx(ctx, tx, child.ID, time.Now()); err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 // Update updates an existing child.
 func (r *PostgresChildRepository) Update(ctx context.Context, child *domain.Child) error {
 	child.UpdatedAt = time.Now()
-	_, err := r.db.ExecContext(ctx, `
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	var previousCareHours *int
+	var previousLegalHours *int
+	var previousLegalHoursUntil *time.Time
+	type previousHoursRow struct {
+		CareHours       sql.NullInt64 `db:"care_hours"`
+		LegalHours      sql.NullInt64 `db:"legal_hours"`
+		LegalHoursUntil *time.Time    `db:"legal_hours_until"`
+	}
+	var previous previousHoursRow
+	if err := tx.GetContext(ctx, &previous, `SELECT care_hours, legal_hours, legal_hours_until FROM fees.children WHERE id = $1 FOR UPDATE`, child.ID); err != nil {
+		return err
+	}
+	if previous.CareHours.Valid {
+		value := int(previous.CareHours.Int64)
+		previousCareHours = &value
+	}
+	if previous.LegalHours.Valid {
+		value := int(previous.LegalHours.Int64)
+		previousLegalHours = &value
+	}
+	previousLegalHoursUntil = previous.LegalHoursUntil
+
+	_, err = tx.ExecContext(ctx, `
 		UPDATE fees.children
 		SET household_id = $2, first_name = $3, last_name = $4, birth_date = $5, entry_date = $6, exit_date = $7,
 		    street = $8, street_no = $9, postal_code = $10, city = $11,
@@ -284,7 +359,28 @@ func (r *PostgresChildRepository) Update(ctx context.Context, child *domain.Chil
 		child.Street, child.StreetNo, child.PostalCode, child.City,
 		child.LegalHours, child.LegalHoursUntil, child.CareHours,
 		child.IsActive, child.UpdatedAt)
-	return err
+	if err != nil {
+		return err
+	}
+
+	if !nullableIntEqual(previousLegalHours, child.LegalHours) || !nullableTimeEqual(previousLegalHoursUntil, child.LegalHoursUntil) {
+		if err := r.upsertLegalHoursHistoryTx(ctx, tx, child.ID, child.LegalHours, time.Now(), child.LegalHoursUntil); err != nil {
+			return err
+		}
+	}
+	if !nullableIntEqual(previousCareHours, child.CareHours) {
+		if err := r.upsertCareHoursHistoryTx(ctx, tx, child.ID, child.CareHours, time.Now()); err != nil {
+			return err
+		}
+	}
+	if err := r.syncCurrentLegalHoursTx(ctx, tx, child.ID, time.Now()); err != nil {
+		return err
+	}
+	if err := r.syncCurrentCareHoursTx(ctx, tx, child.ID, time.Now()); err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 // Delete deletes a child (hard delete).
@@ -378,59 +474,73 @@ func (r *PostgresChildRepository) UnlinkParent(ctx context.Context, childID, par
 // GetStichtagsmeldungStats retrieves statistics for the Stichtagsmeldung report.
 // It counts active children at the given stichtag date and breaks down U3 children by income.
 func (r *PostgresChildRepository) GetStichtagsmeldungStats(ctx context.Context, stichtag time.Time) (*domain.StichtagsmeldungStats, error) {
-	// U3 threshold: children born after stichtag - 3 years are U3
-	u3Threshold := stichtag.AddDate(-3, 0, 0)
-
-	// Query for income breakdown - all 5 brackets
-	var breakdown struct {
-		UpTo20k      int `db:"up_to_20k"`
-		From20To35k  int `db:"from_20_to_35k"`
-		From35To55k  int `db:"from_35_to_55k"`
-		MaxAccepted  int `db:"max_accepted"`
-		FosterFamily int `db:"foster_family"`
-		Total        int `db:"total"`
-	}
-
-	err := r.db.GetContext(ctx, &breakdown, `
-		SELECT
-			COUNT(*) FILTER (WHERE COALESCE(h.income_status, '') NOT IN ('MAX_ACCEPTED', 'FOSTER_FAMILY') AND COALESCE(h.annual_household_income, 0) <= 20000) AS up_to_20k,
-			COUNT(*) FILTER (WHERE COALESCE(h.income_status, '') NOT IN ('MAX_ACCEPTED', 'FOSTER_FAMILY') AND h.annual_household_income > 20000 AND h.annual_household_income <= 35000) AS from_20_to_35k,
-			COUNT(*) FILTER (WHERE COALESCE(h.income_status, '') NOT IN ('MAX_ACCEPTED', 'FOSTER_FAMILY') AND h.annual_household_income > 35000 AND h.annual_household_income <= 55000) AS from_35_to_55k,
-			COUNT(*) FILTER (WHERE h.income_status = 'MAX_ACCEPTED') AS max_accepted,
-			COUNT(*) FILTER (WHERE h.income_status = 'FOSTER_FAMILY') AS foster_family,
-			COUNT(*) AS total
-		FROM fees.children c
-		LEFT JOIN fees.households h ON c.household_id = h.id
-		WHERE c.is_active = true
-		  AND c.entry_date <= $1
-		  AND c.birth_date > $2
-	`, stichtag, u3Threshold)
-	if err != nil {
-		return nil, err
-	}
-
-	// Query for total active children
-	var totalChildren int
-	err = r.db.GetContext(ctx, &totalChildren, `
-		SELECT COUNT(*)
-		FROM fees.children
-		WHERE is_active = true
-		  AND entry_date <= $1
-	`, stichtag)
+	report, err := r.GetStichtagsmeldungReport(ctx, stichtag)
 	if err != nil {
 		return nil, err
 	}
 
 	return &domain.StichtagsmeldungStats{
-		U3IncomeBreakdown: domain.U3IncomeBreakdown{
-			UpTo20k:      breakdown.UpTo20k,
-			From20To35k:  breakdown.From20To35k,
-			From35To55k:  breakdown.From35To55k,
-			MaxAccepted:  breakdown.MaxAccepted,
-			FosterFamily: breakdown.FosterFamily,
-			Total:        breakdown.Total,
-		},
+		U3IncomeBreakdown:   report.U3IncomeBreakdown,
+		TotalChildrenInKita: report.TotalChildrenInKita,
+	}, nil
+}
+
+// GetStichtagsmeldungReport retrieves the full Stichtagsmeldung report for a specific date.
+func (r *PostgresChildRepository) GetStichtagsmeldungReport(ctx context.Context, stichtag time.Time) (*domain.StichtagsmeldungReport, error) {
+	u3Breakdown, totalChildren, u3ChildrenCount, err := r.getStichtagSummary(ctx, stichtag)
+	if err != nil {
+		return nil, err
+	}
+
+	var breakdownRows []struct {
+		CareHours *int `db:"care_hours"`
+		Count     int  `db:"count"`
+		U3Count   int  `db:"u3_count"`
+		Ue3Count  int  `db:"ue3_count"`
+	}
+	var legalBreakdownRows []struct {
+		LegalHours *int `db:"legal_hours"`
+		Count      int  `db:"count"`
+		U3Count    int  `db:"u3_count"`
+		Ue3Count   int  `db:"ue3_count"`
+	}
+
+	err = r.loadHoursBreakdown(ctx, &breakdownRows, stichtag, "fees.child_care_hours_history", "care_hours", "c.care_hours")
+	if err != nil {
+		return nil, err
+	}
+	err = r.loadHoursBreakdown(ctx, &legalBreakdownRows, stichtag, "fees.child_legal_hours_history", "legal_hours", "c.legal_hours")
+	if err != nil {
+		return nil, err
+	}
+
+	breakdown := make([]domain.CareHoursBreakdown, len(breakdownRows))
+	for i, row := range breakdownRows {
+		breakdown[i] = domain.CareHoursBreakdown{
+			CareHours: row.CareHours,
+			Count:     row.Count,
+			U3Count:   row.U3Count,
+			Ue3Count:  row.Ue3Count,
+		}
+	}
+	legalBreakdown := make([]domain.LegalHoursBreakdown, len(legalBreakdownRows))
+	for i, row := range legalBreakdownRows {
+		legalBreakdown[i] = domain.LegalHoursBreakdown{
+			LegalHours: row.LegalHours,
+			Count:      row.Count,
+			U3Count:    row.U3Count,
+			Ue3Count:   row.Ue3Count,
+		}
+	}
+
+	return &domain.StichtagsmeldungReport{
+		ReportDate:          stichtag,
+		U3IncomeBreakdown:   u3Breakdown,
 		TotalChildrenInKita: totalChildren,
+		U3ChildrenCount:     u3ChildrenCount,
+		Ue3ChildrenCount:    totalChildren - u3ChildrenCount,
+		CareHoursBreakdown:  breakdown,
+		LegalHoursBreakdown: legalBreakdown,
 	}, nil
 }
 
@@ -461,6 +571,7 @@ func (r *PostgresChildRepository) GetU3ChildrenDetails(ctx context.Context, stic
 		LEFT JOIN fees.households h ON c.household_id = h.id
 		WHERE c.is_active = true
 		  AND c.entry_date <= $1
+		  AND (c.exit_date IS NULL OR c.exit_date >= $1)
 		  AND c.birth_date > $2
 		ORDER BY c.last_name, c.first_name
 	`, stichtag, u3Threshold)
@@ -490,4 +601,531 @@ func (r *PostgresChildRepository) GetU3ChildrenDetails(ctx context.Context, stic
 	}
 
 	return result, nil
+}
+
+// ListCareHoursHistory returns the care hours history for a child.
+func (r *PostgresChildRepository) ListCareHoursHistory(ctx context.Context, childID uuid.UUID) ([]domain.ChildCareHoursHistory, error) {
+	var rows []domain.ChildCareHoursHistory
+	err := r.db.SelectContext(ctx, &rows, `
+		SELECT id, child_id, care_hours, effective_from, effective_until, created_at, updated_at
+		FROM fees.child_care_hours_history
+		WHERE child_id = $1
+		ORDER BY effective_from DESC, created_at DESC
+	`, childID)
+	if err != nil {
+		return nil, err
+	}
+	return rows, nil
+}
+
+// UpsertCareHoursHistory creates or updates a care hours period for a child.
+func (r *PostgresChildRepository) UpsertCareHoursHistory(ctx context.Context, childID uuid.UUID, careHours *int, validFrom time.Time) error {
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if err := r.upsertCareHoursHistoryTx(ctx, tx, childID, careHours, validFrom); err != nil {
+		return err
+	}
+	if err := r.syncCurrentCareHoursTx(ctx, tx, childID, time.Now()); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+// ListLegalHoursHistory returns the legal hours history for a child.
+func (r *PostgresChildRepository) ListLegalHoursHistory(ctx context.Context, childID uuid.UUID) ([]domain.ChildLegalHoursHistory, error) {
+	var rows []domain.ChildLegalHoursHistory
+	err := r.db.SelectContext(ctx, &rows, `
+		SELECT id, child_id, legal_hours, effective_from, effective_until, created_at, updated_at
+		FROM fees.child_legal_hours_history
+		WHERE child_id = $1
+		ORDER BY effective_from DESC, created_at DESC
+	`, childID)
+	if err != nil {
+		return nil, err
+	}
+	return rows, nil
+}
+
+// UpsertLegalHoursHistory creates or updates a legal hours period for a child.
+func (r *PostgresChildRepository) UpsertLegalHoursHistory(ctx context.Context, childID uuid.UUID, legalHours *int, validFrom time.Time) error {
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if err := r.upsertLegalHoursHistoryTx(ctx, tx, childID, legalHours, validFrom, nil); err != nil {
+		return err
+	}
+	if err := r.syncCurrentLegalHoursTx(ctx, tx, childID, time.Now()); err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+func (r *PostgresChildRepository) getStichtagSummary(ctx context.Context, stichtag time.Time) (domain.U3IncomeBreakdown, int, int, error) {
+	u3Threshold := stichtag.AddDate(-3, 0, 0)
+
+	var breakdown struct {
+		UpTo20k      int `db:"up_to_20k"`
+		From20To35k  int `db:"from_20_to_35k"`
+		From35To55k  int `db:"from_35_to_55k"`
+		MaxAccepted  int `db:"max_accepted"`
+		FosterFamily int `db:"foster_family"`
+		Total        int `db:"total"`
+	}
+
+	err := r.db.GetContext(ctx, &breakdown, `
+		SELECT
+			COUNT(*) FILTER (WHERE COALESCE(h.income_status, '') NOT IN ('MAX_ACCEPTED', 'FOSTER_FAMILY') AND COALESCE(h.annual_household_income, 0) <= 20000) AS up_to_20k,
+			COUNT(*) FILTER (WHERE COALESCE(h.income_status, '') NOT IN ('MAX_ACCEPTED', 'FOSTER_FAMILY') AND h.annual_household_income > 20000 AND h.annual_household_income <= 35000) AS from_20_to_35k,
+			COUNT(*) FILTER (WHERE COALESCE(h.income_status, '') NOT IN ('MAX_ACCEPTED', 'FOSTER_FAMILY') AND h.annual_household_income > 35000 AND h.annual_household_income <= 55000) AS from_35_to_55k,
+			COUNT(*) FILTER (WHERE h.income_status = 'MAX_ACCEPTED') AS max_accepted,
+			COUNT(*) FILTER (WHERE h.income_status = 'FOSTER_FAMILY') AS foster_family,
+			COUNT(*) AS total
+		FROM fees.children c
+		LEFT JOIN fees.households h ON c.household_id = h.id
+		WHERE c.is_active = true
+		  AND c.entry_date <= $1
+		  AND (c.exit_date IS NULL OR c.exit_date >= $1)
+		  AND c.birth_date > $2
+	`, stichtag, u3Threshold)
+	if err != nil {
+		return domain.U3IncomeBreakdown{}, 0, 0, err
+	}
+
+	var totalChildren int
+	err = r.db.GetContext(ctx, &totalChildren, `
+		SELECT COUNT(*)
+		FROM fees.children
+		WHERE is_active = true
+		  AND entry_date <= $1
+		  AND (exit_date IS NULL OR exit_date >= $1)
+	`, stichtag)
+	if err != nil {
+		return domain.U3IncomeBreakdown{}, 0, 0, err
+	}
+
+	return domain.U3IncomeBreakdown{
+		UpTo20k:      breakdown.UpTo20k,
+		From20To35k:  breakdown.From20To35k,
+		From35To55k:  breakdown.From35To55k,
+		MaxAccepted:  breakdown.MaxAccepted,
+		FosterFamily: breakdown.FosterFamily,
+		Total:        breakdown.Total,
+	}, totalChildren, breakdown.Total, nil
+}
+
+func (r *PostgresChildRepository) upsertCareHoursHistoryTx(ctx context.Context, tx *sqlx.Tx, childID uuid.UUID, careHours *int, validFrom time.Time) error {
+	var rows []careHoursHistoryRow
+	err := tx.SelectContext(ctx, &rows, `
+		SELECT id, child_id, care_hours, effective_from, effective_until, created_at, updated_at
+		FROM fees.child_care_hours_history
+		WHERE child_id = $1
+		ORDER BY effective_from ASC, created_at ASC
+		FOR UPDATE
+	`, childID)
+	if err != nil {
+		return err
+	}
+
+	newPeriod := careHoursHistoryRow{
+		ID:            uuid.New(),
+		ChildID:       childID,
+		CareHours:     cloneNullableInt(careHours),
+		EffectiveFrom: truncateDate(validFrom),
+	}
+
+	insertAt := len(rows)
+	updatedExisting := false
+
+	for i := range rows {
+		rows[i].EffectiveFrom = truncateDate(rows[i].EffectiveFrom)
+		if rows[i].EffectiveUntil != nil {
+			until := truncateDate(*rows[i].EffectiveUntil)
+			rows[i].EffectiveUntil = &until
+		}
+
+		if rows[i].EffectiveFrom.Equal(newPeriod.EffectiveFrom) {
+			rows[i].CareHours = cloneNullableInt(careHours)
+			updatedExisting = true
+			insertAt = i
+			break
+		}
+
+		if rows[i].EffectiveFrom.After(newPeriod.EffectiveFrom) {
+			insertAt = i
+			break
+		}
+	}
+
+	if !updatedExisting {
+		containing := -1
+		for i, row := range rows {
+			if !row.EffectiveFrom.After(newPeriod.EffectiveFrom) && (row.EffectiveUntil == nil || !row.EffectiveUntil.Before(newPeriod.EffectiveFrom)) {
+				containing = i
+				break
+			}
+		}
+
+		if containing >= 0 {
+			row := rows[containing]
+			if row.EffectiveFrom.Equal(newPeriod.EffectiveFrom) {
+				rows[containing].CareHours = cloneNullableInt(careHours)
+			} else {
+				until := newPeriod.EffectiveFrom.AddDate(0, 0, -1)
+				rows[containing].EffectiveUntil = &until
+				newPeriod.EffectiveUntil = row.EffectiveUntil
+				insertAt = containing + 1
+				rows = append(rows[:insertAt], append([]careHoursHistoryRow{newPeriod}, rows[insertAt:]...)...)
+			}
+		} else {
+			if insertAt < len(rows) {
+				until := rows[insertAt].EffectiveFrom.AddDate(0, 0, -1)
+				newPeriod.EffectiveUntil = &until
+			}
+			rows = append(rows, careHoursHistoryRow{})
+			copy(rows[insertAt+1:], rows[insertAt:])
+			rows[insertAt] = newPeriod
+		}
+	}
+
+	rows = normalizeCareHoursHistoryRows(rows)
+	if _, err := tx.ExecContext(ctx, `DELETE FROM fees.child_care_hours_history WHERE child_id = $1`, childID); err != nil {
+		return err
+	}
+
+	now := time.Now()
+	for _, row := range rows {
+		id := row.ID
+		if id == uuid.Nil {
+			id = uuid.New()
+		}
+		_, err := tx.ExecContext(ctx, `
+			INSERT INTO fees.child_care_hours_history (
+				id, child_id, care_hours, effective_from, effective_until, created_at, updated_at
+			) VALUES ($1, $2, $3, $4, $5, $6, $7)
+		`, id, childID, row.CareHours, row.EffectiveFrom, row.EffectiveUntil, now, now)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (r *PostgresChildRepository) upsertLegalHoursHistoryTx(ctx context.Context, tx *sqlx.Tx, childID uuid.UUID, legalHours *int, validFrom time.Time, validUntil *time.Time) error {
+	var rows []legalHoursHistoryRow
+	err := tx.SelectContext(ctx, &rows, `
+		SELECT id, child_id, legal_hours, effective_from, effective_until, created_at, updated_at
+		FROM fees.child_legal_hours_history
+		WHERE child_id = $1
+		ORDER BY effective_from ASC, created_at ASC
+		FOR UPDATE
+	`, childID)
+	if err != nil {
+		return err
+	}
+
+	newPeriod := legalHoursHistoryRow{
+		ID:            uuid.New(),
+		ChildID:       childID,
+		LegalHours:    cloneNullableInt(legalHours),
+		EffectiveFrom: truncateDate(validFrom),
+	}
+	if validUntil != nil {
+		until := truncateDate(*validUntil)
+		newPeriod.EffectiveUntil = &until
+	}
+
+	insertAt := len(rows)
+	updatedExisting := false
+
+	for i := range rows {
+		rows[i].EffectiveFrom = truncateDate(rows[i].EffectiveFrom)
+		if rows[i].EffectiveUntil != nil {
+			until := truncateDate(*rows[i].EffectiveUntil)
+			rows[i].EffectiveUntil = &until
+		}
+
+		if rows[i].EffectiveFrom.Equal(newPeriod.EffectiveFrom) {
+			rows[i].LegalHours = cloneNullableInt(legalHours)
+			rows[i].EffectiveUntil = cloneNullableTime(newPeriod.EffectiveUntil)
+			updatedExisting = true
+			insertAt = i
+			break
+		}
+
+		if rows[i].EffectiveFrom.After(newPeriod.EffectiveFrom) {
+			insertAt = i
+			break
+		}
+	}
+
+	if !updatedExisting {
+		containing := -1
+		for i, row := range rows {
+			if !row.EffectiveFrom.After(newPeriod.EffectiveFrom) && (row.EffectiveUntil == nil || !row.EffectiveUntil.Before(newPeriod.EffectiveFrom)) {
+				containing = i
+				break
+			}
+		}
+
+		if containing >= 0 {
+			row := rows[containing]
+			if row.EffectiveFrom.Equal(newPeriod.EffectiveFrom) {
+				rows[containing].LegalHours = cloneNullableInt(legalHours)
+				rows[containing].EffectiveUntil = cloneNullableTime(newPeriod.EffectiveUntil)
+			} else {
+				originalUntil := cloneNullableTime(row.EffectiveUntil)
+				until := newPeriod.EffectiveFrom.AddDate(0, 0, -1)
+				rows[containing].EffectiveUntil = &until
+				newPeriod.EffectiveUntil = minNullableDate(newPeriod.EffectiveUntil, originalUntil)
+				insertAt = containing + 1
+				rows = append(rows[:insertAt], append([]legalHoursHistoryRow{newPeriod}, rows[insertAt:]...)...)
+			}
+		} else {
+			if insertAt < len(rows) {
+				nextUntil := rows[insertAt].EffectiveFrom.AddDate(0, 0, -1)
+				newPeriod.EffectiveUntil = minNullableDate(newPeriod.EffectiveUntil, &nextUntil)
+			}
+			rows = append(rows, legalHoursHistoryRow{})
+			copy(rows[insertAt+1:], rows[insertAt:])
+			rows[insertAt] = newPeriod
+		}
+	}
+
+	rows = normalizeLegalHoursHistoryRows(rows)
+	if _, err := tx.ExecContext(ctx, `DELETE FROM fees.child_legal_hours_history WHERE child_id = $1`, childID); err != nil {
+		return err
+	}
+
+	now := time.Now()
+	for _, row := range rows {
+		id := row.ID
+		if id == uuid.Nil {
+			id = uuid.New()
+		}
+		_, err := tx.ExecContext(ctx, `
+			INSERT INTO fees.child_legal_hours_history (
+				id, child_id, legal_hours, effective_from, effective_until, created_at, updated_at
+			) VALUES ($1, $2, $3, $4, $5, $6, $7)
+		`, id, childID, row.LegalHours, row.EffectiveFrom, row.EffectiveUntil, now, now)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (r *PostgresChildRepository) syncCurrentCareHoursTx(ctx context.Context, tx *sqlx.Tx, childID uuid.UUID, at time.Time) error {
+	var careHours *int
+	var currentRaw sql.NullInt64
+	err := tx.GetContext(ctx, &currentRaw, `
+		SELECT care_hours
+		FROM fees.child_care_hours_history
+		WHERE child_id = $1
+		  AND effective_from <= $2
+		  AND (effective_until IS NULL OR effective_until >= $2)
+		ORDER BY effective_from DESC, created_at DESC
+		LIMIT 1
+	`, childID, truncateDate(at))
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+	if errors.Is(err, sql.ErrNoRows) {
+		careHours = nil
+	} else if currentRaw.Valid {
+		value := int(currentRaw.Int64)
+		careHours = &value
+	}
+
+	_, err = tx.ExecContext(ctx, `UPDATE fees.children SET care_hours = $2 WHERE id = $1`, childID, careHours)
+	return err
+}
+
+func (r *PostgresChildRepository) syncCurrentLegalHoursTx(ctx context.Context, tx *sqlx.Tx, childID uuid.UUID, at time.Time) error {
+	type currentLegalRow struct {
+		LegalHours     sql.NullInt64 `db:"legal_hours"`
+		EffectiveUntil *time.Time    `db:"effective_until"`
+	}
+	var current currentLegalRow
+	err := tx.GetContext(ctx, &current, `
+		SELECT legal_hours, effective_until
+		FROM fees.child_legal_hours_history
+		WHERE child_id = $1
+		  AND effective_from <= $2
+		  AND (effective_until IS NULL OR effective_until >= $2)
+		ORDER BY effective_from DESC, created_at DESC
+		LIMIT 1
+	`, childID, truncateDate(at))
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+
+	var legalHours *int
+	var legalHoursUntil *time.Time
+	if !errors.Is(err, sql.ErrNoRows) {
+		if current.LegalHours.Valid {
+			value := int(current.LegalHours.Int64)
+			legalHours = &value
+		}
+		legalHoursUntil = current.EffectiveUntil
+	}
+
+	_, err = tx.ExecContext(ctx, `UPDATE fees.children SET legal_hours = $2, legal_hours_until = $3 WHERE id = $1`, childID, legalHours, legalHoursUntil)
+	return err
+}
+
+func normalizeCareHoursHistoryRows(rows []careHoursHistoryRow) []careHoursHistoryRow {
+	if len(rows) == 0 {
+		return rows
+	}
+
+	normalized := make([]careHoursHistoryRow, 0, len(rows))
+	for _, row := range rows {
+		if row.EffectiveUntil != nil && row.EffectiveUntil.Before(row.EffectiveFrom) {
+			continue
+		}
+
+		if len(normalized) == 0 {
+			normalized = append(normalized, row)
+			continue
+		}
+
+		prev := &normalized[len(normalized)-1]
+		if nullableIntEqual(prev.CareHours, row.CareHours) && prev.EffectiveUntil != nil && prev.EffectiveUntil.AddDate(0, 0, 1).Equal(row.EffectiveFrom) {
+			prev.EffectiveUntil = row.EffectiveUntil
+			continue
+		}
+
+		normalized = append(normalized, row)
+	}
+
+	return normalized
+}
+
+func normalizeLegalHoursHistoryRows(rows []legalHoursHistoryRow) []legalHoursHistoryRow {
+	if len(rows) == 0 {
+		return rows
+	}
+
+	normalized := make([]legalHoursHistoryRow, 0, len(rows))
+	for _, row := range rows {
+		if row.EffectiveUntil != nil && row.EffectiveUntil.Before(row.EffectiveFrom) {
+			continue
+		}
+		if len(normalized) == 0 {
+			normalized = append(normalized, row)
+			continue
+		}
+
+		prev := &normalized[len(normalized)-1]
+		if nullableIntEqual(prev.LegalHours, row.LegalHours) && prev.EffectiveUntil != nil && prev.EffectiveUntil.AddDate(0, 0, 1).Equal(row.EffectiveFrom) {
+			prev.EffectiveUntil = row.EffectiveUntil
+			continue
+		}
+
+		if prev.EffectiveUntil == nil || prev.EffectiveUntil.After(row.EffectiveFrom.AddDate(0, 0, -1)) {
+			until := row.EffectiveFrom.AddDate(0, 0, -1)
+			prev.EffectiveUntil = &until
+		}
+
+		normalized = append(normalized, row)
+	}
+
+	return normalized
+}
+
+func (r *PostgresChildRepository) loadHoursBreakdown(ctx context.Context, dest interface{}, stichtag time.Time, historyTable, historyColumn, fallbackColumn string) error {
+	u3Threshold := stichtag.AddDate(-3, 0, 0)
+
+	query := fmt.Sprintf(`
+		SELECT
+			CASE
+				WHEN history_match.found IS TRUE THEN history_match.value
+				ELSE %s
+			END AS %s,
+			COUNT(*) AS count,
+			COUNT(*) FILTER (WHERE c.birth_date > $2) AS u3_count,
+			COUNT(*) FILTER (WHERE c.birth_date <= $2) AS ue3_count
+		FROM fees.children c
+		LEFT JOIN LATERAL (
+			SELECT %s AS value, TRUE AS found
+			FROM %s h
+			WHERE h.child_id = c.id
+			  AND h.effective_from <= $1
+			  AND (h.effective_until IS NULL OR h.effective_until >= $1)
+			ORDER BY h.effective_from DESC, h.created_at DESC
+			LIMIT 1
+		) history_match ON TRUE
+		WHERE c.is_active = true
+		  AND c.entry_date <= $1
+		  AND (c.exit_date IS NULL OR c.exit_date >= $1)
+		GROUP BY 1
+		ORDER BY (CASE
+			WHEN history_match.found IS TRUE THEN history_match.value
+			ELSE %s
+		END) IS NULL,
+		(CASE
+			WHEN history_match.found IS TRUE THEN history_match.value
+			ELSE %s
+		END) ASC
+	`, fallbackColumn, historyColumn, historyColumn, historyTable, fallbackColumn, fallbackColumn)
+
+	return r.db.SelectContext(ctx, dest, query, stichtag, u3Threshold)
+}
+
+func truncateDate(value time.Time) time.Time {
+	return time.Date(value.Year(), value.Month(), value.Day(), 0, 0, 0, 0, value.Location())
+}
+
+func cloneNullableInt(value *int) *int {
+	if value == nil {
+		return nil
+	}
+	cloned := *value
+	return &cloned
+}
+
+func nullableIntEqual(a, b *int) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return *a == *b
+}
+
+func nullableTimeEqual(a, b *time.Time) bool {
+	if a == nil || b == nil {
+		return a == nil && b == nil
+	}
+	return a.Equal(*b)
+}
+
+func cloneNullableTime(value *time.Time) *time.Time {
+	if value == nil {
+		return nil
+	}
+	cloned := *value
+	return &cloned
+}
+
+func minNullableDate(a, b *time.Time) *time.Time {
+	if a == nil {
+		return cloneNullableTime(b)
+	}
+	if b == nil {
+		return cloneNullableTime(a)
+	}
+	if a.Before(*b) {
+		return cloneNullableTime(a)
+	}
+	return cloneNullableTime(b)
 }

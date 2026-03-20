@@ -37,8 +37,31 @@ func (s *StichtagsmeldungService) GetStats(ctx context.Context) (*domain.Stichta
 	return stats, nil
 }
 
+// GetReport returns the Stichtagsmeldung report for a specific date.
+func (s *StichtagsmeldungService) GetReport(ctx context.Context, reportDate time.Time) (*domain.StichtagsmeldungReport, error) {
+	reportDate = time.Date(reportDate.Year(), reportDate.Month(), reportDate.Day(), 0, 0, 0, 0, reportDate.Location())
+
+	report, err := s.childRepo.GetStichtagsmeldungReport(ctx, reportDate)
+	if err != nil {
+		return nil, err
+	}
+
+	report.ReportDate = reportDate
+	return report, nil
+}
+
 // GetU3Children returns details of U3 children for the Stichtagsmeldung modal.
 func (s *StichtagsmeldungService) GetU3Children(ctx context.Context) ([]domain.U3ChildDetail, error) {
+	return s.GetU3ChildrenForDate(ctx, nil)
+}
+
+// GetU3ChildrenForDate returns U3 child details for the provided report date.
+func (s *StichtagsmeldungService) GetU3ChildrenForDate(ctx context.Context, reportDate *time.Time) ([]domain.U3ChildDetail, error) {
+	if reportDate != nil {
+		stichtag := time.Date(reportDate.Year(), reportDate.Month(), reportDate.Day(), 0, 0, 0, 0, reportDate.Location())
+		return s.childRepo.GetU3ChildrenDetails(ctx, stichtag)
+	}
+
 	now := time.Now()
 	nextStichtag := calculateNextStichtag(now)
 	return s.childRepo.GetU3ChildrenDetails(ctx, nextStichtag)

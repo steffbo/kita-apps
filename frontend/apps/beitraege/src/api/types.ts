@@ -118,6 +118,36 @@ export interface UpdateChildRequest {
   householdId?: string;
 }
 
+export interface CareHoursHistoryEntry {
+  id: string;
+  childId: string;
+  careHours?: number | null;
+  effectiveFrom: string;
+  effectiveUntil?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateCareHoursHistoryRequest {
+  careHours?: number | null;
+  validFrom: string;
+}
+
+export interface LegalHoursHistoryEntry {
+  id: string;
+  childId: string;
+  legalHours?: number | null;
+  effectiveFrom: string;
+  effectiveUntil?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateLegalHoursHistoryRequest {
+  legalHours?: number | null;
+  validFrom: string;
+}
+
 // Households
 export type IncomeStatus = '' | 'PROVIDED' | 'MAX_ACCEPTED' | 'PENDING' | 'NOT_REQUIRED' | 'HISTORIC' | 'FOSTER_FAMILY';
 
@@ -697,6 +727,16 @@ export interface StichtagsmeldungStats {
   totalChildrenInKita: number;
 }
 
+export interface StichtagsmeldungReport {
+  reportDate: string;
+  u3IncomeBreakdown: U3IncomeBreakdown;
+  totalChildrenInKita: number;
+  u3ChildrenCount: number;
+  ue3ChildrenCount: number;
+  careHoursBreakdown: CareHoursBreakdownItem[];
+  legalHoursBreakdown: LegalHoursBreakdownItem[];
+}
+
 export interface U3IncomeBreakdown {
   upTo20k: number;
   from20To35k: number;
@@ -704,6 +744,20 @@ export interface U3IncomeBreakdown {
   maxAccepted: number;
   fosterFamily: number;
   total: number;
+}
+
+export interface CareHoursBreakdownItem {
+  careHours?: number | null;
+  count: number;
+  u3Count: number;
+  ue3Count: number;
+}
+
+export interface LegalHoursBreakdownItem {
+  legalHours?: number | null;
+  count: number;
+  u3Count: number;
+  ue3Count: number;
 }
 
 export interface U3ChildDetail {

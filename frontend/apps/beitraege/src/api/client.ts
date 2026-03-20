@@ -5,6 +5,10 @@ import type {
   Child,
   CreateChildRequest,
   UpdateChildRequest,
+  CareHoursHistoryEntry,
+  CreateCareHoursHistoryRequest,
+  LegalHoursHistoryEntry,
+  CreateLegalHoursHistoryRequest,
   NextMemberNumberResponse,
   Parent,
   CreateParentRequest,
@@ -52,6 +56,7 @@ import type {
   MatchSuggestion,
   BankingSyncStatus,
   StichtagsmeldungStats,
+  StichtagsmeldungReport,
   U3ChildDetail,
   Einstufung,
   CreateEinstufungRequest,
@@ -256,6 +261,28 @@ class ApiClient {
 
   async deleteChild(id: string): Promise<void> {
     return this.request<void>(`/children/${id}`, { method: 'DELETE' });
+  }
+
+  async getCareHoursHistory(childId: string): Promise<CareHoursHistoryEntry[]> {
+    return this.request<CareHoursHistoryEntry[]>(`/children/${childId}/care-hours-history`);
+  }
+
+  async addCareHoursHistory(childId: string, data: CreateCareHoursHistoryRequest): Promise<void> {
+    return this.request<void>(`/children/${childId}/care-hours-history`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async getLegalHoursHistory(childId: string): Promise<LegalHoursHistoryEntry[]> {
+    return this.request<LegalHoursHistoryEntry[]>(`/children/${childId}/legal-hours-history`);
+  }
+
+  async addLegalHoursHistory(childId: string, data: CreateLegalHoursHistoryRequest): Promise<void> {
+    return this.request<void>(`/children/${childId}/legal-hours-history`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
   }
 
   async linkParent(childId: string, parentId: string, isPrimary: boolean): Promise<void> {
@@ -841,8 +868,14 @@ class ApiClient {
     return this.request<StichtagsmeldungStats>('/stichtagsmeldung/stats');
   }
 
-  async getU3Children(): Promise<U3ChildDetail[]> {
-    return this.request<U3ChildDetail[]>('/stichtagsmeldung/children');
+  async getStichtagsmeldungReport(date: string): Promise<StichtagsmeldungReport> {
+    const query = new URLSearchParams({ date });
+    return this.request<StichtagsmeldungReport>(`/stichtagsmeldung/report?${query.toString()}`);
+  }
+
+  async getU3Children(date?: string): Promise<U3ChildDetail[]> {
+    const query = date ? `?date=${encodeURIComponent(date)}` : '';
+    return this.request<U3ChildDetail[]>(`/stichtagsmeldung/children${query}`);
   }
 
   // Einstufung (Fee Classification) endpoints

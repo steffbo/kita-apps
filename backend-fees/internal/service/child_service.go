@@ -71,6 +71,18 @@ type UpdateChildInput struct {
 	IsActive        *bool
 }
 
+// AddCareHoursHistoryInput defines input for creating a care hours history entry.
+type AddCareHoursHistoryInput struct {
+	CareHours *int
+	ValidFrom string
+}
+
+// AddLegalHoursHistoryInput defines input for creating a legal hours history entry.
+type AddLegalHoursHistoryInput struct {
+	LegalHours *int
+	ValidFrom  string
+}
+
 // List returns children matching the filter with parents and households loaded.
 func (s *ChildService) List(ctx context.Context, filter ChildFilter, offset, limit int) ([]domain.Child, int64, error) {
 	children, total, err := s.childRepo.List(ctx, filter.ActiveOnly, filter.U3Only, filter.HasWarnings, filter.HasOpenFees, filter.Search, filter.SortBy, filter.SortDir, offset, limit)
@@ -204,7 +216,7 @@ func (s *ChildService) Create(ctx context.Context, input CreateChildInput) (*dom
 		return nil, err
 	}
 
-	return child, nil
+	return s.GetByID(ctx, child.ID)
 }
 
 // Update updates a child.
@@ -282,7 +294,69 @@ func (s *ChildService) Update(ctx context.Context, id uuid.UUID, input UpdateChi
 		return nil, err
 	}
 
-	return child, nil
+	return s.GetByID(ctx, child.ID)
+}
+
+// ListCareHoursHistory returns the care hours history for a child.
+func (s *ChildService) ListCareHoursHistory(ctx context.Context, childID uuid.UUID) ([]domain.ChildCareHoursHistory, error) {
+	if _, err := s.childRepo.GetByID(ctx, childID); err != nil {
+		return nil, ErrNotFound
+	}
+
+	return s.childRepo.ListCareHoursHistory(ctx, childID)
+}
+
+// AddCareHoursHistory creates or updates a care hours entry effective from the given date.
+func (s *ChildService) AddCareHoursHistory(ctx context.Context, childID uuid.UUID, input AddCareHoursHistoryInput) error {
+	child, err := s.childRepo.GetByID(ctx, childID)
+	if err != nil {
+		return ErrNotFound
+	}
+
+	validFrom, err := time.Parse("2006-01-02", input.ValidFrom)
+	if err != nil {
+		return ErrInvalidInput
+	}
+
+	if validFrom.Before(child.EntryDate) {
+		return ErrInvalidInput
+	}
+	if child.ExitDate != nil && validFrom.After(*child.ExitDate) {
+		return ErrInvalidInput
+	}
+
+	return s.childRepo.UpsertCareHoursHistory(ctx, childID, input.CareHours, validFrom)
+}
+
+// ListLegalHoursHistory returns the legal hours history for a child.
+func (s *ChildService) ListLegalHoursHistory(ctx context.Context, childID uuid.UUID) ([]domain.ChildLegalHoursHistory, error) {
+	if _, err := s.childRepo.GetByID(ctx, childID); err != nil {
+		return nil, ErrNotFound
+	}
+
+	return s.childRepo.ListLegalHoursHistory(ctx, childID)
+}
+
+// AddLegalHoursHistory creates or updates a legal hours entry effective from the given date.
+func (s *ChildService) AddLegalHoursHistory(ctx context.Context, childID uuid.UUID, input AddLegalHoursHistoryInput) error {
+	child, err := s.childRepo.GetByID(ctx, childID)
+	if err != nil {
+		return ErrNotFound
+	}
+
+	validFrom, err := time.Parse("2006-01-02", input.ValidFrom)
+	if err != nil {
+		return ErrInvalidInput
+	}
+
+	if validFrom.Before(child.EntryDate) {
+		return ErrInvalidInput
+	}
+	if child.ExitDate != nil && validFrom.After(*child.ExitDate) {
+		return ErrInvalidInput
+	}
+
+	return s.childRepo.UpsertLegalHoursHistory(ctx, childID, input.LegalHours, validFrom)
 }
 
 // Deactivate soft-deletes a child.

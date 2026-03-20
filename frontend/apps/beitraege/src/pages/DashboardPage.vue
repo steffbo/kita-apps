@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { api } from '@/api';
-import type { FeeOverview, StichtagsmeldungStats, U3ChildDetail } from '@/api/types';
+import type { FeeOverview, StichtagsmeldungReport, StichtagsmeldungStats, U3ChildDetail } from '@/api/types';
 import {
   Receipt,
   CheckCircle,
@@ -36,7 +36,10 @@ const isLoadingMonthly = ref(false);
 
 // Modal state
 const showStichtagModal = ref(false);
+const selectedReportDate = ref('');
+const report = ref<StichtagsmeldungReport | null>(null);
 const u3Children = ref<U3ChildDetail[]>([]);
+const isLoadingReport = ref(false);
 const isLoadingU3Children = ref(false);
 
 const years = computed(() => {
@@ -120,12 +123,29 @@ async function loadMonthlyOverview() {
 
 async function openStichtagModal() {
   showStichtagModal.value = true;
+  if (!selectedReportDate.value && stichtagStats.value) {
+    selectedReportDate.value = stichtagStats.value.nextStichtag;
+  }
+  await loadStichtagReport();
+}
+
+async function loadStichtagReport() {
+  if (!selectedReportDate.value) return;
+
+  isLoadingReport.value = true;
   isLoadingU3Children.value = true;
   try {
-    u3Children.value = await api.getU3Children();
+    const [reportData, u3Data] = await Promise.all([
+      api.getStichtagsmeldungReport(selectedReportDate.value),
+      api.getU3Children(selectedReportDate.value),
+    ]);
+    report.value = reportData;
+    u3Children.value = u3Data;
   } catch (e) {
-    // Silently fail
+    report.value = null;
+    u3Children.value = [];
   } finally {
+    isLoadingReport.value = false;
     isLoadingU3Children.value = false;
   }
 }
@@ -204,6 +224,15 @@ function getIncomeStatusLabel(status: string | null): string {
     FOSTER_FAMILY: 'Pflegefamilie',
   };
   return labels[status] || status;
+}
+
+function formatHoursLabel(hours: number | null | undefined): string {
+  if (hours === null || hours === undefined) return 'Unbekannt';
+  const dailyHours = hours / 5;
+  if (Number.isInteger(dailyHours)) {
+    return `${hours} Std./Woche (${dailyHours} Std./Tag)`;
+  }
+  return `${hours} Std./Woche`;
 }
 </script>
 
@@ -527,13 +556,13 @@ function getIncomeStatusLabel(status: string | null): string {
         />
 
         <!-- Modal -->
-        <div class="relative bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[80vh] flex flex-col">
+        <div class="relative bg-white rounded-xl shadow-xl max-w-7xl w-full max-h-[90vh] flex flex-col">
           <!-- Header -->
           <div class="flex items-center justify-between p-6 border-b">
             <div>
-              <h2 class="text-lg font-semibold text-gray-900">Stichtagsmeldung - U3-Kinder</h2>
-              <p v-if="stichtagStats" class="text-sm text-gray-500 mt-0.5">
-                Stichtag: {{ formatDate(stichtagStats.nextStichtag) }}
+              <h2 class="text-lg font-semibold text-gray-900">Stichtagsreport</h2>
+              <p class="text-sm text-gray-500 mt-0.5">
+                Allgemeiner Bestand plus separate U3-Meldung
               </p>
             </div>
             <button
@@ -546,74 +575,179 @@ function getIncomeStatusLabel(status: string | null): string {
 
           <!-- Content -->
           <div class="flex-1 overflow-auto p-6">
-            <div v-if="isLoadingU3Children" class="flex items-center justify-center py-8">
+            <div class="mb-6">
+              <label for="report-date" class="block text-sm font-medium text-gray-700 mb-2">Stichtag</label>
+              <input
+                id="report-date"
+                v-model="selectedReportDate"
+                type="date"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                @change="loadStichtagReport"
+              />
+            </div>
+
+            <div v-if="isLoadingReport || isLoadingU3Children" class="flex items-center justify-center py-8">
               <Loader2 class="h-6 w-6 animate-spin text-primary" />
             </div>
 
-            <div v-else-if="u3Children.length === 0" class="text-center py-8 text-gray-500">
-              Keine U3-Kinder gefunden
-            </div>
-
             <div v-else class="space-y-6">
-              <!-- Group by bracket -->
-              <template v-for="bracket in (['upTo20k', 'from20To35k', 'from35To55k', 'maxAccepted', 'fosterFamily'] as const)" :key="bracket">
-                <div>
-                  <!-- Bracket header -->
-                  <div
-                    :class="[
-                      'flex items-center justify-between px-3 py-2 rounded-lg mb-2',
-                      bracket === 'fosterFamily' || bracket === 'maxAccepted' ? 'bg-gray-100' : 'bg-emerald-50'
-                    ]"
-                  >
-                    <div class="flex items-center gap-2">
-                      <span :class="['text-sm font-medium', bracket === 'fosterFamily' || bracket === 'maxAccepted' ? 'text-gray-500' : 'text-emerald-800']">
-                        {{ bracketLabels[bracket] }}
-                      </span>
-                      <span v-if="bracket === 'fosterFamily' || bracket === 'maxAccepted'" class="text-xs text-gray-400">(nicht gezählt)</span>
-                    </div>
-                    <span :class="['text-sm font-bold', bracket === 'fosterFamily' || bracket === 'maxAccepted' ? 'text-gray-500' : 'text-emerald-800']">
-                      {{ groupedU3Children[bracket].length }}
-                    </span>
-                  </div>
+              <div v-if="report" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+                  <p class="text-sm text-emerald-700 font-medium">Kinder angemeldet</p>
+                  <p class="text-2xl font-bold text-emerald-900 mt-1">{{ report.totalChildrenInKita }}</p>
+                  <p class="text-xs text-emerald-700 mt-1">am {{ formatDate(report.reportDate) }}</p>
+                </div>
+                <div class="rounded-lg border border-sky-200 bg-sky-50 p-4">
+                  <p class="text-sm text-sky-700 font-medium">Davon U3</p>
+                  <p class="text-2xl font-bold text-sky-900 mt-1">{{ report.u3ChildrenCount }}</p>
+                  <p class="text-xs text-sky-700 mt-1">allgemeiner Bestand</p>
+                </div>
+                <div class="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                  <p class="text-sm text-amber-700 font-medium">Davon Ü3</p>
+                  <p class="text-2xl font-bold text-amber-900 mt-1">{{ report.ue3ChildrenCount }}</p>
+                  <p class="text-xs text-amber-700 mt-1">allgemeiner Bestand</p>
+                </div>
+              </div>
 
-                  <!-- Children in bracket -->
-                  <div class="space-y-1">
-                    <div
-                      v-for="child in groupedU3Children[bracket]"
-                      :key="child.id"
-                      :class="[
-                        'flex items-center justify-between px-3 py-2 rounded cursor-pointer transition-colors',
-                        bracket === 'fosterFamily' || bracket === 'maxAccepted'
-                          ? 'text-gray-400 hover:bg-gray-50'
-                          : 'hover:bg-gray-50'
-                      ]"
-                      @click="router.push(`/kinder/${child.id}`); showStichtagModal = false"
-                    >
-                      <div class="flex items-center gap-3">
-                        <span :class="['font-medium', bracket === 'fosterFamily' || bracket === 'maxAccepted' ? 'text-gray-400' : 'text-gray-900']">
-                          {{ child.lastName }}, {{ child.firstName }}
-                        </span>
-                        <span class="text-xs text-gray-400">#{{ child.memberNumber }}</span>
-                      </div>
-                      <div class="flex items-center gap-4">
-                        <span :class="['text-sm w-12', bracket === 'fosterFamily' || bracket === 'maxAccepted' ? 'text-gray-400' : 'text-gray-600']">
-                          {{ formatAge(child.birthDate) }}
-                        </span>
-                        <span
-                          v-if="bracket !== 'fosterFamily' && bracket !== 'maxAccepted'"
-                          :class="[
-                            'text-sm font-medium w-20 text-right',
-                            child.householdIncome === null ? 'text-red-600' : 'text-gray-700'
-                          ]"
-                        >
-                          {{ formatIncome(child.householdIncome) }}
-                        </span>
-                        <span v-else class="text-sm text-gray-400 w-20 text-right">—</span>
-                      </div>
+              <div v-if="report" class="rounded-xl border border-gray-200">
+                <div class="px-4 py-3 border-b bg-gray-50">
+                  <h3 class="text-sm font-semibold text-gray-900">Allgemeiner Stichtagsreport</h3>
+                </div>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 p-4">
+                  <div class="rounded-lg border border-gray-200">
+                    <div class="px-4 py-3 border-b bg-white">
+                      <h4 class="text-sm font-medium text-gray-900">Rechtsanspruch</h4>
+                    </div>
+                    <div v-if="report.legalHoursBreakdown.length === 0" class="px-4 py-6 text-sm text-gray-500">
+                      Keine Daten vorhanden
+                    </div>
+                    <div v-else class="overflow-x-auto">
+                      <table class="min-w-full text-sm">
+                        <thead class="bg-gray-50 text-gray-500">
+                          <tr>
+                            <th class="px-4 py-3 text-left font-medium">Stundenmodell</th>
+                            <th class="px-4 py-3 text-right font-medium">U3</th>
+                            <th class="px-4 py-3 text-right font-medium">Ü3</th>
+                            <th class="px-4 py-3 text-right font-medium">Gesamt</th>
+                          </tr>
+                        </thead>
+                        <tbody class="divide-y">
+                          <tr v-for="item in report.legalHoursBreakdown" :key="item.legalHours ?? 'unknown'">
+                            <td class="px-4 py-3 text-gray-700">{{ formatHoursLabel(item.legalHours) }}</td>
+                            <td class="px-4 py-3 text-right font-semibold text-sky-900">{{ item.u3Count }}</td>
+                            <td class="px-4 py-3 text-right font-semibold text-amber-900">{{ item.ue3Count }}</td>
+                            <td class="px-4 py-3 text-right font-semibold text-gray-900">{{ item.count }}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                  <div class="rounded-lg border border-gray-200">
+                    <div class="px-4 py-3 border-b bg-white">
+                      <h4 class="text-sm font-medium text-gray-900">Betreuungszeit</h4>
+                    </div>
+                    <div v-if="report.careHoursBreakdown.length === 0" class="px-4 py-6 text-sm text-gray-500">
+                      Keine Daten vorhanden
+                    </div>
+                    <div v-else class="overflow-x-auto">
+                      <table class="min-w-full text-sm">
+                        <thead class="bg-gray-50 text-gray-500">
+                          <tr>
+                            <th class="px-4 py-3 text-left font-medium">Stundenmodell</th>
+                            <th class="px-4 py-3 text-right font-medium">U3</th>
+                            <th class="px-4 py-3 text-right font-medium">Ü3</th>
+                            <th class="px-4 py-3 text-right font-medium">Gesamt</th>
+                          </tr>
+                        </thead>
+                        <tbody class="divide-y">
+                          <tr v-for="item in report.careHoursBreakdown" :key="item.careHours ?? 'unknown'">
+                            <td class="px-4 py-3 text-gray-700">{{ formatHoursLabel(item.careHours) }}</td>
+                            <td class="px-4 py-3 text-right font-semibold text-sky-900">{{ item.u3Count }}</td>
+                            <td class="px-4 py-3 text-right font-semibold text-amber-900">{{ item.ue3Count }}</td>
+                            <td class="px-4 py-3 text-right font-semibold text-gray-900">{{ item.count }}</td>
+                          </tr>
+                        </tbody>
+                      </table>
                     </div>
                   </div>
                 </div>
-              </template>
+              </div>
+
+              <div class="rounded-xl border border-emerald-200 bg-emerald-50/50">
+                <div class="px-4 py-3 border-b border-emerald-200">
+                  <h3 class="text-sm font-semibold text-emerald-900">U3-Stichtagsmeldung</h3>
+                  <p class="text-xs text-emerald-700 mt-1">Spezifische Prüfung für die offizielle Meldung</p>
+                </div>
+
+                <div v-if="u3Children.length === 0" class="px-4 py-8 text-center text-emerald-800">
+                  Keine U3-Kinder gefunden
+                </div>
+
+                <div v-else class="p-4 space-y-6">
+                <!-- Group by bracket -->
+                <template
+                  v-for="bracket in (['upTo20k', 'from20To35k', 'from35To55k', 'maxAccepted', 'fosterFamily'] as const)"
+                  :key="bracket"
+                >
+                  <div>
+                    <!-- Bracket header -->
+                    <div
+                      :class="[
+                        'flex items-center justify-between px-3 py-2 rounded-lg mb-2',
+                        bracket === 'fosterFamily' || bracket === 'maxAccepted' ? 'bg-gray-100' : 'bg-emerald-50'
+                      ]"
+                    >
+                      <div class="flex items-center gap-2">
+                        <span :class="['text-sm font-medium', bracket === 'fosterFamily' || bracket === 'maxAccepted' ? 'text-gray-500' : 'text-emerald-800']">
+                          {{ bracketLabels[bracket] }}
+                        </span>
+                        <span v-if="bracket === 'fosterFamily' || bracket === 'maxAccepted'" class="text-xs text-gray-400">(nicht gezählt)</span>
+                      </div>
+                      <span :class="['text-sm font-bold', bracket === 'fosterFamily' || bracket === 'maxAccepted' ? 'text-gray-500' : 'text-emerald-800']">
+                        {{ groupedU3Children[bracket].length }}
+                      </span>
+                    </div>
+
+                    <!-- Children in bracket -->
+                    <div class="space-y-1">
+                      <div
+                        v-for="child in groupedU3Children[bracket]"
+                        :key="child.id"
+                        :class="[
+                          'flex items-center justify-between px-3 py-2 rounded cursor-pointer transition-colors',
+                          bracket === 'fosterFamily' || bracket === 'maxAccepted'
+                            ? 'text-gray-400 hover:bg-gray-50'
+                            : 'hover:bg-gray-50'
+                        ]"
+                        @click="router.push(`/kinder/${child.id}`); showStichtagModal = false"
+                      >
+                        <div class="flex items-center gap-3">
+                          <span :class="['font-medium', bracket === 'fosterFamily' || bracket === 'maxAccepted' ? 'text-gray-400' : 'text-gray-900']">
+                            {{ child.lastName }}, {{ child.firstName }}
+                          </span>
+                          <span class="text-xs text-gray-400">#{{ child.memberNumber }}</span>
+                        </div>
+                        <div class="flex items-center gap-4">
+                          <span :class="['text-sm w-12', bracket === 'fosterFamily' || bracket === 'maxAccepted' ? 'text-gray-400' : 'text-gray-600']">
+                            {{ formatAge(child.birthDate) }}
+                          </span>
+                          <span
+                            v-if="bracket !== 'fosterFamily' && bracket !== 'maxAccepted'"
+                            :class="[
+                              'text-sm font-medium w-20 text-right',
+                              child.householdIncome === null ? 'text-red-600' : 'text-gray-700'
+                            ]"
+                          >
+                            {{ formatIncome(child.householdIncome) }}
+                          </span>
+                          <span v-else class="text-sm text-gray-400 w-20 text-right">—</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </template>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -622,7 +756,7 @@ function getIncomeStatusLabel(status: string | null): string {
             <div class="flex items-center justify-between text-sm text-gray-600">
               <span>
                 <span class="font-medium">{{ u3Children.length }}</span> U3-Kinder ·
-                <span class="font-medium">{{ stichtagStats?.totalChildrenInKita ?? 0 }}</span> Kinder gesamt in Kita
+                <span class="font-medium">{{ report?.totalChildrenInKita ?? 0 }}</span> Kinder gesamt in Kita
               </span>
               <span>
                 <span class="font-medium">{{ u3Children.filter(c => !c.isFosterFamily && c.incomeStatus !== 'MAX_ACCEPTED').length }}</span> für Stichtagsmeldung

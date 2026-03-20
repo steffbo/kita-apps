@@ -10,6 +10,33 @@ type StichtagsmeldungStats struct {
 	TotalChildrenInKita int               `json:"totalChildrenInKita"`
 }
 
+// StichtagsmeldungReport contains the report data for a specific date.
+type StichtagsmeldungReport struct {
+	ReportDate          time.Time             `json:"reportDate"`
+	U3IncomeBreakdown   U3IncomeBreakdown     `json:"u3IncomeBreakdown"`
+	TotalChildrenInKita int                   `json:"totalChildrenInKita"`
+	U3ChildrenCount     int                   `json:"u3ChildrenCount"`
+	Ue3ChildrenCount    int                   `json:"ue3ChildrenCount"`
+	CareHoursBreakdown  []CareHoursBreakdown  `json:"careHoursBreakdown"`
+	LegalHoursBreakdown []LegalHoursBreakdown `json:"legalHoursBreakdown"`
+}
+
+// CareHoursBreakdown groups children by their contracted care hours at a given date.
+type CareHoursBreakdown struct {
+	CareHours *int `json:"careHours"`
+	Count     int  `json:"count"`
+	U3Count   int  `json:"u3Count"`
+	Ue3Count  int  `json:"ue3Count"`
+}
+
+// LegalHoursBreakdown groups children by their legal entitlement hours at a given date.
+type LegalHoursBreakdown struct {
+	LegalHours *int `json:"legalHours"`
+	Count      int  `json:"count"`
+	U3Count    int  `json:"u3Count"`
+	Ue3Count   int  `json:"ue3Count"`
+}
+
 // U3IncomeBreakdown groups U3 children by household income ranges.
 type U3IncomeBreakdown struct {
 	UpTo20k      int `json:"upTo20k"`      // income ≤20,000
