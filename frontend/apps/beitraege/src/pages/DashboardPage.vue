@@ -228,10 +228,6 @@ function getIncomeStatusLabel(status: string | null): string {
 
 function formatHoursLabel(hours: number | null | undefined): string {
   if (hours === null || hours === undefined) return 'Unbekannt';
-  const dailyHours = hours / 5;
-  if (Number.isInteger(dailyHours)) {
-    return `${hours} Std./Woche (${dailyHours} Std./Tag)`;
-  }
   return `${hours} Std./Woche`;
 }
 </script>
@@ -577,13 +573,21 @@ function formatHoursLabel(hours: number | null | undefined): string {
           <div class="flex-1 overflow-auto p-6">
             <div class="mb-6">
               <label for="report-date" class="block text-sm font-medium text-gray-700 mb-2">Stichtag</label>
-              <input
-                id="report-date"
-                v-model="selectedReportDate"
-                type="date"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-                @change="loadStichtagReport"
-              />
+              <div class="flex gap-2">
+                <input
+                  id="report-date"
+                  v-model="selectedReportDate"
+                  type="date"
+                  class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                  @change="loadStichtagReport"
+                />
+                <button
+                  @click="selectedReportDate = new Date().toISOString().slice(0, 10); loadStichtagReport()"
+                  class="px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors whitespace-nowrap"
+                >
+                  Heute
+                </button>
+              </div>
             </div>
 
             <div v-if="isLoadingReport || isLoadingU3Children" class="flex items-center justify-center py-8">
@@ -600,12 +604,10 @@ function formatHoursLabel(hours: number | null | undefined): string {
                 <div class="rounded-lg border border-sky-200 bg-sky-50 p-4">
                   <p class="text-sm text-sky-700 font-medium">Davon U3</p>
                   <p class="text-2xl font-bold text-sky-900 mt-1">{{ report.u3ChildrenCount }}</p>
-                  <p class="text-xs text-sky-700 mt-1">allgemeiner Bestand</p>
                 </div>
                 <div class="rounded-lg border border-amber-200 bg-amber-50 p-4">
                   <p class="text-sm text-amber-700 font-medium">Davon Ü3</p>
                   <p class="text-2xl font-bold text-amber-900 mt-1">{{ report.ue3ChildrenCount }}</p>
-                  <p class="text-xs text-amber-700 mt-1">allgemeiner Bestand</p>
                 </div>
               </div>
 
