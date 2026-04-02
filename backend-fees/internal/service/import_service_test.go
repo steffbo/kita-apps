@@ -129,6 +129,117 @@ func TestImportService_TrustedIBANOnMatch(t *testing.T) {
 	}
 }
 
+func TestImportService_TrustedIBAN_SiblingMemberNumberOverridesLinkedChild(t *testing.T) {
+	cleanupTestData()
+	defer cleanupTestData()
+
+	childRepo := repository.NewPostgresChildRepository(testDB)
+	parentRepo := repository.NewPostgresParentRepository(testDB)
+	feeRepo := repository.NewPostgresFeeRepository(testDB)
+	txRepo := repository.NewPostgresTransactionRepository(testDB)
+	matchRepo := repository.NewPostgresMatchRepository(testDB)
+	knownIBANRepo := repository.NewPostgresKnownIBANRepository(testDB)
+
+	childA := &domain.Child{
+		ID:           uuid.New(),
+		MemberNumber: "10001",
+		FirstName:    "Alpha",
+		LastName:     "Sibling",
+		BirthDate:    time.Now().AddDate(-3, 0, 0),
+		EntryDate:    time.Now().AddDate(-2, 0, 0),
+		IsActive:     true,
+	}
+	if err := childRepo.Create(context.Background(), childA); err != nil {
+		t.Fatal(err)
+	}
+
+	childB := &domain.Child{
+		ID:           uuid.New(),
+		MemberNumber: "10002",
+		FirstName:    "Beta",
+		LastName:     "Sibling",
+		BirthDate:    time.Now().AddDate(-2, 0, 0),
+		EntryDate:    time.Now().AddDate(-1, 0, 0),
+		IsActive:     true,
+	}
+	if err := childRepo.Create(context.Background(), childB); err != nil {
+		t.Fatal(err)
+	}
+
+	parentOne := &domain.Parent{ID: uuid.New(), FirstName: "Test", LastName: "ParentOne"}
+	parentTwo := &domain.Parent{ID: uuid.New(), FirstName: "Test", LastName: "ParentTwo"}
+	defer func() {
+		testDB.Exec("DELETE FROM fees.fee_expectations WHERE child_id IN ($1, $2)", childA.ID, childB.ID)
+		testDB.Exec("DELETE FROM fees.child_parents WHERE child_id IN ($1, $2)", childA.ID, childB.ID)
+		testDB.Exec("DELETE FROM fees.children WHERE id IN ($1, $2)", childA.ID, childB.ID)
+		testDB.Exec("DELETE FROM fees.parents WHERE id IN ($1, $2)", parentOne.ID, parentTwo.ID)
+	}()
+	if err := parentRepo.Create(context.Background(), parentOne); err != nil {
+		t.Fatal(err)
+	}
+	if err := parentRepo.Create(context.Background(), parentTwo); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, childID := range []uuid.UUID{childA.ID, childB.ID} {
+		if err := childRepo.LinkParent(context.Background(), childID, parentOne.ID, true); err != nil {
+			t.Fatal(err)
+		}
+		if err := childRepo.LinkParent(context.Background(), childID, parentTwo.ID, false); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	feeA, err := createTestFee(feeRepo, childA.ID, domain.FeeTypeFood, 45.40, 2026, 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+	feeB, err := createTestFee(feeRepo, childB.ID, domain.FeeTypeFood, 45.40, 2026, 4)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	const familyIBAN = "TESTDE443322110099"
+	if err := createTrustedIBAN(knownIBANRepo, familyIBAN, &childA.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err = createTestTransaction(txRepo, familyIBAN, 45.40, time.Now(), "Essensgeld Beta Sibling 10002")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, nil)
+
+	result, err := importService.Rescan(context.Background())
+	if err != nil {
+		t.Fatalf("Rescan failed: %v", err)
+	}
+
+	if result.AutoMatched != 1 {
+		t.Fatalf("Expected 1 auto-matched transaction, got %d", result.AutoMatched)
+	}
+	if len(result.Suggestions) != 0 {
+		t.Fatalf("Expected 0 suggestions when sibling member number is explicit, got %d", len(result.Suggestions))
+	}
+
+	matchedForB, err := matchRepo.ExistsForExpectation(context.Background(), feeB.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !matchedForB {
+		t.Fatalf("Expected sibling fee (%s) to be matched", feeB.ID)
+	}
+
+	matchedForA, err := matchRepo.ExistsForExpectation(context.Background(), feeA.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if matchedForA {
+		t.Fatalf("Expected linked trusted-IBAN child fee (%s) to remain unmatched", feeA.ID)
+	}
+}
+
 // TestImportService_DismissTransaction tests dismissing a transaction and blacklisting IBAN
 func TestImportService_DismissTransaction(t *testing.T) {
 	cleanupTestData()

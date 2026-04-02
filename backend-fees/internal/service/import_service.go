@@ -115,8 +115,8 @@ type UnmatchResult struct {
 
 // ChildUnmatchedSuggestionsResult represents likely unmatched transactions for a child.
 type ChildUnmatchedSuggestionsResult struct {
-	ChildID     uuid.UUID               `json:"childId"`
-	Scanned     int                     `json:"scanned"`
+	ChildID     uuid.UUID                `json:"childId"`
+	Scanned     int                      `json:"scanned"`
 	Suggestions []domain.MatchSuggestion `json:"suggestions"`
 }
 
@@ -239,9 +239,12 @@ func (s *ImportService) matchTransaction(ctx context.Context, tx domain.BankTran
 		DetectedType: s.detectFeeType(tx.Amount),
 	}
 
+	matchText := buildMatchText(tx)
+
 	s.matchTrustedIBAN(ctx, tx, children, suggestion)
+	s.overrideTrustedIBANForSiblingHint(matchText, children, suggestion)
 	if suggestion.Child == nil {
-		s.matchChild(buildMatchText(tx), children, suggestion)
+		s.matchChild(matchText, children, suggestion)
 	}
 
 	if suggestion.Child != nil && suggestion.DetectedType != nil {
@@ -289,6 +292,68 @@ func (s *ImportService) matchTrustedIBAN(ctx context.Context, tx domain.BankTran
 			suggestion.Confidence = trustedIBANConfidence
 		}
 	}
+}
+
+func (s *ImportService) overrideTrustedIBANForSiblingHint(matchText string, children []domain.Child, suggestion *domain.MatchSuggestion) {
+	if suggestion.MatchedBy != "trusted_iban" || suggestion.Child == nil {
+		return
+	}
+
+	trustedChild := suggestion.Child
+	siblings := findSiblings(*trustedChild, children)
+	if len(siblings) == 0 {
+		return
+	}
+
+	memberNumber := csvparser.ExtractMemberNumber(matchText)
+	if memberNumber != "" {
+		for i := range siblings {
+			if siblings[i].MemberNumber != memberNumber {
+				continue
+			}
+
+			suggestion.Child = &siblings[i]
+			suggestion.MatchedBy = "member_number"
+			suggestion.Confidence = memberNumberConfidence
+			return
+		}
+	}
+
+	nameMatchedSibling, confidence := csvparser.MatchChildByName(matchText, siblings)
+	if nameMatchedSibling == nil || confidence < 0.8 {
+		return
+	}
+
+	suggestion.Child = nameMatchedSibling
+	suggestion.MatchedBy = "name"
+	suggestion.Confidence = confidence
+}
+
+func findSiblings(child domain.Child, children []domain.Child) []domain.Child {
+	if len(child.Parents) == 0 {
+		return nil
+	}
+
+	parentIDs := make(map[uuid.UUID]struct{}, len(child.Parents))
+	for _, parent := range child.Parents {
+		parentIDs[parent.ID] = struct{}{}
+	}
+
+	siblings := make([]domain.Child, 0, len(children))
+	for _, candidate := range children {
+		if candidate.ID == child.ID {
+			continue
+		}
+
+		for _, candidateParent := range candidate.Parents {
+			if _, ok := parentIDs[candidateParent.ID]; ok {
+				siblings = append(siblings, candidate)
+				break
+			}
+		}
+	}
+
+	return siblings
 }
 
 func (s *ImportService) detectFeeType(amount float64) *domain.FeeType {
