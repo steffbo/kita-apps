@@ -192,6 +192,53 @@ Base URL: `http://localhost:8081/api/fees/v1`
 - Content-Type: `multipart/form-data`
 - Field: `file` (CSV-Datei im Sparkasse-Format)
 
+### Matching-Regeln (Import/Rescan)
+
+Die zentrale Matching-Logik liegt in `backend-fees/internal/service/import_service.go`.
+
+**Ablauf pro Transaktion (vereinfacht):**
+
+1. Nur eingehende Zahlungen (`amount > 0`) werden verarbeitet.
+2. Blacklist-Filter: bekannte schwarze IBANs werden direkt verworfen.
+3. Deduplizierung beim Import über `(booking_date, payer_iban, amount, description)`.
+4. Kind-Erkennung in dieser Reihenfolge:
+   - `trusted_iban` (wenn `known_ibans.status=trusted` und `child_id` gesetzt)
+   - Geschwister-Override (neu): wenn `trusted_iban` auf Kind A zeigt, aber Verwendungszweck klar Geschwister-Kind B meint, wird auf B gewechselt
+   - Mitgliedsnummer im Text
+   - Kindname im Text
+   - Elternname im Text
+5. Beitrags-Erkennung:
+   - Betrag bestimmt zunächst den Beitragstyp (Essensgeld/Vereinsbeitrag/Platzgeld)
+   - genau 1 offener Beitrag mit exakt passendem Betrag -> Kandidat
+   - >1 offener Beitrag gleicher Art/Betrag -> kein Auto-Match, Warning `MULTIPLE_OPEN_FEES`
+   - kombinierter Betrag (z. B. Essensgeld + Mahnung) -> Combined-Kandidat
+6. Auto-Match nur bei hoher Confidence (`>= 0.95`) und vorhandenem Beitragskandidaten.
+
+**Confidence-Werte (aktuell):**
+
+- `trusted_iban`: `0.99`
+- `member_number`: `0.95`
+- Name/Elternname: aus Parser-Score, optionaler Boost bei vorhandenem Beitragskandidaten
+- Auto-Match-Schwelle: `0.95`
+
+### Edge Cases
+
+- Geschwister mit gleicher Zahler-IBAN:
+  - Wenn ein `trusted_iban` fest auf ein Kind verlinkt ist, kann das bei Familienkonten zu Fehlzuordnungen führen.
+  - Schutzmaßnahme: Bei gemeinsamer Elternschaft wird ein `trusted_iban`-Treffer überstimmt, sobald im Text eine eindeutige Geschwister-Mitgliedsnummer oder ein starker Geschwister-Namensmatch gefunden wird.
+- Mehrere offene Monate gleicher Betrag:
+  - Keine automatische Zuordnung; stattdessen manuelle Prüfung via `MULTIPLE_OPEN_FEES`.
+- Sammelzahlungen / unerwartete Beträge von vertrauenswürdiger IBAN:
+  - Es werden Warnings erzeugt (`POSSIBLE_BULK`, `PARTIAL_PAYMENT`, `OVERPAYMENT`, `NO_MATCHING_FEE`, `UNEXPECTED_AMOUNT`).
+- Doppelt importierte Buchungen:
+  - Beim Upload werden Duplikate nur über die oben genannte Schlüsselkombination erkannt.
+  - Gleicher Zahler und Betrag mit unterschiedlichem Verwendungszweck sind daher **keine** Duplikate.
+
+### Operative Empfehlung für `known_ibans`
+
+- Für Familienkonten mit mehreren Kindern `child_id` in `known_ibans` leer lassen (`NULL`), damit Text-/Mitgliedsnummer-Matching priorisiert wird.
+- `child_id` nur setzen, wenn das Konto stabil genau einem Kind zugeordnet ist.
+
 ## Datenbank Schema
 
 Das Backend verwendet ein eigenes Schema `fees` in der PostgreSQL-Datenbank:
