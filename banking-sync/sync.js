@@ -27,6 +27,10 @@ const CONFIG = {
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 13_6_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
   // Global timeout for entire sync operation (default 15 minutes)
   globalTimeoutMs: Number(process.env.GLOBAL_TIMEOUT_SECONDS || 900) * 1000,
+  // Timeout for API upload request (default 2 minutes)
+  uploadTimeoutMs: Number(process.env.UPLOAD_TIMEOUT_SECONDS || 120) * 1000,
+  // Timeout for browser/context shutdown (default 20 seconds)
+  browserCloseTimeoutMs: Number(process.env.BROWSER_CLOSE_TIMEOUT_SECONDS || 20) * 1000,
 };
 
 const UPTIME_KUMA_PING_TIMEOUT_MS = Number(process.env.UPTIME_KUMA_TIMEOUT_SECONDS || 10) * 1000;
@@ -402,6 +406,24 @@ async function closeBrowserContext(context, browser) {
   }
 }
 
+async function closeBrowserContextBestEffort(context, browser, log) {
+  try {
+    await withTimeout(
+      closeBrowserContext(context, browser),
+      CONFIG.browserCloseTimeoutMs,
+      'Browser close'
+    );
+  } catch (error) {
+    if (log) {
+      log(`⚠️  Browser close did not finish in time: ${error.message}; continuing.`);
+    }
+  } finally {
+    browserContext = null;
+    browserInstance = null;
+    abortController = null;
+  }
+}
+
 async function downloadCSV(options = {}) {
   const { onStatus, onLog, onScreenshot, onHtmlSnapshot, signal } = options;
   const log = createLogger(onLog);
@@ -533,10 +555,7 @@ async function downloadCSV(options = {}) {
 
     log(`✅ Downloaded ${fs.statSync(targetPath).size} bytes to ${targetPath}`);
     clearTimeout(globalTimeoutId);
-    await closeBrowserContext(context, browser);
-    browserContext = null;
-    browserInstance = null;
-    abortController = null;
+    await closeBrowserContextBestEffort(context, browser, log);
     return targetPath;
   } catch (error) {
     clearTimeout(globalTimeoutId);
@@ -568,10 +587,7 @@ async function downloadCSV(options = {}) {
       log(`⚠️  Debug artifact capture aborted: ${artifactError.message}`);
     }
     log(`❌ Error: ${error.message}`);
-    await closeBrowserContext(context, browser);
-    browserContext = null;
-    browserInstance = null;
-    abortController = null;
+    await closeBrowserContextBestEffort(context, browser, log);
     throw error;
   }
 }
@@ -589,11 +605,27 @@ async function uploadToAPI(csvPath, options = {}) {
   const form = new FormData();
   form.append('file', new Blob([fileBuffer], { type: 'text/csv' }), path.basename(csvPath));
 
-  const response = await fetch(CONFIG.apiUrl.replace(/\/$/, '') + '/import/upload', {
-    method: 'POST',
-    headers: { 'X-Import-Token': CONFIG.apiToken },
-    body: form,
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+  }, CONFIG.uploadTimeoutMs);
+
+  let response;
+  try {
+    response = await fetch(CONFIG.apiUrl.replace(/\/$/, '') + '/import/upload', {
+      method: 'POST',
+      headers: { 'X-Import-Token': CONFIG.apiToken },
+      body: form,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (controller.signal.aborted) {
+      throw new Error(`API upload timed out after ${CONFIG.uploadTimeoutMs}ms`);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (!response.ok) {
     const error = await response.text();

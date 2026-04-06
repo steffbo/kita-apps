@@ -224,6 +224,7 @@ async function runSync({ test = false } = {}) {
     updateState({ downloadPath: csvPath });
 
     if (!test) {
+      appendLog('📦 CSV ready, starting API upload...');
       const result = await uploadToAPI(csvPath, { onLog: appendLog });
       updateState({ uploadResult: result });
 
