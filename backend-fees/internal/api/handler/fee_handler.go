@@ -51,17 +51,39 @@ type FeeListResponse struct {
 	TotalPages int           `json:"totalPages" example:"5"`
 } //@name FeeList
 
+// ReminderWarningResponse represents a family skipped due to missing emails.
+type ReminderWarningResponse struct {
+	HouseholdName string `json:"householdName" example:"Müller"`
+	Reason        string `json:"reason" example:"keine gültige E-Mail-Adresse"`
+} //@name ReminderWarningResponse
+
+// ReminderPreviewResponse holds the preview for a single family email.
+type ReminderPreviewResponse struct {
+	HouseholdName string   `json:"householdName" example:"Schmidt"`
+	Recipients    []string `json:"recipients" example:"[\"anna@example.com\"]"`
+	Subject       string   `json:"subject" example:"Kita Zahlungserinnerung April 2026"`
+	Body          string   `json:"body" example:"Hallo Anna,..."`
+} //@name ReminderPreviewResponse
+
 // ReminderRunResponse represents the result of a reminder run.
 // @Description Ergebnis einer Erinnerungs-/Mahnungsprüfung
 type ReminderRunResponse struct {
-	Stage           string `json:"stage" example:"initial" enums:"auto,initial,final,none"`
-	Date            string `json:"date" example:"2026-02-05"`
-	Recipient       string `json:"recipient" example:"admin@knirpsenstadt.de"`
-	UnpaidCount     int    `json:"unpaidCount" example:"12"`
-	ReminderCreated int    `json:"reminderCreated" example:"8"`
-	EmailSent       bool   `json:"emailSent" example:"true"`
-	DryRun          bool   `json:"dryRun" example:"false"`
-	Message         string `json:"message,omitempty" example:"no unpaid fees for this period"`
+	Stage                  string                    `json:"stage" example:"initial" enums:"auto,initial,final,none"`
+	Date                   string                    `json:"date" example:"2026-02-05"`
+	DryRun                 bool                      `json:"dryRun" example:"false"`
+	UnpaidCount            int                       `json:"unpaidCount" example:"12"`
+	FamiliesProcessed      int                       `json:"familiesProcessed" example:"6"`
+	FamiliesEmailed        int                       `json:"familiesEmailed" example:"5"`
+	FamiliesSkippedNoEmail int                       `json:"familiesSkippedNoEmail" example:"1"`
+	RemindersCreated       int                       `json:"remindersCreated" example:"8"`
+	EmailSent              bool                      `json:"emailSent" example:"true"`
+	Warnings               []ReminderWarningResponse `json:"warnings,omitempty"`
+	Previews               []ReminderPreviewResponse `json:"previews,omitempty"`
+	Message                string                    `json:"message,omitempty" example:"no unpaid fees for this period"`
+
+	// Deprecated: kept for backward compat
+	Recipient       string `json:"recipient,omitempty"`
+	ReminderCreated int    `json:"reminderCreated,omitempty"`
 } //@name ReminderRunResponse
 
 // ReminderSettingsResponse represents reminder settings.
@@ -675,7 +697,7 @@ func (h *FeeHandler) RunReminders(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	result, err := h.reminderService.Run(r.Context(), runDate, stage, userCtx.Email, sentBy, dryRun)
+	result, err := h.reminderService.Run(r.Context(), runDate, stage, sentBy, dryRun)
 	if err != nil {
 		if err == service.ErrInvalidInput {
 			response.BadRequest(w, "invalid request")
@@ -686,14 +708,32 @@ func (h *FeeHandler) RunReminders(w http.ResponseWriter, r *http.Request) {
 	}
 
 	resp := ReminderRunResponse{
-		Stage:           string(result.Stage),
-		Date:            result.Date.Format("2006-01-02"),
-		Recipient:       result.Recipient,
-		UnpaidCount:     result.UnpaidCount,
-		ReminderCreated: result.RemindersCreated,
-		EmailSent:       result.EmailSent,
-		DryRun:          result.DryRun,
-		Message:         result.Message,
+		Stage:                  string(result.Stage),
+		Date:                   result.Date.Format("2006-01-02"),
+		DryRun:                 result.DryRun,
+		UnpaidCount:            result.UnpaidCount,
+		FamiliesProcessed:      result.FamiliesProcessed,
+		FamiliesEmailed:        result.FamiliesEmailed,
+		FamiliesSkippedNoEmail: result.FamiliesSkippedNoEmail,
+		RemindersCreated:       result.RemindersCreated,
+		EmailSent:              result.EmailSent,
+		Message:                result.Message,
+	}
+
+	for _, warn := range result.Warnings {
+		resp.Warnings = append(resp.Warnings, ReminderWarningResponse{
+			HouseholdName: warn.HouseholdName,
+			Reason:        warn.Reason,
+		})
+	}
+
+	for _, prev := range result.Previews {
+		resp.Previews = append(resp.Previews, ReminderPreviewResponse{
+			HouseholdName: prev.HouseholdName,
+			Recipients:    prev.Recipients,
+			Subject:       prev.Subject,
+			Body:          prev.Body,
+		})
 	}
 
 	response.Success(w, resp)

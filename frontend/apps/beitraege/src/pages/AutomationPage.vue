@@ -25,6 +25,11 @@ const reminderDate = ref(new Date().toLocaleDateString('en-CA'));
 const reminderDryRun = ref(true);
 const isRunningReminders = ref(false);
 
+// Dry-run preview modal state
+const showPreviewModal = ref(false);
+const previewStage = ref<'initial' | 'final'>('initial');
+const expandedPreview = ref<string | null>(null);
+
 // Email logs state
 const emailLogs = ref<EmailLog[]>([]);
 const emailLogsTotal = ref(0);
@@ -206,11 +211,40 @@ async function runReminders(stage: 'initial' | 'final') {
       dryRun: reminderDryRun.value,
     });
     reminderRunResult.value = result;
+    if (result.dryRun && result.previews && result.previews.length > 0) {
+      previewStage.value = stage;
+      expandedPreview.value = null;
+      showPreviewModal.value = true;
+    }
   } catch (e) {
     reminderRunError.value = e instanceof Error ? e.message : 'Erinnerung konnte nicht ausgelöst werden';
   } finally {
     isRunningReminders.value = false;
   }
+}
+
+async function sendFromModal() {
+  showPreviewModal.value = false;
+  if (!authStore.isAdmin) return;
+  isRunningReminders.value = true;
+  reminderRunError.value = null;
+  reminderRunResult.value = null;
+  try {
+    const result = await api.runReminders({
+      stage: previewStage.value,
+      date: reminderDate.value,
+      dryRun: false,
+    });
+    reminderRunResult.value = result;
+  } catch (e) {
+    reminderRunError.value = e instanceof Error ? e.message : 'Erinnerung konnte nicht ausgelöst werden';
+  } finally {
+    isRunningReminders.value = false;
+  }
+}
+
+function togglePreview(householdName: string) {
+  expandedPreview.value = expandedPreview.value === householdName ? null : householdName;
 }
 
 // Email Logs Functions
@@ -362,7 +396,7 @@ watch(
         <div>
           <h2 class="text-lg font-semibold text-gray-900">Zahlungserinnerungen</h2>
           <p class="text-sm text-gray-600">
-            Erinnerungen und Mahnungen werden an deine Login-E-Mail gesendet.
+            Erinnerungen und Mahnungen werden direkt an die Eltern der jeweiligen Familie gesendet.
           </p>
         </div>
         <div class="flex items-center gap-3">
@@ -426,20 +460,105 @@ watch(
       <div v-if="reminderRunError" class="mt-3 text-sm text-red-600">
         {{ reminderRunError }}
       </div>
-      <div v-if="reminderRunResult" class="mt-3 text-sm text-gray-700">
-        <p class="font-medium">Ergebnis</p>
+
+      <!-- Result after real run -->
+      <div v-if="reminderRunResult && !reminderRunResult.dryRun" class="mt-4 p-4 bg-gray-50 border rounded-lg text-sm text-gray-700">
+        <p class="font-medium mb-2">Ergebnis</p>
         <p>
-          Stufe: {{ reminderRunResult.stage }}
-          · Offene Beiträge: {{ reminderRunResult.unpaidCount }}
-          · Mahngebühren erstellt: {{ reminderRunResult.reminderCreated }}
+          Familien kontaktiert: <span class="font-medium">{{ reminderRunResult.familiesEmailed }}</span>
+          · Übersprungen: <span class="font-medium">{{ reminderRunResult.familiesSkippedNoEmail }}</span>
+          · Offene Beiträge: <span class="font-medium">{{ reminderRunResult.unpaidCount }}</span>
         </p>
-        <p>
-          E-Mail gesendet: {{ reminderRunResult.emailSent ? 'Ja' : 'Nein' }}
-          · Trockenlauf: {{ reminderRunResult.dryRun ? 'Ja' : 'Nein' }}
+        <p v-if="reminderRunResult.remindersCreated" class="mt-1">
+          Mahngebühren erstellt: <span class="font-medium">{{ reminderRunResult.remindersCreated }}</span>
         </p>
-        <p v-if="reminderRunResult.message" class="text-gray-500">
+        <ul v-if="reminderRunResult.warnings && reminderRunResult.warnings.length > 0" class="mt-2 space-y-1">
+          <li
+            v-for="warn in reminderRunResult.warnings"
+            :key="warn.householdName"
+            class="text-amber-700"
+          >
+            Familie {{ warn.householdName }}: {{ warn.reason }}
+          </li>
+        </ul>
+        <p v-if="reminderRunResult.message" class="mt-1 text-gray-500">
           {{ reminderRunResult.message }}
         </p>
+      </div>
+
+      <!-- Result after dry-run (when no previews or empty result) -->
+      <div v-if="reminderRunResult && reminderRunResult.dryRun && (!reminderRunResult.previews || reminderRunResult.previews.length === 0)" class="mt-4 p-4 bg-gray-50 border rounded-lg text-sm text-gray-700">
+        <p class="font-medium">Vorschau</p>
+        <p class="text-gray-500">{{ reminderRunResult.message || 'Keine offenen Beiträge für diesen Zeitraum.' }}</p>
+      </div>
+    </div>
+
+    <!-- Dry-run preview modal -->
+    <div v-if="showPreviewModal" class="fixed inset-0 z-50 flex items-start justify-center pt-16 px-4">
+      <div class="absolute inset-0 bg-black/40" @click="showPreviewModal = false"></div>
+      <div class="relative bg-white rounded-xl border shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
+        <div class="flex items-center justify-between p-5 border-b">
+          <div>
+            <h3 class="text-base font-semibold text-gray-900">Vorschau E-Mails</h3>
+            <p class="text-sm text-gray-500 mt-0.5">
+              {{ reminderRunResult?.familiesEmailed }} Familie(n) würden kontaktiert
+              <template v-if="reminderRunResult?.familiesSkippedNoEmail">
+                · {{ reminderRunResult?.familiesSkippedNoEmail }} übersprungen
+              </template>
+            </p>
+          </div>
+          <button @click="showPreviewModal = false" class="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+        </div>
+
+        <div class="overflow-y-auto p-5 space-y-3 flex-1">
+          <!-- Warnings -->
+          <div
+            v-if="reminderRunResult?.warnings && reminderRunResult.warnings.length > 0"
+            class="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800"
+          >
+            <p class="font-medium mb-1">Übersprungene Familien</p>
+            <ul class="space-y-0.5">
+              <li v-for="warn in reminderRunResult.warnings" :key="warn.householdName">
+                <span class="font-medium">{{ warn.householdName }}</span>: {{ warn.reason }}
+              </li>
+            </ul>
+          </div>
+
+          <!-- Per-family previews -->
+          <div
+            v-for="prev in reminderRunResult?.previews"
+            :key="prev.householdName"
+            class="border rounded-lg overflow-hidden"
+          >
+            <button
+              class="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-gray-800 hover:bg-gray-50 text-left"
+              @click="togglePreview(prev.householdName)"
+            >
+              <span>{{ prev.householdName }}</span>
+              <span class="text-xs text-gray-500">{{ prev.recipients.join(', ') }}</span>
+            </button>
+            <div v-if="expandedPreview === prev.householdName" class="border-t px-4 py-3 bg-gray-50 text-sm space-y-2">
+              <p class="font-medium text-gray-700">Betreff: {{ prev.subject }}</p>
+              <pre class="whitespace-pre-wrap text-gray-600 bg-white border rounded p-3 text-xs">{{ prev.body }}</pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex justify-end gap-3 p-5 border-t">
+          <button
+            class="px-4 py-2 rounded-lg border text-sm font-medium hover:bg-gray-50"
+            @click="showPreviewModal = false"
+          >
+            Schließen
+          </button>
+          <button
+            class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+            :disabled="isRunningReminders"
+            @click="sendFromModal"
+          >
+            Jetzt senden
+          </button>
+        </div>
       </div>
     </div>
 

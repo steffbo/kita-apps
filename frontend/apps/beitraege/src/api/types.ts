@@ -34,15 +34,35 @@ export interface UpdateReminderSettingsRequest {
 
 export type ReminderRunStage = 'auto' | 'initial' | 'final' | 'none';
 
+export interface ReminderWarning {
+  householdName: string;
+  reason: string;
+}
+
+export interface ReminderPreview {
+  householdName: string;
+  recipients: string[];
+  subject: string;
+  body: string;
+}
+
 export interface ReminderRunResponse {
   stage: ReminderRunStage;
   date: string;
-  recipient: string;
-  unpaidCount: number;
-  reminderCreated: number;
-  emailSent: boolean;
   dryRun: boolean;
+  unpaidCount: number;
+  familiesProcessed: number;
+  familiesEmailed: number;
+  familiesSkippedNoEmail: number;
+  remindersCreated: number;
+  emailSent: boolean;
+  warnings?: ReminderWarning[];
+  previews?: ReminderPreview[];
   message?: string;
+
+  // Deprecated – kept for backward compat
+  recipient?: string;
+  reminderCreated?: number;
 }
 
 export type EmailLogType = 'REMINDER_INITIAL' | 'REMINDER_FINAL' | 'PASSWORD_RESET' | string;

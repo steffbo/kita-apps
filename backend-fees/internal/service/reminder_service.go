@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/repository"
@@ -24,49 +25,73 @@ const (
 	ReminderStageNone    ReminderStage = "none"
 )
 
+// ReminderWarning describes a family that was skipped.
+type ReminderWarning struct {
+	HouseholdName string
+	Reason        string
+}
+
+// ReminderPreview holds the preview data for a single family email.
+type ReminderPreview struct {
+	HouseholdName string
+	Recipients    []string
+	Subject       string
+	Body          string
+}
+
 // ReminderRunResult holds the outcome of a reminder run.
 type ReminderRunResult struct {
-	Stage            ReminderStage
-	Date             time.Time
-	Recipient        string
-	UnpaidCount      int
-	RemindersCreated int
-	EmailSent        bool
-	DryRun           bool
-	Message          string
+	Stage                  ReminderStage
+	Date                   time.Time
+	UnpaidCount            int
+	FamiliesProcessed      int
+	FamiliesEmailed        int
+	FamiliesSkippedNoEmail int
+	RemindersCreated       int
+	EmailSent              bool
+	DryRun                 bool
+	Message                string
+	Warnings               []ReminderWarning
+	Previews               []ReminderPreview
+
+	// Kept for backward compat
+	Recipient string
 }
 
 // ReminderEmailSender defines the required email behavior.
 type ReminderEmailSender interface {
-	SendTextEmail(to, subject, body string) error
+	SendTextEmailMulti(to []string, subject, body string) error
 	IsEnabled() bool
 }
 
 // ReminderService handles scheduled payment reminders.
 type ReminderService struct {
-	feeRepo      repository.FeeRepository
-	childRepo    repository.ChildRepository
-	settingsRepo repository.SettingsRepository
-	emailLogRepo repository.EmailLogRepository
-	emailSender  ReminderEmailSender
-	now          func() time.Time
+	feeRepo       repository.FeeRepository
+	childRepo     repository.ChildRepository
+	householdRepo repository.HouseholdRepository
+	settingsRepo  repository.SettingsRepository
+	emailLogRepo  repository.EmailLogRepository
+	emailSender   ReminderEmailSender
+	now           func() time.Time
 }
 
 // NewReminderService creates a new reminder service.
 func NewReminderService(
 	feeRepo repository.FeeRepository,
 	childRepo repository.ChildRepository,
+	householdRepo repository.HouseholdRepository,
 	settingsRepo repository.SettingsRepository,
 	emailLogRepo repository.EmailLogRepository,
 	emailSender ReminderEmailSender,
 ) *ReminderService {
 	return &ReminderService{
-		feeRepo:      feeRepo,
-		childRepo:    childRepo,
-		settingsRepo: settingsRepo,
-		emailLogRepo: emailLogRepo,
-		emailSender:  emailSender,
-		now:          time.Now,
+		feeRepo:       feeRepo,
+		childRepo:     childRepo,
+		householdRepo: householdRepo,
+		settingsRepo:  settingsRepo,
+		emailLogRepo:  emailLogRepo,
+		emailSender:   emailSender,
+		now:           time.Now,
 	}
 }
 
@@ -87,11 +112,7 @@ func ParseReminderStage(stage string) (ReminderStage, error) {
 }
 
 // Run executes reminder logic for the given date and stage.
-func (s *ReminderService) Run(ctx context.Context, runDate time.Time, stage ReminderStage, recipient string, sentBy *uuid.UUID, dryRun bool) (*ReminderRunResult, error) {
-	if recipient == "" {
-		return nil, ErrInvalidInput
-	}
-
+func (s *ReminderService) Run(ctx context.Context, runDate time.Time, stage ReminderStage, sentBy *uuid.UUID, dryRun bool) (*ReminderRunResult, error) {
 	if stage == ReminderStageAuto {
 		autoEnabled, err := s.GetAutoEnabled(ctx)
 		if err != nil {
@@ -99,21 +120,19 @@ func (s *ReminderService) Run(ctx context.Context, runDate time.Time, stage Remi
 		}
 		if !autoEnabled {
 			return &ReminderRunResult{
-				Stage:     ReminderStageNone,
-				Date:      runDate,
-				Recipient: recipient,
-				DryRun:    dryRun,
-				Message:   "auto reminders disabled",
+				Stage:   ReminderStageNone,
+				Date:    runDate,
+				DryRun:  dryRun,
+				Message: "auto reminders disabled",
 			}, nil
 		}
 		stage = stageFromDate(runDate)
 		if stage == ReminderStageNone {
 			return &ReminderRunResult{
-				Stage:     ReminderStageNone,
-				Date:      runDate,
-				Recipient: recipient,
-				DryRun:    dryRun,
-				Message:   "no reminder stage for this date",
+				Stage:   ReminderStageNone,
+				Date:    runDate,
+				DryRun:  dryRun,
+				Message: "no reminder stage for this date",
 			}, nil
 		}
 	}
@@ -134,7 +153,6 @@ func (s *ReminderService) Run(ctx context.Context, runDate time.Time, stage Remi
 	result := &ReminderRunResult{
 		Stage:       stage,
 		Date:        runDate,
-		Recipient:   recipient,
 		UnpaidCount: len(fees),
 		DryRun:      dryRun,
 	}
@@ -144,7 +162,7 @@ func (s *ReminderService) Run(ctx context.Context, runDate time.Time, stage Remi
 		return result, nil
 	}
 
-	items, err := s.buildItems(ctx, fees)
+	items, children, err := s.buildItemsWithChildren(ctx, fees)
 	if err != nil {
 		return nil, err
 	}
@@ -177,29 +195,139 @@ func (s *ReminderService) Run(ctx context.Context, runDate time.Time, stage Remi
 		}
 	}
 
+	// Group items by household
+	householdGroups, err := s.groupByHousehold(items, children)
+	if err != nil {
+		return nil, err
+	}
+
+	result.FamiliesProcessed = len(householdGroups)
+
+	for _, group := range householdGroups {
+		parents, err := s.householdRepo.GetParents(ctx, group.householdID)
+		if err != nil {
+			return nil, err
+		}
+
+		recipients := collectEmails(parents)
+		if len(recipients) == 0 {
+			log.Warn().Str("household", group.householdName).Msg("No valid parent emails, skipping family")
+			result.FamiliesSkippedNoEmail++
+			result.Warnings = append(result.Warnings, ReminderWarning{
+				HouseholdName: group.householdName,
+				Reason:        "keine gültige E-Mail-Adresse",
+			})
+			continue
+		}
+
+		firstNames := parentFirstNames(parents)
+		subject, body := buildFamilyReminderEmail(stage, runDate, firstNames, group.items)
+
+		if dryRun {
+			result.Previews = append(result.Previews, ReminderPreview{
+				HouseholdName: group.householdName,
+				Recipients:    recipients,
+				Subject:       subject,
+				Body:          body,
+			})
+			result.FamiliesEmailed++
+			continue
+		}
+
+		if s.emailSender == nil || !s.emailSender.IsEnabled() {
+			result.Message = "email service disabled"
+			return result, nil
+		}
+
+		if err := s.emailSender.SendTextEmailMulti(recipients, subject, body); err != nil {
+			return nil, err
+		}
+
+		toEmail := strings.Join(recipients, ", ")
+		if err := s.logEmail(ctx, stage, runDate, toEmail, subject, body, group.items, result.RemindersCreated, sentBy); err != nil {
+			return nil, err
+		}
+
+		result.FamiliesEmailed++
+		result.EmailSent = true
+	}
+
 	if dryRun {
 		result.Message = "dry run: no emails sent and no reminders created"
-		return result, nil
 	}
 
-	if s.emailSender == nil || !s.emailSender.IsEnabled() {
-		result.Message = "email service disabled"
-		return result, nil
-	}
-
-	subject, body := buildReminderEmail(stage, runDate, items, result.RemindersCreated)
-	if err := s.emailSender.SendTextEmail(recipient, subject, body); err != nil {
-		return nil, err
-	}
-	if err := s.logEmail(ctx, stage, runDate, recipient, subject, body, items, result.RemindersCreated, sentBy); err != nil {
-		return nil, err
-	}
-	result.EmailSent = true
 	return result, nil
+}
+
+// householdGroup holds items grouped under a single household.
+type householdGroup struct {
+	householdID   uuid.UUID
+	householdName string
+	items         []reminderItem
+}
+
+// groupByHousehold groups reminder items by the household of their child.
+// Children without a household are logged and skipped.
+func (s *ReminderService) groupByHousehold(items []reminderItem, children map[uuid.UUID]*domain.Child) ([]householdGroup, error) {
+	groupMap := make(map[uuid.UUID]*householdGroup)
+	var order []uuid.UUID
+
+	for _, item := range items {
+		child, ok := children[item.ChildID]
+		if !ok || child == nil || child.HouseholdID == nil {
+			log.Error().Str("childName", item.ChildName).Msg("Child has no household, skipping")
+			continue
+		}
+		hid := *child.HouseholdID
+		if _, exists := groupMap[hid]; !exists {
+			householdName := child.LastName
+			groupMap[hid] = &householdGroup{
+				householdID:   hid,
+				householdName: householdName,
+			}
+			order = append(order, hid)
+		}
+		groupMap[hid].items = append(groupMap[hid].items, item)
+	}
+
+	result := make([]householdGroup, 0, len(order))
+	for _, hid := range order {
+		result = append(result, *groupMap[hid])
+	}
+	return result, nil
+}
+
+// collectEmails returns deduplicated non-empty parent email addresses.
+func collectEmails(parents []domain.Parent) []string {
+	seen := make(map[string]bool)
+	var result []string
+	for _, p := range parents {
+		if p.Email == nil || *p.Email == "" {
+			continue
+		}
+		e := *p.Email
+		if !seen[e] {
+			seen[e] = true
+			result = append(result, e)
+		}
+	}
+	return result
+}
+
+// parentFirstNames returns the first names of all parents.
+func parentFirstNames(parents []domain.Parent) []string {
+	names := make([]string, 0, len(parents))
+	for _, p := range parents {
+		if p.FirstName != "" {
+			names = append(names, p.FirstName)
+		}
+	}
+	return names
 }
 
 type reminderItem struct {
 	FeeID        uuid.UUID
+	ChildID      uuid.UUID
 	ChildName    string
 	MemberNumber string
 	FeeType      domain.FeeType
@@ -209,7 +337,7 @@ type reminderItem struct {
 	DueDate      time.Time
 }
 
-func (s *ReminderService) buildItems(ctx context.Context, fees []domain.FeeExpectation) ([]reminderItem, error) {
+func (s *ReminderService) buildItemsWithChildren(ctx context.Context, fees []domain.FeeExpectation) ([]reminderItem, map[uuid.UUID]*domain.Child, error) {
 	childIDs := make([]uuid.UUID, 0, len(fees))
 	seen := make(map[uuid.UUID]bool, len(fees))
 	for _, fee := range fees {
@@ -221,7 +349,7 @@ func (s *ReminderService) buildItems(ctx context.Context, fees []domain.FeeExpec
 
 	children, err := s.childRepo.GetByIDs(ctx, childIDs)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	items := make([]reminderItem, 0, len(fees))
@@ -238,6 +366,7 @@ func (s *ReminderService) buildItems(ctx context.Context, fees []domain.FeeExpec
 		}
 		items = append(items, reminderItem{
 			FeeID:        fee.ID,
+			ChildID:      fee.ChildID,
 			ChildName:    childName,
 			MemberNumber: memberNumber,
 			FeeType:      fee.FeeType,
@@ -258,7 +387,7 @@ func (s *ReminderService) buildItems(ctx context.Context, fees []domain.FeeExpec
 		return items[i].ChildName < items[j].ChildName
 	})
 
-	return items, nil
+	return items, children, nil
 }
 
 func stageFromDate(date time.Time) ReminderStage {
@@ -276,48 +405,51 @@ func reminderDueDate(date time.Time) time.Time {
 	return time.Date(date.Year(), date.Month(), 15, 23, 59, 59, 0, time.UTC)
 }
 
-func buildReminderEmail(stage ReminderStage, runDate time.Time, items []reminderItem, remindersCreated int) (string, string) {
+// buildFamilyReminderEmail builds a parent-facing email for a single family.
+func buildFamilyReminderEmail(stage ReminderStage, runDate time.Time, parentFirstNames []string, items []reminderItem) (string, string) {
 	monthName := germanMonthName(int(runDate.Month()))
 	year := runDate.Year()
-	dateLabel := runDate.Format("02.01.2006")
-	var subject string
 
+	var subject string
 	if stage == ReminderStageFinal {
-		subject = fmt.Sprintf("Mahnung Essens- und Platzgeld %s %d", monthName, year)
+		subject = fmt.Sprintf("Kita Mahnung %s %d", monthName, year)
 	} else {
-		subject = fmt.Sprintf("Zahlungserinnerung Essens- und Platzgeld %s %d", monthName, year)
+		subject = fmt.Sprintf("Kita Zahlungserinnerung %s %d", monthName, year)
+	}
+
+	greeting := "Hallo"
+	if len(parentFirstNames) > 0 {
+		greeting = "Hallo " + strings.Join(parentFirstNames, " und ")
+	}
+
+	var total float64
+	for _, item := range items {
+		total += item.Amount
 	}
 
 	var builder strings.Builder
-	builder.WriteString("Hallo,\n\n")
-	if stage == ReminderStageFinal {
-		builder.WriteString(fmt.Sprintf("bis zum %s sind folgende Essens- oder Platzgelder weiterhin offen.\n", dateLabel))
-		builder.WriteString(fmt.Sprintf("Es wurde eine Mahngebuehr erstellt und eine Frist bis zum %s gesetzt.\n\n", reminderDueDate(runDate).Format("02.01.2006")))
-		builder.WriteString(fmt.Sprintf("Erstellte Mahngebuehren: %d\n\n", remindersCreated))
-	} else {
-		builder.WriteString(fmt.Sprintf("bis zum %s sind folgende Essens- oder Platzgelder noch nicht als bezahlt markiert:\n\n", dateLabel))
-	}
+	builder.WriteString(greeting + ",\n\n")
+	builder.WriteString("für eure Familie sind noch folgende Beiträge offen:\n\n")
 
 	for _, item := range items {
 		itemMonth := germanMonthName(item.Month)
 		feeLabel := feeTypeLabel(item.FeeType)
 		amount := formatCurrencyEUR(item.Amount)
-		member := ""
-		if item.MemberNumber != "" {
-			member = fmt.Sprintf(" (%s)", item.MemberNumber)
-		}
-		builder.WriteString(fmt.Sprintf("- %s%s - %s %s %d: %s (faellig %s)\n",
+		builder.WriteString(fmt.Sprintf("- %s: %s %s/%d — %s\n",
 			item.ChildName,
-			member,
 			feeLabel,
 			itemMonth,
 			item.Year,
 			amount,
-			item.DueDate.Format("02.01.2006"),
 		))
 	}
 
-	builder.WriteString("\nViele Gruesse\nKnirpsenstadt Beitraege\n")
+	builder.WriteString(fmt.Sprintf("\nBitte überweist den Gesamtbetrag von %s auf folgendes Konto:\n\n", formatCurrencyEUR(total)))
+	builder.WriteString("Knirpsenstadt e.V.\n")
+	builder.WriteString("IBAN: DE33 3702 0500 0003 3214 00\n")
+	builder.WriteString("BIC: BFSWDE33XXX\n\n")
+	builder.WriteString("Vielen Dank!\n")
+
 	return subject, builder.String()
 }
 
@@ -401,7 +533,7 @@ func (s *ReminderService) logEmail(
 	ctx context.Context,
 	stage ReminderStage,
 	runDate time.Time,
-	recipient string,
+	toEmail string,
 	subject string,
 	body string,
 	items []reminderItem,
@@ -446,7 +578,7 @@ func (s *ReminderService) logEmail(
 	return s.emailLogRepo.Create(ctx, &domain.EmailLog{
 		ID:        uuid.New(),
 		SentAt:    s.now().UTC(),
-		ToEmail:   recipient,
+		ToEmail:   toEmail,
 		Subject:   subject,
 		Body:      &bodyCopy,
 		EmailType: emailType,
