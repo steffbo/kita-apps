@@ -513,10 +513,10 @@ watch(
         <div class="flex items-center justify-between p-5 border-b">
           <div>
             <h3 class="text-base font-semibold text-gray-900">Vorschau E-Mails</h3>
-            <p class="text-sm text-gray-500 mt-0.5">
+            <p class="text-sm mt-0.5" :class="reminderRunResult?.familiesSkippedNoEmail ? 'text-amber-700 font-medium' : 'text-gray-500'">
               {{ reminderRunResult?.familiesEmailed }} Familie(n) würden kontaktiert
               <template v-if="reminderRunResult?.familiesSkippedNoEmail">
-                · {{ reminderRunResult?.familiesSkippedNoEmail }} übersprungen
+                · <span class="font-semibold">{{ reminderRunResult?.familiesSkippedNoEmail }} ohne gültige E-Mail-Adresse</span>
               </template>
             </p>
           </div>
@@ -527,9 +527,9 @@ watch(
           <!-- Warnings -->
           <div
             v-if="reminderRunResult?.warnings && reminderRunResult.warnings.length > 0"
-            class="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800"
+            class="p-4 bg-amber-50 border-2 border-amber-400 rounded-lg text-sm text-amber-900"
           >
-            <p class="font-medium mb-1">Übersprungene Familien</p>
+            <p class="font-semibold mb-2">⚠ {{ reminderRunResult.warnings.length }} Familie(n) werden nicht kontaktiert — keine gültige E-Mail-Adresse</p>
             <ul class="space-y-0.5">
               <li v-for="warn in reminderRunResult.warnings" :key="warn.householdName">
                 <span class="font-medium">{{ warn.householdName }}</span>: {{ warn.reason }}

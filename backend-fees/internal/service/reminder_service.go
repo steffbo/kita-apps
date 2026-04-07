@@ -476,6 +476,8 @@ func buildFamilyReminderEmail(stage ReminderStage, runDate time.Time, parentFirs
 	builder.WriteString("Wichtig: Bitte gebt als Empfänger genau \"Knirpsenstadt e.V.\" an, damit das Matching bei eurer Bank korrekt funktioniert.\n\n")
 	builder.WriteString(fmt.Sprintf("Falls die Zahlung bis zum %s nicht eingegangen ist, wird leider automatisch eine Mahngebühr fällig.\n\n", deadlineStr))
 	builder.WriteString("Vielen Dank!\n\n")
+	builder.WriteString("Freundliche Grüße\n")
+	builder.WriteString("Knirpsenstadt Beitrag\n\n")
 	builder.WriteString("---\n")
 	builder.WriteString("Diese E-Mail wurde automatisch erstellt. Fehler sind nicht ausgeschlossen — bei Fragen wendet euch gerne direkt an uns.\n")
 
