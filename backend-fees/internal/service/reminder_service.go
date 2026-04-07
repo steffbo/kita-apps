@@ -357,7 +357,7 @@ func (s *ReminderService) buildItemsWithChildren(ctx context.Context, fees []dom
 		childName := "Unbekanntes Kind"
 		memberNumber := ""
 		if child, ok := children[fee.ChildID]; ok && child != nil {
-			childName = child.FullName()
+			childName = child.FirstName
 			memberNumber = child.MemberNumber
 		}
 		month := 0
@@ -422,33 +422,55 @@ func buildFamilyReminderEmail(stage ReminderStage, runDate time.Time, parentFirs
 		greeting = "Hallo " + strings.Join(parentFirstNames, " und ")
 	}
 
-	var total float64
-	for _, item := range items {
-		total += item.Amount
-	}
+	// Deadline: 10th of the current month
+	deadline := time.Date(runDate.Year(), runDate.Month(), 10, 0, 0, 0, 0, time.UTC)
+	deadlineStr := deadline.Format("02.01.2006")
 
 	var builder strings.Builder
 	builder.WriteString(greeting + ",\n\n")
-	builder.WriteString("für eure Familie sind noch folgende Beiträge offen:\n\n")
 
-	for _, item := range items {
-		itemMonth := germanMonthName(item.Month)
+	if len(items) == 1 {
+		item := items[0]
 		feeLabel := feeTypeLabel(item.FeeType)
+		itemMonth := germanMonthName(item.Month)
 		amount := formatCurrencyEUR(item.Amount)
-		builder.WriteString(fmt.Sprintf("- %s: %s %s/%d — %s\n",
-			item.ChildName,
-			feeLabel,
-			itemMonth,
-			item.Year,
-			amount,
-		))
+		memberHint := ""
+		if item.MemberNumber != "" {
+			memberHint = fmt.Sprintf(" (Mitgliedsnr. %s)", item.MemberNumber)
+		}
+		builder.WriteString(fmt.Sprintf("für %s%s ist noch ein Beitrag offen:\n\n", item.ChildName, memberHint))
+		builder.WriteString(fmt.Sprintf("%s %s/%d — %s\n", feeLabel, itemMonth, item.Year, amount))
+		builder.WriteString(fmt.Sprintf("\nBitte überweist den offenen Beitrag von %s bis zum %s auf folgendes Konto:\n\n", amount, deadlineStr))
+	} else {
+		builder.WriteString("für eure Familie sind noch folgende Beiträge offen:\n\n")
+		for _, item := range items {
+			itemMonth := germanMonthName(item.Month)
+			feeLabel := feeTypeLabel(item.FeeType)
+			amount := formatCurrencyEUR(item.Amount)
+			memberHint := ""
+			if item.MemberNumber != "" {
+				memberHint = fmt.Sprintf(" (Mitgliedsnr. %s)", item.MemberNumber)
+			}
+			builder.WriteString(fmt.Sprintf("- %s%s: %s %s/%d — %s\n",
+				item.ChildName,
+				memberHint,
+				feeLabel,
+				itemMonth,
+				item.Year,
+				amount,
+			))
+		}
+		builder.WriteString(fmt.Sprintf("\nBitte überweist die offenen Beiträge jeweils einzeln bis zum %s auf folgendes Konto:\n\n", deadlineStr))
 	}
 
-	builder.WriteString(fmt.Sprintf("\nBitte überweist den Gesamtbetrag von %s auf folgendes Konto:\n\n", formatCurrencyEUR(total)))
-	builder.WriteString("Knirpsenstadt e.V.\n")
+	builder.WriteString("Empfänger: Knirpsenstadt e.V.\n")
 	builder.WriteString("IBAN: DE33 3702 0500 0003 3214 00\n")
 	builder.WriteString("BIC: BFSWDE33XXX\n\n")
-	builder.WriteString("Vielen Dank!\n")
+	builder.WriteString("Wichtig: Bitte gebt als Empfänger genau \"Knirpsenstadt e.V.\" an, damit das Matching bei eurer Bank korrekt funktioniert.\n\n")
+	builder.WriteString(fmt.Sprintf("Falls die Zahlung bis zum %s nicht eingegangen ist, wird leider automatisch eine Mahngebühr fällig.\n\n", deadlineStr))
+	builder.WriteString("Vielen Dank!\n\n")
+	builder.WriteString("---\n")
+	builder.WriteString("Diese E-Mail wurde automatisch erstellt. Fehler sind nicht ausgeschlossen — bei Fragen wendet euch gerne direkt an uns.\n")
 
 	return subject, builder.String()
 }
