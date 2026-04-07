@@ -554,11 +554,13 @@ class ApiClient {
     stage?: 'auto' | 'initial' | 'final';
     date?: string;
     dryRun?: boolean;
+    deadline?: string;
   }): Promise<ReminderRunResponse> {
     const query = new URLSearchParams();
     if (params?.stage) query.set('stage', params.stage);
     if (params?.date) query.set('date', params.date);
     if (typeof params?.dryRun === 'boolean') query.set('dryRun', params.dryRun ? 'true' : 'false');
+    if (params?.deadline) query.set('deadline', params.deadline);
     const queryString = query.toString();
     return this.request<ReminderRunResponse>(`/fees/reminders/run${queryString ? `?${queryString}` : ''}`, {
       method: 'POST',

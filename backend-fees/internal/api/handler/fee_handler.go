@@ -690,6 +690,16 @@ func (h *FeeHandler) RunReminders(w http.ResponseWriter, r *http.Request) {
 		dryRun = *dryRunPtr
 	}
 
+	var deadline *time.Time
+	if deadlineStr := request.GetQueryString(r, "deadline", ""); deadlineStr != "" {
+		parsed, err := time.Parse("2006-01-02", deadlineStr)
+		if err != nil {
+			response.BadRequest(w, "invalid deadline format (expected YYYY-MM-DD)")
+			return
+		}
+		deadline = &parsed
+	}
+
 	var sentBy *uuid.UUID
 	if userCtx.UserID != "" {
 		if parsed, err := uuid.Parse(userCtx.UserID); err == nil {
@@ -697,7 +707,7 @@ func (h *FeeHandler) RunReminders(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	result, err := h.reminderService.Run(r.Context(), runDate, stage, sentBy, dryRun)
+	result, err := h.reminderService.Run(r.Context(), runDate, stage, sentBy, dryRun, deadline)
 	if err != nil {
 		if err == service.ErrInvalidInput {
 			response.BadRequest(w, "invalid request")

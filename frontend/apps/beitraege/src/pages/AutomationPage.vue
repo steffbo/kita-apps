@@ -22,6 +22,7 @@ const reminderSettingsError = ref<string | null>(null);
 const reminderRunError = ref<string | null>(null);
 const reminderRunResult = ref<ReminderRunResponse | null>(null);
 const reminderDate = ref(new Date().toLocaleDateString('en-CA'));
+const reminderDeadline = ref('');
 const reminderDryRun = ref(true);
 const isRunningReminders = ref(false);
 
@@ -209,6 +210,7 @@ async function runReminders(stage: 'initial' | 'final') {
       stage,
       date: reminderDate.value,
       dryRun: reminderDryRun.value,
+      deadline: reminderDeadline.value || undefined,
     });
     reminderRunResult.value = result;
     if (result.dryRun && result.previews && result.previews.length > 0) {
@@ -234,6 +236,7 @@ async function sendFromModal() {
       stage: previewStage.value,
       date: reminderDate.value,
       dryRun: false,
+      deadline: reminderDeadline.value || undefined,
     });
     reminderRunResult.value = result;
   } catch (e) {
@@ -425,6 +428,16 @@ watch(
           <input
             type="date"
             v-model="reminderDate"
+            class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+          />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            Frist <span class="font-normal text-gray-400">(optional, Standard: 10. des Monats)</span>
+          </label>
+          <input
+            type="date"
+            v-model="reminderDeadline"
             class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
           />
         </div>

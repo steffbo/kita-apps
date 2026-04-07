@@ -112,7 +112,8 @@ func ParseReminderStage(stage string) (ReminderStage, error) {
 }
 
 // Run executes reminder logic for the given date and stage.
-func (s *ReminderService) Run(ctx context.Context, runDate time.Time, stage ReminderStage, sentBy *uuid.UUID, dryRun bool) (*ReminderRunResult, error) {
+// deadline overrides the payment deadline shown in the email; if nil, the 10th of the run month is used.
+func (s *ReminderService) Run(ctx context.Context, runDate time.Time, stage ReminderStage, sentBy *uuid.UUID, dryRun bool, deadline *time.Time) (*ReminderRunResult, error) {
 	if stage == ReminderStageAuto {
 		autoEnabled, err := s.GetAutoEnabled(ctx)
 		if err != nil {
@@ -221,7 +222,7 @@ func (s *ReminderService) Run(ctx context.Context, runDate time.Time, stage Remi
 		}
 
 		firstNames := parentFirstNames(parents)
-		subject, body := buildFamilyReminderEmail(stage, runDate, firstNames, group.items)
+		subject, body := buildFamilyReminderEmail(stage, runDate, firstNames, group.items, deadline)
 
 		if dryRun {
 			result.Previews = append(result.Previews, ReminderPreview{
@@ -406,7 +407,8 @@ func reminderDueDate(date time.Time) time.Time {
 }
 
 // buildFamilyReminderEmail builds a parent-facing email for a single family.
-func buildFamilyReminderEmail(stage ReminderStage, runDate time.Time, parentFirstNames []string, items []reminderItem) (string, string) {
+// deadlineOverride sets a custom payment deadline; if nil, defaults to the 10th of the run month.
+func buildFamilyReminderEmail(stage ReminderStage, runDate time.Time, parentFirstNames []string, items []reminderItem, deadlineOverride *time.Time) (string, string) {
 	monthName := germanMonthName(int(runDate.Month()))
 	year := runDate.Year()
 
@@ -422,9 +424,14 @@ func buildFamilyReminderEmail(stage ReminderStage, runDate time.Time, parentFirs
 		greeting = "Hallo " + strings.Join(parentFirstNames, " und ")
 	}
 
-	// Deadline: 10th of the current month
-	deadline := time.Date(runDate.Year(), runDate.Month(), 10, 0, 0, 0, 0, time.UTC)
-	deadlineStr := deadline.Format("02.01.2006")
+	// Deadline: use override if provided, otherwise 10th of the current month
+	var dl time.Time
+	if deadlineOverride != nil {
+		dl = *deadlineOverride
+	} else {
+		dl = time.Date(runDate.Year(), runDate.Month(), 10, 0, 0, 0, 0, time.UTC)
+	}
+	deadlineStr := dl.Format("02.01.2006")
 
 	var builder strings.Builder
 	builder.WriteString(greeting + ",\n\n")
