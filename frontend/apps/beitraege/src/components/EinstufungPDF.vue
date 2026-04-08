@@ -2,6 +2,7 @@
 import { computed, nextTick, ref } from 'vue';
 import type { Einstufung, Child } from '@/api/types';
 import { FileDown, Loader2 } from 'lucide-vue-next';
+import printStyles from './EinstufungPDF.css?raw';
 
 const props = defineProps<{
   einstufung: Einstufung;
@@ -157,30 +158,73 @@ async function generatePdf() {
 
   try {
     await waitForPdfLayout();
+    const printWindow = window.open('', '_blank', 'width=960,height=1200');
+    if (!printWindow) {
+      console.error('Print window could not be opened');
+      return;
+    }
 
-    const html2pdf = (await import('html2pdf.js')).default;
-    const containerWidth = Math.ceil(pdfContainer.value.scrollWidth);
-    const containerHeight = Math.ceil(pdfContainer.value.scrollHeight);
-    const opt = {
-      margin: [10, 12, 12, 12],
-      filename: `Einstufung_${einstufungYear.value}_${childName.value.replace(/\s/g, '_')}.pdf`,
-      image: { type: 'png', quality: 1 },
-      pagebreak: { mode: ['css', 'legacy'] },
-      html2canvas: {
-        scale: 3,
-        useCORS: true,
-        backgroundColor: '#ffffff',
-        scrollX: 0,
-        scrollY: 0,
-        width: containerWidth,
-        height: containerHeight,
-        windowWidth: containerWidth,
-        windowHeight: containerHeight,
-      },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const },
-    };
+    const safeChildName = childName.value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
 
-    await html2pdf().set(opt).from(pdfContainer.value).save();
+    const title = `Einstufung_${einstufungYear.value}_${safeChildName.replace(/\s+/g, '_')}`;
+    const documentHtml = `<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>${title}</title>
+  <style>
+${printStyles}
+
+@page {
+  size: A4;
+  margin: 10mm 12mm 12mm 12mm;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: #fff;
+}
+
+body {
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+  padding: 0;
+}
+
+.print-root {
+  padding: 0;
+  margin: 0;
+}
+
+  </style>
+</head>
+<body>
+  <div class="print-root">${pdfContainer.value.outerHTML}</div>
+  <script>
+    window.addEventListener('load', function () {
+      window.focus();
+      setTimeout(function () {
+        window.print();
+      }, 40);
+    });
+    window.addEventListener('afterprint', function () {
+      window.close();
+    });
+  <\/script>
+</body>
+</html>`;
+
+    printWindow.document.open();
+    printWindow.document.write(documentHtml);
+    printWindow.document.close();
   } finally {
     isGenerating.value = false;
   }
@@ -199,10 +243,10 @@ defineExpose({ generatePdf });
     >
       <Loader2 v-if="isGenerating" class="h-4 w-4 animate-spin" />
       <FileDown v-else class="h-4 w-4" />
-      PDF herunterladen
+      PDF drucken / speichern
     </button>
 
-    <!-- Hidden PDF content (rendered off-screen for html2pdf) -->
+    <!-- Hidden print layout -->
     <div class="pdf-stage" aria-hidden="true">
       <div ref="pdfContainer" class="page">
 
@@ -387,385 +431,4 @@ defineExpose({ generatePdf });
   </div>
 </template>
 
-<style scoped>
-/* ── Design Tokens ─────────────────────────────────────────────────────────── */
-.pdf-stage {
-  position: absolute;
-  left: -9999px;
-  top: 0;
-  pointer-events: none;
-}
-
-.page {
-  width: 186mm;
-  font-family: Arial, Helvetica, sans-serif;
-  font-size: 10.75px;
-  color: #1c1c1c;
-  line-height: 1.6;
-  background: #ffffff;
-  padding: 0 0 8px;
-  box-sizing: border-box;
-}
-
-/* ── Page Header ───────────────────────────────────────────────────────────── */
-.page-header {
-  margin-bottom: 18px;
-}
-
-.page-header__sender {
-  font-size: 8.5px;
-  color: #888;
-  letter-spacing: 0.2px;
-  margin-bottom: 3px;
-}
-
-.page-header__sub {
-  font-size: 9.5px;
-  color: #555;
-  font-weight: 500;
-}
-
-.page-header__rule {
-  margin-top: 10px;
-  height: 1px;
-  background: #d1d5db;
-}
-
-/* ── Title ─────────────────────────────────────────────────────────────────── */
-.title {
-  font-size: 18px;
-  font-weight: 700;
-  color: #1c6a38;
-  letter-spacing: -0.2px;
-  margin-bottom: 16px;
-  padding-bottom: 8px;
-  border-bottom: 2px solid #1c6a38;
-}
-
-/* ── Info Grid (Stammdaten) ────────────────────────────────────────────────── */
-.info-grid {
-  border: 1px solid #d1d5db;
-  border-left: 3px solid #1c6a38;
-  padding: 11px 13px;
-  margin-bottom: 16px;
-  background: #fafafa;
-  break-inside: avoid;
-  page-break-inside: avoid;
-}
-
-.info-grid__name {
-  font-size: 12.5px;
-  font-weight: 700;
-  color: #1c1c1c;
-  margin-bottom: 10px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.info-grid__fields {
-  display: table;
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-}
-
-.info-item {
-  display: table-cell;
-  width: 20%;
-  vertical-align: top;
-  padding-right: 14px;
-  padding-top: 0;
-}
-
-.info-item--wide {
-  width: 40%;
-  padding-right: 0;
-}
-
-.info-item__label {
-  font-size: 8.5px;
-  color: #777;
-  text-transform: uppercase;
-  letter-spacing: 0.4px;
-  margin-bottom: 2px;
-}
-
-.info-item__value {
-  font-size: 10px;
-  font-weight: 600;
-  color: #1c1c1c;
-  line-height: 1.45;
-  word-break: normal;
-  overflow-wrap: break-word;
-}
-
-/* ── Sections ──────────────────────────────────────────────────────────────── */
-.section {
-  margin-bottom: 14px;
-}
-
-.section__heading {
-  font-size: 11px;
-  font-weight: 700;
-  color: #1c1c1c;
-  margin-bottom: 8px;
-  padding-bottom: 4px;
-  border-bottom: 1.5px solid #1c6a38;
-}
-
-.section__heading--sub {
-  margin-top: 10px;
-  border-bottom-color: #d1d5db;
-}
-
-/* ── Body Text ─────────────────────────────────────────────────────────────── */
-.body-text {
-  font-size: 9.75px;
-  color: #3a3a3a;
-  line-height: 1.62;
-  text-align: left;
-  margin-bottom: 7px;
-  word-break: normal;
-  overflow-wrap: break-word;
-}
-
-.body-text:last-child {
-  margin-bottom: 0;
-}
-
-/* ── Notice Box (Einstufungsgrundlage) ─────────────────────────────────────── */
-.notice-box {
-  border: 1px solid #a7c9b2;
-  border-left: 3px solid #1c6a38;
-  background: #f4fbf6;
-  padding: 9px 13px;
-  margin-bottom: 14px;
-  break-inside: avoid;
-  page-break-inside: avoid;
-}
-
-.notice-box__label {
-  font-size: 8px;
-  font-weight: 700;
-  color: #1c6a38;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 4px;
-}
-
-.notice-box__text {
-  font-size: 9.5px;
-  color: #1c3a26;
-  line-height: 1.6;
-  font-weight: 500;
-}
-
-/* ── Fee Table ─────────────────────────────────────────────────────────────── */
-.fee-table {
-  width: 100%;
-  table-layout: fixed;
-  border-collapse: collapse;
-  margin-bottom: 0;
-  font-size: 9.5px;
-  break-inside: avoid;
-  page-break-inside: avoid;
-  border-top: 1px solid #e5e7eb;
-  border-bottom: 1px solid #e5e7eb;
-  background: #ffffff;
-}
-
-.fee-table th,
-.fee-table td {
-  padding: 10px 10px;
-  text-align: right;
-}
-
-.fee-table th:first-child,
-.fee-table td:first-child {
-  text-align: left;
-  padding-left: 0;
-  padding-right: 16px;
-}
-
-.fee-table th + th,
-.fee-table td + td {
-  border-left: 1px solid #eef2ef;
-}
-
-.fee-table thead tr {
-  border-bottom: 1.5px solid #1c6a38;
-}
-
-.fee-table__col-label {
-  width: 28%;
-}
-
-.fee-table__col-month {
-  color: #3d3d3d;
-  font-weight: 400;
-  text-align: center;
-  background: #f7faf8;
-}
-
-.fee-table__col-month--first {
-  color: #1c6a38;
-  background: #eef7f1;
-}
-
-.fee-table__month-name {
-  font-size: 10px;
-  font-weight: 700;
-  margin-bottom: 1px;
-  line-height: 1.2;
-}
-
-.fee-table__month-sub {
-  font-size: 8px;
-  font-weight: 400;
-  color: #777;
-  line-height: 1.25;
-}
-
-.fee-table__row td {
-  border-bottom: 1px solid #ececec;
-  color: #1c1c1c;
-  background: #ffffff;
-}
-
-.fee-table__row:nth-child(even) td {
-  background: #fcfcfc;
-}
-
-.fee-table__row-label {
-  color: #2f2f2f;
-  font-size: 9.5px;
-  font-weight: 600;
-}
-
-.fee-table__amount {
-  font-size: 10px;
-  font-weight: 600;
-  color: #1c1c1c;
-  white-space: nowrap;
-}
-
-.fee-table__amount--primary {
-  color: #1c6a38;
-}
-
-.fee-table__row--membership td {
-  border-top: 1px dashed #c3d9c9;
-  border-bottom: none;
-  padding-top: 8px;
-  background: #f7fbf8;
-}
-
-.fee-table__row-label--membership {
-  font-size: 9px;
-  color: #444;
-}
-
-.fee-table__amount--membership {
-  font-size: 9.5px;
-  color: #444;
-}
-
-.fee-table__amount--membership.fee-table__amount--primary {
-  color: #1c6a38;
-}
-
-/* ── Payment Note ──────────────────────────────────────────────────────────── */
-.payment-note {
-  background: #fffbf0;
-  border: 1px solid #d4a72c;
-  border-left: 3px solid #b8860b;
-  padding: 8px 13px;
-  margin-bottom: 14px;
-  break-inside: avoid;
-  page-break-inside: avoid;
-}
-
-.payment-note__marker {
-  display: inline;
-  font-size: 7.5px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: #b8860b;
-  margin-right: 6px;
-}
-
-.payment-note__text {
-  display: inline;
-  font-size: 9.5px;
-  color: #3d2e00;
-  line-height: 1.58;
-}
-
-.payment-note__emphasis {
-  font-weight: 700;
-}
-
-/* ── Footer ────────────────────────────────────────────────────────────────── */
-.footer {
-  margin-top: 12px;
-  break-inside: avoid;
-  page-break-inside: avoid;
-}
-
-.footer__rule {
-  height: 1px;
-  background: #c8c8c8;
-  margin-bottom: 8px;
-}
-
-.footer__register {
-  font-size: 8.5px;
-  color: #555;
-  font-weight: 600;
-  margin-bottom: 6px;
-  line-height: 1.45;
-}
-
-.footer__columns {
-  display: table;
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-  font-size: 8px;
-  color: #555;
-  line-height: 1.45;
-  margin-bottom: 4px;
-}
-
-.footer__col {
-  display: table-cell;
-  width: 50%;
-  vertical-align: top;
-  padding-right: 12px;
-}
-
-.footer__col:last-child {
-  padding-right: 0;
-}
-
-.footer__col-heading {
-  font-size: 8px;
-  font-weight: 700;
-  color: #1c1c1c;
-  margin-bottom: 3px;
-  text-transform: uppercase;
-  letter-spacing: 0.3px;
-}
-
-.footer__line {
-  margin-bottom: 0;
-}
-
-.footer__legal {
-  font-size: 7px;
-  color: #999;
-  font-style: normal;
-  line-height: 1.35;
-}
-</style>
+<style scoped src="./EinstufungPDF.css"></style>

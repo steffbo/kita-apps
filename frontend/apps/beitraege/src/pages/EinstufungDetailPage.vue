@@ -731,7 +731,7 @@ watch(defaultEmailBody, (next) => {
             class="w-full border rounded-lg px-3 py-2 text-sm leading-6 focus:ring-2 focus:ring-primary/20 focus:border-primary"
           ></textarea>
           <p class="mt-2 text-xs text-gray-500">
-            Hinweis: Die PDF bitte zuerst über „PDF herunterladen“ speichern und dann im Mailprogramm anhängen.
+            Hinweis: Die PDF bitte zuerst über den PDF-Button erstellen und dann im Mailprogramm anhängen.
           </p>
         </div>
 
