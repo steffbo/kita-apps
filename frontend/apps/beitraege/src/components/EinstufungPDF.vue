@@ -171,140 +171,163 @@ defineExpose({ generatePdf });
 
     <!-- Hidden PDF content (rendered off-screen for html2pdf) -->
     <div class="fixed left-[-9999px] top-0">
-      <div
-        ref="pdfContainer"
-        style="width: 186mm; font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Arial, sans-serif; font-size: 10.5px; color: #1a1a1a; line-height: 1.5; padding: 0; background: #fff;"
-      >
-        <!-- Header -->
-        <div style="margin-bottom: 24px;">
-          <div style="font-size: 9px; color: #666; margin-bottom: 2px; letter-spacing: 0.3px;">
-            Elternverein Kita Knirpsenstadt e.V. · Ahornallee 27 · 16341 Panketal
+      <div ref="pdfContainer" class="page">
+
+        <!-- page-header -->
+        <div class="page-header">
+          <div class="page-header__sender">
+            Elternverein Kita Knirpsenstadt e.V. &middot; Ahornallee 27 &middot; 16341 Panketal
           </div>
-          <div style="font-size: 10px; color: #888; font-weight: 500;">
-            Der Vorstand der Kita
-          </div>
+          <div class="page-header__sub">Der Vorstand der Kita</div>
+          <div class="page-header__rule"></div>
         </div>
 
-        <!-- Title -->
-        <div style="font-size: 20px; font-weight: 700; color: #16a34a; margin-bottom: 20px; letter-spacing: -0.3px;">
+        <!-- title -->
+        <div class="title">
           Einstufung Elternbeiträge {{ einstufungYear }}
         </div>
 
-        <!-- Child info card -->
-        <div style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-left: 4px solid #16a34a; padding: 16px 18px; margin-bottom: 20px; border-radius: 6px;">
-          <div style="font-size: 13px; font-weight: 700; color: #15803d; margin-bottom: 12px;">
-            {{ childName }}
-          </div>
-          <div style="display: flex; flex-wrap: wrap; gap: 16px; font-size: 10px;">
-            <div style="flex: 1; min-width: 120px;">
-              <div style="color: #666; margin-bottom: 3px;">Geburtsdatum</div>
-              <div style="font-weight: 600; color: #1a1a1a;">{{ birthDateFormatted }}</div>
+        <!-- info-grid -->
+        <div class="info-grid">
+          <div class="info-grid__name">{{ childName }}</div>
+          <div class="info-grid__fields">
+            <div class="info-item">
+              <div class="info-item__label">Geburtsdatum</div>
+              <div class="info-item__value">{{ birthDateFormatted }}</div>
             </div>
-            <div style="flex: 1; min-width: 120px;">
-              <div style="color: #666; margin-bottom: 3px;">Besucht seit</div>
-              <div style="font-weight: 600; color: #1a1a1a;">{{ entryDateFormatted }}</div>
+            <div class="info-item">
+              <div class="info-item__label">Besucht seit</div>
+              <div class="info-item__value">{{ entryDateFormatted }}</div>
             </div>
-            <div style="flex: 1; min-width: 120px;">
-              <div style="color: #666; margin-bottom: 3px;">Mitgliedsnummer</div>
-              <div style="font-weight: 600; color: #1a1a1a;">{{ memberNumber }}</div>
+            <div class="info-item">
+              <div class="info-item__label">Mitgliedsnummer</div>
+              <div class="info-item__value">{{ memberNumber }}</div>
             </div>
-            <div style="flex: 2; min-width: 180px;">
-              <div style="color: #666; margin-bottom: 3px;">Einrichtung</div>
-              <div style="font-weight: 600; color: #1a1a1a; line-height: 1.3;">
-                Kita Knirpsenstadt e.V.<br>
-                Ahornallee 27, 16341 Panketal
-              </div>
+            <div class="info-item info-item--wide">
+              <div class="info-item__label">Einrichtung</div>
+              <div class="info-item__value">Kita Knirpsenstadt e.V., Ahornallee 27, 16341 Panketal</div>
             </div>
           </div>
         </div>
 
-        <!-- Legal intro -->
-        <div style="font-size: 10px; margin-bottom: 16px; text-align: justify; color: #444; line-height: 1.6;">
-          Nach § 17 des Kindertagesstättengesetzes haben die Erziehungsberechtigten Beiträge zur Inanspruchnahme eines Platzes in
-          der Kindertagesstätte zu entrichten. Dieser monatliche Elternbeitrag wird in Verbindung mit der Elternbeitragsordnung des Trägers ermittelt.
-          Die Kindertagesstätte „Knirpsenstadt" in 16341 Panketal, Ahornallee 27 befindet sich in freier Trägerschaft des „Knirpsenstadt e.V. Panketal".
-        </div>
-        <div style="font-size: 10px; margin-bottom: 18px; text-align: justify; color: #444; line-height: 1.6;">
-          Berechnet wird nach wirtschaftlicher Leistungsfähigkeit (Nettoeinkommen im Jahr), dem Alter des Kindes und der beanspruchten Betreuungszeit. Eine
-          Ermäßigung des Elternbeitrages wird auch nach der Anzahl der unterhaltspflichtigen Kinder gewährt (jedoch nicht nach dem Brandenburg Entlastungspaket).
+        <!-- section: Rechtstext -->
+        <section class="section">
+          <p class="body-text">
+            Nach § 17 des Kindertagesstättengesetzes haben die Erziehungsberechtigten Beiträge zur
+            Inanspruchnahme eines Platzes in der Kindertagesstätte zu entrichten. Dieser monatliche
+            Elternbeitrag wird in Verbindung mit der Elternbeitragsordnung des Trägers ermittelt.
+            Die Kindertagesstätte „Knirpsenstadt" in 16341 Panketal, Ahornallee 27 befindet sich in
+            freier Trägerschaft des „Knirpsenstadt e.V. Panketal".
+          </p>
+          <p class="body-text">
+            Berechnet wird nach wirtschaftlicher Leistungsfähigkeit (Nettoeinkommen im Jahr), dem
+            Alter des Kindes und der beanspruchten Betreuungszeit. Eine Ermäßigung des Elternbeitrages
+            wird auch nach der Anzahl der unterhaltspflichtigen Kinder gewährt (jedoch nicht nach dem
+            Brandenburg Entlastungspaket).
+          </p>
+        </section>
+
+        <!-- notice-box: Einstufungsgrundlage -->
+        <div class="notice-box">
+          <div class="notice-box__label">Grundlage der Einstufung</div>
+          <div class="notice-box__text">{{ feeRuleText }}</div>
         </div>
 
-        <!-- Einstufung basis box -->
-        <div style="background: #f0fdf4; border: 2px solid #16a34a; border-radius: 6px; padding: 12px 16px; margin-bottom: 20px; text-align: center;">
-          <div style="font-size: 10.5px; font-weight: 600; color: #15803d; line-height: 1.5;">
-            {{ feeRuleText }}
+        <!-- section: Beitragsübersicht -->
+        <section class="section">
+          <div class="section__heading">Monatliche Beiträge</div>
+
+          <table class="fee-table">
+            <thead>
+              <tr>
+                <th class="fee-table__col-label"></th>
+                <th
+                  v-for="(col, idx) in feeColumns"
+                  :key="col.label"
+                  class="fee-table__col-month"
+                  :class="{ 'fee-table__col-month--first': idx === 0 }"
+                >
+                  <div class="fee-table__month-name">{{ col.label }}</div>
+                  <div class="fee-table__month-sub">{{ col.careType }} &middot; {{ col.careHours }} h/Woche</div>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr class="fee-table__row">
+                <td class="fee-table__row-label">Platzgeld</td>
+                <td
+                  v-for="(col, idx) in feeColumns"
+                  :key="col.label"
+                  class="fee-table__amount"
+                  :class="{ 'fee-table__amount--primary': idx === 0 }"
+                >
+                  {{ formatEur(col.childcareFee) }}
+                </td>
+              </tr>
+              <tr class="fee-table__row">
+                <td class="fee-table__row-label">Essensgeld</td>
+                <td
+                  v-for="(col, idx) in feeColumns"
+                  :key="col.label"
+                  class="fee-table__amount"
+                  :class="{ 'fee-table__amount--primary': idx === 0 }"
+                >
+                  {{ formatEur(col.foodFee) }}
+                </td>
+              </tr>
+              <tr v-if="feeColumns.some(c => c.membershipFee > 0)" class="fee-table__row fee-table__row--membership">
+                <td class="fee-table__row-label fee-table__row-label--membership">Vereinsbeitrag (jährlich)</td>
+                <td
+                  v-for="(col, idx) in feeColumns"
+                  :key="col.label"
+                  class="fee-table__amount fee-table__amount--membership"
+                  :class="{ 'fee-table__amount--primary': idx === 0 }"
+                >
+                  {{ col.membershipFee > 0 ? formatEur(col.membershipFee) : '—' }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <!-- payment-note -->
+        <div class="payment-note">
+          <div class="payment-note__marker">Hinweis</div>
+          <div class="payment-note__text">
+            Bitte gleicht die Beträge für Mitgliedschaft, Betreuung und Essensgeld in
+            <strong class="payment-note__emphasis">getrennten</strong> Zahlungen unter Angabe des
+            Namens und der Mitgliedsnummer aus.
           </div>
         </div>
 
-        <!-- Fee breakdown header -->
-        <div style="font-size: 13px; font-weight: 700; color: #1a1a1a; margin-bottom: 12px; border-bottom: 2px solid #16a34a; padding-bottom: 6px;">
-          Monatliche Beiträge
-        </div>
+        <!-- section: Zahlungsbedingungen & Änderungspflicht -->
+        <section class="section">
+          <div class="section__heading">Zahlungsbedingungen</div>
+          <p class="body-text">
+            Der monatliche Beitrag wird am 5. eines jeden Monats fällig. Beiträge, die einen Monat
+            in Verzug sind, werden zusätzlich mit einer Mahngebühr von 10,00 € erhoben.
+          </p>
+          <p class="body-text">
+            Der Vereinsbeitrag (derzeit 30,00 €) ist jährlich zu zahlen: Bei Vertragsbeginn sofort,
+            ansonsten bis spätestens Ende des ersten Quartals. Nach Fristablauf wird ein Mahngeld
+            von 5,00 € erhoben.
+          </p>
+          <div class="section__heading section__heading--sub">Änderungspflicht</div>
+          <p class="body-text">
+            Wenn sich das Nettoeinkommen im laufenden Jahr gegenüber dem Vorjahr (bzw. bei
+            Selbständigen gegenüber der letzten Festsetzung) um mehr als 10 % verändert, ist dies
+            unter Vorlage entsprechender Nachweise unverzüglich anzuzeigen.
+          </p>
+        </section>
 
-        <!-- Fee columns as cards -->
-        <div style="display: flex; gap: 10px; margin-bottom: 18px;">
-          <div
-            v-for="(col, idx) in feeColumns"
-            :key="col.label"
-            :style="{
-              flex: 1,
-              background: idx === 0 ? '#fff7ed' : '#f9fafb',
-              border: idx === 0 ? '2px solid #f97316' : '1px solid #e5e7eb',
-              borderRadius: '6px',
-              padding: '12px',
-            }"
-          >
-            <div style="text-align: center; margin-bottom: 10px;">
-              <div :style="{ fontSize: '11px', fontWeight: 700, color: idx === 0 ? '#ea580c' : '#16a34a', marginBottom: '2px' }">
-                {{ col.label }}
-              </div>
-              <div style="fontSize: '9px', color: '#666;">
-                {{ col.careType }} · {{ col.careHours }}h/Woche
-              </div>
-            </div>
-            <div style="border-top: 1px solid #e5e7eb; padding-top: 8px;">
-              <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px;">
-                <span style="fontSize: '9px'; color: '#666';">Platzgeld</span>
-                <span style="fontSize: '12px'; fontWeight: 700; color: '#1a1a1a';">{{ formatEur(col.childcareFee) }}</span>
-              </div>
-              <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px;">
-                <span style="fontSize: '9px'; color: '#666';">Essensgeld</span>
-                <span style="fontSize: '11px'; fontWeight: 600; color: '#1a1a1a';">{{ formatEur(col.foodFee) }}</span>
-              </div>
-              <div v-if="col.membershipFee > 0" style="display: flex; justify-content: space-between; align-items: baseline; padding-top: 6px; border-top: 1px dashed #e5e7eb;">
-                <span style="fontSize: '9px'; color: '#ea580c'; fontWeight: 600;">Vereinsbeitrag (jährlich)</span>
-                <span style="fontSize: '11px'; fontWeight: 700; color: '#ea580c';">{{ formatEur(col.membershipFee) }}</span>
-              </div>
-            </div>
+        <!-- footer -->
+        <footer class="footer">
+          <div class="footer__register">
+            Kita Knirpsenstadt e.V. &middot; Vereinsregister VR 4217 beim Amtsgericht Frankfurt (Oder)
           </div>
-        </div>
-
-        <!-- Payment notice -->
-        <div style="background: #fef2f2; border: 2px solid #dc2626; border-radius: 6px; padding: 10px 14px; margin-bottom: 18px;">
-          <div style="text-align: center; color: #991b1b; font-weight: 700; font-size: 10.5px; line-height: 1.5;">
-            ⚠️ Bitte gleicht die Beträge für Mitgliedschaft, Betreuung und Essensgeld in <span style="text-decoration: underline;">getrennten</span> Zahlungen unter Angabe des Namens und der Mitgliedsnummer aus.
-          </div>
-        </div>
-
-        <!-- Payment terms -->
-        <div style="font-size: 10px; color: #444; line-height: 1.6; margin-bottom: 8px; text-align: justify;">
-          <strong>Zahlungsbedingungen:</strong> Der monatliche Beitrag wird am 5. eines jeden Monats fällig. Beiträge, die einen Monat in Verzug sind, werden zusätzlich mit einer Mahngebühr von 10,00 € erhoben.
-        </div>
-        <div style="font-size: 10px; color: #444; line-height: 1.6; margin-bottom: 8px; text-align: justify;">
-          Der Vereinsbeitrag (derzeit 30,00 €) ist jährlich zu zahlen: Bei Vertragsbeginn sofort, ansonsten bis spätestens Ende des ersten Quartals. Nach Fristablauf wird ein Mahngeld von 5,00 € erhoben.
-        </div>
-        <div style="font-size: 10px; color: #444; line-height: 1.6; margin-bottom: 20px; text-align: justify;">
-          <strong>Änderungspflicht:</strong> Wenn sich das Nettoeinkommen im laufenden Jahr gegenüber dem Vorjahr (bzw. bei Selbständigen gegenüber der letzten Festsetzung) um mehr als 10 % verändert, ist dies unter Vorlage entsprechender Nachweise unverzüglich anzuzeigen.
-        </div>
-
-        <!-- Footer -->
-        <div style="border-top: 2px solid #e5e7eb; padding-top: 12px; margin-top: 24px;">
-          <div style="font-size: 9px; color: #666; margin-bottom: 8px; font-weight: 600;">
-            Kita Knirpsenstadt e.V. · Vereinsregister VR 4217 beim Amtsgericht Frankfurt (Oder)
-          </div>
-          <div style="display: flex; gap: 20px; font-size: 8px; color: #666; line-height: 1.4;">
-            <div style="flex: 1;">
-              <div style="font-weight: 700; margin-bottom: 4px; color: #1a1a1a;">Vorstandsmitglieder</div>
+          <div class="footer__columns">
+            <div class="footer__col">
+              <div class="footer__col-heading">Vorstandsmitglieder</div>
               André Rüger (1. Vorsitzender)<br>
               Sarah Thielandt (2. Vorsitzende / Bauliches)<br>
               Marcus Rehberg (Kassenwart)<br>
@@ -312,19 +335,341 @@ defineExpose({ generatePdf });
               Samantha Lahl (Schriftführer)<br>
               Dennis Braak (Personal)
             </div>
-            <div style="flex: 1;">
-              <div style="font-weight: 700; margin-bottom: 4px; color: #1a1a1a;">Bankverbindung</div>
+            <div class="footer__col">
+              <div class="footer__col-heading">Bankverbindung</div>
               Knirpsenstadt e. V.<br>
               IBAN: DE53 3702 0500 0003 3714 00<br>
               BIC: BFSWDE33XXX<br>
               Bank für Sozialwirtschaft AG
             </div>
           </div>
-          <div style="margin-top: 8px; font-size: 8px; color: #888; font-style: italic;">
+          <div class="footer__legal">
             Rechtlich verbindliche Aussagen für den Verein trifft allein der Vorstand.
           </div>
-        </div>
+        </footer>
+
       </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+/* ── Design Tokens ─────────────────────────────────────────────────────────── */
+.page {
+  width: 186mm;
+  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Arial, sans-serif;
+  font-size: 10.5px;
+  color: #1c1c1c;
+  line-height: 1.55;
+  background: #ffffff;
+  padding: 0;
+}
+
+/* ── Page Header ───────────────────────────────────────────────────────────── */
+.page-header {
+  margin-bottom: 22px;
+}
+
+.page-header__sender {
+  font-size: 8.5px;
+  color: #888;
+  letter-spacing: 0.2px;
+  margin-bottom: 3px;
+}
+
+.page-header__sub {
+  font-size: 9.5px;
+  color: #555;
+  font-weight: 500;
+}
+
+.page-header__rule {
+  margin-top: 10px;
+  height: 1px;
+  background: #d1d5db;
+}
+
+/* ── Title ─────────────────────────────────────────────────────────────────── */
+.title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #1c6a38;
+  letter-spacing: -0.2px;
+  margin-bottom: 18px;
+  padding-bottom: 10px;
+  border-bottom: 2px solid #1c6a38;
+}
+
+/* ── Info Grid (Stammdaten) ────────────────────────────────────────────────── */
+.info-grid {
+  border: 1px solid #d1d5db;
+  border-left: 3px solid #1c6a38;
+  padding: 12px 14px;
+  margin-bottom: 18px;
+  background: #fafafa;
+}
+
+.info-grid__name {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #1c1c1c;
+  margin-bottom: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.info-grid__fields {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+}
+
+.info-item {
+  flex: 1;
+  min-width: 110px;
+  padding-right: 12px;
+}
+
+.info-item--wide {
+  flex: 2;
+  min-width: 160px;
+}
+
+.info-item__label {
+  font-size: 8.5px;
+  color: #777;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  margin-bottom: 2px;
+}
+
+.info-item__value {
+  font-size: 10px;
+  font-weight: 600;
+  color: #1c1c1c;
+  line-height: 1.35;
+}
+
+/* ── Sections ──────────────────────────────────────────────────────────────── */
+.section {
+  margin-bottom: 16px;
+}
+
+.section__heading {
+  font-size: 11px;
+  font-weight: 700;
+  color: #1c1c1c;
+  margin-bottom: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1.5px solid #1c6a38;
+}
+
+.section__heading--sub {
+  margin-top: 10px;
+  border-bottom-color: #d1d5db;
+}
+
+/* ── Body Text ─────────────────────────────────────────────────────────────── */
+.body-text {
+  font-size: 9.5px;
+  color: #3d3d3d;
+  line-height: 1.65;
+  text-align: justify;
+  margin-bottom: 8px;
+}
+
+.body-text:last-child {
+  margin-bottom: 0;
+}
+
+/* ── Notice Box (Einstufungsgrundlage) ─────────────────────────────────────── */
+.notice-box {
+  border: 1px solid #a7c9b2;
+  border-left: 3px solid #1c6a38;
+  background: #f4fbf6;
+  padding: 10px 14px;
+  margin-bottom: 16px;
+}
+
+.notice-box__label {
+  font-size: 8px;
+  font-weight: 700;
+  color: #1c6a38;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 4px;
+}
+
+.notice-box__text {
+  font-size: 9.5px;
+  color: #1c3a26;
+  line-height: 1.6;
+  font-weight: 500;
+}
+
+/* ── Fee Table ─────────────────────────────────────────────────────────────── */
+.fee-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 0;
+  font-size: 9.5px;
+}
+
+.fee-table th,
+.fee-table td {
+  padding: 6px 8px;
+  text-align: right;
+}
+
+.fee-table th:first-child,
+.fee-table td:first-child {
+  text-align: left;
+  padding-left: 0;
+}
+
+.fee-table thead tr {
+  border-bottom: 1.5px solid #1c6a38;
+}
+
+.fee-table__col-label {
+  width: 40%;
+}
+
+.fee-table__col-month {
+  color: #3d3d3d;
+  font-weight: 400;
+}
+
+.fee-table__col-month--first {
+  color: #1c6a38;
+}
+
+.fee-table__month-name {
+  font-size: 10px;
+  font-weight: 700;
+  margin-bottom: 1px;
+}
+
+.fee-table__month-sub {
+  font-size: 8px;
+  font-weight: 400;
+  color: #777;
+}
+
+.fee-table__row td {
+  border-bottom: 1px solid #ececec;
+  color: #1c1c1c;
+}
+
+.fee-table__row-label {
+  color: #555;
+  font-size: 9.5px;
+}
+
+.fee-table__amount {
+  font-size: 10px;
+  font-weight: 600;
+  color: #1c1c1c;
+  white-space: nowrap;
+}
+
+.fee-table__amount--primary {
+  color: #1c6a38;
+}
+
+.fee-table__row--membership td {
+  border-top: 1px dashed #c3d9c9;
+  border-bottom: none;
+  padding-top: 8px;
+}
+
+.fee-table__row-label--membership {
+  font-size: 9px;
+  color: #444;
+}
+
+.fee-table__amount--membership {
+  font-size: 9.5px;
+  color: #444;
+}
+
+.fee-table__amount--membership.fee-table__amount--primary {
+  color: #1c6a38;
+}
+
+/* ── Payment Note ──────────────────────────────────────────────────────────── */
+.payment-note {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  background: #fffbf0;
+  border: 1px solid #d4a72c;
+  border-left: 3px solid #b8860b;
+  padding: 9px 14px;
+  margin-bottom: 16px;
+}
+
+.payment-note__marker {
+  font-size: 7.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #b8860b;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.payment-note__text {
+  font-size: 9.5px;
+  color: #3d2e00;
+  line-height: 1.6;
+}
+
+.payment-note__emphasis {
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-color: #b8860b;
+}
+
+/* ── Footer ────────────────────────────────────────────────────────────────── */
+.footer {
+  border-top: 1px solid #c8c8c8;
+  padding-top: 12px;
+  margin-top: 20px;
+}
+
+.footer__register {
+  font-size: 8.5px;
+  color: #555;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.footer__columns {
+  display: flex;
+  gap: 24px;
+  font-size: 8px;
+  color: #555;
+  line-height: 1.55;
+  margin-bottom: 8px;
+}
+
+.footer__col {
+  flex: 1;
+}
+
+.footer__col-heading {
+  font-size: 8px;
+  font-weight: 700;
+  color: #1c1c1c;
+  margin-bottom: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.footer__legal {
+  font-size: 7.5px;
+  color: #999;
+  font-style: italic;
+}
+</style>
