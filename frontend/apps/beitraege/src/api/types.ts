@@ -40,6 +40,7 @@ export interface ReminderWarning {
 }
 
 export interface ReminderPreview {
+  householdId: string;
   householdName: string;
   recipients: string[];
   subject: string;

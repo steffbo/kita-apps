@@ -393,11 +393,13 @@ func (r *PostgresChildRepository) Delete(ctx context.Context, id uuid.UUID) erro
 func (r *PostgresChildRepository) GetParents(ctx context.Context, childID uuid.UUID) ([]domain.Parent, error) {
 	var parents []domain.Parent
 	err := r.db.SelectContext(ctx, &parents, `
-		SELECT p.id, p.household_id, p.member_id, p.first_name, p.last_name, p.birth_date, p.email, p.phone,
-		       p.street, p.street_no, p.postal_code, p.city,
+		SELECT p.id, p.household_id, p.member_id, p.first_name, p.last_name, p.birth_date,
+		       COALESCE(NULLIF(TRIM(p.email), ''), m.email) AS email,
+		       p.phone, p.street, p.street_no, p.postal_code, p.city,
 		       p.annual_household_income, p.income_status, p.created_at, p.updated_at
 		FROM fees.parents p
 		INNER JOIN fees.child_parents cp ON p.id = cp.parent_id
+		LEFT JOIN fees.members m ON m.id = p.member_id
 		WHERE cp.child_id = $1
 		ORDER BY cp.is_primary DESC, p.last_name, p.first_name
 	`, childID)
@@ -415,12 +417,14 @@ func (r *PostgresChildRepository) GetParentsForChildren(ctx context.Context, chi
 
 	// Query all parents for all children in one query
 	query, args, err := sqlx.In(`
-		SELECT p.id, p.household_id, p.member_id, p.first_name, p.last_name, p.birth_date, p.email, p.phone,
-		       p.street, p.street_no, p.postal_code, p.city,
+		SELECT p.id, p.household_id, p.member_id, p.first_name, p.last_name, p.birth_date,
+		       COALESCE(NULLIF(TRIM(p.email), ''), m.email) AS email,
+		       p.phone, p.street, p.street_no, p.postal_code, p.city,
 		       p.annual_household_income, p.income_status, p.created_at, p.updated_at,
 		       cp.child_id
 		FROM fees.parents p
 		INNER JOIN fees.child_parents cp ON p.id = cp.parent_id
+		LEFT JOIN fees.members m ON m.id = p.member_id
 		WHERE cp.child_id IN (?)
 		ORDER BY cp.is_primary DESC, p.last_name, p.first_name
 	`, childIDs)

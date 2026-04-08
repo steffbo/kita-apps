@@ -59,6 +59,7 @@ type ReminderWarningResponse struct {
 
 // ReminderPreviewResponse holds the preview for a single family email.
 type ReminderPreviewResponse struct {
+	HouseholdID   string   `json:"householdId" example:"550e8400-e29b-41d4-a716-446655440000"`
 	HouseholdName string   `json:"householdName" example:"Schmidt"`
 	Recipients    []string `json:"recipients" example:"[\"anna@example.com\"]"`
 	Subject       string   `json:"subject" example:"Kita Zahlungserinnerung April 2026"`
@@ -656,6 +657,7 @@ func (h *FeeHandler) CalculateChildcareFee(w http.ResponseWriter, r *http.Reques
 // @Param date query string false "Run date (YYYY-MM-DD, defaults to today)"
 // @Param stage query string false "Stage: auto, initial, final" Enums(auto, initial, final)
 // @Param dryRun query bool false "If true, don't send emails or create reminders"
+// @Param selectedHouseholdIds query string false "Optional comma-separated household IDs to process"
 // @Success 200 {object} ReminderRunResponse "Reminder run result"
 // @Failure 400 {object} response.ErrorBody "Invalid request"
 // @Failure 401 {object} response.ErrorBody "Not authenticated"
@@ -707,7 +709,25 @@ func (h *FeeHandler) RunReminders(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	result, err := h.reminderService.Run(r.Context(), runDate, stage, sentBy, dryRun, deadline)
+	var selectedHouseholdIDs []uuid.UUID
+	if selectedRaw := strings.TrimSpace(request.GetQueryString(r, "selectedHouseholdIds", "")); selectedRaw != "" {
+		parts := strings.Split(selectedRaw, ",")
+		selectedHouseholdIDs = make([]uuid.UUID, 0, len(parts))
+		for _, part := range parts {
+			idStr := strings.TrimSpace(part)
+			if idStr == "" {
+				continue
+			}
+			parsed, err := uuid.Parse(idStr)
+			if err != nil {
+				response.BadRequest(w, "invalid selectedHouseholdIds value")
+				return
+			}
+			selectedHouseholdIDs = append(selectedHouseholdIDs, parsed)
+		}
+	}
+
+	result, err := h.reminderService.Run(r.Context(), runDate, stage, sentBy, dryRun, deadline, selectedHouseholdIDs)
 	if err != nil {
 		if err == service.ErrInvalidInput {
 			response.BadRequest(w, "invalid request")
@@ -739,6 +759,7 @@ func (h *FeeHandler) RunReminders(w http.ResponseWriter, r *http.Request) {
 
 	for _, prev := range result.Previews {
 		resp.Previews = append(resp.Previews, ReminderPreviewResponse{
+			HouseholdID:   prev.HouseholdID,
 			HouseholdName: prev.HouseholdName,
 			Recipients:    prev.Recipients,
 			Subject:       prev.Subject,

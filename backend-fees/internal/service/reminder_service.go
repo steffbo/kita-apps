@@ -33,6 +33,7 @@ type ReminderWarning struct {
 
 // ReminderPreview holds the preview data for a single family email.
 type ReminderPreview struct {
+	HouseholdID   string
 	HouseholdName string
 	Recipients    []string
 	Subject       string
@@ -113,7 +114,7 @@ func ParseReminderStage(stage string) (ReminderStage, error) {
 
 // Run executes reminder logic for the given date and stage.
 // deadline overrides the payment deadline shown in the email; if nil, the 10th of the run month is used.
-func (s *ReminderService) Run(ctx context.Context, runDate time.Time, stage ReminderStage, sentBy *uuid.UUID, dryRun bool, deadline *time.Time) (*ReminderRunResult, error) {
+func (s *ReminderService) Run(ctx context.Context, runDate time.Time, stage ReminderStage, sentBy *uuid.UUID, dryRun bool, deadline *time.Time, selectedHouseholdIDs []uuid.UUID) (*ReminderRunResult, error) {
 	if stage == ReminderStageAuto {
 		autoEnabled, err := s.GetAutoEnabled(ctx)
 		if err != nil {
@@ -201,6 +202,7 @@ func (s *ReminderService) Run(ctx context.Context, runDate time.Time, stage Remi
 	if err != nil {
 		return nil, err
 	}
+	householdGroups = filterHouseholdGroupsBySelection(householdGroups, selectedHouseholdIDs)
 
 	result.FamiliesProcessed = len(householdGroups)
 
@@ -226,6 +228,7 @@ func (s *ReminderService) Run(ctx context.Context, runDate time.Time, stage Remi
 
 		if dryRun {
 			result.Previews = append(result.Previews, ReminderPreview{
+				HouseholdID:   group.householdID.String(),
 				HouseholdName: group.householdName,
 				Recipients:    recipients,
 				Subject:       subject,
@@ -258,6 +261,25 @@ func (s *ReminderService) Run(ctx context.Context, runDate time.Time, stage Remi
 	}
 
 	return result, nil
+}
+
+func filterHouseholdGroupsBySelection(groups []householdGroup, selectedHouseholdIDs []uuid.UUID) []householdGroup {
+	if len(selectedHouseholdIDs) == 0 {
+		return groups
+	}
+
+	selected := make(map[uuid.UUID]struct{}, len(selectedHouseholdIDs))
+	for _, householdID := range selectedHouseholdIDs {
+		selected[householdID] = struct{}{}
+	}
+
+	filtered := make([]householdGroup, 0, len(groups))
+	for _, group := range groups {
+		if _, ok := selected[group.householdID]; ok {
+			filtered = append(filtered, group)
+		}
+	}
+	return filtered
 }
 
 // householdGroup holds items grouped under a single household.

@@ -169,12 +169,14 @@ func (r *PostgresHouseholdRepository) Delete(ctx context.Context, id uuid.UUID) 
 func (r *PostgresHouseholdRepository) GetParents(ctx context.Context, householdID uuid.UUID) ([]domain.Parent, error) {
 	var parents []domain.Parent
 	err := r.db.SelectContext(ctx, &parents, `
-		SELECT id, household_id, member_id, first_name, last_name, birth_date, email, phone,
-		       street, street_no, postal_code, city,
-		       annual_household_income, income_status, created_at, updated_at
-		FROM fees.parents
-		WHERE household_id = $1
-		ORDER BY last_name, first_name
+		SELECT p.id, p.household_id, p.member_id, p.first_name, p.last_name, p.birth_date,
+		       COALESCE(NULLIF(TRIM(p.email), ''), m.email) AS email,
+		       p.phone, p.street, p.street_no, p.postal_code, p.city,
+		       p.annual_household_income, p.income_status, p.created_at, p.updated_at
+		FROM fees.parents p
+		LEFT JOIN fees.members m ON m.id = p.member_id
+		WHERE p.household_id = $1
+		ORDER BY p.last_name, p.first_name
 	`, householdID)
 	if err != nil {
 		return nil, err

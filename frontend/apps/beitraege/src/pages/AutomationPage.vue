@@ -23,13 +23,13 @@ const reminderRunError = ref<string | null>(null);
 const reminderRunResult = ref<ReminderRunResponse | null>(null);
 const reminderDate = ref(new Date().toLocaleDateString('en-CA'));
 const reminderDeadline = ref('');
-const reminderDryRun = ref(true);
 const isRunningReminders = ref(false);
 
 // Dry-run preview modal state
 const showPreviewModal = ref(false);
 const previewStage = ref<'initial' | 'final'>('initial');
 const expandedPreview = ref<string | null>(null);
+const selectedPreviewHouseholdIds = ref<string[]>([]);
 
 // Email logs state
 const emailLogs = ref<EmailLog[]>([]);
@@ -209,13 +209,14 @@ async function runReminders(stage: 'initial' | 'final') {
     const result = await api.runReminders({
       stage,
       date: reminderDate.value,
-      dryRun: reminderDryRun.value,
+      dryRun: true,
       deadline: reminderDeadline.value || undefined,
     });
     reminderRunResult.value = result;
     if (result.dryRun && result.previews && result.previews.length > 0) {
       previewStage.value = stage;
       expandedPreview.value = null;
+      selectedPreviewHouseholdIds.value = result.previews.map((preview) => preview.householdId);
       showPreviewModal.value = true;
     }
   } catch (e) {
@@ -226,6 +227,10 @@ async function runReminders(stage: 'initial' | 'final') {
 }
 
 async function sendFromModal() {
+  if (selectedPreviewHouseholdIds.value.length === 0) {
+    reminderRunError.value = 'Bitte mindestens eine Familie auswählen.';
+    return;
+  }
   showPreviewModal.value = false;
   if (!authStore.isAdmin) return;
   isRunningReminders.value = true;
@@ -237,6 +242,7 @@ async function sendFromModal() {
       date: reminderDate.value,
       dryRun: false,
       deadline: reminderDeadline.value || undefined,
+      selectedHouseholdIds: selectedPreviewHouseholdIds.value,
     });
     reminderRunResult.value = result;
   } catch (e) {
@@ -441,24 +447,20 @@ watch(
             class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
           />
         </div>
-        <label class="inline-flex items-center gap-2 text-sm text-gray-700">
-          <input type="checkbox" v-model="reminderDryRun" />
-          Nur Vorschau (keine E-Mails, keine Mahngebühren)
-        </label>
         <div class="flex flex-col sm:flex-row gap-2">
           <button
             class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
             :disabled="isRunningReminders"
             @click="runReminders('initial')"
           >
-            Erinnerung senden
+            Erinnerung senden (Auswahl)
           </button>
           <button
             class="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-50"
             :disabled="isRunningReminders"
             @click="runReminders('final')"
           >
-            Mahnung senden
+            Mahnung senden (Auswahl)
           </button>
         </div>
       </div>
@@ -519,6 +521,9 @@ watch(
                 · <span class="font-semibold">{{ reminderRunResult?.familiesSkippedNoEmail }} ohne gültige E-Mail-Adresse</span>
               </template>
             </p>
+            <p class="text-xs text-gray-500 mt-1">
+              {{ selectedPreviewHouseholdIds.length }} Familie(n) ausgewählt
+            </p>
           </div>
           <button @click="showPreviewModal = false" class="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
         </div>
@@ -540,16 +545,25 @@ watch(
           <!-- Per-family previews -->
           <div
             v-for="prev in reminderRunResult?.previews"
-            :key="prev.householdName"
+            :key="prev.householdId"
             class="border rounded-lg overflow-hidden"
           >
-            <button
-              class="w-full flex items-center justify-between px-4 py-3 text-sm font-medium text-gray-800 hover:bg-gray-50 text-left"
-              @click="togglePreview(prev.householdName)"
-            >
-              <span>{{ prev.householdName }}</span>
-              <span class="text-xs text-gray-500">{{ prev.recipients.join(', ') }}</span>
-            </button>
+            <div class="w-full flex items-center justify-between gap-3 px-4 py-3 text-sm font-medium text-gray-800">
+              <label class="inline-flex items-center gap-2 shrink-0">
+                <input
+                  type="checkbox"
+                  v-model="selectedPreviewHouseholdIds"
+                  :value="prev.householdId"
+                />
+                <span>{{ prev.householdName }}</span>
+              </label>
+              <button
+                class="text-xs text-gray-500 hover:text-gray-700 text-right"
+                @click="togglePreview(prev.householdName)"
+              >
+                {{ prev.recipients.join(', ') }}
+              </button>
+            </div>
             <div v-if="expandedPreview === prev.householdName" class="border-t px-4 py-3 bg-gray-50 text-sm space-y-2">
               <p class="font-medium text-gray-700">Betreff: {{ prev.subject }}</p>
               <pre class="whitespace-pre-wrap text-gray-600 bg-white border rounded p-3 text-xs">{{ prev.body }}</pre>
@@ -566,7 +580,7 @@ watch(
           </button>
           <button
             class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
-            :disabled="isRunningReminders"
+            :disabled="isRunningReminders || selectedPreviewHouseholdIds.length === 0"
             @click="sendFromModal"
           >
             Jetzt senden
