@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api';
 import type {
@@ -24,6 +24,8 @@ import {
   Clock,
   FileText,
   CheckCircle,
+  Mail,
+  RotateCcw,
 } from 'lucide-vue-next';
 import IncomeForm from '@/components/IncomeForm.vue';
 import EinstufungPDF from '@/components/EinstufungPDF.vue';
@@ -116,9 +118,144 @@ const selectedHousehold = computed(() => {
   return households.value.find((h) => h.id === selectedChild.value!.householdId);
 });
 const childMissingHousehold = computed(() => !!selectedChildId.value && !!selectedChild.value && !selectedChild.value.householdId);
+const householdParents = computed(() => selectedHousehold.value?.parents ?? []);
+const emailRecipients = computed(() => {
+  const seen = new Set<string>();
+  const recipients: string[] = [];
+  for (const parent of householdParents.value) {
+    const email = parent.email?.trim();
+    if (!email || seen.has(email)) continue;
+    seen.add(email);
+    recipients.push(email);
+  }
+  return recipients;
+});
 
 // Care hour options
 const careHourOptions = [30, 35, 40, 45, 50, 55];
+
+const BANK_DETAILS = `Bank für Sozialwirtschaft AG
+IBAN: DE33 3702 0500 0003 3214 00
+BIC: BFSWDE33XXX`;
+
+const EMAIL_SIGNATURE = `Mit freundlichen Grüßen
+Stefan Remer
+
+Elternverein „Knirpsenstadt“ e.V. – Ahornallee 27 – 16341 Panketal
+
+Der Vorstand der Kita, Vorstandsmitglieder: André Rüger (1. Vorsitzender), Sarah Thränhardt (2. Vorsitzende / Bauliches), Marcus Rehaag (Kassenwart), Stefan Remer (Elternarbeit), Samantha Lahl (Schriftführerin), Dennis Braak (Personalverantwortliche)
+
+Vereinsregister: VR 4217 beim Amtsgericht Frankfurt (Oder) Rechtlich verbindliche Aussagen für den Verein trifft allein der Vorstand.
+Diese E-Mail enthält vertrauliche und/oder rechtlich geschützte Informationen. Wenn Sie nicht der beabsichtigte Empfänger sind, bitte sofort den Absender informieren und diese E-Mail löschen. Die unbefugte Weitergabe der enthaltenen Informationen oder das unbefugte Kopieren dieser E-Mail ist nicht gestattet. Außer für den Fall von Vorsatz oder grober Fahrlässigkeit schließen wir die Haftung für jeglichen Verlust oder Schäden durch Virenbefall aus.`;
+
+const emailSubject = ref('');
+const emailBody = ref('');
+const emailSubjectDirty = ref(false);
+const emailBodyDirty = ref(false);
+const mailError = ref<string | null>(null);
+
+const einstufungChild = computed(() => einstufung.value?.child ?? selectedChild.value ?? null);
+const childFirstName = computed(() => einstufungChild.value?.firstName || 'dem Kind');
+const childMemberNumber = computed(() => einstufungChild.value?.memberNumber || '—');
+
+const parentFirstNames = computed(() => {
+  return householdParents.value
+    .map((parent) => parent.firstName?.trim())
+    .filter((name): name is string => !!name)
+    .slice(0, 2);
+});
+
+const greetingLine = computed(() => {
+  if (parentFirstNames.value.length >= 2) {
+    return `Hallo ${parentFirstNames.value[0]}, hallo ${parentFirstNames.value[1]},`;
+  }
+  if (parentFirstNames.value.length === 1) {
+    return `Hallo ${parentFirstNames.value[0]},`;
+  }
+  return 'Hallo,';
+});
+
+const summaryLine = computed(() => {
+  if (!einstufung.value) return '$zusammenfassungDerEinstufung';
+  const e = einstufung.value;
+  const formattedChildcareFee = formatCurrency(e.monthlyChildcareFee);
+  const formattedFoodFee = formatCurrency(e.monthlyFoodFee);
+  const formattedMembershipFee = formatCurrency(e.annualMembershipFee);
+
+  const lines: string[] = [];
+  if (e.monthlyChildcareFee <= 0) {
+    lines.push(
+      `Ihr braucht nach der Beitragsordnung ${e.year} für ${childFirstName.value} kein Platzgeld zu zahlen.`
+    );
+  } else {
+    lines.push(
+      `Ihr zahlt nach der Beitragsordnung ${e.year} für ${childFirstName.value} ein monatliches Platzgeld in Höhe von ${formattedChildcareFee}.`
+    );
+  }
+
+  if (e.annualMembershipFee > 0) {
+    lines.push(
+      `Bitte zahlt regelmäßig bis zum 5. des Monats das Essensgeld in Höhe von ${formattedFoodFee} sowie einmal jährlich den Vereinsbeitrag über ${formattedMembershipFee} (auch für ${e.year}).`
+    );
+  } else {
+    lines.push(`Bitte zahlt regelmäßig bis zum 5. des Monats das Essensgeld in Höhe von ${formattedFoodFee}.`);
+  }
+
+  return lines.join('\n');
+});
+
+const transferInstruction = computed(() => {
+  return `Im Verwendungszweck sollte immer die Mitgliedsnummer ${childMemberNumber.value} angegeben werden.
+
+${BANK_DETAILS}`;
+});
+
+const defaultEmailSubject = computed(() => {
+  if (!einstufung.value) return 'Einstufung Elternbeiträge';
+  const lastName = einstufungChild.value?.lastName || '';
+  return `Einstufung Elternbeiträge ${einstufung.value.year}${lastName ? ` – ${lastName}` : ''}`;
+});
+
+const defaultEmailBody = computed(() => {
+  return `${greetingLine.value}
+
+willkommen in der Knirpsenstadt!
+
+${summaryLine.value}
+${transferInstruction.value}
+
+${EMAIL_SIGNATURE}`;
+});
+
+function resetEmailDraft() {
+  emailSubject.value = defaultEmailSubject.value;
+  emailBody.value = defaultEmailBody.value;
+  emailSubjectDirty.value = false;
+  emailBodyDirty.value = false;
+  mailError.value = null;
+}
+
+function openEmailComposer() {
+  mailError.value = null;
+  if (!emailRecipients.value.length) {
+    mailError.value = 'Keine gültige E-Mail-Adresse bei den Eltern hinterlegt.';
+    return;
+  }
+  const subject = emailSubject.value.trim();
+  const body = emailBody.value.trim();
+  if (!subject) {
+    mailError.value = 'Bitte einen Betreff eintragen.';
+    return;
+  }
+  if (!body) {
+    mailError.value = 'Bitte einen E-Mail-Text eintragen.';
+    return;
+  }
+
+  const to = emailRecipients.value.map((email) => encodeURIComponent(email)).join(',');
+  const mailto = `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+  window.location.href = mailto;
+}
 
 // Income field definitions for the form
 const employeeFields = [
@@ -250,6 +387,18 @@ function formatCurrency(amount: number): string {
 }
 
 onMounted(loadData);
+
+watch(defaultEmailSubject, (next) => {
+  if (!emailSubjectDirty.value) {
+    emailSubject.value = next;
+  }
+}, { immediate: true });
+
+watch(defaultEmailBody, (next) => {
+  if (!emailBodyDirty.value) {
+    emailBody.value = next;
+  }
+}, { immediate: true });
 </script>
 
 <template>
@@ -534,6 +683,71 @@ onMounted(loadData);
               </tr>
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <div v-if="einstufung" class="bg-white rounded-lg border shadow-sm p-6 space-y-4">
+        <div class="flex items-center justify-between gap-3">
+          <h2 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
+            <Mail class="h-5 w-5 text-gray-400" />
+            E-Mail an Eltern
+          </h2>
+          <button
+            type="button"
+            @click="resetEmailDraft"
+            class="inline-flex items-center gap-2 px-3 py-2 text-xs text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+          >
+            <RotateCcw class="h-3.5 w-3.5" />
+            Standardtext einsetzen
+          </button>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Empfänger</label>
+          <p v-if="emailRecipients.length" class="text-sm text-gray-700">
+            {{ emailRecipients.join(', ') }}
+          </p>
+          <p v-else class="text-sm text-amber-700">
+            Keine Empfänger gefunden. Bitte E-Mail-Adressen in den Elterndaten hinterlegen.
+          </p>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Betreff</label>
+          <input
+            v-model="emailSubject"
+            @input="emailSubjectDirty = true"
+            type="text"
+            class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary"
+          />
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Text</label>
+          <textarea
+            v-model="emailBody"
+            @input="emailBodyDirty = true"
+            rows="16"
+            class="w-full border rounded-lg px-3 py-2 text-sm leading-6 focus:ring-2 focus:ring-primary/20 focus:border-primary"
+          ></textarea>
+          <p class="mt-2 text-xs text-gray-500">
+            Hinweis: Die PDF bitte zuerst über „PDF herunterladen“ speichern und dann im Mailprogramm anhängen.
+          </p>
+        </div>
+
+        <div v-if="mailError" class="text-sm text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+          {{ mailError }}
+        </div>
+
+        <div>
+          <button
+            type="button"
+            @click="openEmailComposer"
+            class="inline-flex items-center gap-2 px-4 py-2 text-sm text-white bg-primary rounded-lg hover:bg-primary/90 transition-colors"
+          >
+            <Mail class="h-4 w-4" />
+            E-Mail im Mailprogramm öffnen
+          </button>
         </div>
       </div>
 
