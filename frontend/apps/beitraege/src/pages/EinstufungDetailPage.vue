@@ -134,19 +134,10 @@ const emailRecipients = computed(() => {
 // Care hour options
 const careHourOptions = [30, 35, 40, 45, 50, 55];
 
-const BANK_DETAILS = `Bank für Sozialwirtschaft AG
+const BANK_DETAILS = `Knirpsenstadt e.V.
 IBAN: DE33 3702 0500 0003 3214 00
-BIC: BFSWDE33XXX`;
-
-const EMAIL_SIGNATURE = `Mit freundlichen Grüßen
-Stefan Remer
-
-Elternverein „Knirpsenstadt“ e.V. – Ahornallee 27 – 16341 Panketal
-
-Der Vorstand der Kita, Vorstandsmitglieder: André Rüger (1. Vorsitzender), Sarah Thränhardt (2. Vorsitzende / Bauliches), Marcus Rehaag (Kassenwart), Stefan Remer (Elternarbeit), Samantha Lahl (Schriftführerin), Dennis Braak (Personalverantwortliche)
-
-Vereinsregister: VR 4217 beim Amtsgericht Frankfurt (Oder) Rechtlich verbindliche Aussagen für den Verein trifft allein der Vorstand.
-Diese E-Mail enthält vertrauliche und/oder rechtlich geschützte Informationen. Wenn Sie nicht der beabsichtigte Empfänger sind, bitte sofort den Absender informieren und diese E-Mail löschen. Die unbefugte Weitergabe der enthaltenen Informationen oder das unbefugte Kopieren dieser E-Mail ist nicht gestattet. Außer für den Fall von Vorsatz oder grober Fahrlässigkeit schließen wir die Haftung für jeglichen Verlust oder Schäden durch Virenbefall aus.`;
+BIC: BFSWDE33XXX
+Bank für Sozialwirtschaft AG`;
 
 const emailSubject = ref('');
 const emailBody = ref('');
@@ -155,7 +146,6 @@ const emailBodyDirty = ref(false);
 const mailError = ref<string | null>(null);
 
 const einstufungChild = computed(() => einstufung.value?.child ?? selectedChild.value ?? null);
-const childFirstName = computed(() => einstufungChild.value?.firstName || 'dem Kind');
 const childMemberNumber = computed(() => einstufungChild.value?.memberNumber || '—');
 
 const parentFirstNames = computed(() => {
@@ -175,33 +165,28 @@ const greetingLine = computed(() => {
   return 'Hallo,';
 });
 
-const summaryLine = computed(() => {
+function formatCurrencyEuroWord(amount: number): string {
+  return amount.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' Euro';
+}
+
+const shortSummary = computed(() => {
   if (!einstufung.value) return '$zusammenfassungDerEinstufung';
   const e = einstufung.value;
-  const formattedChildcareFee = formatCurrency(e.monthlyChildcareFee);
-  const formattedFoodFee = formatCurrency(e.monthlyFoodFee);
-  const formattedMembershipFee = formatCurrency(e.annualMembershipFee);
+  const childcareFeeText = e.monthlyChildcareFee > 0
+    ? formatCurrencyEuroWord(e.monthlyChildcareFee)
+    : `${formatCurrencyEuroWord(0)} (beitragsfrei)`;
+  return `Kurz:
+Platzgeld ${childcareFeeText}
+Essensgeld ${formatCurrencyEuroWord(e.monthlyFoodFee)}`;
+});
 
-  const lines: string[] = [];
-  if (e.monthlyChildcareFee <= 0) {
-    lines.push(
-      `Ihr braucht nach der Beitragsordnung ${e.year} für ${childFirstName.value} kein Platzgeld zu zahlen.`
-    );
-  } else {
-    lines.push(
-      `Ihr zahlt nach der Beitragsordnung ${e.year} für ${childFirstName.value} ein monatliches Platzgeld in Höhe von ${formattedChildcareFee}.`
-    );
+const membershipLine = computed(() => {
+  if (!einstufung.value) return '$anweisungFürMitgliedsbeitrag';
+  const fee = einstufung.value.annualMembershipFee;
+  if (fee > 0) {
+    return `Außerdem einmal pro Jahr die Mitgliedsgebühr für den Verein von ${formatCurrencyEuroWord(fee)}.`;
   }
-
-  if (e.annualMembershipFee > 0) {
-    lines.push(
-      `Bitte zahlt regelmäßig bis zum 5. des Monats das Essensgeld in Höhe von ${formattedFoodFee} sowie einmal jährlich den Vereinsbeitrag über ${formattedMembershipFee} (auch für ${e.year}).`
-    );
-  } else {
-    lines.push(`Bitte zahlt regelmäßig bis zum 5. des Monats das Essensgeld in Höhe von ${formattedFoodFee}.`);
-  }
-
-  return lines.join('\n');
+  return 'Aktuell fällt keine jährliche Mitgliedsgebühr für den Verein an.';
 });
 
 const transferInstruction = computed(() => {
@@ -219,12 +204,17 @@ const defaultEmailSubject = computed(() => {
 const defaultEmailBody = computed(() => {
   return `${greetingLine.value}
 
-willkommen in der Knirpsenstadt!
+willkommen bei uns in der Kita!
 
-${summaryLine.value}
+Danke für eure Unterlagen.
+Ich sende euch eine Übersicht über die monatlichen Beiträge für die Kita.
+
+${shortSummary.value}
+
+${membershipLine.value}
+
 ${transferInstruction.value}
-
-${EMAIL_SIGNATURE}`;
+`;
 });
 
 function resetEmailDraft() {
