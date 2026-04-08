@@ -403,7 +403,7 @@ defineExpose({ generatePdf });
   color: #1c1c1c;
   line-height: 1.6;
   background: #ffffff;
-  padding: 0;
+  padding: 0 0 8px;
   box-sizing: border-box;
 }
 
@@ -563,16 +563,20 @@ defineExpose({ generatePdf });
 /* ── Fee Table ─────────────────────────────────────────────────────────────── */
 .fee-table {
   width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
   margin-bottom: 0;
   font-size: 9.5px;
   break-inside: avoid;
   page-break-inside: avoid;
+  border-top: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e5e7eb;
+  background: #ffffff;
 }
 
 .fee-table th,
 .fee-table td {
-  padding: 6px 8px;
+  padding: 10px 10px;
   text-align: right;
 }
 
@@ -580,6 +584,12 @@ defineExpose({ generatePdf });
 .fee-table td:first-child {
   text-align: left;
   padding-left: 0;
+  padding-right: 16px;
+}
+
+.fee-table th + th,
+.fee-table td + td {
+  border-left: 1px solid #eef2ef;
 }
 
 .fee-table thead tr {
@@ -587,16 +597,19 @@ defineExpose({ generatePdf });
 }
 
 .fee-table__col-label {
-  width: 40%;
+  width: 28%;
 }
 
 .fee-table__col-month {
   color: #3d3d3d;
   font-weight: 400;
+  text-align: center;
+  background: #f7faf8;
 }
 
 .fee-table__col-month--first {
   color: #1c6a38;
+  background: #eef7f1;
 }
 
 .fee-table__month-name {
@@ -616,11 +629,17 @@ defineExpose({ generatePdf });
 .fee-table__row td {
   border-bottom: 1px solid #ececec;
   color: #1c1c1c;
+  background: #ffffff;
+}
+
+.fee-table__row:nth-child(even) td {
+  background: #fcfcfc;
 }
 
 .fee-table__row-label {
-  color: #555;
+  color: #2f2f2f;
   font-size: 9.5px;
+  font-weight: 600;
 }
 
 .fee-table__amount {
@@ -638,6 +657,7 @@ defineExpose({ generatePdf });
   border-top: 1px dashed #c3d9c9;
   border-bottom: none;
   padding-top: 8px;
+  background: #f7fbf8;
 }
 
 .fee-table__row-label--membership {
@@ -684,13 +704,11 @@ defineExpose({ generatePdf });
 
 .payment-note__emphasis {
   font-weight: 700;
-  border-bottom: 1.5px solid #b8860b;
-  padding-bottom: 0;
 }
 
 /* ── Footer ────────────────────────────────────────────────────────────────── */
 .footer {
-  margin-top: 16px;
+  margin-top: 12px;
   break-inside: avoid;
   page-break-inside: avoid;
 }
@@ -698,14 +716,14 @@ defineExpose({ generatePdf });
 .footer__rule {
   height: 1px;
   background: #c8c8c8;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .footer__register {
   font-size: 8.5px;
   color: #555;
   font-weight: 600;
-  margin-bottom: 8px;
+  margin-bottom: 6px;
   line-height: 1.45;
 }
 
@@ -716,15 +734,15 @@ defineExpose({ generatePdf });
   border-spacing: 0;
   font-size: 8px;
   color: #555;
-  line-height: 1.55;
-  margin-bottom: 8px;
+  line-height: 1.45;
+  margin-bottom: 4px;
 }
 
 .footer__col {
   display: table-cell;
   width: 50%;
   vertical-align: top;
-  padding-right: 16px;
+  padding-right: 12px;
 }
 
 .footer__col:last-child {
@@ -741,17 +759,13 @@ defineExpose({ generatePdf });
 }
 
 .footer__line {
-  margin-bottom: 1px;
-}
-
-.footer__line:last-child {
   margin-bottom: 0;
 }
 
 .footer__legal {
-  font-size: 7.5px;
+  font-size: 7px;
   color: #999;
-  font-style: italic;
-  line-height: 1.45;
+  font-style: normal;
+  line-height: 1.35;
 }
 </style>
