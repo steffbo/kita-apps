@@ -337,7 +337,7 @@ defineExpose({ generatePdf });
         <section class="section">
           <div class="section__heading">Zahlungsbedingungen</div>
           <p class="body-text">
-            Der monatliche Beitrag wird am 5. eines jeden Monats fällig. Beiträge, die einen Monat
+            Der monatliche Beitrag wird am 5. eines jeden Monats fällig. Beiträge, die
             in Verzug sind, werden zusätzlich mit einer Mahngebühr von 10,00 € erhoben.
           </p>
           <p class="body-text">
@@ -363,16 +363,16 @@ defineExpose({ generatePdf });
             <div class="footer__col">
               <div class="footer__col-heading">Vorstandsmitglieder</div>
               <div class="footer__line">André Rüger (1. Vorsitzender)</div>
-              <div class="footer__line">Sarah Thielandt (2. Vorsitzende / Bauliches)</div>
-              <div class="footer__line">Marcus Rehberg (Kassenwart)</div>
+              <div class="footer__line">Sarah Thränhardt (2. Vorsitzende / Bauliches)</div>
+              <div class="footer__line">Marcus Rehaag (Finanzen)</div>
               <div class="footer__line">Stefan Remer (Elternarbeit)</div>
-              <div class="footer__line">Samantha Lahl (Schriftführer)</div>
+              <div class="footer__line">Samantha Lahl (Schriftführerin)</div>
               <div class="footer__line">Dennis Braak (Personal)</div>
             </div>
             <div class="footer__col">
               <div class="footer__col-heading">Bankverbindung</div>
               <div class="footer__line">Knirpsenstadt e. V.</div>
-              <div class="footer__line">IBAN: DE53 3702 0500 0003 3714 00</div>
+              <div class="footer__line">IBAN: DE33 3702 0500 0003 3214 00</div>
               <div class="footer__line">BIC: BFSWDE33XXX</div>
               <div class="footer__line">Bank für Sozialwirtschaft AG</div>
             </div>
