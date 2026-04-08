@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, nextTick, ref } from 'vue';
 import type { Einstufung, Child } from '@/api/types';
 import { FileDown, Loader2 } from 'lucide-vue-next';
 
@@ -133,17 +133,50 @@ function formatEur(amount: number): string {
   return amount.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
 }
 
+async function waitForPdfLayout() {
+  await nextTick();
+
+  if ('fonts' in document) {
+    try {
+      await document.fonts.ready;
+    } catch {
+      // Ignore font loading issues and continue with the current layout state.
+    }
+  }
+
+  await new Promise<void>((resolve) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => resolve());
+    });
+  });
+}
+
 async function generatePdf() {
   if (!pdfContainer.value) return;
   isGenerating.value = true;
 
   try {
+    await waitForPdfLayout();
+
     const html2pdf = (await import('html2pdf.js')).default;
+    const containerWidth = Math.ceil(pdfContainer.value.scrollWidth);
+    const containerHeight = Math.ceil(pdfContainer.value.scrollHeight);
     const opt = {
-      margin: [10, 12, 15, 12],
+      margin: [10, 12, 12, 12],
       filename: `Einstufung_${einstufungYear.value}_${childName.value.replace(/\s/g, '_')}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true },
+      image: { type: 'png', quality: 1 },
+      pagebreak: { mode: ['css', 'legacy'] },
+      html2canvas: {
+        scale: 3,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        scrollX: 0,
+        scrollY: 0,
+        width: containerWidth,
+        height: containerHeight,
+        windowWidth: containerWidth,
+        windowHeight: containerHeight,
+      },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' as const },
     };
 
@@ -170,7 +203,7 @@ defineExpose({ generatePdf });
     </button>
 
     <!-- Hidden PDF content (rendered off-screen for html2pdf) -->
-    <div class="fixed left-[-9999px] top-0">
+    <div class="pdf-stage" aria-hidden="true">
       <div ref="pdfContainer" class="page">
 
         <!-- page-header -->
@@ -292,12 +325,12 @@ defineExpose({ generatePdf });
 
         <!-- payment-note -->
         <div class="payment-note">
-          <div class="payment-note__marker">Hinweis</div>
-          <div class="payment-note__text">
+          <span class="payment-note__marker">Hinweis &ndash;</span>
+          <span class="payment-note__text">
             Bitte gleicht die Beträge für Mitgliedschaft, Betreuung und Essensgeld in
             <strong class="payment-note__emphasis">getrennten</strong> Zahlungen unter Angabe des
             Namens und der Mitgliedsnummer aus.
-          </div>
+          </span>
         </div>
 
         <!-- section: Zahlungsbedingungen & Änderungspflicht -->
@@ -322,25 +355,26 @@ defineExpose({ generatePdf });
 
         <!-- footer -->
         <footer class="footer">
+          <div class="footer__rule"></div>
           <div class="footer__register">
             Kita Knirpsenstadt e.V. &middot; Vereinsregister VR 4217 beim Amtsgericht Frankfurt (Oder)
           </div>
           <div class="footer__columns">
             <div class="footer__col">
               <div class="footer__col-heading">Vorstandsmitglieder</div>
-              André Rüger (1. Vorsitzender)<br>
-              Sarah Thielandt (2. Vorsitzende / Bauliches)<br>
-              Marcus Rehberg (Kassenwart)<br>
-              Stefan Remer (Elternarbeit)<br>
-              Samantha Lahl (Schriftführer)<br>
-              Dennis Braak (Personal)
+              <div class="footer__line">André Rüger (1. Vorsitzender)</div>
+              <div class="footer__line">Sarah Thielandt (2. Vorsitzende / Bauliches)</div>
+              <div class="footer__line">Marcus Rehberg (Kassenwart)</div>
+              <div class="footer__line">Stefan Remer (Elternarbeit)</div>
+              <div class="footer__line">Samantha Lahl (Schriftführer)</div>
+              <div class="footer__line">Dennis Braak (Personal)</div>
             </div>
             <div class="footer__col">
               <div class="footer__col-heading">Bankverbindung</div>
-              Knirpsenstadt e. V.<br>
-              IBAN: DE53 3702 0500 0003 3714 00<br>
-              BIC: BFSWDE33XXX<br>
-              Bank für Sozialwirtschaft AG
+              <div class="footer__line">Knirpsenstadt e. V.</div>
+              <div class="footer__line">IBAN: DE53 3702 0500 0003 3714 00</div>
+              <div class="footer__line">BIC: BFSWDE33XXX</div>
+              <div class="footer__line">Bank für Sozialwirtschaft AG</div>
             </div>
           </div>
           <div class="footer__legal">
@@ -355,19 +389,27 @@ defineExpose({ generatePdf });
 
 <style scoped>
 /* ── Design Tokens ─────────────────────────────────────────────────────────── */
+.pdf-stage {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  pointer-events: none;
+}
+
 .page {
   width: 186mm;
-  font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Arial, sans-serif;
-  font-size: 10.5px;
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 10.75px;
   color: #1c1c1c;
-  line-height: 1.55;
+  line-height: 1.6;
   background: #ffffff;
   padding: 0;
+  box-sizing: border-box;
 }
 
 /* ── Page Header ───────────────────────────────────────────────────────────── */
 .page-header {
-  margin-bottom: 22px;
+  margin-bottom: 18px;
 }
 
 .page-header__sender {
@@ -395,8 +437,8 @@ defineExpose({ generatePdf });
   font-weight: 700;
   color: #1c6a38;
   letter-spacing: -0.2px;
-  margin-bottom: 18px;
-  padding-bottom: 10px;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
   border-bottom: 2px solid #1c6a38;
 }
 
@@ -404,9 +446,11 @@ defineExpose({ generatePdf });
 .info-grid {
   border: 1px solid #d1d5db;
   border-left: 3px solid #1c6a38;
-  padding: 12px 14px;
-  margin-bottom: 18px;
+  padding: 11px 13px;
+  margin-bottom: 16px;
   background: #fafafa;
+  break-inside: avoid;
+  page-break-inside: avoid;
 }
 
 .info-grid__name {
@@ -419,20 +463,23 @@ defineExpose({ generatePdf });
 }
 
 .info-grid__fields {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0;
+  display: table;
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
 }
 
 .info-item {
-  flex: 1;
-  min-width: 110px;
-  padding-right: 12px;
+  display: table-cell;
+  width: 20%;
+  vertical-align: top;
+  padding-right: 14px;
+  padding-top: 0;
 }
 
 .info-item--wide {
-  flex: 2;
-  min-width: 160px;
+  width: 40%;
+  padding-right: 0;
 }
 
 .info-item__label {
@@ -447,12 +494,14 @@ defineExpose({ generatePdf });
   font-size: 10px;
   font-weight: 600;
   color: #1c1c1c;
-  line-height: 1.35;
+  line-height: 1.45;
+  word-break: normal;
+  overflow-wrap: break-word;
 }
 
 /* ── Sections ──────────────────────────────────────────────────────────────── */
 .section {
-  margin-bottom: 16px;
+  margin-bottom: 14px;
 }
 
 .section__heading {
@@ -471,11 +520,13 @@ defineExpose({ generatePdf });
 
 /* ── Body Text ─────────────────────────────────────────────────────────────── */
 .body-text {
-  font-size: 9.5px;
-  color: #3d3d3d;
-  line-height: 1.65;
-  text-align: justify;
-  margin-bottom: 8px;
+  font-size: 9.75px;
+  color: #3a3a3a;
+  line-height: 1.62;
+  text-align: left;
+  margin-bottom: 7px;
+  word-break: normal;
+  overflow-wrap: break-word;
 }
 
 .body-text:last-child {
@@ -487,8 +538,10 @@ defineExpose({ generatePdf });
   border: 1px solid #a7c9b2;
   border-left: 3px solid #1c6a38;
   background: #f4fbf6;
-  padding: 10px 14px;
-  margin-bottom: 16px;
+  padding: 9px 13px;
+  margin-bottom: 14px;
+  break-inside: avoid;
+  page-break-inside: avoid;
 }
 
 .notice-box__label {
@@ -513,6 +566,8 @@ defineExpose({ generatePdf });
   border-collapse: collapse;
   margin-bottom: 0;
   font-size: 9.5px;
+  break-inside: avoid;
+  page-break-inside: avoid;
 }
 
 .fee-table th,
@@ -548,12 +603,14 @@ defineExpose({ generatePdf });
   font-size: 10px;
   font-weight: 700;
   margin-bottom: 1px;
+  line-height: 1.2;
 }
 
 .fee-table__month-sub {
   font-size: 8px;
   font-weight: 400;
   color: #777;
+  line-height: 1.25;
 }
 
 .fee-table__row td {
@@ -599,43 +656,49 @@ defineExpose({ generatePdf });
 
 /* ── Payment Note ──────────────────────────────────────────────────────────── */
 .payment-note {
-  display: flex;
-  align-items: baseline;
-  gap: 10px;
   background: #fffbf0;
   border: 1px solid #d4a72c;
   border-left: 3px solid #b8860b;
-  padding: 9px 14px;
-  margin-bottom: 16px;
+  padding: 8px 13px;
+  margin-bottom: 14px;
+  break-inside: avoid;
+  page-break-inside: avoid;
 }
 
 .payment-note__marker {
+  display: inline;
   font-size: 7.5px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: #b8860b;
-  white-space: nowrap;
-  flex-shrink: 0;
+  margin-right: 6px;
 }
 
 .payment-note__text {
+  display: inline;
   font-size: 9.5px;
   color: #3d2e00;
-  line-height: 1.6;
+  line-height: 1.58;
 }
 
 .payment-note__emphasis {
   font-weight: 700;
-  text-decoration: underline;
-  text-decoration-color: #b8860b;
+  border-bottom: 1.5px solid #b8860b;
+  padding-bottom: 0;
 }
 
 /* ── Footer ────────────────────────────────────────────────────────────────── */
 .footer {
-  border-top: 1px solid #c8c8c8;
-  padding-top: 12px;
-  margin-top: 20px;
+  margin-top: 16px;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.footer__rule {
+  height: 1px;
+  background: #c8c8c8;
+  margin-bottom: 10px;
 }
 
 .footer__register {
@@ -643,11 +706,14 @@ defineExpose({ generatePdf });
   color: #555;
   font-weight: 600;
   margin-bottom: 8px;
+  line-height: 1.45;
 }
 
 .footer__columns {
-  display: flex;
-  gap: 24px;
+  display: table;
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: 8px;
   color: #555;
   line-height: 1.55;
@@ -655,7 +721,14 @@ defineExpose({ generatePdf });
 }
 
 .footer__col {
-  flex: 1;
+  display: table-cell;
+  width: 50%;
+  vertical-align: top;
+  padding-right: 16px;
+}
+
+.footer__col:last-child {
+  padding-right: 0;
 }
 
 .footer__col-heading {
@@ -667,9 +740,18 @@ defineExpose({ generatePdf });
   letter-spacing: 0.3px;
 }
 
+.footer__line {
+  margin-bottom: 1px;
+}
+
+.footer__line:last-child {
+  margin-bottom: 0;
+}
+
 .footer__legal {
   font-size: 7.5px;
   color: #999;
   font-style: italic;
+  line-height: 1.45;
 }
 </style>
