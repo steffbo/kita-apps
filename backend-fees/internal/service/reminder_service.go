@@ -147,7 +147,7 @@ func (s *ReminderService) Run(ctx context.Context, runDate time.Time, stage Remi
 	month := int(runDate.Month())
 	feeTypes := []domain.FeeType{domain.FeeTypeFood, domain.FeeTypeChildcare}
 
-	fees, err := s.feeRepo.ListUnpaidByMonthAndTypes(ctx, year, month, feeTypes)
+	fees, err := s.feeRepo.ListUnpaidUpToMonthAndTypes(ctx, year, month, feeTypes)
 	if err != nil {
 		return nil, err
 	}

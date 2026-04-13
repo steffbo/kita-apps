@@ -94,6 +94,8 @@ type FeeRepository interface {
 	GetForChild(ctx context.Context, childID uuid.UUID, year *int) ([]domain.FeeExpectation, error)
 	// ListUnpaidByMonthAndTypes returns unpaid fees for a specific year/month and fee types.
 	ListUnpaidByMonthAndTypes(ctx context.Context, year int, month int, feeTypes []domain.FeeType) ([]domain.FeeExpectation, error)
+	// ListUnpaidUpToMonthAndTypes returns unpaid fees up to and including a specific year/month and fee types.
+	ListUnpaidUpToMonthAndTypes(ctx context.Context, year int, month int, feeTypes []domain.FeeType) ([]domain.FeeExpectation, error)
 	// ListUnpaidWithoutReminderByMonthAndTypes returns unpaid fees without reminders for a specific year/month and fee types.
 	ListUnpaidWithoutReminderByMonthAndTypes(ctx context.Context, year int, month int, feeTypes []domain.FeeType) ([]domain.FeeExpectation, error)
 }
