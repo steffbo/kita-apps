@@ -218,21 +218,32 @@ func (r *PostgresFeeRepository) ListUnpaidUpToMonthAndTypes(ctx context.Context,
 	}
 
 	var fees []domain.FeeExpectation
+	nextMonthStart := time.Date(year, time.Month(month)+1, 1, 0, 0, 0, 0, time.UTC)
 	query := `
 		SELECT fe.id, fe.child_id, fe.fee_type, fe.year, fe.month, fe.amount, fe.due_date, fe.created_at, fe.reminder_for_id, fe.reconciliation_year
 		FROM fees.fee_expectations fe
+		LEFT JOIN fees.fee_expectations base_fe ON base_fe.id = fe.reminder_for_id
 		LEFT JOIN (
 			SELECT expectation_id, COALESCE(SUM(amount), 0) AS matched_amount
 			FROM fees.payment_matches
 			GROUP BY expectation_id
 		) pm_sum ON fe.id = pm_sum.expectation_id
-		WHERE (fe.year < $1 OR (fe.year = $1 AND fe.month <= $2))
-		  AND fe.fee_type = ANY($3)
+		WHERE (
+			(
+				(fe.year < $1 OR (fe.year = $1 AND fe.month <= $2))
+				AND fe.fee_type = ANY($3)
+			)
+			OR (
+				fe.fee_type = $4
+				AND base_fe.fee_type = ANY($3)
+				AND fe.due_date < $5
+			)
+		)
 		  AND COALESCE(pm_sum.matched_amount, 0) < fe.amount - 0.01
 		ORDER BY fe.year ASC, fe.month ASC, fe.due_date ASC, fe.created_at ASC
 	`
 
-	err := r.db.SelectContext(ctx, &fees, query, year, month, pq.Array(feeTypes))
+	err := r.db.SelectContext(ctx, &fees, query, year, month, pq.Array(feeTypes), domain.FeeTypeReminder, nextMonthStart)
 	return fees, err
 }
 

@@ -153,20 +153,14 @@ func (s *ReminderService) Run(ctx context.Context, runDate time.Time, stage Remi
 	}
 
 	result := &ReminderRunResult{
-		Stage:       stage,
-		Date:        runDate,
-		UnpaidCount: len(fees),
-		DryRun:      dryRun,
+		Stage:  stage,
+		Date:   runDate,
+		DryRun: dryRun,
 	}
 
 	if len(fees) == 0 {
 		result.Message = "no unpaid fees for this period"
 		return result, nil
-	}
-
-	items, children, err := s.buildItemsWithChildren(ctx, fees)
-	if err != nil {
-		return nil, err
 	}
 
 	if stage == ReminderStageFinal {
@@ -175,8 +169,8 @@ func (s *ReminderService) Run(ctx context.Context, runDate time.Time, stage Remi
 			return nil, err
 		}
 		result.RemindersCreated = len(toRemind)
+		fees = append(fees, syntheticReminderFees(toRemind, reminderDueDate(runDate), s.now().UTC())...)
 		if !dryRun {
-			dueDate := reminderDueDate(runDate)
 			createdAt := s.now().UTC()
 			for _, fee := range toRemind {
 				reminder := &domain.FeeExpectation{
@@ -186,7 +180,7 @@ func (s *ReminderService) Run(ctx context.Context, runDate time.Time, stage Remi
 					Year:          createdAt.Year(),
 					Month:         nil,
 					Amount:        domain.ReminderFeeAmount,
-					DueDate:       dueDate,
+					DueDate:       reminderDueDate(runDate),
 					CreatedAt:     createdAt,
 					ReminderForID: &fee.ID,
 				}
@@ -195,6 +189,13 @@ func (s *ReminderService) Run(ctx context.Context, runDate time.Time, stage Remi
 				}
 			}
 		}
+	}
+
+	result.UnpaidCount = len(fees)
+
+	items, children, err := s.buildItemsWithChildren(ctx, fees)
+	if err != nil {
+		return nil, err
 	}
 
 	// Group items by household
@@ -358,21 +359,38 @@ type reminderItem struct {
 	Year         int
 	Month        int
 	DueDate      time.Time
+	BaseFeeType  *domain.FeeType
+	BaseYear     int
+	BaseMonth    int
 }
 
 func (s *ReminderService) buildItemsWithChildren(ctx context.Context, fees []domain.FeeExpectation) ([]reminderItem, map[uuid.UUID]*domain.Child, error) {
 	childIDs := make([]uuid.UUID, 0, len(fees))
 	seen := make(map[uuid.UUID]bool, len(fees))
+	reminderBaseIDs := make([]uuid.UUID, 0, len(fees))
+	seenBaseIDs := make(map[uuid.UUID]bool, len(fees))
 	for _, fee := range fees {
 		if !seen[fee.ChildID] {
 			seen[fee.ChildID] = true
 			childIDs = append(childIDs, fee.ChildID)
+		}
+		if fee.FeeType == domain.FeeTypeReminder && fee.ReminderForID != nil && !seenBaseIDs[*fee.ReminderForID] {
+			seenBaseIDs[*fee.ReminderForID] = true
+			reminderBaseIDs = append(reminderBaseIDs, *fee.ReminderForID)
 		}
 	}
 
 	children, err := s.childRepo.GetByIDs(ctx, childIDs)
 	if err != nil {
 		return nil, nil, err
+	}
+
+	baseFees := make(map[uuid.UUID]*domain.FeeExpectation)
+	if len(reminderBaseIDs) > 0 {
+		baseFees, err = s.feeRepo.GetByIDs(ctx, reminderBaseIDs)
+		if err != nil {
+			return nil, nil, err
+		}
 	}
 
 	items := make([]reminderItem, 0, len(fees))
@@ -387,7 +405,7 @@ func (s *ReminderService) buildItemsWithChildren(ctx context.Context, fees []dom
 		if fee.Month != nil {
 			month = *fee.Month
 		}
-		items = append(items, reminderItem{
+		item := reminderItem{
 			FeeID:        fee.ID,
 			ChildID:      fee.ChildID,
 			ChildName:    childName,
@@ -397,7 +415,18 @@ func (s *ReminderService) buildItemsWithChildren(ctx context.Context, fees []dom
 			Year:         fee.Year,
 			Month:        month,
 			DueDate:      fee.DueDate,
-		})
+		}
+		if fee.FeeType == domain.FeeTypeReminder && fee.ReminderForID != nil {
+			if baseFee, ok := baseFees[*fee.ReminderForID]; ok && baseFee != nil {
+				baseFeeType := baseFee.FeeType
+				item.BaseFeeType = &baseFeeType
+				item.BaseYear = baseFee.Year
+				if baseFee.Month != nil {
+					item.BaseMonth = *baseFee.Month
+				}
+			}
+		}
+		items = append(items, item)
 	}
 
 	sort.Slice(items, func(i, j int) bool {
@@ -428,14 +457,34 @@ func reminderDueDate(date time.Time) time.Time {
 	return time.Date(date.Year(), date.Month(), 15, 23, 59, 59, 0, time.UTC)
 }
 
+func syntheticReminderFees(baseFees []domain.FeeExpectation, dueDate time.Time, createdAt time.Time) []domain.FeeExpectation {
+	reminders := make([]domain.FeeExpectation, 0, len(baseFees))
+	for _, baseFee := range baseFees {
+		baseID := baseFee.ID
+		reminders = append(reminders, domain.FeeExpectation{
+			ID:            uuid.New(),
+			ChildID:       baseFee.ChildID,
+			FeeType:       domain.FeeTypeReminder,
+			Year:          createdAt.Year(),
+			Month:         nil,
+			Amount:        domain.ReminderFeeAmount,
+			DueDate:       dueDate,
+			CreatedAt:     createdAt,
+			ReminderForID: &baseID,
+		})
+	}
+	return reminders
+}
+
 // buildFamilyReminderEmail builds a parent-facing email for a single family.
-// deadlineOverride sets a custom payment deadline; if nil, defaults to the 10th of the run month.
+// deadlineOverride sets a custom payment deadline; if nil, defaults to 7 days after runDate.
 func buildFamilyReminderEmail(stage ReminderStage, runDate time.Time, parentFirstNames []string, items []reminderItem, deadlineOverride *time.Time) (string, string) {
 	monthName := germanMonthName(int(runDate.Month()))
 	year := runDate.Year()
+	isFinal := stage == ReminderStageFinal
 
 	var subject string
-	if stage == ReminderStageFinal {
+	if isFinal {
 		subject = fmt.Sprintf("Kita Mahnung %s %d", monthName, year)
 	} else {
 		subject = fmt.Sprintf("Kita Zahlungserinnerung %s %d", monthName, year)
@@ -446,12 +495,12 @@ func buildFamilyReminderEmail(stage ReminderStage, runDate time.Time, parentFirs
 		greeting = "Hallo " + strings.Join(parentFirstNames, " und ")
 	}
 
-	// Deadline: use override if provided, otherwise 10th of the current month
+	// Deadline: use override if provided, otherwise 7 days after the run date
 	var dl time.Time
 	if deadlineOverride != nil {
 		dl = *deadlineOverride
 	} else {
-		dl = time.Date(runDate.Year(), runDate.Month(), 10, 0, 0, 0, 0, time.UTC)
+		dl = defaultReminderDeadline(runDate)
 	}
 	deadlineStr := dl.Format("02.01.2006")
 
@@ -460,43 +509,47 @@ func buildFamilyReminderEmail(stage ReminderStage, runDate time.Time, parentFirs
 
 	if len(items) == 1 {
 		item := items[0]
-		feeLabel := feeTypeLabel(item.FeeType)
-		itemMonth := germanMonthName(item.Month)
-		amount := formatCurrencyEUR(item.Amount)
 		memberHint := ""
 		if item.MemberNumber != "" {
 			memberHint = fmt.Sprintf(" (Mitgliedsnr. %s)", item.MemberNumber)
 		}
-		builder.WriteString(fmt.Sprintf("für %s%s ist noch ein Beitrag offen:\n\n", item.ChildName, memberHint))
-		builder.WriteString(fmt.Sprintf("%s %s/%d — %s\n", feeLabel, itemMonth, item.Year, amount))
-		builder.WriteString(fmt.Sprintf("\nBitte überweist den offenen Beitrag von %s bis zum %s auf folgendes Konto:\n\n", amount, deadlineStr))
-	} else {
-		builder.WriteString("für eure Familie sind noch folgende Beiträge offen:\n\n")
-		for _, item := range items {
-			itemMonth := germanMonthName(item.Month)
-			feeLabel := feeTypeLabel(item.FeeType)
-			amount := formatCurrencyEUR(item.Amount)
-			memberHint := ""
-			if item.MemberNumber != "" {
-				memberHint = fmt.Sprintf(" (Mitgliedsnr. %s)", item.MemberNumber)
-			}
-			builder.WriteString(fmt.Sprintf("- %s%s: %s %s/%d — %s\n",
-				item.ChildName,
-				memberHint,
-				feeLabel,
-				itemMonth,
-				item.Year,
-				amount,
-			))
+		if isFinal {
+			builder.WriteString(fmt.Sprintf("für %s%s ist folgender offener Beitrag vermerkt:\n\n", item.ChildName, memberHint))
+		} else {
+			builder.WriteString(fmt.Sprintf("für %s%s ist folgender Beitrag offen:\n\n", item.ChildName, memberHint))
 		}
-		builder.WriteString(fmt.Sprintf("\nBitte überweist die offenen Beiträge jeweils einzeln bis zum %s auf folgendes Konto:\n\n", deadlineStr))
+		builder.WriteString(reminderLine(item, false) + "\n")
+		if isFinal {
+			builder.WriteString(fmt.Sprintf("\nBitte überweist den Betrag spätestens bis zum %s auf folgendes Konto:\n\n", deadlineStr))
+		} else {
+			builder.WriteString(fmt.Sprintf("\nBitte überweist den Betrag bis zum %s auf folgendes Konto:\n\n", deadlineStr))
+		}
+	} else {
+		if isFinal {
+			builder.WriteString("für eure Familie sind folgende offene Beiträge vermerkt:\n\n")
+		} else {
+			builder.WriteString("für eure Familie sind folgende Beiträge offen:\n\n")
+		}
+		for _, item := range items {
+			builder.WriteString("- " + reminderLine(item, true) + "\n")
+		}
+		if isFinal {
+			builder.WriteString(fmt.Sprintf("\nBitte überweist die offenen Beiträge spätestens bis zum %s auf folgendes Konto:\n\n", deadlineStr))
+		} else {
+			builder.WriteString(fmt.Sprintf("\nBitte überweist die offenen Beiträge bis zum %s auf folgendes Konto:\n\n", deadlineStr))
+		}
 	}
 
 	builder.WriteString("Empfänger: Knirpsenstadt e.V.\n")
 	builder.WriteString("IBAN: DE33 3702 0500 0003 3214 00\n")
 	builder.WriteString("BIC: BFSWDE33XXX\n\n")
 	builder.WriteString("Wichtig: Bitte gebt als Empfänger genau \"Knirpsenstadt e.V.\" an, damit das Matching bei eurer Bank korrekt funktioniert.\n\n")
-	builder.WriteString(fmt.Sprintf("Falls die Zahlung bis zum %s nicht eingegangen ist, wird leider automatisch eine Mahngebühr fällig.\n\n", deadlineStr))
+	if isFinal {
+		builder.WriteString(fmt.Sprintf("Dies ist eine Mahnung. Bitte begleicht die offenen Beiträge spätestens bis zum %s.\n\n", deadlineStr))
+		builder.WriteString("Falls ihr die Zahlung bereits veranlasst habt, betrachtet diese Nachricht bitte als gegenstandslos.\n\n")
+	} else {
+		builder.WriteString(fmt.Sprintf("Falls die Zahlung bis zum %s nicht eingegangen ist, wird leider automatisch eine Mahngebühr fällig.\n\n", deadlineStr))
+	}
 	builder.WriteString("Vielen Dank!\n\n")
 	builder.WriteString("Freundliche Grüße\n")
 	builder.WriteString("Knirpsenstadt Beitrag\n\n")
@@ -512,9 +565,68 @@ func feeTypeLabel(feeType domain.FeeType) string {
 		return "Essensgeld"
 	case domain.FeeTypeChildcare:
 		return "Platzgeld"
+	case domain.FeeTypeReminder:
+		return "Mahngebühr"
 	default:
 		return string(feeType)
 	}
+}
+
+func reminderLine(item reminderItem, includeChild bool) string {
+	memberHint := ""
+	if item.MemberNumber != "" {
+		memberHint = fmt.Sprintf(" (Mitgliedsnr. %s)", item.MemberNumber)
+	}
+	prefix := ""
+	if includeChild {
+		prefix = fmt.Sprintf("%s%s: ", item.ChildName, memberHint)
+	}
+
+	label := feeTypeLabel(item.FeeType)
+	switch item.FeeType {
+	case domain.FeeTypeReminder:
+		if item.BaseFeeType != nil && item.BaseMonth > 0 {
+			return fmt.Sprintf("%sMahngebühr für %s %s/%d — %s",
+				prefix,
+				feeTypeLabel(*item.BaseFeeType),
+				germanMonthName(item.BaseMonth),
+				item.BaseYear,
+				formatCurrencyEUR(item.Amount),
+			)
+		}
+		if item.BaseFeeType != nil {
+			return fmt.Sprintf("%sMahngebühr für %s — %s",
+				prefix,
+				feeTypeLabel(*item.BaseFeeType),
+				formatCurrencyEUR(item.Amount),
+			)
+		}
+		return fmt.Sprintf("%s%s — %s",
+			prefix,
+			label,
+			formatCurrencyEUR(item.Amount),
+		)
+	default:
+		if item.Month > 0 {
+			return fmt.Sprintf("%s%s %s/%d — %s",
+				prefix,
+				label,
+				germanMonthName(item.Month),
+				item.Year,
+				formatCurrencyEUR(item.Amount),
+			)
+		}
+		return fmt.Sprintf("%s%s — %s",
+			prefix,
+			label,
+			formatCurrencyEUR(item.Amount),
+		)
+	}
+}
+
+func defaultReminderDeadline(runDate time.Time) time.Time {
+	base := time.Date(runDate.Year(), runDate.Month(), runDate.Day(), 0, 0, 0, 0, time.UTC)
+	return base.AddDate(0, 0, 7)
 }
 
 func germanMonthName(month int) string {

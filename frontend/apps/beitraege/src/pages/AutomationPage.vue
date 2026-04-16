@@ -31,6 +31,20 @@ const previewStage = ref<'initial' | 'final'>('initial');
 const expandedPreview = ref<string | null>(null);
 const selectedPreviewHouseholdIds = ref<string[]>([]);
 
+const previewModalTitle = computed(() => {
+  return previewStage.value === 'final' ? 'Vorschau Mahnungen' : 'Vorschau Zahlungserinnerungen';
+});
+
+const previewSendButtonLabel = computed(() => {
+  return previewStage.value === 'final' ? 'Mahnungen senden' : 'Erinnerungen senden';
+});
+
+const previewSendButtonClass = computed(() => {
+  return previewStage.value === 'final'
+    ? 'bg-red-600 hover:bg-red-700'
+    : 'bg-blue-600 hover:bg-blue-700';
+});
+
 // Email logs state
 const emailLogs = ref<EmailLog[]>([]);
 const emailLogsTotal = ref(0);
@@ -439,7 +453,7 @@ watch(
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">
-            Frist <span class="font-normal text-gray-400">(optional, Standard: 10. des Monats)</span>
+            Frist <span class="font-normal text-gray-400">(optional, Standard: 7 Tage ab Datum)</span>
           </label>
           <input
             type="date"
@@ -514,7 +528,7 @@ watch(
       <div class="relative bg-white rounded-xl border shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
         <div class="flex items-center justify-between p-5 border-b">
           <div>
-            <h3 class="text-base font-semibold text-gray-900">Vorschau E-Mails</h3>
+            <h3 class="text-base font-semibold text-gray-900">{{ previewModalTitle }}</h3>
             <p class="text-sm mt-0.5" :class="reminderRunResult?.familiesSkippedNoEmail ? 'text-amber-700 font-medium' : 'text-gray-500'">
               {{ reminderRunResult?.familiesEmailed }} Familie(n) würden kontaktiert
               <template v-if="reminderRunResult?.familiesSkippedNoEmail">
@@ -579,11 +593,12 @@ watch(
             Schließen
           </button>
           <button
-            class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+            class="px-4 py-2 rounded-lg text-white text-sm font-medium disabled:opacity-50"
+            :class="previewSendButtonClass"
             :disabled="isRunningReminders || selectedPreviewHouseholdIds.length === 0"
             @click="sendFromModal"
           >
-            Jetzt senden
+            {{ previewSendButtonLabel }}
           </button>
         </div>
       </div>
