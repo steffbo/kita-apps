@@ -29,8 +29,14 @@ func TestBuildFamilyMembershipReminderEmail_InitialStageUsesNeutralWording(t *te
 	if !strings.Contains(body, "ist folgender Vereinsbeitrag offen") {
 		t.Fatalf("expected membership reminder wording in body, got: %s", body)
 	}
-	if !strings.Contains(body, "Vereinsbeitrag — 30,00 EUR") {
+	if !strings.Contains(body, "Vereinsbeitrag 2026 — 30,00 EUR") {
 		t.Fatalf("expected membership fee line in body, got: %s", body)
+	}
+	if strings.Contains(body, "Mia") {
+		t.Fatalf("did not expect child name in membership email, got: %s", body)
+	}
+	if strings.Contains(body, "Mitgliedsnr.") {
+		t.Fatalf("did not expect child member number hint in membership email, got: %s", body)
 	}
 	if !strings.Contains(body, "bis zum 31.03.2026") {
 		t.Fatalf("expected default deadline 31.03.<year>, got: %s", body)
@@ -67,6 +73,12 @@ func TestBuildFamilyMembershipReminderEmail_FinalStageUsesDunningWording(t *test
 	if !strings.Contains(body, "spätestens bis zum 31.03.2026") {
 		t.Fatalf("expected default deadline 31.03.<year> in dunning body, got: %s", body)
 	}
+	if strings.Contains(body, "Mia") {
+		t.Fatalf("did not expect child name in membership dunning email, got: %s", body)
+	}
+	if strings.Contains(body, "Mitgliedsnr.") {
+		t.Fatalf("did not expect child member number hint in membership dunning email, got: %s", body)
+	}
 }
 
 func TestBuildFamilyMembershipReminderEmail_FinalStageIncludesMembershipReminderFeeLine(t *testing.T) {
@@ -94,8 +106,14 @@ func TestBuildFamilyMembershipReminderEmail_FinalStageIncludesMembershipReminder
 		nil,
 	)
 
-	if !strings.Contains(body, "Mahngebühr für Vereinsbeitrag — 5,00 EUR") {
+	if !strings.Contains(body, "Mahngebühr für Vereinsbeitrag 2026 — 5,00 EUR") {
 		t.Fatalf("expected membership reminder fee line in body, got: %s", body)
+	}
+	if strings.Contains(body, "Mia") {
+		t.Fatalf("did not expect child name in multi-item membership email, got: %s", body)
+	}
+	if strings.Contains(body, "Mitgliedsnr.") {
+		t.Fatalf("did not expect child member number hint in multi-item membership email, got: %s", body)
 	}
 }
 

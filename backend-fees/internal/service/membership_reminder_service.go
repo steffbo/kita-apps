@@ -254,17 +254,12 @@ func buildFamilyMembershipReminderEmail(stage ReminderStage, runDate time.Time, 
 	builder.WriteString(greeting + ",\n\n")
 
 	if len(items) == 1 {
-		item := items[0]
-		memberHint := ""
-		if item.MemberNumber != "" {
-			memberHint = fmt.Sprintf(" (Mitgliedsnr. %s)", item.MemberNumber)
-		}
 		if isFinal {
-			builder.WriteString(fmt.Sprintf("für %s%s ist folgender offener Vereinsbeitrag vermerkt:\n\n", item.ChildName, memberHint))
+			builder.WriteString("für eure Familie ist folgender offener Vereinsbeitrag vermerkt:\n\n")
 		} else {
-			builder.WriteString(fmt.Sprintf("für %s%s ist folgender Vereinsbeitrag offen:\n\n", item.ChildName, memberHint))
+			builder.WriteString("für eure Familie ist folgender Vereinsbeitrag offen:\n\n")
 		}
-		builder.WriteString(reminderLine(item, false) + "\n")
+		builder.WriteString(membershipReminderLine(items[0]) + "\n")
 		if isFinal {
 			builder.WriteString(fmt.Sprintf("\nBitte überweist den Betrag spätestens bis zum %s auf folgendes Konto:\n\n", deadlineStr))
 		} else {
@@ -277,7 +272,7 @@ func buildFamilyMembershipReminderEmail(stage ReminderStage, runDate time.Time, 
 			builder.WriteString("für eure Familie sind folgende Vereinsbeiträge offen:\n\n")
 		}
 		for _, item := range items {
-			builder.WriteString("- " + reminderLine(item, true) + "\n")
+			builder.WriteString("- " + membershipReminderLine(item) + "\n")
 		}
 		if isFinal {
 			builder.WriteString(fmt.Sprintf("\nBitte überweist die offenen Vereinsbeiträge spätestens bis zum %s auf folgendes Konto:\n\n", deadlineStr))
@@ -303,6 +298,24 @@ func buildFamilyMembershipReminderEmail(stage ReminderStage, runDate time.Time, 
 	builder.WriteString("Diese E-Mail wurde automatisch erstellt. Fehler sind nicht ausgeschlossen — bei Fragen wendet euch gerne direkt an uns.\n")
 
 	return subject, builder.String()
+}
+
+func membershipReminderLine(item reminderItem) string {
+	switch item.FeeType {
+	case domain.FeeTypeReminder:
+		if item.BaseFeeType != nil {
+			if item.BaseYear > 0 {
+				return fmt.Sprintf("Mahngebühr für %s %d — %s", feeTypeLabel(*item.BaseFeeType), item.BaseYear, formatCurrencyEUR(item.Amount))
+			}
+			return fmt.Sprintf("Mahngebühr für %s — %s", feeTypeLabel(*item.BaseFeeType), formatCurrencyEUR(item.Amount))
+		}
+		return fmt.Sprintf("Mahngebühr — %s", formatCurrencyEUR(item.Amount))
+	default:
+		if item.Year > 0 {
+			return fmt.Sprintf("%s %d — %s", feeTypeLabel(item.FeeType), item.Year, formatCurrencyEUR(item.Amount))
+		}
+		return fmt.Sprintf("%s — %s", feeTypeLabel(item.FeeType), formatCurrencyEUR(item.Amount))
+	}
 }
 
 func (s *MembershipReminderService) logEmail(
