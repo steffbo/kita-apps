@@ -66,7 +66,13 @@ export interface ReminderRunResponse {
   reminderCreated?: number;
 }
 
-export type EmailLogType = 'REMINDER_INITIAL' | 'REMINDER_FINAL' | 'PASSWORD_RESET' | string;
+export type EmailLogType =
+  | 'REMINDER_INITIAL'
+  | 'REMINDER_FINAL'
+  | 'MEMBERSHIP_REMINDER_INITIAL'
+  | 'MEMBERSHIP_REMINDER_FINAL'
+  | 'PASSWORD_RESET'
+  | string;
 
 export interface EmailLog {
   id: string;

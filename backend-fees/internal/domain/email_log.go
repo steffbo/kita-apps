@@ -11,9 +11,11 @@ import (
 type EmailLogType string
 
 const (
-	EmailLogTypeReminderInitial EmailLogType = "REMINDER_INITIAL"
-	EmailLogTypeReminderFinal   EmailLogType = "REMINDER_FINAL"
-	EmailLogTypePasswordReset   EmailLogType = "PASSWORD_RESET"
+	EmailLogTypeReminderInitial           EmailLogType = "REMINDER_INITIAL"
+	EmailLogTypeReminderFinal             EmailLogType = "REMINDER_FINAL"
+	EmailLogTypeMembershipReminderInitial EmailLogType = "MEMBERSHIP_REMINDER_INITIAL"
+	EmailLogTypeMembershipReminderFinal   EmailLogType = "MEMBERSHIP_REMINDER_FINAL"
+	EmailLogTypePasswordReset             EmailLogType = "PASSWORD_RESET"
 )
 
 // EmailLog represents a sent email entry.

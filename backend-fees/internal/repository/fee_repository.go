@@ -277,6 +277,70 @@ func (r *PostgresFeeRepository) ListUnpaidWithoutReminderByMonthAndTypes(ctx con
 	return fees, err
 }
 
+// ListUnpaidByTypesDueOnOrBefore returns unpaid fees due on or before a date for fee types,
+// including linked unpaid reminders for those base fee types.
+func (r *PostgresFeeRepository) ListUnpaidByTypesDueOnOrBefore(ctx context.Context, feeTypes []domain.FeeType, dueOnOrBefore time.Time) ([]domain.FeeExpectation, error) {
+	if len(feeTypes) == 0 {
+		return []domain.FeeExpectation{}, nil
+	}
+
+	var fees []domain.FeeExpectation
+	query := `
+		SELECT fe.id, fe.child_id, fe.fee_type, fe.year, fe.month, fe.amount, fe.due_date, fe.created_at, fe.reminder_for_id, fe.reconciliation_year
+		FROM fees.fee_expectations fe
+		LEFT JOIN fees.fee_expectations base_fe ON base_fe.id = fe.reminder_for_id
+		LEFT JOIN (
+			SELECT expectation_id, COALESCE(SUM(amount), 0) AS matched_amount
+			FROM fees.payment_matches
+			GROUP BY expectation_id
+		) pm_sum ON fe.id = pm_sum.expectation_id
+		WHERE (
+			(fe.fee_type = ANY($1) AND fe.due_date <= $2)
+			OR (
+				fe.fee_type = $3
+				AND base_fe.fee_type = ANY($1)
+				AND fe.due_date <= $2
+			)
+		)
+		  AND COALESCE(pm_sum.matched_amount, 0) < fe.amount - 0.01
+		ORDER BY fe.due_date ASC, fe.created_at ASC
+	`
+
+	err := r.db.SelectContext(ctx, &fees, query, pq.Array(feeTypes), dueOnOrBefore, domain.FeeTypeReminder)
+	return fees, err
+}
+
+// ListUnpaidWithoutReminderByTypesDueOnOrBefore returns unpaid base fees due on or before a date
+// for fee types that do not yet have a linked reminder.
+func (r *PostgresFeeRepository) ListUnpaidWithoutReminderByTypesDueOnOrBefore(ctx context.Context, feeTypes []domain.FeeType, dueOnOrBefore time.Time) ([]domain.FeeExpectation, error) {
+	if len(feeTypes) == 0 {
+		return []domain.FeeExpectation{}, nil
+	}
+
+	var fees []domain.FeeExpectation
+	query := `
+		SELECT fe.id, fe.child_id, fe.fee_type, fe.year, fe.month, fe.amount, fe.due_date, fe.created_at, fe.reminder_for_id, fe.reconciliation_year
+		FROM fees.fee_expectations fe
+		LEFT JOIN (
+			SELECT expectation_id, COALESCE(SUM(amount), 0) AS matched_amount
+			FROM fees.payment_matches
+			GROUP BY expectation_id
+		) pm_sum ON fe.id = pm_sum.expectation_id
+		WHERE fe.fee_type = ANY($1)
+		  AND fe.due_date <= $2
+		  AND COALESCE(pm_sum.matched_amount, 0) < fe.amount - 0.01
+		  AND NOT EXISTS (
+			SELECT 1
+			FROM fees.fee_expectations rem
+			WHERE rem.reminder_for_id = fe.id
+		  )
+		ORDER BY fe.due_date ASC, fe.created_at ASC
+	`
+
+	err := r.db.SelectContext(ctx, &fees, query, pq.Array(feeTypes), dueOnOrBefore)
+	return fees, err
+}
+
 // GetByIDs retrieves multiple fee expectations by their IDs.
 func (r *PostgresFeeRepository) GetByIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]*domain.FeeExpectation, error) {
 	if len(ids) == 0 {

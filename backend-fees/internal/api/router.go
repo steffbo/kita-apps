@@ -137,6 +137,7 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 				r.Get("/overview", handlers.Fee.Overview)
 				r.Post("/generate", handlers.Fee.Generate)
 				r.With(customMiddleware.RequireRole("ADMIN")).Post("/reminders/run", handlers.Fee.RunReminders)
+				r.With(customMiddleware.RequireRole("ADMIN")).Post("/membership-reminders/run", handlers.Fee.RunMembershipReminders)
 				r.With(customMiddleware.RequireRole("ADMIN")).Get("/reminders/settings", handlers.Fee.GetReminderSettings)
 				r.With(customMiddleware.RequireRole("ADMIN")).Put("/reminders/settings", handlers.Fee.UpdateReminderSettings)
 				r.With(customMiddleware.RequireRole("ADMIN")).Get("/email-logs", handlers.Fee.GetEmailLogs)

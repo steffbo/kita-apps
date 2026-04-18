@@ -18,10 +18,11 @@ import (
 
 // FeeHandler handles fee-related requests.
 type FeeHandler struct {
-	feeService      *service.FeeService
-	importService   *service.ImportService
-	reminderService *service.ReminderService
-	emailLogRepo    repository.EmailLogRepository
+	feeService                *service.FeeService
+	importService             *service.ImportService
+	reminderService           *service.ReminderService
+	membershipReminderService *service.MembershipReminderService
+	emailLogRepo              repository.EmailLogRepository
 }
 
 // FeeResponse represents a fee in API responses
@@ -138,13 +139,15 @@ func NewFeeHandler(
 	feeService *service.FeeService,
 	importService *service.ImportService,
 	reminderService *service.ReminderService,
+	membershipReminderService *service.MembershipReminderService,
 	emailLogRepo repository.EmailLogRepository,
 ) *FeeHandler {
 	return &FeeHandler{
-		feeService:      feeService,
-		importService:   importService,
-		reminderService: reminderService,
-		emailLogRepo:    emailLogRepo,
+		feeService:                feeService,
+		importService:             importService,
+		reminderService:           reminderService,
+		membershipReminderService: membershipReminderService,
+		emailLogRepo:              emailLogRepo,
 	}
 }
 
@@ -648,6 +651,61 @@ func (h *FeeHandler) CalculateChildcareFee(w http.ResponseWriter, r *http.Reques
 	response.Success(w, result)
 }
 
+func parseSelectedHouseholdIDs(w http.ResponseWriter, r *http.Request) ([]uuid.UUID, bool) {
+	var selectedHouseholdIDs []uuid.UUID
+	if selectedRaw := strings.TrimSpace(request.GetQueryString(r, "selectedHouseholdIds", "")); selectedRaw != "" {
+		parts := strings.Split(selectedRaw, ",")
+		selectedHouseholdIDs = make([]uuid.UUID, 0, len(parts))
+		for _, part := range parts {
+			idStr := strings.TrimSpace(part)
+			if idStr == "" {
+				continue
+			}
+			parsed, err := uuid.Parse(idStr)
+			if err != nil {
+				response.BadRequest(w, "invalid selectedHouseholdIds value")
+				return nil, false
+			}
+			selectedHouseholdIDs = append(selectedHouseholdIDs, parsed)
+		}
+	}
+	return selectedHouseholdIDs, true
+}
+
+func reminderRunResponseFromResult(result *service.ReminderRunResult) ReminderRunResponse {
+	resp := ReminderRunResponse{
+		Stage:                  string(result.Stage),
+		Date:                   result.Date.Format("2006-01-02"),
+		DryRun:                 result.DryRun,
+		UnpaidCount:            result.UnpaidCount,
+		FamiliesProcessed:      result.FamiliesProcessed,
+		FamiliesEmailed:        result.FamiliesEmailed,
+		FamiliesSkippedNoEmail: result.FamiliesSkippedNoEmail,
+		RemindersCreated:       result.RemindersCreated,
+		EmailSent:              result.EmailSent,
+		Message:                result.Message,
+	}
+
+	for _, warn := range result.Warnings {
+		resp.Warnings = append(resp.Warnings, ReminderWarningResponse{
+			HouseholdName: warn.HouseholdName,
+			Reason:        warn.Reason,
+		})
+	}
+
+	for _, prev := range result.Previews {
+		resp.Previews = append(resp.Previews, ReminderPreviewResponse{
+			HouseholdID:   prev.HouseholdID,
+			HouseholdName: prev.HouseholdName,
+			Recipients:    prev.Recipients,
+			Subject:       prev.Subject,
+			Body:          prev.Body,
+		})
+	}
+
+	return resp
+}
+
 // RunReminders handles POST /fees/reminders/run
 // @Summary Run payment reminder checks
 // @Description Sends reminder emails for unpaid Food/Childcare fees and optionally creates reminder fees
@@ -709,22 +767,9 @@ func (h *FeeHandler) RunReminders(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	var selectedHouseholdIDs []uuid.UUID
-	if selectedRaw := strings.TrimSpace(request.GetQueryString(r, "selectedHouseholdIds", "")); selectedRaw != "" {
-		parts := strings.Split(selectedRaw, ",")
-		selectedHouseholdIDs = make([]uuid.UUID, 0, len(parts))
-		for _, part := range parts {
-			idStr := strings.TrimSpace(part)
-			if idStr == "" {
-				continue
-			}
-			parsed, err := uuid.Parse(idStr)
-			if err != nil {
-				response.BadRequest(w, "invalid selectedHouseholdIds value")
-				return
-			}
-			selectedHouseholdIDs = append(selectedHouseholdIDs, parsed)
-		}
+	selectedHouseholdIDs, ok := parseSelectedHouseholdIDs(w, r)
+	if !ok {
+		return
 	}
 
 	result, err := h.reminderService.Run(r.Context(), runDate, stage, sentBy, dryRun, deadline, selectedHouseholdIDs)
@@ -737,37 +782,91 @@ func (h *FeeHandler) RunReminders(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp := ReminderRunResponse{
-		Stage:                  string(result.Stage),
-		Date:                   result.Date.Format("2006-01-02"),
-		DryRun:                 result.DryRun,
-		UnpaidCount:            result.UnpaidCount,
-		FamiliesProcessed:      result.FamiliesProcessed,
-		FamiliesEmailed:        result.FamiliesEmailed,
-		FamiliesSkippedNoEmail: result.FamiliesSkippedNoEmail,
-		RemindersCreated:       result.RemindersCreated,
-		EmailSent:              result.EmailSent,
-		Message:                result.Message,
+	response.Success(w, reminderRunResponseFromResult(result))
+}
+
+// RunMembershipReminders handles POST /fees/membership-reminders/run
+// @Summary Run membership reminder checks
+// @Description Sends reminder emails for unpaid Membership fees and optionally creates 5 EUR reminder fees
+// @Tags Fees
+// @Produce json
+// @Security BearerAuth
+// @Param date query string false "Run date (YYYY-MM-DD, defaults to today)"
+// @Param stage query string false "Stage: initial, final" Enums(initial, final)
+// @Param dryRun query bool false "If true, don't send emails or create reminders"
+// @Param deadline query string false "Payment deadline (YYYY-MM-DD), defaults to 31.03.<year>"
+// @Param selectedHouseholdIds query string false "Optional comma-separated household IDs to process"
+// @Success 200 {object} ReminderRunResponse "Reminder run result"
+// @Failure 400 {object} response.ErrorBody "Invalid request"
+// @Failure 401 {object} response.ErrorBody "Not authenticated"
+// @Failure 500 {object} response.ErrorBody "Internal server error"
+// @Router /fees/membership-reminders/run [post]
+func (h *FeeHandler) RunMembershipReminders(w http.ResponseWriter, r *http.Request) {
+	userCtx := middleware.GetUserFromContext(r)
+	if userCtx == nil {
+		response.Error(w, http.StatusUnauthorized, "user not authenticated")
+		return
+	}
+	if h.membershipReminderService == nil {
+		response.InternalError(w, "membership reminder service not configured")
+		return
 	}
 
-	for _, warn := range result.Warnings {
-		resp.Warnings = append(resp.Warnings, ReminderWarningResponse{
-			HouseholdName: warn.HouseholdName,
-			Reason:        warn.Reason,
-		})
+	runDate := time.Now()
+	if dateStr := request.GetQueryString(r, "date", ""); dateStr != "" {
+		parsed, err := time.Parse("2006-01-02", dateStr)
+		if err != nil {
+			response.BadRequest(w, "invalid date format (expected YYYY-MM-DD)")
+			return
+		}
+		runDate = parsed
 	}
 
-	for _, prev := range result.Previews {
-		resp.Previews = append(resp.Previews, ReminderPreviewResponse{
-			HouseholdID:   prev.HouseholdID,
-			HouseholdName: prev.HouseholdName,
-			Recipients:    prev.Recipients,
-			Subject:       prev.Subject,
-			Body:          prev.Body,
-		})
+	stageRaw := strings.ToLower(strings.TrimSpace(request.GetQueryString(r, "stage", "initial")))
+	stage, err := service.ParseReminderStage(stageRaw)
+	if err != nil || (stage != service.ReminderStageInitial && stage != service.ReminderStageFinal) {
+		response.BadRequest(w, "invalid stage (expected initial, final)")
+		return
 	}
 
-	response.Success(w, resp)
+	dryRun := false
+	if dryRunPtr := request.GetQueryBool(r, "dryRun"); dryRunPtr != nil {
+		dryRun = *dryRunPtr
+	}
+
+	var deadline *time.Time
+	if deadlineStr := request.GetQueryString(r, "deadline", ""); deadlineStr != "" {
+		parsed, err := time.Parse("2006-01-02", deadlineStr)
+		if err != nil {
+			response.BadRequest(w, "invalid deadline format (expected YYYY-MM-DD)")
+			return
+		}
+		deadline = &parsed
+	}
+
+	var sentBy *uuid.UUID
+	if userCtx.UserID != "" {
+		if parsed, err := uuid.Parse(userCtx.UserID); err == nil {
+			sentBy = &parsed
+		}
+	}
+
+	selectedHouseholdIDs, ok := parseSelectedHouseholdIDs(w, r)
+	if !ok {
+		return
+	}
+
+	result, err := h.membershipReminderService.Run(r.Context(), runDate, stage, sentBy, dryRun, deadline, selectedHouseholdIDs)
+	if err != nil {
+		if err == service.ErrInvalidInput {
+			response.BadRequest(w, "invalid request")
+			return
+		}
+		response.InternalError(w, "failed to run membership reminders")
+		return
+	}
+
+	response.Success(w, reminderRunResponseFromResult(result))
 }
 
 // GetReminderSettings handles GET /fees/reminders/settings

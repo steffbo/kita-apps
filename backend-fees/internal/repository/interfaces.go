@@ -98,6 +98,12 @@ type FeeRepository interface {
 	ListUnpaidUpToMonthAndTypes(ctx context.Context, year int, month int, feeTypes []domain.FeeType) ([]domain.FeeExpectation, error)
 	// ListUnpaidWithoutReminderByMonthAndTypes returns unpaid fees without reminders for a specific year/month and fee types.
 	ListUnpaidWithoutReminderByMonthAndTypes(ctx context.Context, year int, month int, feeTypes []domain.FeeType) ([]domain.FeeExpectation, error)
+	// ListUnpaidByTypesDueOnOrBefore returns unpaid fees due on or before a date for fee types,
+	// including linked unpaid reminders for those base fee types.
+	ListUnpaidByTypesDueOnOrBefore(ctx context.Context, feeTypes []domain.FeeType, dueOnOrBefore time.Time) ([]domain.FeeExpectation, error)
+	// ListUnpaidWithoutReminderByTypesDueOnOrBefore returns unpaid base fees due on or before a date
+	// for fee types that do not yet have a linked reminder.
+	ListUnpaidWithoutReminderByTypesDueOnOrBefore(ctx context.Context, feeTypes []domain.FeeType, dueOnOrBefore time.Time) ([]domain.FeeExpectation, error)
 }
 
 // SettingsRepository handles app settings persistence.

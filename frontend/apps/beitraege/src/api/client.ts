@@ -571,6 +571,27 @@ class ApiClient {
     });
   }
 
+  async runMembershipReminders(params?: {
+    stage?: 'initial' | 'final';
+    date?: string;
+    dryRun?: boolean;
+    deadline?: string;
+    selectedHouseholdIds?: string[];
+  }): Promise<ReminderRunResponse> {
+    const query = new URLSearchParams();
+    if (params?.stage) query.set('stage', params.stage);
+    if (params?.date) query.set('date', params.date);
+    if (typeof params?.dryRun === 'boolean') query.set('dryRun', params.dryRun ? 'true' : 'false');
+    if (params?.deadline) query.set('deadline', params.deadline);
+    if (params?.selectedHouseholdIds && params.selectedHouseholdIds.length > 0) {
+      query.set('selectedHouseholdIds', params.selectedHouseholdIds.join(','));
+    }
+    const queryString = query.toString();
+    return this.request<ReminderRunResponse>(`/fees/membership-reminders/run${queryString ? `?${queryString}` : ''}`, {
+      method: 'POST',
+    });
+  }
+
   async getEmailLogs(params?: { offset?: number; limit?: number }): Promise<PaginatedResponse<EmailLog>> {
     const query = new URLSearchParams();
     if (typeof params?.offset === 'number') query.set('offset', String(params.offset));

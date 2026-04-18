@@ -21,6 +21,7 @@ const isReminderSettingsLoading = ref(false);
 const reminderSettingsError = ref<string | null>(null);
 const reminderRunError = ref<string | null>(null);
 const reminderRunResult = ref<ReminderRunResponse | null>(null);
+const reminderResultContext = ref<'regular' | 'membership' | null>(null);
 const reminderDate = ref(new Date().toLocaleDateString('en-CA'));
 const reminderDeadline = ref('');
 const isRunningReminders = ref(false);
@@ -28,14 +29,23 @@ const isRunningReminders = ref(false);
 // Dry-run preview modal state
 const showPreviewModal = ref(false);
 const previewStage = ref<'initial' | 'final'>('initial');
+const previewRunType = ref<'regular' | 'membership'>('regular');
 const expandedPreview = ref<string | null>(null);
 const selectedPreviewHouseholdIds = ref<string[]>([]);
 
 const previewModalTitle = computed(() => {
+  if (previewRunType.value === 'membership') {
+    return previewStage.value === 'final'
+      ? 'Vorschau Mahnungen Vereinsbeiträge'
+      : 'Vorschau Zahlungserinnerungen Vereinsbeiträge';
+  }
   return previewStage.value === 'final' ? 'Vorschau Mahnungen' : 'Vorschau Zahlungserinnerungen';
 });
 
 const previewSendButtonLabel = computed(() => {
+  if (previewRunType.value === 'membership') {
+    return previewStage.value === 'final' ? 'Mahnungen Vereinsbeiträge senden' : 'Erinnerungen Vereinsbeiträge senden';
+  }
   return previewStage.value === 'final' ? 'Mahnungen senden' : 'Erinnerungen senden';
 });
 
@@ -219,6 +229,7 @@ async function runReminders(stage: 'initial' | 'final') {
   isRunningReminders.value = true;
   reminderRunError.value = null;
   reminderRunResult.value = null;
+  reminderResultContext.value = 'regular';
   try {
     const result = await api.runReminders({
       stage,
@@ -228,6 +239,7 @@ async function runReminders(stage: 'initial' | 'final') {
     });
     reminderRunResult.value = result;
     if (result.dryRun && result.previews && result.previews.length > 0) {
+      previewRunType.value = 'regular';
       previewStage.value = stage;
       expandedPreview.value = null;
       selectedPreviewHouseholdIds.value = result.previews.map((preview) => preview.householdId);
@@ -235,6 +247,34 @@ async function runReminders(stage: 'initial' | 'final') {
     }
   } catch (e) {
     reminderRunError.value = e instanceof Error ? e.message : 'Erinnerung konnte nicht ausgelöst werden';
+  } finally {
+    isRunningReminders.value = false;
+  }
+}
+
+async function runMembershipReminders(stage: 'initial' | 'final') {
+  if (!authStore.isAdmin) return;
+  isRunningReminders.value = true;
+  reminderRunError.value = null;
+  reminderRunResult.value = null;
+  reminderResultContext.value = 'membership';
+  try {
+    const result = await api.runMembershipReminders({
+      stage,
+      date: reminderDate.value,
+      dryRun: true,
+      deadline: reminderDeadline.value || undefined,
+    });
+    reminderRunResult.value = result;
+    if (result.dryRun && result.previews && result.previews.length > 0) {
+      previewRunType.value = 'membership';
+      previewStage.value = stage;
+      expandedPreview.value = null;
+      selectedPreviewHouseholdIds.value = result.previews.map((preview) => preview.householdId);
+      showPreviewModal.value = true;
+    }
+  } catch (e) {
+    reminderRunError.value = e instanceof Error ? e.message : 'Vereinsbeitrags-Erinnerung konnte nicht ausgelöst werden';
   } finally {
     isRunningReminders.value = false;
   }
@@ -250,14 +290,23 @@ async function sendFromModal() {
   isRunningReminders.value = true;
   reminderRunError.value = null;
   reminderRunResult.value = null;
+  reminderResultContext.value = previewRunType.value;
   try {
-    const result = await api.runReminders({
-      stage: previewStage.value,
-      date: reminderDate.value,
-      dryRun: false,
-      deadline: reminderDeadline.value || undefined,
-      selectedHouseholdIds: selectedPreviewHouseholdIds.value,
-    });
+    const result = previewRunType.value === 'membership'
+      ? await api.runMembershipReminders({
+          stage: previewStage.value,
+          date: reminderDate.value,
+          dryRun: false,
+          deadline: reminderDeadline.value || undefined,
+          selectedHouseholdIds: selectedPreviewHouseholdIds.value,
+        })
+      : await api.runReminders({
+          stage: previewStage.value,
+          date: reminderDate.value,
+          dryRun: false,
+          deadline: reminderDeadline.value || undefined,
+          selectedHouseholdIds: selectedPreviewHouseholdIds.value,
+        });
     reminderRunResult.value = result;
   } catch (e) {
     reminderRunError.value = e instanceof Error ? e.message : 'Erinnerung konnte nicht ausgelöst werden';
@@ -302,6 +351,10 @@ function formatEmailType(type: string): string {
       return 'Zahlungserinnerung';
     case 'REMINDER_FINAL':
       return 'Mahnung';
+    case 'MEMBERSHIP_REMINDER_INITIAL':
+      return 'Vereinsbeitrag Erinnerung';
+    case 'MEMBERSHIP_REMINDER_FINAL':
+      return 'Vereinsbeitrag Mahnung';
     case 'PASSWORD_RESET':
       return 'Passwort-Reset';
     default:
@@ -417,7 +470,7 @@ watch(
     <div v-if="authStore.isAdmin" class="bg-white rounded-xl border p-6 mb-6">
       <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
         <div>
-          <h2 class="text-lg font-semibold text-gray-900">Zahlungserinnerungen</h2>
+          <h2 class="text-lg font-semibold text-gray-900">Zahlungserinnerungen Essens- und Platzgeld</h2>
           <p class="text-sm text-gray-600">
             Erinnerungen und Mahnungen werden direkt an die Eltern der jeweiligen Familie gesendet.
           </p>
@@ -486,12 +539,12 @@ watch(
         {{ reminderSettingsError }}
       </div>
 
-      <div v-if="reminderRunError" class="mt-3 text-sm text-red-600">
+      <div v-if="reminderResultContext === 'regular' && reminderRunError" class="mt-3 text-sm text-red-600">
         {{ reminderRunError }}
       </div>
 
       <!-- Result after real run -->
-      <div v-if="reminderRunResult && !reminderRunResult.dryRun" class="mt-4 p-4 bg-gray-50 border rounded-lg text-sm text-gray-700">
+      <div v-if="reminderResultContext === 'regular' && reminderRunResult && !reminderRunResult.dryRun" class="mt-4 p-4 bg-gray-50 border rounded-lg text-sm text-gray-700">
         <p class="font-medium mb-2">Ergebnis</p>
         <p>
           Familien kontaktiert: <span class="font-medium">{{ reminderRunResult.familiesEmailed }}</span>
@@ -516,9 +569,89 @@ watch(
       </div>
 
       <!-- Result after dry-run (when no previews or empty result) -->
-      <div v-if="reminderRunResult && reminderRunResult.dryRun && (!reminderRunResult.previews || reminderRunResult.previews.length === 0)" class="mt-4 p-4 bg-gray-50 border rounded-lg text-sm text-gray-700">
+      <div v-if="reminderResultContext === 'regular' && reminderRunResult && reminderRunResult.dryRun && (!reminderRunResult.previews || reminderRunResult.previews.length === 0)" class="mt-4 p-4 bg-gray-50 border rounded-lg text-sm text-gray-700">
         <p class="font-medium">Vorschau</p>
         <p class="text-gray-500">{{ reminderRunResult.message || 'Keine offenen Beiträge für diesen Zeitraum.' }}</p>
+      </div>
+    </div>
+
+    <!-- Vereinsbeiträge Card -->
+    <div v-if="authStore.isAdmin" class="bg-white rounded-xl border p-6 mb-6">
+      <div class="mb-4">
+        <h2 class="text-lg font-semibold text-gray-900">Zahlungserinnerungen Vereinsbeiträge</h2>
+        <p class="text-sm text-gray-600">
+          Separater Versand für offene Vereinsbeiträge. Standardfrist ist der 31.03. des ausgewählten Jahres.
+        </p>
+      </div>
+
+      <div class="flex flex-col lg:flex-row lg:items-end gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Datum</label>
+          <input
+            type="date"
+            v-model="reminderDate"
+            class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+          />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            Frist <span class="font-normal text-gray-400">(optional, Standard: 31.03. des Jahres)</span>
+          </label>
+          <input
+            type="date"
+            v-model="reminderDeadline"
+            class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+          />
+        </div>
+        <div class="flex flex-col sm:flex-row gap-2">
+          <button
+            class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+            :disabled="isRunningReminders"
+            @click="runMembershipReminders('initial')"
+          >
+            Erinnerung Vereinsbeiträge (Auswahl)
+          </button>
+          <button
+            class="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-50"
+            :disabled="isRunningReminders"
+            @click="runMembershipReminders('final')"
+          >
+            Mahnung Vereinsbeiträge (Auswahl)
+          </button>
+        </div>
+      </div>
+
+      <div v-if="reminderResultContext === 'membership' && reminderRunError" class="mt-3 text-sm text-red-600">
+        {{ reminderRunError }}
+      </div>
+
+      <div v-if="reminderResultContext === 'membership' && reminderRunResult && !reminderRunResult.dryRun" class="mt-4 p-4 bg-gray-50 border rounded-lg text-sm text-gray-700">
+        <p class="font-medium mb-2">Ergebnis</p>
+        <p>
+          Familien kontaktiert: <span class="font-medium">{{ reminderRunResult.familiesEmailed }}</span>
+          · Übersprungen: <span class="font-medium">{{ reminderRunResult.familiesSkippedNoEmail }}</span>
+          · Offene Beiträge: <span class="font-medium">{{ reminderRunResult.unpaidCount }}</span>
+        </p>
+        <p v-if="reminderRunResult.remindersCreated" class="mt-1">
+          Mahngebühren erstellt: <span class="font-medium">{{ reminderRunResult.remindersCreated }}</span>
+        </p>
+        <ul v-if="reminderRunResult.warnings && reminderRunResult.warnings.length > 0" class="mt-2 space-y-1">
+          <li
+            v-for="warn in reminderRunResult.warnings"
+            :key="warn.householdName"
+            class="text-amber-700"
+          >
+            Familie {{ warn.householdName }}: {{ warn.reason }}
+          </li>
+        </ul>
+        <p v-if="reminderRunResult.message" class="mt-1 text-gray-500">
+          {{ reminderRunResult.message }}
+        </p>
+      </div>
+
+      <div v-if="reminderResultContext === 'membership' && reminderRunResult && reminderRunResult.dryRun && (!reminderRunResult.previews || reminderRunResult.previews.length === 0)" class="mt-4 p-4 bg-gray-50 border rounded-lg text-sm text-gray-700">
+        <p class="font-medium">Vorschau</p>
+        <p class="text-gray-500">{{ reminderRunResult.message || 'Keine offenen Vereinsbeiträge für diesen Zeitraum.' }}</p>
       </div>
     </div>
 

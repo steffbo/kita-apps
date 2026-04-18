@@ -565,6 +565,8 @@ func feeTypeLabel(feeType domain.FeeType) string {
 		return "Essensgeld"
 	case domain.FeeTypeChildcare:
 		return "Platzgeld"
+	case domain.FeeTypeMembership:
+		return "Vereinsbeitrag"
 	case domain.FeeTypeReminder:
 		return "Mahngebühr"
 	default:
