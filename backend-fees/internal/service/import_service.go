@@ -412,6 +412,55 @@ func (s *ImportService) matchFeeExpectation(ctx context.Context, tx domain.BankT
 	childID := suggestion.Child.ID
 	feeType := *suggestion.DetectedType
 
+	if feeType == domain.FeeTypeMembership && suggestion.Child.HouseholdID != nil {
+		householdChildren, err := s.childRepo.GetByHouseholdID(ctx, *suggestion.Child.HouseholdID)
+		if err == nil && len(householdChildren) > 0 {
+			count := 0
+			for _, householdChild := range householdChildren {
+				c, err := s.feeRepo.CountUnpaidByType(ctx, householdChild.ID, feeType, tx.Amount)
+				if err == nil {
+					count += c
+				}
+			}
+
+			if count > 1 {
+				return &domain.TransactionWarning{
+					ID:            uuid.New(),
+					TransactionID: tx.ID,
+					WarningType:   domain.WarningTypeMultipleOpenFees,
+					Message:       fmt.Sprintf("Mehrere offene Vereinsbeiträge (%d) für diesen Haushalt gefunden - manuelle Zuordnung erforderlich", count),
+					ActualAmount:  &tx.Amount,
+					ChildID:       &childID,
+					CreatedAt:     time.Now(),
+				}
+			}
+
+			if count == 1 {
+				for _, householdChild := range householdChildren {
+					fee, err := s.feeRepo.FindBestUnpaid(ctx, householdChild.ID, feeType, tx.Amount, tx.BookingDate)
+					if err == nil && fee != nil {
+						suggestion.Expectation = fee
+						return nil
+					}
+				}
+			}
+
+			for _, householdChild := range householdChildren {
+				if fees, err := s.feeRepo.FindOldestUnpaidWithReminder(ctx, householdChild.ID, feeType, tx.Amount); err == nil && len(fees) == 2 {
+					suggestion.Expectations = fees
+					suggestion.Expectation = &fees[0]
+					suggestion.MatchedBy = "combined"
+					if suggestion.Confidence > 0 {
+						suggestion.Confidence = min(suggestion.Confidence+confidenceBoostCombined, maxConfidenceCombined)
+					}
+					return nil
+				}
+			}
+
+			return nil
+		}
+	}
+
 	// Check how many unpaid fees exist with this exact amount
 	count, err := s.feeRepo.CountUnpaidByType(ctx, childID, feeType, tx.Amount)
 	if err != nil {
@@ -1397,6 +1446,7 @@ func (s *ImportService) ResolveWarningWithLateFee(ctx context.Context, warningID
 	reminderFee := &domain.FeeExpectation{
 		ID:            uuid.New(),
 		ChildID:       originalFee.ChildID,
+		HouseholdID:   originalFee.HouseholdID,
 		FeeType:       domain.FeeTypeReminder,
 		Year:          originalFee.Year,
 		Month:         originalFee.Month, // Same month as original fee

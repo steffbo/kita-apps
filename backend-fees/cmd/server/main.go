@@ -101,7 +101,7 @@ func main() {
 	authService := service.NewAuthService(cfg.User.Username, cfg.User.Password, cfg.JWT.RefreshExpiry, refreshTokenRepo)
 
 	childService := service.NewChildService(childRepo, parentRepo, householdRepo)
-	parentService := service.NewParentService(parentRepo, childRepo, memberRepo)
+	parentService := service.NewParentService(parentRepo, childRepo, memberRepo, householdRepo)
 	householdService := service.NewHouseholdService(householdRepo, parentRepo, childRepo)
 	memberService := service.NewMemberService(memberRepo, householdRepo)
 	feeService := service.NewFeeService(feeRepo, childRepo, householdRepo, matchRepo, transactionRepo)

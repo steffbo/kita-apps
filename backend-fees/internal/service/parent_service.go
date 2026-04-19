@@ -12,17 +12,19 @@ import (
 
 // ParentService handles parent-related business logic.
 type ParentService struct {
-	parentRepo repository.ParentRepository
-	childRepo  repository.ChildRepository
-	memberRepo repository.MemberRepository
+	parentRepo    repository.ParentRepository
+	childRepo     repository.ChildRepository
+	memberRepo    repository.MemberRepository
+	householdRepo repository.HouseholdRepository
 }
 
 // NewParentService creates a new parent service.
-func NewParentService(parentRepo repository.ParentRepository, childRepo repository.ChildRepository, memberRepo repository.MemberRepository) *ParentService {
+func NewParentService(parentRepo repository.ParentRepository, childRepo repository.ChildRepository, memberRepo repository.MemberRepository, householdRepo repository.HouseholdRepository) *ParentService {
 	return &ParentService{
-		parentRepo: parentRepo,
-		childRepo:  childRepo,
-		memberRepo: memberRepo,
+		parentRepo:    parentRepo,
+		childRepo:     childRepo,
+		memberRepo:    memberRepo,
+		householdRepo: householdRepo,
 	}
 }
 
@@ -258,6 +260,15 @@ func (s *ParentService) CreateMemberFromParent(ctx context.Context, parentID uui
 	parent.MemberID = &member.ID
 	if err := s.parentRepo.Update(ctx, parent); err != nil {
 		return nil, err
+	}
+
+	// Mark household assignment as confirmed when membership was explicitly created from this parent.
+	if parent.HouseholdID != nil && s.householdRepo != nil {
+		if household, err := s.householdRepo.GetByID(ctx, *parent.HouseholdID); err == nil {
+			household.MembershipParentID = &parent.ID
+			household.MembershipStatus = domain.MembershipAssignmentStatusConfirmed
+			_ = s.householdRepo.Update(ctx, household)
+		}
 	}
 
 	// Attach the member to parent response

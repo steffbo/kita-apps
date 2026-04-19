@@ -29,6 +29,7 @@ const (
 type FeeExpectation struct {
 	ID                 uuid.UUID  `json:"id" db:"id"`
 	ChildID            uuid.UUID  `json:"childId" db:"child_id"`
+	HouseholdID        *uuid.UUID `json:"householdId,omitempty" db:"household_id"`
 	FeeType            FeeType    `json:"feeType" db:"fee_type"`
 	Year               int        `json:"year" db:"year"`
 	Month              *int       `json:"month,omitempty" db:"month"` // nil for yearly fees

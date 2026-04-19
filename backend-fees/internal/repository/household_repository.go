@@ -50,11 +50,11 @@ func (r *PostgresHouseholdRepository) List(ctx context.Context, search string, s
 
 	// Fetch with pagination
 	selectQuery := fmt.Sprintf(`
-		SELECT id, name, annual_household_income, income_status, children_count_for_fees, created_at, updated_at
-		%s
-		ORDER BY %s
-		LIMIT $%d OFFSET $%d
-	`, baseQuery, orderClause, argIdx, argIdx+1)
+			SELECT id, name, annual_household_income, income_status, membership_parent_id, membership_assignment_status, children_count_for_fees, created_at, updated_at
+			%s
+			ORDER BY %s
+			LIMIT $%d OFFSET $%d
+		`, baseQuery, orderClause, argIdx, argIdx+1)
 	args = append(args, limit, offset)
 
 	err = r.db.SelectContext(ctx, &households, selectQuery, args...)
@@ -89,7 +89,7 @@ func getHouseholdSortOrder(sortBy, sortDir string) string {
 func (r *PostgresHouseholdRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Household, error) {
 	var household domain.Household
 	err := r.db.GetContext(ctx, &household, `
-		SELECT id, name, annual_household_income, income_status, children_count_for_fees, created_at, updated_at
+		SELECT id, name, annual_household_income, income_status, membership_parent_id, membership_assignment_status, children_count_for_fees, created_at, updated_at
 		FROM fees.households
 		WHERE id = $1
 	`, id)
@@ -109,7 +109,7 @@ func (r *PostgresHouseholdRepository) GetByIDs(ctx context.Context, ids []uuid.U
 	}
 
 	query, args, err := sqlx.In(`
-		SELECT id, name, annual_household_income, income_status, children_count_for_fees, created_at, updated_at
+		SELECT id, name, annual_household_income, income_status, membership_parent_id, membership_assignment_status, children_count_for_fees, created_at, updated_at
 		FROM fees.households
 		WHERE id IN (?)
 	`, ids)
@@ -140,10 +140,10 @@ func (r *PostgresHouseholdRepository) Create(ctx context.Context, household *dom
 	household.UpdatedAt = now
 
 	_, err := r.db.ExecContext(ctx, `
-		INSERT INTO fees.households (id, name, annual_household_income, income_status, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6)
+		INSERT INTO fees.households (id, name, annual_household_income, income_status, membership_parent_id, membership_assignment_status, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 	`, household.ID, household.Name, household.AnnualHouseholdIncome, household.IncomeStatus,
-		household.CreatedAt, household.UpdatedAt)
+		household.MembershipParentID, household.MembershipStatus, household.CreatedAt, household.UpdatedAt)
 	return err
 }
 
@@ -152,10 +152,10 @@ func (r *PostgresHouseholdRepository) Update(ctx context.Context, household *dom
 	household.UpdatedAt = time.Now()
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE fees.households
-		SET name = $2, annual_household_income = $3, income_status = $4, children_count_for_fees = $5, updated_at = $6
+		SET name = $2, annual_household_income = $3, income_status = $4, membership_parent_id = $5, membership_assignment_status = $6, children_count_for_fees = $7, updated_at = $8
 		WHERE id = $1
 	`, household.ID, household.Name, household.AnnualHouseholdIncome, household.IncomeStatus,
-		household.ChildrenCountForFees, household.UpdatedAt)
+		household.MembershipParentID, household.MembershipStatus, household.ChildrenCountForFees, household.UpdatedAt)
 	return err
 }
 

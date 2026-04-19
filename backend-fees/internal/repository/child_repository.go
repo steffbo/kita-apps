@@ -238,6 +238,23 @@ func (r *PostgresChildRepository) GetByIDs(ctx context.Context, ids []uuid.UUID)
 	return result, nil
 }
 
+// GetByHouseholdID retrieves all children linked to a household.
+func (r *PostgresChildRepository) GetByHouseholdID(ctx context.Context, householdID uuid.UUID) ([]domain.Child, error) {
+	var children []domain.Child
+	err := r.db.SelectContext(ctx, &children, `
+		SELECT id, household_id, member_number, first_name, last_name, birth_date, entry_date, exit_date,
+		       street, street_no, postal_code, city, legal_hours, legal_hours_until, care_hours,
+		       is_active, created_at, updated_at
+		FROM fees.children
+		WHERE household_id = $1
+		ORDER BY entry_date ASC, created_at ASC, id ASC
+	`, householdID)
+	if err != nil {
+		return nil, err
+	}
+	return children, nil
+}
+
 // GetByMemberNumber retrieves a child by member number.
 func (r *PostgresChildRepository) GetByMemberNumber(ctx context.Context, memberNumber string) (*domain.Child, error) {
 	var child domain.Child

@@ -62,6 +62,8 @@ type CreateHouseholdInput struct {
 	Name                  string
 	AnnualHouseholdIncome *float64
 	IncomeStatus          domain.IncomeStatus
+	MembershipParentID    *uuid.UUID
+	MembershipStatus      *domain.MembershipAssignmentStatus
 }
 
 // Create creates a new household.
@@ -73,6 +75,14 @@ func (s *HouseholdService) Create(ctx context.Context, input CreateHouseholdInpu
 		IncomeStatus:          input.IncomeStatus,
 		CreatedAt:             time.Now(),
 		UpdatedAt:             time.Now(),
+	}
+	if input.MembershipParentID != nil {
+		household.MembershipParentID = input.MembershipParentID
+	}
+	if input.MembershipStatus != nil {
+		household.MembershipStatus = *input.MembershipStatus
+	} else {
+		household.MembershipStatus = domain.MembershipAssignmentStatusAssumed
 	}
 
 	if err := s.householdRepo.Create(ctx, household); err != nil {
@@ -87,6 +97,8 @@ type UpdateHouseholdInput struct {
 	Name                  *string
 	AnnualHouseholdIncome *float64
 	IncomeStatus          *domain.IncomeStatus
+	MembershipParentID    *uuid.UUID
+	MembershipStatus      *domain.MembershipAssignmentStatus
 	ChildrenCountForFees  *int
 }
 
@@ -105,6 +117,12 @@ func (s *HouseholdService) Update(ctx context.Context, id uuid.UUID, input Updat
 	}
 	if input.IncomeStatus != nil {
 		household.IncomeStatus = *input.IncomeStatus
+	}
+	if input.MembershipParentID != nil {
+		household.MembershipParentID = input.MembershipParentID
+	}
+	if input.MembershipStatus != nil {
+		household.MembershipStatus = *input.MembershipStatus
 	}
 	if input.ChildrenCountForFees != nil {
 		household.ChildrenCountForFees = input.ChildrenCountForFees

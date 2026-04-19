@@ -93,6 +93,7 @@ func (s *MembershipReminderService) Run(
 				reminder := &domain.FeeExpectation{
 					ID:            uuid.New(),
 					ChildID:       fee.ChildID,
+					HouseholdID:   fee.HouseholdID,
 					FeeType:       domain.FeeTypeReminder,
 					Year:          createdAt.Year(),
 					Month:         nil,
@@ -216,6 +217,7 @@ func syntheticMembershipReminderFees(baseFees []domain.FeeExpectation, dueDate t
 		reminders = append(reminders, domain.FeeExpectation{
 			ID:            uuid.New(),
 			ChildID:       baseFee.ChildID,
+			HouseholdID:   baseFee.HouseholdID,
 			FeeType:       domain.FeeTypeReminder,
 			Year:          createdAt.Year(),
 			Month:         nil,

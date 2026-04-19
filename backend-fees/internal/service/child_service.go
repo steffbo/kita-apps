@@ -401,10 +401,11 @@ func (s *ChildService) LinkParent(ctx context.Context, childID, parentID uuid.UU
 				householdName = parent.LastName + "/" + child.LastName
 			}
 			household := &domain.Household{
-				ID:        uuid.New(),
-				Name:      "Familie " + householdName,
-				CreatedAt: time.Now(),
-				UpdatedAt: time.Now(),
+				ID:               uuid.New(),
+				Name:             "Familie " + householdName,
+				MembershipStatus: domain.MembershipAssignmentStatusAssumed,
+				CreatedAt:        time.Now(),
+				UpdatedAt:        time.Now(),
 			}
 
 			// Migrate income from parent to household if available

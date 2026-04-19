@@ -203,13 +203,49 @@ func (s *FeeService) Generate(ctx context.Context, year int, month *int) (*Gener
 
 	result := &GenerateResult{}
 
-	for _, child := range children {
-		// Generate monthly fees
-		if month != nil {
-			dueDate := time.Date(year, time.Month(*month), 5, 0, 0, 0, 0, time.UTC)
+	// Membership fees are tracked once per household/year.
+	if month == nil {
+		return s.generateYearlyMembershipFees(ctx, year, children)
+	}
 
-			// Food fee (all children)
-			created, err := s.createFeeIfNotExists(ctx, child.ID, domain.FeeTypeFood, year, month, domain.FoodFeeAmount, dueDate)
+	for _, child := range children {
+		dueDate := time.Date(year, time.Month(*month), 5, 0, 0, 0, 0, time.UTC)
+
+		// Food fee (all children)
+		created, err := s.createFeeIfNotExists(ctx, child.ID, child.HouseholdID, domain.FeeTypeFood, year, month, domain.FoodFeeAmount, dueDate)
+		if err != nil {
+			return nil, err
+		}
+		if created {
+			result.Created++
+		} else {
+			result.Skipped++
+		}
+
+		// Childcare fee (only U3)
+		// If child turns 3 at any point during the month, no childcare fee is charged
+		if child.IsUnderThreeForEntireMonth(year, time.Month(*month)) {
+			info := s.getIncomeInfo(ctx, &child)
+
+			// Get care hours from child, default to 45
+			careHours := 45
+			if child.CareHours != nil && *child.CareHours > 0 {
+				careHours = *child.CareHours
+			}
+
+			feeResult := s.CalculateChildcareFee(domain.ChildcareFeeInput{
+				ChildAgeType:  domain.ChildAgeTypeKrippe,
+				NetIncome:     info.Income,
+				SiblingsCount: info.SiblingsCount,
+				CareHours:     careHours,
+				HighestRate:   info.IsHighestRate,
+				FosterFamily:  info.IsFosterFamily,
+			})
+			if feeResult.Fee <= 0 {
+				// Beitrag frei: kein Platzgeld erzeugen
+				continue
+			}
+			created, err := s.createFeeIfNotExists(ctx, child.ID, child.HouseholdID, domain.FeeTypeChildcare, year, month, feeResult.Fee, dueDate)
 			if err != nil {
 				return nil, err
 			}
@@ -218,63 +254,13 @@ func (s *FeeService) Generate(ctx context.Context, year int, month *int) (*Gener
 			} else {
 				result.Skipped++
 			}
-
-			// Childcare fee (only U3)
-			// If child turns 3 at any point during the month, no childcare fee is charged
-			if child.IsUnderThreeForEntireMonth(year, time.Month(*month)) {
-				info := s.getIncomeInfo(ctx, &child)
-
-				// Get care hours from child, default to 45
-				careHours := 45
-				if child.CareHours != nil && *child.CareHours > 0 {
-					careHours = *child.CareHours
-				}
-
-				feeResult := s.CalculateChildcareFee(domain.ChildcareFeeInput{
-					ChildAgeType:  domain.ChildAgeTypeKrippe,
-					NetIncome:     info.Income,
-					SiblingsCount: info.SiblingsCount,
-					CareHours:     careHours,
-					HighestRate:   info.IsHighestRate,
-					FosterFamily:  info.IsFosterFamily,
-				})
-				if feeResult.Fee <= 0 {
-					// Beitrag frei: kein Platzgeld erzeugen
-					continue
-				}
-				created, err := s.createFeeIfNotExists(ctx, child.ID, domain.FeeTypeChildcare, year, month, feeResult.Fee, dueDate)
-				if err != nil {
-					return nil, err
-				}
-				if created {
-					result.Created++
-				} else {
-					result.Skipped++
-				}
-			}
-		} else {
-			// Generate yearly membership fee
-			dueDate := time.Date(year, 3, 31, 0, 0, 0, 0, time.UTC)
-
-			// Only generate if child was enrolled before the year ends
-			if child.EntryDate.Year() <= year {
-				created, err := s.createFeeIfNotExists(ctx, child.ID, domain.FeeTypeMembership, year, nil, domain.MembershipFeeAmount, dueDate)
-				if err != nil {
-					return nil, err
-				}
-				if created {
-					result.Created++
-				} else {
-					result.Skipped++
-				}
-			}
 		}
 	}
 
 	return result, nil
 }
 
-func (s *FeeService) createFeeIfNotExists(ctx context.Context, childID uuid.UUID, feeType domain.FeeType, year int, month *int, amount float64, dueDate time.Time) (bool, error) {
+func (s *FeeService) createFeeIfNotExists(ctx context.Context, childID uuid.UUID, householdID *uuid.UUID, feeType domain.FeeType, year int, month *int, amount float64, dueDate time.Time) (bool, error) {
 	// Check if fee already exists
 	exists, err := s.feeRepo.Exists(ctx, childID, feeType, year, month)
 	if err != nil {
@@ -285,14 +271,15 @@ func (s *FeeService) createFeeIfNotExists(ctx context.Context, childID uuid.UUID
 	}
 
 	fee := &domain.FeeExpectation{
-		ID:        uuid.New(),
-		ChildID:   childID,
-		FeeType:   feeType,
-		Year:      year,
-		Month:     month,
-		Amount:    amount,
-		DueDate:   dueDate,
-		CreatedAt: time.Now(),
+		ID:          uuid.New(),
+		ChildID:     childID,
+		HouseholdID: householdID,
+		FeeType:     feeType,
+		Year:        year,
+		Month:       month,
+		Amount:      amount,
+		DueDate:     dueDate,
+		CreatedAt:   time.Now(),
 	}
 
 	if err := s.feeRepo.Create(ctx, fee); err != nil {
@@ -300,6 +287,144 @@ func (s *FeeService) createFeeIfNotExists(ctx context.Context, childID uuid.UUID
 	}
 
 	return true, nil
+}
+
+func (s *FeeService) generateYearlyMembershipFees(ctx context.Context, year int, children []domain.Child) (*GenerateResult, error) {
+	result := &GenerateResult{}
+	dueDate := time.Date(year, 3, 31, 0, 0, 0, 0, time.UTC)
+
+	groupedByHousehold := make(map[uuid.UUID][]domain.Child)
+	childrenWithoutHousehold := make([]domain.Child, 0)
+	for _, child := range children {
+		if child.EntryDate.Year() > year {
+			continue
+		}
+		if child.HouseholdID == nil {
+			childrenWithoutHousehold = append(childrenWithoutHousehold, child)
+			continue
+		}
+		groupedByHousehold[*child.HouseholdID] = append(groupedByHousehold[*child.HouseholdID], child)
+	}
+
+	for householdID, householdChildren := range groupedByHousehold {
+		// Use all children in household for existence check, even if not active right now.
+		allHouseholdChildren, err := s.childRepo.GetByHouseholdID(ctx, householdID)
+		if err != nil {
+			return nil, err
+		}
+		if len(allHouseholdChildren) == 0 {
+			allHouseholdChildren = householdChildren
+		}
+
+		exists := false
+		for _, child := range allHouseholdChildren {
+			hasMembershipFee, err := s.feeRepo.Exists(ctx, child.ID, domain.FeeTypeMembership, year, nil)
+			if err != nil {
+				return nil, err
+			}
+			if hasMembershipFee {
+				exists = true
+				break
+			}
+		}
+
+		if exists {
+			result.Skipped++
+			if err := s.ensureHouseholdMembershipAssignment(ctx, householdID); err != nil {
+				return nil, err
+			}
+			continue
+		}
+
+		representativeChild := pickRepresentativeChildForMembership(householdChildren)
+		created, err := s.createFeeIfNotExists(ctx, representativeChild.ID, &householdID, domain.FeeTypeMembership, year, nil, domain.MembershipFeeAmount, dueDate)
+		if err != nil {
+			return nil, err
+		}
+		if created {
+			result.Created++
+		} else {
+			result.Skipped++
+		}
+
+		if err := s.ensureHouseholdMembershipAssignment(ctx, householdID); err != nil {
+			return nil, err
+		}
+	}
+
+	// Legacy fallback: if no household linkage exists, keep per-child generation.
+	for _, child := range childrenWithoutHousehold {
+		created, err := s.createFeeIfNotExists(ctx, child.ID, nil, domain.FeeTypeMembership, year, nil, domain.MembershipFeeAmount, dueDate)
+		if err != nil {
+			return nil, err
+		}
+		if created {
+			result.Created++
+		} else {
+			result.Skipped++
+		}
+	}
+
+	return result, nil
+}
+
+func pickRepresentativeChildForMembership(children []domain.Child) domain.Child {
+	if len(children) == 1 {
+		return children[0]
+	}
+
+	sort.Slice(children, func(i, j int) bool {
+		if children[i].EntryDate.Equal(children[j].EntryDate) {
+			return children[i].ID.String() < children[j].ID.String()
+		}
+		return children[i].EntryDate.Before(children[j].EntryDate)
+	})
+
+	return children[0]
+}
+
+func (s *FeeService) ensureHouseholdMembershipAssignment(ctx context.Context, householdID uuid.UUID) error {
+	household, err := s.householdRepo.GetByID(ctx, householdID)
+	if err != nil {
+		return nil
+	}
+	if household.MembershipParentID != nil && household.MembershipStatus != "" {
+		return nil
+	}
+
+	parents, err := s.householdRepo.GetParents(ctx, householdID)
+	if err != nil || len(parents) == 0 {
+		return nil
+	}
+
+	parentID, status := pickHouseholdMembershipParent(parents)
+	household.MembershipParentID = &parentID
+	household.MembershipStatus = status
+	return s.householdRepo.Update(ctx, household)
+}
+
+func pickHouseholdMembershipParent(parents []domain.Parent) (uuid.UUID, domain.MembershipAssignmentStatus) {
+	candidates := make([]domain.Parent, 0, len(parents))
+	for _, parent := range parents {
+		if parent.MemberID != nil {
+			candidates = append(candidates, parent)
+		}
+	}
+
+	status := domain.MembershipAssignmentStatusAssumed
+	if len(candidates) > 0 {
+		parents = candidates
+		status = domain.MembershipAssignmentStatusConfirmed
+	}
+
+	sort.Slice(parents, func(i, j int) bool {
+		if parents[i].CreatedAt.Equal(parents[j].CreatedAt) {
+			return parents[i].ID.String() < parents[j].ID.String()
+		}
+		return parents[i].CreatedAt.Before(parents[j].CreatedAt)
+	})
+
+	return parents[0].ID, status
 }
 
 // Update updates a fee's amount.
@@ -610,6 +735,7 @@ func (s *FeeService) Create(ctx context.Context, input CreateFeeInput) (*domain.
 	fee := &domain.FeeExpectation{
 		ID:                 uuid.New(),
 		ChildID:            input.ChildID,
+		HouseholdID:        child.HouseholdID,
 		FeeType:            input.FeeType,
 		Year:               input.Year,
 		Month:              input.Month,
@@ -682,6 +808,7 @@ func (s *FeeService) CreateReminder(ctx context.Context, feeID uuid.UUID) (*doma
 	reminder := &domain.FeeExpectation{
 		ID:            uuid.New(),
 		ChildID:       originalFee.ChildID,
+		HouseholdID:   originalFee.HouseholdID,
 		FeeType:       domain.FeeTypeReminder,
 		Year:          now.Year(),
 		Month:         nil, // Reminders don't have a specific month

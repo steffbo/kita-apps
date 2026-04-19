@@ -103,11 +103,11 @@ func (r *PostgresFeeRepository) List(ctx context.Context, filter FeeFilter, offs
 
 	// Fetch with pagination
 	selectQuery := fmt.Sprintf(`
-		SELECT fe.id, fe.child_id, fe.fee_type, fe.year, fe.month, fe.amount, fe.due_date, fe.created_at, fe.reminder_for_id, fe.reconciliation_year
-		%s
-		ORDER BY %s
-		LIMIT $%d OFFSET $%d
-	`, baseQuery, orderClause, argIdx, argIdx+1)
+			SELECT fe.id, fe.child_id, fe.household_id, fe.fee_type, fe.year, fe.month, fe.amount, fe.due_date, fe.created_at, fe.reminder_for_id, fe.reconciliation_year
+			%s
+			ORDER BY %s
+			LIMIT $%d OFFSET $%d
+		`, baseQuery, orderClause, argIdx, argIdx+1)
 	args = append(args, limit, offset)
 
 	err = r.db.SelectContext(ctx, &fees, selectQuery, args...)
@@ -145,7 +145,7 @@ func getFeeSortOrder(sortBy, sortDir string) (string, bool) {
 func (r *PostgresFeeRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.FeeExpectation, error) {
 	var fee domain.FeeExpectation
 	err := r.db.GetContext(ctx, &fee, `
-		SELECT id, child_id, fee_type, year, month, amount, due_date, created_at, reminder_for_id, reconciliation_year
+		SELECT id, child_id, household_id, fee_type, year, month, amount, due_date, created_at, reminder_for_id, reconciliation_year
 		FROM fees.fee_expectations
 		WHERE id = $1
 	`, id)
@@ -166,7 +166,7 @@ func (r *PostgresFeeRepository) GetForChild(ctx context.Context, childID uuid.UU
 
 	if year != nil {
 		query = `
-			SELECT id, child_id, fee_type, year, month, amount, due_date, created_at, reminder_for_id, reconciliation_year
+			SELECT id, child_id, household_id, fee_type, year, month, amount, due_date, created_at, reminder_for_id, reconciliation_year
 			FROM fees.fee_expectations
 			WHERE child_id = $1 AND year = $2
 			ORDER BY year DESC, month ASC NULLS LAST
@@ -174,7 +174,7 @@ func (r *PostgresFeeRepository) GetForChild(ctx context.Context, childID uuid.UU
 		args = []interface{}{childID, *year}
 	} else {
 		query = `
-			SELECT id, child_id, fee_type, year, month, amount, due_date, created_at, reminder_for_id, reconciliation_year
+			SELECT id, child_id, household_id, fee_type, year, month, amount, due_date, created_at, reminder_for_id, reconciliation_year
 			FROM fees.fee_expectations
 			WHERE child_id = $1
 			ORDER BY year DESC, month ASC NULLS LAST
@@ -194,7 +194,7 @@ func (r *PostgresFeeRepository) ListUnpaidByMonthAndTypes(ctx context.Context, y
 
 	var fees []domain.FeeExpectation
 	query := `
-		SELECT fe.id, fe.child_id, fe.fee_type, fe.year, fe.month, fe.amount, fe.due_date, fe.created_at, fe.reminder_for_id, fe.reconciliation_year
+		SELECT fe.id, fe.child_id, fe.household_id, fe.fee_type, fe.year, fe.month, fe.amount, fe.due_date, fe.created_at, fe.reminder_for_id, fe.reconciliation_year
 		FROM fees.fee_expectations fe
 		LEFT JOIN (
 			SELECT expectation_id, COALESCE(SUM(amount), 0) AS matched_amount
@@ -220,7 +220,7 @@ func (r *PostgresFeeRepository) ListUnpaidUpToMonthAndTypes(ctx context.Context,
 	var fees []domain.FeeExpectation
 	nextMonthStart := time.Date(year, time.Month(month)+1, 1, 0, 0, 0, 0, time.UTC)
 	query := `
-		SELECT fe.id, fe.child_id, fe.fee_type, fe.year, fe.month, fe.amount, fe.due_date, fe.created_at, fe.reminder_for_id, fe.reconciliation_year
+		SELECT fe.id, fe.child_id, fe.household_id, fe.fee_type, fe.year, fe.month, fe.amount, fe.due_date, fe.created_at, fe.reminder_for_id, fe.reconciliation_year
 		FROM fees.fee_expectations fe
 		LEFT JOIN fees.fee_expectations base_fe ON base_fe.id = fe.reminder_for_id
 		LEFT JOIN (
@@ -255,7 +255,7 @@ func (r *PostgresFeeRepository) ListUnpaidWithoutReminderByMonthAndTypes(ctx con
 
 	var fees []domain.FeeExpectation
 	query := `
-		SELECT fe.id, fe.child_id, fe.fee_type, fe.year, fe.month, fe.amount, fe.due_date, fe.created_at, fe.reminder_for_id, fe.reconciliation_year
+		SELECT fe.id, fe.child_id, fe.household_id, fe.fee_type, fe.year, fe.month, fe.amount, fe.due_date, fe.created_at, fe.reminder_for_id, fe.reconciliation_year
 		FROM fees.fee_expectations fe
 		LEFT JOIN (
 			SELECT expectation_id, COALESCE(SUM(amount), 0) AS matched_amount
@@ -286,7 +286,7 @@ func (r *PostgresFeeRepository) ListUnpaidByTypesDueOnOrBefore(ctx context.Conte
 
 	var fees []domain.FeeExpectation
 	query := `
-		SELECT fe.id, fe.child_id, fe.fee_type, fe.year, fe.month, fe.amount, fe.due_date, fe.created_at, fe.reminder_for_id, fe.reconciliation_year
+		SELECT fe.id, fe.child_id, fe.household_id, fe.fee_type, fe.year, fe.month, fe.amount, fe.due_date, fe.created_at, fe.reminder_for_id, fe.reconciliation_year
 		FROM fees.fee_expectations fe
 		LEFT JOIN fees.fee_expectations base_fe ON base_fe.id = fe.reminder_for_id
 		LEFT JOIN (
@@ -319,7 +319,7 @@ func (r *PostgresFeeRepository) ListUnpaidWithoutReminderByTypesDueOnOrBefore(ct
 
 	var fees []domain.FeeExpectation
 	query := `
-		SELECT fe.id, fe.child_id, fe.fee_type, fe.year, fe.month, fe.amount, fe.due_date, fe.created_at, fe.reminder_for_id, fe.reconciliation_year
+		SELECT fe.id, fe.child_id, fe.household_id, fe.fee_type, fe.year, fe.month, fe.amount, fe.due_date, fe.created_at, fe.reminder_for_id, fe.reconciliation_year
 		FROM fees.fee_expectations fe
 		LEFT JOIN (
 			SELECT expectation_id, COALESCE(SUM(amount), 0) AS matched_amount
@@ -349,7 +349,7 @@ func (r *PostgresFeeRepository) GetByIDs(ctx context.Context, ids []uuid.UUID) (
 
 	var fees []domain.FeeExpectation
 	err := r.db.SelectContext(ctx, &fees, `
-		SELECT id, child_id, fee_type, year, month, amount, due_date, created_at, reminder_for_id, reconciliation_year
+		SELECT id, child_id, household_id, fee_type, year, month, amount, due_date, created_at, reminder_for_id, reconciliation_year
 		FROM fees.fee_expectations
 		WHERE id = ANY($1)
 	`, pq.Array(ids))
@@ -367,9 +367,9 @@ func (r *PostgresFeeRepository) GetByIDs(ctx context.Context, ids []uuid.UUID) (
 // Create creates a new fee expectation.
 func (r *PostgresFeeRepository) Create(ctx context.Context, fee *domain.FeeExpectation) error {
 	_, err := r.db.ExecContext(ctx, `
-		INSERT INTO fees.fee_expectations (id, child_id, fee_type, year, month, amount, due_date, created_at, reminder_for_id, reconciliation_year)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-	`, fee.ID, fee.ChildID, fee.FeeType, fee.Year, fee.Month, fee.Amount, fee.DueDate, fee.CreatedAt, fee.ReminderForID, fee.ReconciliationYear)
+		INSERT INTO fees.fee_expectations (id, child_id, household_id, fee_type, year, month, amount, due_date, created_at, reminder_for_id, reconciliation_year)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+	`, fee.ID, fee.ChildID, fee.HouseholdID, fee.FeeType, fee.Year, fee.Month, fee.Amount, fee.DueDate, fee.CreatedAt, fee.ReminderForID, fee.ReconciliationYear)
 	return err
 }
 
@@ -420,7 +420,7 @@ func (r *PostgresFeeRepository) FindUnpaid(ctx context.Context, childID uuid.UUI
 	var err error
 
 	query := `
-		SELECT fe.id, fe.child_id, fe.fee_type, fe.year, fe.month, fe.amount, fe.due_date, fe.created_at, fe.reminder_for_id, fe.reconciliation_year
+		SELECT fe.id, fe.child_id, fe.household_id, fe.fee_type, fe.year, fe.month, fe.amount, fe.due_date, fe.created_at, fe.reminder_for_id, fe.reconciliation_year
 		FROM fees.fee_expectations fe
 		LEFT JOIN fees.payment_matches pm ON fe.id = pm.expectation_id
 		WHERE fe.child_id = $1 AND fe.fee_type = $2 AND fe.year = $3
@@ -450,7 +450,7 @@ func (r *PostgresFeeRepository) FindOldestUnpaid(ctx context.Context, childID uu
 	var fee domain.FeeExpectation
 
 	query := `
-		SELECT fe.id, fe.child_id, fe.fee_type, fe.year, fe.month, fe.amount, fe.due_date, fe.created_at, fe.reminder_for_id, fe.reconciliation_year
+		SELECT fe.id, fe.child_id, fe.household_id, fe.fee_type, fe.year, fe.month, fe.amount, fe.due_date, fe.created_at, fe.reminder_for_id, fe.reconciliation_year
 		FROM fees.fee_expectations fe
 		LEFT JOIN fees.payment_matches pm ON fe.id = pm.expectation_id
 		WHERE fe.child_id = $1 AND fe.fee_type = $2 AND fe.amount = $3
@@ -479,7 +479,7 @@ func (r *PostgresFeeRepository) FindBestUnpaid(ctx context.Context, childID uuid
 
 	// First, try to find a fee for the same month/year as the payment
 	queryCurrentMonth := `
-		SELECT fe.id, fe.child_id, fe.fee_type, fe.year, fe.month, fe.amount, fe.due_date, fe.created_at, fe.reminder_for_id, fe.reconciliation_year
+		SELECT fe.id, fe.child_id, fe.household_id, fe.fee_type, fe.year, fe.month, fe.amount, fe.due_date, fe.created_at, fe.reminder_for_id, fe.reconciliation_year
 		FROM fees.fee_expectations fe
 		LEFT JOIN fees.payment_matches pm ON fe.id = pm.expectation_id
 		WHERE fe.child_id = $1 AND fe.fee_type = $2 AND fe.amount = $3
@@ -527,11 +527,11 @@ func (r *PostgresFeeRepository) FindOldestUnpaidWithReminder(ctx context.Context
 	// Find unpaid fees that have an unpaid reminder linked to them,
 	// where fee.amount + reminder.amount = combinedAmount
 	query := `
-		SELECT 
-			fe.id, fe.child_id, fe.fee_type, fe.year, fe.month, fe.amount, fe.due_date, fe.created_at, fe.reminder_for_id, fe.reconciliation_year,
-			rem.id as rem_id, rem.child_id as rem_child_id, rem.fee_type as rem_fee_type, rem.year as rem_year, 
-			rem.month as rem_month, rem.amount as rem_amount, rem.due_date as rem_due_date, rem.created_at as rem_created_at, 
-			rem.reminder_for_id as rem_reminder_for_id, rem.reconciliation_year as rem_reconciliation_year
+			SELECT 
+				fe.id, fe.child_id, fe.household_id, fe.fee_type, fe.year, fe.month, fe.amount, fe.due_date, fe.created_at, fe.reminder_for_id, fe.reconciliation_year,
+				rem.id as rem_id, rem.child_id as rem_child_id, rem.household_id as rem_household_id, rem.fee_type as rem_fee_type, rem.year as rem_year, 
+				rem.month as rem_month, rem.amount as rem_amount, rem.due_date as rem_due_date, rem.created_at as rem_created_at, 
+				rem.reminder_for_id as rem_reminder_for_id, rem.reconciliation_year as rem_reconciliation_year
 		FROM fees.fee_expectations fe
 		LEFT JOIN fees.payment_matches pm_fe ON fe.id = pm_fe.expectation_id
 		JOIN fees.fee_expectations rem ON rem.reminder_for_id = fe.id
@@ -557,8 +557,8 @@ func (r *PostgresFeeRepository) FindOldestUnpaidWithReminder(ctx context.Context
 
 	var fee, reminder domain.FeeExpectation
 	err = rows.Scan(
-		&fee.ID, &fee.ChildID, &fee.FeeType, &fee.Year, &fee.Month, &fee.Amount, &fee.DueDate, &fee.CreatedAt, &fee.ReminderForID, &fee.ReconciliationYear,
-		&reminder.ID, &reminder.ChildID, &reminder.FeeType, &reminder.Year, &reminder.Month, &reminder.Amount, &reminder.DueDate, &reminder.CreatedAt, &reminder.ReminderForID, &reminder.ReconciliationYear,
+		&fee.ID, &fee.ChildID, &fee.HouseholdID, &fee.FeeType, &fee.Year, &fee.Month, &fee.Amount, &fee.DueDate, &fee.CreatedAt, &fee.ReminderForID, &fee.ReconciliationYear,
+		&reminder.ID, &reminder.ChildID, &reminder.HouseholdID, &reminder.FeeType, &reminder.Year, &reminder.Month, &reminder.Amount, &reminder.DueDate, &reminder.CreatedAt, &reminder.ReminderForID, &reminder.ReconciliationYear,
 	)
 	if err != nil {
 		return nil, err

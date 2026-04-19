@@ -29,6 +29,7 @@ type ChildRepository interface {
 	List(ctx context.Context, activeOnly bool, u3Only bool, hasWarnings bool, hasOpenFees bool, search string, sortBy string, sortDir string, offset, limit int) ([]domain.Child, int64, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.Child, error)
 	GetByIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]*domain.Child, error)
+	GetByHouseholdID(ctx context.Context, householdID uuid.UUID) ([]domain.Child, error)
 	GetByMemberNumber(ctx context.Context, memberNumber string) (*domain.Child, error)
 	GetNextMemberNumber(ctx context.Context) (string, error)
 	Create(ctx context.Context, child *domain.Child) error

@@ -29,6 +29,8 @@ type HouseholdResponse struct {
 	Name                  string      `json:"name" example:"Familie Müller"`
 	AnnualHouseholdIncome *float64    `json:"annualHouseholdIncome,omitempty" example:"65000.00"`
 	IncomeStatus          *string     `json:"incomeStatus,omitempty" example:"PROVIDED" enums:"PROVIDED,MAX_ACCEPTED,PENDING,NOT_REQUIRED,HISTORIC,FOSTER_FAMILY"`
+	MembershipParentID    *string     `json:"membershipParentId,omitempty" example:"550e8400-e29b-41d4-a716-446655440000"`
+	MembershipStatus      *string     `json:"membershipAssignmentStatus,omitempty" example:"ASSUMED" enums:"ASSUMED,CONFIRMED"`
 	CreatedAt             string      `json:"createdAt" example:"2023-01-15T10:00:00Z"`
 	UpdatedAt             string      `json:"updatedAt" example:"2023-01-15T10:00:00Z"`
 	Parents               interface{} `json:"parents,omitempty"`
@@ -51,6 +53,8 @@ type CreateHouseholdRequest struct {
 	Name                  string   `json:"name" example:"Familie Müller"`
 	AnnualHouseholdIncome *float64 `json:"annualHouseholdIncome,omitempty" example:"65000.00"`
 	IncomeStatus          *string  `json:"incomeStatus,omitempty" example:"PROVIDED" enums:"PROVIDED,MAX_ACCEPTED,PENDING,NOT_REQUIRED,HISTORIC,FOSTER_FAMILY"`
+	MembershipParentID    *string  `json:"membershipParentId,omitempty" example:"550e8400-e29b-41d4-a716-446655440000"`
+	MembershipStatus      *string  `json:"membershipAssignmentStatus,omitempty" example:"ASSUMED" enums:"ASSUMED,CONFIRMED"`
 } //@name CreateHouseholdRequest
 
 // List returns all households with pagination
@@ -112,11 +116,31 @@ func (h *HouseholdHandler) Create(w http.ResponseWriter, r *http.Request) {
 	if req.IncomeStatus != nil {
 		incomeStatus = domain.IncomeStatus(*req.IncomeStatus)
 	}
+	var membershipParentID *uuid.UUID
+	if req.MembershipParentID != nil && *req.MembershipParentID != "" {
+		id, err := uuid.Parse(*req.MembershipParentID)
+		if err != nil {
+			response.BadRequest(w, "invalid membershipParentId")
+			return
+		}
+		membershipParentID = &id
+	}
+	var membershipStatus *domain.MembershipAssignmentStatus
+	if req.MembershipStatus != nil {
+		status := domain.MembershipAssignmentStatus(*req.MembershipStatus)
+		if status != domain.MembershipAssignmentStatusAssumed && status != domain.MembershipAssignmentStatusConfirmed {
+			response.BadRequest(w, "invalid membershipAssignmentStatus")
+			return
+		}
+		membershipStatus = &status
+	}
 
 	household, err := h.householdService.Create(r.Context(), service.CreateHouseholdInput{
 		Name:                  req.Name,
 		AnnualHouseholdIncome: req.AnnualHouseholdIncome,
 		IncomeStatus:          incomeStatus,
+		MembershipParentID:    membershipParentID,
+		MembershipStatus:      membershipStatus,
 	})
 	if err != nil {
 		response.InternalError(w, "failed to create household")
@@ -165,6 +189,8 @@ type UpdateHouseholdRequest struct {
 	Name                  *string  `json:"name,omitempty" example:"Familie Müller"`
 	AnnualHouseholdIncome *float64 `json:"annualHouseholdIncome,omitempty" example:"65000.00"`
 	IncomeStatus          *string  `json:"incomeStatus,omitempty" example:"PROVIDED" enums:"PROVIDED,MAX_ACCEPTED,PENDING,NOT_REQUIRED,HISTORIC,FOSTER_FAMILY"`
+	MembershipParentID    *string  `json:"membershipParentId,omitempty" example:"550e8400-e29b-41d4-a716-446655440000"`
+	MembershipStatus      *string  `json:"membershipAssignmentStatus,omitempty" example:"ASSUMED" enums:"ASSUMED,CONFIRMED"`
 	ChildrenCountForFees  *int     `json:"childrenCountForFees,omitempty" example:"2"`
 } //@name UpdateHouseholdRequest
 
@@ -204,6 +230,22 @@ func (h *HouseholdHandler) Update(w http.ResponseWriter, r *http.Request) {
 	if req.IncomeStatus != nil {
 		status := domain.IncomeStatus(*req.IncomeStatus)
 		input.IncomeStatus = &status
+	}
+	if req.MembershipParentID != nil && *req.MembershipParentID != "" {
+		membershipParentID, err := uuid.Parse(*req.MembershipParentID)
+		if err != nil {
+			response.BadRequest(w, "invalid membershipParentId")
+			return
+		}
+		input.MembershipParentID = &membershipParentID
+	}
+	if req.MembershipStatus != nil {
+		status := domain.MembershipAssignmentStatus(*req.MembershipStatus)
+		if status != domain.MembershipAssignmentStatusAssumed && status != domain.MembershipAssignmentStatusConfirmed {
+			response.BadRequest(w, "invalid membershipAssignmentStatus")
+			return
+		}
+		input.MembershipStatus = &status
 	}
 
 	household, err := h.householdService.Update(r.Context(), id, input)

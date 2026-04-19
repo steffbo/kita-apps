@@ -176,6 +176,7 @@ func (s *ReminderService) Run(ctx context.Context, runDate time.Time, stage Remi
 				reminder := &domain.FeeExpectation{
 					ID:            uuid.New(),
 					ChildID:       fee.ChildID,
+					HouseholdID:   fee.HouseholdID,
 					FeeType:       domain.FeeTypeReminder,
 					Year:          createdAt.Year(),
 					Month:         nil,
@@ -464,6 +465,7 @@ func syntheticReminderFees(baseFees []domain.FeeExpectation, dueDate time.Time, 
 		reminders = append(reminders, domain.FeeExpectation{
 			ID:            uuid.New(),
 			ChildID:       baseFee.ChildID,
+			HouseholdID:   baseFee.HouseholdID,
 			FeeType:       domain.FeeTypeReminder,
 			Year:          createdAt.Year(),
 			Month:         nil,
