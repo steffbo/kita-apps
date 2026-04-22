@@ -555,7 +555,7 @@ watch(
           </div>
           <div class="mt-3 flex items-center justify-between gap-3">
             <p class="text-xs text-gray-500">
-              Wenn Empfaenger und IBAN leer sind, werden Erinnerungsmails ohne QR-Code versendet.
+              Wenn Felder leer bleiben, werden die Standard-Zahlungsdaten der Kita verwendet.
             </p>
             <button
               class="px-3 py-2 rounded-lg border text-sm font-medium hover:bg-white disabled:opacity-50"

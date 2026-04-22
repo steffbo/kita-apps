@@ -24,6 +24,9 @@ const (
 	sepaCreditTransferIdentifier    = "SCT"
 	defaultQRCodeImageSize          = 320
 	maxSEPAReferenceLengthInRunes   = 140
+	defaultPaymentRecipientName     = "Knirpsenstadt e.V."
+	defaultPaymentIBAN              = "DE33370205000003321400"
+	defaultPaymentBIC               = "BFSWDE33XXX"
 )
 
 // ReminderPaymentSettings stores payment target data used for reminder QR generation.
@@ -57,7 +60,7 @@ func (s *ReminderService) GetPaymentSettings(ctx context.Context) (ReminderPayme
 		return ReminderPaymentSettings{}, err
 	}
 
-	return normalizeReminderPaymentSettings(ReminderPaymentSettings{
+	return applyLegacyReminderPaymentDefaults(ReminderPaymentSettings{
 		RecipientName: recipient,
 		IBAN:          iban,
 		BIC:           bic,
@@ -93,6 +96,7 @@ func (s *ReminderService) buildReminderQRCode(
 	items []reminderItem,
 ) (*reminderQRCodeData, error) {
 	settings := normalizeReminderPaymentSettings(paymentSettings)
+	settings = applyLegacyReminderPaymentDefaults(settings)
 	if !settings.HasRequiredValues() {
 		return nil, nil
 	}
@@ -136,6 +140,24 @@ func normalizeReminderPaymentSettings(settings ReminderPaymentSettings) Reminder
 		RecipientName: sanitizeSEPAText(settings.RecipientName),
 		IBAN:          normalizeIBAN(settings.IBAN),
 		BIC:           normalizeBIC(settings.BIC),
+	}
+	return normalized
+}
+
+func applyLegacyReminderPaymentDefaults(settings ReminderPaymentSettings) ReminderPaymentSettings {
+	normalized := normalizeReminderPaymentSettings(settings)
+	if normalized.RecipientName == "" {
+		normalized.RecipientName = defaultPaymentRecipientName
+	}
+	if normalized.IBAN == "" {
+		normalized.IBAN = defaultPaymentIBAN
+	}
+	if normalized.BIC == "" {
+		if strings.TrimSpace(settings.RecipientName) == "" &&
+			strings.TrimSpace(settings.IBAN) == "" &&
+			strings.TrimSpace(settings.BIC) == "" {
+			normalized.BIC = defaultPaymentBIC
+		}
 	}
 	return normalized
 }
@@ -309,4 +331,21 @@ func isLikelyBIC(value string) bool {
 		return false
 	}
 	return true
+}
+
+func formatIBANForEmail(iban string) string {
+	clean := normalizeIBAN(iban)
+	if clean == "" {
+		return ""
+	}
+
+	var chunks []string
+	for len(clean) > 4 {
+		chunks = append(chunks, clean[:4])
+		clean = clean[4:]
+	}
+	if clean != "" {
+		chunks = append(chunks, clean)
+	}
+	return strings.Join(chunks, " ")
 }

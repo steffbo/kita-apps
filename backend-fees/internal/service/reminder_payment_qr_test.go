@@ -59,7 +59,7 @@ func TestBuildSEPAReference_IncludesPurposeFamilyAndMemberNumbers(t *testing.T) 
 	}
 }
 
-func TestBuildReminderQRCode_MissingRequiredSettingsReturnsNil(t *testing.T) {
+func TestBuildReminderQRCode_UsesLegacyDefaultsWhenSettingsMissing(t *testing.T) {
 	service := &ReminderService{}
 	runDate := time.Date(2026, time.April, 5, 0, 0, 0, 0, time.UTC)
 
@@ -67,7 +67,10 @@ func TestBuildReminderQRCode_MissingRequiredSettingsReturnsNil(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected no error for missing settings, got: %v", err)
 	}
-	if data != nil {
-		t.Fatalf("expected nil QR data when required settings are missing")
+	if data == nil {
+		t.Fatalf("expected QR data with legacy defaults")
+	}
+	if !strings.HasPrefix(data.Payload, "BCD\n001\n1\nSCT\n") {
+		t.Fatalf("expected valid EPC payload prefix, got: %s", data.Payload)
 	}
 }

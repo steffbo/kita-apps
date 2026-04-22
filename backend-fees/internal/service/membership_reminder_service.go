@@ -156,7 +156,7 @@ func (s *MembershipReminderService) Run(
 		}
 
 		firstNames := parentFirstNames(parents)
-		subject, body := buildFamilyMembershipReminderEmail(stage, runDate, firstNames, group.items, deadline)
+		subject, body := buildFamilyMembershipReminderEmail(stage, runDate, firstNames, group.items, deadline, paymentSettings)
 		qrData, qrErr := helper.buildReminderQRCode(paymentSettings, runDate, group.householdName, group.items)
 		if qrErr != nil {
 			log.Warn().Err(qrErr).Str("household", group.householdName).Msg("Failed to generate payment QR code, continuing without QR")
@@ -262,7 +262,14 @@ func syntheticMembershipReminderFees(baseFees []domain.FeeExpectation, dueDate t
 	return reminders
 }
 
-func buildFamilyMembershipReminderEmail(stage ReminderStage, runDate time.Time, parentFirstNames []string, items []reminderItem, deadlineOverride *time.Time) (string, string) {
+func buildFamilyMembershipReminderEmail(
+	stage ReminderStage,
+	runDate time.Time,
+	parentFirstNames []string,
+	items []reminderItem,
+	deadlineOverride *time.Time,
+	paymentSettings ReminderPaymentSettings,
+) (string, string) {
 	year := runDate.Year()
 	isFinal := stage == ReminderStageFinal
 
@@ -315,10 +322,14 @@ func buildFamilyMembershipReminderEmail(stage ReminderStage, runDate time.Time, 
 		}
 	}
 
-	builder.WriteString("Empfänger: Knirpsenstadt e.V.\n")
-	builder.WriteString("IBAN: DE33 3702 0500 0003 3214 00\n")
-	builder.WriteString("BIC: BFSWDE33XXX\n\n")
-	builder.WriteString("Wichtig: Bitte gebt als Empfänger genau \"Knirpsenstadt e.V.\" an, damit das Matching bei eurer Bank korrekt funktioniert.\n\n")
+	effectivePaymentSettings := applyLegacyReminderPaymentDefaults(paymentSettings)
+	builder.WriteString(fmt.Sprintf("Empfänger: %s\n", effectivePaymentSettings.RecipientName))
+	builder.WriteString(fmt.Sprintf("IBAN: %s\n", formatIBANForEmail(effectivePaymentSettings.IBAN)))
+	if effectivePaymentSettings.BIC != "" {
+		builder.WriteString(fmt.Sprintf("BIC: %s\n", effectivePaymentSettings.BIC))
+	}
+	builder.WriteString("\n")
+	builder.WriteString(fmt.Sprintf("Wichtig: Bitte gebt als Empfänger genau \"%s\" an, damit das Matching bei eurer Bank korrekt funktioniert.\n\n", effectivePaymentSettings.RecipientName))
 	if isFinal {
 		builder.WriteString(fmt.Sprintf("Dies ist eine Mahnung. Bitte begleicht die offenen Vereinsbeiträge spätestens bis zum %s.\n\n", deadlineStr))
 		builder.WriteString("Falls ihr die Zahlung bereits veranlasst habt, betrachtet diese Nachricht bitte als gegenstandslos.\n\n")

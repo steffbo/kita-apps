@@ -21,6 +21,7 @@ func TestBuildFamilyMembershipReminderEmail_InitialStageUsesNeutralWording(t *te
 			Year:         2026,
 		}},
 		nil,
+		ReminderPaymentSettings{},
 	)
 
 	if subject != "Kita Zahlungserinnerung Vereinsbeitrag 2026" {
@@ -59,6 +60,7 @@ func TestBuildFamilyMembershipReminderEmail_FinalStageUsesDunningWording(t *test
 			Year:         2026,
 		}},
 		nil,
+		ReminderPaymentSettings{},
 	)
 
 	if subject != "Kita Mahnung Vereinsbeitrag 2026" {
@@ -104,6 +106,7 @@ func TestBuildFamilyMembershipReminderEmail_FinalStageIncludesMembershipReminder
 			},
 		},
 		nil,
+		ReminderPaymentSettings{},
 	)
 
 	if !strings.Contains(body, "Mahngebühr für Vereinsbeitrag 2026 — 5,00 EUR") {
@@ -132,6 +135,7 @@ func TestBuildFamilyMembershipReminderEmail_UsesDeadlineOverrideWhenProvided(t *
 			Year:         2026,
 		}},
 		&override,
+		ReminderPaymentSettings{},
 	)
 
 	if !strings.Contains(body, "bis zum 05.05.2026") {

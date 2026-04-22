@@ -22,6 +22,7 @@ func TestBuildFamilyReminderEmail_InitialStageUsesReminderWording(t *testing.T) 
 			Month:        4,
 		}},
 		nil,
+		ReminderPaymentSettings{},
 	)
 
 	if subject != "Kita Zahlungserinnerung April 2026" {
@@ -58,6 +59,7 @@ func TestBuildFamilyReminderEmail_FinalStageUsesDunningWording(t *testing.T) {
 			Month:        4,
 		}},
 		nil,
+		ReminderPaymentSettings{},
 	)
 
 	if subject != "Kita Mahnung April 2026" {
@@ -102,6 +104,7 @@ func TestBuildFamilyReminderEmail_FinalStageIncludesReminderFeeLine(t *testing.T
 			},
 		},
 		nil,
+		ReminderPaymentSettings{},
 	)
 
 	if subject != "Kita Mahnung April 2026" {
@@ -128,6 +131,7 @@ func TestBuildFamilyReminderEmail_UsesDeadlineOverrideWhenProvided(t *testing.T)
 			Month:        4,
 		}},
 		&override,
+		ReminderPaymentSettings{},
 	)
 
 	if !strings.Contains(body, "bis zum 30.04.2026") {
