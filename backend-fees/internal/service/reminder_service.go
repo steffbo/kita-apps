@@ -728,7 +728,7 @@ func buildReminderEmailHTML(textBody string, qrImageCID string) string {
 
 	if strings.TrimSpace(qrImageCID) != "" {
 		builder.WriteString("<hr style=\"margin:24px 0;border:none;border-top:1px solid #ddd;\">")
-		builder.WriteString("<p><strong>QR-Code fuer die Ueberweisung:</strong></p>")
+		builder.WriteString("<p><strong>QR-Code für die Überweisung:</strong></p>")
 		builder.WriteString("<img alt=\"SEPA Zahlungs-QR\" src=\"cid:")
 		builder.WriteString(html.EscapeString(qrImageCID))
 		builder.WriteString("\" style=\"display:block;max-width:280px;width:100%;height:auto;border:1px solid #ddd;padding:8px;\">")

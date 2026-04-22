@@ -521,10 +521,10 @@ watch(
 
       <div class="flex flex-col lg:flex-row lg:items-end gap-4">
         <div class="w-full rounded-lg border border-gray-200 p-4 bg-gray-50">
-          <p class="text-sm font-medium text-gray-800 mb-3">Zahlungsdaten fuer QR-Code</p>
+          <p class="text-sm font-medium text-gray-800 mb-3">Zahlungsdaten für QR-Code</p>
           <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
             <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Empfaenger</label>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Empfänger</label>
               <input
                 type="text"
                 v-model="reminderPaymentRecipientName"
@@ -796,7 +796,7 @@ watch(
                   class="w-full max-w-[260px] border rounded bg-white p-2"
                 />
               </div>
-              <p v-else class="text-xs text-gray-500">Kein QR-Code verfuegbar fuer diese Vorschau.</p>
+              <p v-else class="text-xs text-gray-500">Kein QR-Code verfügbar für diese Vorschau.</p>
             </div>
           </div>
         </div>
