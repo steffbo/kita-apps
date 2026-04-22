@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"html"
 	"sort"
 	"strings"
 	"time"
@@ -33,11 +34,12 @@ type ReminderWarning struct {
 
 // ReminderPreview holds the preview data for a single family email.
 type ReminderPreview struct {
-	HouseholdID   string
-	HouseholdName string
-	Recipients    []string
-	Subject       string
-	Body          string
+	HouseholdID    string
+	HouseholdName  string
+	Recipients     []string
+	Subject        string
+	Body           string
+	QRImageDataURL *string
 }
 
 // ReminderRunResult holds the outcome of a reminder run.
@@ -62,6 +64,7 @@ type ReminderRunResult struct {
 // ReminderEmailSender defines the required email behavior.
 type ReminderEmailSender interface {
 	SendTextEmailMulti(to []string, subject, body string) error
+	SendTextAndHTMLEmailMulti(to []string, subject, textBody, htmlBody string, inlineImageCID string, inlineImagePNG []byte) error
 	IsEnabled() bool
 }
 
@@ -207,6 +210,10 @@ func (s *ReminderService) Run(ctx context.Context, runDate time.Time, stage Remi
 	householdGroups = filterHouseholdGroupsBySelection(householdGroups, selectedHouseholdIDs)
 
 	result.FamiliesProcessed = len(householdGroups)
+	paymentSettings, err := s.GetPaymentSettings(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	for _, group := range householdGroups {
 		parents, err := s.householdRepo.GetParents(ctx, group.householdID)
@@ -227,14 +234,24 @@ func (s *ReminderService) Run(ctx context.Context, runDate time.Time, stage Remi
 
 		firstNames := parentFirstNames(parents)
 		subject, body := buildFamilyReminderEmail(stage, runDate, firstNames, group.items, deadline)
+		qrData, qrErr := s.buildReminderQRCode(paymentSettings, runDate, group.householdName, group.items)
+		if qrErr != nil {
+			log.Warn().Err(qrErr).Str("household", group.householdName).Msg("Failed to generate payment QR code, continuing without QR")
+		}
+
+		var qrImageDataURL *string
+		if qrData != nil {
+			qrImageDataURL = &qrData.DataURL
+		}
 
 		if dryRun {
 			result.Previews = append(result.Previews, ReminderPreview{
-				HouseholdID:   group.householdID.String(),
-				HouseholdName: group.householdName,
-				Recipients:    recipients,
-				Subject:       subject,
-				Body:          body,
+				HouseholdID:    group.householdID.String(),
+				HouseholdName:  group.householdName,
+				Recipients:     recipients,
+				Subject:        subject,
+				Body:           body,
+				QRImageDataURL: qrImageDataURL,
 			})
 			result.FamiliesEmailed++
 			continue
@@ -245,8 +262,22 @@ func (s *ReminderService) Run(ctx context.Context, runDate time.Time, stage Remi
 			return result, nil
 		}
 
-		if err := s.emailSender.SendTextEmailMulti(recipients, subject, body); err != nil {
-			return nil, err
+		if qrData != nil {
+			htmlBody := buildReminderEmailHTML(body, reminderEmailQRCodeCID)
+			if err := s.emailSender.SendTextAndHTMLEmailMulti(
+				recipients,
+				subject,
+				body,
+				htmlBody,
+				reminderEmailQRCodeCID,
+				qrData.PNG,
+			); err != nil {
+				return nil, err
+			}
+		} else {
+			if err := s.emailSender.SendTextEmailMulti(recipients, subject, body); err != nil {
+				return nil, err
+			}
 		}
 
 		toEmail := strings.Join(recipients, ", ")
@@ -670,11 +701,37 @@ func formatCurrencyEUR(amount float64) string {
 	return value + " EUR"
 }
 
+const reminderEmailQRCodeCID = "payment-qr-code"
+
+func buildReminderEmailHTML(textBody string, qrImageCID string) string {
+	var builder strings.Builder
+	builder.WriteString("<!doctype html><html><body style=\"font-family:Arial,sans-serif;line-height:1.5;color:#111;\">")
+
+	lines := strings.Split(textBody, "\n")
+	for idx, line := range lines {
+		if idx > 0 {
+			builder.WriteString("<br>")
+		}
+		builder.WriteString(html.EscapeString(line))
+	}
+
+	if strings.TrimSpace(qrImageCID) != "" {
+		builder.WriteString("<hr style=\"margin:24px 0;border:none;border-top:1px solid #ddd;\">")
+		builder.WriteString("<p><strong>QR-Code fuer die Ueberweisung:</strong></p>")
+		builder.WriteString("<img alt=\"SEPA Zahlungs-QR\" src=\"cid:")
+		builder.WriteString(html.EscapeString(qrImageCID))
+		builder.WriteString("\" style=\"display:block;max-width:280px;width:100%;height:auto;border:1px solid #ddd;padding:8px;\">")
+	}
+
+	builder.WriteString("</body></html>")
+	return builder.String()
+}
+
 func (s *ReminderService) GetAutoEnabled(ctx context.Context) (bool, error) {
 	if s.settingsRepo == nil {
 		return false, nil
 	}
-	setting, err := s.settingsRepo.Get(ctx, "reminder_auto_enabled")
+	setting, err := s.settingsRepo.Get(ctx, settingReminderAutoEnabled)
 	if err != nil {
 		if err == repository.ErrNotFound {
 			return false, nil
@@ -693,7 +750,7 @@ func (s *ReminderService) SetAutoEnabled(ctx context.Context, enabled bool) erro
 		value = "true"
 	}
 	return s.settingsRepo.Upsert(ctx, &domain.AppSetting{
-		Key:   "reminder_auto_enabled",
+		Key:   settingReminderAutoEnabled,
 		Value: value,
 	})
 }

@@ -1,9 +1,14 @@
 package email
 
 import (
+	"bytes"
 	"crypto/tls"
+	"encoding/base64"
 	"fmt"
+	"io"
+	"mime/multipart"
 	"net/smtp"
+	"net/textproto"
 	"strings"
 
 	"github.com/rs/zerolog/log"
@@ -59,6 +64,28 @@ func (s *Service) SendTextEmailMulti(to []string, subject, body string) error {
 	return s.sendMulti(to, subject, body)
 }
 
+// SendTextAndHTMLEmailMulti sends a multipart email (text + html) with an optional inline PNG image.
+func (s *Service) SendTextAndHTMLEmailMulti(
+	to []string,
+	subject string,
+	textBody string,
+	htmlBody string,
+	inlineImageCID string,
+	inlineImagePNG []byte,
+) error {
+	if !s.enabled {
+		log.Info().Strs("to", to).Str("subject", subject).Msg("Email sending disabled, skipping email")
+		return nil
+	}
+
+	msg, err := buildMultipartMessage(s.config.From, to, subject, textBody, htmlBody, inlineImageCID, inlineImagePNG)
+	if err != nil {
+		return err
+	}
+
+	return s.sendRawMulti(to, subject, msg)
+}
+
 // SendPasswordResetEmail sends a password reset email.
 func (s *Service) SendPasswordResetEmail(to, token, baseURL string) error {
 	if !s.enabled {
@@ -95,7 +122,6 @@ Ihr Knirpsenstadt-Team`, resetLink)
 
 // sendMulti sends an email via SMTP to one or more recipients.
 func (s *Service) sendMulti(to []string, subject, body string) error {
-	addr := fmt.Sprintf("%s:%d", s.config.Host, s.config.Port)
 	toHeader := strings.Join(to, ", ")
 
 	msg := fmt.Sprintf("From: %s\r\n"+
@@ -105,13 +131,18 @@ func (s *Service) sendMulti(to []string, subject, body string) error {
 		"\r\n"+
 		"%s", s.config.From, toHeader, subject, body)
 
+	return s.sendRawMulti(to, subject, []byte(msg))
+}
+
+func (s *Service) sendRawMulti(to []string, subject string, msg []byte) error {
+	addr := fmt.Sprintf("%s:%d", s.config.Host, s.config.Port)
 	auth := smtp.PlainAuth("", s.config.Username, s.config.Password, s.config.Host)
 
 	if s.config.UseTLS {
-		return s.sendTLS(addr, auth, to, msg)
+		return s.sendTLS(addr, auth, to, subject, msg)
 	}
 
-	err := smtp.SendMail(addr, auth, s.config.From, to, []byte(msg))
+	err := smtp.SendMail(addr, auth, s.config.From, to, msg)
 	if err != nil {
 		log.Error().Err(err).Strs("to", to).Msg("Failed to send email")
 		return err
@@ -122,7 +153,7 @@ func (s *Service) sendMulti(to []string, subject, body string) error {
 }
 
 // sendTLS sends an email using TLS to one or more recipients.
-func (s *Service) sendTLS(addr string, auth smtp.Auth, to []string, msg string) error {
+func (s *Service) sendTLS(addr string, auth smtp.Auth, to []string, subject string, msg []byte) error {
 	conn, err := tls.Dial("tcp", addr, &tls.Config{
 		ServerName: s.config.Host,
 	})
@@ -156,7 +187,7 @@ func (s *Service) sendTLS(addr string, auth smtp.Auth, to []string, msg string) 
 		return fmt.Errorf("SMTP DATA command failed: %w", err)
 	}
 
-	_, err = w.Write([]byte(msg))
+	_, err = w.Write(msg)
 	if err != nil {
 		return fmt.Errorf("failed to write email body: %w", err)
 	}
@@ -166,6 +197,108 @@ func (s *Service) sendTLS(addr string, auth smtp.Auth, to []string, msg string) 
 		return fmt.Errorf("failed to close email body: %w", err)
 	}
 
-	log.Info().Strs("to", to).Msg("Email sent successfully (TLS)")
+	log.Info().Strs("to", to).Str("subject", subject).Msg("Email sent successfully (TLS)")
 	return nil
+}
+
+func buildMultipartMessage(
+	from string,
+	to []string,
+	subject string,
+	textBody string,
+	htmlBody string,
+	inlineImageCID string,
+	inlineImagePNG []byte,
+) ([]byte, error) {
+	var relatedBody bytes.Buffer
+	relatedWriter := multipart.NewWriter(&relatedBody)
+
+	var altBody bytes.Buffer
+	altWriter := multipart.NewWriter(&altBody)
+
+	textHeader := textproto.MIMEHeader{}
+	textHeader.Set("Content-Type", "text/plain; charset=UTF-8")
+	textPart, err := altWriter.CreatePart(textHeader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create text part: %w", err)
+	}
+	if _, err := textPart.Write([]byte(textBody)); err != nil {
+		return nil, fmt.Errorf("failed to write text part: %w", err)
+	}
+
+	htmlHeader := textproto.MIMEHeader{}
+	htmlHeader.Set("Content-Type", "text/html; charset=UTF-8")
+	htmlPart, err := altWriter.CreatePart(htmlHeader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create html part: %w", err)
+	}
+	if _, err := htmlPart.Write([]byte(htmlBody)); err != nil {
+		return nil, fmt.Errorf("failed to write html part: %w", err)
+	}
+
+	if err := altWriter.Close(); err != nil {
+		return nil, fmt.Errorf("failed to finalize alternative multipart: %w", err)
+	}
+
+	altContainerHeader := textproto.MIMEHeader{}
+	altContainerHeader.Set("Content-Type", fmt.Sprintf("multipart/alternative; boundary=%q", altWriter.Boundary()))
+	altContainerPart, err := relatedWriter.CreatePart(altContainerHeader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create alternative container part: %w", err)
+	}
+	if _, err := altContainerPart.Write(altBody.Bytes()); err != nil {
+		return nil, fmt.Errorf("failed to write alternative container part: %w", err)
+	}
+
+	if len(inlineImagePNG) > 0 && strings.TrimSpace(inlineImageCID) != "" {
+		imageHeader := textproto.MIMEHeader{}
+		imageHeader.Set("Content-Type", "image/png")
+		imageHeader.Set("Content-Transfer-Encoding", "base64")
+		imageHeader.Set("Content-ID", fmt.Sprintf("<%s>", strings.TrimSpace(inlineImageCID)))
+		imageHeader.Set("Content-Disposition", "inline; filename=\"payment-qr.png\"")
+
+		imagePart, err := relatedWriter.CreatePart(imageHeader)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create image part: %w", err)
+		}
+		if err := writeBase64Lines(imagePart, inlineImagePNG); err != nil {
+			return nil, fmt.Errorf("failed to write image part: %w", err)
+		}
+	}
+
+	if err := relatedWriter.Close(); err != nil {
+		return nil, fmt.Errorf("failed to finalize related multipart: %w", err)
+	}
+
+	toHeader := strings.Join(to, ", ")
+	var msg bytes.Buffer
+	fmt.Fprintf(&msg, "From: %s\r\n", from)
+	fmt.Fprintf(&msg, "To: %s\r\n", toHeader)
+	fmt.Fprintf(&msg, "Subject: %s\r\n", subject)
+	fmt.Fprintf(&msg, "MIME-Version: 1.0\r\n")
+	fmt.Fprintf(&msg, "Content-Type: multipart/related; boundary=%q\r\n", relatedWriter.Boundary())
+	fmt.Fprintf(&msg, "\r\n")
+	if _, err := msg.Write(relatedBody.Bytes()); err != nil {
+		return nil, fmt.Errorf("failed to write multipart body: %w", err)
+	}
+
+	return msg.Bytes(), nil
+}
+
+func writeBase64Lines(w io.Writer, content []byte) error {
+	encoded := base64.StdEncoding.EncodeToString(content)
+	for len(encoded) > 76 {
+		if _, err := io.WriteString(w, encoded[:76]); err != nil {
+			return err
+		}
+		if _, err := io.WriteString(w, "\r\n"); err != nil {
+			return err
+		}
+		encoded = encoded[76:]
+	}
+	if _, err := io.WriteString(w, encoded); err != nil {
+		return err
+	}
+	_, err := io.WriteString(w, "\r\n")
+	return err
 }

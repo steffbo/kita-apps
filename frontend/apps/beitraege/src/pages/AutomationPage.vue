@@ -24,6 +24,9 @@ const reminderRunResult = ref<ReminderRunResponse | null>(null);
 const reminderResultContext = ref<'regular' | 'membership' | null>(null);
 const reminderDate = ref(new Date().toLocaleDateString('en-CA'));
 const reminderDeadline = ref('');
+const reminderPaymentRecipientName = ref('');
+const reminderPaymentIBAN = ref('');
+const reminderPaymentBIC = ref('');
 const isRunningReminders = ref(false);
 
 // Dry-run preview modal state
@@ -203,6 +206,9 @@ async function loadReminderSettings() {
   try {
     const settings = await api.getReminderSettings();
     reminderAutoEnabled.value = settings.autoEnabled;
+    reminderPaymentRecipientName.value = settings.payment?.recipientName ?? '';
+    reminderPaymentIBAN.value = settings.payment?.iban ?? '';
+    reminderPaymentBIC.value = settings.payment?.bic ?? '';
   } catch (e) {
     reminderSettingsError.value = e instanceof Error ? e.message : 'Einstellungen konnten nicht geladen werden';
   } finally {
@@ -210,13 +216,31 @@ async function loadReminderSettings() {
   }
 }
 
+function normalizeIBAN(value: string): string {
+  return value.toUpperCase().replace(/\s+/g, '');
+}
+
+function normalizeBIC(value: string): string {
+  return value.trim().toUpperCase();
+}
+
 async function updateReminderAutoEnabled() {
   if (!authStore.isAdmin) return;
   isReminderSettingsLoading.value = true;
   reminderSettingsError.value = null;
   try {
-    const settings = await api.updateReminderSettings({ autoEnabled: reminderAutoEnabled.value });
+    const settings = await api.updateReminderSettings({
+      autoEnabled: reminderAutoEnabled.value,
+      payment: {
+        recipientName: reminderPaymentRecipientName.value.trim(),
+        iban: normalizeIBAN(reminderPaymentIBAN.value),
+        bic: normalizeBIC(reminderPaymentBIC.value),
+      },
+    });
     reminderAutoEnabled.value = settings.autoEnabled;
+    reminderPaymentRecipientName.value = settings.payment?.recipientName ?? '';
+    reminderPaymentIBAN.value = settings.payment?.iban ?? '';
+    reminderPaymentBIC.value = settings.payment?.bic ?? '';
   } catch (e) {
     reminderSettingsError.value = e instanceof Error ? e.message : 'Einstellungen konnten nicht gespeichert werden';
   } finally {
@@ -496,6 +520,56 @@ watch(
       </div>
 
       <div class="flex flex-col lg:flex-row lg:items-end gap-4">
+        <div class="w-full rounded-lg border border-gray-200 p-4 bg-gray-50">
+          <p class="text-sm font-medium text-gray-800 mb-3">Zahlungsdaten fuer QR-Code</p>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Empfaenger</label>
+              <input
+                type="text"
+                v-model="reminderPaymentRecipientName"
+                placeholder="Knirpsenstadt e.V."
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">IBAN</label>
+              <input
+                type="text"
+                v-model="reminderPaymentIBAN"
+                placeholder="DE33370205000003321400"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">
+                BIC <span class="font-normal text-gray-400">(optional)</span>
+              </label>
+              <input
+                type="text"
+                v-model="reminderPaymentBIC"
+                placeholder="BFSWDE33XXX"
+                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              />
+            </div>
+          </div>
+          <div class="mt-3 flex items-center justify-between gap-3">
+            <p class="text-xs text-gray-500">
+              Wenn Empfaenger und IBAN leer sind, werden Erinnerungsmails ohne QR-Code versendet.
+            </p>
+            <button
+              class="px-3 py-2 rounded-lg border text-sm font-medium hover:bg-white disabled:opacity-50"
+              :disabled="isReminderSettingsLoading"
+              @click="updateReminderAutoEnabled"
+            >
+              Zahlungsdaten speichern
+            </button>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="flex flex-col lg:flex-row lg:items-end gap-4 mt-4">
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Datum</label>
           <input
@@ -714,6 +788,15 @@ watch(
             <div v-if="expandedPreview === prev.householdName" class="border-t px-4 py-3 bg-gray-50 text-sm space-y-2">
               <p class="font-medium text-gray-700">Betreff: {{ prev.subject }}</p>
               <pre class="whitespace-pre-wrap text-gray-600 bg-white border rounded p-3 text-xs">{{ prev.body }}</pre>
+              <div v-if="prev.qrImageDataUrl" class="space-y-2">
+                <p class="text-xs text-gray-500">SEPA-QR-Code</p>
+                <img
+                  :src="prev.qrImageDataUrl"
+                  alt="SEPA QR-Code"
+                  class="w-full max-w-[260px] border rounded bg-white p-2"
+                />
+              </div>
+              <p v-else class="text-xs text-gray-500">Kein QR-Code verfuegbar fuer diese Vorschau.</p>
             </div>
           </div>
         </div>

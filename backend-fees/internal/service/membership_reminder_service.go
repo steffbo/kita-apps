@@ -19,6 +19,7 @@ type MembershipReminderService struct {
 	feeRepo       repository.FeeRepository
 	childRepo     repository.ChildRepository
 	householdRepo repository.HouseholdRepository
+	settingsRepo  repository.SettingsRepository
 	emailLogRepo  repository.EmailLogRepository
 	emailSender   ReminderEmailSender
 	now           func() time.Time
@@ -29,6 +30,7 @@ func NewMembershipReminderService(
 	feeRepo repository.FeeRepository,
 	childRepo repository.ChildRepository,
 	householdRepo repository.HouseholdRepository,
+	settingsRepo repository.SettingsRepository,
 	emailLogRepo repository.EmailLogRepository,
 	emailSender ReminderEmailSender,
 ) *MembershipReminderService {
@@ -36,6 +38,7 @@ func NewMembershipReminderService(
 		feeRepo:       feeRepo,
 		childRepo:     childRepo,
 		householdRepo: householdRepo,
+		settingsRepo:  settingsRepo,
 		emailLogRepo:  emailLogRepo,
 		emailSender:   emailSender,
 		now:           time.Now,
@@ -115,6 +118,7 @@ func (s *MembershipReminderService) Run(
 		feeRepo:       s.feeRepo,
 		childRepo:     s.childRepo,
 		householdRepo: s.householdRepo,
+		settingsRepo:  s.settingsRepo,
 	}
 
 	items, children, err := helper.buildItemsWithChildren(ctx, fees)
@@ -129,6 +133,10 @@ func (s *MembershipReminderService) Run(
 	householdGroups = filterHouseholdGroupsBySelection(householdGroups, selectedHouseholdIDs)
 
 	result.FamiliesProcessed = len(householdGroups)
+	paymentSettings, err := helper.GetPaymentSettings(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	for _, group := range householdGroups {
 		parents, err := s.householdRepo.GetParents(ctx, group.householdID)
@@ -149,14 +157,24 @@ func (s *MembershipReminderService) Run(
 
 		firstNames := parentFirstNames(parents)
 		subject, body := buildFamilyMembershipReminderEmail(stage, runDate, firstNames, group.items, deadline)
+		qrData, qrErr := helper.buildReminderQRCode(paymentSettings, runDate, group.householdName, group.items)
+		if qrErr != nil {
+			log.Warn().Err(qrErr).Str("household", group.householdName).Msg("Failed to generate payment QR code, continuing without QR")
+		}
+
+		var qrImageDataURL *string
+		if qrData != nil {
+			qrImageDataURL = &qrData.DataURL
+		}
 
 		if dryRun {
 			result.Previews = append(result.Previews, ReminderPreview{
-				HouseholdID:   group.householdID.String(),
-				HouseholdName: group.householdName,
-				Recipients:    recipients,
-				Subject:       subject,
-				Body:          body,
+				HouseholdID:    group.householdID.String(),
+				HouseholdName:  group.householdName,
+				Recipients:     recipients,
+				Subject:        subject,
+				Body:           body,
+				QRImageDataURL: qrImageDataURL,
 			})
 			result.FamiliesEmailed++
 			continue
@@ -167,8 +185,22 @@ func (s *MembershipReminderService) Run(
 			return result, nil
 		}
 
-		if err := s.emailSender.SendTextEmailMulti(recipients, subject, body); err != nil {
-			return nil, err
+		if qrData != nil {
+			htmlBody := buildReminderEmailHTML(body, reminderEmailQRCodeCID)
+			if err := s.emailSender.SendTextAndHTMLEmailMulti(
+				recipients,
+				subject,
+				body,
+				htmlBody,
+				reminderEmailQRCodeCID,
+				qrData.PNG,
+			); err != nil {
+				return nil, err
+			}
+		} else {
+			if err := s.emailSender.SendTextEmailMulti(recipients, subject, body); err != nil {
+				return nil, err
+			}
 		}
 
 		toEmail := strings.Join(recipients, ", ")

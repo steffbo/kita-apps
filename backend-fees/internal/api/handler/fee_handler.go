@@ -60,12 +60,19 @@ type ReminderWarningResponse struct {
 
 // ReminderPreviewResponse holds the preview for a single family email.
 type ReminderPreviewResponse struct {
-	HouseholdID   string   `json:"householdId" example:"550e8400-e29b-41d4-a716-446655440000"`
-	HouseholdName string   `json:"householdName" example:"Schmidt"`
-	Recipients    []string `json:"recipients" example:"[\"anna@example.com\"]"`
-	Subject       string   `json:"subject" example:"Kita Zahlungserinnerung April 2026"`
-	Body          string   `json:"body" example:"Hallo Anna,..."`
+	HouseholdID    string   `json:"householdId" example:"550e8400-e29b-41d4-a716-446655440000"`
+	HouseholdName  string   `json:"householdName" example:"Schmidt"`
+	Recipients     []string `json:"recipients" example:"[\"anna@example.com\"]"`
+	Subject        string   `json:"subject" example:"Kita Zahlungserinnerung April 2026"`
+	Body           string   `json:"body" example:"Hallo Anna,..."`
+	QRImageDataURL *string  `json:"qrImageDataUrl,omitempty"`
 } //@name ReminderPreviewResponse
+
+type ReminderPaymentSettingsPayload struct {
+	RecipientName string `json:"recipientName" example:"Knirpsenstadt e.V."`
+	IBAN          string `json:"iban" example:"DE33370205000003321400"`
+	BIC           string `json:"bic,omitempty" example:"BFSWDE33XXX"`
+}
 
 // ReminderRunResponse represents the result of a reminder run.
 // @Description Ergebnis einer Erinnerungs-/Mahnungsprüfung
@@ -91,13 +98,15 @@ type ReminderRunResponse struct {
 // ReminderSettingsResponse represents reminder settings.
 // @Description Reminder settings
 type ReminderSettingsResponse struct {
-	AutoEnabled bool `json:"autoEnabled" example:"false"`
+	AutoEnabled bool                           `json:"autoEnabled" example:"false"`
+	Payment     ReminderPaymentSettingsPayload `json:"payment"`
 } //@name ReminderSettingsResponse
 
 // UpdateReminderSettingsRequest represents request body for reminder settings.
 // @Description Reminder settings update
 type UpdateReminderSettingsRequest struct {
-	AutoEnabled bool `json:"autoEnabled" example:"true"`
+	AutoEnabled bool                            `json:"autoEnabled" example:"true"`
+	Payment     *ReminderPaymentSettingsPayload `json:"payment,omitempty"`
 } //@name UpdateReminderSettingsRequest
 
 // EmailLogResponse represents an email log entry.
@@ -695,11 +704,12 @@ func reminderRunResponseFromResult(result *service.ReminderRunResult) ReminderRu
 
 	for _, prev := range result.Previews {
 		resp.Previews = append(resp.Previews, ReminderPreviewResponse{
-			HouseholdID:   prev.HouseholdID,
-			HouseholdName: prev.HouseholdName,
-			Recipients:    prev.Recipients,
-			Subject:       prev.Subject,
-			Body:          prev.Body,
+			HouseholdID:    prev.HouseholdID,
+			HouseholdName:  prev.HouseholdName,
+			Recipients:     prev.Recipients,
+			Subject:        prev.Subject,
+			Body:           prev.Body,
+			QRImageDataURL: prev.QRImageDataURL,
 		})
 	}
 
@@ -886,7 +896,20 @@ func (h *FeeHandler) GetReminderSettings(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	response.Success(w, ReminderSettingsResponse{AutoEnabled: autoEnabled})
+	paymentSettings, err := h.reminderService.GetPaymentSettings(r.Context())
+	if err != nil {
+		response.InternalError(w, "failed to load reminder settings")
+		return
+	}
+
+	response.Success(w, ReminderSettingsResponse{
+		AutoEnabled: autoEnabled,
+		Payment: ReminderPaymentSettingsPayload{
+			RecipientName: paymentSettings.RecipientName,
+			IBAN:          paymentSettings.IBAN,
+			BIC:           paymentSettings.BIC,
+		},
+	})
 }
 
 // UpdateReminderSettings handles PUT /fees/reminders/settings
@@ -914,7 +937,32 @@ func (h *FeeHandler) UpdateReminderSettings(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	response.Success(w, ReminderSettingsResponse{AutoEnabled: req.AutoEnabled})
+	if req.Payment != nil {
+		err := h.reminderService.SetPaymentSettings(r.Context(), service.ReminderPaymentSettings{
+			RecipientName: req.Payment.RecipientName,
+			IBAN:          req.Payment.IBAN,
+			BIC:           req.Payment.BIC,
+		})
+		if err != nil {
+			response.InternalError(w, "failed to update reminder settings")
+			return
+		}
+	}
+
+	paymentSettings, err := h.reminderService.GetPaymentSettings(r.Context())
+	if err != nil {
+		response.InternalError(w, "failed to load reminder settings")
+		return
+	}
+
+	response.Success(w, ReminderSettingsResponse{
+		AutoEnabled: req.AutoEnabled,
+		Payment: ReminderPaymentSettingsPayload{
+			RecipientName: paymentSettings.RecipientName,
+			IBAN:          paymentSettings.IBAN,
+			BIC:           paymentSettings.BIC,
+		},
+	})
 }
 
 // GetEmailLogs handles GET /fees/email-logs

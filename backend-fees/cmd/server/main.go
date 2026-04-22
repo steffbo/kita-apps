@@ -109,7 +109,7 @@ func main() {
 	childImportService := service.NewChildImportService(childRepo, parentRepo)
 	coverageService := service.NewCoverageService(feeRepo, childRepo, transactionRepo, matchRepo)
 	reminderService := service.NewReminderService(feeRepo, childRepo, householdRepo, settingsRepo, emailLogRepo, emailService)
-	membershipReminderService := service.NewMembershipReminderService(feeRepo, childRepo, householdRepo, emailLogRepo, emailService)
+	membershipReminderService := service.NewMembershipReminderService(feeRepo, childRepo, householdRepo, settingsRepo, emailLogRepo, emailService)
 	stichtagService := service.NewStichtagsmeldungService(childRepo)
 	einstufungService := service.NewEinstufungService(einstufungRepo, householdRepo, childRepo, feeService)
 

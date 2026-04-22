@@ -24,12 +24,20 @@ export interface User {
 }
 
 // Reminder settings and runs
+export interface ReminderPaymentSettings {
+  recipientName: string;
+  iban: string;
+  bic?: string;
+}
+
 export interface ReminderSettingsResponse {
   autoEnabled: boolean;
+  payment: ReminderPaymentSettings;
 }
 
 export interface UpdateReminderSettingsRequest {
   autoEnabled: boolean;
+  payment?: ReminderPaymentSettings;
 }
 
 export type ReminderRunStage = 'auto' | 'initial' | 'final' | 'none';
@@ -45,6 +53,7 @@ export interface ReminderPreview {
   recipients: string[];
   subject: string;
   body: string;
+  qrImageDataUrl?: string;
 }
 
 export interface ReminderRunResponse {
