@@ -26,7 +26,8 @@ func (r *PostgresSpecialDayRepository) List(ctx context.Context, startDate, endD
 	if err := r.db.SelectContext(ctx, &days, `
 		SELECT id, date, end_date, name, day_type, affects_all, notes, created_at
 		FROM special_days
-		WHERE date BETWEEN $1 AND $2
+		WHERE date <= $2
+		  AND COALESCE(end_date, date) >= $1
 		ORDER BY date
 	`, startDate, endDate); err != nil {
 		return nil, err
@@ -40,7 +41,9 @@ func (r *PostgresSpecialDayRepository) ListByType(ctx context.Context, startDate
 	if err := r.db.SelectContext(ctx, &days, `
 		SELECT id, date, end_date, name, day_type, affects_all, notes, created_at
 		FROM special_days
-		WHERE date BETWEEN $1 AND $2 AND day_type = $3
+		WHERE date <= $2
+		  AND COALESCE(end_date, date) >= $1
+		  AND day_type = $3
 		ORDER BY date
 	`, startDate, endDate, dayType); err != nil {
 		return nil, err

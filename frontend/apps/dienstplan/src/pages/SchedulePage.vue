@@ -17,6 +17,7 @@ import {
   type CreateEmployeeRequest,
   type UpdateEmployeeRequest,
   type ScheduleEntry,
+  type SpecialDay,
   type CreateScheduleEntryRequest,
   type UpdateScheduleEntryRequest
 } from '@kita/shared';
@@ -84,20 +85,29 @@ const allWeekDays = computed(() => {
     const date = new Date(start);
     date.setDate(date.getDate() + i);
     
-    // Find special day info from schedule data
+    const dateStr = toISODateString(date);
+    const specialDay = getSpecialDayForDate(dateStr);
+    const specialDayName = specialDay?.name || undefined;
+    const specialDayType = specialDay?.dayType;
+
+    // Fallback for older responses while backend data is refreshing.
     const daySchedule = weekSchedule.value?.days?.find(
-      d => d.date === toISODateString(date)
+      d => d.date === dateStr
     );
+    const isClosedDay = isClosedSpecialDay(specialDay) || (daySchedule?.isHoliday || false);
     
     days.push({
       date,
-      dateStr: toISODateString(date),
+      dateStr,
       dayName: WEEKDAYS_SHORT[i],
       dayNumber: date.getDate(),
       isToday: date.toDateString() === new Date().toDateString(),
       isWeekend: i >= 5,
-      isHoliday: daySchedule?.isHoliday || false,
-      holidayName: daySchedule?.holidayName,
+      isHoliday: isClosedDay,
+      holidayName: specialDayName || daySchedule?.holidayName,
+      specialDay,
+      specialDayName: specialDayName || daySchedule?.holidayName,
+      specialDayType,
     });
   }
   
@@ -122,6 +132,52 @@ const timelineStart = 6 * 60;
 const timelineEnd = 17 * 60;
 const timelineStep = 30;
 const timelineTicks = Array.from({ length: 12 }, (_, index) => timelineStart + index * 60);
+
+function getSpecialDayForDate(dateStr: string): SpecialDay | undefined {
+  const specialDays = weekSchedule.value?.specialDays || [];
+  const matches = specialDays.filter(day => {
+    if (!day.date) return false;
+    const endDate = day.endDate || day.date;
+    return day.date <= dateStr && dateStr <= endDate;
+  });
+
+  return matches.sort((a, b) => specialDayPriority(a.dayType) - specialDayPriority(b.dayType))[0];
+}
+
+function specialDayPriority(dayType?: string): number {
+  switch (dayType) {
+    case 'HOLIDAY': return 0;
+    case 'CLOSURE': return 1;
+    case 'TEAM_DAY': return 2;
+    case 'EVENT': return 3;
+    default: return 4;
+  }
+}
+
+function isClosedSpecialDay(day?: SpecialDay): boolean {
+  return day?.dayType === 'HOLIDAY' || day?.dayType === 'CLOSURE';
+}
+
+function getSpecialDayBackgroundClass(dayType?: string, target: 'header' | 'cell' = 'header'): string {
+  const subtle = target === 'cell';
+  switch (dayType) {
+    case 'HOLIDAY': return subtle ? 'bg-red-50/50' : 'bg-red-50';
+    case 'CLOSURE': return subtle ? 'bg-orange-50/60' : 'bg-orange-50';
+    case 'TEAM_DAY': return subtle ? 'bg-purple-50/60' : 'bg-purple-50';
+    case 'EVENT': return subtle ? 'bg-amber-50/60' : 'bg-amber-50';
+    default: return '';
+  }
+}
+
+function getSpecialDayTextClass(dayType?: string): string {
+  switch (dayType) {
+    case 'HOLIDAY': return 'text-red-600';
+    case 'CLOSURE': return 'text-orange-700';
+    case 'TEAM_DAY': return 'text-purple-700';
+    case 'EVENT': return 'text-amber-700';
+    default: return 'text-stone-900';
+  }
+}
 
 // Get entries for an employee on a specific day
 function getEntriesForEmployeeAndDay(employeeId: number, dateStr: string): ScheduleEntry[] {
@@ -463,7 +519,7 @@ function getHoursStatusClass(remaining: number): string {
             'px-4 py-3 text-center border-r border-stone-200 last:border-r-0',
             day.isWeekend ? 'bg-stone-100' : 'bg-stone-50',
             day.isToday ? 'bg-primary/10' : '',
-            day.isHoliday ? 'bg-red-50' : ''
+            getSpecialDayBackgroundClass(day.specialDayType, 'header')
           ]"
         >
           <div class="text-sm font-medium text-stone-600">{{ day.dayName }}</div>
@@ -471,13 +527,13 @@ function getHoursStatusClass(remaining: number): string {
             :class="[
               'text-lg font-semibold',
               day.isToday ? 'text-primary' : 'text-stone-900',
-              day.isHoliday ? 'text-red-600' : ''
+              getSpecialDayTextClass(day.specialDayType)
             ]"
           >
             {{ day.dayNumber }}
           </div>
-          <div v-if="day.isHoliday" class="text-xs text-red-600 truncate">
-            {{ day.holidayName }}
+          <div v-if="day.specialDayName" :class="['text-xs truncate', getSpecialDayTextClass(day.specialDayType)]">
+            {{ day.specialDayName }}
           </div>
         </div>
       </div>
@@ -515,7 +571,7 @@ function getHoursStatusClass(remaining: number): string {
             isEmployeeBlocked(employee, day.date) ? 'bg-stone-100/70 cursor-not-allowed' : 'cursor-pointer hover:bg-stone-50/50',
             day.isWeekend ? 'bg-stone-50' : '',
             day.isToday ? 'bg-primary/5' : '',
-            day.isHoliday ? 'bg-red-50/50' : ''
+            getSpecialDayBackgroundClass(day.specialDayType, 'cell')
           ]"
           @click="isAdmin && openCreateEmployeeDialog(day.date, employee.id!)"
         >
@@ -663,7 +719,9 @@ function getHoursStatusClass(remaining: number): string {
                 <div class="text-sm font-semibold text-stone-900">
                   {{ day.day.dayName }} {{ day.day.dayNumber }}
                 </div>
-                <div v-if="day.day.isHoliday" class="text-xs text-red-600">{{ day.day.holidayName }}</div>
+                <div v-if="day.day.specialDayName" :class="['text-xs', getSpecialDayTextClass(day.day.specialDayType)]">
+                  {{ day.day.specialDayName }}
+                </div>
               </div>
             </div>
 

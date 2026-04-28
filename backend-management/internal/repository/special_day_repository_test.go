@@ -150,6 +150,34 @@ func TestSpecialDayRepository_List(t *testing.T) {
 	assert.Equal(t, "May Day", days[0].Name)
 }
 
+func TestSpecialDayRepository_List_IncludesOverlappingDateRanges(t *testing.T) {
+	repo, cleanup := setupSpecialDayTest(t)
+	defer cleanup()
+	ctx := context.Background()
+
+	startDate := time.Date(2024, 7, 22, 0, 0, 0, 0, time.UTC)
+	endDate := time.Date(2024, 8, 2, 0, 0, 0, 0, time.UTC)
+	_, err := testutil.NewSpecialDayBuilder().
+		WithDate(startDate).
+		WithEndDate(endDate).
+		WithName("Sommerschließzeit").
+		WithType(domain.SpecialDayTypeClosure).
+		Create(ctx, testContainer.DB)
+	require.NoError(t, err)
+
+	weekStart := time.Date(2024, 7, 29, 0, 0, 0, 0, time.UTC)
+	weekEnd := time.Date(2024, 8, 4, 0, 0, 0, 0, time.UTC)
+	days, err := repo.List(ctx, weekStart, weekEnd)
+	require.NoError(t, err)
+	require.Len(t, days, 1)
+	assert.Equal(t, "Sommerschließzeit", days[0].Name)
+
+	closures, err := repo.ListByType(ctx, weekStart, weekEnd, domain.SpecialDayTypeClosure)
+	require.NoError(t, err)
+	require.Len(t, closures, 1)
+	assert.Equal(t, "Sommerschließzeit", closures[0].Name)
+}
+
 func TestSpecialDayRepository_ListByType(t *testing.T) {
 	repo, cleanup := setupSpecialDayTest(t)
 	defer cleanup()
