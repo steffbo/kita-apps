@@ -33,7 +33,7 @@ const emits = defineEmits<DialogRootEmits>();
 
     <DialogPortal>
       <DialogOverlay
-        class="fixed inset-0 z-[70] bg-stone-950/75 backdrop-blur-[1px] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
+        class="fixed inset-0 z-[70] bg-slate-500/60 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0"
       />
       <DialogContent
         :class="cn(
