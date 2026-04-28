@@ -8,6 +8,7 @@ import type {
   Employee,
   Group 
 } from '@kita/shared';
+import { useScheduleTimeSuggestion } from '@kita/shared';
 import { toISODateString } from '@kita/shared/utils';
 
 const props = defineProps<{
@@ -17,6 +18,7 @@ const props = defineProps<{
   groups: Group[];
   defaultDate?: Date;
   defaultGroupId?: number;
+  defaultEmployeeId?: number;
 }>();
 
 const emit = defineEmits<{
@@ -31,6 +33,8 @@ const entryTypeOptions: SelectOption[] = [
   { value: 'WORK', label: 'Arbeit' },
   { value: 'VACATION', label: 'Urlaub' },
   { value: 'SICK', label: 'Krank' },
+  { value: 'CHILD_SICK', label: 'Kind krank' },
+  { value: 'RECOVERY_DAY', label: 'Erholungstag' },
   { value: 'SPECIAL_LEAVE', label: 'Sonderurlaub' },
   { value: 'TRAINING', label: 'Fortbildung' },
   { value: 'EVENT', label: 'Veranstaltung' },
@@ -39,7 +43,7 @@ const entryTypeOptions: SelectOption[] = [
 const employeeOptions = computed<SelectOption[]>(() => {
   return props.employees.map(e => ({
     value: String(e.id),
-    label: `${e.firstName} ${e.lastName}`,
+    label: employeeDisplayName(e),
   }));
 });
 
@@ -50,6 +54,9 @@ const groupOptions = computed<SelectOption[]>(() =>
   }))
 );
 
+const startDefaults = ['06:30', '07:00', '07:30', '08:00'];
+const timeSuggestion = useScheduleTimeSuggestion();
+
 // Form state
 const form = ref({
   employeeId: '',
@@ -58,7 +65,10 @@ const form = ref({
   endTime: '15:00',
   breakMinutes: 30,
   groupId: '',
-  entryType: 'WORK' as 'WORK' | 'VACATION' | 'SICK' | 'SPECIAL_LEAVE' | 'TRAINING' | 'EVENT',
+  entryType: 'WORK' as 'WORK' | 'VACATION' | 'SICK' | 'CHILD_SICK' | 'RECOVERY_DAY' | 'SPECIAL_LEAVE' | 'TRAINING' | 'EVENT',
+  shiftKind: 'EARLY' as 'EARLY' | 'LATE' | 'MANUAL',
+  overrideBlockedDay: false,
+  plannedMinutes: 0,
   notes: '',
 });
 
@@ -83,23 +93,44 @@ watch(
           breakMinutes: props.entry.breakMinutes ?? 30,
           groupId: entryGroupId ? String(entryGroupId) : '',
           entryType: (props.entry.entryType as any) || 'WORK',
+          shiftKind: (props.entry.shiftKind as any) || 'MANUAL',
+          overrideBlockedDay: false,
+          plannedMinutes: calculateEntryMinutes(props.entry.startTime, props.entry.endTime, props.entry.breakMinutes),
           notes: props.entry.notes || '',
         };
       } else {
         form.value = {
-          employeeId: '',
+          employeeId: props.defaultEmployeeId ? String(props.defaultEmployeeId) : '',
           date: props.defaultDate ? toISODateString(props.defaultDate) : '',
           startTime: '07:00',
           endTime: '15:00',
           breakMinutes: 30,
           groupId: props.defaultGroupId ? String(props.defaultGroupId) : '',
           entryType: 'WORK',
+          shiftKind: 'EARLY',
+          overrideBlockedDay: false,
+          plannedMinutes: 0,
           notes: '',
         };
+        if (!form.value.groupId && props.defaultEmployeeId) {
+          const selectedEmployee = props.employees.find(e => e.id === props.defaultEmployeeId);
+          if (selectedEmployee?.primaryGroupId) {
+            form.value.groupId = String(selectedEmployee.primaryGroupId);
+          }
+        }
+        void applySuggestion();
       }
     }
   },
   { immediate: true }
+);
+
+watch(
+  () => [form.value.employeeId, form.value.date, form.value.shiftKind, form.value.startTime],
+  () => {
+    if (!props.open || isEditing.value || form.value.entryType !== 'WORK') return;
+    void applySuggestion();
+  }
 );
 
 // Auto-fill group when employee is selected (only for new entries)
@@ -125,11 +156,83 @@ function onGroupChange(value: string) {
   form.value.groupId = value;
 }
 
+async function applySuggestion() {
+  if (!form.value.employeeId || !form.value.date || form.value.entryType !== 'WORK' || form.value.shiftKind === 'MANUAL') {
+    return;
+  }
+  try {
+    const suggestion = await timeSuggestion.mutateAsync({
+      employeeId: parseInt(form.value.employeeId),
+      date: form.value.date,
+      shiftKind: form.value.shiftKind,
+      startTime: form.value.shiftKind === 'EARLY' ? `${form.value.startTime}:00` : undefined,
+    });
+    if (suggestion?.startTime) form.value.startTime = suggestion.startTime.substring(0, 5);
+    if (suggestion?.endTime) form.value.endTime = suggestion.endTime.substring(0, 5);
+    form.value.breakMinutes = suggestion?.breakMinutes ?? form.value.breakMinutes;
+    form.value.plannedMinutes = suggestion?.plannedMinutes ?? 0;
+    form.value.overrideBlockedDay = false;
+  } catch (err) {
+    console.error('Failed to calculate schedule suggestion:', err);
+  }
+}
+
+function applyStartDefault(value: string) {
+  form.value.shiftKind = 'EARLY';
+  form.value.startTime = value;
+}
+
+const selectedEmployee = computed(() => props.employees.find(e => String(e.id) === form.value.employeeId));
+const selectedWeekday = computed(() => {
+  if (!form.value.date) return 0;
+  const day = new Date(`${form.value.date}T00:00:00`).getDay();
+  return day === 0 ? 7 : day;
+});
+const isBlockedDay = computed(() => {
+  if (!selectedEmployee.value || !selectedWeekday.value) return false;
+  const pattern = selectedEmployee.value.workPattern || selectedEmployee.value.currentContract?.workdays || [];
+  return !pattern.some(day => day.weekday === selectedWeekday.value);
+});
+
+const calculatedWorkTime = computed(() => {
+  if (form.value.entryType !== 'WORK') return '';
+  const planned = form.value.plannedMinutes || calculateEntryMinutes(
+    `${form.value.startTime}:00`,
+    `${form.value.endTime}:00`,
+    Number(form.value.breakMinutes) || 0
+  );
+  return formatMinutes(planned);
+});
+
+function employeeDisplayName(employee: Employee): string {
+  return employee.nickname || employee.firstName || '';
+}
+
+function calculateEntryMinutes(startTime?: string, endTime?: string, breakMinutes = 0): number {
+  if (!startTime || !endTime) return 0;
+  const start = parseTime(startTime);
+  const end = parseTime(endTime);
+  return Math.max(0, end - start - breakMinutes);
+}
+
+function parseTime(value: string): number {
+  const [hours, minutes] = value.split(':').map(Number);
+  return (hours || 0) * 60 + (minutes || 0);
+}
+
+function formatMinutes(minutes: number): string {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  if (!minutes) return '0 Std.';
+  if (!mins) return `${hours} Std.`;
+  return `${hours} Std. ${mins} Min.`;
+}
+
 // Form validation - groupId is now required for WORK entries
 const isFormValid = computed(() => {
   const baseValid = form.value.employeeId && form.value.date && form.value.entryType;
   if (form.value.entryType === 'WORK') {
-    return baseValid && form.value.groupId;
+    return baseValid && form.value.groupId && (!isBlockedDay.value || form.value.overrideBlockedDay);
   }
   return baseValid;
 });
@@ -147,6 +250,8 @@ function handleSubmit() {
     breakMinutes: form.value.breakMinutes,
     groupId: form.value.groupId ? parseInt(form.value.groupId) : undefined,
     entryType: form.value.entryType,
+    shiftKind: form.value.shiftKind,
+    overrideBlockedDay: form.value.overrideBlockedDay,
     notes: form.value.notes || undefined,
   };
   emit('save', data, props.entry?.id);
@@ -196,6 +301,45 @@ function handleDelete() {
         </div>
       </div>
 
+      <div class="space-y-2" v-if="form.entryType === 'WORK'">
+        <Label>Dienstart</Label>
+        <div class="grid grid-cols-3 gap-2">
+          <Button type="button" size="sm" :variant="form.shiftKind === 'EARLY' ? 'default' : 'outline'" @click="form.shiftKind = 'EARLY'; applySuggestion()">
+            Früh
+          </Button>
+          <Button type="button" size="sm" :variant="form.shiftKind === 'LATE' ? 'default' : 'outline'" @click="form.shiftKind = 'LATE'; applySuggestion()">
+            Spät
+          </Button>
+          <Button type="button" size="sm" :variant="form.shiftKind === 'MANUAL' ? 'default' : 'outline'" @click="form.shiftKind = 'MANUAL'">
+            Manuell
+          </Button>
+        </div>
+      </div>
+
+      <div v-if="form.entryType === 'WORK' && isBlockedDay" class="rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+        Dieser Tag ist im Arbeitsmuster des Mitarbeiters blockiert.
+        <label class="mt-2 flex items-center gap-2">
+          <input type="checkbox" v-model="form.overrideBlockedDay" class="rounded border-amber-300" />
+          Trotzdem einplanen
+        </label>
+      </div>
+
+      <div class="space-y-2" v-if="form.entryType === 'WORK' && form.shiftKind === 'EARLY'">
+        <Label>Schnellstart</Label>
+        <div class="flex flex-wrap gap-2">
+          <Button
+            v-for="value in startDefaults"
+            :key="value"
+            type="button"
+            size="sm"
+            :variant="form.startTime === value ? 'default' : 'outline'"
+            @click="applyStartDefault(value)"
+          >
+            {{ value }}
+          </Button>
+        </div>
+      </div>
+
       <div class="grid grid-cols-3 gap-4" v-if="form.entryType === 'WORK'">
         <div class="space-y-2">
           <Label for="startTime">Beginn</Label>
@@ -204,6 +348,7 @@ function handleDelete() {
             v-model="form.startTime"
             type="time"
             required
+            :disabled="form.shiftKind === 'LATE'"
           />
         </div>
         <div class="space-y-2">
@@ -213,6 +358,7 @@ function handleDelete() {
             v-model="form.endTime"
             type="time"
             required
+            :disabled="form.shiftKind !== 'MANUAL'"
           />
         </div>
         <div class="space-y-2">
@@ -225,6 +371,11 @@ function handleDelete() {
             :max="120"
           />
         </div>
+      </div>
+
+      <div v-if="form.entryType === 'WORK'" class="rounded-md bg-stone-50 px-3 py-2 text-sm text-stone-700">
+        Arbeitszeit: <span class="font-medium text-stone-900">{{ calculatedWorkTime }}</span>
+        <span class="text-stone-500"> · Pause {{ form.breakMinutes || 0 }} Min.</span>
       </div>
 
       <div class="space-y-2" v-if="form.entryType === 'WORK'">

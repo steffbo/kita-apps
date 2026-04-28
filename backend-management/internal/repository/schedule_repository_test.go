@@ -336,6 +336,8 @@ func TestScheduleRepository_DifferentEntryTypes(t *testing.T) {
 		domain.ScheduleEntryTypeWork,
 		domain.ScheduleEntryTypeVacation,
 		domain.ScheduleEntryTypeSick,
+		domain.ScheduleEntryTypeChildSick,
+		domain.ScheduleEntryTypeRecoveryDay,
 		domain.ScheduleEntryTypeSpecialLeave,
 		domain.ScheduleEntryTypeTraining,
 		domain.ScheduleEntryTypeEvent,

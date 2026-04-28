@@ -86,7 +86,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 		AccessToken:  result.AccessToken,
 		RefreshToken: result.RefreshToken,
 		ExpiresIn:    result.ExpiresIn,
-		User:         mapEmployeeResponse(*result.Employee, nil, nil),
+		User:         mapEmployeeResponse(*result.Employee, nil, nil, nil),
 	})
 }
 
@@ -121,7 +121,7 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 		AccessToken:  result.AccessToken,
 		RefreshToken: result.RefreshToken,
 		ExpiresIn:    result.ExpiresIn,
-		User:         mapEmployeeResponse(*result.Employee, nil, nil),
+		User:         mapEmployeeResponse(*result.Employee, nil, nil, nil),
 	})
 }
 
@@ -147,7 +147,7 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.Success(w, mapEmployeeResponse(*employee, nil, nil))
+	response.Success(w, mapEmployeeResponse(*employee, nil, nil, nil))
 }
 
 // ChangePassword handles POST /auth/change-password.

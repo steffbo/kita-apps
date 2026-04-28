@@ -5,6 +5,8 @@ import {
   type ScheduleEntry, 
   type CreateScheduleEntryRequest, 
   type UpdateScheduleEntryRequest,
+  type TimeSuggestion,
+  type TimeSuggestionRequest,
   type WeekSchedule 
 } from '../api';
 import { toISODateString } from '../utils';
@@ -88,6 +90,18 @@ export function useCreateScheduleEntry() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: scheduleKeys.all });
+    },
+  });
+}
+
+export function useScheduleTimeSuggestion() {
+  return useMutation({
+    mutationFn: async (request: TimeSuggestionRequest) => {
+      const { data, error } = await apiClient.POST('/schedule/time-suggestion', {
+        body: request,
+      });
+      if (error) throw new Error((error as any)?.message || 'Fehler beim Berechnen der Dienstzeit');
+      return data as TimeSuggestion;
     },
   });
 }

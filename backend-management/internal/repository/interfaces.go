@@ -19,6 +19,11 @@ type EmployeeRepository interface {
 	Deactivate(ctx context.Context, id int64) error
 	Delete(ctx context.Context, id int64) error
 	AdjustRemainingVacationDays(ctx context.Context, id int64, delta float64) error
+	ListContracts(ctx context.Context, employeeID int64) ([]domain.EmployeeContract, error)
+	GetContractByID(ctx context.Context, id int64) (*domain.EmployeeContract, error)
+	GetContractForDate(ctx context.Context, employeeID int64, date time.Time) (*domain.EmployeeContract, error)
+	CreateContract(ctx context.Context, contract *domain.EmployeeContract) error
+	UpdateContract(ctx context.Context, contract *domain.EmployeeContract) (*domain.EmployeeContract, error)
 }
 
 // GroupRepository handles group persistence.

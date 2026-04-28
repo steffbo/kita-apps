@@ -14,21 +14,43 @@ const (
 
 // EmployeeResponse represents the employee API response.
 type EmployeeResponse struct {
-	ID                    int64          `json:"id"`
-	Email                 string         `json:"email"`
-	FirstName             string         `json:"firstName"`
-	LastName              string         `json:"lastName"`
-	Role                  string         `json:"role"`
-	WeeklyHours           float64        `json:"weeklyHours"`
-	VacationDaysPerYear   int            `json:"vacationDaysPerYear"`
-	RemainingVacationDays float64        `json:"remainingVacationDays"`
-	OvertimeBalance       float64        `json:"overtimeBalance"`
-	Active                bool           `json:"active"`
-	PrimaryGroupID        *int64         `json:"primaryGroupId,omitempty"`
-	PrimaryGroup          *GroupResponse `json:"primaryGroup,omitempty"`
-	CreatedAt             time.Time      `json:"createdAt"`
-	UpdatedAt             time.Time      `json:"updatedAt"`
+	ID                    int64                             `json:"id"`
+	Email                 string                            `json:"email"`
+	FirstName             string                            `json:"firstName"`
+	LastName              string                            `json:"lastName"`
+	Nickname              *string                           `json:"nickname,omitempty"`
+	Role                  string                            `json:"role"`
+	WeeklyHours           float64                           `json:"weeklyHours"`
+	VacationDaysPerYear   int                               `json:"vacationDaysPerYear"`
+	RemainingVacationDays float64                           `json:"remainingVacationDays"`
+	OvertimeBalance       float64                           `json:"overtimeBalance"`
+	Active                bool                              `json:"active"`
+	PrimaryGroupID        *int64                            `json:"primaryGroupId,omitempty"`
+	PrimaryGroup          *GroupResponse                    `json:"primaryGroup,omitempty"`
+	CurrentContract       *EmployeeContractResponse         `json:"currentContract,omitempty"`
+	WorkPattern           []EmployeeContractWorkdayResponse `json:"workPattern,omitempty"`
+	CreatedAt             time.Time                         `json:"createdAt"`
+	UpdatedAt             time.Time                         `json:"updatedAt"`
 } //@name Employee
+
+// EmployeeContractResponse represents a historical employee contract.
+type EmployeeContractResponse struct {
+	ID          int64                             `json:"id"`
+	EmployeeID  int64                             `json:"employeeId"`
+	ValidFrom   string                            `json:"validFrom"`
+	WeeklyHours float64                           `json:"weeklyHours"`
+	Workdays    []EmployeeContractWorkdayResponse `json:"workdays"`
+	CreatedAt   time.Time                         `json:"createdAt"`
+	UpdatedAt   time.Time                         `json:"updatedAt"`
+} //@name EmployeeContract
+
+// EmployeeContractWorkdayResponse represents a contract workday.
+type EmployeeContractWorkdayResponse struct {
+	ID             int64 `json:"id,omitempty"`
+	ContractID     int64 `json:"contractId,omitempty"`
+	Weekday        int   `json:"weekday"`
+	PlannedMinutes int   `json:"plannedMinutes"`
+} //@name EmployeeContractWorkday
 
 // GroupResponse represents the group API response.
 type GroupResponse struct {
@@ -65,6 +87,7 @@ type ScheduleEntryResponse struct {
 	GroupID      *int64            `json:"groupId,omitempty"`
 	Group        *GroupResponse    `json:"group,omitempty"`
 	EntryType    string            `json:"entryType"`
+	ShiftKind    string            `json:"shiftKind"`
 	Notes        *string           `json:"notes,omitempty"`
 	CreatedAt    time.Time         `json:"createdAt"`
 	UpdatedAt    time.Time         `json:"updatedAt"`
@@ -213,12 +236,13 @@ type ComparisonSummaryResponse struct {
 	DaysScheduled          int `json:"daysScheduled"`
 } //@name ComparisonSummary
 
-func mapEmployeeResponse(emp domain.Employee, primaryGroup *domain.Group, primaryGroupID *int64) EmployeeResponse {
+func mapEmployeeResponse(emp domain.Employee, primaryGroup *domain.Group, primaryGroupID *int64, currentContract *domain.EmployeeContract) EmployeeResponse {
 	response := EmployeeResponse{
 		ID:                    emp.ID,
 		Email:                 emp.Email,
 		FirstName:             emp.FirstName,
 		LastName:              emp.LastName,
+		Nickname:              emp.Nickname,
 		Role:                  string(emp.Role),
 		WeeklyHours:           emp.WeeklyHours,
 		VacationDaysPerYear:   emp.VacationDaysPerYear,
@@ -226,13 +250,41 @@ func mapEmployeeResponse(emp domain.Employee, primaryGroup *domain.Group, primar
 		OvertimeBalance:       emp.OvertimeBalance,
 		Active:                emp.Active,
 		PrimaryGroupID:        primaryGroupID,
+		CurrentContract:       mapEmployeeContractResponse(currentContract),
 		CreatedAt:             emp.CreatedAt,
 		UpdatedAt:             emp.UpdatedAt,
+	}
+	if response.CurrentContract != nil {
+		response.WorkPattern = response.CurrentContract.Workdays
 	}
 	if primaryGroup != nil {
 		response.PrimaryGroup = mapGroupResponse(*primaryGroup)
 	}
 	return response
+}
+
+func mapEmployeeContractResponse(contract *domain.EmployeeContract) *EmployeeContractResponse {
+	if contract == nil {
+		return nil
+	}
+	workdays := make([]EmployeeContractWorkdayResponse, 0, len(contract.Workdays))
+	for _, day := range contract.Workdays {
+		workdays = append(workdays, EmployeeContractWorkdayResponse{
+			ID:             day.ID,
+			ContractID:     day.ContractID,
+			Weekday:        day.Weekday,
+			PlannedMinutes: day.PlannedMinutes,
+		})
+	}
+	return &EmployeeContractResponse{
+		ID:          contract.ID,
+		EmployeeID:  contract.EmployeeID,
+		ValidFrom:   contract.ValidFrom.Format(dateLayout),
+		WeeklyHours: contract.WeeklyHours,
+		Workdays:    workdays,
+		CreatedAt:   contract.CreatedAt,
+		UpdatedAt:   contract.UpdatedAt,
+	}
 }
 
 func mapGroupResponse(group domain.Group) *GroupResponse {
@@ -257,6 +309,7 @@ func mapGroupAssignmentResponse(assignment domain.GroupAssignment, includeEmploy
 			Email:                 assignment.Employee.Email,
 			FirstName:             assignment.Employee.FirstName,
 			LastName:              assignment.Employee.LastName,
+			Nickname:              assignment.Employee.Nickname,
 			Role:                  string(assignment.Employee.Role),
 			WeeklyHours:           assignment.Employee.WeeklyHours,
 			VacationDaysPerYear:   assignment.Employee.VacationDaysPerYear,
@@ -278,6 +331,7 @@ func mapScheduleEntryResponse(entry domain.ScheduleEntry) ScheduleEntryResponse 
 		BreakMinutes: entry.BreakMinutes,
 		GroupID:      entry.GroupID,
 		EntryType:    string(entry.EntryType),
+		ShiftKind:    string(entry.ShiftKind),
 		Notes:        entry.Notes,
 		CreatedAt:    entry.CreatedAt,
 		UpdatedAt:    entry.UpdatedAt,
@@ -296,6 +350,7 @@ func mapScheduleEntryResponse(entry domain.ScheduleEntry) ScheduleEntryResponse 
 			Email:                 entry.Employee.Email,
 			FirstName:             entry.Employee.FirstName,
 			LastName:              entry.Employee.LastName,
+			Nickname:              entry.Employee.Nickname,
 			Role:                  string(entry.Employee.Role),
 			WeeklyHours:           entry.Employee.WeeklyHours,
 			VacationDaysPerYear:   entry.Employee.VacationDaysPerYear,
@@ -384,7 +439,7 @@ func mapOverviewResponse(stats *service.OverviewStatistics) OverviewStatisticsRe
 	}
 	for _, summary := range stats.EmployeeStats {
 		response.EmployeeStats = append(response.EmployeeStats, EmployeeStatisticsSummaryResponse{
-			Employee:              mapEmployeeResponse(summary.Employee, nil, nil),
+			Employee:              mapEmployeeResponse(summary.Employee, nil, nil, nil),
 			ScheduledHours:        summary.ScheduledHours,
 			WorkedHours:           summary.WorkedHours,
 			OvertimeHours:         summary.OvertimeHours,
@@ -396,7 +451,7 @@ func mapOverviewResponse(stats *service.OverviewStatistics) OverviewStatisticsRe
 
 func mapEmployeeStatsResponse(stats *service.EmployeeStatistics) EmployeeStatisticsResponse {
 	response := EmployeeStatisticsResponse{
-		Employee:              mapEmployeeResponse(stats.Employee, nil, nil),
+		Employee:              mapEmployeeResponse(stats.Employee, nil, nil, nil),
 		Month:                 stats.Month.Format(dateLayout),
 		ContractedHours:       stats.ContractedHours,
 		ScheduledHours:        stats.ScheduledHours,
@@ -432,7 +487,7 @@ func mapWeeklyStatsResponse(stats *service.WeeklyStatistics) WeeklyStatisticsRes
 	}
 	for _, summary := range stats.ByEmployee {
 		response.ByEmployee = append(response.ByEmployee, EmployeeWeekSummaryResponse{
-			Employee:       mapEmployeeResponse(summary.Employee, nil, nil),
+			Employee:       mapEmployeeResponse(summary.Employee, nil, nil, nil),
 			ScheduledHours: summary.ScheduledHours,
 			WorkedHours:    summary.WorkedHours,
 			DaysWorked:     summary.DaysWorked,

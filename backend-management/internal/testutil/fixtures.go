@@ -3,6 +3,7 @@ package testutil
 import (
 	"context"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -54,6 +55,11 @@ func (b *EmployeeBuilder) WithName(first, last string) *EmployeeBuilder {
 	return b
 }
 
+func (b *EmployeeBuilder) WithNickname(nickname string) *EmployeeBuilder {
+	b.employee.Nickname = &nickname
+	return b
+}
+
 func (b *EmployeeBuilder) WithRole(role domain.EmployeeRole) *EmployeeBuilder {
 	b.employee.Role = role
 	return b
@@ -97,7 +103,33 @@ func (b *EmployeeBuilder) Create(ctx context.Context, db *sqlx.DB) (*domain.Empl
 	if err := repo.Create(ctx, emp); err != nil {
 		return nil, err
 	}
+	if err := repo.CreateContract(ctx, &domain.EmployeeContract{
+		EmployeeID:  emp.ID,
+		ValidFrom:   time.Date(time.Now().Year(), time.Now().Month(), 1, 0, 0, 0, 0, time.UTC),
+		WeeklyHours: emp.WeeklyHours,
+		Workdays:    defaultTestWorkdays(emp.WeeklyHours),
+	}); err != nil {
+		return nil, err
+	}
 	return emp, nil
+}
+
+func defaultTestWorkdays(weeklyHours float64) []domain.EmployeeContractWorkday {
+	if weeklyHours == 33 {
+		return []domain.EmployeeContractWorkday{
+			{Weekday: 1, PlannedMinutes: 420},
+			{Weekday: 2, PlannedMinutes: 420},
+			{Weekday: 3, PlannedMinutes: 420},
+			{Weekday: 4, PlannedMinutes: 360},
+			{Weekday: 5, PlannedMinutes: 360},
+		}
+	}
+	dailyMinutes := int(math.Round(weeklyHours * 60 / 5))
+	workdays := make([]domain.EmployeeContractWorkday, 0, 5)
+	for weekday := 1; weekday <= 5; weekday++ {
+		workdays = append(workdays, domain.EmployeeContractWorkday{Weekday: weekday, PlannedMinutes: dailyMinutes})
+	}
+	return workdays
 }
 
 // GroupBuilder helps create test groups with sensible defaults.
@@ -162,6 +194,7 @@ func NewScheduleEntryBuilder() *ScheduleEntryBuilder {
 			EndTime:      &endTime,
 			BreakMinutes: 30,
 			EntryType:    domain.ScheduleEntryTypeWork,
+			ShiftKind:    domain.ShiftKindManual,
 		},
 	}
 }

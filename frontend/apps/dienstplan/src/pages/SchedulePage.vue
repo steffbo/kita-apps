@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { ChevronLeft, ChevronRight, Plus, Loader2 } from 'lucide-vue-next';
+import { BarChart3, ChevronLeft, ChevronRight, Plus, Loader2 } from 'lucide-vue-next';
 import { 
   useAuth,
   useWeekSchedule,
@@ -9,13 +9,21 @@ import {
   useCreateScheduleEntry,
   useUpdateScheduleEntry,
   useDeleteScheduleEntry,
+  useUpdateEmployee,
+  useCreateEmployeeContract,
+  useUpdateEmployeeContract,
+  type Employee,
+  type EmployeeContractRequest,
+  type CreateEmployeeRequest,
+  type UpdateEmployeeRequest,
   type ScheduleEntry,
   type CreateScheduleEntryRequest,
   type UpdateScheduleEntryRequest
 } from '@kita/shared';
 import { getWeekStart, getWeekEnd, formatDate, WEEKDAYS_SHORT, toISODateString } from '@kita/shared/utils';
-import { Button } from '@/components/ui';
+import { Button, Dialog } from '@/components/ui';
 import ScheduleEntryDialog from '@/components/ScheduleEntryDialog.vue';
+import EmployeeFormDialog from '@/components/EmployeeFormDialog.vue';
 
 const { isAdmin } = useAuth();
 
@@ -33,12 +41,19 @@ const { data: employees } = useEmployees(false);
 const createEntry = useCreateScheduleEntry();
 const updateEntry = useUpdateScheduleEntry();
 const deleteEntry = useDeleteScheduleEntry();
+const updateEmployee = useUpdateEmployee();
+const createEmployeeContract = useCreateEmployeeContract();
+const updateEmployeeContract = useUpdateEmployeeContract();
 
 // Dialog state
 const dialogOpen = ref(false);
 const selectedEntry = ref<ScheduleEntry | null>(null);
 const defaultDate = ref<Date | undefined>();
 const defaultGroupId = ref<number | undefined>();
+const defaultEmployeeId = ref<number | undefined>();
+const employeeDialogOpen = ref(false);
+const selectedEmployee = ref<Employee | null>(null);
+const staffingDialogOpen = ref(false);
 
 // Display settings
 const showWeekends = ref(false);
@@ -102,18 +117,17 @@ const gridColsClass = computed(() => {
   return showWeekends.value ? 'grid-cols-8' : 'grid-cols-6';
 });
 
-// Get entries for a group on a specific day
-function getEntriesForGroupAndDay(groupId: number, dateStr: string): ScheduleEntry[] {
+const activeEmployees = computed(() => (employees.value || []).filter(emp => emp.active !== false));
+const timelineStart = 6 * 60;
+const timelineEnd = 17 * 60;
+const timelineStep = 30;
+const timelineTicks = Array.from({ length: 12 }, (_, index) => timelineStart + index * 60);
+
+// Get entries for an employee on a specific day
+function getEntriesForEmployeeAndDay(employeeId: number, dateStr: string): ScheduleEntry[] {
   const daySchedule = weekSchedule.value?.days?.find(d => d.date === dateStr);
   if (!daySchedule) return [];
-  
-  // Check byGroup first for performance
-  if (daySchedule.byGroup && daySchedule.byGroup[String(groupId)]) {
-    return daySchedule.byGroup[String(groupId)] || [];
-  }
-  
-  // Fallback: filter from all entries
-  return (daySchedule.entries || []).filter(e => e.groupId === groupId);
+  return (daySchedule.entries || []).filter(e => e.employeeId === employeeId);
 }
 
 // Get color for entry type
@@ -121,10 +135,25 @@ function getEntryColor(entryType: string, groupColor?: string): string {
   switch (entryType) {
     case 'VACATION': return '#3B82F6'; // blue
     case 'SICK': return '#EF4444'; // red
+    case 'CHILD_SICK': return '#F97316'; // orange
+    case 'RECOVERY_DAY': return '#14B8A6'; // teal
     case 'TRAINING': return '#8B5CF6'; // purple
     case 'EVENT': return '#F59E0B'; // amber
     case 'SPECIAL_LEAVE': return '#EC4899'; // pink
     default: return groupColor || '#10B981'; // green or group color
+  }
+}
+
+function getEntryTypeLabel(entryType: string): string {
+  switch (entryType) {
+    case 'VACATION': return 'Urlaub';
+    case 'SICK': return 'Krank';
+    case 'CHILD_SICK': return 'Kind krank';
+    case 'RECOVERY_DAY': return 'Erholungstag';
+    case 'SPECIAL_LEAVE': return 'Sonderurlaub';
+    case 'TRAINING': return 'Fortbildung';
+    case 'EVENT': return 'Veranstaltung';
+    default: return entryType;
   }
 }
 
@@ -133,6 +162,16 @@ function openCreateDialog(date: Date, groupId?: number) {
   selectedEntry.value = null;
   defaultDate.value = date;
   defaultGroupId.value = groupId;
+  defaultEmployeeId.value = undefined;
+  dialogOpen.value = true;
+}
+
+function openCreateEmployeeDialog(date: Date, employeeId: number) {
+  const employee = employees.value?.find(e => e.id === employeeId);
+  selectedEntry.value = null;
+  defaultDate.value = date;
+  defaultEmployeeId.value = employeeId;
+  defaultGroupId.value = employee?.primaryGroupId;
   dialogOpen.value = true;
 }
 
@@ -140,7 +179,13 @@ function openEditDialog(entry: ScheduleEntry) {
   selectedEntry.value = entry;
   defaultDate.value = undefined;
   defaultGroupId.value = undefined;
+  defaultEmployeeId.value = undefined;
   dialogOpen.value = true;
+}
+
+function openEmployeeDialog(employee: Employee) {
+  selectedEmployee.value = employee;
+  employeeDialogOpen.value = true;
 }
 
 async function handleSave(data: CreateScheduleEntryRequest | UpdateScheduleEntryRequest, id?: number) {
@@ -165,7 +210,84 @@ async function handleDelete(id: number) {
   }
 }
 
+async function handleEmployeeSave(data: { employee: CreateEmployeeRequest | UpdateEmployeeRequest; contract: EmployeeContractRequest }) {
+  if (!selectedEmployee.value?.id) return;
+
+  try {
+    await updateEmployee.mutateAsync({
+      id: selectedEmployee.value.id,
+      data: data.employee as UpdateEmployeeRequest,
+    });
+
+    if (selectedEmployee.value.currentContract?.id && selectedEmployee.value.currentContract.validFrom === data.contract.validFrom) {
+      await updateEmployeeContract.mutateAsync({
+        employeeId: selectedEmployee.value.id,
+        contractId: selectedEmployee.value.currentContract.id,
+        data: data.contract,
+      });
+    } else {
+      await createEmployeeContract.mutateAsync({
+        employeeId: selectedEmployee.value.id,
+        data: data.contract,
+      });
+    }
+
+    employeeDialogOpen.value = false;
+  } catch (err) {
+    console.error('Failed to save employee:', err);
+  }
+}
+
 const isLoading = computed(() => scheduleLoading.value || groupsLoading.value);
+
+function isEmployeeBlocked(employee: any, date: Date): boolean {
+  const day = date.getDay() === 0 ? 7 : date.getDay();
+  const pattern = employee.workPattern || employee.currentContract?.workdays || [];
+  return !pattern.some((item: any) => item.weekday === day);
+}
+
+function employeeDisplayName(employee: any): string {
+  return employee.nickname || employee.firstName || '';
+}
+
+function getEmployeeTargetMinutes(employee: any): number {
+  const pattern = employee.workPattern || employee.currentContract?.workdays || [];
+  if (pattern.length > 0) {
+    return allWeekDays.value.reduce((sum, day) => {
+      if (day.isWeekend || day.isHoliday) return sum;
+      const weekday = day.date.getDay() === 0 ? 7 : day.date.getDay();
+      const workday = pattern.find((item: any) => item.weekday === weekday);
+      return sum + (workday?.plannedMinutes || 0);
+    }, 0);
+  }
+
+  const weekdayCount = allWeekDays.value.filter(day => !day.isWeekend).length;
+  const openWeekdayCount = allWeekDays.value.filter(day => !day.isWeekend && !day.isHoliday).length;
+  if (!weekdayCount) return 0;
+  return Math.round(((employee.weeklyHours || 0) * 60 / weekdayCount) * openWeekdayCount);
+}
+
+const staffingDays = computed(() => {
+  if (!groups.value || !weekSchedule.value) return [];
+
+  return weekDays.value.map(day => {
+    const daySchedule = weekSchedule.value?.days?.find(item => item.date === day.dateStr);
+    const entries = (daySchedule?.entries || []).filter(entry =>
+      entry.entryType === 'WORK' && entry.startTime && entry.endTime && entry.groupId
+    );
+
+    return {
+      day,
+      groups: [...groups.value!].sort((a, b) => (a.name || '').localeCompare(b.name || '')).map(group => {
+        const groupEntries = entries.filter(entry => entry.groupId === group.id);
+        return {
+          group,
+          segments: buildCoverageSegments(groupEntries),
+        };
+      }),
+    };
+  });
+});
 
 // Calculate weekly hours per employee
 const employeeWeeklyHours = computed(() => {
@@ -189,7 +311,7 @@ const employeeWeeklyHours = computed(() => {
     }
     
     const plannedHours = plannedMinutes / 60;
-    const contractedHours = emp.weeklyHours || 0;
+    const contractedHours = getEmployeeTargetMinutes(emp) / 60;
     const remainingHours = contractedHours - plannedHours;
     
     return {
@@ -205,6 +327,53 @@ const employeeWeeklyHours = computed(() => {
 function parseTime(timeStr: string): number {
   const parts = timeStr.split(':');
   return parseInt(parts[0]) * 60 + parseInt(parts[1]);
+}
+
+function formatHour(minutes: number): string {
+  const hour = Math.floor(minutes / 60);
+  return `${hour}:00`;
+}
+
+function formatTimeLabel(minutes: number): string {
+  const hour = Math.floor(minutes / 60);
+  const minute = minutes % 60;
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
+
+function buildCoverageSegments(entries: ScheduleEntry[]) {
+  const slots = [];
+  for (let start = timelineStart; start < timelineEnd; start += timelineStep) {
+    const end = start + timelineStep;
+    const count = entries.filter(entry => {
+      if (!entry.startTime || !entry.endTime) return false;
+      const entryStart = parseTime(entry.startTime);
+      const entryEnd = parseTime(entry.endTime);
+      return entryStart < end && entryEnd > start;
+    }).length;
+    slots.push({ start, end, count });
+  }
+
+  const segments: Array<{ start: number; end: number; count: number }> = [];
+  for (const slot of slots) {
+    const last = segments[segments.length - 1];
+    if (slot.count > 0 && last?.count === slot.count && last.end === slot.start) {
+      last.end = slot.end;
+    } else if (slot.count > 0) {
+      segments.push({ ...slot });
+    }
+  }
+  return segments;
+}
+
+function segmentStyle(segment: { start: number; end: number; count: number }, color?: string) {
+  const start = Math.max(segment.start, timelineStart);
+  const end = Math.min(segment.end, timelineEnd);
+  return {
+    left: `${((start - timelineStart) / (timelineEnd - timelineStart)) * 100}%`,
+    width: `${((end - start) / (timelineEnd - timelineStart)) * 100}%`,
+    backgroundColor: color || '#10B981',
+    opacity: String(Math.min(0.35 + segment.count * 0.18, 0.95)),
+  };
 }
 
 // Get status color class for remaining hours
@@ -250,6 +419,16 @@ function getHoursStatusClass(remaining: number): string {
           {{ showWeekends ? 'Mo-So' : 'Mo-Fr' }}
         </Button>
 
+        <Button
+          variant="outline"
+          size="sm"
+          :disabled="staffingDays.length === 0"
+          @click="staffingDialogOpen = true"
+        >
+          <BarChart3 class="w-4 h-4 mr-2" />
+          Besetzung
+        </Button>
+
         <Button v-if="isAdmin" @click="openCreateDialog(new Date())">
           <Plus class="w-4 h-4 mr-2" />
           Eintrag
@@ -275,7 +454,7 @@ function getHoursStatusClass(remaining: number): string {
       <!-- Week header -->
       <div :class="['grid border-b border-stone-200', gridColsClass]">
         <div class="px-4 py-3 bg-stone-50 border-r border-stone-200">
-          <span class="text-sm font-medium text-stone-600">Gruppe</span>
+          <span class="text-sm font-medium text-stone-600">Mitarbeiter</span>
         </div>
         <div
           v-for="day in weekDays"
@@ -303,55 +482,65 @@ function getHoursStatusClass(remaining: number): string {
         </div>
       </div>
 
-      <!-- Groups rows -->
+      <!-- Employee rows -->
       <div
-        v-for="group in groups"
-        :key="group.id"
+        v-for="employee in activeEmployees"
+        :key="employee.id"
         :class="['grid border-b border-stone-200 last:border-b-0', gridColsClass]"
       >
-        <!-- Group name -->
-        <div class="px-4 py-4 bg-stone-50 border-r border-stone-200 flex items-center gap-2">
+        <!-- Employee name -->
+        <div
+          :class="[
+            'px-4 py-2 bg-stone-50 border-r border-stone-200 flex items-center gap-2',
+            isAdmin ? 'cursor-pointer hover:bg-stone-100' : ''
+          ]"
+          @click="isAdmin && openEmployeeDialog(employee)"
+        >
           <div
             class="w-3 h-3 rounded-full"
-            :style="{ backgroundColor: group.color || '#10B981' }"
+            :style="{ backgroundColor: employee.primaryGroup?.color || '#10B981' }"
           />
-          <span class="text-sm font-medium text-stone-900">{{ group.name }}</span>
+          <div class="min-w-0">
+            <div class="text-sm font-medium text-stone-900 truncate">{{ employeeDisplayName(employee) }}</div>
+            <div class="text-xs text-stone-500 truncate">{{ employee.weeklyHours }} Std. · {{ employee.primaryGroup?.name || 'Springer' }}</div>
+          </div>
         </div>
 
         <!-- Day cells -->
         <div
           v-for="day in weekDays"
-          :key="`${group.id}-${day.dateStr}`"
+          :key="`${employee.id}-${day.dateStr}`"
           :class="[
-            'px-2 py-2 border-r border-stone-200 last:border-r-0 min-h-[100px] cursor-pointer hover:bg-stone-50/50',
+            'px-2 py-1.5 border-r border-stone-200 last:border-r-0 min-h-[56px]',
+            isEmployeeBlocked(employee, day.date) ? 'bg-stone-100/70 cursor-not-allowed' : 'cursor-pointer hover:bg-stone-50/50',
             day.isWeekend ? 'bg-stone-50' : '',
             day.isToday ? 'bg-primary/5' : '',
             day.isHoliday ? 'bg-red-50/50' : ''
           ]"
-          @click="isAdmin && openCreateDialog(day.date, group.id)"
+          @click="isAdmin && openCreateEmployeeDialog(day.date, employee.id!)"
         >
           <div class="space-y-1">
+            <div v-if="isEmployeeBlocked(employee, day.date)" class="text-xs text-stone-400">
+              blockiert
+            </div>
             <div
-              v-for="entry in getEntriesForGroupAndDay(group.id!, day.dateStr)"
+              v-for="entry in getEntriesForEmployeeAndDay(employee.id!, day.dateStr)"
               :key="entry.id"
               class="px-2 py-1 rounded text-xs cursor-pointer hover:opacity-80 transition-opacity"
               :style="{ 
-                backgroundColor: getEntryColor(entry.entryType || 'WORK', group.color) + '20', 
-                borderLeft: `3px solid ${getEntryColor(entry.entryType || 'WORK', group.color)}` 
+                backgroundColor: getEntryColor(entry.entryType || 'WORK', entry.group?.color || employee.primaryGroup?.color) + '20',
+                borderLeft: `3px solid ${getEntryColor(entry.entryType || 'WORK', entry.group?.color || employee.primaryGroup?.color)}`
               }"
               @click.stop="openEditDialog(entry)"
             >
               <div class="font-medium text-stone-900 truncate">
-                {{ entry.employee?.firstName }} {{ entry.employee?.lastName }}
+                {{ entry.group?.name || employee.primaryGroup?.name || 'Springer' }}
               </div>
               <div class="text-stone-600" v-if="entry.entryType === 'WORK'">
                 {{ entry.startTime?.substring(0, 5) }} - {{ entry.endTime?.substring(0, 5) }}
               </div>
               <div class="text-stone-600" v-else>
-                {{ entry.entryType === 'VACATION' ? 'Urlaub' : 
-                   entry.entryType === 'SICK' ? 'Krank' : 
-                   entry.entryType === 'TRAINING' ? 'Fortbildung' :
-                   entry.entryType === 'EVENT' ? 'Veranstaltung' : entry.entryType }}
+                {{ getEntryTypeLabel(entry.entryType || '') }}
               </div>
             </div>
           </div>
@@ -419,6 +608,18 @@ function getHoursStatusClass(remaining: number): string {
         <span>Krank</span>
       </div>
       <div class="flex items-center gap-2">
+        <div class="w-3 h-3 rounded-full bg-orange-500" />
+        <span>Kind krank</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <div class="w-3 h-3 rounded-full bg-teal-500" />
+        <span>Erholungstag</span>
+      </div>
+      <div class="flex items-center gap-2">
+        <div class="w-3 h-3 rounded-full bg-pink-500" />
+        <span>Sonderurlaub</span>
+      </div>
+      <div class="flex items-center gap-2">
         <div class="w-3 h-3 rounded-full bg-purple-500" />
         <span>Fortbildung</span>
       </div>
@@ -436,8 +637,68 @@ function getHoursStatusClass(remaining: number): string {
       :groups="groups || []"
       :default-date="defaultDate"
       :default-group-id="defaultGroupId"
+      :default-employee-id="defaultEmployeeId"
       @save="handleSave"
       @delete="handleDelete"
     />
+
+    <EmployeeFormDialog
+      v-model:open="employeeDialogOpen"
+      :employee="selectedEmployee"
+      :groups="groups || []"
+      @save="handleEmployeeSave"
+    />
+
+    <Dialog
+      v-model:open="staffingDialogOpen"
+      title="Besetzung nach Uhrzeit"
+      :description="`${formatDate(weekStart)} - ${formatDate(weekEnd)}`"
+      content-class="max-h-[85vh] max-w-[min(1120px,calc(100vw-2rem))] grid-rows-[auto_minmax(0,1fr)] overflow-hidden"
+    >
+      <div class="min-h-0 overflow-auto pr-1">
+        <div class="divide-y divide-stone-200 border-t border-stone-200">
+          <div v-for="day in staffingDays" :key="day.day.dateStr" class="py-4">
+            <div class="mb-3 flex items-center justify-between">
+              <div>
+                <div class="text-sm font-semibold text-stone-900">
+                  {{ day.day.dayName }} {{ day.day.dayNumber }}
+                </div>
+                <div v-if="day.day.isHoliday" class="text-xs text-red-600">{{ day.day.holidayName }}</div>
+              </div>
+            </div>
+
+            <div class="min-w-[780px]">
+              <div class="ml-28 grid grid-cols-11 text-[11px] text-stone-400">
+                <span v-for="tick in timelineTicks.slice(0, -1)" :key="tick">{{ formatHour(tick) }}</span>
+              </div>
+
+              <div class="mt-1 space-y-2">
+                <div v-for="row in day.groups" :key="row.group.id" class="grid grid-cols-[7rem_1fr] items-center gap-4">
+                  <div class="flex min-w-0 items-center gap-2 text-xs">
+                    <span class="h-2.5 w-2.5 rounded-full" :style="{ backgroundColor: row.group.color || '#10B981' }" />
+                    <span class="truncate font-medium text-stone-700">{{ row.group.name }}</span>
+                  </div>
+
+                  <div class="relative h-7 rounded border border-stone-200 bg-stone-50">
+                    <div class="absolute inset-y-0 left-0 right-0 grid grid-cols-11">
+                      <div v-for="tick in timelineTicks.slice(0, -1)" :key="tick" class="border-r border-stone-200 last:border-r-0" />
+                    </div>
+                    <div
+                      v-for="segment in row.segments"
+                      :key="`${segment.start}-${segment.end}-${segment.count}`"
+                      class="absolute top-1 bottom-1 rounded-sm px-1 text-center text-[11px] font-semibold leading-5 text-white"
+                      :style="segmentStyle(segment, row.group.color)"
+                      :title="`${row.group.name}: ${segment.count} Mitarbeiter (${formatTimeLabel(segment.start)}-${formatTimeLabel(segment.end)})`"
+                    >
+                      {{ segment.count }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Dialog>
   </div>
 </template>

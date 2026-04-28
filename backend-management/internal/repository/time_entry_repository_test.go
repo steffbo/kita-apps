@@ -355,6 +355,8 @@ func TestTimeEntryRepository_DifferentEntryTypes(t *testing.T) {
 		domain.TimeEntryTypeWork,
 		domain.TimeEntryTypeVacation,
 		domain.TimeEntryTypeSick,
+		domain.TimeEntryTypeChildSick,
+		domain.TimeEntryTypeRecoveryDay,
 		domain.TimeEntryTypeSpecialLeave,
 		domain.TimeEntryTypeTraining,
 		domain.TimeEntryTypeEvent,

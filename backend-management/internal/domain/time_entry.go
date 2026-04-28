@@ -9,6 +9,8 @@ const (
 	TimeEntryTypeWork         TimeEntryType = "WORK"
 	TimeEntryTypeVacation     TimeEntryType = "VACATION"
 	TimeEntryTypeSick         TimeEntryType = "SICK"
+	TimeEntryTypeChildSick    TimeEntryType = "CHILD_SICK"
+	TimeEntryTypeRecoveryDay  TimeEntryType = "RECOVERY_DAY"
 	TimeEntryTypeSpecialLeave TimeEntryType = "SPECIAL_LEAVE"
 	TimeEntryTypeTraining     TimeEntryType = "TRAINING"
 	TimeEntryTypeEvent        TimeEntryType = "EVENT"

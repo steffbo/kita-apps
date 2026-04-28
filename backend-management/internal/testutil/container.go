@@ -96,6 +96,9 @@ func runMigrations(db *sqlx.DB, migrationsPath string) error {
 		"000001_initial_schema.up.sql",
 		"000003_add_special_day_end_date.up.sql",
 		"000004_add_springer_group.up.sql",
+		"000005_add_employee_contracts.up.sql",
+		"000006_add_employee_nickname.up.sql",
+		"000007_add_absence_entry_types.up.sql",
 		// Note: 000002_seed_data.up.sql is skipped for tests - we create our own test data
 	}
 

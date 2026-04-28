@@ -3,6 +3,7 @@ package handler
 import (
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -27,6 +28,7 @@ type createEmployeeRequest struct {
 	Email               string  `json:"email" validate:"required,email" example:"max.mustermann@knirpsenstadt.de"`
 	FirstName           string  `json:"firstName" validate:"required" example:"Max"`
 	LastName            string  `json:"lastName" validate:"required" example:"Mustermann"`
+	Nickname            *string `json:"nickname,omitempty" example:"Max"`
 	Role                *string `json:"role,omitempty" validate:"omitempty,oneof=ADMIN EMPLOYEE" example:"EMPLOYEE"`
 	WeeklyHours         float64 `json:"weeklyHours" validate:"required,gt=0" example:"40"`
 	VacationDaysPerYear *int    `json:"vacationDaysPerYear,omitempty" validate:"omitempty,gte=0" example:"30"`
@@ -38,6 +40,7 @@ type updateEmployeeRequest struct {
 	Email                 *string  `json:"email,omitempty" validate:"omitempty,email" example:"max.mustermann@knirpsenstadt.de"`
 	FirstName             *string  `json:"firstName,omitempty" example:"Max"`
 	LastName              *string  `json:"lastName,omitempty" example:"Mustermann"`
+	Nickname              *string  `json:"nickname,omitempty" example:"Max"`
 	Role                  *string  `json:"role,omitempty" validate:"omitempty,oneof=ADMIN EMPLOYEE" example:"EMPLOYEE"`
 	WeeklyHours           *float64 `json:"weeklyHours,omitempty" validate:"omitempty,gt=0" example:"40"`
 	VacationDaysPerYear   *int     `json:"vacationDaysPerYear,omitempty" validate:"omitempty,gte=0" example:"30"`
@@ -46,6 +49,17 @@ type updateEmployeeRequest struct {
 	Active                *bool    `json:"active,omitempty" example:"true"`
 	PrimaryGroupID        *int64   `json:"primaryGroupId,omitempty" example:"1"`
 } //@name UpdateEmployeeRequest
+
+type employeeContractWorkdayRequest struct {
+	Weekday        int `json:"weekday" validate:"required,gte=1,lte=5" example:"1"`
+	PlannedMinutes int `json:"plannedMinutes" validate:"required,gte=0,lte=600" example:"420"`
+} //@name EmployeeContractWorkdayRequest
+
+type employeeContractRequest struct {
+	ValidFrom   string                           `json:"validFrom" validate:"required" example:"2026-05-01"`
+	WeeklyHours float64                          `json:"weeklyHours" validate:"required,gt=0,lte=40" example:"35"`
+	Workdays    []employeeContractWorkdayRequest `json:"workdays" validate:"required,dive"`
+} //@name EmployeeContractRequest
 
 // List handles GET /employees.
 // @Summary List all employees
@@ -73,7 +87,7 @@ func (h *EmployeeHandler) List(w http.ResponseWriter, r *http.Request) {
 
 	result := make([]EmployeeResponse, 0, len(employees))
 	for _, emp := range employees {
-		result = append(result, mapEmployeeResponse(emp.Employee, emp.PrimaryGroup, emp.PrimaryGroupID))
+		result = append(result, mapEmployeeResponse(emp.Employee, emp.PrimaryGroup, emp.PrimaryGroupID, emp.CurrentContract))
 	}
 
 	response.Success(w, result)
@@ -104,7 +118,7 @@ func (h *EmployeeHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.Success(w, mapEmployeeResponse(employee.Employee, employee.PrimaryGroup, employee.PrimaryGroupID))
+	response.Success(w, mapEmployeeResponse(employee.Employee, employee.PrimaryGroup, employee.PrimaryGroupID, employee.CurrentContract))
 }
 
 // Create handles POST /employees.
@@ -144,6 +158,7 @@ func (h *EmployeeHandler) Create(w http.ResponseWriter, r *http.Request) {
 		Email:               req.Email,
 		FirstName:           req.FirstName,
 		LastName:            req.LastName,
+		Nickname:            req.Nickname,
 		Role:                role,
 		WeeklyHours:         req.WeeklyHours,
 		VacationDaysPerYear: vacDays,
@@ -154,7 +169,7 @@ func (h *EmployeeHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.Created(w, mapEmployeeResponse(employee.Employee, employee.PrimaryGroup, employee.PrimaryGroupID))
+	response.Created(w, mapEmployeeResponse(employee.Employee, employee.PrimaryGroup, employee.PrimaryGroupID, employee.CurrentContract))
 }
 
 // Update handles PUT /employees/{id}.
@@ -197,6 +212,7 @@ func (h *EmployeeHandler) Update(w http.ResponseWriter, r *http.Request) {
 		Email:                 req.Email,
 		FirstName:             req.FirstName,
 		LastName:              req.LastName,
+		Nickname:              req.Nickname,
 		Role:                  role,
 		WeeklyHours:           req.WeeklyHours,
 		VacationDaysPerYear:   req.VacationDaysPerYear,
@@ -210,7 +226,94 @@ func (h *EmployeeHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.Success(w, mapEmployeeResponse(employee.Employee, employee.PrimaryGroup, employee.PrimaryGroupID))
+	response.Success(w, mapEmployeeResponse(employee.Employee, employee.PrimaryGroup, employee.PrimaryGroupID, employee.CurrentContract))
+}
+
+// Contracts handles GET /employees/{id}/contracts.
+func (h *EmployeeHandler) Contracts(w http.ResponseWriter, r *http.Request) {
+	id, err := parseID(chi.URLParam(r, "id"))
+	if err != nil {
+		response.BadRequest(w, "Ungültige ID")
+		return
+	}
+
+	contracts, err := h.employees.ListContracts(r.Context(), id)
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+
+	result := make([]EmployeeContractResponse, 0, len(contracts))
+	for _, contract := range contracts {
+		result = append(result, *mapEmployeeContractResponse(&contract))
+	}
+	response.Success(w, result)
+}
+
+// CreateContract handles POST /employees/{id}/contracts.
+func (h *EmployeeHandler) CreateContract(w http.ResponseWriter, r *http.Request) {
+	id, input, ok := h.parseContractRequest(w, r)
+	if !ok {
+		return
+	}
+	contract, err := h.employees.CreateContract(r.Context(), id, input)
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	response.Created(w, mapEmployeeContractResponse(contract))
+}
+
+// UpdateContract handles PUT /employees/{id}/contracts/{contractId}.
+func (h *EmployeeHandler) UpdateContract(w http.ResponseWriter, r *http.Request) {
+	id, input, ok := h.parseContractRequest(w, r)
+	if !ok {
+		return
+	}
+	contractID, err := parseID(chi.URLParam(r, "contractId"))
+	if err != nil {
+		response.BadRequest(w, "Ungültige Vertrags-ID")
+		return
+	}
+	contract, err := h.employees.UpdateContract(r.Context(), id, contractID, input)
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+	response.Success(w, mapEmployeeContractResponse(contract))
+}
+
+func (h *EmployeeHandler) parseContractRequest(w http.ResponseWriter, r *http.Request) (int64, service.EmployeeContractInput, bool) {
+	id, err := parseID(chi.URLParam(r, "id"))
+	if err != nil {
+		response.BadRequest(w, "Ungültige ID")
+		return 0, service.EmployeeContractInput{}, false
+	}
+	var req employeeContractRequest
+	if validationErrors, err := request.DecodeAndValidate(r, &req); err != nil {
+		response.BadRequest(w, "Ungültige Anfrage")
+		return 0, service.EmployeeContractInput{}, false
+	} else if validationErrors != nil {
+		response.ValidationError(w, "Validierungsfehler", validationErrors)
+		return 0, service.EmployeeContractInput{}, false
+	}
+	validFrom, err := time.Parse(dateLayout, req.ValidFrom)
+	if err != nil {
+		response.BadRequest(w, "Ungültiges validFrom")
+		return 0, service.EmployeeContractInput{}, false
+	}
+	workdays := make([]service.EmployeeContractWorkdayInput, 0, len(req.Workdays))
+	for _, day := range req.Workdays {
+		workdays = append(workdays, service.EmployeeContractWorkdayInput{
+			Weekday:        day.Weekday,
+			PlannedMinutes: day.PlannedMinutes,
+		})
+	}
+	return id, service.EmployeeContractInput{
+		ValidFrom:   validFrom,
+		WeeklyHours: req.WeeklyHours,
+		Workdays:    workdays,
+	}, true
 }
 
 // Delete handles DELETE /employees/{id}.

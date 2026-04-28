@@ -30,12 +30,14 @@ type scheduleEntryRow struct {
 	BreakMinutes              int                      `db:"break_minutes"`
 	GroupID                   *int64                   `db:"group_id"`
 	EntryType                 domain.ScheduleEntryType `db:"entry_type"`
+	ShiftKind                 domain.ShiftKind         `db:"shift_kind"`
 	Notes                     *string                  `db:"notes"`
 	CreatedAt                 sql.NullTime             `db:"created_at"`
 	UpdatedAt                 sql.NullTime             `db:"updated_at"`
 	EmployeeEmail             string                   `db:"employee_email"`
 	EmployeeFirstName         string                   `db:"employee_first_name"`
 	EmployeeLastName          string                   `db:"employee_last_name"`
+	EmployeeNickname          *string                  `db:"employee_nickname"`
 	EmployeeRole              string                   `db:"employee_role"`
 	EmployeeWeeklyHours       float64                  `db:"employee_weekly_hours"`
 	EmployeeVacationDays      int                      `db:"employee_vacation_days_per_year"`
@@ -58,6 +60,7 @@ func mapScheduleEntry(row scheduleEntryRow) domain.ScheduleEntry {
 		BreakMinutes: row.BreakMinutes,
 		GroupID:      row.GroupID,
 		EntryType:    row.EntryType,
+		ShiftKind:    row.ShiftKind,
 		Notes:        row.Notes,
 	}
 
@@ -76,12 +79,16 @@ func mapScheduleEntry(row scheduleEntryRow) domain.ScheduleEntry {
 	if row.UpdatedAt.Valid {
 		entry.UpdatedAt = row.UpdatedAt.Time
 	}
+	if entry.ShiftKind == "" {
+		entry.ShiftKind = domain.ShiftKindManual
+	}
 
 	entry.Employee = &domain.Employee{
 		ID:                    row.EmployeeID,
 		Email:                 row.EmployeeEmail,
 		FirstName:             row.EmployeeFirstName,
 		LastName:              row.EmployeeLastName,
+		Nickname:              row.EmployeeNickname,
 		Role:                  domain.EmployeeRole(row.EmployeeRole),
 		WeeklyHours:           row.EmployeeWeeklyHours,
 		VacationDaysPerYear:   row.EmployeeVacationDays,
@@ -125,8 +132,9 @@ func (r *PostgresScheduleRepository) List(ctx context.Context, startDate, endDat
 	baseQuery := `
 		SELECT se.id, se.employee_id, se.date, se.start_time, se.end_time,
 		       COALESCE(se.break_minutes, 0) AS break_minutes,
-		       se.group_id, se.entry_type, se.notes, se.created_at, se.updated_at,
+		       se.group_id, se.entry_type, se.shift_kind, se.notes, se.created_at, se.updated_at,
 		       e.email AS employee_email, e.first_name AS employee_first_name, e.last_name AS employee_last_name,
+		       e.nickname AS employee_nickname,
 		       e.role AS employee_role, e.weekly_hours AS employee_weekly_hours,
 		       e.vacation_days_per_year AS employee_vacation_days_per_year,
 		       e.remaining_vacation_days AS employee_remaining_vacation_days,
@@ -170,8 +178,9 @@ func (r *PostgresScheduleRepository) GetByID(ctx context.Context, id int64) (*do
 	if err := r.db.GetContext(ctx, &row, `
 		SELECT se.id, se.employee_id, se.date, se.start_time, se.end_time,
 		       COALESCE(se.break_minutes, 0) AS break_minutes,
-		       se.group_id, se.entry_type, se.notes, se.created_at, se.updated_at,
+		       se.group_id, se.entry_type, se.shift_kind, se.notes, se.created_at, se.updated_at,
 		       e.email AS employee_email, e.first_name AS employee_first_name, e.last_name AS employee_last_name,
+		       e.nickname AS employee_nickname,
 		       e.role AS employee_role, e.weekly_hours AS employee_weekly_hours,
 		       e.vacation_days_per_year AS employee_vacation_days_per_year,
 		       e.remaining_vacation_days AS employee_remaining_vacation_days,
@@ -196,19 +205,25 @@ func (r *PostgresScheduleRepository) GetByID(ctx context.Context, id int64) (*do
 
 // Create inserts a schedule entry.
 func (r *PostgresScheduleRepository) Create(ctx context.Context, entry *domain.ScheduleEntry) error {
+	if entry.ShiftKind == "" {
+		entry.ShiftKind = domain.ShiftKindManual
+	}
 	return r.db.QueryRowxContext(ctx, `
 		INSERT INTO schedule_entries (
 			employee_id, date, start_time, end_time, break_minutes, group_id,
-			entry_type, notes
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+			entry_type, shift_kind, notes
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		RETURNING id, created_at, updated_at
 	`, entry.EmployeeID, entry.Date, entry.StartTime, entry.EndTime,
-		entry.BreakMinutes, entry.GroupID, entry.EntryType, entry.Notes,
+		entry.BreakMinutes, entry.GroupID, entry.EntryType, entry.ShiftKind, entry.Notes,
 	).Scan(&entry.ID, &entry.CreatedAt, &entry.UpdatedAt)
 }
 
 // Update updates a schedule entry and returns the updated record.
 func (r *PostgresScheduleRepository) Update(ctx context.Context, entry *domain.ScheduleEntry) (*domain.ScheduleEntry, error) {
+	if entry.ShiftKind == "" {
+		entry.ShiftKind = domain.ShiftKindManual
+	}
 	if _, err := r.db.ExecContext(ctx, `
 		UPDATE schedule_entries
 		SET date = $2,
@@ -217,10 +232,11 @@ func (r *PostgresScheduleRepository) Update(ctx context.Context, entry *domain.S
 		    break_minutes = $5,
 		    group_id = $6,
 		    entry_type = $7,
-		    notes = $8
+		    shift_kind = $8,
+		    notes = $9
 		WHERE id = $1
 	`, entry.ID, entry.Date, entry.StartTime, entry.EndTime, entry.BreakMinutes,
-		entry.GroupID, entry.EntryType, entry.Notes); err != nil {
+		entry.GroupID, entry.EntryType, entry.ShiftKind, entry.Notes); err != nil {
 		return nil, err
 	}
 

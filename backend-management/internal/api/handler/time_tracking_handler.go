@@ -43,7 +43,7 @@ type createTimeEntryRequest struct {
 	ClockIn      string  `json:"clockIn" validate:"required" example:"2024-03-15T08:00:00Z"`
 	ClockOut     string  `json:"clockOut" validate:"required" example:"2024-03-15T16:30:00Z"`
 	BreakMinutes *int    `json:"breakMinutes,omitempty" validate:"omitempty,gte=0" example:"30"`
-	EntryType    *string `json:"entryType,omitempty" validate:"omitempty,oneof=WORK VACATION SICK SPECIAL_LEAVE TRAINING EVENT" example:"WORK"`
+	EntryType    *string `json:"entryType,omitempty" validate:"omitempty,oneof=WORK VACATION SICK CHILD_SICK RECOVERY_DAY SPECIAL_LEAVE TRAINING EVENT" example:"WORK"`
 	Notes        *string `json:"notes,omitempty" example:"Normale Arbeitszeit"`
 	EditReason   *string `json:"editReason,omitempty" example:"Nachträgliche Korrektur"`
 } //@name CreateTimeEntryRequest
@@ -53,7 +53,7 @@ type updateTimeEntryRequest struct {
 	ClockIn      *string `json:"clockIn,omitempty" example:"2024-03-15T08:00:00Z"`
 	ClockOut     *string `json:"clockOut,omitempty" example:"2024-03-15T16:30:00Z"`
 	BreakMinutes *int    `json:"breakMinutes,omitempty" validate:"omitempty,gte=0" example:"30"`
-	EntryType    *string `json:"entryType,omitempty" validate:"omitempty,oneof=WORK VACATION SICK SPECIAL_LEAVE TRAINING EVENT" example:"WORK"`
+	EntryType    *string `json:"entryType,omitempty" validate:"omitempty,oneof=WORK VACATION SICK CHILD_SICK RECOVERY_DAY SPECIAL_LEAVE TRAINING EVENT" example:"WORK"`
 	Notes        *string `json:"notes,omitempty" example:"Korrigierte Arbeitszeit"`
 	EditReason   *string `json:"editReason,omitempty" example:"Fehlerhafte Stempelung korrigiert"`
 } //@name UpdateTimeEntryRequest
@@ -453,6 +453,10 @@ func parseTimeEntryType(value string) domain.TimeEntryType {
 		return domain.TimeEntryTypeVacation
 	case string(domain.TimeEntryTypeSick):
 		return domain.TimeEntryTypeSick
+	case string(domain.TimeEntryTypeChildSick):
+		return domain.TimeEntryTypeChildSick
+	case string(domain.TimeEntryTypeRecoveryDay):
+		return domain.TimeEntryTypeRecoveryDay
 	case string(domain.TimeEntryTypeSpecialLeave):
 		return domain.TimeEntryTypeSpecialLeave
 	case string(domain.TimeEntryTypeTraining):

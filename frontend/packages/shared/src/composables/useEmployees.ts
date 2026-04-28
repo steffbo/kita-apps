@@ -1,6 +1,6 @@
 import { computed } from 'vue';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/vue-query';
-import { apiClient, type Employee, type CreateEmployeeRequest, type UpdateEmployeeRequest, type GroupAssignment } from '../api';
+import { apiClient, type Employee, type CreateEmployeeRequest, type UpdateEmployeeRequest, type GroupAssignment, type EmployeeContract, type EmployeeContractRequest } from '../api';
 
 export const employeeKeys = {
   all: ['employees'] as const,
@@ -9,6 +9,7 @@ export const employeeKeys = {
   details: () => [...employeeKeys.all, 'detail'] as const,
   detail: (id: number) => [...employeeKeys.details(), id] as const,
   assignments: (id: number) => [...employeeKeys.detail(id), 'assignments'] as const,
+  contracts: (id: number) => [...employeeKeys.detail(id), 'contracts'] as const,
 };
 
 export function useEmployees(includeInactive = false) {
@@ -133,5 +134,61 @@ export function useEmployeeAssignments(id: number | (() => number)) {
       return data as GroupAssignment[];
     },
     enabled: computed(() => employeeId.value > 0),
+  });
+}
+
+export function useEmployeeContracts(id: number | (() => number)) {
+  const employeeId = computed(() => (typeof id === 'function' ? id() : id));
+
+  return useQuery({
+    queryKey: computed(() => employeeKeys.contracts(employeeId.value)),
+    queryFn: async () => {
+      const { data, error } = await apiClient.GET('/employees/{id}/contracts', {
+        params: { path: { id: employeeId.value } },
+      });
+      if (error) throw new Error((error as any)?.message || 'Fehler beim Laden der Vertragsdaten');
+      return data as EmployeeContract[];
+    },
+    enabled: computed(() => employeeId.value > 0),
+  });
+}
+
+export function useCreateEmployeeContract() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ employeeId, data: contractData }: { employeeId: number; data: EmployeeContractRequest }) => {
+      const { data, error } = await apiClient.POST('/employees/{id}/contracts', {
+        params: { path: { id: employeeId } },
+        body: contractData,
+      });
+      if (error) throw new Error((error as any)?.message || 'Fehler beim Anlegen der Vertragsdaten');
+      return data as EmployeeContract;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: employeeKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: employeeKeys.detail(variables.employeeId) });
+      queryClient.invalidateQueries({ queryKey: employeeKeys.contracts(variables.employeeId) });
+    },
+  });
+}
+
+export function useUpdateEmployeeContract() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ employeeId, contractId, data: contractData }: { employeeId: number; contractId: number; data: EmployeeContractRequest }) => {
+      const { data, error } = await apiClient.PUT('/employees/{id}/contracts/{contractId}', {
+        params: { path: { id: employeeId, contractId } },
+        body: contractData,
+      });
+      if (error) throw new Error((error as any)?.message || 'Fehler beim Aktualisieren der Vertragsdaten');
+      return data as EmployeeContract;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: employeeKeys.lists() });
+      queryClient.invalidateQueries({ queryKey: employeeKeys.detail(variables.employeeId) });
+      queryClient.invalidateQueries({ queryKey: employeeKeys.contracts(variables.employeeId) });
+    },
   });
 }

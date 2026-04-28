@@ -151,12 +151,17 @@ export function setAuthFailureCallback(callback: () => void) {
 export type Employee = components['schemas']['Employee'];
 export type CreateEmployeeRequest = components['schemas']['CreateEmployeeRequest'];
 export type UpdateEmployeeRequest = components['schemas']['UpdateEmployeeRequest'];
+export type EmployeeContract = components['schemas']['EmployeeContract'];
+export type EmployeeContractRequest = components['schemas']['EmployeeContractRequest'];
+export type EmployeeContractWorkday = components['schemas']['EmployeeContractWorkday'];
+export type EmployeeContractWorkdayRequest = components['schemas']['EmployeeContractWorkdayRequest'];
 
 // Enum types (defined manually as swag generates inline enums)
 export type EmployeeRole = 'ADMIN' | 'EMPLOYEE';
 export type AssignmentType = 'PERMANENT' | 'SPRINGER';
-export type ScheduleEntryType = 'WORK' | 'VACATION' | 'SICK' | 'SPECIAL_LEAVE' | 'TRAINING' | 'EVENT';
-export type TimeEntryType = 'WORK' | 'VACATION' | 'SICK' | 'SPECIAL_LEAVE' | 'TRAINING' | 'EVENT';
+export type ScheduleEntryType = 'WORK' | 'VACATION' | 'SICK' | 'CHILD_SICK' | 'RECOVERY_DAY' | 'SPECIAL_LEAVE' | 'TRAINING' | 'EVENT';
+export type ShiftKind = 'EARLY' | 'LATE' | 'MANUAL';
+export type TimeEntryType = 'WORK' | 'VACATION' | 'SICK' | 'CHILD_SICK' | 'RECOVERY_DAY' | 'SPECIAL_LEAVE' | 'TRAINING' | 'EVENT';
 export type SpecialDayType = 'HOLIDAY' | 'CLOSURE' | 'TEAM_DAY' | 'EVENT';
 
 export type Group = components['schemas']['Group'];
@@ -168,6 +173,8 @@ export type GroupAssignmentRequest = components['schemas']['GroupAssignmentReque
 export type ScheduleEntry = components['schemas']['ScheduleEntry'];
 export type CreateScheduleEntryRequest = components['schemas']['CreateScheduleEntryRequest'];
 export type UpdateScheduleEntryRequest = components['schemas']['UpdateScheduleEntryRequest'];
+export type TimeSuggestionRequest = components['schemas']['TimeSuggestionRequest'];
+export type TimeSuggestion = components['schemas']['TimeSuggestion'];
 export type WeekSchedule = components['schemas']['WeekSchedule'];
 export type DaySchedule = components['schemas']['DaySchedule'];
 

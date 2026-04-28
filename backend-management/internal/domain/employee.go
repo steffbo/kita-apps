@@ -17,6 +17,7 @@ type Employee struct {
 	PasswordHash          string       `db:"password_hash"`
 	FirstName             string       `db:"first_name"`
 	LastName              string       `db:"last_name"`
+	Nickname              *string      `db:"nickname"`
 	Role                  EmployeeRole `db:"role"`
 	WeeklyHours           float64      `db:"weekly_hours"`
 	VacationDaysPerYear   int          `db:"vacation_days_per_year"`

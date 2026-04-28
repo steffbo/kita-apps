@@ -56,7 +56,9 @@ func Load() *Config {
 			Port: getEnv("PORT", "8080"),
 			CORSOrigins: getEnvSlice("CORS_ORIGINS", []string{
 				"http://localhost:5173",
+				"http://127.0.0.1:5173",
 				"http://localhost:5174",
+				"http://127.0.0.1:5174",
 				"https://plan.knirpsenstadt.de",
 				"https://zeit.knirpsenstadt.de",
 			}),

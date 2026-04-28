@@ -764,6 +764,227 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/employees/{id}/contracts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get employee contracts
+         * @description Get all historical contracts for an employee
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Employee ID */
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description List of employee contracts */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EmployeeContract"][];
+                    };
+                };
+                /** @description Invalid employee ID */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Employee not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Create employee contract
+         * @description Create a historical contract for an employee
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Employee ID */
+                    id: number;
+                };
+                cookie?: never;
+            };
+            /** @description Employee contract data */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["EmployeeContractRequest"];
+                };
+            };
+            responses: {
+                /** @description Created employee contract */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EmployeeContract"];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Employee not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/employees/{id}/contracts/{contractId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update employee contract
+         * @description Update a historical contract for an employee
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Employee ID */
+                    id: number;
+                    /** @description Contract ID */
+                    contractId: number;
+                };
+                cookie?: never;
+            };
+            /** @description Employee contract data */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["EmployeeContractRequest"];
+                };
+            };
+            responses: {
+                /** @description Updated employee contract */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EmployeeContract"];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Employee contract not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/employees/{id}/permanent": {
         parameters: {
             query?: never;
@@ -1747,6 +1968,72 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["ScheduleEntry"][];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/schedule/time-suggestion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Calculate schedule time suggestion
+         * @description Calculate suggested start and end times for a schedule entry
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Time suggestion input */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["TimeSuggestionRequest"];
+                };
+            };
+            responses: {
+                /** @description Calculated time suggestion */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TimeSuggestion"];
                     };
                 };
                 /** @description Invalid request */
@@ -2922,6 +3209,8 @@ export interface components {
             firstName: string;
             /** @example Mustermann */
             lastName: string;
+            /** @example Max */
+            nickname?: string;
             /** @example 1 */
             primaryGroupId?: number;
             /**
@@ -2955,11 +3244,18 @@ export interface components {
              * @example WORK
              * @enum {string}
              */
-            entryType?: "WORK" | "VACATION" | "SICK" | "SPECIAL_LEAVE" | "TRAINING" | "EVENT";
+            entryType?: "WORK" | "VACATION" | "SICK" | "CHILD_SICK" | "RECOVERY_DAY" | "SPECIAL_LEAVE" | "TRAINING" | "EVENT";
             /** @example 1 */
             groupId?: number;
             /** @example Frühdienst */
             notes?: string;
+            /** @example false */
+            overrideBlockedDay?: boolean;
+            /**
+             * @example EARLY
+             * @enum {string}
+             */
+            shiftKind?: "EARLY" | "LATE" | "MANUAL";
             /** @example 08:00:00 */
             startTime?: string;
         };
@@ -2997,7 +3293,7 @@ export interface components {
              * @example WORK
              * @enum {string}
              */
-            entryType?: "WORK" | "VACATION" | "SICK" | "SPECIAL_LEAVE" | "TRAINING" | "EVENT";
+            entryType?: "WORK" | "VACATION" | "SICK" | "CHILD_SICK" | "RECOVERY_DAY" | "SPECIAL_LEAVE" | "TRAINING" | "EVENT";
             /** @example Normale Arbeitszeit */
             notes?: string;
         };
@@ -3031,6 +3327,7 @@ export interface components {
             firstName?: string;
             id?: number;
             lastName?: string;
+            nickname?: string;
             overtimeBalance?: number;
             primaryGroup?: components["schemas"]["Group"];
             primaryGroupId?: number;
@@ -3039,6 +3336,36 @@ export interface components {
             updatedAt?: string;
             vacationDaysPerYear?: number;
             weeklyHours?: number;
+            currentContract?: components["schemas"]["EmployeeContract"];
+            workPattern?: components["schemas"]["EmployeeContractWorkday"][];
+        };
+        EmployeeContract: {
+            id?: number;
+            employeeId?: number;
+            validFrom?: string;
+            weeklyHours?: number;
+            workdays?: components["schemas"]["EmployeeContractWorkday"][];
+            createdAt?: string;
+            updatedAt?: string;
+        };
+        EmployeeContractRequest: {
+            /** @example 2026-05-01 */
+            validFrom: string;
+            /** @example 35 */
+            weeklyHours: number;
+            workdays: components["schemas"]["EmployeeContractWorkdayRequest"][];
+        };
+        EmployeeContractWorkday: {
+            id?: number;
+            contractId?: number;
+            weekday?: number;
+            plannedMinutes?: number;
+        };
+        EmployeeContractWorkdayRequest: {
+            /** @example 1 */
+            weekday: number;
+            /** @example 420 */
+            plannedMinutes: number;
         };
         EmployeeStatistics: {
             contractedHours?: number;
@@ -3143,8 +3470,30 @@ export interface components {
             groupId?: number;
             id?: number;
             notes?: string;
+            shiftKind?: string;
             startTime?: string;
             updatedAt?: string;
+        };
+        TimeSuggestion: {
+            startTime?: string;
+            endTime?: string;
+            breakMinutes?: number;
+            plannedMinutes?: number;
+            isBlocked?: boolean;
+            contractId?: number;
+        };
+        TimeSuggestionRequest: {
+            /** @example 1 */
+            employeeId: number;
+            /** @example 2026-05-04 */
+            date: string;
+            /**
+             * @example EARLY
+             * @enum {string}
+             */
+            shiftKind: "EARLY" | "LATE" | "MANUAL";
+            /** @example 07:00:00 */
+            startTime?: string;
         };
         SpecialDay: {
             affectsAll?: boolean;
@@ -3186,6 +3535,8 @@ export interface components {
             firstName?: string;
             /** @example Mustermann */
             lastName?: string;
+            /** @example Max */
+            nickname?: string;
             /** @example 10.25 */
             overtimeBalance?: number;
             /** @example 1 */
@@ -3213,11 +3564,18 @@ export interface components {
              * @example WORK
              * @enum {string}
              */
-            entryType?: "WORK" | "VACATION" | "SICK" | "SPECIAL_LEAVE" | "TRAINING" | "EVENT";
+            entryType?: "WORK" | "VACATION" | "SICK" | "CHILD_SICK" | "RECOVERY_DAY" | "SPECIAL_LEAVE" | "TRAINING" | "EVENT";
             /** @example 1 */
             groupId?: number;
             /** @example Frühdienst */
             notes?: string;
+            /** @example false */
+            overrideBlockedDay?: boolean;
+            /**
+             * @example EARLY
+             * @enum {string}
+             */
+            shiftKind?: "EARLY" | "LATE" | "MANUAL";
             /** @example 08:00:00 */
             startTime?: string;
         };
@@ -3234,7 +3592,7 @@ export interface components {
              * @example WORK
              * @enum {string}
              */
-            entryType?: "WORK" | "VACATION" | "SICK" | "SPECIAL_LEAVE" | "TRAINING" | "EVENT";
+            entryType?: "WORK" | "VACATION" | "SICK" | "CHILD_SICK" | "RECOVERY_DAY" | "SPECIAL_LEAVE" | "TRAINING" | "EVENT";
             /** @example Korrigierte Arbeitszeit */
             notes?: string;
         };

@@ -26,26 +26,46 @@ func NewScheduleHandler(schedules *service.ScheduleService) *ScheduleHandler {
 
 // createScheduleEntryRequest contains the data for creating a schedule entry.
 type createScheduleEntryRequest struct {
-	EmployeeID   int64   `json:"employeeId" validate:"required" example:"1"`
-	Date         string  `json:"date" validate:"required" example:"2024-03-15"`
-	StartTime    *string `json:"startTime,omitempty" example:"08:00:00"`
-	EndTime      *string `json:"endTime,omitempty" example:"16:00:00"`
-	BreakMinutes *int    `json:"breakMinutes,omitempty" validate:"omitempty,gte=0" example:"30"`
-	GroupID      *int64  `json:"groupId,omitempty" example:"1"`
-	EntryType    *string `json:"entryType,omitempty" validate:"omitempty,oneof=WORK VACATION SICK SPECIAL_LEAVE TRAINING EVENT" example:"WORK"`
-	Notes        *string `json:"notes,omitempty" example:"Frühdienst"`
+	EmployeeID         int64   `json:"employeeId" validate:"required" example:"1"`
+	Date               string  `json:"date" validate:"required" example:"2024-03-15"`
+	StartTime          *string `json:"startTime,omitempty" example:"08:00:00"`
+	EndTime            *string `json:"endTime,omitempty" example:"16:00:00"`
+	BreakMinutes       *int    `json:"breakMinutes,omitempty" validate:"omitempty,gte=0" example:"30"`
+	GroupID            *int64  `json:"groupId,omitempty" example:"1"`
+	EntryType          *string `json:"entryType,omitempty" validate:"omitempty,oneof=WORK VACATION SICK CHILD_SICK RECOVERY_DAY SPECIAL_LEAVE TRAINING EVENT" example:"WORK"`
+	ShiftKind          *string `json:"shiftKind,omitempty" validate:"omitempty,oneof=EARLY LATE MANUAL" example:"EARLY"`
+	Notes              *string `json:"notes,omitempty" example:"Frühdienst"`
+	OverrideBlockedDay *bool   `json:"overrideBlockedDay,omitempty" example:"false"`
 } //@name CreateScheduleEntryRequest
 
 // updateScheduleEntryRequest contains the data for updating a schedule entry.
 type updateScheduleEntryRequest struct {
-	Date         *string `json:"date,omitempty" example:"2024-03-15"`
-	StartTime    *string `json:"startTime,omitempty" example:"08:00:00"`
-	EndTime      *string `json:"endTime,omitempty" example:"16:00:00"`
-	BreakMinutes *int    `json:"breakMinutes,omitempty" validate:"omitempty,gte=0" example:"30"`
-	GroupID      *int64  `json:"groupId,omitempty" example:"1"`
-	EntryType    *string `json:"entryType,omitempty" validate:"omitempty,oneof=WORK VACATION SICK SPECIAL_LEAVE TRAINING EVENT" example:"WORK"`
-	Notes        *string `json:"notes,omitempty" example:"Frühdienst"`
+	Date               *string `json:"date,omitempty" example:"2024-03-15"`
+	StartTime          *string `json:"startTime,omitempty" example:"08:00:00"`
+	EndTime            *string `json:"endTime,omitempty" example:"16:00:00"`
+	BreakMinutes       *int    `json:"breakMinutes,omitempty" validate:"omitempty,gte=0" example:"30"`
+	GroupID            *int64  `json:"groupId,omitempty" example:"1"`
+	EntryType          *string `json:"entryType,omitempty" validate:"omitempty,oneof=WORK VACATION SICK CHILD_SICK RECOVERY_DAY SPECIAL_LEAVE TRAINING EVENT" example:"WORK"`
+	ShiftKind          *string `json:"shiftKind,omitempty" validate:"omitempty,oneof=EARLY LATE MANUAL" example:"EARLY"`
+	Notes              *string `json:"notes,omitempty" example:"Frühdienst"`
+	OverrideBlockedDay *bool   `json:"overrideBlockedDay,omitempty" example:"false"`
 } //@name UpdateScheduleEntryRequest
+
+type timeSuggestionRequest struct {
+	EmployeeID int64   `json:"employeeId" validate:"required" example:"1"`
+	Date       string  `json:"date" validate:"required" example:"2026-05-04"`
+	ShiftKind  string  `json:"shiftKind" validate:"required,oneof=EARLY LATE MANUAL" example:"EARLY"`
+	StartTime  *string `json:"startTime,omitempty" example:"07:00:00"`
+} //@name TimeSuggestionRequest
+
+type TimeSuggestionResponse struct {
+	StartTime      *string `json:"startTime,omitempty"`
+	EndTime        *string `json:"endTime,omitempty"`
+	BreakMinutes   int     `json:"breakMinutes"`
+	PlannedMinutes int     `json:"plannedMinutes"`
+	IsBlocked      bool    `json:"isBlocked"`
+	ContractID     *int64  `json:"contractId,omitempty"`
+} //@name TimeSuggestion
 
 // List handles GET /schedule.
 // @Summary List schedule entries
@@ -180,6 +200,46 @@ func (h *ScheduleHandler) Week(w http.ResponseWriter, r *http.Request) {
 		Days:        responseDays,
 		SpecialDays: specialDays,
 	})
+}
+
+// TimeSuggestion handles POST /schedule/time-suggestion.
+func (h *ScheduleHandler) TimeSuggestion(w http.ResponseWriter, r *http.Request) {
+	var req timeSuggestionRequest
+	if validationErrors, err := request.DecodeAndValidate(r, &req); err != nil {
+		response.BadRequest(w, "Ungültige Anfrage")
+		return
+	} else if validationErrors != nil {
+		response.ValidationError(w, "Validierungsfehler", validationErrors)
+		return
+	}
+
+	date, err := service.ParseDate(req.Date)
+	if err != nil {
+		response.BadRequest(w, "Ungültiges date")
+		return
+	}
+	var startTime *time.Time
+	if req.StartTime != nil {
+		parsed, err := service.ParseTime(*req.StartTime)
+		if err != nil {
+			response.BadRequest(w, "Ungültiges startTime")
+			return
+		}
+		startTime = &parsed
+	}
+
+	suggestion, err := h.schedules.SuggestTimes(r.Context(), service.TimeSuggestionInput{
+		EmployeeID: req.EmployeeID,
+		Date:       date,
+		ShiftKind:  parseShiftKind(req.ShiftKind),
+		StartTime:  startTime,
+	})
+	if err != nil {
+		writeServiceError(w, err)
+		return
+	}
+
+	response.Success(w, mapTimeSuggestionResponse(suggestion))
 }
 
 // Create handles POST /schedule.
@@ -333,15 +393,26 @@ func (h *ScheduleHandler) Update(w http.ResponseWriter, r *http.Request) {
 		parsed := parseScheduleEntryType(*req.EntryType)
 		entryType = &parsed
 	}
+	var shiftKind *domain.ShiftKind
+	if req.ShiftKind != nil {
+		parsed := parseShiftKind(*req.ShiftKind)
+		shiftKind = &parsed
+	}
+	overrideBlockedDay := false
+	if req.OverrideBlockedDay != nil {
+		overrideBlockedDay = *req.OverrideBlockedDay
+	}
 
 	entry, err := h.schedules.Update(r.Context(), id, service.UpdateScheduleEntryInput{
-		Date:         date,
-		StartTime:    startTime,
-		EndTime:      endTime,
-		BreakMinutes: req.BreakMinutes,
-		GroupID:      req.GroupID,
-		EntryType:    entryType,
-		Notes:        req.Notes,
+		Date:               date,
+		StartTime:          startTime,
+		EndTime:            endTime,
+		BreakMinutes:       req.BreakMinutes,
+		GroupID:            req.GroupID,
+		EntryType:          entryType,
+		ShiftKind:          shiftKind,
+		Notes:              req.Notes,
+		OverrideBlockedDay: overrideBlockedDay,
 	})
 	if err != nil {
 		writeServiceError(w, err)
@@ -349,6 +420,17 @@ func (h *ScheduleHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.Success(w, mapScheduleEntryResponse(*entry))
+}
+
+func parseShiftKind(value string) domain.ShiftKind {
+	switch value {
+	case string(domain.ShiftKindEarly):
+		return domain.ShiftKindEarly
+	case string(domain.ShiftKindLate):
+		return domain.ShiftKindLate
+	default:
+		return domain.ShiftKindManual
+	}
 }
 
 // Delete handles DELETE /schedule/{id}.
@@ -385,6 +467,10 @@ func parseScheduleEntryType(value string) domain.ScheduleEntryType {
 		return domain.ScheduleEntryTypeVacation
 	case string(domain.ScheduleEntryTypeSick):
 		return domain.ScheduleEntryTypeSick
+	case string(domain.ScheduleEntryTypeChildSick):
+		return domain.ScheduleEntryTypeChildSick
+	case string(domain.ScheduleEntryTypeRecoveryDay):
+		return domain.ScheduleEntryTypeRecoveryDay
 	case string(domain.ScheduleEntryTypeSpecialLeave):
 		return domain.ScheduleEntryTypeSpecialLeave
 	case string(domain.ScheduleEntryTypeTraining):
@@ -429,15 +515,43 @@ func parseScheduleEntryInput(req createScheduleEntryRequest) (*service.CreateSch
 	if req.EntryType != nil {
 		entryType = parseScheduleEntryType(*req.EntryType)
 	}
+	shiftKind := domain.ShiftKindManual
+	if req.ShiftKind != nil {
+		shiftKind = parseShiftKind(*req.ShiftKind)
+	}
+	overrideBlockedDay := false
+	if req.OverrideBlockedDay != nil {
+		overrideBlockedDay = *req.OverrideBlockedDay
+	}
 
 	return &service.CreateScheduleEntryInput{
-		EmployeeID:   req.EmployeeID,
-		Date:         date,
-		StartTime:    startTime,
-		EndTime:      endTime,
-		BreakMinutes: breakMinutes,
-		GroupID:      req.GroupID,
-		EntryType:    entryType,
-		Notes:        req.Notes,
+		EmployeeID:         req.EmployeeID,
+		Date:               date,
+		StartTime:          startTime,
+		EndTime:            endTime,
+		BreakMinutes:       breakMinutes,
+		GroupID:            req.GroupID,
+		EntryType:          entryType,
+		ShiftKind:          shiftKind,
+		Notes:              req.Notes,
+		OverrideBlockedDay: overrideBlockedDay,
 	}, ""
+}
+
+func mapTimeSuggestionResponse(suggestion *service.TimeSuggestion) TimeSuggestionResponse {
+	response := TimeSuggestionResponse{
+		BreakMinutes:   suggestion.BreakMinutes,
+		PlannedMinutes: suggestion.PlannedMinutes,
+		IsBlocked:      suggestion.IsBlocked,
+		ContractID:     suggestion.ContractID,
+	}
+	if suggestion.StartTime != nil {
+		formatted := suggestion.StartTime.Format(timeLayoutSecs)
+		response.StartTime = &formatted
+	}
+	if suggestion.EndTime != nil {
+		formatted := suggestion.EndTime.Format(timeLayoutSecs)
+		response.EndTime = &formatted
+	}
+	return response
 }

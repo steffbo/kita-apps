@@ -72,11 +72,14 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 				r.Get("/", handlers.Employee.List)
 				r.Get("/{id}", handlers.Employee.Get)
 				r.Get("/{id}/assignments", handlers.Employee.Assignments)
+				r.Get("/{id}/contracts", handlers.Employee.Contracts)
 
 				r.Group(func(r chi.Router) {
 					r.Use(customMiddleware.RequireRole("ADMIN"))
 					r.Post("/", handlers.Employee.Create)
 					r.Put("/{id}", handlers.Employee.Update)
+					r.Post("/{id}/contracts", handlers.Employee.CreateContract)
+					r.Put("/{id}/contracts/{contractId}", handlers.Employee.UpdateContract)
 					r.Delete("/{id}", handlers.Employee.Delete)
 					r.Delete("/{id}/permanent", handlers.Employee.PermanentDelete)
 					r.Post("/{id}/reset-password", handlers.Employee.ResetPassword)
@@ -100,6 +103,7 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 
 				r.Group(func(r chi.Router) {
 					r.Use(customMiddleware.RequireRole("ADMIN"))
+					r.Post("/time-suggestion", handlers.Schedule.TimeSuggestion)
 					r.Post("/", handlers.Schedule.Create)
 					r.Post("/bulk", handlers.Schedule.BulkCreate)
 					r.Put("/{id}", handlers.Schedule.Update)

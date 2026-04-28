@@ -5,6 +5,8 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"math"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
@@ -16,9 +18,10 @@ import (
 
 // EmployeeWithGroup represents an employee and their primary group.
 type EmployeeWithGroup struct {
-	Employee       domain.Employee
-	PrimaryGroup   *domain.Group
-	PrimaryGroupID *int64
+	Employee        domain.Employee
+	PrimaryGroup    *domain.Group
+	PrimaryGroupID  *int64
+	CurrentContract *domain.EmployeeContract
 }
 
 // EmployeeService handles employee operations.
@@ -72,10 +75,15 @@ func (s *EmployeeService) List(ctx context.Context, activeOnly bool) ([]Employee
 			groupID := assignment.GroupID
 			primaryGroupID = &groupID
 		}
+		currentContract, err := s.employees.GetContractForDate(ctx, emp.ID, time.Now())
+		if err != nil && !errors.Is(err, sql.ErrNoRows) {
+			return nil, err
+		}
 		result = append(result, EmployeeWithGroup{
-			Employee:       emp,
-			PrimaryGroup:   primaryGroup,
-			PrimaryGroupID: primaryGroupID,
+			Employee:        emp,
+			PrimaryGroup:    primaryGroup,
+			PrimaryGroupID:  primaryGroupID,
+			CurrentContract: currentContract,
 		})
 	}
 
@@ -102,10 +110,16 @@ func (s *EmployeeService) Get(ctx context.Context, id int64) (*EmployeeWithGroup
 		primaryGroupID = &groupID
 	}
 
+	currentContract, err := s.employees.GetContractForDate(ctx, id, time.Now())
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, err
+	}
+
 	return &EmployeeWithGroup{
-		Employee:       *emp,
-		PrimaryGroup:   primaryGroup,
-		PrimaryGroupID: primaryGroupID,
+		Employee:        *emp,
+		PrimaryGroup:    primaryGroup,
+		PrimaryGroupID:  primaryGroupID,
+		CurrentContract: currentContract,
 	}, nil
 }
 
@@ -114,10 +128,24 @@ type CreateEmployeeInput struct {
 	Email               string
 	FirstName           string
 	LastName            string
+	Nickname            *string
 	Role                domain.EmployeeRole
 	WeeklyHours         float64
 	VacationDaysPerYear int
 	PrimaryGroupID      *int64
+}
+
+// EmployeeContractInput represents a historical weekly-hours setup.
+type EmployeeContractInput struct {
+	ValidFrom   time.Time
+	WeeklyHours float64
+	Workdays    []EmployeeContractWorkdayInput
+}
+
+// EmployeeContractWorkdayInput represents planned net minutes for a weekday.
+type EmployeeContractWorkdayInput struct {
+	Weekday        int
+	PlannedMinutes int
 }
 
 // Create creates a new employee.
@@ -150,6 +178,7 @@ func (s *EmployeeService) Create(ctx context.Context, input CreateEmployeeInput)
 		PasswordHash:          hash,
 		FirstName:             input.FirstName,
 		LastName:              input.LastName,
+		Nickname:              normalizeOptionalString(input.Nickname),
 		Role:                  role,
 		WeeklyHours:           input.WeeklyHours,
 		VacationDaysPerYear:   vacDays,
@@ -159,6 +188,10 @@ func (s *EmployeeService) Create(ctx context.Context, input CreateEmployeeInput)
 	}
 
 	if err := s.employees.Create(ctx, employee); err != nil {
+		return nil, err
+	}
+
+	if err := s.createDefaultContract(ctx, employee.ID, input.WeeklyHours); err != nil {
 		return nil, err
 	}
 
@@ -173,11 +206,65 @@ func (s *EmployeeService) Create(ctx context.Context, input CreateEmployeeInput)
 	return s.Get(ctx, employee.ID)
 }
 
+// ListContracts retrieves all contracts for an employee.
+func (s *EmployeeService) ListContracts(ctx context.Context, employeeID int64) ([]domain.EmployeeContract, error) {
+	if _, err := s.employees.GetByID(ctx, employeeID); err != nil {
+		return nil, NewNotFound(fmt.Sprintf("Mitarbeiter mit ID %d nicht gefunden", employeeID))
+	}
+	return s.employees.ListContracts(ctx, employeeID)
+}
+
+// CreateContract creates a monthly contract for an employee.
+func (s *EmployeeService) CreateContract(ctx context.Context, employeeID int64, input EmployeeContractInput) (*domain.EmployeeContract, error) {
+	if _, err := s.employees.GetByID(ctx, employeeID); err != nil {
+		return nil, NewNotFound(fmt.Sprintf("Mitarbeiter mit ID %d nicht gefunden", employeeID))
+	}
+	contract := &domain.EmployeeContract{
+		EmployeeID:  employeeID,
+		ValidFrom:   firstOfMonth(input.ValidFrom),
+		WeeklyHours: input.WeeklyHours,
+		Workdays:    mapContractWorkdays(0, input.Workdays),
+	}
+	if len(contract.Workdays) == 0 {
+		contract.Workdays = defaultWorkdays(0, input.WeeklyHours)
+	}
+	if err := s.employees.CreateContract(ctx, contract); err != nil {
+		return nil, err
+	}
+	return s.employees.GetContractByID(ctx, contract.ID)
+}
+
+// UpdateContract updates a monthly contract for an employee.
+func (s *EmployeeService) UpdateContract(ctx context.Context, employeeID, contractID int64, input EmployeeContractInput) (*domain.EmployeeContract, error) {
+	if _, err := s.employees.GetByID(ctx, employeeID); err != nil {
+		return nil, NewNotFound(fmt.Sprintf("Mitarbeiter mit ID %d nicht gefunden", employeeID))
+	}
+	existing, err := s.employees.GetContractByID(ctx, contractID)
+	if err != nil {
+		return nil, NewNotFound(fmt.Sprintf("Vertrag mit ID %d nicht gefunden", contractID))
+	}
+	if existing.EmployeeID != employeeID {
+		return nil, NewNotFound(fmt.Sprintf("Vertrag mit ID %d nicht gefunden", contractID))
+	}
+	contract := &domain.EmployeeContract{
+		ID:          contractID,
+		EmployeeID:  employeeID,
+		ValidFrom:   firstOfMonth(input.ValidFrom),
+		WeeklyHours: input.WeeklyHours,
+		Workdays:    mapContractWorkdays(contractID, input.Workdays),
+	}
+	if len(contract.Workdays) == 0 {
+		contract.Workdays = defaultWorkdays(contractID, input.WeeklyHours)
+	}
+	return s.employees.UpdateContract(ctx, contract)
+}
+
 // UpdateEmployeeInput represents input for updating an employee.
 type UpdateEmployeeInput struct {
 	Email                 *string
 	FirstName             *string
 	LastName              *string
+	Nickname              *string
 	Role                  *domain.EmployeeRole
 	WeeklyHours           *float64
 	VacationDaysPerYear   *int
@@ -202,6 +289,9 @@ func (s *EmployeeService) Update(ctx context.Context, id int64, input UpdateEmpl
 	}
 	if input.LastName != nil {
 		employee.LastName = *input.LastName
+	}
+	if input.Nickname != nil {
+		employee.Nickname = normalizeOptionalString(input.Nickname)
 	}
 	if input.Role != nil {
 		employee.Role = *input.Role
@@ -314,4 +404,62 @@ func (s *EmployeeService) setPrimaryGroup(ctx context.Context, employeeID, group
 
 func generateTemporaryPassword() string {
 	return uuid.NewString()[:8]
+}
+
+func (s *EmployeeService) createDefaultContract(ctx context.Context, employeeID int64, weeklyHours float64) error {
+	contract := &domain.EmployeeContract{
+		EmployeeID:  employeeID,
+		ValidFrom:   firstOfMonth(time.Now()),
+		WeeklyHours: weeklyHours,
+		Workdays:    defaultWorkdays(0, weeklyHours),
+	}
+	return s.employees.CreateContract(ctx, contract)
+}
+
+func firstOfMonth(date time.Time) time.Time {
+	if date.IsZero() {
+		date = time.Now()
+	}
+	return time.Date(date.Year(), date.Month(), 1, 0, 0, 0, 0, time.UTC)
+}
+
+func defaultWorkdays(contractID int64, weeklyHours float64) []domain.EmployeeContractWorkday {
+	if weeklyHours == 33 {
+		return []domain.EmployeeContractWorkday{
+			{ContractID: contractID, Weekday: 1, PlannedMinutes: 420},
+			{ContractID: contractID, Weekday: 2, PlannedMinutes: 420},
+			{ContractID: contractID, Weekday: 3, PlannedMinutes: 420},
+			{ContractID: contractID, Weekday: 4, PlannedMinutes: 360},
+			{ContractID: contractID, Weekday: 5, PlannedMinutes: 360},
+		}
+	}
+	dailyMinutes := int(math.Round(weeklyHours * 60 / 5))
+	workdays := make([]domain.EmployeeContractWorkday, 0, 5)
+	for weekday := 1; weekday <= 5; weekday++ {
+		workdays = append(workdays, domain.EmployeeContractWorkday{
+			ContractID:     contractID,
+			Weekday:        weekday,
+			PlannedMinutes: dailyMinutes,
+		})
+	}
+	return workdays
+}
+
+func mapContractWorkdays(contractID int64, input []EmployeeContractWorkdayInput) []domain.EmployeeContractWorkday {
+	workdays := make([]domain.EmployeeContractWorkday, 0, len(input))
+	for _, day := range input {
+		workdays = append(workdays, domain.EmployeeContractWorkday{
+			ContractID:     contractID,
+			Weekday:        day.Weekday,
+			PlannedMinutes: day.PlannedMinutes,
+		})
+	}
+	return workdays
+}
+
+func normalizeOptionalString(value *string) *string {
+	if value == nil || *value == "" {
+		return nil
+	}
+	return value
 }

@@ -5,14 +5,17 @@ import {
   useEmployees, 
   useGroups,
   useCreateEmployee, 
+  useCreateEmployeeContract,
   useUpdateEmployee, 
+  useUpdateEmployeeContract,
   useDeleteEmployee,
   usePermanentDeleteEmployee,
   useAdminResetPassword,
   useAuth,
   type Employee,
   type CreateEmployeeRequest,
-  type UpdateEmployeeRequest
+  type UpdateEmployeeRequest,
+  type EmployeeContractRequest
 } from '@kita/shared';
 import { Button, Badge } from '@/components/ui';
 import EmployeeFormDialog from '@/components/EmployeeFormDialog.vue';
@@ -83,6 +86,8 @@ const employees = computed(() => {
 // Mutations
 const createEmployee = useCreateEmployee();
 const updateEmployee = useUpdateEmployee();
+const createEmployeeContract = useCreateEmployeeContract();
+const updateEmployeeContract = useUpdateEmployeeContract();
 const deleteEmployee = useDeleteEmployee();
 const permanentDeleteEmployee = usePermanentDeleteEmployee();
 const resetPassword = useAdminResetPassword();
@@ -114,15 +119,46 @@ function handleRowClick(employee: Employee, event: MouseEvent) {
   }
 }
 
-async function handleSave(data: CreateEmployeeRequest | UpdateEmployeeRequest) {
+async function handleSave(data: { employee: CreateEmployeeRequest | UpdateEmployeeRequest; contract: EmployeeContractRequest }) {
   try {
     if (selectedEmployee.value?.id) {
       await updateEmployee.mutateAsync({
         id: selectedEmployee.value.id,
-        data: data as UpdateEmployeeRequest,
+        data: data.employee as UpdateEmployeeRequest,
       });
+      if (selectedEmployee.value.currentContract?.id) {
+        if (selectedEmployee.value.currentContract.validFrom === data.contract.validFrom) {
+          await updateEmployeeContract.mutateAsync({
+            employeeId: selectedEmployee.value.id,
+            contractId: selectedEmployee.value.currentContract.id,
+            data: data.contract,
+          });
+        } else {
+          await createEmployeeContract.mutateAsync({
+            employeeId: selectedEmployee.value.id,
+            data: data.contract,
+          });
+        }
+      } else {
+        await createEmployeeContract.mutateAsync({
+          employeeId: selectedEmployee.value.id,
+          data: data.contract,
+        });
+      }
     } else {
-      await createEmployee.mutateAsync(data as CreateEmployeeRequest);
+      const created = await createEmployee.mutateAsync(data.employee as CreateEmployeeRequest);
+      if (created?.id) {
+        const defaultContractId = created.currentContract?.id;
+        if (defaultContractId) {
+          await updateEmployeeContract.mutateAsync({
+            employeeId: created.id,
+            contractId: defaultContractId,
+            data: data.contract,
+          });
+        } else {
+          await createEmployeeContract.mutateAsync({ employeeId: created.id, data: data.contract });
+        }
+      }
     }
     dialogOpen.value = false;
   } catch (err) {

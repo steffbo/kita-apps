@@ -34,25 +34,47 @@ func NewScheduleService(
 
 // CreateScheduleEntryInput represents input for creating a schedule entry.
 type CreateScheduleEntryInput struct {
-	EmployeeID   int64
-	Date         time.Time
-	StartTime    *time.Time
-	EndTime      *time.Time
-	BreakMinutes int
-	GroupID      *int64
-	EntryType    domain.ScheduleEntryType
-	Notes        *string
+	EmployeeID         int64
+	Date               time.Time
+	StartTime          *time.Time
+	EndTime            *time.Time
+	BreakMinutes       int
+	GroupID            *int64
+	EntryType          domain.ScheduleEntryType
+	ShiftKind          domain.ShiftKind
+	Notes              *string
+	OverrideBlockedDay bool
 }
 
 // UpdateScheduleEntryInput represents input for updating a schedule entry.
 type UpdateScheduleEntryInput struct {
-	Date         *time.Time
-	StartTime    *time.Time
-	EndTime      *time.Time
-	BreakMinutes *int
-	GroupID      *int64
-	EntryType    *domain.ScheduleEntryType
-	Notes        *string
+	Date               *time.Time
+	StartTime          *time.Time
+	EndTime            *time.Time
+	BreakMinutes       *int
+	GroupID            *int64
+	EntryType          *domain.ScheduleEntryType
+	ShiftKind          *domain.ShiftKind
+	Notes              *string
+	OverrideBlockedDay bool
+}
+
+// TimeSuggestionInput represents input for suggested schedule times.
+type TimeSuggestionInput struct {
+	EmployeeID int64
+	Date       time.Time
+	ShiftKind  domain.ShiftKind
+	StartTime  *time.Time
+}
+
+// TimeSuggestion contains calculated schedule times for a contract day.
+type TimeSuggestion struct {
+	StartTime      *time.Time
+	EndTime        *time.Time
+	BreakMinutes   int
+	PlannedMinutes int
+	IsBlocked      bool
+	ContractID     *int64
 }
 
 // List retrieves schedule entries for a date range.
@@ -171,6 +193,16 @@ func (s *ScheduleService) Create(ctx context.Context, input CreateScheduleEntryI
 	if entryType == "" {
 		entryType = domain.ScheduleEntryTypeWork
 	}
+	shiftKind := input.ShiftKind
+	if shiftKind == "" {
+		shiftKind = domain.ShiftKindManual
+	}
+
+	if entryType == domain.ScheduleEntryTypeWork {
+		if err := s.validateWorkday(ctx, input.EmployeeID, input.Date, input.OverrideBlockedDay); err != nil {
+			return nil, err
+		}
+	}
 
 	entry := &domain.ScheduleEntry{
 		EmployeeID:   input.EmployeeID,
@@ -180,6 +212,7 @@ func (s *ScheduleService) Create(ctx context.Context, input CreateScheduleEntryI
 		BreakMinutes: input.BreakMinutes,
 		GroupID:      input.GroupID,
 		EntryType:    entryType,
+		ShiftKind:    shiftKind,
 		Notes:        input.Notes,
 	}
 
@@ -239,8 +272,19 @@ func (s *ScheduleService) Update(ctx context.Context, id int64, input UpdateSche
 	if input.EntryType != nil {
 		entry.EntryType = *input.EntryType
 	}
+	if input.ShiftKind != nil {
+		entry.ShiftKind = *input.ShiftKind
+	}
 	if input.Notes != nil {
 		entry.Notes = input.Notes
+	}
+	if entry.ShiftKind == "" {
+		entry.ShiftKind = domain.ShiftKindManual
+	}
+	if entry.EntryType == domain.ScheduleEntryTypeWork {
+		if err := s.validateWorkday(ctx, entry.EmployeeID, entry.Date, input.OverrideBlockedDay); err != nil {
+			return nil, err
+		}
 	}
 
 	updated, err := s.schedules.Update(ctx, entry)
@@ -261,6 +305,103 @@ func (s *ScheduleService) Update(ctx context.Context, id int64, input UpdateSche
 	}
 
 	return updated, nil
+}
+
+// SuggestTimes calculates schedule times from the active contract for the date.
+func (s *ScheduleService) SuggestTimes(ctx context.Context, input TimeSuggestionInput) (*TimeSuggestion, error) {
+	if _, err := s.employees.GetByID(ctx, input.EmployeeID); err != nil {
+		return nil, NewNotFound(fmt.Sprintf("Mitarbeiter mit ID %d nicht gefunden", input.EmployeeID))
+	}
+
+	contract, err := s.employees.GetContractForDate(ctx, input.EmployeeID, input.Date)
+	if err != nil {
+		return &TimeSuggestion{IsBlocked: true}, nil
+	}
+
+	weekday := int(input.Date.Weekday())
+	if weekday == 0 {
+		weekday = 7
+	}
+	workday, ok := findContractWorkday(contract, weekday)
+	if !ok {
+		id := contract.ID
+		return &TimeSuggestion{IsBlocked: true, ContractID: &id}, nil
+	}
+
+	breakMinutes := plannedBreakMinutes(workday.PlannedMinutes)
+	shiftKind := input.ShiftKind
+	if shiftKind == "" {
+		shiftKind = domain.ShiftKindEarly
+	}
+
+	var start, end time.Time
+	switch shiftKind {
+	case domain.ShiftKindLate:
+		end = closingTime(input.Date)
+		start = end.Add(-time.Duration(workday.PlannedMinutes+breakMinutes) * time.Minute)
+	default:
+		if input.StartTime != nil {
+			start = normalizeClockTime(*input.StartTime)
+		} else {
+			start = time.Date(2000, 1, 1, 7, 0, 0, 0, time.UTC)
+		}
+		end = start.Add(time.Duration(workday.PlannedMinutes+breakMinutes) * time.Minute)
+	}
+
+	id := contract.ID
+	return &TimeSuggestion{
+		StartTime:      &start,
+		EndTime:        &end,
+		BreakMinutes:   breakMinutes,
+		PlannedMinutes: workday.PlannedMinutes,
+		IsBlocked:      false,
+		ContractID:     &id,
+	}, nil
+}
+
+func (s *ScheduleService) validateWorkday(ctx context.Context, employeeID int64, date time.Time, override bool) error {
+	if override {
+		return nil
+	}
+	contract, err := s.employees.GetContractForDate(ctx, employeeID, date)
+	if err != nil {
+		return NewBadRequest("Für diesen Tag ist kein gültiger Vertrag hinterlegt")
+	}
+	weekday := int(date.Weekday())
+	if weekday == 0 {
+		weekday = 7
+	}
+	if _, ok := findContractWorkday(contract, weekday); !ok {
+		return NewBadRequest("Dieser Wochentag ist für den Mitarbeiter blockiert")
+	}
+	return nil
+}
+
+func findContractWorkday(contract *domain.EmployeeContract, weekday int) (domain.EmployeeContractWorkday, bool) {
+	for _, workday := range contract.Workdays {
+		if workday.Weekday == weekday {
+			return workday, true
+		}
+	}
+	return domain.EmployeeContractWorkday{}, false
+}
+
+func plannedBreakMinutes(plannedMinutes int) int {
+	if plannedMinutes > 6*60 {
+		return 30
+	}
+	return 0
+}
+
+func closingTime(date time.Time) time.Time {
+	if date.Weekday() == time.Friday {
+		return time.Date(2000, 1, 1, 16, 0, 0, 0, time.UTC)
+	}
+	return time.Date(2000, 1, 1, 16, 30, 0, 0, time.UTC)
+}
+
+func normalizeClockTime(value time.Time) time.Time {
+	return time.Date(2000, 1, 1, value.Hour(), value.Minute(), value.Second(), 0, time.UTC)
 }
 
 // Delete deletes a schedule entry.
