@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { BarChart3, ChevronLeft, ChevronRight, Plus, Loader2 } from 'lucide-vue-next';
+import { BarChart3, CalendarX, ChevronLeft, ChevronRight, Plus, Loader2 } from 'lucide-vue-next';
 import { 
   useAuth,
   useWeekSchedule,
@@ -27,6 +27,7 @@ import ScheduleEntryDialog from '@/components/ScheduleEntryDialog.vue';
 import EmployeeFormDialog from '@/components/EmployeeFormDialog.vue';
 
 const { isAdmin } = useAuth();
+type EntryType = 'WORK' | 'VACATION' | 'SICK' | 'CHILD_SICK' | 'RECOVERY_DAY' | 'SPECIAL_LEAVE' | 'TRAINING' | 'EVENT';
 
 // Current week state
 const currentDate = ref(new Date());
@@ -52,6 +53,7 @@ const selectedEntry = ref<ScheduleEntry | null>(null);
 const defaultDate = ref<Date | undefined>();
 const defaultGroupId = ref<number | undefined>();
 const defaultEmployeeId = ref<number | undefined>();
+const defaultEntryType = ref<EntryType>('WORK');
 const employeeDialogOpen = ref(false);
 const selectedEmployee = ref<Employee | null>(null);
 const staffingDialogOpen = ref(false);
@@ -132,6 +134,8 @@ const timelineStart = 6 * 60;
 const timelineEnd = 17 * 60;
 const timelineStep = 30;
 const timelineTicks = Array.from({ length: 12 }, (_, index) => timelineStart + index * 60);
+const cellTimelineStart = 6 * 60 + 30;
+const cellTimelineEnd = 16 * 60 + 30;
 
 function getSpecialDayForDate(dateStr: string): SpecialDay | undefined {
   const specialDays = weekSchedule.value?.specialDays || [];
@@ -219,16 +223,28 @@ function openCreateDialog(date: Date, groupId?: number) {
   defaultDate.value = date;
   defaultGroupId.value = groupId;
   defaultEmployeeId.value = undefined;
+  defaultEntryType.value = 'WORK';
   dialogOpen.value = true;
 }
 
-function openCreateEmployeeDialog(date: Date, employeeId: number) {
+function openCreateEmployeeDialog(
+  date: Date,
+  employeeId: number,
+  groupId?: number,
+  entryType: EntryType = 'WORK',
+) {
   const employee = employees.value?.find(e => e.id === employeeId);
   selectedEntry.value = null;
   defaultDate.value = date;
   defaultEmployeeId.value = employeeId;
-  defaultGroupId.value = employee?.primaryGroupId;
+  defaultGroupId.value = groupId || employee?.primaryGroupId;
+  defaultEntryType.value = entryType;
   dialogOpen.value = true;
+}
+
+function openCreateAbsenceDialog(date: Date, employee: Employee) {
+  if (!employee.id) return;
+  openCreateEmployeeDialog(date, employee.id, employee.primaryGroupId, 'VACATION');
 }
 
 function openEditDialog(entry: ScheduleEntry) {
@@ -236,6 +252,7 @@ function openEditDialog(entry: ScheduleEntry) {
   defaultDate.value = undefined;
   defaultGroupId.value = undefined;
   defaultEmployeeId.value = undefined;
+  defaultEntryType.value = 'WORK';
   dialogOpen.value = true;
 }
 
@@ -383,6 +400,47 @@ const employeeWeeklyHours = computed(() => {
 function parseTime(timeStr: string): number {
   const parts = timeStr.split(':');
   return parseInt(parts[0]) * 60 + parseInt(parts[1]);
+}
+
+function getWorkEntriesForEmployeeAndDay(employeeId: number, dateStr: string): ScheduleEntry[] {
+  return getEntriesForEmployeeAndDay(employeeId, dateStr).filter(entry =>
+    entry.entryType === 'WORK' && Boolean(entry.startTime) && Boolean(entry.endTime)
+  );
+}
+
+function getAbsenceEntriesForEmployeeAndDay(employeeId: number, dateStr: string): ScheduleEntry[] {
+  return getEntriesForEmployeeAndDay(employeeId, dateStr).filter(entry => entry.entryType !== 'WORK');
+}
+
+function getGroupsForCell(employee: Employee) {
+  const allGroups = groups.value || [];
+  return [...allGroups].sort((a, b) => {
+    if (a.id === employee.primaryGroupId) return -1;
+    if (b.id === employee.primaryGroupId) return 1;
+    return (a.name || '').localeCompare(b.name || '');
+  });
+}
+
+function compactEntryStyle(entry: ScheduleEntry) {
+  if (!entry.startTime || !entry.endTime) {
+    return { left: '0%', width: '100%', backgroundColor: getEntryColor(entry.entryType || 'WORK', entry.group?.color) };
+  }
+
+  const start = Math.max(parseTime(entry.startTime), cellTimelineStart);
+  const end = Math.min(parseTime(entry.endTime), cellTimelineEnd);
+  const width = Math.max(3, ((end - start) / (cellTimelineEnd - cellTimelineStart)) * 100);
+  return {
+    left: `${((start - cellTimelineStart) / (cellTimelineEnd - cellTimelineStart)) * 100}%`,
+    width: `${width}%`,
+    backgroundColor: getEntryColor(entry.entryType || 'WORK', entry.group?.color),
+  };
+}
+
+function compactEntryTitle(entry: ScheduleEntry, employee: Employee): string {
+  const groupName = entry.group?.name || employee.primaryGroup?.name || 'Springer';
+  const start = entry.startTime?.substring(0, 5) || '';
+  const end = entry.endTime?.substring(0, 5) || '';
+  return `${groupName}: ${start} - ${end}`;
 }
 
 function formatHour(minutes: number): string {
@@ -567,7 +625,7 @@ function getHoursStatusClass(remaining: number): string {
           v-for="day in weekDays"
           :key="`${employee.id}-${day.dateStr}`"
           :class="[
-            'px-2 py-1.5 border-r border-stone-200 last:border-r-0 min-h-[56px]',
+            'group/cell relative px-2 py-1 border-r border-stone-200 last:border-r-0 min-h-[48px]',
             isEmployeeBlocked(employee, day.date) ? 'bg-stone-100/70 cursor-not-allowed' : 'cursor-pointer hover:bg-stone-50/50',
             day.isWeekend ? 'bg-stone-50' : '',
             day.isToday ? 'bg-primary/5' : '',
@@ -575,30 +633,65 @@ function getHoursStatusClass(remaining: number): string {
           ]"
           @click="isAdmin && openCreateEmployeeDialog(day.date, employee.id!)"
         >
-          <div class="space-y-1">
+          <div class="flex h-full min-h-[38px] flex-col justify-center gap-1">
             <div v-if="isEmployeeBlocked(employee, day.date)" class="text-xs text-stone-400">
               blockiert
             </div>
-            <div
-              v-for="entry in getEntriesForEmployeeAndDay(employee.id!, day.dateStr)"
-              :key="entry.id"
-              class="px-2 py-1 rounded text-xs cursor-pointer hover:opacity-80 transition-opacity"
-              :style="{ 
-                backgroundColor: getEntryColor(entry.entryType || 'WORK', entry.group?.color || employee.primaryGroup?.color) + '20',
-                borderLeft: `3px solid ${getEntryColor(entry.entryType || 'WORK', entry.group?.color || employee.primaryGroup?.color)}`
-              }"
-              @click.stop="openEditDialog(entry)"
+            <template v-else>
+              <div v-if="getWorkEntriesForEmployeeAndDay(employee.id!, day.dateStr).length" class="space-y-1">
+                <button
+                  v-for="entry in getWorkEntriesForEmployeeAndDay(employee.id!, day.dateStr)"
+                  :key="entry.id"
+                  type="button"
+                  class="relative block h-3 w-full rounded-full border border-stone-200 bg-stone-100 transition-opacity hover:opacity-80"
+                  :title="compactEntryTitle(entry, employee)"
+                  @click.stop="openEditDialog(entry)"
+                >
+                  <span
+                    class="absolute inset-y-[2px] rounded-full"
+                    :style="compactEntryStyle(entry)"
+                  />
+                </button>
+              </div>
+              <div v-else class="h-3 rounded-full border border-dashed border-stone-200 bg-stone-50/80" />
+
+              <div v-if="getAbsenceEntriesForEmployeeAndDay(employee.id!, day.dateStr).length" class="flex flex-wrap gap-1">
+                <button
+                  v-for="entry in getAbsenceEntriesForEmployeeAndDay(employee.id!, day.dateStr)"
+                  :key="entry.id"
+                  type="button"
+                  class="rounded px-1.5 py-0.5 text-[11px] font-medium leading-none text-white hover:opacity-80"
+                  :style="{ backgroundColor: getEntryColor(entry.entryType || 'VACATION') }"
+                  @click.stop="openEditDialog(entry)"
+                >
+                  {{ getEntryTypeLabel(entry.entryType || '') }}
+                </button>
+              </div>
+            </template>
+          </div>
+
+          <div
+            v-if="isAdmin && !isEmployeeBlocked(employee, day.date)"
+            class="absolute bottom-1 right-1 flex items-center gap-1 rounded bg-white/90 px-1 py-0.5 opacity-0 shadow-sm ring-1 ring-stone-200 transition-opacity group-hover/cell:opacity-100 focus-within:opacity-100"
+            @click.stop
+          >
+            <button
+              v-for="group in getGroupsForCell(employee)"
+              :key="group.id"
+              type="button"
+              class="h-3.5 w-3.5 rounded-full ring-1 ring-white transition-transform hover:scale-125 focus:outline-none focus:ring-2 focus:ring-stone-900"
+              :style="{ backgroundColor: group.color || '#10B981' }"
+              :title="`Arbeit in ${group.name}`"
+              @click.stop="openCreateEmployeeDialog(day.date, employee.id!, group.id)"
+            />
+            <button
+              type="button"
+              class="ml-0.5 rounded p-0.5 text-stone-500 hover:bg-stone-100 hover:text-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-900"
+              title="Abwesenheit eintragen"
+              @click.stop="openCreateAbsenceDialog(day.date, employee)"
             >
-              <div class="font-medium text-stone-900 truncate">
-                {{ entry.group?.name || employee.primaryGroup?.name || 'Springer' }}
-              </div>
-              <div class="text-stone-600" v-if="entry.entryType === 'WORK'">
-                {{ entry.startTime?.substring(0, 5) }} - {{ entry.endTime?.substring(0, 5) }}
-              </div>
-              <div class="text-stone-600" v-else>
-                {{ getEntryTypeLabel(entry.entryType || '') }}
-              </div>
-            </div>
+              <CalendarX class="h-3.5 w-3.5" />
+            </button>
           </div>
         </div>
       </div>
@@ -694,6 +787,7 @@ function getHoursStatusClass(remaining: number): string {
       :default-date="defaultDate"
       :default-group-id="defaultGroupId"
       :default-employee-id="defaultEmployeeId"
+      :default-entry-type="defaultEntryType"
       @save="handleSave"
       @delete="handleDelete"
     />

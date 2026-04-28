@@ -11,6 +11,8 @@ import type {
 import { useScheduleTimeSuggestion } from '@kita/shared';
 import { toISODateString } from '@kita/shared/utils';
 
+type EntryType = 'WORK' | 'VACATION' | 'SICK' | 'CHILD_SICK' | 'RECOVERY_DAY' | 'SPECIAL_LEAVE' | 'TRAINING' | 'EVENT';
+
 const props = defineProps<{
   open: boolean;
   entry?: ScheduleEntry | null;
@@ -19,6 +21,7 @@ const props = defineProps<{
   defaultDate?: Date;
   defaultGroupId?: number;
   defaultEmployeeId?: number;
+  defaultEntryType?: EntryType;
 }>();
 
 const emit = defineEmits<{
@@ -65,7 +68,7 @@ const form = ref({
   endTime: '15:00',
   breakMinutes: 30,
   groupId: '',
-  entryType: 'WORK' as 'WORK' | 'VACATION' | 'SICK' | 'CHILD_SICK' | 'RECOVERY_DAY' | 'SPECIAL_LEAVE' | 'TRAINING' | 'EVENT',
+  entryType: 'WORK' as EntryType,
   shiftKind: 'EARLY' as 'EARLY' | 'LATE' | 'MANUAL',
   overrideBlockedDay: false,
   plannedMinutes: 0,
@@ -77,7 +80,7 @@ const userChangedGroup = ref(false);
 
 // Reset form when dialog opens/entry changes
 watch(
-  () => [props.open, props.entry, props.defaultDate, props.defaultGroupId],
+  () => [props.open, props.entry, props.defaultDate, props.defaultGroupId, props.defaultEmployeeId, props.defaultEntryType],
   () => {
     if (props.open) {
       userChangedGroup.value = false; // Reset on dialog open
@@ -106,7 +109,7 @@ watch(
           endTime: '15:00',
           breakMinutes: 30,
           groupId: props.defaultGroupId ? String(props.defaultGroupId) : '',
-          entryType: 'WORK',
+          entryType: props.defaultEntryType || 'WORK',
           shiftKind: 'EARLY',
           overrideBlockedDay: false,
           plannedMinutes: 0,
@@ -183,6 +186,18 @@ function applyStartDefault(value: string) {
 }
 
 const selectedEmployee = computed(() => props.employees.find(e => String(e.id) === form.value.employeeId));
+const selectedGroup = computed(() => props.groups.find(group => String(group.id) === form.value.groupId));
+const isCellCreate = computed(() => !isEditing.value && Boolean(props.defaultEmployeeId && props.defaultDate));
+const isCompactWorkCreate = computed(() => isCellCreate.value && form.value.entryType === 'WORK');
+const formattedSelectedDate = computed(() => {
+  if (!form.value.date) return '';
+  return new Date(`${form.value.date}T00:00:00`).toLocaleDateString('de-DE', {
+    weekday: 'short',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+});
 const selectedWeekday = computed(() => {
   if (!form.value.date) return 0;
   const day = new Date(`${form.value.date}T00:00:00`).getDay();
@@ -242,15 +257,16 @@ function handleSubmit() {
     return;
   }
   
+  const isWorkEntry = form.value.entryType === 'WORK';
   const data: CreateScheduleEntryRequest = {
     employeeId: parseInt(form.value.employeeId),
     date: form.value.date,
-    startTime: form.value.startTime + ':00',
-    endTime: form.value.endTime + ':00',
-    breakMinutes: form.value.breakMinutes,
+    startTime: isWorkEntry ? form.value.startTime + ':00' : undefined,
+    endTime: isWorkEntry ? form.value.endTime + ':00' : undefined,
+    breakMinutes: isWorkEntry ? form.value.breakMinutes : 0,
     groupId: form.value.groupId ? parseInt(form.value.groupId) : undefined,
     entryType: form.value.entryType,
-    shiftKind: form.value.shiftKind,
+    shiftKind: isWorkEntry ? form.value.shiftKind : 'MANUAL',
     overrideBlockedDay: form.value.overrideBlockedDay,
     notes: form.value.notes || undefined,
   };
@@ -272,7 +288,19 @@ function handleDelete() {
     :description="isEditing ? 'Bearbeite den Dienstplan-Eintrag.' : 'Erstelle einen neuen Dienstplan-Eintrag.'"
   >
     <form @submit.prevent="handleSubmit" class="space-y-4">
-      <div class="space-y-2">
+      <div v-if="isCellCreate" class="rounded-md border border-stone-200 bg-stone-50 px-3 py-2 text-sm">
+        <div class="font-medium text-stone-900">
+          {{ selectedEmployee ? employeeDisplayName(selectedEmployee) : 'Mitarbeiter' }}
+        </div>
+        <div class="text-stone-600">
+          {{ formattedSelectedDate }}
+          <span v-if="form.entryType === 'WORK'"> · Arbeit</span>
+          <span v-else> · Abwesenheit</span>
+          <span v-if="selectedGroup"> · {{ selectedGroup.name }}</span>
+        </div>
+      </div>
+
+      <div v-else class="space-y-2">
         <Label for="employee">Mitarbeiter</Label>
         <Select
           v-model="form.employeeId"
@@ -281,7 +309,7 @@ function handleDelete() {
         />
       </div>
 
-      <div class="grid grid-cols-2 gap-4">
+      <div v-if="!isCellCreate" class="grid grid-cols-2 gap-4">
         <div class="space-y-2">
           <Label for="date">Datum</Label>
           <Input
@@ -299,6 +327,15 @@ function handleDelete() {
             placeholder="Typ auswählen"
           />
         </div>
+      </div>
+
+      <div v-else-if="form.entryType !== 'WORK'" class="space-y-2">
+        <Label for="entryType">Typ</Label>
+        <Select
+          v-model="form.entryType"
+          :options="entryTypeOptions.filter(option => option.value !== 'WORK')"
+          placeholder="Typ auswählen"
+        />
       </div>
 
       <div class="space-y-2" v-if="form.entryType === 'WORK'">
@@ -378,7 +415,7 @@ function handleDelete() {
         <span class="text-stone-500"> · Pause {{ form.breakMinutes || 0 }} Min.</span>
       </div>
 
-      <div class="space-y-2" v-if="form.entryType === 'WORK'">
+      <div class="space-y-2" v-if="form.entryType === 'WORK' && !isCompactWorkCreate">
         <Label for="group">Gruppe</Label>
         <Select
           :model-value="form.groupId"
