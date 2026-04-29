@@ -29,6 +29,12 @@ import EmployeeFormDialog from '@/components/EmployeeFormDialog.vue';
 const { isAdmin } = useAuth();
 type EntryType = 'WORK' | 'VACATION' | 'SICK' | 'CHILD_SICK' | 'RECOVERY_DAY' | 'SPECIAL_LEAVE' | 'TRAINING' | 'EVENT';
 
+const props = withDefaults(defineProps<{
+  variant?: 'bars' | 'times';
+}>(), {
+  variant: 'bars',
+});
+
 // Current week state
 const currentDate = ref(new Date());
 const weekStart = computed(() => getWeekStart(currentDate.value));
@@ -61,6 +67,7 @@ const staffingDialogOpen = ref(false);
 
 // Display settings
 const showWeekends = ref(false);
+const showCellTimes = computed(() => props.variant === 'times');
 
 // Navigation
 function previousWeek() {
@@ -517,6 +524,13 @@ function compactEntryTitle(entry: ScheduleEntry, employee: Employee): string {
   return `${groupName}: ${start} - ${end}`;
 }
 
+function compactEntryTimeLabel(entry: ScheduleEntry): string {
+  const start = entry.startTime?.substring(0, 5) || '';
+  const end = entry.endTime?.substring(0, 5) || '';
+  if (!start || !end) return '';
+  return `${start}-${end}`;
+}
+
 async function handleCellGroupClick(date: Date, employee: Employee, groupId?: number) {
   if (!employee.id || !groupId) return;
 
@@ -764,37 +778,50 @@ function getHoursStatusClass(remaining: number): string {
                   v-for="entry in getWorkEntriesForEmployeeAndDay(employee.id!, day.dateStr)"
                   :key="entry.id"
                   type="button"
-                  class="relative block h-4 w-full overflow-hidden rounded-full border border-stone-200 bg-stone-100 transition-opacity hover:opacity-80"
+                  class="flex w-full items-center gap-1.5 text-left transition-opacity hover:opacity-80"
                   :title="compactEntryTitle(entry, employee)"
                   @click.stop="openEditDialog(entry)"
                 >
                   <span
-                    v-for="segment in getCellCoverageSegments(day.dateStr, entry.groupId || entry.group?.id || employee.primaryGroupId)"
-                    :key="`${segment.start}-${segment.end}-${segment.count}`"
-                    class="absolute inset-y-0"
-                    :style="cellCoverageSegmentStyle(segment, entry.group?.color || employee.primaryGroup?.color)"
-                    :title="`${entry.group?.name || employee.primaryGroup?.name || 'Springer'}: ${segment.count} MA (${formatTimeLabel(segment.start)}-${formatTimeLabel(segment.end)})`"
-                  />
-                  <span
-                    class="absolute bottom-[3px] h-1 rounded-full"
-                    :style="compactEntryStyle(entry)"
-                  />
-                  <span
-                    v-for="tick in cellHourTicks"
-                    :key="tick"
-                    class="absolute inset-y-0 w-px bg-stone-500/35"
-                    :style="markerStyle(tick)"
-                  />
-                  <span
-                    v-for="marker in cellMajorMarkers"
-                    :key="marker.time"
-                    class="absolute inset-y-0 w-px bg-stone-600/60"
-                    :style="markerStyle(marker.time)"
-                    :title="marker.title"
+                    :class="[
+                      'relative block h-4 overflow-hidden rounded-full border border-stone-200 bg-stone-100',
+                      showCellTimes ? 'min-w-0 flex-1' : 'w-full'
+                    ]"
                   >
-                    <span class="absolute top-0 left-1/2 -translate-x-1/2 text-[8px] font-semibold leading-none text-stone-600">
-                      {{ marker.label }}
+                    <span
+                      v-for="segment in getCellCoverageSegments(day.dateStr, entry.groupId || entry.group?.id || employee.primaryGroupId)"
+                      :key="`${segment.start}-${segment.end}-${segment.count}`"
+                      class="absolute inset-y-0"
+                      :style="cellCoverageSegmentStyle(segment, entry.group?.color || employee.primaryGroup?.color)"
+                      :title="`${entry.group?.name || employee.primaryGroup?.name || 'Springer'}: ${segment.count} MA (${formatTimeLabel(segment.start)}-${formatTimeLabel(segment.end)})`"
+                    />
+                    <span
+                      class="absolute bottom-[3px] h-1 rounded-full"
+                      :style="compactEntryStyle(entry)"
+                    />
+                    <span
+                      v-for="tick in cellHourTicks"
+                      :key="tick"
+                      class="absolute inset-y-0 w-px bg-stone-500/35"
+                      :style="markerStyle(tick)"
+                    />
+                    <span
+                      v-for="marker in cellMajorMarkers"
+                      :key="marker.time"
+                      class="absolute inset-y-0 w-px bg-stone-600/60"
+                      :style="markerStyle(marker.time)"
+                      :title="marker.title"
+                    >
+                      <span class="absolute top-0 left-1/2 -translate-x-1/2 text-[8px] font-semibold leading-none text-stone-600">
+                        {{ marker.label }}
+                      </span>
                     </span>
+                  </span>
+                  <span
+                    v-if="showCellTimes"
+                    class="w-[4.6rem] shrink-0 text-[11px] font-medium tabular-nums leading-none text-stone-600"
+                  >
+                    {{ compactEntryTimeLabel(entry) }}
                   </span>
                 </button>
               </div>

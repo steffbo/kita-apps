@@ -4,6 +4,7 @@ import { RouterLink, RouterView, useRoute } from 'vue-router';
 import { useAuth, ChangePasswordModal } from '@kita/shared';
 import {
   CalendarDays,
+  Clock3,
   Users,
   Layers,
   CalendarClock,
@@ -25,6 +26,7 @@ const showChangePassword = ref(false);
 const navigation = computed(() => {
   const items = [
     { name: 'Dienstplan', to: '/', icon: CalendarDays },
+    { name: 'Dienstplan Zeiten', to: '/zeiten', icon: Clock3 },
   ];
 
   if (isAdmin.value) {

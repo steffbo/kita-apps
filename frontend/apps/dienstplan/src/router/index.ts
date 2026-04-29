@@ -33,6 +33,12 @@ const router = createRouter({
           component: () => import('@/pages/SchedulePage.vue'),
         },
         {
+          path: 'zeiten',
+          name: 'schedule-times',
+          component: () => import('@/pages/SchedulePage.vue'),
+          props: { variant: 'times' },
+        },
+        {
           path: 'employees',
           name: 'employees',
           component: () => import('@/pages/EmployeesPage.vue'),
