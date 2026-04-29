@@ -22,6 +22,7 @@ const props = defineProps<{
   defaultGroupId?: number;
   defaultEmployeeId?: number;
   defaultEntryType?: EntryType;
+  absenceMode?: boolean;
 }>();
 
 const emit = defineEmits<{
@@ -80,7 +81,7 @@ const userChangedGroup = ref(false);
 
 // Reset form when dialog opens/entry changes
 watch(
-  () => [props.open, props.entry, props.defaultDate, props.defaultGroupId, props.defaultEmployeeId, props.defaultEntryType],
+  () => [props.open, props.entry, props.defaultDate, props.defaultGroupId, props.defaultEmployeeId, props.defaultEntryType, props.absenceMode],
   () => {
     if (props.open) {
       userChangedGroup.value = false; // Reset on dialog open
@@ -88,6 +89,9 @@ watch(
       if (props.entry) {
         // Use groupId directly, or fall back to group.id if available
         const entryGroupId = props.entry.groupId ?? props.entry.group?.id;
+        const entryType = props.absenceMode && props.entry.entryType === 'WORK'
+          ? (props.defaultEntryType || 'VACATION')
+          : ((props.entry.entryType as EntryType) || 'WORK');
         form.value = {
           employeeId: String(props.entry.employeeId || ''),
           date: props.entry.date || '',
@@ -95,8 +99,8 @@ watch(
           endTime: props.entry.endTime?.substring(0, 5) || '15:00',
           breakMinutes: props.entry.breakMinutes ?? 30,
           groupId: entryGroupId ? String(entryGroupId) : '',
-          entryType: (props.entry.entryType as any) || 'WORK',
-          shiftKind: (props.entry.shiftKind as any) || 'MANUAL',
+          entryType,
+          shiftKind: props.absenceMode ? 'MANUAL' : ((props.entry.shiftKind as any) || 'MANUAL'),
           overrideBlockedDay: false,
           plannedMinutes: calculateEntryMinutes(props.entry.startTime, props.entry.endTime, props.entry.breakMinutes),
           notes: props.entry.notes || '',
@@ -188,6 +192,7 @@ function applyStartDefault(value: string) {
 const selectedEmployee = computed(() => props.employees.find(e => String(e.id) === form.value.employeeId));
 const selectedGroup = computed(() => props.groups.find(group => String(group.id) === form.value.groupId));
 const isCellCreate = computed(() => !isEditing.value && Boolean(props.defaultEmployeeId && props.defaultDate));
+const isCompactContext = computed(() => isCellCreate.value || Boolean(props.absenceMode && props.defaultEmployeeId && props.defaultDate));
 const isCompactWorkCreate = computed(() => isCellCreate.value && form.value.entryType === 'WORK');
 const formattedSelectedDate = computed(() => {
   if (!form.value.date) return '';
@@ -288,7 +293,7 @@ function handleDelete() {
     :description="isEditing ? 'Bearbeite den Dienstplan-Eintrag.' : 'Erstelle einen neuen Dienstplan-Eintrag.'"
   >
     <form @submit.prevent="handleSubmit" class="space-y-4">
-      <div v-if="isCellCreate" class="rounded-md border border-stone-200 bg-stone-50 px-3 py-2 text-sm">
+      <div v-if="isCompactContext" class="rounded-md border border-stone-200 bg-stone-50 px-3 py-2 text-sm">
         <div class="font-medium text-stone-900">
           {{ selectedEmployee ? employeeDisplayName(selectedEmployee) : 'Mitarbeiter' }}
         </div>
@@ -309,7 +314,7 @@ function handleDelete() {
         />
       </div>
 
-      <div v-if="!isCellCreate" class="grid grid-cols-2 gap-4">
+      <div v-if="!isCompactContext" class="grid grid-cols-2 gap-4">
         <div class="space-y-2">
           <Label for="date">Datum</Label>
           <Input

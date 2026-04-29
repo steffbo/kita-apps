@@ -54,6 +54,7 @@ const defaultDate = ref<Date | undefined>();
 const defaultGroupId = ref<number | undefined>();
 const defaultEmployeeId = ref<number | undefined>();
 const defaultEntryType = ref<EntryType>('WORK');
+const dialogAbsenceMode = ref(false);
 const employeeDialogOpen = ref(false);
 const selectedEmployee = ref<Employee | null>(null);
 const staffingDialogOpen = ref(false);
@@ -136,6 +137,11 @@ const timelineStep = 30;
 const timelineTicks = Array.from({ length: 12 }, (_, index) => timelineStart + index * 60);
 const cellTimelineStart = 6 * 60 + 30;
 const cellTimelineEnd = 16 * 60 + 30;
+const cellTimeMarkers = [
+  { time: 9 * 60, label: 'Frühstück' },
+  { time: 12 * 60, label: 'Mittag' },
+  { time: 15 * 60, label: 'Nachmittag' },
+];
 
 function getSpecialDayForDate(dateStr: string): SpecialDay | undefined {
   const specialDays = weekSchedule.value?.specialDays || [];
@@ -224,6 +230,7 @@ function openCreateDialog(date: Date, groupId?: number) {
   defaultGroupId.value = groupId;
   defaultEmployeeId.value = undefined;
   defaultEntryType.value = 'WORK';
+  dialogAbsenceMode.value = false;
   dialogOpen.value = true;
 }
 
@@ -239,11 +246,30 @@ function openCreateEmployeeDialog(
   defaultEmployeeId.value = employeeId;
   defaultGroupId.value = groupId || employee?.primaryGroupId;
   defaultEntryType.value = entryType;
+  dialogAbsenceMode.value = entryType !== 'WORK';
   dialogOpen.value = true;
 }
 
-function openCreateAbsenceDialog(date: Date, employee: Employee) {
+function openAbsenceDialog(date: Date, employee: Employee) {
   if (!employee.id) return;
+
+  const dateStr = toISODateString(date);
+  const existingEntries = getEntriesForEmployeeAndDay(employee.id, dateStr);
+  const existingAbsence = existingEntries.find(entry => entry.entryType !== 'WORK');
+  const existingWork = existingEntries.find(entry => entry.entryType === 'WORK');
+  const entry = existingAbsence || existingWork;
+
+  if (entry) {
+    selectedEntry.value = entry;
+    defaultDate.value = date;
+    defaultEmployeeId.value = employee.id;
+    defaultGroupId.value = entry.groupId || entry.group?.id || employee.primaryGroupId;
+    defaultEntryType.value = entry.entryType === 'WORK' ? 'VACATION' : (entry.entryType as EntryType);
+    dialogAbsenceMode.value = true;
+    dialogOpen.value = true;
+    return;
+  }
+
   openCreateEmployeeDialog(date, employee.id, employee.primaryGroupId, 'VACATION');
 }
 
@@ -253,6 +279,7 @@ function openEditDialog(entry: ScheduleEntry) {
   defaultGroupId.value = undefined;
   defaultEmployeeId.value = undefined;
   defaultEntryType.value = 'WORK';
+  dialogAbsenceMode.value = false;
   dialogOpen.value = true;
 }
 
@@ -412,6 +439,11 @@ function getAbsenceEntriesForEmployeeAndDay(employeeId: number, dateStr: string)
   return getEntriesForEmployeeAndDay(employeeId, dateStr).filter(entry => entry.entryType !== 'WORK');
 }
 
+function getPrimaryEntryForEmployeeAndDay(employeeId: number, dateStr: string): ScheduleEntry | undefined {
+  const entries = getEntriesForEmployeeAndDay(employeeId, dateStr);
+  return entries.find(entry => entry.entryType === 'WORK') || entries[0];
+}
+
 function getGroupsForCell(employee: Employee) {
   const allGroups = groups.value || [];
   return [...allGroups].sort((a, b) => {
@@ -436,11 +468,36 @@ function compactEntryStyle(entry: ScheduleEntry) {
   };
 }
 
+function markerStyle(minutes: number) {
+  return {
+    left: `${((minutes - cellTimelineStart) / (cellTimelineEnd - cellTimelineStart)) * 100}%`,
+  };
+}
+
 function compactEntryTitle(entry: ScheduleEntry, employee: Employee): string {
   const groupName = entry.group?.name || employee.primaryGroup?.name || 'Springer';
   const start = entry.startTime?.substring(0, 5) || '';
   const end = entry.endTime?.substring(0, 5) || '';
   return `${groupName}: ${start} - ${end}`;
+}
+
+async function handleCellGroupClick(date: Date, employee: Employee, groupId?: number) {
+  if (!employee.id || !groupId) return;
+
+  const existingEntry = getPrimaryEntryForEmployeeAndDay(employee.id, toISODateString(date));
+  if (!existingEntry?.id) {
+    openCreateEmployeeDialog(date, employee.id, groupId);
+    return;
+  }
+
+  try {
+    await updateEntry.mutateAsync({
+      id: existingEntry.id,
+      data: { groupId },
+    });
+  } catch (err) {
+    console.error('Failed to update entry group:', err);
+  }
 }
 
 function formatHour(minutes: number): string {
@@ -648,12 +705,27 @@ function getHoursStatusClass(remaining: number): string {
                   @click.stop="openEditDialog(entry)"
                 >
                   <span
+                    v-for="marker in cellTimeMarkers"
+                    :key="marker.time"
+                    class="absolute -top-0.5 bottom-[-2px] z-10 w-px bg-stone-400/70"
+                    :style="markerStyle(marker.time)"
+                    :title="`${formatTimeLabel(marker.time)} ${marker.label}`"
+                  />
+                  <span
                     class="absolute inset-y-[2px] rounded-full"
                     :style="compactEntryStyle(entry)"
                   />
                 </button>
               </div>
-              <div v-else class="h-3 rounded-full border border-dashed border-stone-200 bg-stone-50/80" />
+              <div v-else class="relative h-3 rounded-full border border-dashed border-stone-200 bg-stone-50/80">
+                <span
+                  v-for="marker in cellTimeMarkers"
+                  :key="marker.time"
+                  class="absolute -top-0.5 bottom-[-2px] w-px bg-stone-300"
+                  :style="markerStyle(marker.time)"
+                  :title="`${formatTimeLabel(marker.time)} ${marker.label}`"
+                />
+              </div>
 
               <div v-if="getAbsenceEntriesForEmployeeAndDay(employee.id!, day.dateStr).length" class="flex flex-wrap gap-1">
                 <button
@@ -682,13 +754,13 @@ function getHoursStatusClass(remaining: number): string {
               class="h-3.5 w-3.5 rounded-full ring-1 ring-white transition-transform hover:scale-125 focus:outline-none focus:ring-2 focus:ring-stone-900"
               :style="{ backgroundColor: group.color || '#10B981' }"
               :title="`Arbeit in ${group.name}`"
-              @click.stop="openCreateEmployeeDialog(day.date, employee.id!, group.id)"
+              @click.stop="handleCellGroupClick(day.date, employee, group.id)"
             />
             <button
               type="button"
               class="ml-0.5 rounded p-0.5 text-stone-500 hover:bg-stone-100 hover:text-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-900"
               title="Abwesenheit eintragen"
-              @click.stop="openCreateAbsenceDialog(day.date, employee)"
+              @click.stop="openAbsenceDialog(day.date, employee)"
             >
               <CalendarX class="h-3.5 w-3.5" />
             </button>
@@ -788,6 +860,7 @@ function getHoursStatusClass(remaining: number): string {
       :default-group-id="defaultGroupId"
       :default-employee-id="defaultEmployeeId"
       :default-entry-type="defaultEntryType"
+      :absence-mode="dialogAbsenceMode"
       @save="handleSave"
       @delete="handleDelete"
     />
