@@ -105,6 +105,7 @@ const allWeekDays = computed(() => {
       dayName: WEEKDAYS_SHORT[i],
       dayNumber: date.getDate(),
       isToday: date.toDateString() === new Date().toDateString(),
+      isPast: date < new Date(new Date().toDateString()),
       isWeekend: i >= 5,
       isHoliday: isClosedDay,
       holidayName: specialDayName || daySchedule?.holidayName,
@@ -360,6 +361,19 @@ function employeeDisplayName(employee: any): string {
   return employee.nickname || employee.firstName || '';
 }
 
+function getEmployeeTargetMinutesForDate(employee: any, date: Date, isHoliday = false): number {
+  if (date.getDay() === 0 || date.getDay() === 6 || isHoliday) return 0;
+
+  const pattern = employee.workPattern || employee.currentContract?.workdays || [];
+  if (pattern.length > 0) {
+    const weekday = date.getDay() === 0 ? 7 : date.getDay();
+    const workday = pattern.find((item: any) => item.weekday === weekday);
+    return workday?.plannedMinutes || 0;
+  }
+
+  return Math.round(((employee.weeklyHours || 0) * 60) / 5);
+}
+
 function getEmployeeTargetMinutes(employee: any): number {
   const pattern = employee.workPattern || employee.currentContract?.workdays || [];
   if (pattern.length > 0) {
@@ -404,20 +418,32 @@ const employeeWeeklyHours = computed(() => {
   if (!employees.value || !weekSchedule.value) return [];
   
   return sortedActiveEmployees.value.map(emp => {
-    // Get all entries for this employee this week
-    const entries = weekSchedule.value?.days?.flatMap(day => 
-      (day.entries || []).filter(e => e.employeeId === emp.id && e.entryType === 'WORK')
-    ) || [];
-    
-    // Calculate planned minutes
     let plannedMinutes = 0;
-    for (const entry of entries) {
-      if (entry.startTime && entry.endTime) {
-        const start = parseTime(entry.startTime);
-        const end = parseTime(entry.endTime);
-        const breakMins = entry.breakMinutes || 0;
-        plannedMinutes += (end - start) - breakMins;
+
+    for (const day of allWeekDays.value) {
+      const daySchedule = weekSchedule.value?.days?.find(item => item.date === day.dateStr);
+      const entries = (daySchedule?.entries || []).filter(entry => entry.employeeId === emp.id);
+      const workEntries = entries.filter(entry => entry.entryType === 'WORK');
+      const hasExcusedAbsence = entries.some(entry => entry.entryType !== 'WORK');
+
+      let dayPlannedMinutes = 0;
+      for (const entry of workEntries) {
+        if (entry.startTime && entry.endTime) {
+          const start = parseTime(entry.startTime);
+          const end = parseTime(entry.endTime);
+          const breakMins = entry.breakMinutes || 0;
+          dayPlannedMinutes += (end - start) - breakMins;
+        }
       }
+
+      if (hasExcusedAbsence) {
+        dayPlannedMinutes = Math.max(
+          dayPlannedMinutes,
+          getEmployeeTargetMinutesForDate(emp, day.date, day.isHoliday)
+        );
+      }
+
+      plannedMinutes += dayPlannedMinutes;
     }
     
     const plannedHours = plannedMinutes / 60;
@@ -659,7 +685,7 @@ function getHoursStatusClass(remaining: number): string {
     <div v-else class="bg-white rounded-lg border border-stone-200 overflow-hidden">
       <!-- Week header -->
       <div :class="['grid border-b border-stone-200', gridColsClass]">
-        <div class="px-4 py-3 bg-stone-50 border-r border-stone-200">
+        <div class="px-4 py-3 bg-stone-100 border-r border-stone-200">
           <span class="text-sm font-medium text-stone-600">Mitarbeiter</span>
         </div>
         <div
@@ -668,6 +694,7 @@ function getHoursStatusClass(remaining: number): string {
           :class="[
             'px-4 py-3 text-center border-r border-stone-200 last:border-r-0',
             day.isWeekend ? 'bg-stone-100' : 'bg-stone-50',
+            day.isPast ? 'bg-stone-100 text-stone-400 opacity-60' : '',
             day.isToday ? 'bg-primary/10' : '',
             getSpecialDayBackgroundClass(day.specialDayType, 'header')
           ]"
@@ -697,8 +724,8 @@ function getHoursStatusClass(remaining: number): string {
         <!-- Employee name -->
         <div
           :class="[
-            'px-3 py-1.5 bg-stone-50 border-r border-stone-200 flex items-center gap-2',
-            isAdmin ? 'cursor-pointer hover:bg-stone-100' : ''
+            'px-3 py-1.5 bg-stone-100 border-r border-stone-200 flex items-center gap-2',
+            isAdmin ? 'cursor-pointer hover:bg-stone-200/70' : ''
           ]"
           @click="isAdmin && openEmployeeDialog(employee)"
         >
@@ -721,6 +748,7 @@ function getHoursStatusClass(remaining: number): string {
             'group/cell relative px-2 py-1 border-r border-stone-200 last:border-r-0 min-h-[38px]',
             isEmployeeBlocked(employee, day.date) ? 'bg-stone-100/70 cursor-not-allowed' : 'cursor-pointer hover:bg-stone-50/50',
             day.isWeekend ? 'bg-stone-50' : '',
+            day.isPast ? 'bg-stone-100/60 opacity-60 grayscale-[35%]' : '',
             day.isToday ? 'bg-primary/5' : '',
             getSpecialDayBackgroundClass(day.specialDayType, 'cell')
           ]"
@@ -736,57 +764,55 @@ function getHoursStatusClass(remaining: number): string {
                   v-for="entry in getWorkEntriesForEmployeeAndDay(employee.id!, day.dateStr)"
                   :key="entry.id"
                   type="button"
-                  class="relative block h-5 w-full transition-opacity hover:opacity-80"
+                  class="relative block h-4 w-full overflow-hidden rounded-full border border-stone-200 bg-stone-100 transition-opacity hover:opacity-80"
                   :title="compactEntryTitle(entry, employee)"
                   @click.stop="openEditDialog(entry)"
                 >
-                  <span class="absolute inset-x-0 bottom-1 h-2 rounded-full border border-stone-200 bg-stone-100" />
                   <span
                     v-for="segment in getCellCoverageSegments(day.dateStr, entry.groupId || entry.group?.id || employee.primaryGroupId)"
                     :key="`${segment.start}-${segment.end}-${segment.count}`"
-                    class="absolute bottom-1 h-2 rounded-full"
+                    class="absolute inset-y-0"
                     :style="cellCoverageSegmentStyle(segment, entry.group?.color || employee.primaryGroup?.color)"
                     :title="`${entry.group?.name || employee.primaryGroup?.name || 'Springer'}: ${segment.count} MA (${formatTimeLabel(segment.start)}-${formatTimeLabel(segment.end)})`"
                   />
                   <span
-                    class="absolute bottom-[5px] h-1 rounded-full"
+                    class="absolute bottom-[3px] h-1 rounded-full"
                     :style="compactEntryStyle(entry)"
                   />
                   <span
                     v-for="tick in cellHourTicks"
                     :key="tick"
-                    class="absolute bottom-0 h-4 w-px bg-stone-400/45"
+                    class="absolute inset-y-0 w-px bg-stone-500/35"
                     :style="markerStyle(tick)"
                   />
                   <span
                     v-for="marker in cellMajorMarkers"
                     :key="marker.time"
-                    class="absolute bottom-0 h-5 w-px bg-stone-500/70"
+                    class="absolute inset-y-0 w-px bg-stone-600/60"
                     :style="markerStyle(marker.time)"
                     :title="marker.title"
                   >
-                    <span class="absolute -top-0.5 left-1/2 -translate-x-1/2 text-[9px] font-semibold leading-none text-stone-500">
+                    <span class="absolute top-0 left-1/2 -translate-x-1/2 text-[8px] font-semibold leading-none text-stone-600">
                       {{ marker.label }}
                     </span>
                   </span>
                 </button>
               </div>
-              <div v-else class="relative h-5">
-                <span class="absolute inset-x-0 bottom-1 h-2 rounded-full border border-dashed border-stone-200 bg-stone-50/80" />
+              <div v-else class="relative h-4 overflow-hidden rounded-full border border-dashed border-stone-200 bg-stone-50/80">
                 <span
                   v-for="tick in cellHourTicks"
                   :key="tick"
-                  class="absolute bottom-0 h-4 w-px bg-stone-300"
+                  class="absolute inset-y-0 w-px bg-stone-300"
                   :style="markerStyle(tick)"
                 />
                 <span
                   v-for="marker in cellMajorMarkers"
                   :key="marker.time"
-                  class="absolute bottom-0 h-5 w-px bg-stone-400"
+                  class="absolute inset-y-0 w-px bg-stone-400"
                   :style="markerStyle(marker.time)"
                   :title="marker.title"
                 >
-                  <span class="absolute -top-0.5 left-1/2 -translate-x-1/2 text-[9px] font-semibold leading-none text-stone-400">
+                  <span class="absolute top-0 left-1/2 -translate-x-1/2 text-[8px] font-semibold leading-none text-stone-400">
                     {{ marker.label }}
                   </span>
                 </span>
