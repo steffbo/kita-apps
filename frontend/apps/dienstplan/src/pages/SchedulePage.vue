@@ -131,16 +131,26 @@ const gridColsClass = computed(() => {
 });
 
 const activeEmployees = computed(() => (employees.value || []).filter(emp => emp.active !== false));
+const sortedActiveEmployees = computed(() => {
+  return [...activeEmployees.value].sort((a, b) => {
+    const groupA = a.primaryGroup?.name || 'Springer';
+    const groupB = b.primaryGroup?.name || 'Springer';
+    const groupCompare = groupA.localeCompare(groupB);
+    if (groupCompare !== 0) return groupCompare;
+    return employeeDisplayName(a).localeCompare(employeeDisplayName(b));
+  });
+});
 const timelineStart = 6 * 60;
 const timelineEnd = 17 * 60;
 const timelineStep = 30;
 const timelineTicks = Array.from({ length: 12 }, (_, index) => timelineStart + index * 60);
 const cellTimelineStart = 6 * 60 + 30;
 const cellTimelineEnd = 16 * 60 + 30;
-const cellTimeMarkers = [
-  { time: 9 * 60, label: 'Frühstück' },
-  { time: 12 * 60, label: 'Mittag' },
-  { time: 15 * 60, label: 'Nachmittag' },
+const cellHourTicks = Array.from({ length: 10 }, (_, index) => (index + 7) * 60);
+const cellMajorMarkers = [
+  { time: 9 * 60, label: '9', title: '09:00 Frühstück' },
+  { time: 12 * 60, label: '12', title: '12:00 Mittag' },
+  { time: 15 * 60, label: '15', title: '15:00 Nachmittag' },
 ];
 
 function getSpecialDayForDate(dateStr: string): SpecialDay | undefined {
@@ -393,7 +403,7 @@ const staffingDays = computed(() => {
 const employeeWeeklyHours = computed(() => {
   if (!employees.value || !weekSchedule.value) return [];
   
-  return employees.value.map(emp => {
+  return sortedActiveEmployees.value.map(emp => {
     // Get all entries for this employee this week
     const entries = weekSchedule.value?.days?.flatMap(day => 
       (day.entries || []).filter(e => e.employeeId === emp.id && e.entryType === 'WORK')
@@ -511,10 +521,15 @@ function formatTimeLabel(minutes: number): string {
   return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
 }
 
-function buildCoverageSegments(entries: ScheduleEntry[]) {
+function buildCoverageSegments(
+  entries: ScheduleEntry[],
+  rangeStart = timelineStart,
+  rangeEnd = timelineEnd,
+  step = timelineStep,
+) {
   const slots = [];
-  for (let start = timelineStart; start < timelineEnd; start += timelineStep) {
-    const end = start + timelineStep;
+  for (let start = rangeStart; start < rangeEnd; start += step) {
+    const end = start + step;
     const count = entries.filter(entry => {
       if (!entry.startTime || !entry.endTime) return false;
       const entryStart = parseTime(entry.startTime);
@@ -544,6 +559,26 @@ function segmentStyle(segment: { start: number; end: number; count: number }, co
     width: `${((end - start) / (timelineEnd - timelineStart)) * 100}%`,
     backgroundColor: color || '#10B981',
     opacity: String(Math.min(0.35 + segment.count * 0.18, 0.95)),
+  };
+}
+
+function getCellCoverageSegments(dateStr: string, groupId?: number) {
+  if (!groupId) return [];
+  const daySchedule = weekSchedule.value?.days?.find(day => day.date === dateStr);
+  const entries = (daySchedule?.entries || []).filter(entry =>
+    entry.entryType === 'WORK' && entry.startTime && entry.endTime && entry.groupId === groupId
+  );
+  return buildCoverageSegments(entries, cellTimelineStart, cellTimelineEnd, timelineStep);
+}
+
+function cellCoverageSegmentStyle(segment: { start: number; end: number; count: number }, color?: string) {
+  const start = Math.max(segment.start, cellTimelineStart);
+  const end = Math.min(segment.end, cellTimelineEnd);
+  return {
+    left: `${((start - cellTimelineStart) / (cellTimelineEnd - cellTimelineStart)) * 100}%`,
+    width: `${((end - start) / (cellTimelineEnd - cellTimelineStart)) * 100}%`,
+    backgroundColor: color || '#10B981',
+    opacity: String(Math.min(0.18 + segment.count * 0.16, 0.9)),
   };
 }
 
@@ -655,25 +690,26 @@ function getHoursStatusClass(remaining: number): string {
 
       <!-- Employee rows -->
       <div
-        v-for="employee in activeEmployees"
+        v-for="employee in sortedActiveEmployees"
         :key="employee.id"
         :class="['grid border-b border-stone-200 last:border-b-0', gridColsClass]"
       >
         <!-- Employee name -->
         <div
           :class="[
-            'px-4 py-2 bg-stone-50 border-r border-stone-200 flex items-center gap-2',
+            'px-3 py-1.5 bg-stone-50 border-r border-stone-200 flex items-center gap-2',
             isAdmin ? 'cursor-pointer hover:bg-stone-100' : ''
           ]"
           @click="isAdmin && openEmployeeDialog(employee)"
         >
           <div
-            class="w-3 h-3 rounded-full"
+            class="h-2.5 w-2.5 shrink-0 rounded-full"
             :style="{ backgroundColor: employee.primaryGroup?.color || '#10B981' }"
           />
-          <div class="min-w-0">
-            <div class="text-sm font-medium text-stone-900 truncate">{{ employeeDisplayName(employee) }}</div>
-            <div class="text-xs text-stone-500 truncate">{{ employee.weeklyHours }} Std. · {{ employee.primaryGroup?.name || 'Springer' }}</div>
+          <div class="flex min-w-0 items-baseline gap-1.5">
+            <span class="truncate text-sm font-medium text-stone-900">{{ employeeDisplayName(employee) }}</span>
+            <span class="shrink-0 text-xs text-stone-500">{{ employee.weeklyHours }} Std.</span>
+            <span class="truncate text-xs text-stone-500">· {{ employee.primaryGroup?.name || 'Springer' }}</span>
           </div>
         </div>
 
@@ -682,7 +718,7 @@ function getHoursStatusClass(remaining: number): string {
           v-for="day in weekDays"
           :key="`${employee.id}-${day.dateStr}`"
           :class="[
-            'group/cell relative px-2 py-1 border-r border-stone-200 last:border-r-0 min-h-[48px]',
+            'group/cell relative px-2 py-1 border-r border-stone-200 last:border-r-0 min-h-[38px]',
             isEmployeeBlocked(employee, day.date) ? 'bg-stone-100/70 cursor-not-allowed' : 'cursor-pointer hover:bg-stone-50/50',
             day.isWeekend ? 'bg-stone-50' : '',
             day.isToday ? 'bg-primary/5' : '',
@@ -690,7 +726,7 @@ function getHoursStatusClass(remaining: number): string {
           ]"
           @click="isAdmin && openCreateEmployeeDialog(day.date, employee.id!)"
         >
-          <div class="flex h-full min-h-[38px] flex-col justify-center gap-1">
+          <div class="flex h-full min-h-[30px] flex-col justify-center gap-1">
             <div v-if="isEmployeeBlocked(employee, day.date)" class="text-xs text-stone-400">
               blockiert
             </div>
@@ -700,31 +736,60 @@ function getHoursStatusClass(remaining: number): string {
                   v-for="entry in getWorkEntriesForEmployeeAndDay(employee.id!, day.dateStr)"
                   :key="entry.id"
                   type="button"
-                  class="relative block h-3 w-full rounded-full border border-stone-200 bg-stone-100 transition-opacity hover:opacity-80"
+                  class="relative block h-5 w-full transition-opacity hover:opacity-80"
                   :title="compactEntryTitle(entry, employee)"
                   @click.stop="openEditDialog(entry)"
                 >
+                  <span class="absolute inset-x-0 bottom-1 h-2 rounded-full border border-stone-200 bg-stone-100" />
                   <span
-                    v-for="marker in cellTimeMarkers"
-                    :key="marker.time"
-                    class="absolute -top-0.5 bottom-[-2px] z-10 w-px bg-stone-400/70"
-                    :style="markerStyle(marker.time)"
-                    :title="`${formatTimeLabel(marker.time)} ${marker.label}`"
+                    v-for="segment in getCellCoverageSegments(day.dateStr, entry.groupId || entry.group?.id || employee.primaryGroupId)"
+                    :key="`${segment.start}-${segment.end}-${segment.count}`"
+                    class="absolute bottom-1 h-2 rounded-full"
+                    :style="cellCoverageSegmentStyle(segment, entry.group?.color || employee.primaryGroup?.color)"
+                    :title="`${entry.group?.name || employee.primaryGroup?.name || 'Springer'}: ${segment.count} MA (${formatTimeLabel(segment.start)}-${formatTimeLabel(segment.end)})`"
                   />
                   <span
-                    class="absolute inset-y-[2px] rounded-full"
+                    class="absolute bottom-[5px] h-1 rounded-full"
                     :style="compactEntryStyle(entry)"
                   />
+                  <span
+                    v-for="tick in cellHourTicks"
+                    :key="tick"
+                    class="absolute bottom-0 h-4 w-px bg-stone-400/45"
+                    :style="markerStyle(tick)"
+                  />
+                  <span
+                    v-for="marker in cellMajorMarkers"
+                    :key="marker.time"
+                    class="absolute bottom-0 h-5 w-px bg-stone-500/70"
+                    :style="markerStyle(marker.time)"
+                    :title="marker.title"
+                  >
+                    <span class="absolute -top-0.5 left-1/2 -translate-x-1/2 text-[9px] font-semibold leading-none text-stone-500">
+                      {{ marker.label }}
+                    </span>
+                  </span>
                 </button>
               </div>
-              <div v-else class="relative h-3 rounded-full border border-dashed border-stone-200 bg-stone-50/80">
+              <div v-else class="relative h-5">
+                <span class="absolute inset-x-0 bottom-1 h-2 rounded-full border border-dashed border-stone-200 bg-stone-50/80" />
                 <span
-                  v-for="marker in cellTimeMarkers"
-                  :key="marker.time"
-                  class="absolute -top-0.5 bottom-[-2px] w-px bg-stone-300"
-                  :style="markerStyle(marker.time)"
-                  :title="`${formatTimeLabel(marker.time)} ${marker.label}`"
+                  v-for="tick in cellHourTicks"
+                  :key="tick"
+                  class="absolute bottom-0 h-4 w-px bg-stone-300"
+                  :style="markerStyle(tick)"
                 />
+                <span
+                  v-for="marker in cellMajorMarkers"
+                  :key="marker.time"
+                  class="absolute bottom-0 h-5 w-px bg-stone-400"
+                  :style="markerStyle(marker.time)"
+                  :title="marker.title"
+                >
+                  <span class="absolute -top-0.5 left-1/2 -translate-x-1/2 text-[9px] font-semibold leading-none text-stone-400">
+                    {{ marker.label }}
+                  </span>
+                </span>
               </div>
 
               <div v-if="getAbsenceEntriesForEmployeeAndDay(employee.id!, day.dateStr).length" class="flex flex-wrap gap-1">
