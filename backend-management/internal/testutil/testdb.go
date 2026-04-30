@@ -10,6 +10,8 @@ import (
 var tablesToTruncate = []string{
 	"audit_log",
 	"time_entries",
+	"schedule_entry_segments",
+	"schedule_requests",
 	"schedule_entries",
 	"employee_contract_workdays",
 	"employee_contracts",
@@ -45,6 +47,8 @@ func CleanupTables(ctx context.Context, db *sqlx.DB) error {
 		"groups_id_seq",
 		"group_assignments_id_seq",
 		"schedule_entries_id_seq",
+		"schedule_entry_segments_id_seq",
+		"schedule_requests_id_seq",
 		"employee_contracts_id_seq",
 		"employee_contract_workdays_id_seq",
 		"time_entries_id_seq",

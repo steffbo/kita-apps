@@ -67,6 +67,9 @@ definitions:
       lastName:
         example: Mustermann
         type: string
+      nickname:
+        example: Max
+        type: string
       primaryGroupId:
         example: 1
         type: integer
@@ -123,6 +126,8 @@ definitions:
         - WORK
         - VACATION
         - SICK
+        - CHILD_SICK
+        - RECOVERY_DAY
         - SPECIAL_LEAVE
         - TRAINING
         - EVENT
@@ -134,12 +139,53 @@ definitions:
       notes:
         example: Frühdienst
         type: string
+      overrideBlockedDay:
+        example: false
+        type: boolean
+      segments:
+        items:
+          $ref: '#/definitions/ScheduleEntrySegmentRequest'
+        type: array
+      shiftKind:
+        enum:
+        - EARLY
+        - LATE
+        - MANUAL
+        example: EARLY
+        type: string
       startTime:
         example: "08:00:00"
         type: string
     required:
     - date
     - employeeId
+    type: object
+  CreateScheduleRequestRequest:
+    properties:
+      date:
+        example: "2026-04-29"
+        type: string
+      employeeId:
+        example: 1
+        type: integer
+      endTime:
+        example: "11:00:00"
+        type: string
+      requestType:
+        enum:
+        - WISH
+        - APPOINTMENT
+        example: APPOINTMENT
+        type: string
+      startTime:
+        example: "10:00:00"
+        type: string
+      text:
+        example: Arzttermin
+        type: string
+    required:
+    - date
+    - text
     type: object
   CreateSpecialDayRequest:
     properties:
@@ -197,6 +243,8 @@ definitions:
         - WORK
         - VACATION
         - SICK
+        - CHILD_SICK
+        - RECOVERY_DAY
         - SPECIAL_LEAVE
         - TRAINING
         - EVENT
@@ -262,6 +310,8 @@ definitions:
         type: boolean
       createdAt:
         type: string
+      currentContract:
+        $ref: '#/definitions/EmployeeContract'
       email:
         type: string
       firstName:
@@ -269,6 +319,8 @@ definitions:
       id:
         type: integer
       lastName:
+        type: string
+      nickname:
         type: string
       overtimeBalance:
         type: number
@@ -286,6 +338,74 @@ definitions:
         type: integer
       weeklyHours:
         type: number
+      workPattern:
+        items:
+          $ref: '#/definitions/EmployeeContractWorkday'
+        type: array
+    type: object
+  EmployeeContract:
+    properties:
+      createdAt:
+        type: string
+      employeeId:
+        type: integer
+      id:
+        type: integer
+      updatedAt:
+        type: string
+      validFrom:
+        type: string
+      weeklyHours:
+        type: number
+      workdays:
+        items:
+          $ref: '#/definitions/EmployeeContractWorkday'
+        type: array
+    type: object
+  EmployeeContractRequest:
+    properties:
+      validFrom:
+        example: "2026-05-01"
+        type: string
+      weeklyHours:
+        example: 35
+        maximum: 40
+        type: number
+      workdays:
+        items:
+          $ref: '#/definitions/EmployeeContractWorkdayRequest'
+        type: array
+    required:
+    - validFrom
+    - weeklyHours
+    - workdays
+    type: object
+  EmployeeContractWorkday:
+    properties:
+      contractId:
+        type: integer
+      id:
+        type: integer
+      plannedMinutes:
+        type: integer
+      weekday:
+        type: integer
+    type: object
+  EmployeeContractWorkdayRequest:
+    properties:
+      plannedMinutes:
+        example: 420
+        maximum: 600
+        minimum: 0
+        type: integer
+      weekday:
+        example: 1
+        maximum: 5
+        minimum: 1
+        type: integer
+    required:
+    - plannedMinutes
+    - weekday
     type: object
   EmployeeStatistics:
     properties:
@@ -490,7 +610,79 @@ definitions:
         type: integer
       notes:
         type: string
+      segments:
+        items:
+          $ref: '#/definitions/ScheduleEntrySegment'
+        type: array
+      shiftKind:
+        type: string
       startTime:
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  ScheduleEntrySegment:
+    properties:
+      endTime:
+        type: string
+      group:
+        $ref: '#/definitions/Group'
+      groupId:
+        type: integer
+      id:
+        type: integer
+      notes:
+        type: string
+      scheduleEntryId:
+        type: integer
+      sortOrder:
+        type: integer
+      startTime:
+        type: string
+    type: object
+  ScheduleEntrySegmentRequest:
+    properties:
+      endTime:
+        example: "12:00:00"
+        type: string
+      groupId:
+        example: 1
+        type: integer
+      notes:
+        example: bis 12 Igel
+        type: string
+      sortOrder:
+        example: 1
+        type: integer
+      startTime:
+        example: "08:00:00"
+        type: string
+    required:
+    - endTime
+    - groupId
+    - startTime
+    type: object
+  ScheduleRequest:
+    properties:
+      createdAt:
+        type: string
+      date:
+        type: string
+      employee:
+        $ref: '#/definitions/Employee'
+      employeeId:
+        type: integer
+      endTime:
+        type: string
+      id:
+        type: integer
+      requestType:
+        type: string
+      startTime:
+        type: string
+      status:
+        type: string
+      text:
         type: string
       updatedAt:
         type: string
@@ -556,6 +748,44 @@ definitions:
       summary:
         $ref: '#/definitions/ComparisonSummary'
     type: object
+  TimeSuggestion:
+    properties:
+      breakMinutes:
+        type: integer
+      contractId:
+        type: integer
+      endTime:
+        type: string
+      isBlocked:
+        type: boolean
+      plannedMinutes:
+        type: integer
+      startTime:
+        type: string
+    type: object
+  TimeSuggestionRequest:
+    properties:
+      date:
+        example: "2026-05-04"
+        type: string
+      employeeId:
+        example: 1
+        type: integer
+      shiftKind:
+        enum:
+        - EARLY
+        - LATE
+        - MANUAL
+        example: EARLY
+        type: string
+      startTime:
+        example: "07:00:00"
+        type: string
+    required:
+    - date
+    - employeeId
+    - shiftKind
+    type: object
   UpdateEmployeeRequest:
     properties:
       active:
@@ -569,6 +799,9 @@ definitions:
         type: string
       lastName:
         example: Mustermann
+        type: string
+      nickname:
+        example: Max
         type: string
       overtimeBalance:
         example: 10.25
@@ -610,6 +843,8 @@ definitions:
         - WORK
         - VACATION
         - SICK
+        - CHILD_SICK
+        - RECOVERY_DAY
         - SPECIAL_LEAVE
         - TRAINING
         - EVENT
@@ -621,8 +856,49 @@ definitions:
       notes:
         example: Frühdienst
         type: string
+      overrideBlockedDay:
+        example: false
+        type: boolean
+      segments:
+        items:
+          $ref: '#/definitions/ScheduleEntrySegmentRequest'
+        type: array
+      shiftKind:
+        enum:
+        - EARLY
+        - LATE
+        - MANUAL
+        example: EARLY
+        type: string
       startTime:
         example: "08:00:00"
+        type: string
+    type: object
+  UpdateScheduleRequestRequest:
+    properties:
+      date:
+        example: "2026-04-29"
+        type: string
+      endTime:
+        example: "11:00:00"
+        type: string
+      requestType:
+        enum:
+        - WISH
+        - APPOINTMENT
+        example: APPOINTMENT
+        type: string
+      startTime:
+        example: "10:00:00"
+        type: string
+      status:
+        enum:
+        - OPEN
+        - DONE
+        example: DONE
+        type: string
+      text:
+        example: Arzttermin
         type: string
     type: object
   UpdateTimeEntryRequest:
@@ -645,6 +921,8 @@ definitions:
         - WORK
         - VACATION
         - SICK
+        - CHILD_SICK
+        - RECOVERY_DAY
         - SPECIAL_LEAVE
         - TRAINING
         - EVENT
@@ -659,6 +937,10 @@ definitions:
       days:
         items:
           $ref: '#/definitions/DaySchedule'
+        type: array
+      requests:
+        items:
+          $ref: '#/definitions/ScheduleRequest'
         type: array
       specialDays:
         items:
@@ -1091,6 +1373,136 @@ paths:
       security:
       - BearerAuth: []
       summary: Get employee group assignments
+      tags:
+      - Employees
+  /employees/{id}/contracts:
+    get:
+      description: Get all contracts for an employee
+      parameters:
+      - description: Employee ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of employee contracts
+          schema:
+            items:
+              $ref: '#/definitions/EmployeeContract'
+            type: array
+        "400":
+          description: Invalid employee ID
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Employee not found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List employee contracts
+      tags:
+      - Employees
+    post:
+      consumes:
+      - application/json
+      description: Create a historical contract for an employee
+      parameters:
+      - description: Employee ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Employee contract data
+        in: body
+        name: contract
+        required: true
+        schema:
+          $ref: '#/definitions/EmployeeContractRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created employee contract
+          schema:
+            $ref: '#/definitions/EmployeeContract'
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Employee not found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create employee contract
+      tags:
+      - Employees
+  /employees/{id}/contracts/{contractId}:
+    put:
+      consumes:
+      - application/json
+      description: Update a historical contract for an employee
+      parameters:
+      - description: Employee ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Employee contract ID
+        in: path
+        name: contractId
+        required: true
+        type: integer
+      - description: Employee contract data
+        in: body
+        name: contract
+        required: true
+        schema:
+          $ref: '#/definitions/EmployeeContractRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Updated employee contract
+          schema:
+            $ref: '#/definitions/EmployeeContract'
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Employee contract not found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update employee contract
       tags:
       - Employees
   /employees/{id}/permanent:
@@ -1647,6 +2059,205 @@ paths:
       security:
       - BearerAuth: []
       summary: Create multiple schedule entries
+      tags:
+      - Schedule
+  /schedule/requests:
+    get:
+      description: Get non-working wish and appointment requests for a date range
+      parameters:
+      - description: Start date (YYYY-MM-DD)
+        in: query
+        name: startDate
+        required: true
+        type: string
+      - description: End date (YYYY-MM-DD)
+        in: query
+        name: endDate
+        required: true
+        type: string
+      - description: Filter by employee ID
+        in: query
+        name: employeeId
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of schedule requests
+          schema:
+            items:
+              $ref: '#/definitions/ScheduleRequest'
+            type: array
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: List schedule requests
+      tags:
+      - Schedule
+    post:
+      consumes:
+      - application/json
+      description: Create a non-working wish or appointment request
+      parameters:
+      - description: Schedule request data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/CreateScheduleRequestRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created schedule request
+          schema:
+            $ref: '#/definitions/ScheduleRequest'
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Create a schedule request
+      tags:
+      - Schedule
+  /schedule/requests/{id}:
+    delete:
+      description: Delete a non-working wish or appointment request
+      parameters:
+      - description: Schedule request ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      responses:
+        "204":
+          description: Schedule request deleted
+        "400":
+          description: Invalid schedule request ID
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Schedule request not found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Delete a schedule request
+      tags:
+      - Schedule
+    put:
+      consumes:
+      - application/json
+      description: Update a non-working wish or appointment request
+      parameters:
+      - description: Schedule request ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: Updated schedule request data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/UpdateScheduleRequestRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Updated schedule request
+          schema:
+            $ref: '#/definitions/ScheduleRequest'
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+        "403":
+          description: Forbidden
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Schedule request not found
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Update a schedule request
+      tags:
+      - Schedule
+  /schedule/time-suggestion:
+    post:
+      consumes:
+      - application/json
+      description: Calculate suggested start and end times for a schedule entry
+      parameters:
+      - description: Time suggestion request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/TimeSuggestionRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Time suggestion
+          schema:
+            $ref: '#/definitions/TimeSuggestion'
+        "400":
+          description: Invalid request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Not authenticated
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - BearerAuth: []
+      summary: Calculate schedule time suggestion
       tags:
       - Schedule
   /schedule/week:

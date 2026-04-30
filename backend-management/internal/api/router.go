@@ -100,6 +100,10 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 			r.Route("/schedule", func(r chi.Router) {
 				r.Get("/", handlers.Schedule.List)
 				r.Get("/week", handlers.Schedule.Week)
+				r.Get("/requests", handlers.Schedule.ListRequests)
+				r.Post("/requests", handlers.Schedule.CreateRequest)
+				r.Put("/requests/{id}", handlers.Schedule.UpdateRequest)
+				r.Delete("/requests/{id}", handlers.Schedule.DeleteRequest)
 
 				r.Group(func(r chi.Router) {
 					r.Use(customMiddleware.RequireRole("ADMIN"))

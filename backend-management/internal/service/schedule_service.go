@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"sort"
 	"time"
 
 	"github.com/knirpsenstadt/kita-apps/backend-management/internal/domain"
@@ -43,6 +44,7 @@ type CreateScheduleEntryInput struct {
 	EntryType          domain.ScheduleEntryType
 	ShiftKind          domain.ShiftKind
 	Notes              *string
+	Segments           []domain.ScheduleEntrySegment
 	OverrideBlockedDay bool
 }
 
@@ -56,7 +58,28 @@ type UpdateScheduleEntryInput struct {
 	EntryType          *domain.ScheduleEntryType
 	ShiftKind          *domain.ShiftKind
 	Notes              *string
+	Segments           *[]domain.ScheduleEntrySegment
 	OverrideBlockedDay bool
+}
+
+// CreateScheduleRequestInput represents input for creating a schedule request.
+type CreateScheduleRequestInput struct {
+	EmployeeID  int64
+	Date        time.Time
+	StartTime   *time.Time
+	EndTime     *time.Time
+	RequestType domain.ScheduleRequestType
+	Text        string
+}
+
+// UpdateScheduleRequestInput represents input for updating a schedule request.
+type UpdateScheduleRequestInput struct {
+	Date        *time.Time
+	StartTime   *time.Time
+	EndTime     *time.Time
+	RequestType *domain.ScheduleRequestType
+	Text        *string
+	Status      *domain.ScheduleRequestStatus
 }
 
 // TimeSuggestionInput represents input for suggested schedule times.
@@ -88,6 +111,7 @@ type WeekSchedule struct {
 	WeekEnd     time.Time
 	Days        []DaySchedule
 	SpecialDays []domain.SpecialDay
+	Requests    []domain.ScheduleRequest
 }
 
 // DaySchedule represents entries for a day.
@@ -114,6 +138,10 @@ func (s *ScheduleService) Week(ctx context.Context, weekStart time.Time) (*WeekS
 	}
 
 	specialDays, err := s.specialDays.List(ctx, monday, sunday)
+	if err != nil {
+		return nil, err
+	}
+	requests, err := s.schedules.ListRequests(ctx, monday, sunday, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -174,6 +202,7 @@ func (s *ScheduleService) Week(ctx context.Context, weekStart time.Time) (*WeekS
 		WeekEnd:     sunday,
 		Days:        days,
 		SpecialDays: specialDays,
+		Requests:    requests,
 	}, nil
 }
 
@@ -202,6 +231,11 @@ func (s *ScheduleService) Create(ctx context.Context, input CreateScheduleEntryI
 		if err := s.validateWorkday(ctx, input.EmployeeID, input.Date, input.OverrideBlockedDay); err != nil {
 			return nil, err
 		}
+		if err := s.validateSegments(ctx, input.StartTime, input.EndTime, input.Segments); err != nil {
+			return nil, err
+		}
+	} else if len(input.Segments) > 0 {
+		return nil, NewBadRequest("Segmente sind nur für Arbeitseinträge erlaubt")
 	}
 
 	entry := &domain.ScheduleEntry{
@@ -214,6 +248,7 @@ func (s *ScheduleService) Create(ctx context.Context, input CreateScheduleEntryI
 		EntryType:    entryType,
 		ShiftKind:    shiftKind,
 		Notes:        input.Notes,
+		Segments:     input.Segments,
 	}
 
 	if err := s.schedules.Create(ctx, entry); err != nil {
@@ -285,6 +320,16 @@ func (s *ScheduleService) Update(ctx context.Context, id int64, input UpdateSche
 		if err := s.validateWorkday(ctx, entry.EmployeeID, entry.Date, input.OverrideBlockedDay); err != nil {
 			return nil, err
 		}
+	}
+	if input.Segments != nil {
+		if entry.EntryType != domain.ScheduleEntryTypeWork && len(*input.Segments) > 0 {
+			return nil, NewBadRequest("Segmente sind nur für Arbeitseinträge erlaubt")
+		}
+		if err := s.validateSegments(ctx, entry.StartTime, entry.EndTime, *input.Segments); err != nil {
+			return nil, err
+		}
+		entry.Segments = *input.Segments
+		entry.SegmentsChanged = true
 	}
 
 	updated, err := s.schedules.Update(ctx, entry)
@@ -418,4 +463,149 @@ func (s *ScheduleService) Delete(ctx context.Context, id int64) error {
 	}
 
 	return s.schedules.Delete(ctx, id)
+}
+
+// ListRequests retrieves schedule requests for a date range.
+func (s *ScheduleService) ListRequests(ctx context.Context, startDate, endDate time.Time, employeeID *int64) ([]domain.ScheduleRequest, error) {
+	return s.schedules.ListRequests(ctx, startDate, endDate, employeeID)
+}
+
+// CreateRequest creates a non-working schedule request.
+func (s *ScheduleService) CreateRequest(ctx context.Context, input CreateScheduleRequestInput, actorID int64, isAdmin bool) (*domain.ScheduleRequest, error) {
+	if !isAdmin && input.EmployeeID != actorID {
+		return nil, NewForbidden("Wünsche können nur für den eigenen Account angelegt werden")
+	}
+	if _, err := s.employees.GetByID(ctx, input.EmployeeID); err != nil {
+		return nil, NewNotFound(fmt.Sprintf("Mitarbeiter mit ID %d nicht gefunden", input.EmployeeID))
+	}
+	requestType := input.RequestType
+	if requestType == "" {
+		requestType = domain.ScheduleRequestTypeWish
+	}
+	if err := validateRequestTimeRange(input.StartTime, input.EndTime); err != nil {
+		return nil, err
+	}
+	if input.Text == "" {
+		return nil, NewBadRequest("Text ist erforderlich")
+	}
+
+	request := &domain.ScheduleRequest{
+		EmployeeID:  input.EmployeeID,
+		Date:        input.Date,
+		StartTime:   input.StartTime,
+		EndTime:     input.EndTime,
+		RequestType: requestType,
+		Text:        input.Text,
+		Status:      domain.ScheduleRequestStatusOpen,
+	}
+	if err := s.schedules.CreateRequest(ctx, request); err != nil {
+		return nil, err
+	}
+	return s.schedules.GetRequestByID(ctx, request.ID)
+}
+
+// UpdateRequest updates a non-working schedule request.
+func (s *ScheduleService) UpdateRequest(ctx context.Context, id int64, input UpdateScheduleRequestInput, actorID int64, isAdmin bool) (*domain.ScheduleRequest, error) {
+	request, err := s.schedules.GetRequestByID(ctx, id)
+	if err != nil {
+		return nil, NewNotFound(fmt.Sprintf("Wunsch mit ID %d nicht gefunden", id))
+	}
+	if !isAdmin && request.EmployeeID != actorID {
+		return nil, NewForbidden("Wünsche können nur für den eigenen Account geändert werden")
+	}
+	if !isAdmin && request.Status != domain.ScheduleRequestStatusOpen {
+		return nil, NewForbidden("Erledigte Wünsche können nur von der Leitung geändert werden")
+	}
+	if !isAdmin && input.Status != nil && *input.Status != request.Status {
+		return nil, NewForbidden("Nur die Leitung kann den Status ändern")
+	}
+
+	if input.Date != nil {
+		request.Date = *input.Date
+	}
+	if input.StartTime != nil {
+		request.StartTime = input.StartTime
+	}
+	if input.EndTime != nil {
+		request.EndTime = input.EndTime
+	}
+	if input.RequestType != nil {
+		request.RequestType = *input.RequestType
+	}
+	if input.Text != nil {
+		request.Text = *input.Text
+	}
+	if input.Status != nil {
+		request.Status = *input.Status
+	}
+	if err := validateRequestTimeRange(request.StartTime, request.EndTime); err != nil {
+		return nil, err
+	}
+	if request.Text == "" {
+		return nil, NewBadRequest("Text ist erforderlich")
+	}
+
+	return s.schedules.UpdateRequest(ctx, request)
+}
+
+// DeleteRequest deletes a non-working schedule request.
+func (s *ScheduleService) DeleteRequest(ctx context.Context, id int64, actorID int64, isAdmin bool) error {
+	request, err := s.schedules.GetRequestByID(ctx, id)
+	if err != nil {
+		return NewNotFound(fmt.Sprintf("Wunsch mit ID %d nicht gefunden", id))
+	}
+	if !isAdmin && request.EmployeeID != actorID {
+		return NewForbidden("Wünsche können nur für den eigenen Account gelöscht werden")
+	}
+	if !isAdmin && request.Status != domain.ScheduleRequestStatusOpen {
+		return NewForbidden("Erledigte Wünsche können nur von der Leitung gelöscht werden")
+	}
+	return s.schedules.DeleteRequest(ctx, id)
+}
+
+func (s *ScheduleService) validateSegments(ctx context.Context, startTime, endTime *time.Time, segments []domain.ScheduleEntrySegment) error {
+	if len(segments) == 0 {
+		return nil
+	}
+	if startTime == nil || endTime == nil {
+		return NewBadRequest("Segmente benötigen Beginn und Ende des Arbeitseintrags")
+	}
+
+	shiftStart := clockMinutes(*startTime)
+	shiftEnd := clockMinutes(*endTime)
+	sortedSegments := append([]domain.ScheduleEntrySegment(nil), segments...)
+	sort.SliceStable(sortedSegments, func(i, j int) bool {
+		return clockMinutes(sortedSegments[i].StartTime) < clockMinutes(sortedSegments[j].StartTime)
+	})
+
+	lastEnd := -1
+	for index, segment := range sortedSegments {
+		if _, err := s.groups.GetByID(ctx, segment.GroupID); err != nil {
+			return NewNotFound(fmt.Sprintf("Gruppe mit ID %d nicht gefunden", segment.GroupID))
+		}
+		segmentStart := clockMinutes(segment.StartTime)
+		segmentEnd := clockMinutes(segment.EndTime)
+		if segmentEnd <= segmentStart {
+			return NewBadRequest("Segment-Ende muss nach Segment-Beginn liegen")
+		}
+		if segmentStart < shiftStart || segmentEnd > shiftEnd {
+			return NewBadRequest("Segmentzeiten müssen innerhalb der Arbeitszeit liegen")
+		}
+		if index > 0 && segmentStart < lastEnd {
+			return NewBadRequest("Segmente dürfen sich nicht überlappen")
+		}
+		lastEnd = segmentEnd
+	}
+	return nil
+}
+
+func validateRequestTimeRange(startTime, endTime *time.Time) error {
+	if startTime != nil && endTime != nil && clockMinutes(*endTime) <= clockMinutes(*startTime) {
+		return NewBadRequest("Ende muss nach Beginn liegen")
+	}
+	return nil
+}
+
+func clockMinutes(value time.Time) int {
+	return value.Hour()*60 + value.Minute()
 }

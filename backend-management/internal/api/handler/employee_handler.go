@@ -230,6 +230,17 @@ func (h *EmployeeHandler) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 // Contracts handles GET /employees/{id}/contracts.
+// @Summary List employee contracts
+// @Description Get all contracts for an employee
+// @Tags Employees
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "Employee ID"
+// @Success 200 {array} EmployeeContractResponse "List of employee contracts"
+// @Failure 400 {object} map[string]interface{} "Invalid employee ID"
+// @Failure 401 {object} map[string]interface{} "Not authenticated"
+// @Failure 404 {object} map[string]interface{} "Employee not found"
+// @Router /employees/{id}/contracts [get]
 func (h *EmployeeHandler) Contracts(w http.ResponseWriter, r *http.Request) {
 	id, err := parseID(chi.URLParam(r, "id"))
 	if err != nil {
@@ -251,6 +262,19 @@ func (h *EmployeeHandler) Contracts(w http.ResponseWriter, r *http.Request) {
 }
 
 // CreateContract handles POST /employees/{id}/contracts.
+// @Summary Create employee contract
+// @Description Create a historical contract for an employee
+// @Tags Employees
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "Employee ID"
+// @Param contract body employeeContractRequest true "Employee contract data"
+// @Success 201 {object} EmployeeContractResponse "Created employee contract"
+// @Failure 400 {object} map[string]interface{} "Invalid request"
+// @Failure 401 {object} map[string]interface{} "Not authenticated"
+// @Failure 404 {object} map[string]interface{} "Employee not found"
+// @Router /employees/{id}/contracts [post]
 func (h *EmployeeHandler) CreateContract(w http.ResponseWriter, r *http.Request) {
 	id, input, ok := h.parseContractRequest(w, r)
 	if !ok {
@@ -265,6 +289,20 @@ func (h *EmployeeHandler) CreateContract(w http.ResponseWriter, r *http.Request)
 }
 
 // UpdateContract handles PUT /employees/{id}/contracts/{contractId}.
+// @Summary Update employee contract
+// @Description Update a historical contract for an employee
+// @Tags Employees
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param id path int true "Employee ID"
+// @Param contractId path int true "Employee contract ID"
+// @Param contract body employeeContractRequest true "Employee contract data"
+// @Success 200 {object} EmployeeContractResponse "Updated employee contract"
+// @Failure 400 {object} map[string]interface{} "Invalid request"
+// @Failure 401 {object} map[string]interface{} "Not authenticated"
+// @Failure 404 {object} map[string]interface{} "Employee contract not found"
+// @Router /employees/{id}/contracts/{contractId} [put]
 func (h *EmployeeHandler) UpdateContract(w http.ResponseWriter, r *http.Request) {
 	id, input, ok := h.parseContractRequest(w, r)
 	if !ok {

@@ -5,6 +5,7 @@ import type {
   ScheduleEntry, 
   CreateScheduleEntryRequest, 
   UpdateScheduleEntryRequest,
+  ScheduleEntrySegmentRequest,
   Employee,
   Group 
 } from '@kita/shared';
@@ -74,6 +75,7 @@ const form = ref({
   overrideBlockedDay: false,
   plannedMinutes: 0,
   notes: '',
+  segments: [] as ScheduleEntrySegmentRequest[],
 });
 
 // Track if user manually changed the group (don't override manual selections)
@@ -104,6 +106,13 @@ watch(
           overrideBlockedDay: false,
           plannedMinutes: calculateEntryMinutes(props.entry.startTime, props.entry.endTime, props.entry.breakMinutes),
           notes: props.entry.notes || '',
+          segments: (props.entry.segments || []).map(segment => ({
+            groupId: segment.groupId || 0,
+            startTime: segment.startTime?.substring(0, 5) || '',
+            endTime: segment.endTime?.substring(0, 5) || '',
+            notes: segment.notes,
+            sortOrder: segment.sortOrder,
+          })),
         };
       } else {
         form.value = {
@@ -118,6 +127,7 @@ watch(
           overrideBlockedDay: false,
           plannedMinutes: 0,
           notes: '',
+          segments: [],
         };
         if (!form.value.groupId && props.defaultEmployeeId) {
           const selectedEmployee = props.employees.find(e => e.id === props.defaultEmployeeId);
@@ -248,6 +258,23 @@ function formatMinutes(minutes: number): string {
   return `${hours} Std. ${mins} Min.`;
 }
 
+function addSegment() {
+  form.value.segments.push({
+    groupId: form.value.groupId ? parseInt(form.value.groupId) : Number(props.groups[0]?.id || 0),
+    startTime: form.value.startTime,
+    endTime: form.value.endTime,
+    notes: '',
+    sortOrder: form.value.segments.length + 1,
+  });
+}
+
+function removeSegment(index: number) {
+  form.value.segments.splice(index, 1);
+  form.value.segments.forEach((segment, segmentIndex) => {
+    segment.sortOrder = segmentIndex + 1;
+  });
+}
+
 // Form validation - groupId is now required for WORK entries
 const isFormValid = computed(() => {
   const baseValid = form.value.employeeId && form.value.date && form.value.entryType;
@@ -274,6 +301,16 @@ function handleSubmit() {
     shiftKind: isWorkEntry ? form.value.shiftKind : 'MANUAL',
     overrideBlockedDay: form.value.overrideBlockedDay,
     notes: form.value.notes || undefined,
+    segments: isWorkEntry
+      ? form.value.segments.map((segment, index) => ({
+          ...segment,
+          groupId: Number(segment.groupId),
+          startTime: `${segment.startTime}:00`,
+          endTime: `${segment.endTime}:00`,
+          notes: segment.notes || undefined,
+          sortOrder: index + 1,
+        }))
+      : undefined,
   };
   emit('save', data, props.entry?.id);
 }
@@ -428,6 +465,54 @@ function handleDelete() {
           :options="groupOptions"
           placeholder="Gruppe auswählen"
         />
+      </div>
+
+      <div v-if="form.entryType === 'WORK'" class="space-y-2 rounded-md border border-stone-200 p-3">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <Label>Springer-Wechsel</Label>
+            <p class="text-xs text-stone-500">Optional für Wechsel zwischen Gruppen innerhalb der Schicht.</p>
+          </div>
+          <Button type="button" size="sm" variant="outline" @click="addSegment">
+            Wechsel
+          </Button>
+        </div>
+
+        <div v-if="form.segments.length" class="space-y-2">
+          <div
+            v-for="(segment, index) in form.segments"
+            :key="index"
+            class="grid grid-cols-[1fr_5.8rem_5.8rem_1fr_auto] gap-2 items-end"
+          >
+            <div class="space-y-1">
+              <Label :for="`segment-group-${index}`" class="text-xs">Gruppe</Label>
+              <select
+                :id="`segment-group-${index}`"
+                v-model.number="segment.groupId"
+                class="h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm"
+              >
+                <option v-for="group in groups" :key="group.id" :value="group.id">
+                  {{ group.name }}
+                </option>
+              </select>
+            </div>
+            <div class="space-y-1">
+              <Label :for="`segment-start-${index}`" class="text-xs">Von</Label>
+              <Input :id="`segment-start-${index}`" v-model="segment.startTime" type="time" />
+            </div>
+            <div class="space-y-1">
+              <Label :for="`segment-end-${index}`" class="text-xs">Bis</Label>
+              <Input :id="`segment-end-${index}`" v-model="segment.endTime" type="time" />
+            </div>
+            <div class="space-y-1">
+              <Label :for="`segment-notes-${index}`" class="text-xs">Notiz</Label>
+              <Input :id="`segment-notes-${index}`" v-model="segment.notes" placeholder="optional" />
+            </div>
+            <Button type="button" size="sm" variant="ghost" @click="removeSegment(index)">
+              Entfernen
+            </Button>
+          </div>
+        </div>
       </div>
 
       <div class="space-y-2">

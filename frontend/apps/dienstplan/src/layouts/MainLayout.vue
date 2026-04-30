@@ -5,6 +5,7 @@ import { useAuth, ChangePasswordModal } from '@kita/shared';
 import {
   CalendarDays,
   Clock3,
+  ListChecks,
   Users,
   Layers,
   CalendarClock,
@@ -27,6 +28,7 @@ const navigation = computed(() => {
   const items = [
     { name: 'Dienstplan', to: '/', icon: CalendarDays },
     { name: 'Dienstplan Zeiten', to: '/zeiten', icon: Clock3 },
+    { name: 'Dienstplan Kompakt', to: '/kompakt', icon: ListChecks },
   ];
 
   if (isAdmin.value) {

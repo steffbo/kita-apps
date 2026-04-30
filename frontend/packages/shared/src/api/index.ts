@@ -171,8 +171,13 @@ export type GroupAssignment = components['schemas']['GroupAssignment'];
 export type GroupAssignmentRequest = components['schemas']['GroupAssignmentRequest'];
 
 export type ScheduleEntry = components['schemas']['ScheduleEntry'];
+export type ScheduleEntrySegment = components['schemas']['ScheduleEntrySegment'];
+export type ScheduleEntrySegmentRequest = components['schemas']['ScheduleEntrySegmentRequest'];
 export type CreateScheduleEntryRequest = components['schemas']['CreateScheduleEntryRequest'];
 export type UpdateScheduleEntryRequest = components['schemas']['UpdateScheduleEntryRequest'];
+export type ScheduleRequest = components['schemas']['ScheduleRequest'];
+export type CreateScheduleRequestRequest = components['schemas']['CreateScheduleRequestRequest'];
+export type UpdateScheduleRequestRequest = components['schemas']['UpdateScheduleRequestRequest'];
 export type TimeSuggestionRequest = components['schemas']['TimeSuggestionRequest'];
 export type TimeSuggestion = components['schemas']['TimeSuggestion'];
 export type WeekSchedule = components['schemas']['WeekSchedule'];

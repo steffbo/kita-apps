@@ -424,22 +424,24 @@ func firstOfMonth(date time.Time) time.Time {
 }
 
 func defaultWorkdays(contractID int64, weeklyHours float64) []domain.EmployeeContractWorkday {
-	if weeklyHours == 33 {
-		return []domain.EmployeeContractWorkday{
-			{ContractID: contractID, Weekday: 1, PlannedMinutes: 420},
-			{ContractID: contractID, Weekday: 2, PlannedMinutes: 420},
-			{ContractID: contractID, Weekday: 3, PlannedMinutes: 420},
-			{ContractID: contractID, Weekday: 4, PlannedMinutes: 360},
-			{ContractID: contractID, Weekday: 5, PlannedMinutes: 360},
-		}
-	}
-	dailyMinutes := int(math.Round(weeklyHours * 60 / 5))
+	wholeHours := int(math.Floor(weeklyHours))
+	baseMinutes := (wholeHours / 5) * 60
+	remainderDays := wholeHours % 5
+	fractionalMinutes := int(math.Round((weeklyHours - float64(wholeHours)) * 60))
+
 	workdays := make([]domain.EmployeeContractWorkday, 0, 5)
 	for weekday := 1; weekday <= 5; weekday++ {
+		plannedMinutes := baseMinutes
+		if weekday > 5-remainderDays {
+			plannedMinutes += 60
+		}
+		if weekday == 5 {
+			plannedMinutes += fractionalMinutes
+		}
 		workdays = append(workdays, domain.EmployeeContractWorkday{
 			ContractID:     contractID,
 			Weekday:        weekday,
-			PlannedMinutes: dailyMinutes,
+			PlannedMinutes: plannedMinutes,
 		})
 	}
 	return workdays

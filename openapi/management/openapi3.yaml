@@ -448,7 +448,7 @@ paths:
         - Employees
   "/employees/{id}/contracts":
     get:
-      description: Get all historical contracts for an employee
+      description: Get all contracts for an employee
       parameters:
         - description: Employee ID
           in: path
@@ -488,7 +488,7 @@ paths:
                 type: object
       security:
         - BearerAuth: []
-      summary: Get employee contracts
+      summary: List employee contracts
       tags:
         - Employees
     post:
@@ -501,12 +501,7 @@ paths:
           schema:
             type: integer
       requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/EmployeeContractRequest"
-        description: Employee contract data
-        required: true
+        $ref: "#/components/requestBodies/EmployeeContractRequest"
       responses:
         "201":
           description: Created employee contract
@@ -550,19 +545,14 @@ paths:
           required: true
           schema:
             type: integer
-        - description: Contract ID
+        - description: Employee contract ID
           in: path
           name: contractId
           required: true
           schema:
             type: integer
       requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/EmployeeContractRequest"
-        description: Employee contract data
-        required: true
+        $ref: "#/components/requestBodies/EmployeeContractRequest"
       responses:
         "200":
           description: Updated employee contract
@@ -1229,6 +1219,199 @@ paths:
       summary: Create multiple schedule entries
       tags:
         - Schedule
+  /schedule/requests:
+    get:
+      description: Get non-working wish and appointment requests for a date range
+      parameters:
+        - description: Start date (YYYY-MM-DD)
+          in: query
+          name: startDate
+          required: true
+          schema:
+            type: string
+        - description: End date (YYYY-MM-DD)
+          in: query
+          name: endDate
+          required: true
+          schema:
+            type: string
+        - description: Filter by employee ID
+          in: query
+          name: employeeId
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: List of schedule requests
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/ScheduleRequest"
+                type: array
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+      security:
+        - BearerAuth: []
+      summary: List schedule requests
+      tags:
+        - Schedule
+    post:
+      description: Create a non-working wish or appointment request
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateScheduleRequestRequest"
+        description: Schedule request data
+        required: true
+      responses:
+        "201":
+          description: Created schedule request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScheduleRequest"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+      security:
+        - BearerAuth: []
+      summary: Create a schedule request
+      tags:
+        - Schedule
+  "/schedule/requests/{id}":
+    delete:
+      description: Delete a non-working wish or appointment request
+      parameters:
+        - description: Schedule request ID
+          in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: Schedule request deleted
+        "400":
+          description: Invalid schedule request ID
+          content:
+            "*/*":
+              schema:
+                additionalProperties: true
+                type: object
+        "401":
+          description: Not authenticated
+          content:
+            "*/*":
+              schema:
+                additionalProperties: true
+                type: object
+        "403":
+          description: Forbidden
+          content:
+            "*/*":
+              schema:
+                additionalProperties: true
+                type: object
+        "404":
+          description: Schedule request not found
+          content:
+            "*/*":
+              schema:
+                additionalProperties: true
+                type: object
+      security:
+        - BearerAuth: []
+      summary: Delete a schedule request
+      tags:
+        - Schedule
+    put:
+      description: Update a non-working wish or appointment request
+      parameters:
+        - description: Schedule request ID
+          in: path
+          name: id
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateScheduleRequestRequest"
+        description: Updated schedule request data
+        required: true
+      responses:
+        "200":
+          description: Updated schedule request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScheduleRequest"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+        "404":
+          description: Schedule request not found
+          content:
+            application/json:
+              schema:
+                additionalProperties: true
+                type: object
+      security:
+        - BearerAuth: []
+      summary: Update a schedule request
+      tags:
+        - Schedule
   /schedule/time-suggestion:
     post:
       description: Calculate suggested start and end times for a schedule entry
@@ -1237,11 +1420,11 @@ paths:
           application/json:
             schema:
               $ref: "#/components/schemas/TimeSuggestionRequest"
-        description: Time suggestion input
+        description: Time suggestion request
         required: true
       responses:
         "200":
-          description: Calculated time suggestion
+          description: Time suggestion
           content:
             application/json:
               schema:
@@ -1957,6 +2140,13 @@ servers:
   - url: //localhost:8080/api
 components:
   requestBodies:
+    EmployeeContractRequest:
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/EmployeeContractRequest"
+      description: Employee contract data
+      required: true
     CreateSpecialDayRequest:
       content:
         application/json:
@@ -2113,6 +2303,10 @@ components:
         overrideBlockedDay:
           example: false
           type: boolean
+        segments:
+          items:
+            $ref: "#/components/schemas/ScheduleEntrySegmentRequest"
+          type: array
         shiftKind:
           enum:
             - EARLY
@@ -2126,6 +2320,33 @@ components:
       required:
         - date
         - employeeId
+      type: object
+    CreateScheduleRequestRequest:
+      properties:
+        date:
+          example: 2026-04-29
+          type: string
+        employeeId:
+          example: 1
+          type: integer
+        endTime:
+          example: 11:00:00
+          type: string
+        requestType:
+          enum:
+            - WISH
+            - APPOINTMENT
+          example: APPOINTMENT
+          type: string
+        startTime:
+          example: 10:00:00
+          type: string
+        text:
+          example: Arzttermin
+          type: string
+      required:
+        - date
+        - text
       type: object
     CreateSpecialDayRequest:
       properties:
@@ -2250,6 +2471,8 @@ components:
           type: boolean
         createdAt:
           type: string
+        currentContract:
+          $ref: "#/components/schemas/EmployeeContract"
         email:
           type: string
         firstName:
@@ -2276,8 +2499,6 @@ components:
           type: integer
         weeklyHours:
           type: number
-        currentContract:
-          $ref: "#/components/schemas/EmployeeContract"
         workPattern:
           items:
             $ref: "#/components/schemas/EmployeeContractWorkday"
@@ -2285,10 +2506,14 @@ components:
       type: object
     EmployeeContract:
       properties:
-        id:
-          type: integer
+        createdAt:
+          type: string
         employeeId:
           type: integer
+        id:
+          type: integer
+        updatedAt:
+          type: string
         validFrom:
           type: string
         weeklyHours:
@@ -2297,10 +2522,6 @@ components:
           items:
             $ref: "#/components/schemas/EmployeeContractWorkday"
           type: array
-        createdAt:
-          type: string
-        updatedAt:
-          type: string
       type: object
     EmployeeContractRequest:
       properties:
@@ -2309,6 +2530,7 @@ components:
           type: string
         weeklyHours:
           example: 35
+          maximum: 40
           type: number
         workdays:
           items:
@@ -2321,30 +2543,30 @@ components:
       type: object
     EmployeeContractWorkday:
       properties:
-        id:
-          type: integer
         contractId:
           type: integer
-        weekday:
+        id:
           type: integer
         plannedMinutes:
+          type: integer
+        weekday:
           type: integer
       type: object
     EmployeeContractWorkdayRequest:
       properties:
-        weekday:
-          example: 1
-          minimum: 1
-          maximum: 5
-          type: integer
         plannedMinutes:
           example: 420
-          minimum: 0
           maximum: 600
+          minimum: 0
+          type: integer
+        weekday:
+          example: 1
+          maximum: 5
+          minimum: 1
           type: integer
       required:
-        - weekday
         - plannedMinutes
+        - weekday
       type: object
     EmployeeStatistics:
       properties:
@@ -2549,6 +2771,10 @@ components:
           type: integer
         notes:
           type: string
+        segments:
+          items:
+            $ref: "#/components/schemas/ScheduleEntrySegment"
+          type: array
         shiftKind:
           type: string
         startTime:
@@ -2556,43 +2782,71 @@ components:
         updatedAt:
           type: string
       type: object
-    TimeSuggestion:
+    ScheduleEntrySegment:
       properties:
-        startTime:
-          type: string
         endTime:
           type: string
-        breakMinutes:
+        group:
+          $ref: "#/components/schemas/Group"
+        groupId:
           type: integer
-        plannedMinutes:
+        id:
           type: integer
-        isBlocked:
-          type: boolean
-        contractId:
+        notes:
+          type: string
+        scheduleEntryId:
           type: integer
+        sortOrder:
+          type: integer
+        startTime:
+          type: string
       type: object
-    TimeSuggestionRequest:
+    ScheduleEntrySegmentRequest:
       properties:
-        employeeId:
+        endTime:
+          example: 12:00:00
+          type: string
+        groupId:
           example: 1
           type: integer
-        date:
-          example: 2026-05-04
+        notes:
+          example: bis 12 Igel
           type: string
-        shiftKind:
-          enum:
-            - EARLY
-            - LATE
-            - MANUAL
-          example: EARLY
-          type: string
+        sortOrder:
+          example: 1
+          type: integer
         startTime:
-          example: 07:00:00
+          example: 08:00:00
           type: string
       required:
-        - employeeId
-        - date
-        - shiftKind
+        - endTime
+        - groupId
+        - startTime
+      type: object
+    ScheduleRequest:
+      properties:
+        createdAt:
+          type: string
+        date:
+          type: string
+        employee:
+          $ref: "#/components/schemas/Employee"
+        employeeId:
+          type: integer
+        endTime:
+          type: string
+        id:
+          type: integer
+        requestType:
+          type: string
+        startTime:
+          type: string
+        status:
+          type: string
+        text:
+          type: string
+        updatedAt:
+          type: string
       type: object
     SpecialDay:
       properties:
@@ -2654,6 +2908,44 @@ components:
           type: string
         summary:
           $ref: "#/components/schemas/ComparisonSummary"
+      type: object
+    TimeSuggestion:
+      properties:
+        breakMinutes:
+          type: integer
+        contractId:
+          type: integer
+        endTime:
+          type: string
+        isBlocked:
+          type: boolean
+        plannedMinutes:
+          type: integer
+        startTime:
+          type: string
+      type: object
+    TimeSuggestionRequest:
+      properties:
+        date:
+          example: 2026-05-04
+          type: string
+        employeeId:
+          example: 1
+          type: integer
+        shiftKind:
+          enum:
+            - EARLY
+            - LATE
+            - MANUAL
+          example: EARLY
+          type: string
+        startTime:
+          example: 07:00:00
+          type: string
+      required:
+        - date
+        - employeeId
+        - shiftKind
       type: object
     UpdateEmployeeRequest:
       properties:
@@ -2728,6 +3020,10 @@ components:
         overrideBlockedDay:
           example: false
           type: boolean
+        segments:
+          items:
+            $ref: "#/components/schemas/ScheduleEntrySegmentRequest"
+          type: array
         shiftKind:
           enum:
             - EARLY
@@ -2737,6 +3033,33 @@ components:
           type: string
         startTime:
           example: 08:00:00
+          type: string
+      type: object
+    UpdateScheduleRequestRequest:
+      properties:
+        date:
+          example: 2026-04-29
+          type: string
+        endTime:
+          example: 11:00:00
+          type: string
+        requestType:
+          enum:
+            - WISH
+            - APPOINTMENT
+          example: APPOINTMENT
+          type: string
+        startTime:
+          example: 10:00:00
+          type: string
+        status:
+          enum:
+            - OPEN
+            - DONE
+          example: DONE
+          type: string
+        text:
+          example: Arzttermin
           type: string
       type: object
     UpdateTimeEntryRequest:
@@ -2775,6 +3098,10 @@ components:
         days:
           items:
             $ref: "#/components/schemas/DaySchedule"
+          type: array
+        requests:
+          items:
+            $ref: "#/components/schemas/ScheduleRequest"
           type: array
         specialDays:
           items:

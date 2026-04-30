@@ -42,9 +42,9 @@ const form = ref({
   workdays: [
     { weekday: 1, active: true, plannedHours: 7 },
     { weekday: 2, active: true, plannedHours: 7 },
-    { weekday: 3, active: true, plannedHours: 7 },
-    { weekday: 4, active: true, plannedHours: 7 },
-    { weekday: 5, active: true, plannedHours: 7 },
+    { weekday: 3, active: true, plannedHours: 8 },
+    { weekday: 4, active: true, plannedHours: 8 },
+    { weekday: 5, active: true, plannedHours: 8 },
   ],
 });
 
@@ -64,20 +64,27 @@ function hoursFromMinutes(minutes?: number) {
   return Math.round(((minutes || 0) / 60) * 100) / 100;
 }
 
+function calculateDefaultWorkdays(weeklyHours: number) {
+  const wholeHours = Math.floor(weeklyHours);
+  const baseHours = Math.floor(wholeHours / 5);
+  const remainderDays = wholeHours % 5;
+  const fractionalHours = Math.round((weeklyHours - wholeHours) * 100) / 100;
+
+  return [1, 2, 3, 4, 5].map((weekday, index) => {
+    let plannedHours = baseHours;
+    if (index >= 5 - remainderDays) {
+      plannedHours += 1;
+    }
+    if (index === 4) {
+      plannedHours += fractionalHours;
+    }
+    return { weekday, active: true, plannedHours };
+  });
+}
+
 function applyDefaultPattern() {
   const hours = Number(form.value.weeklyHours) || 0;
-  if (hours === 33) {
-    form.value.workdays = [
-      { weekday: 1, active: true, plannedHours: 7 },
-      { weekday: 2, active: true, plannedHours: 7 },
-      { weekday: 3, active: true, plannedHours: 7 },
-      { weekday: 4, active: true, plannedHours: 6 },
-      { weekday: 5, active: true, plannedHours: 6 },
-    ];
-    return;
-  }
-  const daily = Math.round((hours / 5) * 100) / 100;
-  form.value.workdays = [1, 2, 3, 4, 5].map(weekday => ({ weekday, active: true, plannedHours: daily }));
+  form.value.workdays = calculateDefaultWorkdays(hours);
 }
 
 // Reset form when dialog opens/employee changes
@@ -116,13 +123,7 @@ watch(
           vacationDaysPerYear: 30,
           primaryGroupId: springerGroupId.value,
           contractValidFrom: currentMonthValue(),
-          workdays: [
-            { weekday: 1, active: true, plannedHours: 7.6 },
-            { weekday: 2, active: true, plannedHours: 7.6 },
-            { weekday: 3, active: true, plannedHours: 7.6 },
-            { weekday: 4, active: true, plannedHours: 7.6 },
-            { weekday: 5, active: true, plannedHours: 7.6 },
-          ],
+          workdays: calculateDefaultWorkdays(38),
         };
       }
     }
@@ -221,7 +222,7 @@ function handleSubmit() {
             type="number"
             :min="20"
             :max="40"
-            step="0.5"
+            step="1"
             required
           />
         </div>

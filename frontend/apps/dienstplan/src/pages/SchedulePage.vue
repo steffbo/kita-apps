@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue';
-import { BarChart3, CalendarX, ChevronLeft, ChevronRight, Plus, Loader2 } from 'lucide-vue-next';
+import { BarChart3, CalendarPlus, CalendarX, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Loader2, MessageSquare, Plus } from 'lucide-vue-next';
 import { 
   useAuth,
   useWeekSchedule,
@@ -9,6 +9,9 @@ import {
   useCreateScheduleEntry,
   useUpdateScheduleEntry,
   useDeleteScheduleEntry,
+  useCreateScheduleRequest,
+  useUpdateScheduleRequest,
+  useDeleteScheduleRequest,
   useUpdateEmployee,
   useCreateEmployeeContract,
   useUpdateEmployeeContract,
@@ -17,12 +20,15 @@ import {
   type CreateEmployeeRequest,
   type UpdateEmployeeRequest,
   type ScheduleEntry,
+  type ScheduleRequest,
   type SpecialDay,
   type CreateScheduleEntryRequest,
-  type UpdateScheduleEntryRequest
+  type UpdateScheduleEntryRequest,
+  type CreateScheduleRequestRequest,
+  type UpdateScheduleRequestRequest
 } from '@kita/shared';
 import { getWeekStart, getWeekEnd, formatDate, WEEKDAYS_SHORT, toISODateString } from '@kita/shared/utils';
-import { Button, Dialog } from '@/components/ui';
+import { Button, Dialog, Input, Label } from '@/components/ui';
 import ScheduleEntryDialog from '@/components/ScheduleEntryDialog.vue';
 import EmployeeFormDialog from '@/components/EmployeeFormDialog.vue';
 
@@ -30,7 +36,7 @@ const { isAdmin } = useAuth();
 type EntryType = 'WORK' | 'VACATION' | 'SICK' | 'CHILD_SICK' | 'RECOVERY_DAY' | 'SPECIAL_LEAVE' | 'TRAINING' | 'EVENT';
 
 const props = withDefaults(defineProps<{
-  variant?: 'bars' | 'times';
+  variant?: 'bars' | 'times' | 'compact';
 }>(), {
   variant: 'bars',
 });
@@ -49,6 +55,9 @@ const { data: employees } = useEmployees(false);
 const createEntry = useCreateScheduleEntry();
 const updateEntry = useUpdateScheduleEntry();
 const deleteEntry = useDeleteScheduleEntry();
+const createRequest = useCreateScheduleRequest();
+const updateRequest = useUpdateScheduleRequest();
+const deleteRequest = useDeleteScheduleRequest();
 const updateEmployee = useUpdateEmployee();
 const createEmployeeContract = useCreateEmployeeContract();
 const updateEmployeeContract = useUpdateEmployeeContract();
@@ -64,10 +73,23 @@ const dialogAbsenceMode = ref(false);
 const employeeDialogOpen = ref(false);
 const selectedEmployee = ref<Employee | null>(null);
 const staffingDialogOpen = ref(false);
+const requestDialogOpen = ref(false);
+const selectedRequest = ref<ScheduleRequest | null>(null);
+const requestForm = ref({
+  employeeId: '',
+  date: '',
+  startTime: '',
+  endTime: '',
+  requestType: 'WISH' as 'WISH' | 'APPOINTMENT',
+  text: '',
+  status: 'OPEN' as 'OPEN' | 'DONE',
+});
 
 // Display settings
 const showWeekends = ref(false);
 const showCellTimes = computed(() => props.variant === 'times');
+const isCompactView = computed(() => props.variant === 'compact');
+const showHoursSummary = ref(props.variant !== 'compact');
 
 // Navigation
 function previousWeek() {
@@ -306,6 +328,34 @@ function openEmployeeDialog(employee: Employee) {
   employeeDialogOpen.value = true;
 }
 
+function openCreateRequestDialog(date: Date, employee?: Employee) {
+  selectedRequest.value = null;
+  requestForm.value = {
+    employeeId: employee?.id ? String(employee.id) : '',
+    date: toISODateString(date),
+    startTime: '',
+    endTime: '',
+    requestType: 'WISH',
+    text: '',
+    status: 'OPEN',
+  };
+  requestDialogOpen.value = true;
+}
+
+function openEditRequestDialog(request: ScheduleRequest) {
+  selectedRequest.value = request;
+  requestForm.value = {
+    employeeId: request.employeeId ? String(request.employeeId) : '',
+    date: request.date || '',
+    startTime: request.startTime?.substring(0, 5) || '',
+    endTime: request.endTime?.substring(0, 5) || '',
+    requestType: (request.requestType as 'WISH' | 'APPOINTMENT') || 'WISH',
+    text: request.text || '',
+    status: (request.status as 'OPEN' | 'DONE') || 'OPEN',
+  };
+  requestDialogOpen.value = true;
+}
+
 async function handleSave(data: CreateScheduleEntryRequest | UpdateScheduleEntryRequest, id?: number) {
   try {
     if (id) {
@@ -316,6 +366,46 @@ async function handleSave(data: CreateScheduleEntryRequest | UpdateScheduleEntry
     dialogOpen.value = false;
   } catch (err) {
     console.error('Failed to save entry:', err);
+  }
+}
+
+async function handleRequestSave() {
+  if (!requestForm.value.date || !requestForm.value.text.trim()) return;
+
+  const payload: CreateScheduleRequestRequest | UpdateScheduleRequestRequest = {
+    date: requestForm.value.date,
+    startTime: requestForm.value.startTime ? `${requestForm.value.startTime}:00` : undefined,
+    endTime: requestForm.value.endTime ? `${requestForm.value.endTime}:00` : undefined,
+    requestType: requestForm.value.requestType,
+    text: requestForm.value.text.trim(),
+    status: requestForm.value.status,
+  };
+  if (requestForm.value.employeeId) {
+    (payload as CreateScheduleRequestRequest).employeeId = parseInt(requestForm.value.employeeId);
+  }
+
+  try {
+    if (selectedRequest.value?.id) {
+      await updateRequest.mutateAsync({
+        id: selectedRequest.value.id,
+        data: payload as UpdateScheduleRequestRequest,
+      });
+    } else {
+      await createRequest.mutateAsync(payload as CreateScheduleRequestRequest);
+    }
+    requestDialogOpen.value = false;
+  } catch (err) {
+    console.error('Failed to save request:', err);
+  }
+}
+
+async function handleRequestDelete() {
+  if (!selectedRequest.value?.id) return;
+  try {
+    await deleteRequest.mutateAsync(selectedRequest.value.id);
+    requestDialogOpen.value = false;
+  } catch (err) {
+    console.error('Failed to delete request:', err);
   }
 }
 
@@ -368,6 +458,22 @@ function employeeDisplayName(employee: any): string {
   return employee.nickname || employee.firstName || '';
 }
 
+function getDefaultTargetMinutesForWeekday(weeklyHours: number, weekday: number): number {
+  const wholeHours = Math.floor(weeklyHours);
+  const baseMinutes = Math.floor(wholeHours / 5) * 60;
+  const remainderDays = wholeHours % 5;
+  const fractionalMinutes = Math.round((weeklyHours - wholeHours) * 60);
+
+  let plannedMinutes = baseMinutes;
+  if (weekday > 5 - remainderDays) {
+    plannedMinutes += 60;
+  }
+  if (weekday === 5) {
+    plannedMinutes += fractionalMinutes;
+  }
+  return plannedMinutes;
+}
+
 function getEmployeeTargetMinutesForDate(employee: any, date: Date, isHoliday = false): number {
   if (date.getDay() === 0 || date.getDay() === 6 || isHoliday) return 0;
 
@@ -378,7 +484,8 @@ function getEmployeeTargetMinutesForDate(employee: any, date: Date, isHoliday = 
     return workday?.plannedMinutes || 0;
   }
 
-  return Math.round(((employee.weeklyHours || 0) * 60) / 5);
+  const weekday = date.getDay() === 0 ? 7 : date.getDay();
+  return getDefaultTargetMinutesForWeekday(employee.weeklyHours || 0, weekday);
 }
 
 function getEmployeeTargetMinutes(employee: any): number {
@@ -392,10 +499,11 @@ function getEmployeeTargetMinutes(employee: any): number {
     }, 0);
   }
 
-  const weekdayCount = allWeekDays.value.filter(day => !day.isWeekend).length;
-  const openWeekdayCount = allWeekDays.value.filter(day => !day.isWeekend && !day.isHoliday).length;
-  if (!weekdayCount) return 0;
-  return Math.round(((employee.weeklyHours || 0) * 60 / weekdayCount) * openWeekdayCount);
+  return allWeekDays.value.reduce((sum, day) => {
+    if (day.isWeekend || day.isHoliday) return sum;
+    const weekday = day.date.getDay() === 0 ? 7 : day.date.getDay();
+    return sum + getDefaultTargetMinutesForWeekday(employee.weeklyHours || 0, weekday);
+  }, 0);
 }
 
 const staffingDays = computed(() => {
@@ -405,7 +513,16 @@ const staffingDays = computed(() => {
     const daySchedule = weekSchedule.value?.days?.find(item => item.date === day.dateStr);
     const entries = (daySchedule?.entries || []).filter(entry =>
       entry.entryType === 'WORK' && entry.startTime && entry.endTime && entry.groupId
-    );
+    ).flatMap(entry => {
+      if (!entry.segments?.length) return [entry];
+      return entry.segments.map(segment => ({
+        ...entry,
+        groupId: segment.groupId,
+        group: segment.group,
+        startTime: segment.startTime,
+        endTime: segment.endTime,
+      }));
+    });
 
     return {
       day,
@@ -482,6 +599,12 @@ function getAbsenceEntriesForEmployeeAndDay(employeeId: number, dateStr: string)
   return getEntriesForEmployeeAndDay(employeeId, dateStr).filter(entry => entry.entryType !== 'WORK');
 }
 
+function getRequestsForEmployeeAndDay(employeeId: number, dateStr: string): ScheduleRequest[] {
+  return (weekSchedule.value?.requests || []).filter(request =>
+    request.employeeId === employeeId && request.date === dateStr
+  );
+}
+
 function getPrimaryEntryForEmployeeAndDay(employeeId: number, dateStr: string): ScheduleEntry | undefined {
   const entries = getEntriesForEmployeeAndDay(employeeId, dateStr);
   return entries.find(entry => entry.entryType === 'WORK') || entries[0];
@@ -529,6 +652,48 @@ function compactEntryTimeLabel(entry: ScheduleEntry): string {
   const end = entry.endTime?.substring(0, 5) || '';
   if (!start || !end) return '';
   return `${start}-${end}`;
+}
+
+function compactRequestTimeLabel(request: ScheduleRequest): string {
+  const start = request.startTime?.substring(0, 5) || '';
+  const end = request.endTime?.substring(0, 5) || '';
+  if (start && end) return `${start}-${end}`;
+  if (start) return start;
+  return '';
+}
+
+function requestTypeLabel(request: ScheduleRequest): string {
+  return request.requestType === 'APPOINTMENT' ? 'Termin' : 'Wunsch';
+}
+
+function requestTitle(request: ScheduleRequest): string {
+  const time = compactRequestTimeLabel(request);
+  const status = request.status === 'DONE' ? 'erledigt' : 'offen';
+  return `${requestTypeLabel(request)}${time ? ` ${time}` : ''}: ${request.text} (${status})`;
+}
+
+function truncateText(value?: string, maxLength = 28): string {
+  if (!value) return '';
+  return value.length > maxLength ? `${value.slice(0, maxLength - 1)}…` : value;
+}
+
+function segmentRouteLabel(entry: ScheduleEntry): string {
+  const segments = [...(entry.segments || [])].sort((a, b) =>
+    parseTime(a.startTime || '00:00') - parseTime(b.startTime || '00:00')
+  );
+  if (!segments.length) return '';
+
+  return segments.map((segment, index) => {
+    const groupName = segment.group?.name || `Gruppe ${segment.groupId}`;
+    const start = segment.startTime?.substring(0, 5) || '';
+    const end = segment.endTime?.substring(0, 5) || '';
+    if (index === 0) return `${start}-${end} ${groupName}`;
+    return `dann ${end} ${groupName}`;
+  }).join(' · ');
+}
+
+function compactEntryNote(entry: ScheduleEntry): string {
+  return truncateText(entry.notes || segmentRouteLabel(entry), 34);
 }
 
 async function handleCellGroupClick(date: Date, employee: Employee, groupId?: number) {
@@ -606,8 +771,19 @@ function getCellCoverageSegments(dateStr: string, groupId?: number) {
   if (!groupId) return [];
   const daySchedule = weekSchedule.value?.days?.find(day => day.date === dateStr);
   const entries = (daySchedule?.entries || []).filter(entry =>
-    entry.entryType === 'WORK' && entry.startTime && entry.endTime && entry.groupId === groupId
-  );
+    entry.entryType === 'WORK' && entry.startTime && entry.endTime
+  ).flatMap(entry => {
+    if (!entry.segments?.length) return entry.groupId === groupId ? [entry] : [];
+    return entry.segments
+      .filter(segment => segment.groupId === groupId)
+      .map(segment => ({
+        ...entry,
+        groupId: segment.groupId,
+        group: segment.group,
+        startTime: segment.startTime,
+        endTime: segment.endTime,
+      }));
+  });
   return buildCoverageSegments(entries, cellTimelineStart, cellTimelineEnd, timelineStep);
 }
 
@@ -636,7 +812,9 @@ function getHoursStatusClass(remaining: number): string {
     <!-- Header -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
       <div>
-        <h1 class="text-2xl font-bold text-stone-900">Dienstplan</h1>
+        <h1 class="text-2xl font-bold text-stone-900">
+          {{ isCompactView ? 'Dienstplan Kompakt' : 'Dienstplan' }}
+        </h1>
         <p class="text-stone-600">
           {{ formatDate(weekStart) }} - {{ formatDate(weekEnd) }}
         </p>
@@ -673,6 +851,16 @@ function getHoursStatusClass(remaining: number): string {
         >
           <BarChart3 class="w-4 h-4 mr-2" />
           Besetzung
+        </Button>
+
+        <Button
+          v-if="isCompactView"
+          variant="outline"
+          size="sm"
+          @click="openCreateRequestDialog(currentDate)"
+        >
+          <CalendarPlus class="w-4 h-4 mr-2" />
+          Wunsch
         </Button>
 
         <Button v-if="isAdmin" @click="openCreateDialog(new Date())">
@@ -724,7 +912,17 @@ function getHoursStatusClass(remaining: number): string {
             {{ day.dayNumber }}
           </div>
           <div v-if="day.specialDayName" :class="['text-xs truncate', getSpecialDayTextClass(day.specialDayType)]">
-            {{ day.specialDayName }}
+            <template v-if="!isCompactView">{{ day.specialDayName }}</template>
+            <span
+              v-else
+              class="mt-1 inline-flex max-w-full items-center rounded border border-current/20 bg-white/70 px-1.5 py-0.5 text-[11px]"
+              :title="day.specialDay?.notes || day.specialDayName"
+            >
+              {{ truncateText(day.specialDayName, 20) }}
+              <span v-if="day.specialDay?.notes" class="ml-1 text-stone-500">
+                · {{ truncateText(day.specialDay.notes, 18) }}
+              </span>
+            </span>
           </div>
         </div>
       </div>
@@ -783,6 +981,31 @@ function getHoursStatusClass(remaining: number): string {
                   @click.stop="openEditDialog(entry)"
                 >
                   <span
+                    v-if="isCompactView"
+                    class="flex min-w-0 flex-1 items-center gap-2 rounded border border-stone-200 bg-white px-2 py-1 shadow-sm"
+                  >
+                    <span
+                      class="h-8 w-1 shrink-0 rounded-full"
+                      :style="{ backgroundColor: entry.group?.color || employee.primaryGroup?.color || '#10B981' }"
+                    />
+                    <span class="min-w-0 flex-1">
+                      <span class="flex items-center gap-1.5">
+                        <span class="text-[12px] font-semibold tabular-nums text-stone-900">
+                          {{ compactEntryTimeLabel(entry) }}
+                        </span>
+                        <span class="truncate text-[11px] text-stone-500">
+                          {{ entry.group?.name || employee.primaryGroup?.name || 'Springer' }}
+                        </span>
+                      </span>
+                      <span v-if="compactEntryNote(entry)" class="mt-0.5 flex items-center gap-1 text-[11px] text-stone-600">
+                        <MessageSquare class="h-3 w-3 shrink-0" />
+                        <span class="truncate">{{ compactEntryNote(entry) }}</span>
+                      </span>
+                    </span>
+                  </span>
+
+                  <span
+                    v-else
                     :class="[
                       'relative block h-4 overflow-hidden rounded-full border border-stone-200 bg-stone-100',
                       showCellTimes ? 'min-w-0 flex-1' : 'w-full'
@@ -825,6 +1048,12 @@ function getHoursStatusClass(remaining: number): string {
                   </span>
                 </button>
               </div>
+              <div
+                v-else-if="isCompactView"
+                class="min-h-[34px] rounded border border-dashed border-stone-200 bg-white/60 px-2 py-1 text-[11px] text-stone-400"
+              >
+                kein Dienst
+              </div>
               <div v-else class="relative h-4 overflow-hidden rounded-full border border-dashed border-stone-200 bg-stone-50/80">
                 <span
                   v-for="tick in cellHourTicks"
@@ -857,6 +1086,27 @@ function getHoursStatusClass(remaining: number): string {
                   {{ getEntryTypeLabel(entry.entryType || '') }}
                 </button>
               </div>
+
+              <div v-if="isCompactView && getRequestsForEmployeeAndDay(employee.id!, day.dateStr).length" class="flex flex-wrap gap-1">
+                <button
+                  v-for="request in getRequestsForEmployeeAndDay(employee.id!, day.dateStr)"
+                  :key="request.id"
+                  type="button"
+                  :class="[
+                    'inline-flex max-w-full items-center gap-1 rounded border px-1.5 py-0.5 text-[11px] font-medium leading-none hover:bg-white',
+                    request.status === 'DONE'
+                      ? 'border-stone-200 bg-stone-100 text-stone-500 line-through'
+                      : 'border-sky-200 bg-sky-50 text-sky-700'
+                  ]"
+                  :title="requestTitle(request)"
+                  @click.stop="openEditRequestDialog(request)"
+                >
+                  <CalendarPlus class="h-3 w-3 shrink-0" />
+                  <span class="truncate">
+                    {{ compactRequestTimeLabel(request) ? `${compactRequestTimeLabel(request)} ` : '' }}{{ truncateText(request.text, 22) }}
+                  </span>
+                </button>
+              </div>
             </template>
           </div>
 
@@ -882,6 +1132,15 @@ function getHoursStatusClass(remaining: number): string {
             >
               <CalendarX class="h-3.5 w-3.5" />
             </button>
+            <button
+              v-if="isCompactView"
+              type="button"
+              class="rounded p-0.5 text-stone-500 hover:bg-stone-100 hover:text-stone-900 focus:outline-none focus:ring-2 focus:ring-stone-900"
+              title="Wunsch oder Termin eintragen"
+              @click.stop="openCreateRequestDialog(day.date, employee)"
+            >
+              <CalendarPlus class="h-3.5 w-3.5" />
+            </button>
           </div>
         </div>
       </div>
@@ -889,10 +1148,15 @@ function getHoursStatusClass(remaining: number): string {
 
     <!-- Weekly Hours Summary Table -->
     <div v-if="employeeWeeklyHours.length > 0" class="mt-6 bg-white rounded-lg border border-stone-200 overflow-hidden">
-      <div class="px-4 py-3 bg-stone-50 border-b border-stone-200">
+      <div class="flex items-center justify-between gap-3 px-4 py-3 bg-stone-50 border-b border-stone-200">
         <h2 class="text-sm font-semibold text-stone-900">Wochenstunden-Übersicht</h2>
+        <Button v-if="isCompactView" type="button" variant="ghost" size="sm" @click="showHoursSummary = !showHoursSummary">
+          <ChevronUp v-if="showHoursSummary" class="mr-1 h-4 w-4" />
+          <ChevronDown v-else class="mr-1 h-4 w-4" />
+          {{ showHoursSummary ? 'Ausblenden' : 'Einblenden' }}
+        </Button>
       </div>
-      <div class="overflow-x-auto">
+      <div v-if="showHoursSummary" class="overflow-x-auto">
         <table class="w-full text-sm">
           <thead>
             <tr class="border-b border-stone-200">
@@ -989,6 +1253,93 @@ function getHoursStatusClass(remaining: number): string {
       :groups="groups || []"
       @save="handleEmployeeSave"
     />
+
+    <Dialog
+      v-model:open="requestDialogOpen"
+      :title="selectedRequest ? 'Wunsch bearbeiten' : 'Wunsch oder Termin'"
+      description="Nicht stundenwirksam, dient als Hinweis für die Planung."
+    >
+      <form class="space-y-4" @submit.prevent="handleRequestSave">
+        <div class="grid grid-cols-2 gap-4">
+          <div class="space-y-2">
+            <Label for="request-date">Datum</Label>
+            <Input id="request-date" v-model="requestForm.date" type="date" required />
+          </div>
+          <div class="space-y-2">
+            <Label for="request-type">Typ</Label>
+            <select
+              id="request-type"
+              v-model="requestForm.requestType"
+              class="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+            >
+              <option value="WISH">Wunsch</option>
+              <option value="APPOINTMENT">Termin</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="space-y-2">
+          <Label for="request-employee">Mitarbeiter</Label>
+          <select
+            id="request-employee"
+            v-model="requestForm.employeeId"
+            :disabled="!isAdmin"
+            class="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          >
+            <option value="">Eigener Account</option>
+            <option v-for="employee in sortedActiveEmployees" :key="employee.id" :value="employee.id">
+              {{ employeeDisplayName(employee) }}
+            </option>
+          </select>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+          <div class="space-y-2">
+            <Label for="request-start">Von</Label>
+            <Input id="request-start" v-model="requestForm.startTime" type="time" />
+          </div>
+          <div class="space-y-2">
+            <Label for="request-end">Bis</Label>
+            <Input id="request-end" v-model="requestForm.endTime" type="time" />
+          </div>
+        </div>
+
+        <div class="space-y-2">
+          <Label for="request-text">Text</Label>
+          <Input id="request-text" v-model="requestForm.text" placeholder="z. B. Arzttermin oder Wunschdienst" required />
+        </div>
+
+        <div v-if="isAdmin && selectedRequest" class="space-y-2">
+          <Label for="request-status">Status</Label>
+          <select
+            id="request-status"
+            v-model="requestForm.status"
+            class="h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+          >
+            <option value="OPEN">Offen</option>
+            <option value="DONE">Erledigt</option>
+          </select>
+        </div>
+
+        <div class="flex justify-between gap-3 pt-2">
+          <Button
+            v-if="selectedRequest"
+            type="button"
+            variant="destructive"
+            @click="handleRequestDelete"
+          >
+            Löschen
+          </Button>
+          <div class="flex-1" />
+          <Button type="button" variant="outline" @click="requestDialogOpen = false">
+            Abbrechen
+          </Button>
+          <Button type="submit">
+            Speichern
+          </Button>
+        </div>
+      </form>
+    </Dialog>
 
     <Dialog
       v-model:open="staffingDialogOpen"

@@ -772,8 +772,8 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Get employee contracts
-         * @description Get all historical contracts for an employee
+         * List employee contracts
+         * @description Get all contracts for an employee
          */
         get: {
             parameters: {
@@ -846,12 +846,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            /** @description Employee contract data */
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["EmployeeContractRequest"];
-                };
-            };
+            requestBody: components["requestBodies"]["EmployeeContractRequest"];
             responses: {
                 /** @description Created employee contract */
                 201: {
@@ -922,17 +917,12 @@ export interface paths {
                 path: {
                     /** @description Employee ID */
                     id: number;
-                    /** @description Contract ID */
+                    /** @description Employee contract ID */
                     contractId: number;
                 };
                 cookie?: never;
             };
-            /** @description Employee contract data */
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["EmployeeContractRequest"];
-                };
-            };
+            requestBody: components["requestBodies"]["EmployeeContractRequest"];
             responses: {
                 /** @description Updated employee contract */
                 200: {
@@ -2000,6 +1990,294 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/schedule/requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List schedule requests
+         * @description Get non-working wish and appointment requests for a date range
+         */
+        get: {
+            parameters: {
+                query: {
+                    /** @description Start date (YYYY-MM-DD) */
+                    startDate: string;
+                    /** @description End date (YYYY-MM-DD) */
+                    endDate: string;
+                    /** @description Filter by employee ID */
+                    employeeId?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description List of schedule requests */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ScheduleRequest"][];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Create a schedule request
+         * @description Create a non-working wish or appointment request
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Schedule request data */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateScheduleRequestRequest"];
+                };
+            };
+            responses: {
+                /** @description Created schedule request */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ScheduleRequest"];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/schedule/requests/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update a schedule request
+         * @description Update a non-working wish or appointment request
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Schedule request ID */
+                    id: number;
+                };
+                cookie?: never;
+            };
+            /** @description Updated schedule request data */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateScheduleRequestRequest"];
+                };
+            };
+            responses: {
+                /** @description Updated schedule request */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ScheduleRequest"];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Schedule request not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        post?: never;
+        /**
+         * Delete a schedule request
+         * @description Delete a non-working wish or appointment request
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Schedule request ID */
+                    id: number;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Schedule request deleted */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Invalid schedule request ID */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Forbidden */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+                /** @description Schedule request not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": {
+                            [key: string]: unknown;
+                        };
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/schedule/time-suggestion": {
         parameters: {
             query?: never;
@@ -2020,14 +2298,14 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            /** @description Time suggestion input */
+            /** @description Time suggestion request */
             requestBody: {
                 content: {
                     "application/json": components["schemas"]["TimeSuggestionRequest"];
                 };
             };
             responses: {
-                /** @description Calculated time suggestion */
+                /** @description Time suggestion */
                 200: {
                     headers: {
                         [name: string]: unknown;
@@ -3251,6 +3529,7 @@ export interface components {
             notes?: string;
             /** @example false */
             overrideBlockedDay?: boolean;
+            segments?: components["schemas"]["ScheduleEntrySegmentRequest"][];
             /**
              * @example EARLY
              * @enum {string}
@@ -3258,6 +3537,23 @@ export interface components {
             shiftKind?: "EARLY" | "LATE" | "MANUAL";
             /** @example 08:00:00 */
             startTime?: string;
+        };
+        CreateScheduleRequestRequest: {
+            /** @example 2026-04-29 */
+            date: string;
+            /** @example 1 */
+            employeeId?: number;
+            /** @example 11:00:00 */
+            endTime?: string;
+            /**
+             * @example APPOINTMENT
+             * @enum {string}
+             */
+            requestType?: "WISH" | "APPOINTMENT";
+            /** @example 10:00:00 */
+            startTime?: string;
+            /** @example Arzttermin */
+            text: string;
         };
         CreateSpecialDayRequest: {
             /** @example true */
@@ -3323,6 +3619,7 @@ export interface components {
         Employee: {
             active?: boolean;
             createdAt?: string;
+            currentContract?: components["schemas"]["EmployeeContract"];
             email?: string;
             firstName?: string;
             id?: number;
@@ -3336,17 +3633,16 @@ export interface components {
             updatedAt?: string;
             vacationDaysPerYear?: number;
             weeklyHours?: number;
-            currentContract?: components["schemas"]["EmployeeContract"];
             workPattern?: components["schemas"]["EmployeeContractWorkday"][];
         };
         EmployeeContract: {
-            id?: number;
+            createdAt?: string;
             employeeId?: number;
+            id?: number;
+            updatedAt?: string;
             validFrom?: string;
             weeklyHours?: number;
             workdays?: components["schemas"]["EmployeeContractWorkday"][];
-            createdAt?: string;
-            updatedAt?: string;
         };
         EmployeeContractRequest: {
             /** @example 2026-05-01 */
@@ -3356,16 +3652,16 @@ export interface components {
             workdays: components["schemas"]["EmployeeContractWorkdayRequest"][];
         };
         EmployeeContractWorkday: {
-            id?: number;
             contractId?: number;
-            weekday?: number;
+            id?: number;
             plannedMinutes?: number;
+            weekday?: number;
         };
         EmployeeContractWorkdayRequest: {
-            /** @example 1 */
-            weekday: number;
             /** @example 420 */
             plannedMinutes: number;
+            /** @example 1 */
+            weekday: number;
         };
         EmployeeStatistics: {
             contractedHours?: number;
@@ -3470,30 +3766,45 @@ export interface components {
             groupId?: number;
             id?: number;
             notes?: string;
+            segments?: components["schemas"]["ScheduleEntrySegment"][];
             shiftKind?: string;
             startTime?: string;
             updatedAt?: string;
         };
-        TimeSuggestion: {
-            startTime?: string;
+        ScheduleEntrySegment: {
             endTime?: string;
-            breakMinutes?: number;
-            plannedMinutes?: number;
-            isBlocked?: boolean;
-            contractId?: number;
-        };
-        TimeSuggestionRequest: {
-            /** @example 1 */
-            employeeId: number;
-            /** @example 2026-05-04 */
-            date: string;
-            /**
-             * @example EARLY
-             * @enum {string}
-             */
-            shiftKind: "EARLY" | "LATE" | "MANUAL";
-            /** @example 07:00:00 */
+            group?: components["schemas"]["Group"];
+            groupId?: number;
+            id?: number;
+            notes?: string;
+            scheduleEntryId?: number;
+            sortOrder?: number;
             startTime?: string;
+        };
+        ScheduleEntrySegmentRequest: {
+            /** @example 12:00:00 */
+            endTime: string;
+            /** @example 1 */
+            groupId: number;
+            /** @example bis 12 Igel */
+            notes?: string;
+            /** @example 1 */
+            sortOrder?: number;
+            /** @example 08:00:00 */
+            startTime: string;
+        };
+        ScheduleRequest: {
+            createdAt?: string;
+            date?: string;
+            employee?: components["schemas"]["Employee"];
+            employeeId?: number;
+            endTime?: string;
+            id?: number;
+            requestType?: string;
+            startTime?: string;
+            status?: string;
+            text?: string;
+            updatedAt?: string;
         };
         SpecialDay: {
             affectsAll?: boolean;
@@ -3525,6 +3836,27 @@ export interface components {
             entries?: components["schemas"]["DayComparison"][];
             startDate?: string;
             summary?: components["schemas"]["ComparisonSummary"];
+        };
+        TimeSuggestion: {
+            breakMinutes?: number;
+            contractId?: number;
+            endTime?: string;
+            isBlocked?: boolean;
+            plannedMinutes?: number;
+            startTime?: string;
+        };
+        TimeSuggestionRequest: {
+            /** @example 2026-05-04 */
+            date: string;
+            /** @example 1 */
+            employeeId: number;
+            /**
+             * @example EARLY
+             * @enum {string}
+             */
+            shiftKind: "EARLY" | "LATE" | "MANUAL";
+            /** @example 07:00:00 */
+            startTime?: string;
         };
         UpdateEmployeeRequest: {
             /** @example true */
@@ -3571,6 +3903,7 @@ export interface components {
             notes?: string;
             /** @example false */
             overrideBlockedDay?: boolean;
+            segments?: components["schemas"]["ScheduleEntrySegmentRequest"][];
             /**
              * @example EARLY
              * @enum {string}
@@ -3578,6 +3911,26 @@ export interface components {
             shiftKind?: "EARLY" | "LATE" | "MANUAL";
             /** @example 08:00:00 */
             startTime?: string;
+        };
+        UpdateScheduleRequestRequest: {
+            /** @example 2026-04-29 */
+            date?: string;
+            /** @example 11:00:00 */
+            endTime?: string;
+            /**
+             * @example APPOINTMENT
+             * @enum {string}
+             */
+            requestType?: "WISH" | "APPOINTMENT";
+            /** @example 10:00:00 */
+            startTime?: string;
+            /**
+             * @example DONE
+             * @enum {string}
+             */
+            status?: "OPEN" | "DONE";
+            /** @example Arzttermin */
+            text?: string;
         };
         UpdateTimeEntryRequest: {
             /** @example 30 */
@@ -3598,6 +3951,7 @@ export interface components {
         };
         WeekSchedule: {
             days?: components["schemas"]["DaySchedule"][];
+            requests?: components["schemas"]["ScheduleRequest"][];
             specialDays?: components["schemas"]["SpecialDay"][];
             weekEnd?: string;
             weekStart?: string;
@@ -3614,6 +3968,12 @@ export interface components {
     responses: never;
     parameters: never;
     requestBodies: {
+        /** @description Employee contract data */
+        EmployeeContractRequest: {
+            content: {
+                "application/json": components["schemas"]["EmployeeContractRequest"];
+            };
+        };
         /** @description Special day data */
         CreateSpecialDayRequest: {
             content: {

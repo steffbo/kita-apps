@@ -5,6 +5,9 @@ import {
   type ScheduleEntry, 
   type CreateScheduleEntryRequest, 
   type UpdateScheduleEntryRequest,
+  type ScheduleRequest,
+  type CreateScheduleRequestRequest,
+  type UpdateScheduleRequestRequest,
   type TimeSuggestion,
   type TimeSuggestionRequest,
   type WeekSchedule 
@@ -17,6 +20,9 @@ export const scheduleKeys = {
   list: (params: { startDate: string; endDate: string; employeeId?: number; groupId?: number }) => 
     [...scheduleKeys.lists(), params] as const,
   week: (weekStart: string) => [...scheduleKeys.all, 'week', weekStart] as const,
+  requests: () => [...scheduleKeys.all, 'requests'] as const,
+  requestList: (params: { startDate: string; endDate: string; employeeId?: number }) =>
+    [...scheduleKeys.requests(), params] as const,
   details: () => [...scheduleKeys.all, 'detail'] as const,
   detail: (id: number) => [...scheduleKeys.details(), id] as const,
 };
@@ -89,6 +95,91 @@ export function useCreateScheduleEntry() {
       return data as ScheduleEntry;
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: scheduleKeys.all });
+    },
+  });
+}
+
+export function useScheduleRequests(params: {
+  startDate: Ref<Date> | Date;
+  endDate: Ref<Date> | Date;
+  employeeId?: Ref<number | undefined> | number;
+}) {
+  const queryParams = computed(() => ({
+    startDate: toISODateString(params.startDate instanceof Date ? params.startDate : params.startDate.value),
+    endDate: toISODateString(params.endDate instanceof Date ? params.endDate : params.endDate.value),
+    employeeId: typeof params.employeeId === 'number'
+      ? params.employeeId
+      : params.employeeId?.value,
+  }));
+
+  return useQuery({
+    queryKey: computed(() => scheduleKeys.requestList(queryParams.value)),
+    queryFn: async () => {
+      const { data, error } = await apiClient.GET('/schedule/requests', {
+        params: {
+          query: {
+            startDate: queryParams.value.startDate,
+            endDate: queryParams.value.endDate,
+            employeeId: queryParams.value.employeeId,
+          },
+        },
+      });
+      if (error) throw new Error((error as any)?.message || 'Fehler beim Laden der Wünsche');
+      return data as ScheduleRequest[];
+    },
+  });
+}
+
+export function useCreateScheduleRequest() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (request: CreateScheduleRequestRequest) => {
+      const { data, error } = await apiClient.POST('/schedule/requests', {
+        body: request,
+      });
+      if (error) throw new Error((error as any)?.message || 'Fehler beim Anlegen des Wunschs');
+      return data as ScheduleRequest;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: scheduleKeys.requests() });
+      queryClient.invalidateQueries({ queryKey: scheduleKeys.all });
+    },
+  });
+}
+
+export function useUpdateScheduleRequest() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({ id, data: requestData }: { id: number; data: UpdateScheduleRequestRequest }) => {
+      const { data, error } = await apiClient.PUT('/schedule/requests/{id}', {
+        params: { path: { id } },
+        body: requestData,
+      });
+      if (error) throw new Error((error as any)?.message || 'Fehler beim Aktualisieren des Wunschs');
+      return data as ScheduleRequest;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: scheduleKeys.requests() });
+      queryClient.invalidateQueries({ queryKey: scheduleKeys.all });
+    },
+  });
+}
+
+export function useDeleteScheduleRequest() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: number) => {
+      const { error } = await apiClient.DELETE('/schedule/requests/{id}', {
+        params: { path: { id } },
+      });
+      if (error) throw new Error((error as any)?.message || 'Fehler beim Löschen des Wunschs');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: scheduleKeys.requests() });
       queryClient.invalidateQueries({ queryKey: scheduleKeys.all });
     },
   });

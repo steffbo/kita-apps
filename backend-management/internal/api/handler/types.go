@@ -77,28 +77,57 @@ type GroupAssignmentResponse struct {
 
 // ScheduleEntryResponse represents a schedule entry.
 type ScheduleEntryResponse struct {
-	ID           int64             `json:"id"`
-	EmployeeID   int64             `json:"employeeId"`
-	Employee     *EmployeeResponse `json:"employee,omitempty"`
-	Date         string            `json:"date"`
-	StartTime    *string           `json:"startTime,omitempty"`
-	EndTime      *string           `json:"endTime,omitempty"`
-	BreakMinutes int               `json:"breakMinutes"`
-	GroupID      *int64            `json:"groupId,omitempty"`
-	Group        *GroupResponse    `json:"group,omitempty"`
-	EntryType    string            `json:"entryType"`
-	ShiftKind    string            `json:"shiftKind"`
-	Notes        *string           `json:"notes,omitempty"`
-	CreatedAt    time.Time         `json:"createdAt"`
-	UpdatedAt    time.Time         `json:"updatedAt"`
+	ID           int64                          `json:"id"`
+	EmployeeID   int64                          `json:"employeeId"`
+	Employee     *EmployeeResponse              `json:"employee,omitempty"`
+	Date         string                         `json:"date"`
+	StartTime    *string                        `json:"startTime,omitempty"`
+	EndTime      *string                        `json:"endTime,omitempty"`
+	BreakMinutes int                            `json:"breakMinutes"`
+	GroupID      *int64                         `json:"groupId,omitempty"`
+	Group        *GroupResponse                 `json:"group,omitempty"`
+	EntryType    string                         `json:"entryType"`
+	ShiftKind    string                         `json:"shiftKind"`
+	Notes        *string                        `json:"notes,omitempty"`
+	Segments     []ScheduleEntrySegmentResponse `json:"segments,omitempty"`
+	CreatedAt    time.Time                      `json:"createdAt"`
+	UpdatedAt    time.Time                      `json:"updatedAt"`
 } //@name ScheduleEntry
+
+// ScheduleEntrySegmentResponse represents a structured group assignment inside a shift.
+type ScheduleEntrySegmentResponse struct {
+	ID              int64          `json:"id"`
+	ScheduleEntryID int64          `json:"scheduleEntryId"`
+	GroupID         int64          `json:"groupId"`
+	Group           *GroupResponse `json:"group,omitempty"`
+	StartTime       string         `json:"startTime"`
+	EndTime         string         `json:"endTime"`
+	Notes           *string        `json:"notes,omitempty"`
+	SortOrder       int            `json:"sortOrder"`
+} //@name ScheduleEntrySegment
+
+// ScheduleRequestResponse represents a non-working schedule request.
+type ScheduleRequestResponse struct {
+	ID          int64             `json:"id"`
+	EmployeeID  int64             `json:"employeeId"`
+	Employee    *EmployeeResponse `json:"employee,omitempty"`
+	Date        string            `json:"date"`
+	StartTime   *string           `json:"startTime,omitempty"`
+	EndTime     *string           `json:"endTime,omitempty"`
+	RequestType string            `json:"requestType"`
+	Text        string            `json:"text"`
+	Status      string            `json:"status"`
+	CreatedAt   time.Time         `json:"createdAt"`
+	UpdatedAt   time.Time         `json:"updatedAt"`
+} //@name ScheduleRequest
 
 // WeekScheduleResponse represents the week schedule.
 type WeekScheduleResponse struct {
-	WeekStart   string                `json:"weekStart"`
-	WeekEnd     string                `json:"weekEnd"`
-	Days        []DayScheduleResponse `json:"days"`
-	SpecialDays []SpecialDayResponse  `json:"specialDays,omitempty"`
+	WeekStart   string                    `json:"weekStart"`
+	WeekEnd     string                    `json:"weekEnd"`
+	Days        []DayScheduleResponse     `json:"days"`
+	SpecialDays []SpecialDayResponse      `json:"specialDays,omitempty"`
+	Requests    []ScheduleRequestResponse `json:"requests,omitempty"`
 } //@name WeekSchedule
 
 // DayScheduleResponse represents a day's schedule.
@@ -363,6 +392,67 @@ func mapScheduleEntryResponse(entry domain.ScheduleEntry) ScheduleEntryResponse 
 	}
 	if entry.Group != nil {
 		response.Group = mapGroupResponse(*entry.Group)
+	}
+	if len(entry.Segments) > 0 {
+		response.Segments = make([]ScheduleEntrySegmentResponse, 0, len(entry.Segments))
+		for _, segment := range entry.Segments {
+			response.Segments = append(response.Segments, mapScheduleEntrySegmentResponse(segment))
+		}
+	}
+	return response
+}
+
+func mapScheduleEntrySegmentResponse(segment domain.ScheduleEntrySegment) ScheduleEntrySegmentResponse {
+	response := ScheduleEntrySegmentResponse{
+		ID:              segment.ID,
+		ScheduleEntryID: segment.ScheduleEntryID,
+		GroupID:         segment.GroupID,
+		StartTime:       segment.StartTime.Format(timeLayoutSecs),
+		EndTime:         segment.EndTime.Format(timeLayoutSecs),
+		Notes:           segment.Notes,
+		SortOrder:       segment.SortOrder,
+	}
+	if segment.Group != nil {
+		response.Group = mapGroupResponse(*segment.Group)
+	}
+	return response
+}
+
+func mapScheduleRequestResponse(request domain.ScheduleRequest) ScheduleRequestResponse {
+	response := ScheduleRequestResponse{
+		ID:          request.ID,
+		EmployeeID:  request.EmployeeID,
+		Date:        request.Date.Format(dateLayout),
+		RequestType: string(request.RequestType),
+		Text:        request.Text,
+		Status:      string(request.Status),
+		CreatedAt:   request.CreatedAt,
+		UpdatedAt:   request.UpdatedAt,
+	}
+	if request.StartTime != nil {
+		formatted := request.StartTime.Format(timeLayoutSecs)
+		response.StartTime = &formatted
+	}
+	if request.EndTime != nil {
+		formatted := request.EndTime.Format(timeLayoutSecs)
+		response.EndTime = &formatted
+	}
+	if request.Employee != nil {
+		response.Employee = &EmployeeResponse{
+			ID:                    request.Employee.ID,
+			Email:                 request.Employee.Email,
+			FirstName:             request.Employee.FirstName,
+			LastName:              request.Employee.LastName,
+			Nickname:              request.Employee.Nickname,
+			Role:                  string(request.Employee.Role),
+			WeeklyHours:           request.Employee.WeeklyHours,
+			VacationDaysPerYear:   request.Employee.VacationDaysPerYear,
+			RemainingVacationDays: request.Employee.RemainingVacationDays,
+			OvertimeBalance:       request.Employee.OvertimeBalance,
+			Active:                request.Employee.Active,
+			CreatedAt:             request.Employee.CreatedAt,
+			UpdatedAt:             request.Employee.UpdatedAt,
+		}
 	}
 	return response
 }

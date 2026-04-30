@@ -27,10 +27,14 @@ export {
   useSchedule, 
   useWeekSchedule,
   useScheduleTimeSuggestion,
+  useScheduleRequests,
   useCreateScheduleEntry, 
+  useCreateScheduleRequest,
   useBulkCreateScheduleEntries,
   useUpdateScheduleEntry, 
+  useUpdateScheduleRequest,
   useDeleteScheduleEntry,
+  useDeleteScheduleRequest,
   scheduleKeys 
 } from './useSchedule';
 export { 

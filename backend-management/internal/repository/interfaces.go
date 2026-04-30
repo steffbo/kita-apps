@@ -55,6 +55,11 @@ type ScheduleRepository interface {
 	Create(ctx context.Context, entry *domain.ScheduleEntry) error
 	Update(ctx context.Context, entry *domain.ScheduleEntry) (*domain.ScheduleEntry, error)
 	Delete(ctx context.Context, id int64) error
+	ListRequests(ctx context.Context, startDate, endDate time.Time, employeeID *int64) ([]domain.ScheduleRequest, error)
+	GetRequestByID(ctx context.Context, id int64) (*domain.ScheduleRequest, error)
+	CreateRequest(ctx context.Context, request *domain.ScheduleRequest) error
+	UpdateRequest(ctx context.Context, request *domain.ScheduleRequest) (*domain.ScheduleRequest, error)
+	DeleteRequest(ctx context.Context, id int64) error
 }
 
 // TimeEntryRepository handles time entry persistence.

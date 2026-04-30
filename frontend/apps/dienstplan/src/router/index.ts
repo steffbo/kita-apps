@@ -39,6 +39,12 @@ const router = createRouter({
           props: { variant: 'times' },
         },
         {
+          path: 'kompakt',
+          name: 'schedule-compact',
+          component: () => import('@/pages/SchedulePage.vue'),
+          props: { variant: 'compact' },
+        },
+        {
           path: 'employees',
           name: 'employees',
           component: () => import('@/pages/EmployeesPage.vue'),

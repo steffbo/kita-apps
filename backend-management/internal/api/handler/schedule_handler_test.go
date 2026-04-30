@@ -250,6 +250,95 @@ func TestScheduleHandler_Create_BlockedDayRequiresOverride(t *testing.T) {
 	testutil.AssertStatus(t, resp, http.StatusCreated)
 }
 
+func TestScheduleHandler_Create_WithSegments(t *testing.T) {
+	server := setupHandlerTest(t)
+	defer server.Close()
+
+	admin, err := testutil.NewEmployeeBuilder().
+		WithEmail("admin@example.com").
+		AsAdmin().
+		Create(suite.Ctx, suite.Container.DB)
+	require.NoError(t, err)
+
+	employee, err := testutil.NewEmployeeBuilder().
+		WithEmail("employee@example.com").
+		Create(suite.Ctx, suite.Container.DB)
+	require.NoError(t, err)
+
+	igel, err := testutil.NewGroupBuilder().
+		WithName("Igel").
+		Create(suite.Ctx, suite.Container.DB)
+	require.NoError(t, err)
+	schnecken, err := testutil.NewGroupBuilder().
+		WithName("Schnecken").
+		Create(suite.Ctx, suite.Container.DB)
+	require.NoError(t, err)
+
+	date := currentMonthWeekday(time.Monday)
+	resp, err := server.Do(server.AuthenticatedRequest(t, "POST", "/api/schedule", map[string]interface{}{
+		"employeeId":   employee.ID,
+		"date":         date.Format("2006-01-02"),
+		"startTime":    "07:30",
+		"endTime":      "15:00",
+		"breakMinutes": 30,
+		"groupId":      igel.ID,
+		"entryType":    "WORK",
+		"segments": []map[string]interface{}{
+			{"groupId": igel.ID, "startTime": "07:30", "endTime": "12:00", "sortOrder": 1},
+			{"groupId": schnecken.ID, "startTime": "12:00", "endTime": "15:00", "notes": "nach Mittag", "sortOrder": 2},
+		},
+	}, admin))
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	testutil.AssertStatus(t, resp, http.StatusCreated)
+
+	var result struct {
+		Segments []struct {
+			GroupID int64  `json:"groupId"`
+			Notes   string `json:"notes"`
+		} `json:"segments"`
+	}
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&result))
+	require.Len(t, result.Segments, 2)
+	assert.Equal(t, schnecken.ID, result.Segments[1].GroupID)
+	assert.Equal(t, "nach Mittag", result.Segments[1].Notes)
+}
+
+func TestScheduleHandler_Create_RejectsInvalidSegments(t *testing.T) {
+	server := setupHandlerTest(t)
+	defer server.Close()
+
+	admin, err := testutil.NewEmployeeBuilder().
+		WithEmail("admin@example.com").
+		AsAdmin().
+		Create(suite.Ctx, suite.Container.DB)
+	require.NoError(t, err)
+	employee, err := testutil.NewEmployeeBuilder().
+		WithEmail("employee@example.com").
+		Create(suite.Ctx, suite.Container.DB)
+	require.NoError(t, err)
+	group, err := testutil.NewGroupBuilder().
+		WithName("Igel").
+		Create(suite.Ctx, suite.Container.DB)
+	require.NoError(t, err)
+
+	resp, err := server.Do(server.AuthenticatedRequest(t, "POST", "/api/schedule", map[string]interface{}{
+		"employeeId":   employee.ID,
+		"date":         currentMonthWeekday(time.Monday).Format("2006-01-02"),
+		"startTime":    "08:00",
+		"endTime":      "14:00",
+		"breakMinutes": 0,
+		"groupId":      group.ID,
+		"entryType":    "WORK",
+		"segments": []map[string]interface{}{
+			{"groupId": group.ID, "startTime": "07:30", "endTime": "12:00"},
+		},
+	}, admin))
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	testutil.AssertStatus(t, resp, http.StatusBadRequest)
+}
+
 func TestScheduleHandler_BulkCreate_Success(t *testing.T) {
 	server := setupHandlerTest(t)
 	defer server.Close()
@@ -401,6 +490,62 @@ func TestScheduleHandler_Week_Success(t *testing.T) {
 	require.NoError(t, err)
 	defer resp.Body.Close()
 
+	testutil.AssertStatus(t, resp, http.StatusOK)
+}
+
+func TestScheduleHandler_Requests_PermissionsAndStatus(t *testing.T) {
+	server := setupHandlerTest(t)
+	defer server.Close()
+
+	admin, err := testutil.NewEmployeeBuilder().
+		WithEmail("admin@example.com").
+		AsAdmin().
+		Create(suite.Ctx, suite.Container.DB)
+	require.NoError(t, err)
+	employee, err := testutil.NewEmployeeBuilder().
+		WithEmail("employee@example.com").
+		Create(suite.Ctx, suite.Container.DB)
+	require.NoError(t, err)
+	other, err := testutil.NewEmployeeBuilder().
+		WithEmail("other@example.com").
+		Create(suite.Ctx, suite.Container.DB)
+	require.NoError(t, err)
+
+	date := currentMonthWeekday(time.Tuesday).Format("2006-01-02")
+	resp, err := server.Do(server.AuthenticatedRequest(t, "POST", "/api/schedule/requests", map[string]interface{}{
+		"date":        date,
+		"startTime":   "10:00",
+		"endTime":     "11:00",
+		"requestType": "APPOINTMENT",
+		"text":        "Arzttermin",
+	}, employee))
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	testutil.AssertStatus(t, resp, http.StatusCreated)
+
+	var created struct {
+		ID         int64  `json:"id"`
+		EmployeeID int64  `json:"employeeId"`
+		Status     string `json:"status"`
+	}
+	require.NoError(t, json.NewDecoder(resp.Body).Decode(&created))
+	assert.Equal(t, employee.ID, created.EmployeeID)
+	assert.Equal(t, "OPEN", created.Status)
+
+	resp, err = server.Do(server.AuthenticatedRequest(t, "POST", "/api/schedule/requests", map[string]interface{}{
+		"employeeId": other.ID,
+		"date":       date,
+		"text":       "für jemand anders",
+	}, employee))
+	require.NoError(t, err)
+	resp.Body.Close()
+	testutil.AssertStatus(t, resp, http.StatusForbidden)
+
+	resp, err = server.Do(server.AuthenticatedRequest(t, "PUT", "/api/schedule/requests/"+strconv.FormatInt(created.ID, 10), map[string]interface{}{
+		"status": "DONE",
+	}, admin))
+	require.NoError(t, err)
+	defer resp.Body.Close()
 	testutil.AssertStatus(t, resp, http.StatusOK)
 }
 
