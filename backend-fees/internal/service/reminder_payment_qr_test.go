@@ -59,6 +59,22 @@ func TestBuildSEPAReference_IncludesPurposeFamilyAndMemberNumbers(t *testing.T) 
 	}
 }
 
+func TestBuildSEPAReference_OmitsMonthForMembershipFee(t *testing.T) {
+	runDate := time.Date(2026, time.May, 5, 0, 0, 0, 0, time.UTC)
+	items := []reminderItem{
+		{FeeType: domain.FeeTypeMembership, MemberNumber: "11038"},
+	}
+
+	reference := buildSEPAReference(runDate, "Wrana", items)
+
+	if reference != "Vereinsbeitrag 2026 Wrana 11038" {
+		t.Fatalf("unexpected membership reference: %s", reference)
+	}
+	if strings.Contains(reference, "Mai") {
+		t.Fatalf("did not expect month in membership reference, got: %s", reference)
+	}
+}
+
 func TestBuildReminderQRCode_UsesLegacyDefaultsWhenSettingsMissing(t *testing.T) {
 	service := &ReminderService{}
 	runDate := time.Date(2026, time.April, 5, 0, 0, 0, 0, time.UTC)

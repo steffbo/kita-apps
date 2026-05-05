@@ -215,17 +215,24 @@ func buildSEPAPayload(settings ReminderPaymentSettings, amount float64, referenc
 
 func buildSEPAReference(runDate time.Time, householdName string, items []reminderItem) string {
 	purpose := reminderReferencePurpose(items)
-	monthYear := fmt.Sprintf("%s %d", germanMonthName(int(runDate.Month())), runDate.Year())
+	period := reminderReferencePeriod(runDate, purpose)
 	family := sanitizeSEPAText(householdName)
 	memberNumbers := uniqueMemberNumbers(items)
 
-	parts := []string{purpose, monthYear, family}
+	parts := []string{purpose, period, family}
 	if len(memberNumbers) > 0 {
 		parts = append(parts, strings.Join(memberNumbers, "+"))
 	}
 
 	reference := sanitizeSEPAText(strings.Join(parts, " "))
 	return truncateRunes(reference, maxSEPAReferenceLengthInRunes)
+}
+
+func reminderReferencePeriod(runDate time.Time, purpose string) string {
+	if purpose == "Vereinsbeitrag" {
+		return fmt.Sprintf("%d", runDate.Year())
+	}
+	return fmt.Sprintf("%s %d", germanMonthName(int(runDate.Month())), runDate.Year())
 }
 
 func reminderReferencePurpose(items []reminderItem) string {
