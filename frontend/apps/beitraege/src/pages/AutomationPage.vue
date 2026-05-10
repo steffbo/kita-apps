@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { api } from '@/api';
 import type { BankingSyncStatus, ReminderRunResponse, EmailLog } from '@/api/types';
-import { Loader2, RefreshCw, Square } from 'lucide-vue-next';
+import { Eye, Loader2, RefreshCw, Square, X } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/auth';
 
 const authStore = useAuthStore();
@@ -65,6 +65,7 @@ const emailLogsOffset = ref(0);
 const emailLogsLimit = 20;
 const isEmailLogsLoading = ref(false);
 const emailLogsError = ref<string | null>(null);
+const selectedEmailLog = ref<EmailLog | null>(null);
 
 // Banking Sync Functions
 function clearBankingSyncPolling(): void {
@@ -388,6 +389,14 @@ function formatEmailType(type: string): string {
 
 function formatDateTime(date: string): string {
   return new Date(date).toLocaleString('de-DE');
+}
+
+function openEmailLogModal(log: EmailLog): void {
+  selectedEmailLog.value = log;
+}
+
+function closeEmailLogModal(): void {
+  selectedEmailLog.value = null;
 }
 
 // Lifecycle
@@ -845,27 +854,31 @@ watch(
       </div>
 
       <div v-else class="overflow-x-auto">
-        <table class="w-full text-sm">
+        <table class="w-full table-fixed text-sm">
           <thead>
             <tr class="text-left text-gray-500 border-b">
-              <th class="pb-3 font-medium">Zeitpunkt</th>
-              <th class="pb-3 font-medium">Typ</th>
+              <th class="w-36 pb-3 font-medium">Zeitpunkt</th>
+              <th class="w-44 pb-3 font-medium">Typ</th>
               <th class="pb-3 font-medium">Empfänger</th>
               <th class="pb-3 font-medium">Betreff</th>
-              <th class="pb-3 font-medium">Inhalt</th>
+              <th class="w-32 pb-3 font-medium">Inhalt</th>
             </tr>
           </thead>
           <tbody>
             <tr v-for="log in emailLogs" :key="log.id" class="border-b last:border-0 align-top">
               <td class="py-3 whitespace-nowrap">{{ formatDateTime(log.sentAt) }}</td>
               <td class="py-3 whitespace-nowrap">{{ formatEmailType(log.emailType) }}</td>
-              <td class="py-3 whitespace-nowrap">{{ log.toEmail }}</td>
-              <td class="py-3">{{ log.subject }}</td>
+              <td class="py-3 pr-4 truncate" :title="log.toEmail">{{ log.toEmail }}</td>
+              <td class="py-3 pr-4 truncate" :title="log.subject">{{ log.subject }}</td>
               <td class="py-3">
-                <details class="text-sm">
-                  <summary class="cursor-pointer text-primary">Anzeigen</summary>
-                  <pre class="mt-2 whitespace-pre-wrap text-gray-700 bg-gray-50 border rounded-lg p-3">{{ log.body || '-' }}</pre>
-                </details>
+                <button
+                  type="button"
+                  class="inline-flex items-center gap-1.5 text-primary hover:underline"
+                  @click="openEmailLogModal(log)"
+                >
+                  <Eye class="h-4 w-4" />
+                  Anzeigen
+                </button>
               </td>
             </tr>
           </tbody>
@@ -884,6 +897,63 @@ watch(
         >
           Mehr laden
         </button>
+      </div>
+    </div>
+
+    <!-- Email Log Modal -->
+    <div
+      v-if="selectedEmailLog"
+      class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+      @click.self="closeEmailLogModal"
+    >
+      <div class="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
+        <div class="flex items-start justify-between gap-4 p-5 border-b">
+          <div class="min-w-0">
+            <h3 class="text-lg font-semibold text-gray-900">Gesendete E-Mail</h3>
+            <p class="text-sm text-gray-500 truncate">{{ selectedEmailLog.subject }}</p>
+          </div>
+          <button
+            type="button"
+            class="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-900"
+            aria-label="Modal schließen"
+            @click="closeEmailLogModal"
+          >
+            <X class="h-5 w-5" />
+          </button>
+        </div>
+
+        <div class="overflow-y-auto p-5">
+          <dl class="grid gap-4 text-sm sm:grid-cols-2">
+            <div>
+              <dt class="font-medium text-gray-500">Zeitpunkt</dt>
+              <dd class="mt-1 text-gray-900">{{ formatDateTime(selectedEmailLog.sentAt) }}</dd>
+            </div>
+            <div>
+              <dt class="font-medium text-gray-500">Typ</dt>
+              <dd class="mt-1 text-gray-900">{{ formatEmailType(selectedEmailLog.emailType) }}</dd>
+            </div>
+            <div class="sm:col-span-2">
+              <dt class="font-medium text-gray-500">Empfänger</dt>
+              <dd class="mt-1 break-all text-gray-900">{{ selectedEmailLog.toEmail }}</dd>
+            </div>
+            <div class="sm:col-span-2">
+              <dt class="font-medium text-gray-500">Betreff</dt>
+              <dd class="mt-1 text-gray-900">{{ selectedEmailLog.subject }}</dd>
+            </div>
+          </dl>
+
+          <pre class="mt-5 max-h-[55vh] overflow-auto whitespace-pre-wrap rounded-lg border bg-gray-50 p-4 text-sm leading-6 text-gray-700">{{ selectedEmailLog.body || '-' }}</pre>
+        </div>
+
+        <div class="flex justify-end p-5 border-t">
+          <button
+            type="button"
+            class="px-4 py-2 rounded-lg border text-sm font-medium hover:bg-gray-50"
+            @click="closeEmailLogModal"
+          >
+            Schließen
+          </button>
+        </div>
       </div>
     </div>
   </div>
