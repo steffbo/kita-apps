@@ -12,6 +12,7 @@
 | Erstes Modul | Elternstunden |
 | Review-Status | Phase 0 reviewed und als Launch-Schnitt eingefroren am 2026-05-25 |
 | August-MVP-Schnitt | freigegeben: Portal-Shell, Identity/Onboarding, Elternstunden, read-only Stammdaten-Sync, Mail, Audit, Staging/VPS/Backup |
+| Datenmodell | `PORTAL_DATA_MODEL.md` |
 
 ## Phase 0 Review Decision
 
@@ -20,6 +21,7 @@ Stand 2026-05-25 ist diese Spec fuer die Umsetzung reviewed und als verbindliche
 Phase-0-Ergebnis:
 
 - Spec ist reviewed und dient als Handoff-Vertrag fuer Architektur, Produktumfang und Launch Readiness.
+- Datenmodell-Skizze liegt in `PORTAL_DATA_MODEL.md` und beschreibt Identity/Session-Tabellen, Stammdaten-Snapshots, Parent-Work-Tabellen und Audit-Grenzen.
 - Modulgrenzen sind bestaetigt: `parent_work` ist das einzige neue fachliche MVP-Modul; Identity, Admin, Sync, Mail-Outbox und Audit sind Portal-Foundation-Faehigkeiten; `fees`, `schedule`, `time_tracking` und vollstaendige `master_data`-Pflege bleiben ausserhalb des August-MVP.
 - August-Scope ist freigegeben: Eltern koennen onboarden, einloggen, eigene Kinder sehen und Elternstunden einreichen; Team/Leitung koennen pruefen, korrigieren, auswerten und erinnern; Betrieb laeuft nach Homelab-Test auf dem Hetzner VPS.
 - Provider-/Datenschutzentscheidungen sind fuer den Launch-Schnitt geklaert: Hetzner VPS fuer Produktivbetrieb, Resend fuer Portal-Mails ueber `portal.knirpsenstadt.de`, bestehendes Hetzner-Mailhosting fuer `@knirpsenstadt.de` bleibt unberuehrt. Datenschutzhinweis, Anbieterpruefung/AVV und Konto-Zuordnung zum Verein bleiben Launch-Readiness-Aufgaben vor Eltern-Rollout, aber keine offenen Architekturfragen.
@@ -417,7 +419,7 @@ Status: abgeschlossen am 2026-05-25.
 Deliverables:
 
 - Spec reviewed und in diesem Dokument als Phase-0-Entscheidung markiert.
-- Datenmodell-Schnitt bestaetigt: `portal`-Schema mit Identity, read-only Sync-Snapshots, Parent-Work, Outbox und Audit ist der Startpunkt.
+- Datenmodell-Schnitt bestaetigt und in `PORTAL_DATA_MODEL.md` skizziert: `portal`-Schema mit Identity, read-only Sync-Snapshots, Parent-Work, Outbox und Audit ist der Startpunkt.
 - Modulgrenzen bestaetigt: August-MVP ist Portal-Foundation plus `parent_work`; Alt-Apps bleiben ausserhalb des Launch-Schnitts.
 - Launch-Schnitt bestaetigt: Homelab-Staging, Vorstand-Demo, dann Hetzner-VPS-Produktion fuer `portal.knirpsenstadt.de`.
 - Datenschutz-/Providerpunkte fuer Architektur geklaert: Hetzner VPS, Resend-Subdomain-Versand und bestehendes Mailhosting koexistieren; Datenschutztext, AVV/Anbieterpruefung und Vereinskonto-Zuordnung bleiben Pflicht vor Eltern-Rollout.

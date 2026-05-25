@@ -43,6 +43,7 @@ This is mandatory:
 - `docker/`: compose files and Docker definitions
 - `scripts/`: helper scripts
 - `PORTAL_SPEC.md`: portal product, architecture, delivery, and launch scope spec
+- `PORTAL_DATA_MODEL.md`: Phase 0 portal data model sketch for identity/session tables, read-only synced master-data snapshots, parent-work tables, and audit boundaries
 
 ## Backend Services
 
@@ -69,6 +70,7 @@ Primary areas:
 
 Current state:
 - Phase 0 spec/architecture review is complete as of 2026-05-25. `PORTAL_SPEC.md` is marked reviewed and frozen for the August 2026 MVP: portal foundation plus `parent_work`, with legacy `fees`, `schedule`, and `time_tracking` apps outside the launch cut.
+- Phase 0 data model sketch exists in `PORTAL_DATA_MODEL.md` and documents table boundaries for `portal.users`, `portal.user_roles`, `portal.refresh_tokens`, `portal.synced_*`, `portal.parent_work_*`, sync quarantine, and generic audit events.
 - Initial schema exists in `migrations/000001_initial_schema.up.sql`.
 - Schema includes portal users, roles, invitations, password resets, refresh tokens, synced households/parents/children, sync runs, sync quarantine, parent-work requirements, parent-work entries, email outbox, and audit events.
 - Portal auth login foundation is implemented:
