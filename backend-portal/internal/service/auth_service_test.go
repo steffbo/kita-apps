@@ -66,6 +66,57 @@ func TestAuthServiceRefreshRotatesStoredToken(t *testing.T) {
 	require.Len(t, refreshTokens.tokens, 2)
 }
 
+func TestAuthServiceRefreshRejectsReusedToken(t *testing.T) {
+	passwordHash, err := auth.HashPassword("Secret123!")
+	require.NoError(t, err)
+
+	user := testUser(passwordHash, domain.UserStatusActive)
+	users := &fakeUserStore{byEmail: map[string]*domain.User{user.Email: user}, byID: map[uuid.UUID]*domain.User{user.ID: user}}
+	refreshTokens := newFakeRefreshTokenStore()
+	service := NewAuthService(users, refreshTokens, auth.NewJWTService("test-secret", time.Minute, time.Hour, "test-portal"))
+
+	loginResult, err := service.Login(context.Background(), user.Email, "Secret123!")
+	require.NoError(t, err)
+
+	_, err = service.Refresh(context.Background(), loginResult.RefreshToken)
+	require.NoError(t, err)
+
+	reusedResult, err := service.Refresh(context.Background(), loginResult.RefreshToken)
+
+	require.ErrorIs(t, err, ErrUnauthorized)
+	require.Nil(t, reusedResult)
+	require.Len(t, refreshTokens.tokens, 2)
+}
+
+func TestAuthServiceLogoutAllRevokesUserTokens(t *testing.T) {
+	passwordHash, err := auth.HashPassword("Secret123!")
+	require.NoError(t, err)
+
+	user := testUser(passwordHash, domain.UserStatusActive)
+	otherUser := testUser(passwordHash, domain.UserStatusActive)
+	otherUser.Email = "other@example.test"
+	users := &fakeUserStore{
+		byEmail: map[string]*domain.User{user.Email: user, otherUser.Email: otherUser},
+		byID:    map[uuid.UUID]*domain.User{user.ID: user, otherUser.ID: otherUser},
+	}
+	refreshTokens := newFakeRefreshTokenStore()
+	service := NewAuthService(users, refreshTokens, auth.NewJWTService("test-secret", time.Minute, time.Hour, "test-portal"))
+
+	firstResult, err := service.Login(context.Background(), user.Email, "Secret123!")
+	require.NoError(t, err)
+	secondResult, err := service.Login(context.Background(), user.Email, "Secret123!")
+	require.NoError(t, err)
+	otherResult, err := service.Login(context.Background(), otherUser.Email, "Secret123!")
+	require.NoError(t, err)
+
+	err = service.LogoutAll(context.Background(), user.ID)
+
+	require.NoError(t, err)
+	require.True(t, refreshTokens.revoked[auth.TokenHash(firstResult.RefreshToken)])
+	require.True(t, refreshTokens.revoked[auth.TokenHash(secondResult.RefreshToken)])
+	require.False(t, refreshTokens.revoked[auth.TokenHash(otherResult.RefreshToken)])
+}
+
 func testUser(passwordHash string, status domain.UserStatus) *domain.User {
 	return &domain.User{
 		ID:           uuid.New(),
@@ -116,16 +167,15 @@ func (s *fakeRefreshTokenStore) Create(_ context.Context, userID uuid.UUID, toke
 	return nil
 }
 
-func (s *fakeRefreshTokenStore) GetActiveByHash(_ context.Context, tokenHash string) (*repository.RefreshToken, error) {
-	if s.revoked[tokenHash] {
+func (s *fakeRefreshTokenStore) RevokeActiveByHash(_ context.Context, tokenHash string) (*repository.RefreshToken, error) {
+	token := s.tokens[tokenHash]
+	if token == nil || s.revoked[tokenHash] || !token.ExpiresAt.After(time.Now()) {
 		return nil, nil
 	}
-	return s.tokens[tokenHash], nil
-}
-
-func (s *fakeRefreshTokenStore) RevokeByHash(_ context.Context, tokenHash string) error {
 	s.revoked[tokenHash] = true
-	return nil
+	now := time.Now()
+	token.RevokedAt = &now
+	return token, nil
 }
 
 func (s *fakeRefreshTokenStore) RevokeAllForUser(_ context.Context, userID uuid.UUID) error {

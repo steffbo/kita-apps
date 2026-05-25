@@ -72,6 +72,7 @@ Current state:
 - Phase 0 spec/architecture review is complete as of 2026-05-25. `PORTAL_SPEC.md` is marked reviewed and frozen for the August 2026 MVP: portal foundation plus `parent_work`, with legacy `fees`, `schedule`, and `time_tracking` apps outside the launch cut.
 - Phase 0 data model sketch exists in `PORTAL_DATA_MODEL.md` and documents table boundaries for `portal.users`, `portal.user_roles`, `portal.refresh_tokens`, `portal.synced_*`, `portal.parent_work_*`, sync quarantine, and generic audit events.
 - Initial schema exists in `migrations/000001_initial_schema.up.sql`.
+- Portal migration metadata is stored in `public.portal_schema_migrations`, not in the `portal` schema, so rollback can drop `portal` without deleting the migrate bookkeeping table first.
 - Schema includes portal users, roles, invitations, password resets, refresh tokens, synced households/parents/children, sync runs, sync quarantine, parent-work requirements, parent-work entries, email outbox, and audit events.
 - Portal auth login foundation is implemented:
   - `POST /api/portal/v1/auth/login`
@@ -79,6 +80,7 @@ Current state:
   - `GET /api/portal/v1/auth/me`
   - `POST /api/portal/v1/auth/logout`
 - Auth uses bcrypt password hashes, JWT access/refresh tokens, persisted hashed refresh tokens in `portal.refresh_tokens`, and active `portal.users` with roles from `portal.user_roles`.
+- Refresh-token rotation atomically revokes the consumed active refresh token before minting a replacement; logout revokes all active refresh-token sessions for the authenticated user.
 - Optional bootstrap admin creation is available through `PORTAL_BOOTSTRAP_ADMIN_EMAIL` and `PORTAL_BOOTSTRAP_ADMIN_PASSWORD`; it upserts an active `ADMIN` user on server startup when both values are set. Do not configure a default password in committed files.
 - Parent-work required-hours rule is implemented and tested in `internal/service/parent_work_rules.go`.
 - Invite, onboarding, password-reset, sync, and parent-work API endpoints are not implemented yet.

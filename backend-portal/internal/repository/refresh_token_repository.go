@@ -34,14 +34,15 @@ func (r *RefreshTokenRepository) Create(ctx context.Context, userID uuid.UUID, t
 	return err
 }
 
-func (r *RefreshTokenRepository) GetActiveByHash(ctx context.Context, tokenHash string) (*RefreshToken, error) {
+func (r *RefreshTokenRepository) RevokeActiveByHash(ctx context.Context, tokenHash string) (*RefreshToken, error) {
 	var token RefreshToken
 	err := r.db.GetContext(ctx, &token, `
-		SELECT id, user_id, token_hash, expires_at, revoked_at, created_at
-		FROM portal.refresh_tokens
+		UPDATE portal.refresh_tokens
+		SET revoked_at = NOW()
 		WHERE token_hash = $1
 		  AND revoked_at IS NULL
 		  AND expires_at > NOW()
+		RETURNING id, user_id, token_hash, expires_at, revoked_at, created_at
 	`, tokenHash)
 	if err != nil {
 		if err == sql.ErrNoRows {
@@ -50,16 +51,6 @@ func (r *RefreshTokenRepository) GetActiveByHash(ctx context.Context, tokenHash 
 		return nil, err
 	}
 	return &token, nil
-}
-
-func (r *RefreshTokenRepository) RevokeByHash(ctx context.Context, tokenHash string) error {
-	_, err := r.db.ExecContext(ctx, `
-		UPDATE portal.refresh_tokens
-		SET revoked_at = NOW()
-		WHERE token_hash = $1
-		  AND revoked_at IS NULL
-	`, tokenHash)
-	return err
 }
 
 func (r *RefreshTokenRepository) RevokeAllForUser(ctx context.Context, userID uuid.UUID) error {

@@ -21,6 +21,7 @@ This document is the Phase 0 handoff sketch for the portal data model. The curre
 - Portal users are linked to households through `portal.user_households`; users do not store child or fee-system ownership directly.
 - Parent-work entries reference `portal.synced_children`, not source-system child rows.
 - Parent-work audit is stored in the generic `portal.audit_events` table. A separate `parent_work_audit` table is intentionally not part of Phase 0.
+- Migration bookkeeping is stored outside the portal schema in `public.portal_schema_migrations`.
 
 ## High-Level ER Diagram
 
@@ -105,6 +106,8 @@ Boundary:
 
 - Access tokens remain stateless JWTs.
 - Refresh tokens are server-side revocable by this table.
+- Refresh rotation atomically revokes the consumed active token row before a replacement token is persisted.
+- Logout revokes all active refresh-token sessions for the authenticated user.
 - Password reset and account disable flows should revoke active rows for the user.
 
 ### Adjacent identity tables
@@ -330,6 +333,7 @@ Parent-work audit actions should cover:
 Implemented:
 
 - Initial PostgreSQL schema in `backend-portal/migrations/000001_initial_schema.up.sql`.
+- Portal migration metadata is kept in `public.portal_schema_migrations`.
 - Portal auth login, refresh, current-user, and logout endpoints use `portal.users`, `portal.user_roles`, and `portal.refresh_tokens`.
 - Parent-work required-hours rule is implemented and tested in Go.
 

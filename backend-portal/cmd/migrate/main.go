@@ -4,8 +4,8 @@ import (
 	"database/sql"
 	"flag"
 	"fmt"
+	"net/url"
 	"os"
-	"strings"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
@@ -40,7 +40,7 @@ func main() {
 	}
 	_ = db.Close()
 
-	m, err := migrate.New("file://migrations", withSearchPath(baseURL, "portal"))
+	m, err := migrate.New("file://migrations", migrationDatabaseURL(baseURL))
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to create migrate instance: %v\n", err)
 		os.Exit(1)
@@ -77,13 +77,16 @@ func main() {
 	fmt.Printf("Migrations applied successfully (%s)\n", *direction)
 }
 
-func withSearchPath(databaseURL, schema string) string {
-	if strings.Contains(databaseURL, "search_path=") {
+func migrationDatabaseURL(databaseURL string) string {
+	parsed, err := url.Parse(databaseURL)
+	if err != nil {
 		return databaseURL
 	}
-	separator := "?"
-	if strings.Contains(databaseURL, "?") {
-		separator = "&"
-	}
-	return databaseURL + separator + "search_path=" + schema
+
+	// Keep migrate bookkeeping outside the portal schema so down migrations can drop it.
+	query := parsed.Query()
+	query.Set("search_path", "public")
+	query.Set("x-migrations-table", "portal_schema_migrations")
+	parsed.RawQuery = query.Encode()
+	return parsed.String()
 }

@@ -20,8 +20,7 @@ type UserStore interface {
 
 type RefreshTokenStore interface {
 	Create(ctx context.Context, userID uuid.UUID, tokenHash string, expiresAt time.Time) error
-	GetActiveByHash(ctx context.Context, tokenHash string) (*repository.RefreshToken, error)
-	RevokeByHash(ctx context.Context, tokenHash string) error
+	RevokeActiveByHash(ctx context.Context, tokenHash string) (*repository.RefreshToken, error)
 	RevokeAllForUser(ctx context.Context, userID uuid.UUID) error
 }
 
@@ -84,7 +83,7 @@ func (s *AuthService) Refresh(ctx context.Context, refreshToken string) (*AuthRe
 	}
 
 	tokenHash := auth.TokenHash(refreshToken)
-	storedToken, err := s.refreshTokens.GetActiveByHash(ctx, tokenHash)
+	storedToken, err := s.refreshTokens.RevokeActiveByHash(ctx, tokenHash)
 	if err != nil {
 		return nil, err
 	}
@@ -100,10 +99,6 @@ func (s *AuthService) Refresh(ctx context.Context, refreshToken string) (*AuthRe
 		return nil, ErrUnauthorized
 	}
 
-	if err := s.refreshTokens.RevokeByHash(ctx, tokenHash); err != nil {
-		return nil, err
-	}
-
 	return s.issueTokens(ctx, user)
 }
 
@@ -116,14 +111,6 @@ func (s *AuthService) GetCurrentUser(ctx context.Context, userID uuid.UUID) (*do
 		return nil, ErrUnauthorized
 	}
 	return user, nil
-}
-
-func (s *AuthService) Logout(ctx context.Context, refreshToken string) error {
-	refreshToken = strings.TrimSpace(refreshToken)
-	if refreshToken == "" {
-		return nil
-	}
-	return s.refreshTokens.RevokeByHash(ctx, auth.TokenHash(refreshToken))
 }
 
 func (s *AuthService) LogoutAll(ctx context.Context, userID uuid.UUID) error {

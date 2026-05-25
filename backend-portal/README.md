@@ -16,6 +16,7 @@ Defaults:
 
 - HTTP port: `8082`
 - Database URL: `postgres://kita:kita_dev_password@localhost:5432/kita?sslmode=disable&search_path=portal`
+- Migration metadata table: `public.portal_schema_migrations` (kept outside the `portal` schema so `down` can drop `portal`)
 - Health: `GET /health` and `GET /api/portal/v1/health`
 - JWT issuer: `kita-portal`
 - JWT access expiry: `15m`
@@ -38,12 +39,12 @@ When both bootstrap variables are set, startup upserts one active `ADMIN` user w
   - response: `{ "accessToken": "...", "refreshToken": "...", "expiresAt": "...", "user": { ... } }`
 - `POST /api/portal/v1/auth/refresh`
   - request: `{ "refreshToken": "..." }`
-  - rotates the persisted hashed refresh token.
+  - atomically revokes the active persisted hashed refresh token and returns a new token pair.
 - `GET /api/portal/v1/auth/me`
   - requires `Authorization: Bearer <accessToken>`.
 - `POST /api/portal/v1/auth/logout`
-  - request: `{ "refreshToken": "..." }`
-  - revokes the matching persisted refresh token when present.
+  - requires `Authorization: Bearer <accessToken>`.
+  - revokes all active refresh-token sessions for the authenticated user.
 
 Current limitations:
 

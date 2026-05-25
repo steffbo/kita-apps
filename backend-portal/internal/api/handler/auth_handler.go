@@ -28,10 +28,6 @@ type refreshRequest struct {
 	RefreshToken string `json:"refreshToken"`
 }
 
-type logoutRequest struct {
-	RefreshToken string `json:"refreshToken"`
-}
-
 type authResponse struct {
 	AccessToken  string       `json:"accessToken"`
 	RefreshToken string       `json:"refreshToken"`
@@ -96,12 +92,13 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *AuthHandler) Logout(w http.ResponseWriter, r *http.Request) {
-	var req logoutRequest
-	if r.Body != nil {
-		_ = json.NewDecoder(r.Body).Decode(&req)
+	claims := middleware.GetUserFromContext(r)
+	if claims == nil {
+		response.Error(w, http.StatusUnauthorized, "authentication required")
+		return
 	}
 
-	if err := h.authService.Logout(r.Context(), req.RefreshToken); err != nil {
+	if err := h.authService.LogoutAll(r.Context(), claims.UserID); err != nil {
 		writeAuthError(w, err)
 		return
 	}
