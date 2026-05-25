@@ -10,6 +10,19 @@
 | Staging/Test | bestehendes Homelab vor Vorstandspräsentation |
 | Zielbetrieb | neuer Hetzner Cloud VPS |
 | Erstes Modul | Elternstunden |
+| Review-Status | Phase 0 reviewed und als Launch-Schnitt eingefroren am 2026-05-25 |
+| August-MVP-Schnitt | freigegeben: Portal-Shell, Identity/Onboarding, Elternstunden, read-only Stammdaten-Sync, Mail, Audit, Staging/VPS/Backup |
+
+## Phase 0 Review Decision
+
+Stand 2026-05-25 ist diese Spec fuer die Umsetzung reviewed und als verbindlicher August-MVP-Schnitt bestaetigt. Aenderungen vor Launch sind nur Scope, wenn sie fuer die unten genannten Acceptance Criteria zwingend erforderlich sind; alles andere wandert in Phase 5 oder in eine spaetere Portal-Ausbaustufe.
+
+Phase-0-Ergebnis:
+
+- Spec ist reviewed und dient als Handoff-Vertrag fuer Architektur, Produktumfang und Launch Readiness.
+- Modulgrenzen sind bestaetigt: `parent_work` ist das einzige neue fachliche MVP-Modul; Identity, Admin, Sync, Mail-Outbox und Audit sind Portal-Foundation-Faehigkeiten; `fees`, `schedule`, `time_tracking` und vollstaendige `master_data`-Pflege bleiben ausserhalb des August-MVP.
+- August-Scope ist freigegeben: Eltern koennen onboarden, einloggen, eigene Kinder sehen und Elternstunden einreichen; Team/Leitung koennen pruefen, korrigieren, auswerten und erinnern; Betrieb laeuft nach Homelab-Test auf dem Hetzner VPS.
+- Provider-/Datenschutzentscheidungen sind fuer den Launch-Schnitt geklaert: Hetzner VPS fuer Produktivbetrieb, Resend fuer Portal-Mails ueber `portal.knirpsenstadt.de`, bestehendes Hetzner-Mailhosting fuer `@knirpsenstadt.de` bleibt unberuehrt. Datenschutzhinweis, Anbieterpruefung/AVV und Konto-Zuordnung zum Verein bleiben Launch-Readiness-Aufgaben vor Eltern-Rollout, aber keine offenen Architekturfragen.
 
 ## Executive Summary
 
@@ -118,6 +131,21 @@ Spätere Module:
 - `master_data`: Kinder, Eltern, Haushalte, Gruppen, Ansprechpartner.
 - `admin`: Benutzer, Rollen, Einladungen, Systemzustand.
 
+### Confirmed Module Boundaries
+
+Fuer den August-MVP gelten diese Grenzen:
+
+| Bereich | MVP-Verantwortung | Grenze |
+| --- | --- | --- |
+| Portal Shell | Login-geschuetzte Oberflaeche, Rollen-Navigation, Dashboard-Einstieg | keine oeffentliche Marketingseite, keine Migration aller Alt-Apps |
+| Identity/Auth | Benutzer, Rollen, Einladungen, Passwort-Onboarding, Reset, Sessions | keine externen Identity Provider im MVP |
+| Admin | Einladungen, Rollen, Sync-/Systemsicht soweit fuer Launch noetig | keine vollstaendige Self-Service-Verwaltung aller Sonderfaelle |
+| Master Data | read-only Snapshots aus `backend-fees` in `portal.synced_*` | keine Schreibzugriffe auf `fees`, keine fuehrende Stammdatenpflege im Portal |
+| Parent Work | Soll/Ist/Rest, Einreichung, Pruefung, Korrektur, Jahresuebersicht, Reminder | keine Datei-Uploads, keine automatischen Reminder ohne manuelle Preview |
+| Fees | bleibt in bestehender Beitrags-App | kein Elternzugriff auf Beitraege/Zahlungen im August-MVP |
+| Schedule/Time Tracking | bleiben in bestehenden Apps | keine Portal-Migration vor Launch |
+| Email/Audit | transaktionale Portal-Mails, Outbox, relevante Audit-Events | kein allgemeines Newsletter- oder Messaging-System |
+
 ## Single Source of Truth
 
 Kurzfristig bleibt `backend-fees` die führende Quelle für Kinder, Eltern und Haushalte, weil diese Daten dort bereits vorhanden sind.
@@ -138,7 +166,7 @@ Fachmodule dürfen diese Daten nutzen, aber nicht unkontrolliert duplizieren ode
 
 Für den Elternstunden-MVP gilt:
 
-- Elternstunden bekommen eine eigene Datenbank oder mindestens einen hart getrennten Datenbereich.
+- Elternstunden liegen im MVP im `portal`-Schema in eigenen `parent_work_*`-Tabellen; eine separate Datenbank ist kein Launch-Erfordernis.
 - Es gibt keine Schreibrechte auf die bestehenden Beitrags-Stammdatentabellen.
 - Stammdaten werden read-only synchronisiert.
 - Sync-Fehler gehen in eine Quarantäne-Liste.
@@ -237,7 +265,7 @@ Reminder- und Invite-Batches müssen daher throttling- und retry-fähig sein.
 - Kita-Jahr: `01.08.-31.07.`
 - Standard-Soll: 9 Stunden je aktivem Kind.
 - Teiljahr:
-  - Kitatertiale: `01.08. - 31.11.`, `01.12.-31.03.`, `01.04.-31.07.`.
+  - Kita-Tertiale: `01.08.-30.11.`, `01.12.-31.03.`, `01.04.-31.07.`.
   - Je angefangenem Tertial 3 Stunden.
   - Mindestens 3 Stunden, wenn das Kind im Kita-Jahr aktiv war.
 - Leitung kann Sollstunden pro Kind/Jahr überschreiben.
@@ -319,9 +347,8 @@ Docker Compose Stack auf dem VPS:
 - Caddy Reverse Proxy.
 - Portal-Frontend.
 - Portal-/Parent-Work-Backend.
-- Parent-Work-DB.
-- bestehende Kita-Backends.
-- bestehende Kita-DB.
+- PostgreSQL `kita` DB mit `portal`, `fees` und `public` Schema.
+- bestehende Kita-Backends, solange ihre Module noch nicht ins Portal migriert sind.
 - Backup-Job.
 
 GitHub Actions:
@@ -385,13 +412,15 @@ Aufbewahrung:
 
 Ziel: belastbare Entscheidungen vor Implementierung.
 
+Status: abgeschlossen am 2026-05-25.
+
 Deliverables:
 
-- diese Spec reviewen,
-- Datenmodell skizzieren,
-- Modulgrenzen festlegen,
-- Launch-Schnitt bestätigen,
-- offene Datenschutz-/Providerpunkte klären.
+- Spec reviewed und in diesem Dokument als Phase-0-Entscheidung markiert.
+- Datenmodell-Schnitt bestaetigt: `portal`-Schema mit Identity, read-only Sync-Snapshots, Parent-Work, Outbox und Audit ist der Startpunkt.
+- Modulgrenzen bestaetigt: August-MVP ist Portal-Foundation plus `parent_work`; Alt-Apps bleiben ausserhalb des Launch-Schnitts.
+- Launch-Schnitt bestaetigt: Homelab-Staging, Vorstand-Demo, dann Hetzner-VPS-Produktion fuer `portal.knirpsenstadt.de`.
+- Datenschutz-/Providerpunkte fuer Architektur geklaert: Hetzner VPS, Resend-Subdomain-Versand und bestehendes Mailhosting koexistieren; Datenschutztext, AVV/Anbieterpruefung und Vereinskonto-Zuordnung bleiben Pflicht vor Eltern-Rollout.
 
 ### Phase 1: Portal Foundation
 

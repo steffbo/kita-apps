@@ -68,6 +68,7 @@ Primary areas:
 - `migrations/`
 
 Current state:
+- Phase 0 spec/architecture review is complete as of 2026-05-25. `PORTAL_SPEC.md` is marked reviewed and frozen for the August 2026 MVP: portal foundation plus `parent_work`, with legacy `fees`, `schedule`, and `time_tracking` apps outside the launch cut.
 - Initial schema exists in `migrations/000001_initial_schema.up.sql`.
 - Schema includes portal users, roles, invitations, password resets, refresh tokens, synced households/parents/children, sync runs, sync quarantine, parent-work requirements, parent-work entries, email outbox, and audit events.
 - Portal auth login foundation is implemented:
