@@ -1,0 +1,69 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 42 33% 97%;
+    --foreground: 240 10% 9%;
+    --surface: 0 0% 100%;
+    --surface-foreground: 240 10% 9%;
+    --muted: 38 21% 92%;
+    --muted-foreground: 240 5% 38%;
+    --primary: 153 48% 32%;
+    --primary-foreground: 0 0% 100%;
+    --amber-soft: 39 89% 88%;
+    --amber-foreground: 32 45% 22%;
+    --border: 35 18% 82%;
+    --input: 35 18% 82%;
+    --ring: 153 48% 32%;
+    --radius: 0.5rem;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html {
+    font-family: Geist, Satoshi, "Aptos", "Segoe UI", ui-sans-serif, system-ui, sans-serif;
+    background: hsl(var(--background));
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+  }
+}
+
+@layer components {
+  .focus-ring {
+    @apply outline-none ring-offset-2 ring-offset-background focus-visible:ring-2 focus-visible:ring-ring;
+  }
+
+  .field {
+    @apply flex flex-col gap-2;
+  }
+
+  .field-label {
+    @apply text-sm font-medium text-foreground;
+  }
+
+  .field-input {
+    @apply focus-ring h-11 rounded-lg border bg-surface px-3 text-sm shadow-sm transition placeholder:text-muted-foreground;
+  }
+
+  .primary-button {
+    @apply focus-ring inline-flex h-11 items-center justify-center gap-2 rounded-lg bg-primary px-4 text-sm font-semibold text-primary-foreground shadow-soft transition active:translate-y-px disabled:pointer-events-none disabled:opacity-55;
+  }
+
+  .secondary-button {
+    @apply focus-ring inline-flex h-10 items-center justify-center gap-2 rounded-lg border bg-surface px-3 text-sm font-semibold text-foreground transition hover:bg-muted active:translate-y-px disabled:pointer-events-none disabled:opacity-55;
+  }
+}
