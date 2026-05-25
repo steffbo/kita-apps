@@ -44,6 +44,7 @@ This is mandatory:
 - `scripts/`: helper scripts
 - `PORTAL_SPEC.md`: portal product, architecture, delivery, and launch scope spec
 - `PORTAL_DATA_MODEL.md`: Phase 0 portal data model sketch for identity/session tables, read-only synced master-data snapshots, parent-work tables, and audit boundaries
+- `PORTAL_DATENSCHUTZ.md`: Phase 0 Datenschutz/provider/RBAC handoff with portal privacy notice draft, Hetzner/Resend AVV review, role matrix, and provider-account target state
 
 ## Backend Services
 
@@ -71,6 +72,8 @@ Primary areas:
 Current state:
 - Phase 0 spec/architecture review is complete as of 2026-05-25. `PORTAL_SPEC.md` is marked reviewed and frozen for the August 2026 MVP: portal foundation plus `parent_work`, with legacy `fees`, `schedule`, and `time_tracking` apps outside the launch cut.
 - Phase 0 data model sketch exists in `PORTAL_DATA_MODEL.md` and documents table boundaries for `portal.users`, `portal.user_roles`, `portal.refresh_tokens`, `portal.synced_*`, `portal.parent_work_*`, sync quarantine, and generic audit events.
+- Phase 0 Datenschutz/provider/RBAC handoff exists in `PORTAL_DATENSCHUTZ.md` as of 2026-05-25. It documents the portal privacy notice draft, the Hetzner and Resend AVV/DPA provider review based on official sources, the role/permission matrix, and the target state that provider accounts/workspaces are assigned to the Verein/Kita context.
+- Before parent rollout, the remaining Datenschutz operations are account-level: accept/export the Hetzner AVV and Resend DPA/Terms/subprocessor evidence in the correct Verein/Kita accounts, store those proofs outside Git in the Vereinsablage, finalize privacy-contact placeholders, keep Resend mail tracking disabled, and document/complete provider account handover to the Verein.
 - Initial schema exists in `migrations/000001_initial_schema.up.sql`.
 - Portal migration metadata is stored in `public.portal_schema_migrations`, not in the `portal` schema, so rollback can drop `portal` without deleting the migrate bookkeeping table first.
 - Schema includes portal users, roles, invitations, password resets, refresh tokens, synced households/parents/children, sync runs, sync quarantine, parent-work requirements, parent-work entries, email outbox, and audit events.
