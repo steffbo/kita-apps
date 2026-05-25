@@ -72,13 +72,30 @@ export const useAuthStore = defineStore('portal-auth', () => {
     localStorage.setItem(userKey, JSON.stringify(body.user));
   }
 
-  function logout() {
+  function clearSession() {
     accessToken.value = null;
     refreshToken.value = null;
     user.value = null;
     localStorage.removeItem(accessTokenKey);
     localStorage.removeItem(refreshTokenKey);
     localStorage.removeItem(userKey);
+  }
+
+  async function logout() {
+    const token = accessToken.value;
+
+    try {
+      if (token) {
+        await fetch('/api/portal/v1/auth/logout', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+      }
+    } finally {
+      clearSession();
+    }
   }
 
   function hasAnyRole(roles: PortalRole[]) {

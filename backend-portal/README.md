@@ -49,7 +49,7 @@ When both bootstrap variables are set, startup upserts one active `ADMIN` user w
 Current limitations:
 
 - Invitation, password onboarding, password reset, sync, and parent-work endpoints are still pending.
-- The portal frontend calls login, but does not yet call refresh/logout endpoints.
+- The portal frontend calls login and logout, but does not yet rotate refresh tokens.
 
 ## Boundary
 

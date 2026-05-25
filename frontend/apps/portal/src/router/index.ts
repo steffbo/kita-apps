@@ -1,5 +1,13 @@
 import { createRouter, createWebHistory } from 'vue-router';
+import type { PortalRole } from '@/lib/modules';
 import { useAuthStore } from '@/stores/auth';
+
+declare module 'vue-router' {
+  interface RouteMeta {
+    requiresAuth?: boolean;
+    roles?: PortalRole[];
+  }
+}
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),
@@ -30,16 +38,19 @@ const router = createRouter({
           path: 'elternstunden',
           name: 'parent-work',
           component: () => import('@/pages/ParentWorkPage.vue'),
+          meta: { roles: ['ADMIN', 'LEITUNG', 'TEAM', 'PARENT', 'VORSTAND'] },
         },
         {
           path: 'abnahme',
           name: 'review-queue',
           component: () => import('@/pages/ReviewQueuePage.vue'),
+          meta: { roles: ['ADMIN', 'LEITUNG', 'TEAM'] },
         },
         {
           path: 'admin',
           name: 'admin',
           component: () => import('@/pages/AdminPage.vue'),
+          meta: { roles: ['ADMIN'] },
         },
       ],
     },
@@ -51,6 +62,11 @@ router.beforeEach((to, _from, next) => {
 
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
     next({ name: 'login', query: { redirect: to.fullPath } });
+    return;
+  }
+
+  if (to.meta.roles && !authStore.hasAnyRole(to.meta.roles)) {
+    next({ name: 'dashboard' });
     return;
   }
 

@@ -12,8 +12,8 @@ const visibleModules = computed(() =>
   portalModules.filter((module) => authStore.hasAnyRole(module.roles)),
 );
 
-function logout() {
-  authStore.logout();
+async function logout() {
+  await authStore.logout();
   router.push({ name: 'login' });
 }
 </script>

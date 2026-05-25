@@ -180,6 +180,7 @@ Current implementation status:
 
 - Backend login foundation exists in `backend-portal`: login, refresh, current-user, and logout endpoints under `/api/portal/v1/auth/*`.
 - Backend auth uses active `portal.users`, `portal.user_roles`, bcrypt password hashes, JWT access/refresh tokens, and persisted hashed refresh tokens in `portal.refresh_tokens`.
+- Portal frontend login is wired to the backend, logout revokes backend refresh-token sessions, and ready module routes are guarded by role metadata.
 - A temporary bootstrap path exists via `PORTAL_BOOTSTRAP_ADMIN_EMAIL` and `PORTAL_BOOTSTRAP_ADMIN_PASSWORD` to create the first active `ADMIN` user while invitation/onboarding is still pending.
 - Invitation, password onboarding, password reset, email delivery, account lockout/rate limiting, and audit events for auth are still pending.
 
@@ -359,6 +360,8 @@ GitHub Actions:
 - pusht nach GHCR,
 - taggt mit Git SHA,
 - Produktivdeploy nutzt SHA-Tags, nicht blind `latest`.
+
+Aktueller Umsetzungsstand: Portal-Backend und Portal-Frontend sind noch nicht in Docker/GHCR/Caddy/Compose verdrahtet. Diese VPS-Deployment-Arbeit folgt, wenn die lokale Portal-Entwicklung abgeschlossen ist.
 
 ### DNS
 

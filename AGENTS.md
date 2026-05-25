@@ -144,9 +144,10 @@ All frontend apps are under `frontend/apps/*`.
 Current state:
 - Login and password-reset screens exist.
 - Auth store is wired to the implemented `/api/portal/v1/auth/login` backend endpoint and stores access token, refresh token, and user profile in local storage.
-- Frontend refresh-token rotation, logout API call, and password-reset API integration are not implemented yet.
+- Frontend logout calls `POST /api/portal/v1/auth/logout` before clearing local session state.
+- Frontend refresh-token rotation and password-reset API integration are not implemented yet.
 - Authenticated shell, dashboard, parent-work entry/history placeholders, review queue placeholder, and admin invitation placeholder exist.
-- Module visibility is role-based in `src/lib/modules.ts`.
+- Module visibility is role-based in `src/lib/modules.ts`, and ready module routes are guarded with route-level role metadata.
 - Ready UI modules: `parent_work`, `review`, `admin`.
 - Planned UI modules shown as placeholders: `master_data`, `schedule`, `time_tracking`, `fees`.
 
@@ -257,6 +258,7 @@ ansible-playbook playbooks/deploy-app.yml -e "app=kita"
 Notes:
 - Workflow file: `.github/workflows/build-images.yml`
 - Trigger: pushes to `main`
+- Portal backend/frontend Docker images, GHCR workflow entries, Caddy routing, and Docker Compose services are intentionally still pending. Add them when local portal development is complete and the portal is ready for VPS deployment.
 
 ## Direct Database Reads on infra-dev
 
