@@ -51,8 +51,8 @@ The server runs at http://localhost:8080
 ### 4. Health Check
 
 ```bash
-curl http://localhost:8080/api/actuator/health
-# {"status":"UP"}
+curl http://localhost:8080/healthz
+# {"status":"ok"}
 ```
 
 ## Configuration

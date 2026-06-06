@@ -99,7 +99,7 @@ Current state:
 - Entrypoints:
   - server: `cmd/server/main.go`
   - migrations: `cmd/migrate/main.go`
-- Health endpoint: `GET /api/actuator/health`
+- Health endpoint: `GET /healthz`
 
 Primary areas:
 - `internal/api/`
