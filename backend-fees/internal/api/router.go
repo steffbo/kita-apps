@@ -156,6 +156,7 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 				r.Get("/household/{householdId}", handlers.Einstufung.ListForHousehold)
 				r.Get("/{id}", handlers.Einstufung.Get)
 				r.Put("/{id}", handlers.Einstufung.Update)
+				r.Post("/{id}/follow-ups", handlers.Einstufung.CreateFollowUp)
 				r.Delete("/{id}", handlers.Einstufung.Delete)
 			})
 

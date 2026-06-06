@@ -115,6 +115,7 @@ export interface Child {
   updatedAt: string;
   parents?: Parent[];
   household?: Household;
+  openFeesCount?: number;
 }
 
 export interface NextMemberNumberResponse {
@@ -688,7 +689,11 @@ export interface ChildImportError {
 
 export interface ChildImportExecuteResult {
   imported: number;
-  errors: string[];
+  childrenCreated?: number;
+  childrenUpdated?: number;
+  parentsCreated?: number;
+  parentsLinked?: number;
+  errors: ChildImportError[];
 }
 
 // System fields for mapping UI
@@ -868,6 +873,10 @@ export interface Einstufung {
   householdId: string;
   year: number;
   validFrom: string;
+  validUntil?: string;
+  sourceEinstufungId?: string;
+  changeDate?: string;
+  effectiveFromMonth: string;
   incomeCalculation: HouseholdIncomeCalculation;
   annualNetIncome: number;
   highestRateVoluntary: boolean;
@@ -907,6 +916,38 @@ export interface UpdateEinstufungRequest {
   childrenCount?: number;
   validFrom?: string;
   notes?: string;
+}
+
+export interface CreateFollowUpEinstufungRequest {
+  changeDate: string;
+  incomeCalculation: HouseholdIncomeCalculation;
+  highestRateVoluntary: boolean;
+  careHoursPerWeek: number;
+  childrenCount: number;
+  notes?: string;
+}
+
+export interface CreditReviewPeriod {
+  feeId: string;
+  year: number;
+  month: number;
+  oldAmount: number;
+  newAmount: number;
+  matchedAmount: number;
+  creditAmount: number;
+}
+
+export interface ChildcareExpectationSyncResult {
+  created: number;
+  updated: number;
+  skipped: number;
+  deltaOpen: number;
+  creditReviewRequired: CreditReviewPeriod[];
+}
+
+export interface CreateFollowUpEinstufungResponse {
+  einstufung: Einstufung;
+  expectationChanges: ChildcareExpectationSyncResult;
 }
 
 export interface CalculateIncomeResponse {

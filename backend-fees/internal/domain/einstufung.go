@@ -13,8 +13,14 @@ type Einstufung struct {
 	ID          uuid.UUID  `json:"id" db:"id"`
 	ChildID     uuid.UUID  `json:"childId" db:"child_id"`
 	HouseholdID uuid.UUID  `json:"householdId" db:"household_id"`
-	Year        int        `json:"year" db:"year"`           // Classification year (e.g. 2026)
+	Year        int        `json:"year" db:"year"`            // Classification year (e.g. 2026)
 	ValidFrom   time.Time  `json:"validFrom" db:"valid_from"` // Start date of this classification
+	ValidUntil  *time.Time `json:"validUntil,omitempty" db:"valid_until"`
+
+	// Follow-up metadata
+	SourceEinstufungID *uuid.UUID `json:"sourceEinstufungId,omitempty" db:"source_einstufung_id"`
+	ChangeDate         *time.Time `json:"changeDate,omitempty" db:"change_date"`        // Entered change date
+	EffectiveFromMonth time.Time  `json:"effectiveFromMonth" db:"effective_from_month"` // First billing month after cut-off rule
 
 	// Income calculation details (stored as JSONB for audit trail)
 	IncomeCalculation HouseholdIncomeCalculation `json:"incomeCalculation" db:"income_calculation"`
@@ -26,7 +32,7 @@ type Einstufung struct {
 	HighestRateVoluntary bool         `json:"highestRateVoluntary" db:"highest_rate_voluntary"` // Freiwillige Anerkennung des Höchstsatzes
 	CareHoursPerWeek     int          `json:"careHoursPerWeek" db:"care_hours_per_week"`        // Betreuungszeit in Wochenstunden (30,35,40,45,50,55)
 	CareType             ChildAgeType `json:"careType" db:"care_type"`                          // krippe / kindergarten
-	ChildrenCount        int          `json:"childrenCount" db:"children_count"`                 // Anzahl unterhaltspflichtiger Kinder
+	ChildrenCount        int          `json:"childrenCount" db:"children_count"`                // Anzahl unterhaltspflichtiger Kinder
 
 	// Resulting fees
 	MonthlyChildcareFee float64 `json:"monthlyChildcareFee" db:"monthly_childcare_fee"` // Platzgeld (monatlich)
@@ -34,10 +40,10 @@ type Einstufung struct {
 	AnnualMembershipFee float64 `json:"annualMembershipFee" db:"annual_membership_fee"` // Vereinsbeitrag (jährlich, 30.00)
 
 	// Fee calculation details (the bracket/rule applied)
-	FeeRule         string  `json:"feeRule" db:"fee_rule"`                           // Applied rule (e.g. "Entlastung", "Satzung", "beitragsfrei")
-	DiscountPercent int     `json:"discountPercent" db:"discount_percent"`           // Sibling discount percentage
-	DiscountFactor  float64 `json:"discountFactor" db:"discount_factor"`             // Sibling discount factor (1.0 = no discount)
-	BaseFee         float64 `json:"baseFee" db:"base_fee"`                           // Fee before sibling discount
+	FeeRule         string  `json:"feeRule" db:"fee_rule"`                 // Applied rule (e.g. "Entlastung", "Satzung", "beitragsfrei")
+	DiscountPercent int     `json:"discountPercent" db:"discount_percent"` // Sibling discount percentage
+	DiscountFactor  float64 `json:"discountFactor" db:"discount_factor"`   // Sibling discount factor (1.0 = no discount)
+	BaseFee         float64 `json:"baseFee" db:"base_fee"`                 // Fee before sibling discount
 
 	Notes     string    `json:"notes,omitempty" db:"notes"`
 	CreatedAt time.Time `json:"createdAt" db:"created_at"`
@@ -51,13 +57,13 @@ type Einstufung struct {
 // EinstufungMonthRow represents one month in the Einstufung letter table.
 // This is computed on-the-fly for PDF/letter generation, not stored in DB.
 type EinstufungMonthRow struct {
-	Month             time.Month `json:"month"`
-	Year              int        `json:"year"`
-	CareHoursPerWeek  int        `json:"careHoursPerWeek"`
-	CareType          string     `json:"careType"`          // "Krippe" or "Kindergarten"
-	ChildcareFee      float64    `json:"childcareFee"`      // Beitrag für Kinderbetreuung
-	FoodFee           float64    `json:"foodFee"`           // Essengeld
-	MembershipFee     float64    `json:"membershipFee"`     // Vereinsbeitrag (only in first month)
+	Month            int     `json:"month"`
+	Year             int     `json:"year"`
+	CareHoursPerWeek int     `json:"careHoursPerWeek"`
+	CareType         string  `json:"careType"`      // "Krippe" or "Kindergarten"
+	ChildcareFee     float64 `json:"childcareFee"`  // Beitrag für Kinderbetreuung
+	FoodFee          float64 `json:"foodFee"`       // Essengeld
+	MembershipFee    float64 `json:"membershipFee"` // Vereinsbeitrag (only in first month)
 }
 
 // GenerateMonthlyTable generates the monthly fee breakdown for the Einstufung letter.
@@ -65,8 +71,12 @@ type EinstufungMonthRow struct {
 func (e *Einstufung) GenerateMonthlyTable(exitDate *time.Time) []EinstufungMonthRow {
 	var rows []EinstufungMonthRow
 
-	startMonth := e.ValidFrom.Month()
-	startYear := e.ValidFrom.Year()
+	periodStart := e.ValidFrom
+	if !e.EffectiveFromMonth.IsZero() {
+		periodStart = e.EffectiveFromMonth
+	}
+	startMonth := periodStart.Month()
+	startYear := periodStart.Year()
 	endMonth := time.December
 	endYear := startYear
 
@@ -74,10 +84,13 @@ func (e *Einstufung) GenerateMonthlyTable(exitDate *time.Time) []EinstufungMonth
 	if exitDate != nil && exitDate.Year() == startYear && exitDate.Month() <= time.December {
 		endMonth = exitDate.Month()
 	}
+	if e.ValidUntil != nil && e.ValidUntil.Year() == startYear && e.ValidUntil.Month() < endMonth {
+		endMonth = e.ValidUntil.Month()
+	}
 
 	for m := startMonth; m <= endMonth; m++ {
 		row := EinstufungMonthRow{
-			Month:            m,
+			Month:            int(m),
 			Year:             endYear,
 			CareHoursPerWeek: e.CareHoursPerWeek,
 			CareType:         formatCareType(e.CareType),

@@ -594,7 +594,6 @@ async function handleUnlinkParent() {
 }
 
 const openFees = computed(() => fees.value.filter(f => !f.isPaid));
-const paidFees = computed(() => fees.value.filter(f => f.isPaid));
 
 type FeeGroup = {
   fee: FeeExpectation;
@@ -1252,6 +1251,13 @@ async function createReminder() {
                   class="inline-flex items-center gap-1 mt-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
                 >
                   Einstufung erstellen →
+                </router-link>
+                <router-link
+                  v-else
+                  :to="`/einstufungen/neu?childId=${child.id}&followUp=1`"
+                  class="inline-flex items-center gap-1 mt-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
+                >
+                  Folgeeinstufung erstellen →
                 </router-link>
               </div>
               <div v-if="child.household.incomeStatus === 'PROVIDED' || child.household.incomeStatus === 'HISTORIC'">

@@ -236,121 +236,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/auth/password-reset/confirm": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Confirm password reset with token
-         * @description Complete the password reset process using the token from the email
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            /** @description Token and new password */
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["PasswordResetConfirmRequest"];
-                };
-            };
-            responses: {
-                /** @description Password reset successful */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["MessageResponse"];
-                    };
-                };
-                /** @description Invalid or expired token */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ErrorResponse"];
-                    };
-                };
-                /** @description Internal server error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ErrorResponse"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/auth/password-reset/request": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Request password reset email
-         * @description Sends a password reset email to the specified address if a user exists
-         */
-        post: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            /** @description Email address */
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["PasswordResetRequest"];
-                };
-            };
-            responses: {
-                /** @description Reset email sent (if email exists) */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["MessageResponse"];
-                    };
-                };
-                /** @description Invalid request body */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ErrorResponse"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/auth/refresh": {
         parameters: {
             query?: never;
@@ -429,7 +314,7 @@ export interface paths {
                 query: {
                     /** @description Child age type */
                     childAgeType?: "krippe" | "kindergarten";
-                    /** @description Monthly net income */
+                    /** @description Annual net household income */
                     income: number;
                     /** @description Number of siblings */
                     siblingsCount?: number;
@@ -437,6 +322,8 @@ export interface paths {
                     careHours?: 30 | 35 | 40 | 45 | 50 | 55;
                     /** @description Apply highest rate */
                     highestRate?: boolean;
+                    /** @description Foster family (uses average rate) */
+                    fosterFamily?: boolean;
                 };
                 header?: never;
                 path?: never;
@@ -505,6 +392,8 @@ export interface paths {
                     u3Only?: boolean;
                     /** @description Filter for children with warnings */
                     hasWarnings?: boolean;
+                    /** @description Filter for children with open fees */
+                    hasOpenFees?: boolean;
                     /** @description Search by name or member number */
                     search?: string;
                     /** @description Sort field (name, birthDate, entryDate) */
@@ -760,7 +649,7 @@ export interface paths {
         post?: never;
         /**
          * Delete child
-         * @description Soft-delete (deactivate) a child record
+         * @description Permanently delete a child record
          */
         delete: {
             parameters: {
@@ -819,6 +708,373 @@ export interface paths {
                 };
             };
         };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/children/{id}/care-hours-history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get child care hours history
+         * @description Returns all recorded care hours periods for a child
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Child ID (UUID) */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Care hours history */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CareHoursHistoryEntry"][];
+                    };
+                };
+                /** @description Invalid child ID */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Child not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Add child care hours history entry
+         * @description Adds a care hours history entry effective from the given date
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Child ID (UUID) */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Care hours history data */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateCareHoursHistoryRequest"];
+                };
+            };
+            responses: {
+                /** @description Care hours history saved */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Child not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/children/{id}/ledger": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get child payment ledger
+         * @description Retrieve the payment ledger showing all fees and payments for a child
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Filter by year */
+                    year?: number;
+                };
+                header?: never;
+                path: {
+                    /** @description Child ID (UUID) */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Payment ledger */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ChildLedger"];
+                    };
+                };
+                /** @description Invalid child ID */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Child not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/children/{id}/legal-hours-history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get child legal hours history
+         * @description Returns all recorded legal entitlement periods for a child
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Child ID (UUID) */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Legal hours history */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LegalHoursHistoryEntry"][];
+                    };
+                };
+                /** @description Invalid child ID */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Child not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Add child legal hours history entry
+         * @description Adds a legal entitlement history entry effective from the given date
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Child ID (UUID) */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Legal hours history data */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateLegalHoursHistoryRequest"];
+                };
+            };
+            responses: {
+                /** @description Legal hours history saved */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Child not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -969,6 +1225,87 @@ export interface paths {
                 };
             };
         };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/children/{id}/timeline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get child fee timeline
+         * @description Returns monthly fee coverage showing which months are paid/unpaid based on transaction dates
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Year (defaults to current year) */
+                    year?: number;
+                };
+                header?: never;
+                path: {
+                    /** @description Child ID (UUID) */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Monthly coverage timeline */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["handler.FeeCoverageResponse"][];
+                    };
+                };
+                /** @description Invalid child ID */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Child not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1182,6 +1519,493 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/children/next-member-number": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get next available member number
+         * @description Returns the next available numeric member number for a new child
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Next member number */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["NextMemberNumberResponse"];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/einstufungen": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List fee classifications
+         * @description Returns Einstufungen for a year with pagination
+         */
+        get: {
+            parameters: {
+                query: {
+                    /** @description Year */
+                    year: number;
+                    /** @description Page number */
+                    page?: number;
+                    /** @description Items per page */
+                    perPage?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EinstufungList"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Create a fee classification
+         * @description Creates a new Einstufung by calculating fees from income proofs
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Einstufung data */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateEinstufungRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Einstufung"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/einstufungen/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a fee classification
+         * @description Returns a single Einstufung by ID
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Einstufung ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Einstufung"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        /**
+         * Update a fee classification
+         * @description Updates an existing Einstufung and recalculates fees
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Einstufung ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Update data */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateEinstufungRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Einstufung"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        /**
+         * Delete a fee classification
+         * @description Deletes an Einstufung
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Einstufung ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/einstufungen/{id}/follow-ups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a follow-up fee classification
+         * @description Creates a follow-up Einstufung, applies the monthly cut-off rule, closes the source period, and syncs open CHILDCARE expectations from the effective month.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Source Einstufung ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Follow-up data */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateFollowUpEinstufungRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CreateFollowUpEinstufungResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/einstufungen/calculate-income": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Calculate household income
+         * @description Calculates fee-relevant household income from parent income details without creating a record.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Parent income details */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CalculateIncomeRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["CalculateIncomeResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/einstufungen/child/{childId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Einstufung for a child
+         * @description Returns the Einstufung for a child in a given year (or latest)
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Year (defaults to latest) */
+                    year?: number;
+                };
+                header?: never;
+                path: {
+                    /** @description Child ID */
+                    childId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Einstufung"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/einstufungen/household/{householdId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Einstufungen for a household
+         * @description Returns all Einstufungen for a household
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Household ID */
+                    householdId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Einstufung"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/fees": {
         parameters: {
             query?: never;
@@ -1210,6 +2034,12 @@ export interface paths {
                     status?: "open" | "paid" | "overdue";
                     /** @description Filter by child ID (UUID) */
                     childId?: string;
+                    /** @description Search by member number or child name */
+                    search?: string;
+                    /** @description Sort by */
+                    sortBy?: "memberNumber" | "childName" | "feeType" | "period" | "amount";
+                    /** @description Sort direction */
+                    sortDir?: "asc" | "desc";
                 };
                 header?: never;
                 path?: never;
@@ -1247,7 +2077,80 @@ export interface paths {
             };
         };
         put?: never;
-        post?: never;
+        /**
+         * Create a single fee
+         * @description Create a fee for a specific child
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Fee creation parameters */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateFeeRequest"];
+                };
+            };
+            responses: {
+                /** @description Created fee */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["Fee"];
+                    };
+                };
+                /** @description Invalid request (missing fields, invalid child ID, etc.) */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Child not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Fee already exists for this period */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -1537,6 +2440,72 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/fees/email-logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List email logs
+         * @description Get a paginated list of sent email logs
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Page number */
+                    page?: number;
+                    /** @description Items per page */
+                    perPage?: number;
+                    /** @description Offset (alternative to page/perPage) */
+                    offset?: number;
+                    /** @description Limit (alternative to page/perPage) */
+                    limit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Paginated list of email logs */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EmailLogListResponse"];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/fees/generate": {
         parameters: {
             query?: never;
@@ -1574,6 +2543,83 @@ export interface paths {
                     };
                 };
                 /** @description Invalid request (year/month out of range) */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/fees/membership-reminders/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run membership reminder checks
+         * @description Sends reminder emails for unpaid Membership fees and optionally creates 5 EUR reminder fees
+         */
+        post: {
+            parameters: {
+                query?: {
+                    /** @description Run date (YYYY-MM-DD, defaults to today) */
+                    date?: string;
+                    /** @description Stage: initial, final */
+                    stage?: "initial" | "final";
+                    /** @description If true, don't send emails or create reminders */
+                    dryRun?: boolean;
+                    /** @description Payment deadline (YYYY-MM-DD), defaults to 31.03.<year> */
+                    deadline?: string;
+                    /** @description Optional comma-separated household IDs to process */
+                    selectedHouseholdIds?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Reminder run result */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ReminderRunResponse"];
+                    };
+                };
+                /** @description Invalid request */
                 400: {
                     headers: {
                         [name: string]: unknown;
@@ -1661,6 +2707,193 @@ export interface paths {
             };
         };
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/fees/reminders/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Run payment reminder checks
+         * @description Sends reminder emails for unpaid Food/Childcare fees and optionally creates reminder fees
+         */
+        post: {
+            parameters: {
+                query?: {
+                    /** @description Run date (YYYY-MM-DD, defaults to today) */
+                    date?: string;
+                    /** @description Stage: auto, initial, final */
+                    stage?: "auto" | "initial" | "final";
+                    /** @description If true, don't send emails or create reminders */
+                    dryRun?: boolean;
+                    /** @description Optional comma-separated household IDs to process */
+                    selectedHouseholdIds?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Reminder run result */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ReminderRunResponse"];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/fees/reminders/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get reminder settings
+         * @description Returns reminder settings
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Reminder settings */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ReminderSettingsResponse"];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        /**
+         * Update reminder settings
+         * @description Updates reminder settings
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Reminder settings */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateReminderSettingsRequest"];
+                };
+            };
+            responses: {
+                /** @description Updated reminder settings */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ReminderSettingsResponse"];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
         post?: never;
         delete?: never;
         options?: never;
@@ -2520,7 +3753,7 @@ export interface paths {
         put?: never;
         /**
          * Rescan unmatched transactions
-         * @description Re-run matching algorithm on all unmatched transactions to find new matches
+         * @description Re-run matching algorithm on all unmatched transactions. High-confidence matches (95%+) are automatically confirmed.
          */
         post: {
             parameters: {
@@ -2584,6 +3817,12 @@ export interface paths {
                     page?: number;
                     /** @description Items per page */
                     perPage?: number;
+                    /** @description Search by payer name or description */
+                    search?: string;
+                    /** @description Sort field: date, payer, description, amount */
+                    sortBy?: string;
+                    /** @description Sort direction: asc, desc */
+                    sortDir?: string;
                 };
                 header?: never;
                 path?: never;
@@ -2622,6 +3861,89 @@ export interface paths {
         };
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/import/transactions/{id}/allocate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Allocate a transaction across multiple fees
+         * @description Allocate a transaction across multiple fee expectations
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Transaction ID (UUID) */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Allocation data */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AllocateTransactionRequest"];
+                };
+            };
+            responses: {
+                /** @description Allocation result */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["AllocateTransactionResponse"];
+                    };
+                };
+                /** @description Invalid request or allocation */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Transaction or fee not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -2700,6 +4022,396 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/import/transactions/{id}/hide": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Hide a transaction
+         * @description Hide an unmatched transaction without blacklisting its IBAN
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Transaction ID (UUID) */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Hide result */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["HideTransactionResponse"];
+                    };
+                };
+                /** @description Invalid transaction ID */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Transaction not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/import/transactions/{id}/suggestions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get match suggestions for a transaction
+         * @description Get potential fee matches for a single unmatched transaction
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Transaction ID (UUID) */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Match suggestion */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MatchSuggestion"];
+                    };
+                };
+                /** @description Invalid transaction ID */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Transaction not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/import/transactions/{id}/unmatch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Unmatch a transaction
+         * @description Remove all matches for a transaction and optionally delete the transaction itself
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Transaction ID (UUID) */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Unmatch options */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UnmatchTransactionRequest"];
+                };
+            };
+            responses: {
+                /** @description Unmatch result */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["UnmatchTransactionResponse"];
+                    };
+                };
+                /** @description Invalid transaction ID or transaction has no matches */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Transaction not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/import/transactions/matched": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get matched transactions
+         * @description Get a paginated list of transactions that have been matched to fees
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Page number */
+                    page?: number;
+                    /** @description Items per page */
+                    perPage?: number;
+                    /** @description Search by payer name or description */
+                    search?: string;
+                    /** @description Sort field: date, payer, description, amount */
+                    sortBy?: string;
+                    /** @description Sort direction: asc, desc */
+                    sortDir?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Matched transactions */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["TransactionList"];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/import/transactions/unmatched/child/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get likely unmatched transactions for a child
+         * @description Returns unmatched transactions that likely belong to the given child
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Minimum confidence (0-1) */
+                    minConfidence?: number;
+                    /** @description Max suggestions to return */
+                    limit?: number;
+                };
+                header?: never;
+                path: {
+                    /** @description Child ID (UUID) */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Suggestions */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ChildUnmatchedSuggestionsResponse"];
+                    };
+                };
+                /** @description Invalid child ID */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Child not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2909,6 +4621,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/import/trusted/child/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get trusted IBANs for a child
+         * @description Returns trusted IBANs linked to the child with transaction counts
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Child ID (UUID) */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Trusted IBANs */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ChildTrustedIBANsResponse"][];
+                    };
+                };
+                /** @description Invalid child ID */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/import/upload": {
         parameters: {
             query?: never;
@@ -3108,6 +4889,84 @@ export interface paths {
                     };
                     content: {
                         "*/*": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/import/warnings/{id}/resolve-late-fee": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Resolve late payment warning by creating late fee
+         * @description Resolves a LATE_PAYMENT warning by creating a 10 EUR REMINDER fee linked to the original fee
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Warning ID (UUID) */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Late fee created */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ResolveLateFeeResponse"];
+                    };
+                };
+                /** @description Invalid warning ID or warning is not a late payment */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Warning not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
                     };
                 };
             };
@@ -3930,7 +5789,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/einstufungen": {
+    "/stichtagsmeldung/children": {
         parameters: {
             query?: never;
             header?: never;
@@ -3938,32 +5797,25 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List fee classifications
-         * @description Returns Einstufungen for a year with pagination
+         * Get U3 children details
+         * @description Get list of U3 children with household income for Stichtagsmeldung verification
          */
         get: {
             parameters: {
-                query: {
-                    /** @description Year */
-                    year: number;
-                    /** @description Page number */
-                    page?: number;
-                    /** @description Items per page */
-                    perPage?: number;
-                };
+                query?: never;
                 header?: never;
                 path?: never;
                 cookie?: never;
             };
             requestBody?: never;
             responses: {
-                /** @description Paginated list of Einstufungen */
+                /** @description List of U3 children */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["EinstufungList"];
+                        "application/json": components["schemas"]["handler.U3ChildDetailResponse"][];
                     };
                 };
                 /** @description Not authenticated */
@@ -3987,34 +5839,46 @@ export interface paths {
             };
         };
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/stichtagsmeldung/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
         /**
-         * Create fee classification
-         * @description Creates a new Einstufung by calculating fees from income proofs
+         * Get Stichtagsmeldung report for a specific date
+         * @description Get the number of enrolled children and care hours breakdown for a specific report date
          */
-        post: {
+        get: {
             parameters: {
-                query?: never;
+                query: {
+                    /** @description Report date (YYYY-MM-DD) */
+                    date: string;
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
             };
-            /** @description Einstufung data */
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["CreateEinstufungRequest"];
-                };
-            };
+            requestBody?: never;
             responses: {
-                /** @description Einstufung created successfully */
-                201: {
+                /** @description Stichtagsmeldung report */
+                200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["Einstufung"];
+                        "application/json": components["schemas"]["StichtagsmeldungReport"];
                     };
                 };
-                /** @description Invalid request body */
+                /** @description Invalid date */
                 400: {
                     headers: {
                         [name: string]: unknown;
@@ -4023,8 +5887,8 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorResponse"];
                     };
                 };
-                /** @description Child or household not found */
-                404: {
+                /** @description Not authenticated */
+                401: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -4043,191 +5907,6 @@ export interface paths {
                 };
             };
         };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/einstufungen/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get fee classification
-         * @description Returns a single Einstufung by ID
-         */
-        get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Einstufung ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Einstufung details */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Einstufung"];
-                    };
-                };
-                /** @description Einstufung not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ErrorResponse"];
-                    };
-                };
-            };
-        };
-        /**
-         * Update fee classification
-         * @description Updates an existing Einstufung and recalculates fees
-         */
-        put: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Einstufung ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            /** @description Update data */
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["UpdateEinstufungRequest"];
-                };
-            };
-            responses: {
-                /** @description Einstufung updated */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Einstufung"];
-                    };
-                };
-                /** @description Invalid request body */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ErrorResponse"];
-                    };
-                };
-                /** @description Einstufung not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ErrorResponse"];
-                    };
-                };
-            };
-        };
-        post?: never;
-        /**
-         * Delete fee classification
-         * @description Deletes an Einstufung
-         */
-        delete: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Einstufung ID */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Einstufung deleted */
-                204: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content?: never;
-                };
-                /** @description Einstufung not found */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ErrorResponse"];
-                    };
-                };
-            };
-        };
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/einstufungen/child/{childId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get Einstufung for child
-         * @description Returns the Einstufung for a child in a given year or the latest
-         */
-        get: {
-            parameters: {
-                query?: {
-                    /** @description Year (defaults to latest) */
-                    year?: number;
-                };
-                header?: never;
-                path: {
-                    /** @description Child ID */
-                    childId: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Einstufung for child */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Einstufung"];
-                    };
-                };
-                /** @description No Einstufung found for this child */
-                404: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ErrorResponse"];
-                    };
-                };
-            };
-        };
         put?: never;
         post?: never;
         delete?: never;
@@ -4236,7 +5915,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/einstufungen/household/{householdId}": {
+    "/stichtagsmeldung/stats": {
         parameters: {
             query?: never;
             header?: never;
@@ -4244,87 +5923,38 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List Einstufungen for household
-         * @description Returns all Einstufungen for a household
+         * Get Stichtagsmeldung statistics
+         * @description Get statistics for quarterly Stichtagsmeldung reporting including next Stichtag date and U3 income breakdown
          */
         get: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Household ID */
-                    householdId: string;
-                };
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description List of Einstufungen */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["Einstufung"][];
-                    };
-                };
-                /** @description Invalid household ID */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ErrorResponse"];
-                    };
-                };
-            };
-        };
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/einstufungen/calculate-income": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Calculate household income
-         * @description Calculates fee-relevant household income from parent income details without creating a record
-         */
-        post: {
             parameters: {
                 query?: never;
                 header?: never;
                 path?: never;
                 cookie?: never;
             };
-            /** @description Parent income details */
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["CalculateIncomeRequest"];
-                };
-            };
+            requestBody?: never;
             responses: {
-                /** @description Calculated income breakdown */
+                /** @description Stichtagsmeldung statistics */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["CalculateIncomeResponse"];
+                        "application/json": components["schemas"]["StichtagsmeldungStats"];
                     };
                 };
-                /** @description Invalid request body */
-                400: {
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal server error */
+                500: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -4334,6 +5964,8 @@ export interface paths {
                 };
             };
         };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4344,6 +5976,68 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** @description Allocate a transaction across multiple fees */
+        AllocateTransactionRequest: {
+            allocations?: components["schemas"]["AllocationRequest"][];
+        };
+        /** @description Allocation result */
+        AllocateTransactionResponse: {
+            /** @example 2 */
+            allocationsCreated?: number;
+            /** @example 0 */
+            overpayment?: number;
+            /** @example 90.8 */
+            totalAllocated?: number;
+            /** @example 550e8400-e29b-41d4-a716-446655440000 */
+            transactionId?: string;
+        };
+        /** @description Fee allocation entry */
+        AllocationRequest: {
+            /** @example 45.4 */
+            amount?: number;
+            /** @example 550e8400-e29b-41d4-a716-446655440001 */
+            expectationId?: string;
+        };
+        /** @description Calculate household income from parent details */
+        CalculateIncomeRequest: {
+            parent1?: components["schemas"]["domain.IncomeDetails"];
+            parent2?: components["schemas"]["domain.IncomeDetails"];
+        };
+        /** @description Computed income breakdown */
+        CalculateIncomeResponse: {
+            householdFeeIncome?: number;
+            householdFullIncome?: number;
+            parent1FeeRelevantIncome?: number;
+            parent1NetIncome?: number;
+            parent2FeeRelevantIncome?: number;
+            parent2NetIncome?: number;
+        };
+        CareHoursBreakdownItem: {
+            /** @example 40 */
+            careHours?: number;
+            /** @example 12 */
+            count?: number;
+            /** @example 4 */
+            u3Count?: number;
+            /** @example 8 */
+            ue3Count?: number;
+        };
+        CareHoursHistoryEntry: {
+            /** @example 40 */
+            careHours?: number;
+            /** @example 550e8400-e29b-41d4-a716-446655440000 */
+            childId?: string;
+            /** @example 2026-01-01T10:00:00Z */
+            createdAt?: string;
+            /** @example 2026-01-01 */
+            effectiveFrom?: string;
+            /** @example 2026-03-31 */
+            effectiveUntil?: string;
+            /** @example 550e8400-e29b-41d4-a716-446655440010 */
+            id?: string;
+            /** @example 2026-01-01T10:00:00Z */
+            updatedAt?: string;
+        };
         ChangePasswordRequest: {
             /** @example oldPassword123 */
             currentPassword?: string;
@@ -4430,6 +6124,14 @@ export interface components {
             /** @example 45 */
             validRows?: number;
         };
+        /** @description Payment ledger for a child */
+        ChildLedger: {
+            child?: unknown;
+            /** @example 550e8400-e29b-41d4-a716-446655440000 */
+            childId?: string;
+            entries?: components["schemas"]["LedgerEntry"][];
+            summary?: components["schemas"]["LedgerSummary"];
+        };
         /** @description Paginated list of children */
         ChildList: {
             data?: components["schemas"]["Child"][];
@@ -4480,6 +6182,31 @@ export interface components {
              */
             warnings?: string[];
         };
+        /** @description Trusted IBANs with usage counts */
+        ChildTrustedIBANsResponse: {
+            /** @example DE89370400440532013000 */
+            iban?: string;
+            /** @example Max Mustermann */
+            payerName?: string;
+            /** @example 4 */
+            transactionCount?: number;
+        };
+        /** @description Likely unmatched transactions for a child */
+        ChildUnmatchedSuggestionsResponse: {
+            /** @example 550e8400-e29b-41d4-a716-446655440000 */
+            childId?: string;
+            /** @example 250 */
+            scanned?: number;
+            suggestions?: components["schemas"]["domain.MatchSuggestion"][];
+        };
+        /** @description Result of synchronizing CHILDCARE expectations after a follow-up */
+        ChildcareExpectationSyncResult: {
+            created?: number;
+            creditReviewRequired?: components["schemas"]["CreditReviewPeriod"][];
+            deltaOpen?: number;
+            skipped?: number;
+            updated?: number;
+        };
         /** @description Childcare fee calculation result */
         ChildcareFeeResult: {
             /** @example 40 */
@@ -4507,6 +6234,11 @@ export interface components {
             confirmed?: number;
             /** @example 0 */
             failed?: number;
+        };
+        CreateCareHoursHistoryRequest: {
+            careHours?: number;
+            /** @example 2026-01-01 */
+            validFrom?: string;
         };
         /** @description Request body for creating a new child */
         CreateChildRequest: {
@@ -4537,6 +6269,53 @@ export interface components {
             /** @example 42 */
             streetNo?: string;
         };
+        /** @description Request body for creating a fee classification */
+        CreateEinstufungRequest: {
+            careHoursPerWeek?: number;
+            childId?: string;
+            childrenCount?: number;
+            highestRateVoluntary?: boolean;
+            incomeCalculation?: components["schemas"]["domain.HouseholdIncomeCalculation"];
+            notes?: string;
+            /** @description ISO date, e.g. "2026-01-01" */
+            validFrom?: string;
+            year?: number;
+        };
+        /** @description Request body for creating a single fee */
+        CreateFeeRequest: {
+            /** @example 45.4 */
+            amount?: number;
+            /** @example 550e8400-e29b-41d4-a716-446655440001 */
+            childId?: string;
+            /** @example 2025-01-05 */
+            dueDate?: string;
+            /**
+             * @example FOOD
+             * @enum {string}
+             */
+            feeType?: "FOOD" | "MEMBERSHIP" | "CHILDCARE" | "REMINDER";
+            /** @example 1 */
+            month?: number;
+            /** @example 2024 */
+            reconciliationYear?: number;
+            /** @example 2025 */
+            year?: number;
+        };
+        /** @description Request body for creating a follow-up fee classification */
+        CreateFollowUpEinstufungRequest: {
+            careHoursPerWeek?: number;
+            /** @description ISO date, cut-off: 1st-14th same month, 15th+ next month */
+            changeDate?: string;
+            childrenCount?: number;
+            highestRateVoluntary?: boolean;
+            incomeCalculation?: components["schemas"]["domain.HouseholdIncomeCalculation"];
+            notes?: string;
+        };
+        /** @description Follow-up Einstufung creation result */
+        CreateFollowUpEinstufungResponse: {
+            einstufung?: components["schemas"]["Einstufung"];
+            expectationChanges?: components["schemas"]["ChildcareExpectationSyncResult"];
+        };
         /** @description Request body for creating a new household */
         CreateHouseholdRequest: {
             /** @example 65000 */
@@ -4546,8 +6325,20 @@ export interface components {
              * @enum {string}
              */
             incomeStatus?: "PROVIDED" | "MAX_ACCEPTED" | "PENDING" | "NOT_REQUIRED" | "HISTORIC" | "FOSTER_FAMILY";
+            /**
+             * @example ASSUMED
+             * @enum {string}
+             */
+            membershipAssignmentStatus?: "ASSUMED" | "CONFIRMED";
+            /** @example 550e8400-e29b-41d4-a716-446655440000 */
+            membershipParentId?: string;
             /** @example Familie Müller */
             name?: string;
+        };
+        CreateLegalHoursHistoryRequest: {
+            legalHours?: number;
+            /** @example 2026-01-01 */
+            validFrom?: string;
         };
         /** @description Request body for creating a member from a parent */
         CreateMemberFromParentRequest: {
@@ -4609,6 +6400,16 @@ export interface components {
             /** @example 42 */
             streetNo?: string;
         };
+        /** @description Paid month that would become overpaid after a childcare fee decrease */
+        CreditReviewPeriod: {
+            creditAmount?: number;
+            feeId?: string;
+            matchedAmount?: number;
+            month?: number;
+            newAmount?: number;
+            oldAmount?: number;
+            year?: number;
+        };
         /** @description Dismiss transaction result */
         DismissTransactionResponse: {
             /** @example true */
@@ -4622,6 +6423,74 @@ export interface components {
         DismissWarningRequest: {
             /** @example Differenz wurde bar ausgeglichen */
             note?: string;
+        };
+        /** @description Fee classification for a child */
+        Einstufung: {
+            annualMembershipFee?: number;
+            annualNetIncome?: number;
+            baseFee?: number;
+            careHoursPerWeek?: number;
+            careType?: string;
+            changeDate?: string;
+            child?: unknown;
+            childId?: string;
+            childrenCount?: number;
+            createdAt?: string;
+            discountFactor?: number;
+            discountPercent?: number;
+            effectiveFromMonth?: string;
+            feeRule?: string;
+            highestRateVoluntary?: boolean;
+            household?: unknown;
+            householdId?: string;
+            id?: string;
+            incomeCalculation?: components["schemas"]["domain.HouseholdIncomeCalculation"];
+            monthlyChildcareFee?: number;
+            monthlyFoodFee?: number;
+            monthlyTable?: components["schemas"]["domain.EinstufungMonthRow"][];
+            notes?: string;
+            sourceEinstufungId?: string;
+            updatedAt?: string;
+            validFrom?: string;
+            validUntil?: string;
+            year?: number;
+        };
+        /** @description Paginated list of fee classifications */
+        EinstufungList: {
+            data?: components["schemas"]["Einstufung"][];
+            page?: number;
+            perPage?: number;
+            total?: number;
+            totalPages?: number;
+        };
+        /** @description Paginated list of email logs */
+        EmailLogListResponse: {
+            data?: components["schemas"]["EmailLogResponse"][];
+            /** @example 1 */
+            page?: number;
+            /** @example 20 */
+            perPage?: number;
+            /** @example 100 */
+            total?: number;
+            /** @example 5 */
+            totalPages?: number;
+        };
+        /** @description Email log entry */
+        EmailLogResponse: {
+            /** @example Hallo,... */
+            body?: string;
+            /** @example REMINDER_INITIAL */
+            emailType?: string;
+            /** @example 550e8400-e29b-41d4-a716-446655440000 */
+            id?: string;
+            /** @example 2026-02-05T10:15:00Z */
+            sentAt?: string;
+            /** @example 550e8400-e29b-41d4-a716-446655440001 */
+            sentBy?: string;
+            /** @example Zahlungserinnerung Essens- und Platzgeld Februar 2026 */
+            subject?: string;
+            /** @example admin@knirpsenstadt.de */
+            toEmail?: string;
         };
         /** @description Standard error response format */
         ErrorResponse: {
@@ -4686,6 +6555,12 @@ export interface components {
             /** @example 37500 */
             amountPaid?: number;
             byMonth?: components["schemas"]["MonthOverview"][];
+            /** @example 12 */
+            openChildcareCount?: number;
+            /** @example 18 */
+            openFoodCount?: number;
+            /** @example 3 */
+            openMembershipCount?: number;
             /** @example 25 */
             totalOpen?: number;
             /** @example 5 */
@@ -4711,6 +6586,11 @@ export interface components {
             skipped?: number;
             suggestions?: components["schemas"]["domain.MatchSuggestion"][];
         };
+        /** @description Hide transaction result */
+        HideTransactionResponse: {
+            /** @example 550e8400-e29b-41d4-a716-446655440000 */
+            transactionId?: string;
+        };
         /** @description Household information with relationships */
         Household: {
             /** @example 65000 */
@@ -4725,6 +6605,13 @@ export interface components {
              * @enum {string}
              */
             incomeStatus?: "PROVIDED" | "MAX_ACCEPTED" | "PENDING" | "NOT_REQUIRED" | "HISTORIC" | "FOSTER_FAMILY";
+            /**
+             * @example ASSUMED
+             * @enum {string}
+             */
+            membershipAssignmentStatus?: "ASSUMED" | "CONFIRMED";
+            /** @example 550e8400-e29b-41d4-a716-446655440000 */
+            membershipParentId?: string;
             /** @example Familie Müller */
             name?: string;
             parents?: unknown;
@@ -4810,6 +6697,77 @@ export interface components {
             total?: number;
             /** @example 1 */
             totalPages?: number;
+        };
+        /** @description Ledger entry for a child */
+        LedgerEntry: {
+            /** @example 45.4 */
+            balance?: number;
+            /** @example 0 */
+            credit?: number;
+            /** @example 2024-01-05 */
+            date?: string;
+            /** @example 45.4 */
+            debit?: number;
+            /** @example Essensgeld Januar 2024 */
+            description?: string;
+            /** @example FOOD */
+            feeType?: string;
+            /** @example 550e8400-e29b-41d4-a716-446655440000 */
+            id?: string;
+            /** @example false */
+            isPaid?: boolean;
+            /** @example 1 */
+            month?: number;
+            /** @example 2024-01-10 */
+            paidAt?: string;
+            /**
+             * @example fee
+             * @enum {string}
+             */
+            type?: "fee" | "payment";
+            /** @example 2024 */
+            year?: number;
+        };
+        /** @description Summary totals for the ledger */
+        LedgerSummary: {
+            /** @example 2 */
+            openFeesCount?: number;
+            /** @example 8 */
+            paidFeesCount?: number;
+            /** @example 500 */
+            totalFees?: number;
+            /** @example 10 */
+            totalFeesCount?: number;
+            /** @example 100 */
+            totalOpen?: number;
+            /** @example 400 */
+            totalPaid?: number;
+        };
+        LegalHoursBreakdownItem: {
+            /** @example 12 */
+            count?: number;
+            /** @example 35 */
+            legalHours?: number;
+            /** @example 4 */
+            u3Count?: number;
+            /** @example 8 */
+            ue3Count?: number;
+        };
+        LegalHoursHistoryEntry: {
+            /** @example 550e8400-e29b-41d4-a716-446655440000 */
+            childId?: string;
+            /** @example 2026-01-01T10:00:00Z */
+            createdAt?: string;
+            /** @example 2026-01-01 */
+            effectiveFrom?: string;
+            /** @example 2026-03-31 */
+            effectiveUntil?: string;
+            /** @example 550e8400-e29b-41d4-a716-446655440011 */
+            id?: string;
+            /** @example 35 */
+            legalHours?: number;
+            /** @example 2026-01-01T10:00:00Z */
+            updatedAt?: string;
         };
         /** @description Request body for linking an IBAN to a child */
         LinkIBANRequest: {
@@ -4940,6 +6898,11 @@ export interface components {
             /** @example 2024 */
             year?: number;
         };
+        /** @description Next available member number */
+        NextMemberNumberResponse: {
+            /** @example 12002 */
+            memberNumber?: string;
+        };
         /** @description Parent information with relationships */
         Parent: {
             /** @example 65000 */
@@ -5025,25 +6988,111 @@ export interface components {
             /** @example 50 */
             totalRows?: number;
         };
-        PasswordResetConfirmRequest: {
-            /** @example newPassword456 */
-            newPassword?: string;
-            /** @example abc123def456 */
-            token?: string;
-        };
-        PasswordResetRequest: {
-            /** @example user@example.com */
-            email?: string;
-        };
         RefreshTokenRequest: {
             /** @example eyJhbGciOiJIUzI1NiIs... */
             refreshToken?: string;
         };
+        ReminderPreviewResponse: {
+            /** @example Hallo Anna,... */
+            body?: string;
+            /** @example 550e8400-e29b-41d4-a716-446655440000 */
+            householdId?: string;
+            /** @example Schmidt */
+            householdName?: string;
+            qrImageDataUrl?: string;
+            /**
+             * @example [
+             *       "[\"anna@example.com\"]"
+             *     ]
+             */
+            recipients?: string[];
+            /** @example Kita Zahlungserinnerung April 2026 */
+            subject?: string;
+        };
+        /** @description Ergebnis einer Erinnerungs-/Mahnungsprüfung */
+        ReminderRunResponse: {
+            /** @example 2026-02-05 */
+            date?: string;
+            /** @example false */
+            dryRun?: boolean;
+            /** @example true */
+            emailSent?: boolean;
+            /** @example 5 */
+            familiesEmailed?: number;
+            /** @example 6 */
+            familiesProcessed?: number;
+            /** @example 1 */
+            familiesSkippedNoEmail?: number;
+            /** @example no unpaid fees for this period */
+            message?: string;
+            previews?: components["schemas"]["ReminderPreviewResponse"][];
+            /** @description Deprecated: kept for backward compat */
+            recipient?: string;
+            reminderCreated?: number;
+            /** @example 8 */
+            remindersCreated?: number;
+            /**
+             * @example initial
+             * @enum {string}
+             */
+            stage?: "auto" | "initial" | "final" | "none";
+            /** @example 12 */
+            unpaidCount?: number;
+            warnings?: components["schemas"]["ReminderWarningResponse"][];
+        };
+        /** @description Reminder settings */
+        ReminderSettingsResponse: {
+            /** @example false */
+            autoEnabled?: boolean;
+            payment?: components["schemas"]["handler.ReminderPaymentSettingsPayload"];
+        };
+        ReminderWarningResponse: {
+            /** @example Müller */
+            householdName?: string;
+            /** @example keine gültige E-Mail-Adresse */
+            reason?: string;
+        };
         /** @description Rescan result with new match suggestions */
         RescanResponse: {
+            /** @example 150 */
+            autoMatched?: number;
             /** @example 5 */
             newMatches?: number;
+            /** @example 226 */
+            scanned?: number;
             suggestions?: components["schemas"]["MatchSuggestion"][];
+        };
+        /** @description Late payment resolution result */
+        ResolveLateFeeResponse: {
+            /** @example 10 */
+            lateFeeAmount?: number;
+            /** @example 550e8400-e29b-41d4-a716-446655440001 */
+            lateFeeId?: string;
+            /** @example 550e8400-e29b-41d4-a716-446655440000 */
+            warningId?: string;
+        };
+        StichtagsmeldungReport: {
+            careHoursBreakdown?: components["schemas"]["CareHoursBreakdownItem"][];
+            legalHoursBreakdown?: components["schemas"]["LegalHoursBreakdownItem"][];
+            /** @example 2026-03-15 */
+            reportDate?: string;
+            /** @example 45 */
+            totalChildrenInKita?: number;
+            /** @example 12 */
+            u3ChildrenCount?: number;
+            u3IncomeBreakdown?: components["schemas"]["U3IncomeBreakdown"];
+            /** @example 33 */
+            ue3ChildrenCount?: number;
+        };
+        /** @description Stichtagsmeldung statistics for quarterly reporting */
+        StichtagsmeldungStats: {
+            /** @example 37 */
+            daysUntilStichtag?: number;
+            /** @example 2026-03-15 */
+            nextStichtag?: string;
+            /** @example 45 */
+            totalChildrenInKita?: number;
+            u3IncomeBreakdown?: components["schemas"]["U3IncomeBreakdown"];
         };
         /** @description Bank transaction from CSV import */
         Transaction: {
@@ -5087,6 +7136,35 @@ export interface components {
             /** @example 2 */
             totalPages?: number;
         };
+        /** @description U3 children income breakdown by 5 brackets */
+        U3IncomeBreakdown: {
+            /** @example 1 */
+            fosterFamily?: number;
+            /** @example 8 */
+            from20To35k?: number;
+            /** @example 12 */
+            from35To55k?: number;
+            /** @example 2 */
+            maxAccepted?: number;
+            /** @example 28 */
+            total?: number;
+            /** @example 5 */
+            upTo20k?: number;
+        };
+        /** @description Unmatch transaction request */
+        UnmatchTransactionRequest: {
+            /** @example false */
+            deleteTransaction?: boolean;
+        };
+        /** @description Unmatch transaction result */
+        UnmatchTransactionResponse: {
+            /** @example 1 */
+            matchesRemoved?: number;
+            /** @example false */
+            transactionDeleted?: boolean;
+            /** @example 550e8400-e29b-41d4-a716-446655440000 */
+            transactionId?: string;
+        };
         /** @description Request body for updating a child */
         UpdateChildRequest: {
             /** @example 2020-06-15 */
@@ -5116,6 +7194,15 @@ export interface components {
             /** @example 42 */
             streetNo?: string;
         };
+        /** @description Request body for updating a fee classification */
+        UpdateEinstufungRequest: {
+            careHoursPerWeek?: number;
+            childrenCount?: number;
+            highestRateVoluntary?: boolean;
+            incomeCalculation?: components["schemas"]["domain.HouseholdIncomeCalculation"];
+            notes?: string;
+            validFrom?: string;
+        };
         /** @description Request body for updating a fee */
         UpdateFeeRequest: {
             /** @example 275.5 */
@@ -5125,11 +7212,20 @@ export interface components {
         UpdateHouseholdRequest: {
             /** @example 65000 */
             annualHouseholdIncome?: number;
+            /** @example 2 */
+            childrenCountForFees?: number;
             /**
              * @example PROVIDED
              * @enum {string}
              */
             incomeStatus?: "PROVIDED" | "MAX_ACCEPTED" | "PENDING" | "NOT_REQUIRED" | "HISTORIC" | "FOSTER_FAMILY";
+            /**
+             * @example ASSUMED
+             * @enum {string}
+             */
+            membershipAssignmentStatus?: "ASSUMED" | "CONFIRMED";
+            /** @example 550e8400-e29b-41d4-a716-446655440000 */
+            membershipParentId?: string;
             /** @example Familie Müller */
             name?: string;
         };
@@ -5187,6 +7283,12 @@ export interface components {
             street?: string;
             /** @example 42 */
             streetNo?: string;
+        };
+        /** @description Reminder settings update */
+        UpdateReminderSettingsRequest: {
+            /** @example true */
+            autoEnabled?: boolean;
+            payment?: components["schemas"]["handler.ReminderPaymentSettingsPayload"];
         };
         /** @description CSV upload and processing result */
         UploadResponse: {
@@ -5260,9 +7362,12 @@ export interface components {
             bookingDate?: string;
             currency?: string;
             description?: string;
+            hiddenAt?: string;
+            hiddenBy?: string;
             id?: string;
             importBatchId?: string;
             importedAt?: string;
+            isHidden?: boolean;
             /** @description Joined fields */
             matches?: components["schemas"]["domain.PaymentMatch"][];
             payerIban?: string;
@@ -5285,12 +7390,27 @@ export interface components {
             legalHours?: number;
             legalHoursUntil?: string;
             memberNumber?: string;
+            /** @description Computed fields (not stored in DB, populated by queries) */
+            openFeesCount?: number;
             /** @description Loaded relations (not stored in DB) */
             parents?: components["schemas"]["domain.Parent"][];
             postalCode?: string;
             street?: string;
             streetNo?: string;
             updatedAt?: string;
+        };
+        "domain.EinstufungMonthRow": {
+            careHoursPerWeek?: number;
+            /** @description "Krippe" or "Kindergarten" */
+            careType?: string;
+            /** @description Beitrag für Kinderbetreuung */
+            childcareFee?: number;
+            /** @description Essengeld */
+            foodFee?: number;
+            /** @description Vereinsbeitrag (only in first month) */
+            membershipFee?: number;
+            month?: number;
+            year?: number;
         };
         "domain.FeeExpectation": {
             amount?: number;
@@ -5300,14 +7420,21 @@ export interface components {
             createdAt?: string;
             dueDate?: string;
             feeType?: components["schemas"]["domain.FeeType"];
+            householdId?: string;
             id?: string;
             isPaid?: boolean;
+            /** @description Total matched across all transactions */
+            matchedAmount?: number;
             matchedBy?: components["schemas"]["domain.PaymentMatch"];
             /** @description nil for yearly fees */
             month?: number;
             paidAt?: string;
+            /** @description All transactions covering this fee */
+            partialMatches?: components["schemas"]["domain.PaymentMatch"][];
             /** @description For Kalendarjahresabrechnung: the year this Nachzahlung is for */
             reconciliationYear?: number;
+            /** @description Amount still needed */
+            remaining?: number;
             /** @description For REMINDER type: links to the original fee */
             reminderForId?: string;
             year?: number;
@@ -5317,14 +7444,52 @@ export interface components {
         "domain.Household": {
             annualHouseholdIncome?: number;
             children?: components["schemas"]["domain.Child"][];
+            /** @description Override for sibling discount calculation */
+            childrenCountForFees?: number;
             createdAt?: string;
             id?: string;
             incomeStatus?: components["schemas"]["domain.IncomeStatus"];
+            membershipAssignmentStatus?: components["schemas"]["domain.MembershipAssignmentStatus"];
+            membershipParentId?: string;
             /** @description e.g. "Familie Müller" - auto-generated or manual */
             name?: string;
             /** @description Loaded relations (not stored in DB) */
             parents?: components["schemas"]["domain.Parent"][];
             updatedAt?: string;
+        };
+        "domain.HouseholdIncomeCalculation": {
+            parent1?: components["schemas"]["domain.IncomeDetails"];
+            parent2?: components["schemas"]["domain.IncomeDetails"];
+        };
+        "domain.IncomeDetails": {
+            /** @description - WK-Pauschale */
+            advertisingCosts?: number;
+            /** @description Employee Income (bei AN) */
+            grossIncome?: number;
+            /** @description - Versicherungen */
+            insurances?: number;
+            /** @description + Unterhalt (erhalten) */
+            maintenanceReceived?: number;
+            /** @description Maintenance (Unterhalt) */
+            maintenanceToPay?: number;
+            /** @description Mutterschaftsgeld */
+            maternityBenefit?: number;
+            /** @description + sonstige Einnahmen */
+            otherIncome?: number;
+            /** @description Other Benefits (NOT included in fee-relevant household income) */
+            parentalBenefit?: number;
+            /** @description - private KV/PV */
+            privateInsurance?: number;
+            /** @description Self-Employed Income (bei Gewerbetreibenden / Selbständigen) */
+            profit?: number;
+            /** @description - Steuern (Est, KiSt, SolZu) */
+            selfEmployedTax?: number;
+            /** @description - AN-Anteile SV */
+            socialSecurityShare?: number;
+            /** @description - Lst bzw Est, KiSt, SolZu */
+            tax?: number;
+            /** @description - Abgabe für persönliche Daseinsfürsorge */
+            welfareExpense?: number;
         };
         /** @enum {string} */
         "domain.IncomeStatus": "" | "PROVIDED" | "MAX_ACCEPTED" | "PENDING" | "NOT_REQUIRED" | "HISTORIC" | "FOSTER_FAMILY";
@@ -5361,6 +7526,8 @@ export interface components {
             streetNo?: string;
             updatedAt?: string;
         };
+        /** @enum {string} */
+        "domain.MembershipAssignmentStatus": "ASSUMED" | "CONFIRMED";
         "domain.Parent": {
             /** @description DEPRECATED: Income fields moved to Household. Kept for backwards compatibility during migration. */
             annualHouseholdIncome?: number;
@@ -5386,6 +7553,7 @@ export interface components {
             updatedAt?: string;
         };
         "domain.PaymentMatch": {
+            amount?: number;
             confidence?: number;
             expectation?: components["schemas"]["domain.FeeExpectation"];
             expectationId?: string;
@@ -5396,6 +7564,55 @@ export interface components {
             /** @description Joined fields */
             transaction?: components["schemas"]["domain.BankTransaction"];
             transactionId?: string;
+        };
+        "handler.CoveredTransactionResponse": {
+            /** @example 66 */
+            amount?: number;
+            /** @example 2024-03-05 */
+            bookingDate?: string;
+            /** @example Platzgeld März */
+            description?: string;
+            /** @example true */
+            isForThisMonth?: boolean;
+            /** @example 550e8400-e29b-41d4-a716-446655440000 */
+            transactionId?: string;
+        };
+        /** @description Monthly fee coverage with transaction details */
+        "handler.FeeCoverageResponse": {
+            /** @example 0 */
+            balance?: number;
+            /** @example 110 */
+            expectedTotal?: number;
+            /** @example 3 */
+            month?: number;
+            /** @example 110 */
+            receivedTotal?: number;
+            /**
+             * @example COVERED
+             * @enum {string}
+             */
+            status?: "UNPAID" | "PARTIAL" | "COVERED" | "OVERPAID";
+            transactions?: components["schemas"]["handler.CoveredTransactionResponse"][];
+            /** @example 2024 */
+            year?: number;
+        };
+        "handler.ReminderPaymentSettingsPayload": {
+            /** @example BFSWDE33XXX */
+            bic?: string;
+            /** @example DE33370205000003321400 */
+            iban?: string;
+            /** @example Knirpsenstadt e.V. */
+            recipientName?: string;
+        };
+        "handler.U3ChildDetailResponse": {
+            birthDate?: string;
+            firstName?: string;
+            householdIncome?: number;
+            id?: string;
+            incomeStatus?: string;
+            isFosterFamily?: boolean;
+            lastName?: string;
+            memberNumber?: string;
         };
         "service.ChildPreview": {
             birthDate?: string;
@@ -5452,204 +7669,6 @@ export interface components {
             /** @description ID of the already linked parent */
             linkedParentId?: string;
             phone?: string;
-        };
-        /** @description Detailed income components for one parent (annual amounts in EUR) */
-        IncomeDetails: {
-            /**
-             * @description Bruttoeinkommen (Jahressumme)
-             * @example 0
-             */
-            grossIncome?: number;
-            /**
-             * @description Sonstige Einnahmen
-             * @example 0
-             */
-            otherIncome?: number;
-            /**
-             * @description AN-Anteile Sozialversicherung
-             * @example 0
-             */
-            socialSecurityShare?: number;
-            /**
-             * @description Private KV/PV
-             * @example 0
-             */
-            privateInsurance?: number;
-            /**
-             * @description Lohnsteuer / Kirchensteuer / Solidaritätszuschlag
-             * @example 0
-             */
-            tax?: number;
-            /**
-             * @description Werbungskosten-Pauschale
-             * @example 0
-             */
-            advertisingCosts?: number;
-            /**
-             * @description Gewinn aus Gewerbebetrieb oder selbständiger Arbeit
-             * @example 0
-             */
-            profit?: number;
-            /**
-             * @description Abgabe für persönliche Daseinsfürsorge
-             * @example 0
-             */
-            welfareExpense?: number;
-            /**
-             * @description Steuern (ESt, KiSt, SolZu)
-             * @example 0
-             */
-            selfEmployedTax?: number;
-            /**
-             * @description Elterngeld (nicht beitragsrelevant)
-             * @example 0
-             */
-            parentalBenefit?: number;
-            /**
-             * @description Mutterschaftsgeld (nicht beitragsrelevant)
-             * @example 0
-             */
-            maternityBenefit?: number;
-            /**
-             * @description Versicherungen
-             * @example 0
-             */
-            insurances?: number;
-            /**
-             * @description Unterhalt (zu zahlen)
-             * @example 0
-             */
-            maintenanceToPay?: number;
-            /**
-             * @description Unterhalt (erhalten)
-             * @example 0
-             */
-            maintenanceReceived?: number;
-        };
-        /** @description Full income calculation sheet for a household (both parents) */
-        HouseholdIncomeCalculation: {
-            parent1?: components["schemas"]["IncomeDetails"];
-            parent2?: components["schemas"]["IncomeDetails"];
-        };
-        /** @description One month in the Einstufung letter table */
-        EinstufungMonthRow: {
-            /** @example 1 */
-            month?: number;
-            /** @example 2026 */
-            year?: number;
-            /** @example 45 */
-            careHoursPerWeek?: number;
-            /** @example Kindergarten */
-            careType?: string;
-            /** @example 66 */
-            childcareFee?: number;
-            /** @example 45.4 */
-            foodFee?: number;
-            /** @example 30 */
-            membershipFee?: number;
-        };
-        /** @description Fee classification for a child */
-        Einstufung: {
-            id?: string;
-            childId?: string;
-            householdId?: string;
-            /** @example 2026 */
-            year?: number;
-            /** @example 2026-01-01 */
-            validFrom?: string;
-            incomeCalculation?: components["schemas"]["HouseholdIncomeCalculation"];
-            /**
-             * @description Fee-relevant household income
-             * @example 36412.8
-             */
-            annualNetIncome?: number;
-            /** @example false */
-            highestRateVoluntary?: boolean;
-            /** @example 45 */
-            careHoursPerWeek?: number;
-            /**
-             * @example kindergarten
-             * @enum {string}
-             */
-            careType?: "krippe" | "kindergarten";
-            /** @example 1 */
-            childrenCount?: number;
-            /** @example 66 */
-            monthlyChildcareFee?: number;
-            /** @example 45.4 */
-            monthlyFoodFee?: number;
-            /** @example 30 */
-            annualMembershipFee?: number;
-            /** @example Entlastung */
-            feeRule?: string;
-            /** @example 0 */
-            discountPercent?: number;
-            /** @example 1 */
-            discountFactor?: number;
-            /** @example 66 */
-            baseFee?: number;
-            notes?: string;
-            monthlyTable?: components["schemas"]["EinstufungMonthRow"][];
-            createdAt?: string;
-            updatedAt?: string;
-            /** @description Loaded child relation */
-            child?: Record<string, never>;
-            /** @description Loaded household relation */
-            household?: Record<string, never>;
-        };
-        /** @description Paginated list of Einstufungen */
-        EinstufungList: {
-            data?: components["schemas"]["Einstufung"][];
-            /** @example 1 */
-            page?: number;
-            /** @example 20 */
-            perPage?: number;
-            /** @example 100 */
-            total?: number;
-            /** @example 5 */
-            totalPages?: number;
-        };
-        /** @description Request body for creating a fee classification */
-        CreateEinstufungRequest: {
-            childId?: string;
-            /** @example 2026 */
-            year?: number;
-            /**
-             * @description ISO date (YYYY-MM-DD)
-             * @example 2026-01-01
-             */
-            validFrom?: string;
-            incomeCalculation?: components["schemas"]["HouseholdIncomeCalculation"];
-            /** @example false */
-            highestRateVoluntary?: boolean;
-            /** @example 45 */
-            careHoursPerWeek?: number;
-            /** @example 1 */
-            childrenCount?: number;
-            notes?: string;
-        };
-        /** @description Request body for updating a fee classification */
-        UpdateEinstufungRequest: {
-            incomeCalculation?: components["schemas"]["HouseholdIncomeCalculation"];
-            highestRateVoluntary?: boolean;
-            careHoursPerWeek?: number;
-            childrenCount?: number;
-            validFrom?: string;
-            notes?: string;
-        };
-        /** @description Request to calculate household income from parent details */
-        CalculateIncomeRequest: {
-            parent1?: components["schemas"]["IncomeDetails"];
-            parent2?: components["schemas"]["IncomeDetails"];
-        };
-        /** @description Computed income breakdown */
-        CalculateIncomeResponse: {
-            parent1NetIncome?: number;
-            parent2NetIncome?: number;
-            parent1FeeRelevantIncome?: number;
-            parent2FeeRelevantIncome?: number;
-            householdFeeIncome?: number;
-            householdFullIncome?: number;
         };
     };
     responses: never;

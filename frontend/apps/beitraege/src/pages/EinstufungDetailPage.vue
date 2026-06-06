@@ -9,8 +9,7 @@ import type {
   IncomeDetails,
   HouseholdIncomeCalculation,
   CalculateIncomeResponse,
-  CreateEinstufungRequest,
-  UpdateEinstufungRequest,
+  ChildcareExpectationSyncResult,
 } from '@/api/types';
 import {
   ArrowLeft,
@@ -21,7 +20,6 @@ import {
   Info,
   User,
   Home,
-  Clock,
   FileText,
   CheckCircle,
   Mail,
@@ -35,14 +33,17 @@ const router = useRouter();
 
 const isNew = computed(() => route.params.id === 'neu');
 const einstufungId = computed(() => (isNew.value ? null : route.params.id as string));
+const isFollowUpMode = computed(() => isNew.value && (route.query.followUp === '1' || !!route.query.sourceId));
 
 const isLoading = ref(false);
 const isSaving = ref(false);
 const error = ref<string | null>(null);
 const saveSuccess = ref(false);
+const expectationChanges = ref<ChildcareExpectationSyncResult | null>(null);
 
 // Loaded einstufung (edit mode)
 const einstufung = ref<Einstufung | null>(null);
+const sourceEinstufung = ref<Einstufung | null>(null);
 
 // Form data
 const selectedChildId = ref('');
@@ -133,6 +134,25 @@ const emailRecipients = computed(() => {
 
 // Care hour options
 const careHourOptions = [30, 35, 40, 45, 50, 55];
+
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function calculateEffectiveFromMonth(changeDate: string): string {
+  const [year, month, day] = changeDate.split('-').map(Number);
+  if (!year || !month || !day) return changeDate;
+  const date = new Date(Date.UTC(year, month - 1, 1));
+  if (day >= 15) {
+    date.setUTCMonth(date.getUTCMonth() + 1);
+  }
+  return date.toISOString().slice(0, 10);
+}
+
+const effectiveFromMonthPreview = computed(() => {
+  if (einstufung.value?.effectiveFromMonth) return einstufung.value.effectiveFromMonth.split('T')[0];
+  return calculateEffectiveFromMonth(validFrom.value);
+});
 
 const BANK_DETAILS = `Knirpsenstadt e.V.
 IBAN: DE33 3702 0500 0003 3214 00
@@ -247,33 +267,6 @@ function openEmailComposer() {
   window.location.href = mailto;
 }
 
-// Income field definitions for the form
-const employeeFields = [
-  { key: 'grossIncome', label: 'Bruttoeinkommen', sign: '+' },
-  { key: 'otherIncome', label: 'Sonstige Einnahmen', sign: '+' },
-  { key: 'socialSecurityShare', label: 'AN-Anteile Sozialversicherung', sign: '-' },
-  { key: 'privateInsurance', label: 'Private KV/PV', sign: '-' },
-  { key: 'tax', label: 'Lohnsteuer / Kirchensteuer / Solidaritätszuschlag', sign: '-' },
-  { key: 'advertisingCosts', label: 'Werbungskosten-Pauschale', sign: '-' },
-] as const;
-
-const selfEmployedFields = [
-  { key: 'profit', label: 'Gewinn (Gewerbebetrieb / selbst. Arbeit)', sign: '+' },
-  { key: 'welfareExpense', label: 'Abgabe für persönliche Daseinsfürsorge', sign: '-' },
-  { key: 'selfEmployedTax', label: 'Steuern (ESt, KiSt, SolZu)', sign: '-' },
-] as const;
-
-const benefitFields = [
-  { key: 'parentalBenefit', label: 'Elterngeld', sign: '+', hint: 'Nicht beitragsrelevant' },
-  { key: 'maternityBenefit', label: 'Mutterschaftsgeld', sign: '+', hint: 'Nicht beitragsrelevant' },
-  { key: 'insurances', label: 'Versicherungen', sign: '-' },
-] as const;
-
-const maintenanceFields = [
-  { key: 'maintenanceToPay', label: 'Unterhalt (zu zahlen)', sign: '-' },
-  { key: 'maintenanceReceived', label: 'Unterhalt (erhalten)', sign: '+' },
-] as const;
-
 async function loadData() {
   isLoading.value = true;
   error.value = null;
@@ -297,6 +290,26 @@ async function loadData() {
       notes.value = e.notes || '';
       parent1Income.value = { ...emptyIncome(), ...e.incomeCalculation.parent1 };
       parent2Income.value = { ...emptyIncome(), ...e.incomeCalculation.parent2 };
+    } else if (isFollowUpMode.value) {
+      let source: Einstufung | null = null;
+      if (route.query.sourceId) {
+        source = await api.getEinstufung(route.query.sourceId as string);
+      } else if (route.query.childId) {
+        source = await api.getEinstufungForChild(route.query.childId as string);
+      }
+      if (!source) {
+        throw new Error('Keine bestehende Einstufung als Vorlage gefunden.');
+      }
+      sourceEinstufung.value = source;
+      selectedChildId.value = source.childId;
+      selectedYear.value = new Date(calculateEffectiveFromMonth(todayIso())).getUTCFullYear();
+      validFrom.value = todayIso();
+      careHoursPerWeek.value = source.careHoursPerWeek;
+      childrenCount.value = source.childrenCount;
+      highestRateVoluntary.value = source.highestRateVoluntary;
+      notes.value = source.notes || '';
+      parent1Income.value = { ...emptyIncome(), ...source.incomeCalculation.parent1 };
+      parent2Income.value = { ...emptyIncome(), ...source.incomeCalculation.parent2 };
     } else if (route.query.childId) {
       // Pre-select child from query param
       const childId = route.query.childId as string;
@@ -337,16 +350,33 @@ async function handleSubmit() {
 
   try {
     if (isNew.value) {
-      const created = await api.createEinstufung({
-        childId: selectedChildId.value,
-        year: selectedYear.value,
-        validFrom: validFrom.value,
-        incomeCalculation,
-        highestRateVoluntary: highestRateVoluntary.value,
-        careHoursPerWeek: careHoursPerWeek.value,
-        childrenCount: childrenCount.value,
-        notes: notes.value || undefined,
-      });
+      let created: Einstufung;
+      if (isFollowUpMode.value) {
+        if (!sourceEinstufung.value) {
+          throw new Error('Keine bestehende Einstufung als Vorlage gefunden.');
+        }
+        const result = await api.createFollowUpEinstufung(sourceEinstufung.value.id, {
+          changeDate: validFrom.value,
+          incomeCalculation,
+          highestRateVoluntary: highestRateVoluntary.value,
+          careHoursPerWeek: careHoursPerWeek.value,
+          childrenCount: childrenCount.value,
+          notes: notes.value || undefined,
+        });
+        created = result.einstufung;
+        expectationChanges.value = result.expectationChanges;
+      } else {
+        created = await api.createEinstufung({
+          childId: selectedChildId.value,
+          year: selectedYear.value,
+          validFrom: validFrom.value,
+          incomeCalculation,
+          highestRateVoluntary: highestRateVoluntary.value,
+          careHoursPerWeek: careHoursPerWeek.value,
+          childrenCount: childrenCount.value,
+          notes: notes.value || undefined,
+        });
+      }
       // Stay on page: show result + PDF immediately
       einstufung.value = created;
       router.replace(`/einstufungen/${created.id}`);
@@ -376,6 +406,10 @@ function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(amount);
 }
 
+function formatMonth(year: number, month: number): string {
+  return new Date(year, month - 1).toLocaleString('de-DE', { month: 'long', year: 'numeric' });
+}
+
 onMounted(loadData);
 
 watch(defaultEmailSubject, (next) => {
@@ -403,7 +437,7 @@ watch(defaultEmailBody, (next) => {
       </button>
       <div class="flex-1">
         <h1 class="text-2xl font-bold text-gray-900">
-          {{ isNew ? 'Neue Einstufung' : 'Einstufung bearbeiten' }}
+          {{ isFollowUpMode ? 'Folgeeinstufung erstellen' : isNew ? 'Neue Einstufung' : 'Einstufung bearbeiten' }}
         </h1>
         <p v-if="einstufung && einstufung.child" class="text-sm text-gray-500 mt-0.5">
           {{ einstufung.child.firstName }} {{ einstufung.child.lastName }} &middot; {{ einstufung.year }}
@@ -424,7 +458,7 @@ watch(defaultEmailBody, (next) => {
     <!-- Success -->
     <div v-if="saveSuccess" class="bg-green-50 text-green-700 p-4 rounded-lg mb-4 flex items-center gap-2">
       <CheckCircle class="h-5 w-5" />
-      Einstufung erfolgreich gespeichert.
+      {{ sourceEinstufung ? 'Folgeeinstufung erfolgreich gespeichert.' : 'Einstufung erfolgreich gespeichert.' }}
     </div>
 
     <form v-if="!isLoading" @submit.prevent="handleSubmit" class="space-y-6">
@@ -467,15 +501,20 @@ watch(defaultEmailBody, (next) => {
             </select>
           </div>
 
-          <!-- Valid from -->
+          <!-- Valid from / change date -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Gültig ab *</label>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              {{ isFollowUpMode ? 'Änderungsdatum *' : 'Gültig ab *' }}
+            </label>
             <input
               type="date"
               v-model="validFrom"
               class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary"
               required
             />
+            <p v-if="isFollowUpMode" class="mt-1 text-xs text-gray-500">
+              Wirksam ab {{ new Date(effectiveFromMonthPreview).toLocaleDateString('de-DE', { month: 'long', year: 'numeric' }) }}
+            </p>
           </div>
 
           <!-- Care hours -->
@@ -619,10 +658,20 @@ watch(defaultEmailBody, (next) => {
 
       <!-- Result preview (edit mode) -->
       <div v-if="einstufung" class="bg-white rounded-lg border shadow-sm p-6">
-        <h2 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-          <FileText class="h-5 w-5 text-gray-400" />
-          Ergebnis
-        </h2>
+        <div class="flex items-center justify-between gap-3 mb-4">
+          <h2 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
+            <FileText class="h-5 w-5 text-gray-400" />
+            Ergebnis
+          </h2>
+          <button
+            v-if="!isNew"
+            type="button"
+            @click="router.push(`/einstufungen/neu?sourceId=${einstufung.id}`)"
+            class="inline-flex items-center gap-2 px-3 py-2 text-xs text-white bg-primary rounded-lg hover:bg-primary/90 transition-colors"
+          >
+            Folgeeinstufung erstellen
+          </button>
+        </div>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div>
             <span class="text-sm text-gray-500">Platzgeld</span>
@@ -670,6 +719,58 @@ watch(defaultEmailBody, (next) => {
                 <td class="px-3 py-2 text-right font-medium">{{ formatCurrency(row.childcareFee) }}</td>
                 <td class="px-3 py-2 text-right">{{ formatCurrency(row.foodFee) }}</td>
                 <td class="px-3 py-2 text-right">{{ row.membershipFee > 0 ? formatCurrency(row.membershipFee) : '—' }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div v-if="expectationChanges" class="bg-white rounded-lg border shadow-sm p-6">
+        <h2 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+          <CheckCircle class="h-5 w-5 text-gray-400" />
+          Beitragsanpassung
+        </h2>
+        <div class="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
+          <div>
+            <span class="text-gray-500">Neu angelegt</span>
+            <p class="text-xl font-bold text-gray-900">{{ expectationChanges.created }}</p>
+          </div>
+          <div>
+            <span class="text-gray-500">Aktualisiert</span>
+            <p class="text-xl font-bold text-gray-900">{{ expectationChanges.updated }}</p>
+          </div>
+          <div>
+            <span class="text-gray-500">Übersprungen</span>
+            <p class="text-xl font-bold text-gray-900">{{ expectationChanges.skipped }}</p>
+          </div>
+          <div>
+            <span class="text-gray-500">Offene Differenz</span>
+            <p class="text-xl font-bold text-gray-900">{{ formatCurrency(expectationChanges.deltaOpen) }}</p>
+          </div>
+          <div>
+            <span class="text-gray-500">Gutschrift prüfen</span>
+            <p class="text-xl font-bold text-gray-900">{{ expectationChanges.creditReviewRequired.length }}</p>
+          </div>
+        </div>
+
+        <div v-if="expectationChanges.creditReviewRequired.length" class="mt-5 overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200 text-sm">
+            <thead class="bg-amber-50">
+              <tr>
+                <th class="px-3 py-2 text-left text-xs font-medium text-amber-800 uppercase">Monat</th>
+                <th class="px-3 py-2 text-right text-xs font-medium text-amber-800 uppercase">Alt</th>
+                <th class="px-3 py-2 text-right text-xs font-medium text-amber-800 uppercase">Neu</th>
+                <th class="px-3 py-2 text-right text-xs font-medium text-amber-800 uppercase">Bezahlt</th>
+                <th class="px-3 py-2 text-right text-xs font-medium text-amber-800 uppercase">Prüfbetrag</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+              <tr v-for="item in expectationChanges.creditReviewRequired" :key="item.feeId">
+                <td class="px-3 py-2 text-gray-700">{{ formatMonth(item.year, item.month) }}</td>
+                <td class="px-3 py-2 text-right">{{ formatCurrency(item.oldAmount) }}</td>
+                <td class="px-3 py-2 text-right">{{ formatCurrency(item.newAmount) }}</td>
+                <td class="px-3 py-2 text-right">{{ formatCurrency(item.matchedAmount) }}</td>
+                <td class="px-3 py-2 text-right font-medium text-amber-800">{{ formatCurrency(item.creditAmount) }}</td>
               </tr>
             </tbody>
           </table>
@@ -761,7 +862,7 @@ watch(defaultEmailBody, (next) => {
         >
           <Loader2 v-if="isSaving" class="h-4 w-4 animate-spin" />
           <Save v-else class="h-4 w-4" />
-          {{ isNew ? 'Einstufung erstellen' : 'Speichern' }}
+          {{ isFollowUpMode ? 'Folgeeinstufung erstellen' : isNew ? 'Einstufung erstellen' : 'Speichern' }}
         </button>
         </div>
       </div>

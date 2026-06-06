@@ -161,6 +161,39 @@ Base URL: `http://localhost:8081/api/fees/v1`
 | `DELETE` | `/fees/{id}` | Beitrag löschen |
 | `GET` | `/childcare-fee/calculate` | Platzgeld berechnen |
 
+### Einstufungen und Folgeeinstufungen
+
+Einstufungen werden in `fees.einstufungen` versioniert. Seit Migration `000026_einstufung_periods` hat eine Einstufung zusätzlich:
+
+- `valid_until`: Ende der geschlossenen Periode
+- `source_einstufung_id`: Vorgänger bei Folgeeinstufungen
+- `change_date`: eingegebenes Änderungsdatum
+- `effective_from_month`: berechneter Wirksamkeitsmonat, immer Monatserster
+
+Die alte Eindeutigkeit `child_id, year` ist entfernt. Stattdessen verhindert ein GiST Exclusion Constraint über den Periodenbereich überlappende Einstufungen pro Kind.
+
+Follow-up endpoint:
+
+| Methode | Endpoint | Beschreibung |
+| --- | --- | --- |
+| `POST` | `/einstufungen/{id}/follow-ups` | Folgeeinstufung aus bestehender Einstufung erstellen |
+
+Stichtagsregel für `changeDate`:
+
+- Tag `01` bis `14`: `effectiveFromMonth` ist der erste Tag desselben Monats.
+- Tag `15` bis Monatsende: `effectiveFromMonth` ist der erste Tag des Folgemonats.
+- Der `15.` zählt bereits als zu spät.
+
+Beim Speichern einer Folgeeinstufung wird die Vorgängerperiode am Tag vor `effectiveFromMonth` geschlossen. Danach synchronisiert der Service offene `CHILDCARE`-Erwartungen ab Wirksamkeitsmonat bis Jahresende beziehungsweise Austritt:
+
+- fehlende Monate werden neu angelegt
+- Beiträge ohne Matches werden auf den neuen Betrag gesetzt
+- bereits gematchte Beiträge werden erhöht, wenn dadurch keine Überzahlung entsteht; die Differenz bleibt über `remaining` offen
+- Senkungen unter den bereits gematchten Betrag werden nicht automatisch gutgeschrieben, sondern in `creditReviewRequired` zur manuellen Verrechnung zurückgegeben
+- `FOOD` und `MEMBERSHIP` bleiben unverändert
+
+Bei Folgeeinstufungen setzt die API den jährlichen Vereinsbeitrag im Einstufungs-PDF-Kontext auf `0`, damit die UI den Hinweis "Jahresbeitrag bereits bezahlt" anzeigen kann.
+
 **Query Parameter (GET /fees):**
 - `year` (int): Jahr filtern
 - `month` (int): Monat filtern
@@ -363,6 +396,12 @@ cd backend-fees
 
 # Convert to OpenAPI 3.0
 npx swagger2openapi ../openapi/fees/swagger.yaml -o ../openapi/fees/openapi3.yaml
+```
+
+If `npx` is blocked by the configured registry but a cached package exists, use the cached CLI directly, for example:
+
+```bash
+node ~/.npm/_npx/<cache-id>/node_modules/swagger2openapi/swagger2openapi.js ../openapi/fees/swagger.yaml -o ../openapi/fees/openapi3.yaml
 ```
 
 Generated files:

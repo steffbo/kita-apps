@@ -216,16 +216,6 @@ function formatAge(birthDateStr: string): string {
   return `${years}J ${months}M`;
 }
 
-function getIncomeStatusLabel(status: string | null): string {
-  if (!status) return '';
-  const labels: Record<string, string> = {
-    CURRENT: 'Aktuell',
-    HISTORIC: 'Historisch',
-    FOSTER_FAMILY: 'Pflegefamilie',
-  };
-  return labels[status] || status;
-}
-
 function formatHoursLabel(hours: number | null | undefined): string {
   if (hours === null || hours === undefined) return 'Unbekannt';
   return `${hours} Std./Woche`;

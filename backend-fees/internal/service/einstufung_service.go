@@ -35,14 +35,30 @@ func NewEinstufungService(
 
 // CreateInput defines input for creating an Einstufung.
 type CreateEinstufungInput struct {
-	ChildID              uuid.UUID                          `json:"childId"`
-	Year                 int                                `json:"year"`
-	ValidFrom            time.Time                          `json:"validFrom"`
-	IncomeCalculation    domain.HouseholdIncomeCalculation  `json:"incomeCalculation"`
-	HighestRateVoluntary bool                               `json:"highestRateVoluntary"`
-	CareHoursPerWeek     int                                `json:"careHoursPerWeek"`
-	ChildrenCount        int                                `json:"childrenCount"`
-	Notes                string                             `json:"notes"`
+	ChildID              uuid.UUID                         `json:"childId"`
+	Year                 int                               `json:"year"`
+	ValidFrom            time.Time                         `json:"validFrom"`
+	IncomeCalculation    domain.HouseholdIncomeCalculation `json:"incomeCalculation"`
+	HighestRateVoluntary bool                              `json:"highestRateVoluntary"`
+	CareHoursPerWeek     int                               `json:"careHoursPerWeek"`
+	ChildrenCount        int                               `json:"childrenCount"`
+	Notes                string                            `json:"notes"`
+}
+
+// CreateFollowUpEinstufungInput defines input for creating a follow-up Einstufung.
+type CreateFollowUpEinstufungInput struct {
+	ChangeDate           time.Time                         `json:"changeDate"`
+	IncomeCalculation    domain.HouseholdIncomeCalculation `json:"incomeCalculation"`
+	HighestRateVoluntary bool                              `json:"highestRateVoluntary"`
+	CareHoursPerWeek     int                               `json:"careHoursPerWeek"`
+	ChildrenCount        int                               `json:"childrenCount"`
+	Notes                string                            `json:"notes"`
+}
+
+// CreateFollowUpEinstufungResult includes the created Einstufung and automatic fee changes.
+type CreateFollowUpEinstufungResult struct {
+	Einstufung         *domain.Einstufung              `json:"einstufung"`
+	ExpectationChanges *ChildcareExpectationSyncResult `json:"expectationChanges"`
 }
 
 // Create creates a new Einstufung, computing the fee from the income calculation.
@@ -67,9 +83,12 @@ func (s *EinstufungService) Create(ctx context.Context, input CreateEinstufungIn
 		return nil, ErrNotFound
 	}
 
-	// Determine care type from child age at validFrom
+	effectiveFromMonth := firstDayOfMonth(input.ValidFrom)
+	changeDate := input.ValidFrom
+
+	// Determine care type from child age at the billing-effective month
 	careType := domain.ChildAgeTypeKrippe
-	if !child.IsUnderThree(input.ValidFrom) {
+	if !child.IsUnderThree(effectiveFromMonth) {
 		careType = domain.ChildAgeTypeKindergarten
 	}
 
@@ -88,7 +107,7 @@ func (s *EinstufungService) Create(ctx context.Context, input CreateEinstufungIn
 		// Count children enrolled at the Einstufung date
 		enrolledCount := 0
 		for _, c := range household.Children {
-			if c.IsEnrolledAt(input.ValidFrom) {
+			if c.IsEnrolledAt(effectiveFromMonth) {
 				enrolledCount++
 			}
 		}
@@ -114,8 +133,10 @@ func (s *EinstufungService) Create(ctx context.Context, input CreateEinstufungIn
 		ID:                   uuid.New(),
 		ChildID:              input.ChildID,
 		HouseholdID:          *child.HouseholdID,
-		Year:                 input.Year,
-		ValidFrom:            input.ValidFrom,
+		Year:                 effectiveFromMonth.Year(),
+		ValidFrom:            effectiveFromMonth,
+		ChangeDate:           &changeDate,
+		EffectiveFromMonth:   effectiveFromMonth,
 		IncomeCalculation:    input.IncomeCalculation,
 		AnnualNetIncome:      annualNetIncome,
 		HighestRateVoluntary: input.HighestRateVoluntary,
@@ -156,6 +177,111 @@ func (s *EinstufungService) Create(ctx context.Context, input CreateEinstufungIn
 	einstufung.Household = household
 
 	return einstufung, nil
+}
+
+// CreateFollowUp creates a follow-up Einstufung, closes the source period, and syncs CHILDCARE expectations.
+func (s *EinstufungService) CreateFollowUp(ctx context.Context, sourceID uuid.UUID, input CreateFollowUpEinstufungInput) (*CreateFollowUpEinstufungResult, error) {
+	source, err := s.einstufungRepo.GetByID(ctx, sourceID)
+	if err != nil {
+		return nil, ErrNotFound
+	}
+
+	effectiveFromMonth := CalculateEffectiveFromMonth(input.ChangeDate)
+	if !source.EffectiveFromMonth.IsZero() && !effectiveFromMonth.After(source.EffectiveFromMonth) {
+		return nil, ErrInvalidInput
+	}
+	if source.ValidUntil != nil && effectiveFromMonth.After(*source.ValidUntil) {
+		return nil, ErrInvalidInput
+	}
+
+	child, err := s.childRepo.GetByID(ctx, source.ChildID)
+	if err != nil {
+		return nil, ErrNotFound
+	}
+	if child.HouseholdID == nil {
+		return nil, ErrInvalidInput
+	}
+	household, err := s.householdRepo.GetWithMembers(ctx, *child.HouseholdID)
+	if err != nil {
+		return nil, ErrNotFound
+	}
+
+	careHours := input.CareHoursPerWeek
+	if careHours == 0 {
+		careHours = source.CareHoursPerWeek
+	}
+	childrenCount := input.ChildrenCount
+	if childrenCount == 0 {
+		childrenCount = source.ChildrenCount
+	}
+
+	careType := domain.ChildAgeTypeKrippe
+	if !child.IsUnderThree(effectiveFromMonth) {
+		careType = domain.ChildAgeTypeKindergarten
+	}
+	annualNetIncome := input.IncomeCalculation.CalculateAnnualNetIncome()
+	feeResult := s.feeService.CalculateChildcareFee(domain.ChildcareFeeInput{
+		ChildAgeType:  careType,
+		NetIncome:     annualNetIncome,
+		SiblingsCount: childrenCount,
+		CareHours:     careHours,
+		HighestRate:   input.HighestRateVoluntary,
+		FosterFamily:  household.IncomeStatus == domain.IncomeStatusFosterFamily,
+	})
+
+	einstufung := &domain.Einstufung{
+		ID:                   uuid.New(),
+		ChildID:              source.ChildID,
+		HouseholdID:          source.HouseholdID,
+		Year:                 effectiveFromMonth.Year(),
+		ValidFrom:            effectiveFromMonth,
+		SourceEinstufungID:   &source.ID,
+		ChangeDate:           &input.ChangeDate,
+		EffectiveFromMonth:   effectiveFromMonth,
+		IncomeCalculation:    input.IncomeCalculation,
+		AnnualNetIncome:      annualNetIncome,
+		HighestRateVoluntary: input.HighestRateVoluntary,
+		CareHoursPerWeek:     careHours,
+		CareType:             careType,
+		ChildrenCount:        childrenCount,
+		MonthlyChildcareFee:  feeResult.Fee,
+		MonthlyFoodFee:       domain.FoodFeeAmount,
+		AnnualMembershipFee:  0,
+		FeeRule:              feeResult.Rule,
+		DiscountPercent:      feeResult.DiscountPercent,
+		DiscountFactor:       feeResult.DiscountFactor,
+		BaseFee:              feeResult.BaseFee,
+		Notes:                input.Notes,
+	}
+
+	sourceValidUntil := effectiveFromMonth.AddDate(0, 0, -1)
+	if err := s.einstufungRepo.CreateFollowUp(ctx, source.ID, sourceValidUntil, einstufung); err != nil {
+		return nil, err
+	}
+
+	income := annualNetIncome
+	household.AnnualHouseholdIncome = &income
+	if !input.HighestRateVoluntary {
+		household.IncomeStatus = domain.IncomeStatusProvided
+	} else {
+		household.IncomeStatus = domain.IncomeStatusMaxAccepted
+	}
+	household.ChildrenCountForFees = &childrenCount
+	if err := s.householdRepo.Update(ctx, household); err != nil {
+		return nil, err
+	}
+
+	changes, err := s.feeService.SyncChildcareExpectationsFrom(ctx, child.ID, child.HouseholdID, effectiveFromMonth, einstufung.MonthlyChildcareFee, child.ExitDate)
+	if err != nil {
+		return nil, err
+	}
+
+	einstufung.Child = child
+	einstufung.Household = household
+	return &CreateFollowUpEinstufungResult{
+		Einstufung:         einstufung,
+		ExpectationChanges: changes,
+	}, nil
 }
 
 // UpdateInput defines input for updating an Einstufung.
@@ -303,6 +429,15 @@ func (s *EinstufungService) GetLatestForChild(ctx context.Context, childID uuid.
 	}
 	s.loadRelations(ctx, e)
 	return e, nil
+}
+
+// CalculateEffectiveFromMonth applies the 14th/15th monthly cut-off rule.
+func CalculateEffectiveFromMonth(changeDate time.Time) time.Time {
+	monthStart := firstDayOfMonth(changeDate)
+	if changeDate.Day() <= 14 {
+		return monthStart
+	}
+	return monthStart.AddDate(0, 1, 0)
 }
 
 // loadRelations loads child and household relations for an Einstufung.

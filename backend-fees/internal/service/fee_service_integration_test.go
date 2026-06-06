@@ -124,3 +124,116 @@ func TestFeeService_GetByID_FullMatch(t *testing.T) {
 		t.Fatalf("Expected fee to be paid")
 	}
 }
+
+func TestFeeService_SyncChildcareExpectationsFrom_AdjustsPaidIncrease(t *testing.T) {
+	cleanupTestData()
+	defer cleanupTestData()
+
+	childRepo := repository.NewPostgresChildRepository(testDB)
+	feeRepo := repository.NewPostgresFeeRepository(testDB)
+	householdRepo := repository.NewPostgresHouseholdRepository(testDB)
+	matchRepo := repository.NewPostgresMatchRepository(testDB)
+	txRepo := repository.NewPostgresTransactionRepository(testDB)
+
+	child, err := createTestChild(childRepo, "SI")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fee, err := createTestFee(feeRepo, child.ID, domain.FeeTypeChildcare, 120, 2026, 6)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tx, err := createTestTransaction(txRepo, "TESTDE111222333444", 120, time.Date(2026, 6, 5, 0, 0, 0, 0, time.UTC), "Platzgeld")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := matchRepo.Create(context.Background(), &domain.PaymentMatch{
+		ID:            uuid.New(),
+		TransactionID: tx.ID,
+		ExpectationID: fee.ID,
+		Amount:        120,
+		MatchType:     domain.MatchTypeManual,
+		MatchedAt:     time.Now(),
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	feeService := service.NewFeeService(feeRepo, childRepo, householdRepo, matchRepo, txRepo)
+	exitDate := time.Date(2026, 6, 30, 0, 0, 0, 0, time.UTC)
+	result, err := feeService.SyncChildcareExpectationsFrom(context.Background(), child.ID, child.HouseholdID, time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC), 150, &exitDate)
+	if err != nil {
+		t.Fatalf("SyncChildcareExpectationsFrom failed: %v", err)
+	}
+
+	if result.Updated != 1 {
+		t.Fatalf("expected 1 updated fee, got %d", result.Updated)
+	}
+	if result.DeltaOpen < 30-0.01 || result.DeltaOpen > 30+0.01 {
+		t.Fatalf("expected deltaOpen 30.00, got %.2f", result.DeltaOpen)
+	}
+	loaded, err := feeService.GetByID(context.Background(), fee.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.Amount != 150 {
+		t.Fatalf("expected amount 150.00, got %.2f", loaded.Amount)
+	}
+	if loaded.Remaining < 30-0.01 || loaded.Remaining > 30+0.01 {
+		t.Fatalf("expected remaining 30.00, got %.2f", loaded.Remaining)
+	}
+}
+
+func TestFeeService_SyncChildcareExpectationsFrom_ReportsCreditReviewForDecrease(t *testing.T) {
+	cleanupTestData()
+	defer cleanupTestData()
+
+	childRepo := repository.NewPostgresChildRepository(testDB)
+	feeRepo := repository.NewPostgresFeeRepository(testDB)
+	householdRepo := repository.NewPostgresHouseholdRepository(testDB)
+	matchRepo := repository.NewPostgresMatchRepository(testDB)
+	txRepo := repository.NewPostgresTransactionRepository(testDB)
+
+	child, err := createTestChild(childRepo, "SD")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fee, err := createTestFee(feeRepo, child.ID, domain.FeeTypeChildcare, 120, 2026, 6)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tx, err := createTestTransaction(txRepo, "TESTDE555666777888", 120, time.Date(2026, 6, 5, 0, 0, 0, 0, time.UTC), "Platzgeld")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := matchRepo.Create(context.Background(), &domain.PaymentMatch{
+		ID:            uuid.New(),
+		TransactionID: tx.ID,
+		ExpectationID: fee.ID,
+		Amount:        120,
+		MatchType:     domain.MatchTypeManual,
+		MatchedAt:     time.Now(),
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	feeService := service.NewFeeService(feeRepo, childRepo, householdRepo, matchRepo, txRepo)
+	exitDate := time.Date(2026, 6, 30, 0, 0, 0, 0, time.UTC)
+	result, err := feeService.SyncChildcareExpectationsFrom(context.Background(), child.ID, child.HouseholdID, time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC), 100, &exitDate)
+	if err != nil {
+		t.Fatalf("SyncChildcareExpectationsFrom failed: %v", err)
+	}
+
+	if len(result.CreditReviewRequired) != 1 {
+		t.Fatalf("expected one credit review item, got %d", len(result.CreditReviewRequired))
+	}
+	if result.CreditReviewRequired[0].CreditAmount < 20-0.01 || result.CreditReviewRequired[0].CreditAmount > 20+0.01 {
+		t.Fatalf("expected credit amount 20.00, got %.2f", result.CreditReviewRequired[0].CreditAmount)
+	}
+	loaded, err := feeService.GetByID(context.Background(), fee.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if loaded.Amount != 120 {
+		t.Fatalf("expected original amount to remain 120.00, got %.2f", loaded.Amount)
+	}
+}

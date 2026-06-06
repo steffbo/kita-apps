@@ -7,14 +7,12 @@ import {
   Plus,
   Loader2,
   Calendar,
-  Euro,
   FileText,
   ChevronLeft,
   ChevronRight,
   Trash2,
   User,
   Home,
-  Clock,
 } from 'lucide-vue-next';
 
 const router = useRouter();

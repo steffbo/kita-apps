@@ -77,6 +77,7 @@ type FeeRepository interface {
 	List(ctx context.Context, filter FeeFilter, offset, limit int) ([]domain.FeeExpectation, int64, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.FeeExpectation, error)
 	GetByIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]*domain.FeeExpectation, error)
+	GetByChildFeePeriod(ctx context.Context, childID uuid.UUID, feeType domain.FeeType, year int, month int) (*domain.FeeExpectation, error)
 	Create(ctx context.Context, fee *domain.FeeExpectation) error
 	Update(ctx context.Context, fee *domain.FeeExpectation) error
 	Delete(ctx context.Context, id uuid.UUID) error
@@ -200,6 +201,7 @@ type WarningRepository interface {
 // EinstufungRepository handles Einstufung (fee classification) persistence.
 type EinstufungRepository interface {
 	Create(ctx context.Context, e *domain.Einstufung) error
+	CreateFollowUp(ctx context.Context, sourceID uuid.UUID, sourceValidUntil time.Time, e *domain.Einstufung) error
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.Einstufung, error)
 	GetByChildAndYear(ctx context.Context, childID uuid.UUID, year int) (*domain.Einstufung, error)
 	Update(ctx context.Context, e *domain.Einstufung) error

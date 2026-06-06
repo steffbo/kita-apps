@@ -158,6 +158,23 @@ func (r *PostgresFeeRepository) GetByID(ctx context.Context, id uuid.UUID) (*dom
 	return &fee, nil
 }
 
+// GetByChildFeePeriod retrieves one monthly fee expectation for a child.
+func (r *PostgresFeeRepository) GetByChildFeePeriod(ctx context.Context, childID uuid.UUID, feeType domain.FeeType, year int, month int) (*domain.FeeExpectation, error) {
+	var fee domain.FeeExpectation
+	err := r.db.GetContext(ctx, &fee, `
+		SELECT id, child_id, household_id, fee_type, year, month, amount, due_date, created_at, reminder_for_id, reconciliation_year
+		FROM fees.fee_expectations
+		WHERE child_id = $1 AND fee_type = $2 AND year = $3 AND month = $4
+	`, childID, feeType, year, month)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &fee, nil
+}
+
 // GetForChild retrieves all fee expectations for a child, optionally filtered by year.
 func (r *PostgresFeeRepository) GetForChild(ctx context.Context, childID uuid.UUID, year *int) ([]domain.FeeExpectation, error) {
 	var fees []domain.FeeExpectation

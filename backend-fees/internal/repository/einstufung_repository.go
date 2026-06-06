@@ -13,7 +13,8 @@ import (
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
 )
 
-const einstufungColumns = `id, child_id, household_id, year, valid_from,
+const einstufungColumns = `id, child_id, household_id, year, valid_from, valid_until,
+	source_einstufung_id, change_date, effective_from_month,
 	income_calculation, annual_net_income,
 	highest_rate_voluntary, care_hours_per_week, care_type, children_count,
 	monthly_childcare_fee, monthly_food_fee, annual_membership_fee,
@@ -35,21 +36,26 @@ func (r *PostgresEinstufungRepository) Create(ctx context.Context, e *domain.Ein
 	if e.ID == uuid.Nil {
 		e.ID = uuid.New()
 	}
+	if e.EffectiveFromMonth.IsZero() {
+		e.EffectiveFromMonth = e.ValidFrom
+	}
 	now := time.Now()
 	e.CreatedAt = now
 	e.UpdatedAt = now
 
 	_, err := r.db.ExecContext(ctx, `
 		INSERT INTO fees.einstufungen (
-			id, child_id, household_id, year, valid_from,
+			id, child_id, household_id, year, valid_from, valid_until,
+			source_einstufung_id, change_date, effective_from_month,
 			income_calculation, annual_net_income,
 			highest_rate_voluntary, care_hours_per_week, care_type, children_count,
 			monthly_childcare_fee, monthly_food_fee, annual_membership_fee,
 			fee_rule, discount_percent, discount_factor, base_fee,
 			notes, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)
 	`,
-		e.ID, e.ChildID, e.HouseholdID, e.Year, e.ValidFrom,
+		e.ID, e.ChildID, e.HouseholdID, e.Year, e.ValidFrom, e.ValidUntil,
+		e.SourceEinstufungID, e.ChangeDate, e.EffectiveFromMonth,
 		e.IncomeCalculation, e.AnnualNetIncome,
 		e.HighestRateVoluntary, e.CareHoursPerWeek, e.CareType, e.ChildrenCount,
 		e.MonthlyChildcareFee, e.MonthlyFoodFee, e.AnnualMembershipFee,
@@ -57,6 +63,57 @@ func (r *PostgresEinstufungRepository) Create(ctx context.Context, e *domain.Ein
 		e.Notes, e.CreatedAt, e.UpdatedAt,
 	)
 	return err
+}
+
+// CreateFollowUp creates a follow-up Einstufung and closes the source period atomically.
+func (r *PostgresEinstufungRepository) CreateFollowUp(ctx context.Context, sourceID uuid.UUID, sourceValidUntil time.Time, e *domain.Einstufung) error {
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if e.ID == uuid.Nil {
+		e.ID = uuid.New()
+	}
+	if e.EffectiveFromMonth.IsZero() {
+		e.EffectiveFromMonth = e.ValidFrom
+	}
+	now := time.Now()
+	e.CreatedAt = now
+	e.UpdatedAt = now
+
+	if _, err := tx.ExecContext(ctx, `
+		UPDATE fees.einstufungen
+		SET valid_until = $2, updated_at = $3
+		WHERE id = $1
+	`, sourceID, sourceValidUntil, now); err != nil {
+		return err
+	}
+
+	if _, err := tx.ExecContext(ctx, `
+		INSERT INTO fees.einstufungen (
+			id, child_id, household_id, year, valid_from, valid_until,
+			source_einstufung_id, change_date, effective_from_month,
+			income_calculation, annual_net_income,
+			highest_rate_voluntary, care_hours_per_week, care_type, children_count,
+			monthly_childcare_fee, monthly_food_fee, annual_membership_fee,
+			fee_rule, discount_percent, discount_factor, base_fee,
+			notes, created_at, updated_at
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)
+	`,
+		e.ID, e.ChildID, e.HouseholdID, e.Year, e.ValidFrom, e.ValidUntil,
+		e.SourceEinstufungID, e.ChangeDate, e.EffectiveFromMonth,
+		e.IncomeCalculation, e.AnnualNetIncome,
+		e.HighestRateVoluntary, e.CareHoursPerWeek, e.CareType, e.ChildrenCount,
+		e.MonthlyChildcareFee, e.MonthlyFoodFee, e.AnnualMembershipFee,
+		e.FeeRule, e.DiscountPercent, e.DiscountFactor, e.BaseFee,
+		e.Notes, e.CreatedAt, e.UpdatedAt,
+	); err != nil {
+		return err
+	}
+
+	return tx.Commit()
 }
 
 // GetByID retrieves an Einstufung by ID.
@@ -80,6 +137,8 @@ func (r *PostgresEinstufungRepository) GetByChildAndYear(ctx context.Context, ch
 	err := r.db.GetContext(ctx, &e, fmt.Sprintf(`
 		SELECT %s FROM fees.einstufungen
 		WHERE child_id = $1 AND year = $2
+		ORDER BY effective_from_month DESC, created_at DESC
+		LIMIT 1
 	`, einstufungColumns), childID, year)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
@@ -95,15 +154,17 @@ func (r *PostgresEinstufungRepository) Update(ctx context.Context, e *domain.Ein
 	e.UpdatedAt = time.Now()
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE fees.einstufungen SET
-			child_id = $2, household_id = $3, year = $4, valid_from = $5,
-			income_calculation = $6, annual_net_income = $7,
-			highest_rate_voluntary = $8, care_hours_per_week = $9, care_type = $10, children_count = $11,
-			monthly_childcare_fee = $12, monthly_food_fee = $13, annual_membership_fee = $14,
-			fee_rule = $15, discount_percent = $16, discount_factor = $17, base_fee = $18,
-			notes = $19, updated_at = $20
+			child_id = $2, household_id = $3, year = $4, valid_from = $5, valid_until = $6,
+			source_einstufung_id = $7, change_date = $8, effective_from_month = $9,
+			income_calculation = $10, annual_net_income = $11,
+			highest_rate_voluntary = $12, care_hours_per_week = $13, care_type = $14, children_count = $15,
+			monthly_childcare_fee = $16, monthly_food_fee = $17, annual_membership_fee = $18,
+			fee_rule = $19, discount_percent = $20, discount_factor = $21, base_fee = $22,
+			notes = $23, updated_at = $24
 		WHERE id = $1
 	`,
-		e.ID, e.ChildID, e.HouseholdID, e.Year, e.ValidFrom,
+		e.ID, e.ChildID, e.HouseholdID, e.Year, e.ValidFrom, e.ValidUntil,
+		e.SourceEinstufungID, e.ChangeDate, e.EffectiveFromMonth,
 		e.IncomeCalculation, e.AnnualNetIncome,
 		e.HighestRateVoluntary, e.CareHoursPerWeek, e.CareType, e.ChildrenCount,
 		e.MonthlyChildcareFee, e.MonthlyFoodFee, e.AnnualMembershipFee,
@@ -125,7 +186,7 @@ func (r *PostgresEinstufungRepository) ListByHousehold(ctx context.Context, hous
 	err := r.db.SelectContext(ctx, &results, fmt.Sprintf(`
 		SELECT %s FROM fees.einstufungen
 		WHERE household_id = $1
-		ORDER BY year DESC, created_at DESC
+		ORDER BY year DESC, effective_from_month DESC, created_at DESC
 	`, einstufungColumns), householdID)
 	if err != nil {
 		return nil, err
@@ -147,7 +208,7 @@ func (r *PostgresEinstufungRepository) ListByYear(ctx context.Context, year int,
 	err = r.db.SelectContext(ctx, &results, fmt.Sprintf(`
 		SELECT %s FROM fees.einstufungen
 		WHERE year = $1
-		ORDER BY created_at DESC
+		ORDER BY effective_from_month DESC, created_at DESC
 		LIMIT $2 OFFSET $3
 	`, einstufungColumns), year, limit, offset)
 	if err != nil {
@@ -163,7 +224,7 @@ func (r *PostgresEinstufungRepository) GetLatestForChild(ctx context.Context, ch
 	err := r.db.GetContext(ctx, &e, fmt.Sprintf(`
 		SELECT %s FROM fees.einstufungen
 		WHERE child_id = $1
-		ORDER BY year DESC, created_at DESC
+		ORDER BY effective_from_month DESC, year DESC, created_at DESC
 		LIMIT 1
 	`, einstufungColumns), childID)
 	if err != nil {

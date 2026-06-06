@@ -122,64 +122,6 @@ paths:
       summary: Get current user info
       tags:
         - Auth
-  /auth/password-reset/confirm:
-    post:
-      description: Complete the password reset process using the token from the email
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/PasswordResetConfirmRequest"
-        description: Token and new password
-        required: true
-      responses:
-        "200":
-          description: Password reset successful
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/MessageResponse"
-        "400":
-          description: Invalid or expired token
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "500":
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-      summary: Confirm password reset with token
-      tags:
-        - Auth
-  /auth/password-reset/request:
-    post:
-      description: Sends a password reset email to the specified address if a user exists
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/PasswordResetRequest"
-        description: Email address
-        required: true
-      responses:
-        "200":
-          description: Reset email sent (if email exists)
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/MessageResponse"
-        "400":
-          description: Invalid request body
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-      summary: Request password reset email
-      tags:
-        - Auth
   /auth/refresh:
     post:
       description: Exchange a refresh token for a new access token and refresh token pair
@@ -226,7 +168,7 @@ paths:
               - krippe
               - kindergarten
             default: krippe
-        - description: Monthly net income
+        - description: Annual net household income
           in: query
           name: income
           required: true
@@ -254,6 +196,12 @@ paths:
         - description: Apply highest rate
           in: query
           name: highestRate
+          schema:
+            type: boolean
+            default: false
+        - description: Foster family (uses average rate)
+          in: query
+          name: fosterFamily
           schema:
             type: boolean
             default: false
@@ -310,6 +258,11 @@ paths:
         - description: Filter for children with warnings
           in: query
           name: hasWarnings
+          schema:
+            type: boolean
+        - description: Filter for children with open fees
+          in: query
+          name: hasOpenFees
           schema:
             type: boolean
         - description: Search by name or member number
@@ -400,7 +353,7 @@ paths:
         - Children
   "/children/{id}":
     delete:
-      description: Soft-delete (deactivate) a child record
+      description: Permanently delete a child record
       parameters:
         - description: Child ID (UUID)
           in: path
@@ -537,6 +490,249 @@ paths:
       summary: Update child
       tags:
         - Children
+  "/children/{id}/care-hours-history":
+    get:
+      description: Returns all recorded care hours periods for a child
+      parameters:
+        - description: Child ID (UUID)
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Care hours history
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/CareHoursHistoryEntry"
+                type: array
+        "400":
+          description: Invalid child ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Child not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Get child care hours history
+      tags:
+        - Children
+    post:
+      description: Adds a care hours history entry effective from the given date
+      parameters:
+        - description: Child ID (UUID)
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCareHoursHistoryRequest"
+        description: Care hours history data
+        required: true
+      responses:
+        "204":
+          description: Care hours history saved
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Child not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Add child care hours history entry
+      tags:
+        - Children
+  "/children/{id}/ledger":
+    get:
+      description: Retrieve the payment ledger showing all fees and payments for a child
+      parameters:
+        - description: Child ID (UUID)
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - description: Filter by year
+          in: query
+          name: year
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Payment ledger
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChildLedger"
+        "400":
+          description: Invalid child ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Child not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Get child payment ledger
+      tags:
+        - Children
+  "/children/{id}/legal-hours-history":
+    get:
+      description: Returns all recorded legal entitlement periods for a child
+      parameters:
+        - description: Child ID (UUID)
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Legal hours history
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/LegalHoursHistoryEntry"
+                type: array
+        "400":
+          description: Invalid child ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Child not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Get child legal hours history
+      tags:
+        - Children
+    post:
+      description: Adds a legal entitlement history entry effective from the given date
+      parameters:
+        - description: Child ID (UUID)
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateLegalHoursHistoryRequest"
+        description: Legal hours history data
+        required: true
+      responses:
+        "204":
+          description: Legal hours history saved
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Child not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Add child legal hours history entry
+      tags:
+        - Children
   "/children/{id}/parents":
     post:
       description: Create a relationship between a parent and a child
@@ -626,6 +822,60 @@ paths:
       security:
         - BearerAuth: []
       summary: Unlink parent from child
+      tags:
+        - Children
+  "/children/{id}/timeline":
+    get:
+      description: Returns monthly fee coverage showing which months are paid/unpaid
+        based on transaction dates
+      parameters:
+        - description: Child ID (UUID)
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - description: Year (defaults to current year)
+          in: query
+          name: year
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Monthly coverage timeline
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/handler.FeeCoverageResponse"
+                type: array
+        "400":
+          description: Invalid child ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Child not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Get child fee timeline
       tags:
         - Children
   /children/import/execute:
@@ -744,6 +994,312 @@ paths:
       summary: Preview child import with mapping
       tags:
         - Children Import
+  /children/next-member-number:
+    get:
+      description: Returns the next available numeric member number for a new child
+      responses:
+        "200":
+          description: Next member number
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NextMemberNumberResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Get next available member number
+      tags:
+        - Children
+  /einstufungen:
+    get:
+      description: Returns Einstufungen for a year with pagination
+      parameters:
+        - description: Year
+          in: query
+          name: year
+          required: true
+          schema:
+            type: integer
+        - description: Page number
+          in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - description: Items per page
+          in: query
+          name: perPage
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EinstufungList"
+      security:
+        - BearerAuth: []
+      summary: List fee classifications
+      tags:
+        - Einstufungen
+    post:
+      description: Creates a new Einstufung by calculating fees from income proofs
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateEinstufungRequest"
+        description: Einstufung data
+        required: true
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Einstufung"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Create a fee classification
+      tags:
+        - Einstufungen
+  "/einstufungen/{id}":
+    delete:
+      description: Deletes an Einstufung
+      parameters:
+        - description: Einstufung ID
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+        "404":
+          description: Not Found
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Delete a fee classification
+      tags:
+        - Einstufungen
+    get:
+      description: Returns a single Einstufung by ID
+      parameters:
+        - description: Einstufung ID
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Einstufung"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Get a fee classification
+      tags:
+        - Einstufungen
+    put:
+      description: Updates an existing Einstufung and recalculates fees
+      parameters:
+        - description: Einstufung ID
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateEinstufungRequest"
+        description: Update data
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Einstufung"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Update a fee classification
+      tags:
+        - Einstufungen
+  "/einstufungen/{id}/follow-ups":
+    post:
+      description: Creates a follow-up Einstufung, applies the monthly cut-off rule,
+        closes the source period, and syncs open CHILDCARE expectations from the
+        effective month.
+      parameters:
+        - description: Source Einstufung ID
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateFollowUpEinstufungRequest"
+        description: Follow-up data
+        required: true
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateFollowUpEinstufungResponse"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Create a follow-up fee classification
+      tags:
+        - Einstufungen
+  /einstufungen/calculate-income:
+    post:
+      description: Calculates fee-relevant household income from parent income details
+        without creating a record.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CalculateIncomeRequest"
+        description: Parent income details
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CalculateIncomeResponse"
+      summary: Calculate household income
+      tags:
+        - Einstufungen
+  "/einstufungen/child/{childId}":
+    get:
+      description: Returns the Einstufung for a child in a given year (or latest)
+      parameters:
+        - description: Child ID
+          in: path
+          name: childId
+          required: true
+          schema:
+            type: string
+        - description: Year (defaults to latest)
+          in: query
+          name: year
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Einstufung"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Get Einstufung for a child
+      tags:
+        - Einstufungen
+  "/einstufungen/household/{householdId}":
+    get:
+      description: Returns all Einstufungen for a household
+      parameters:
+        - description: Household ID
+          in: path
+          name: householdId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/Einstufung"
+                type: array
+      security:
+        - BearerAuth: []
+      summary: List Einstufungen for a household
+      tags:
+        - Einstufungen
   /fees:
     get:
       description: Get a paginated list of fees with optional filtering
@@ -794,6 +1350,30 @@ paths:
           name: childId
           schema:
             type: string
+        - description: Search by member number or child name
+          in: query
+          name: search
+          schema:
+            type: string
+        - description: Sort by
+          in: query
+          name: sortBy
+          schema:
+            type: string
+            enum:
+              - memberNumber
+              - childName
+              - feeType
+              - period
+              - amount
+        - description: Sort direction
+          in: query
+          name: sortDir
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
       responses:
         "200":
           description: Paginated list of fees
@@ -816,6 +1396,57 @@ paths:
       security:
         - BearerAuth: []
       summary: List all fees
+      tags:
+        - Fees
+    post:
+      description: Create a fee for a specific child
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateFeeRequest"
+        description: Fee creation parameters
+        required: true
+      responses:
+        "201":
+          description: Created fee
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Fee"
+        "400":
+          description: Invalid request (missing fields, invalid child ID, etc.)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Child not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Fee already exists for this period
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Create a single fee
       tags:
         - Fees
   "/fees/{id}":
@@ -1003,6 +1634,56 @@ paths:
       summary: Create a reminder fee
       tags:
         - Fees
+  /fees/email-logs:
+    get:
+      description: Get a paginated list of sent email logs
+      parameters:
+        - description: Page number
+          in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - description: Items per page
+          in: query
+          name: perPage
+          schema:
+            type: integer
+            default: 20
+        - description: Offset (alternative to page/perPage)
+          in: query
+          name: offset
+          schema:
+            type: integer
+        - description: Limit (alternative to page/perPage)
+          in: query
+          name: limit
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Paginated list of email logs
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EmailLogListResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: List email logs
+      tags:
+        - Fees
   /fees/generate:
     post:
       description: Generate fee expectations for children and members for a given year/month
@@ -1043,6 +1724,69 @@ paths:
       summary: Generate fees for a period
       tags:
         - Fees
+  /fees/membership-reminders/run:
+    post:
+      description: Sends reminder emails for unpaid Membership fees and optionally
+        creates 5 EUR reminder fees
+      parameters:
+        - description: Run date (YYYY-MM-DD, defaults to today)
+          in: query
+          name: date
+          schema:
+            type: string
+        - description: "Stage: initial, final"
+          in: query
+          name: stage
+          schema:
+            type: string
+            enum:
+              - initial
+              - final
+        - description: If true, don't send emails or create reminders
+          in: query
+          name: dryRun
+          schema:
+            type: boolean
+        - description: Payment deadline (YYYY-MM-DD), defaults to 31.03.<year>
+          in: query
+          name: deadline
+          schema:
+            type: string
+        - description: Optional comma-separated household IDs to process
+          in: query
+          name: selectedHouseholdIds
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Reminder run result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReminderRunResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Run membership reminder checks
+      tags:
+        - Fees
   /fees/overview:
     get:
       description: Get an overview of fees with totals and monthly breakdown
@@ -1074,6 +1818,131 @@ paths:
       security:
         - BearerAuth: []
       summary: Get fee overview
+      tags:
+        - Fees
+  /fees/reminders/run:
+    post:
+      description: Sends reminder emails for unpaid Food/Childcare fees and optionally
+        creates reminder fees
+      parameters:
+        - description: Run date (YYYY-MM-DD, defaults to today)
+          in: query
+          name: date
+          schema:
+            type: string
+        - description: "Stage: auto, initial, final"
+          in: query
+          name: stage
+          schema:
+            type: string
+            enum:
+              - auto
+              - initial
+              - final
+        - description: If true, don't send emails or create reminders
+          in: query
+          name: dryRun
+          schema:
+            type: boolean
+        - description: Optional comma-separated household IDs to process
+          in: query
+          name: selectedHouseholdIds
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Reminder run result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReminderRunResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Run payment reminder checks
+      tags:
+        - Fees
+  /fees/reminders/settings:
+    get:
+      description: Returns reminder settings
+      responses:
+        "200":
+          description: Reminder settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReminderSettingsResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Get reminder settings
+      tags:
+        - Fees
+    put:
+      description: Updates reminder settings
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateReminderSettingsRequest"
+        description: Reminder settings
+        required: true
+      responses:
+        "200":
+          description: Updated reminder settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReminderSettingsResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Update reminder settings
       tags:
         - Fees
   /households:
@@ -1620,8 +2489,8 @@ paths:
         - Import
   /import/rescan:
     post:
-      description: Re-run matching algorithm on all unmatched transactions to find new
-        matches
+      description: Re-run matching algorithm on all unmatched transactions.
+        High-confidence matches (95%+) are automatically confirmed.
       responses:
         "200":
           description: Rescan result
@@ -1662,6 +2531,23 @@ paths:
           schema:
             type: integer
             default: 20
+        - description: Search by payer name or description
+          in: query
+          name: search
+          schema:
+            type: string
+        - description: "Sort field: date, payer, description, amount"
+          in: query
+          name: sortBy
+          schema:
+            type: string
+            default: date
+        - description: "Sort direction: asc, desc"
+          in: query
+          name: sortDir
+          schema:
+            type: string
+            default: desc
       responses:
         "200":
           description: Unmatched transactions
@@ -1684,6 +2570,59 @@ paths:
       security:
         - BearerAuth: []
       summary: Get unmatched transactions
+      tags:
+        - Import
+  "/import/transactions/{id}/allocate":
+    post:
+      description: Allocate a transaction across multiple fee expectations
+      parameters:
+        - description: Transaction ID (UUID)
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AllocateTransactionRequest"
+        description: Allocation data
+        required: true
+      responses:
+        "200":
+          description: Allocation result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AllocateTransactionResponse"
+        "400":
+          description: Invalid request or allocation
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Transaction or fee not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Allocate a transaction across multiple fees
       tags:
         - Import
   "/import/transactions/{id}/dismiss":
@@ -1730,6 +2669,267 @@ paths:
       security:
         - BearerAuth: []
       summary: Dismiss a transaction
+      tags:
+        - Import
+  "/import/transactions/{id}/hide":
+    post:
+      description: Hide an unmatched transaction without blacklisting its IBAN
+      parameters:
+        - description: Transaction ID (UUID)
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Hide result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HideTransactionResponse"
+        "400":
+          description: Invalid transaction ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Transaction not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Hide a transaction
+      tags:
+        - Import
+  "/import/transactions/{id}/suggestions":
+    get:
+      description: Get potential fee matches for a single unmatched transaction
+      parameters:
+        - description: Transaction ID (UUID)
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Match suggestion
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MatchSuggestion"
+        "400":
+          description: Invalid transaction ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Transaction not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Get match suggestions for a transaction
+      tags:
+        - Import
+  "/import/transactions/{id}/unmatch":
+    post:
+      description: Remove all matches for a transaction and optionally delete the
+        transaction itself
+      parameters:
+        - description: Transaction ID (UUID)
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UnmatchTransactionRequest"
+        description: Unmatch options
+        required: true
+      responses:
+        "200":
+          description: Unmatch result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UnmatchTransactionResponse"
+        "400":
+          description: Invalid transaction ID or transaction has no matches
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Transaction not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Unmatch a transaction
+      tags:
+        - Import
+  /import/transactions/matched:
+    get:
+      description: Get a paginated list of transactions that have been matched to fees
+      parameters:
+        - description: Page number
+          in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - description: Items per page
+          in: query
+          name: perPage
+          schema:
+            type: integer
+            default: 20
+        - description: Search by payer name or description
+          in: query
+          name: search
+          schema:
+            type: string
+        - description: "Sort field: date, payer, description, amount"
+          in: query
+          name: sortBy
+          schema:
+            type: string
+            default: date
+        - description: "Sort direction: asc, desc"
+          in: query
+          name: sortDir
+          schema:
+            type: string
+            default: desc
+      responses:
+        "200":
+          description: Matched transactions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TransactionList"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Get matched transactions
+      tags:
+        - Import
+  "/import/transactions/unmatched/child/{id}":
+    get:
+      description: Returns unmatched transactions that likely belong to the given child
+      parameters:
+        - description: Child ID (UUID)
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - description: Minimum confidence (0-1)
+          in: query
+          name: minConfidence
+          schema:
+            type: number
+            default: 0.6
+        - description: Max suggestions to return
+          in: query
+          name: limit
+          schema:
+            type: integer
+            default: 10
+      responses:
+        "200":
+          description: Suggestions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChildUnmatchedSuggestionsResponse"
+        "400":
+          description: Invalid child ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Child not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Get likely unmatched transactions for a child
       tags:
         - Import
   /import/trusted:
@@ -1863,6 +3063,48 @@ paths:
       summary: Link IBAN to child
       tags:
         - Import
+  "/import/trusted/child/{id}":
+    get:
+      description: Returns trusted IBANs linked to the child with transaction counts
+      parameters:
+        - description: Child ID (UUID)
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Trusted IBANs
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/ChildTrustedIBANsResponse"
+                type: array
+        "400":
+          description: Invalid child ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Get trusted IBANs for a child
+      tags:
+        - Import
   /import/upload:
     post:
       description: Upload and process a bank statement CSV file to match transactions
@@ -1986,6 +3228,53 @@ paths:
       security:
         - BearerAuth: []
       summary: Dismiss a warning
+      tags:
+        - Import
+  "/import/warnings/{id}/resolve-late-fee":
+    post:
+      description: Resolves a LATE_PAYMENT warning by creating a 10 EUR REMINDER fee
+        linked to the original fee
+      parameters:
+        - description: Warning ID (UUID)
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Late fee created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ResolveLateFeeResponse"
+        "400":
+          description: Invalid warning ID or warning is not a late payment
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Warning not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Resolve late payment warning by creating late fee
       tags:
         - Import
   /members:
@@ -2573,35 +3862,19 @@ paths:
       summary: Create member for parent
       tags:
         - Parents
-  /einstufungen:
+  /stichtagsmeldung/children:
     get:
-      description: Returns Einstufungen for a year with pagination
-      parameters:
-        - description: Year
-          in: query
-          name: year
-          required: true
-          schema:
-            type: integer
-        - description: Page number
-          in: query
-          name: page
-          schema:
-            type: integer
-            default: 1
-        - description: Items per page
-          in: query
-          name: perPage
-          schema:
-            type: integer
-            default: 20
+      description: Get list of U3 children with household income for Stichtagsmeldung
+        verification
       responses:
         "200":
-          description: Paginated list of Einstufungen
+          description: List of U3 children
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/EinstufungList"
+                items:
+                  $ref: "#/components/schemas/handler.U3ChildDetailResponse"
+                type: array
         "401":
           description: Not authenticated
           content:
@@ -2616,33 +3889,35 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
       security:
         - BearerAuth: []
-      summary: List fee classifications
+      summary: Get U3 children details
       tags:
-        - Einstufungen
-    post:
-      description: Creates a new Einstufung by calculating fees from income proofs
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CreateEinstufungRequest"
-        description: Einstufung data
-        required: true
+        - Stichtagsmeldung
+  /stichtagsmeldung/report:
+    get:
+      description: Get the number of enrolled children and care hours breakdown for a
+        specific report date
+      parameters:
+        - description: Report date (YYYY-MM-DD)
+          in: query
+          name: date
+          required: true
+          schema:
+            type: string
       responses:
-        "201":
-          description: Einstufung created successfully
+        "200":
+          description: Stichtagsmeldung report
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Einstufung"
+                $ref: "#/components/schemas/StichtagsmeldungReport"
         "400":
-          description: Invalid request body
+          description: Invalid date
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
-        "404":
-          description: Child or household not found
+        "401":
+          description: Not authenticated
           content:
             application/json:
               schema:
@@ -2655,189 +3930,37 @@ paths:
                 $ref: "#/components/schemas/ErrorResponse"
       security:
         - BearerAuth: []
-      summary: Create fee classification
+      summary: Get Stichtagsmeldung report for a specific date
       tags:
-        - Einstufungen
-  /einstufungen/{id}:
+        - Stichtagsmeldung
+  /stichtagsmeldung/stats:
     get:
-      description: Returns a single Einstufung by ID
-      parameters:
-        - description: Einstufung ID
-          in: path
-          name: id
-          required: true
-          schema:
-            type: string
+      description: Get statistics for quarterly Stichtagsmeldung reporting including
+        next Stichtag date and U3 income breakdown
       responses:
         "200":
-          description: Einstufung details
+          description: Stichtagsmeldung statistics
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Einstufung"
-        "404":
-          description: Einstufung not found
+                $ref: "#/components/schemas/StichtagsmeldungStats"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
       security:
         - BearerAuth: []
-      summary: Get fee classification
+      summary: Get Stichtagsmeldung statistics
       tags:
-        - Einstufungen
-    put:
-      description: Updates an existing Einstufung and recalculates fees
-      parameters:
-        - description: Einstufung ID
-          in: path
-          name: id
-          required: true
-          schema:
-            type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/UpdateEinstufungRequest"
-        description: Update data
-        required: true
-      responses:
-        "200":
-          description: Einstufung updated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Einstufung"
-        "400":
-          description: Invalid request body
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "404":
-          description: Einstufung not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-      security:
-        - BearerAuth: []
-      summary: Update fee classification
-      tags:
-        - Einstufungen
-    delete:
-      description: Deletes an Einstufung
-      parameters:
-        - description: Einstufung ID
-          in: path
-          name: id
-          required: true
-          schema:
-            type: string
-      responses:
-        "204":
-          description: Einstufung deleted
-        "404":
-          description: Einstufung not found
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-      security:
-        - BearerAuth: []
-      summary: Delete fee classification
-      tags:
-        - Einstufungen
-  /einstufungen/child/{childId}:
-    get:
-      description: Returns the Einstufung for a child in a given year or the latest
-      parameters:
-        - description: Child ID
-          in: path
-          name: childId
-          required: true
-          schema:
-            type: string
-        - description: Year (defaults to latest)
-          in: query
-          name: year
-          schema:
-            type: integer
-      responses:
-        "200":
-          description: Einstufung for child
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Einstufung"
-        "404":
-          description: No Einstufung found for this child
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-      security:
-        - BearerAuth: []
-      summary: Get Einstufung for child
-      tags:
-        - Einstufungen
-  /einstufungen/household/{householdId}:
-    get:
-      description: Returns all Einstufungen for a household
-      parameters:
-        - description: Household ID
-          in: path
-          name: householdId
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          description: List of Einstufungen
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Einstufung"
-        "400":
-          description: Invalid household ID
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-      security:
-        - BearerAuth: []
-      summary: List Einstufungen for household
-      tags:
-        - Einstufungen
-  /einstufungen/calculate-income:
-    post:
-      description: Calculates fee-relevant household income from parent income details without creating a record
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/CalculateIncomeRequest"
-        description: Parent income details
-        required: true
-      responses:
-        "200":
-          description: Calculated income breakdown
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/CalculateIncomeResponse"
-        "400":
-          description: Invalid request body
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-      summary: Calculate household income
-      tags:
-        - Einstufungen
+        - Stichtagsmeldung
 tags:
   - description: Authentifizierung und Autorisierung
     name: Auth
@@ -2855,8 +3978,6 @@ tags:
     name: Import
   - description: Gebührenrechner
     name: Calculator
-  - description: Beitragseinstufungen
-    name: Einstufungen
 servers:
   - url: http://localhost:8081/api/fees/v1
   - url: https://localhost:8081/api/fees/v1
@@ -2882,6 +4003,103 @@ components:
       name: Authorization
       type: apiKey
   schemas:
+    AllocateTransactionRequest:
+      description: Allocate a transaction across multiple fees
+      properties:
+        allocations:
+          items:
+            $ref: "#/components/schemas/AllocationRequest"
+          type: array
+      type: object
+    AllocateTransactionResponse:
+      description: Allocation result
+      properties:
+        allocationsCreated:
+          example: 2
+          type: integer
+        overpayment:
+          example: 0
+          type: number
+        totalAllocated:
+          example: 90.8
+          type: number
+        transactionId:
+          example: 550e8400-e29b-41d4-a716-446655440000
+          type: string
+      type: object
+    AllocationRequest:
+      description: Fee allocation entry
+      properties:
+        amount:
+          example: 45.4
+          type: number
+        expectationId:
+          example: 550e8400-e29b-41d4-a716-446655440001
+          type: string
+      type: object
+    CalculateIncomeRequest:
+      description: Calculate household income from parent details
+      properties:
+        parent1:
+          $ref: "#/components/schemas/domain.IncomeDetails"
+        parent2:
+          $ref: "#/components/schemas/domain.IncomeDetails"
+      type: object
+    CalculateIncomeResponse:
+      description: Computed income breakdown
+      properties:
+        householdFeeIncome:
+          type: number
+        householdFullIncome:
+          type: number
+        parent1FeeRelevantIncome:
+          type: number
+        parent1NetIncome:
+          type: number
+        parent2FeeRelevantIncome:
+          type: number
+        parent2NetIncome:
+          type: number
+      type: object
+    CareHoursBreakdownItem:
+      properties:
+        careHours:
+          example: 40
+          type: integer
+        count:
+          example: 12
+          type: integer
+        u3Count:
+          example: 4
+          type: integer
+        ue3Count:
+          example: 8
+          type: integer
+      type: object
+    CareHoursHistoryEntry:
+      properties:
+        careHours:
+          example: 40
+          type: integer
+        childId:
+          example: 550e8400-e29b-41d4-a716-446655440000
+          type: string
+        createdAt:
+          example: 2026-01-01T10:00:00Z
+          type: string
+        effectiveFrom:
+          example: 2026-01-01
+          type: string
+        effectiveUntil:
+          example: 2026-03-31
+          type: string
+        id:
+          example: 550e8400-e29b-41d4-a716-446655440010
+          type: string
+        updatedAt:
+          example: 2026-01-01T10:00:00Z
+          type: string
+      type: object
     ChangePasswordRequest:
       properties:
         currentPassword:
@@ -3016,6 +4234,20 @@ components:
           example: 45
           type: integer
       type: object
+    ChildLedger:
+      description: Payment ledger for a child
+      properties:
+        child: {}
+        childId:
+          example: 550e8400-e29b-41d4-a716-446655440000
+          type: string
+        entries:
+          items:
+            $ref: "#/components/schemas/LedgerEntry"
+          type: array
+        summary:
+          $ref: "#/components/schemas/LedgerSummary"
+      type: object
     ChildList:
       description: Paginated list of children
       properties:
@@ -3086,6 +4318,49 @@ components:
             type: string
           type: array
       type: object
+    ChildTrustedIBANsResponse:
+      description: Trusted IBANs with usage counts
+      properties:
+        iban:
+          example: DE89370400440532013000
+          type: string
+        payerName:
+          example: Max Mustermann
+          type: string
+        transactionCount:
+          example: 4
+          type: integer
+      type: object
+    ChildUnmatchedSuggestionsResponse:
+      description: Likely unmatched transactions for a child
+      properties:
+        childId:
+          example: 550e8400-e29b-41d4-a716-446655440000
+          type: string
+        scanned:
+          example: 250
+          type: integer
+        suggestions:
+          items:
+            $ref: "#/components/schemas/domain.MatchSuggestion"
+          type: array
+      type: object
+    ChildcareExpectationSyncResult:
+      description: Result of synchronizing CHILDCARE expectations after a follow-up
+      properties:
+        created:
+          type: integer
+        creditReviewRequired:
+          items:
+            $ref: "#/components/schemas/CreditReviewPeriod"
+          type: array
+        deltaOpen:
+          type: number
+        skipped:
+          type: integer
+        updated:
+          type: integer
+      type: object
     ChildcareFeeResult:
       description: Childcare fee calculation result
       properties:
@@ -3128,6 +4403,14 @@ components:
         failed:
           example: 0
           type: integer
+      type: object
+    CreateCareHoursHistoryRequest:
+      properties:
+        careHours:
+          type: integer
+        validFrom:
+          example: 2026-01-01
+          type: string
       type: object
     CreateChildRequest:
       description: Request body for creating a new child
@@ -3172,6 +4455,82 @@ components:
           example: "42"
           type: string
       type: object
+    CreateEinstufungRequest:
+      description: Request body for creating a fee classification
+      properties:
+        careHoursPerWeek:
+          type: integer
+        childId:
+          type: string
+        childrenCount:
+          type: integer
+        highestRateVoluntary:
+          type: boolean
+        incomeCalculation:
+          $ref: "#/components/schemas/domain.HouseholdIncomeCalculation"
+        notes:
+          type: string
+        validFrom:
+          description: ISO date, e.g. "2026-01-01"
+          type: string
+        year:
+          type: integer
+      type: object
+    CreateFeeRequest:
+      description: Request body for creating a single fee
+      properties:
+        amount:
+          example: 45.4
+          type: number
+        childId:
+          example: 550e8400-e29b-41d4-a716-446655440001
+          type: string
+        dueDate:
+          example: 2025-01-05
+          type: string
+        feeType:
+          enum:
+            - FOOD
+            - MEMBERSHIP
+            - CHILDCARE
+            - REMINDER
+          example: FOOD
+          type: string
+        month:
+          example: 1
+          type: integer
+        reconciliationYear:
+          example: 2024
+          type: integer
+        year:
+          example: 2025
+          type: integer
+      type: object
+    CreateFollowUpEinstufungRequest:
+      description: Request body for creating a follow-up fee classification
+      properties:
+        careHoursPerWeek:
+          type: integer
+        changeDate:
+          description: "ISO date, cut-off: 1st-14th same month, 15th+ next month"
+          type: string
+        childrenCount:
+          type: integer
+        highestRateVoluntary:
+          type: boolean
+        incomeCalculation:
+          $ref: "#/components/schemas/domain.HouseholdIncomeCalculation"
+        notes:
+          type: string
+      type: object
+    CreateFollowUpEinstufungResponse:
+      description: Follow-up Einstufung creation result
+      properties:
+        einstufung:
+          $ref: "#/components/schemas/Einstufung"
+        expectationChanges:
+          $ref: "#/components/schemas/ChildcareExpectationSyncResult"
+      type: object
     CreateHouseholdRequest:
       description: Request body for creating a new household
       properties:
@@ -3188,8 +4547,25 @@ components:
             - FOSTER_FAMILY
           example: PROVIDED
           type: string
+        membershipAssignmentStatus:
+          enum:
+            - ASSUMED
+            - CONFIRMED
+          example: ASSUMED
+          type: string
+        membershipParentId:
+          example: 550e8400-e29b-41d4-a716-446655440000
+          type: string
         name:
           example: Familie Müller
+          type: string
+      type: object
+    CreateLegalHoursHistoryRequest:
+      properties:
+        legalHours:
+          type: integer
+        validFrom:
+          example: 2026-01-01
           type: string
       type: object
     CreateMemberFromParentRequest:
@@ -3283,6 +4659,24 @@ components:
           example: "42"
           type: string
       type: object
+    CreditReviewPeriod:
+      description: Paid month that would become overpaid after a childcare fee decrease
+      properties:
+        creditAmount:
+          type: number
+        feeId:
+          type: string
+        matchedAmount:
+          type: number
+        month:
+          type: integer
+        newAmount:
+          type: number
+        oldAmount:
+          type: number
+        year:
+          type: integer
+      type: object
     DismissTransactionResponse:
       description: Dismiss transaction result
       properties:
@@ -3301,6 +4695,127 @@ components:
       properties:
         note:
           example: Differenz wurde bar ausgeglichen
+          type: string
+      type: object
+    Einstufung:
+      description: Fee classification for a child
+      properties:
+        annualMembershipFee:
+          type: number
+        annualNetIncome:
+          type: number
+        baseFee:
+          type: number
+        careHoursPerWeek:
+          type: integer
+        careType:
+          type: string
+        changeDate:
+          type: string
+        child: {}
+        childId:
+          type: string
+        childrenCount:
+          type: integer
+        createdAt:
+          type: string
+        discountFactor:
+          type: number
+        discountPercent:
+          type: integer
+        effectiveFromMonth:
+          type: string
+        feeRule:
+          type: string
+        highestRateVoluntary:
+          type: boolean
+        household: {}
+        householdId:
+          type: string
+        id:
+          type: string
+        incomeCalculation:
+          $ref: "#/components/schemas/domain.HouseholdIncomeCalculation"
+        monthlyChildcareFee:
+          type: number
+        monthlyFoodFee:
+          type: number
+        monthlyTable:
+          items:
+            $ref: "#/components/schemas/domain.EinstufungMonthRow"
+          type: array
+        notes:
+          type: string
+        sourceEinstufungId:
+          type: string
+        updatedAt:
+          type: string
+        validFrom:
+          type: string
+        validUntil:
+          type: string
+        year:
+          type: integer
+      type: object
+    EinstufungList:
+      description: Paginated list of fee classifications
+      properties:
+        data:
+          items:
+            $ref: "#/components/schemas/Einstufung"
+          type: array
+        page:
+          type: integer
+        perPage:
+          type: integer
+        total:
+          type: integer
+        totalPages:
+          type: integer
+      type: object
+    EmailLogListResponse:
+      description: Paginated list of email logs
+      properties:
+        data:
+          items:
+            $ref: "#/components/schemas/EmailLogResponse"
+          type: array
+        page:
+          example: 1
+          type: integer
+        perPage:
+          example: 20
+          type: integer
+        total:
+          example: 100
+          type: integer
+        totalPages:
+          example: 5
+          type: integer
+      type: object
+    EmailLogResponse:
+      description: Email log entry
+      properties:
+        body:
+          example: Hallo,...
+          type: string
+        emailType:
+          example: REMINDER_INITIAL
+          type: string
+        id:
+          example: 550e8400-e29b-41d4-a716-446655440000
+          type: string
+        sentAt:
+          example: 2026-02-05T10:15:00Z
+          type: string
+        sentBy:
+          example: 550e8400-e29b-41d4-a716-446655440001
+          type: string
+        subject:
+          example: Zahlungserinnerung Essens- und Platzgeld Februar 2026
+          type: string
+        toEmail:
+          example: admin@knirpsenstadt.de
           type: string
       type: object
     ErrorResponse:
@@ -3401,6 +4916,15 @@ components:
           items:
             $ref: "#/components/schemas/MonthOverview"
           type: array
+        openChildcareCount:
+          example: 12
+          type: integer
+        openFoodCount:
+          example: 18
+          type: integer
+        openMembershipCount:
+          example: 3
+          type: integer
         totalOpen:
           example: 25
           type: integer
@@ -3436,6 +4960,13 @@ components:
             $ref: "#/components/schemas/domain.MatchSuggestion"
           type: array
       type: object
+    HideTransactionResponse:
+      description: Hide transaction result
+      properties:
+        transactionId:
+          example: 550e8400-e29b-41d4-a716-446655440000
+          type: string
+      type: object
     Household:
       description: Household information with relationships
       properties:
@@ -3458,6 +4989,15 @@ components:
             - HISTORIC
             - FOSTER_FAMILY
           example: PROVIDED
+          type: string
+        membershipAssignmentStatus:
+          enum:
+            - ASSUMED
+            - CONFIRMED
+          example: ASSUMED
+          type: string
+        membershipParentId:
+          example: 550e8400-e29b-41d4-a716-446655440000
           type: string
         name:
           example: Familie Müller
@@ -3590,6 +5130,110 @@ components:
         totalPages:
           example: 1
           type: integer
+      type: object
+    LedgerEntry:
+      description: Ledger entry for a child
+      properties:
+        balance:
+          example: 45.4
+          type: number
+        credit:
+          example: 0
+          type: number
+        date:
+          example: 2024-01-05
+          type: string
+        debit:
+          example: 45.4
+          type: number
+        description:
+          example: Essensgeld Januar 2024
+          type: string
+        feeType:
+          example: FOOD
+          type: string
+        id:
+          example: 550e8400-e29b-41d4-a716-446655440000
+          type: string
+        isPaid:
+          example: false
+          type: boolean
+        month:
+          example: 1
+          type: integer
+        paidAt:
+          example: 2024-01-10
+          type: string
+        type:
+          enum:
+            - fee
+            - payment
+          example: fee
+          type: string
+        year:
+          example: 2024
+          type: integer
+      type: object
+    LedgerSummary:
+      description: Summary totals for the ledger
+      properties:
+        openFeesCount:
+          example: 2
+          type: integer
+        paidFeesCount:
+          example: 8
+          type: integer
+        totalFees:
+          example: 500
+          type: number
+        totalFeesCount:
+          example: 10
+          type: integer
+        totalOpen:
+          example: 100
+          type: number
+        totalPaid:
+          example: 400
+          type: number
+      type: object
+    LegalHoursBreakdownItem:
+      properties:
+        count:
+          example: 12
+          type: integer
+        legalHours:
+          example: 35
+          type: integer
+        u3Count:
+          example: 4
+          type: integer
+        ue3Count:
+          example: 8
+          type: integer
+      type: object
+    LegalHoursHistoryEntry:
+      properties:
+        childId:
+          example: 550e8400-e29b-41d4-a716-446655440000
+          type: string
+        createdAt:
+          example: 2026-01-01T10:00:00Z
+          type: string
+        effectiveFrom:
+          example: 2026-01-01
+          type: string
+        effectiveUntil:
+          example: 2026-03-31
+          type: string
+        id:
+          example: 550e8400-e29b-41d4-a716-446655440011
+          type: string
+        legalHours:
+          example: 35
+          type: integer
+        updatedAt:
+          example: 2026-01-01T10:00:00Z
+          type: string
       type: object
     LinkIBANRequest:
       description: Request body for linking an IBAN to a child
@@ -3783,6 +5427,13 @@ components:
           example: 2024
           type: integer
       type: object
+    NextMemberNumberResponse:
+      description: Next available member number
+      properties:
+        memberNumber:
+          example: "12002"
+          type: string
+      type: object
     Parent:
       description: Parent information with relationships
       properties:
@@ -3912,38 +5563,174 @@ components:
           example: 50
           type: integer
       type: object
-    PasswordResetConfirmRequest:
-      properties:
-        newPassword:
-          example: newPassword456
-          minLength: 8
-          type: string
-        token:
-          example: abc123def456
-          type: string
-      type: object
-    PasswordResetRequest:
-      properties:
-        email:
-          example: user@example.com
-          type: string
-      type: object
     RefreshTokenRequest:
       properties:
         refreshToken:
           example: eyJhbGciOiJIUzI1NiIs...
           type: string
       type: object
+    ReminderPreviewResponse:
+      properties:
+        body:
+          example: Hallo Anna,...
+          type: string
+        householdId:
+          example: 550e8400-e29b-41d4-a716-446655440000
+          type: string
+        householdName:
+          example: Schmidt
+          type: string
+        qrImageDataUrl:
+          type: string
+        recipients:
+          example:
+            - '["anna@example.com"]'
+          items:
+            type: string
+          type: array
+        subject:
+          example: Kita Zahlungserinnerung April 2026
+          type: string
+      type: object
+    ReminderRunResponse:
+      description: Ergebnis einer Erinnerungs-/Mahnungsprüfung
+      properties:
+        date:
+          example: 2026-02-05
+          type: string
+        dryRun:
+          example: false
+          type: boolean
+        emailSent:
+          example: true
+          type: boolean
+        familiesEmailed:
+          example: 5
+          type: integer
+        familiesProcessed:
+          example: 6
+          type: integer
+        familiesSkippedNoEmail:
+          example: 1
+          type: integer
+        message:
+          example: no unpaid fees for this period
+          type: string
+        previews:
+          items:
+            $ref: "#/components/schemas/ReminderPreviewResponse"
+          type: array
+        recipient:
+          description: "Deprecated: kept for backward compat"
+          type: string
+        reminderCreated:
+          type: integer
+        remindersCreated:
+          example: 8
+          type: integer
+        stage:
+          enum:
+            - auto
+            - initial
+            - final
+            - none
+          example: initial
+          type: string
+        unpaidCount:
+          example: 12
+          type: integer
+        warnings:
+          items:
+            $ref: "#/components/schemas/ReminderWarningResponse"
+          type: array
+      type: object
+    ReminderSettingsResponse:
+      description: Reminder settings
+      properties:
+        autoEnabled:
+          example: false
+          type: boolean
+        payment:
+          $ref: "#/components/schemas/handler.ReminderPaymentSettingsPayload"
+      type: object
+    ReminderWarningResponse:
+      properties:
+        householdName:
+          example: Müller
+          type: string
+        reason:
+          example: keine gültige E-Mail-Adresse
+          type: string
+      type: object
     RescanResponse:
       description: Rescan result with new match suggestions
       properties:
+        autoMatched:
+          example: 150
+          type: integer
         newMatches:
           example: 5
+          type: integer
+        scanned:
+          example: 226
           type: integer
         suggestions:
           items:
             $ref: "#/components/schemas/MatchSuggestion"
           type: array
+      type: object
+    ResolveLateFeeResponse:
+      description: Late payment resolution result
+      properties:
+        lateFeeAmount:
+          example: 10
+          type: number
+        lateFeeId:
+          example: 550e8400-e29b-41d4-a716-446655440001
+          type: string
+        warningId:
+          example: 550e8400-e29b-41d4-a716-446655440000
+          type: string
+      type: object
+    StichtagsmeldungReport:
+      properties:
+        careHoursBreakdown:
+          items:
+            $ref: "#/components/schemas/CareHoursBreakdownItem"
+          type: array
+        legalHoursBreakdown:
+          items:
+            $ref: "#/components/schemas/LegalHoursBreakdownItem"
+          type: array
+        reportDate:
+          example: 2026-03-15
+          type: string
+        totalChildrenInKita:
+          example: 45
+          type: integer
+        u3ChildrenCount:
+          example: 12
+          type: integer
+        u3IncomeBreakdown:
+          $ref: "#/components/schemas/U3IncomeBreakdown"
+        ue3ChildrenCount:
+          example: 33
+          type: integer
+      type: object
+    StichtagsmeldungStats:
+      description: Stichtagsmeldung statistics for quarterly reporting
+      properties:
+        daysUntilStichtag:
+          example: 37
+          type: integer
+        nextStichtag:
+          example: 2026-03-15
+          type: string
+        totalChildrenInKita:
+          example: 45
+          type: integer
+        u3IncomeBreakdown:
+          $ref: "#/components/schemas/U3IncomeBreakdown"
       type: object
     Transaction:
       description: Bank transaction from CSV import
@@ -4009,6 +5796,48 @@ components:
           example: 2
           type: integer
       type: object
+    U3IncomeBreakdown:
+      description: U3 children income breakdown by 5 brackets
+      properties:
+        fosterFamily:
+          example: 1
+          type: integer
+        from20To35k:
+          example: 8
+          type: integer
+        from35To55k:
+          example: 12
+          type: integer
+        maxAccepted:
+          example: 2
+          type: integer
+        total:
+          example: 28
+          type: integer
+        upTo20k:
+          example: 5
+          type: integer
+      type: object
+    UnmatchTransactionRequest:
+      description: Unmatch transaction request
+      properties:
+        deleteTransaction:
+          example: false
+          type: boolean
+      type: object
+    UnmatchTransactionResponse:
+      description: Unmatch transaction result
+      properties:
+        matchesRemoved:
+          example: 1
+          type: integer
+        transactionDeleted:
+          example: false
+          type: boolean
+        transactionId:
+          example: 550e8400-e29b-41d4-a716-446655440000
+          type: string
+      type: object
     UpdateChildRequest:
       description: Request body for updating a child
       properties:
@@ -4052,6 +5881,22 @@ components:
           example: "42"
           type: string
       type: object
+    UpdateEinstufungRequest:
+      description: Request body for updating a fee classification
+      properties:
+        careHoursPerWeek:
+          type: integer
+        childrenCount:
+          type: integer
+        highestRateVoluntary:
+          type: boolean
+        incomeCalculation:
+          $ref: "#/components/schemas/domain.HouseholdIncomeCalculation"
+        notes:
+          type: string
+        validFrom:
+          type: string
+      type: object
     UpdateFeeRequest:
       description: Request body for updating a fee
       properties:
@@ -4065,6 +5910,9 @@ components:
         annualHouseholdIncome:
           example: 65000
           type: number
+        childrenCountForFees:
+          example: 2
+          type: integer
         incomeStatus:
           enum:
             - PROVIDED
@@ -4074,6 +5922,15 @@ components:
             - HISTORIC
             - FOSTER_FAMILY
           example: PROVIDED
+          type: string
+        membershipAssignmentStatus:
+          enum:
+            - ASSUMED
+            - CONFIRMED
+          example: ASSUMED
+          type: string
+        membershipParentId:
+          example: 550e8400-e29b-41d4-a716-446655440000
           type: string
         name:
           example: Familie Müller
@@ -4162,6 +6019,15 @@ components:
         streetNo:
           example: "42"
           type: string
+      type: object
+    UpdateReminderSettingsRequest:
+      description: Reminder settings update
+      properties:
+        autoEnabled:
+          example: true
+          type: boolean
+        payment:
+          $ref: "#/components/schemas/handler.ReminderPaymentSettingsPayload"
       type: object
     UploadResponse:
       description: CSV upload and processing result
@@ -4275,12 +6141,18 @@ components:
           type: string
         description:
           type: string
+        hiddenAt:
+          type: string
+        hiddenBy:
+          type: string
         id:
           type: string
         importBatchId:
           type: string
         importedAt:
           type: string
+        isHidden:
+          type: boolean
         matches:
           description: Joined fields
           items:
@@ -4325,6 +6197,9 @@ components:
           type: string
         memberNumber:
           type: string
+        openFeesCount:
+          description: Computed fields (not stored in DB, populated by queries)
+          type: integer
         parents:
           description: Loaded relations (not stored in DB)
           items:
@@ -4338,6 +6213,27 @@ components:
           type: string
         updatedAt:
           type: string
+      type: object
+    domain.EinstufungMonthRow:
+      properties:
+        careHoursPerWeek:
+          type: integer
+        careType:
+          description: '"Krippe" or "Kindergarten"'
+          type: string
+        childcareFee:
+          description: Beitrag für Kinderbetreuung
+          type: number
+        foodFee:
+          description: Essengeld
+          type: number
+        membershipFee:
+          description: Vereinsbeitrag (only in first month)
+          type: number
+        month:
+          type: integer
+        year:
+          type: integer
       type: object
     domain.FeeExpectation:
       properties:
@@ -4355,10 +6251,15 @@ components:
           type: string
         feeType:
           $ref: "#/components/schemas/domain.FeeType"
+        householdId:
+          type: string
         id:
           type: string
         isPaid:
           type: boolean
+        matchedAmount:
+          description: Total matched across all transactions
+          type: number
         matchedBy:
           $ref: "#/components/schemas/domain.PaymentMatch"
         month:
@@ -4366,9 +6267,17 @@ components:
           type: integer
         paidAt:
           type: string
+        partialMatches:
+          description: All transactions covering this fee
+          items:
+            $ref: "#/components/schemas/domain.PaymentMatch"
+          type: array
         reconciliationYear:
           description: "For Kalendarjahresabrechnung: the year this Nachzahlung is for"
           type: integer
+        remaining:
+          description: Amount still needed
+          type: number
         reminderForId:
           description: "For REMINDER type: links to the original fee"
           type: string
@@ -4405,12 +6314,19 @@ components:
           items:
             $ref: "#/components/schemas/domain.Child"
           type: array
+        childrenCountForFees:
+          description: Override for sibling discount calculation
+          type: integer
         createdAt:
           type: string
         id:
           type: string
         incomeStatus:
           $ref: "#/components/schemas/domain.IncomeStatus"
+        membershipAssignmentStatus:
+          $ref: "#/components/schemas/domain.MembershipAssignmentStatus"
+        membershipParentId:
+          type: string
         name:
           description: e.g. "Familie Müller" - auto-generated or manual
           type: string
@@ -4421,6 +6337,58 @@ components:
           type: array
         updatedAt:
           type: string
+      type: object
+    domain.HouseholdIncomeCalculation:
+      properties:
+        parent1:
+          $ref: "#/components/schemas/domain.IncomeDetails"
+        parent2:
+          $ref: "#/components/schemas/domain.IncomeDetails"
+      type: object
+    domain.IncomeDetails:
+      properties:
+        advertisingCosts:
+          description: "- WK-Pauschale"
+          type: number
+        grossIncome:
+          description: Employee Income (bei AN)
+          type: number
+        insurances:
+          description: "- Versicherungen"
+          type: number
+        maintenanceReceived:
+          description: + Unterhalt (erhalten)
+          type: number
+        maintenanceToPay:
+          description: Maintenance (Unterhalt)
+          type: number
+        maternityBenefit:
+          description: Mutterschaftsgeld
+          type: number
+        otherIncome:
+          description: + sonstige Einnahmen
+          type: number
+        parentalBenefit:
+          description: Other Benefits (NOT included in fee-relevant household income)
+          type: number
+        privateInsurance:
+          description: "- private KV/PV"
+          type: number
+        profit:
+          description: Self-Employed Income (bei Gewerbetreibenden / Selbständigen)
+          type: number
+        selfEmployedTax:
+          description: "- Steuern (Est, KiSt, SolZu)"
+          type: number
+        socialSecurityShare:
+          description: "- AN-Anteile SV"
+          type: number
+        tax:
+          description: "- Lst bzw Est, KiSt, SolZu"
+          type: number
+        welfareExpense:
+          description: "- Abgabe für persönliche Daseinsfürsorge"
+          type: number
       type: object
     domain.IncomeStatus:
       enum:
@@ -4508,6 +6476,14 @@ components:
         updatedAt:
           type: string
       type: object
+    domain.MembershipAssignmentStatus:
+      enum:
+        - ASSUMED
+        - CONFIRMED
+      type: string
+      x-enum-varnames:
+        - MembershipAssignmentStatusAssumed
+        - MembershipAssignmentStatusConfirmed
     domain.Parent:
       properties:
         annualHouseholdIncome:
@@ -4557,6 +6533,8 @@ components:
       type: object
     domain.PaymentMatch:
       properties:
+        amount:
+          type: number
         confidence:
           type: number
         expectation:
@@ -4576,6 +6554,86 @@ components:
             - $ref: "#/components/schemas/domain.BankTransaction"
           description: Joined fields
         transactionId:
+          type: string
+      type: object
+    handler.CoveredTransactionResponse:
+      properties:
+        amount:
+          example: 66
+          type: number
+        bookingDate:
+          example: 2024-03-05
+          type: string
+        description:
+          example: Platzgeld März
+          type: string
+        isForThisMonth:
+          example: true
+          type: boolean
+        transactionId:
+          example: 550e8400-e29b-41d4-a716-446655440000
+          type: string
+      type: object
+    handler.FeeCoverageResponse:
+      description: Monthly fee coverage with transaction details
+      properties:
+        balance:
+          example: 0
+          type: number
+        expectedTotal:
+          example: 110
+          type: number
+        month:
+          example: 3
+          type: integer
+        receivedTotal:
+          example: 110
+          type: number
+        status:
+          enum:
+            - UNPAID
+            - PARTIAL
+            - COVERED
+            - OVERPAID
+          example: COVERED
+          type: string
+        transactions:
+          items:
+            $ref: "#/components/schemas/handler.CoveredTransactionResponse"
+          type: array
+        year:
+          example: 2024
+          type: integer
+      type: object
+    handler.ReminderPaymentSettingsPayload:
+      properties:
+        bic:
+          example: BFSWDE33XXX
+          type: string
+        iban:
+          example: DE33370205000003321400
+          type: string
+        recipientName:
+          example: Knirpsenstadt e.V.
+          type: string
+      type: object
+    handler.U3ChildDetailResponse:
+      properties:
+        birthDate:
+          type: string
+        firstName:
+          type: string
+        householdIncome:
+          type: integer
+        id:
+          type: string
+        incomeStatus:
+          type: string
+        isFosterFamily:
+          type: boolean
+        lastName:
+          type: string
+        memberNumber:
           type: string
       type: object
     service.ChildPreview:
@@ -4680,257 +6738,4 @@ components:
           type: string
         phone:
           type: string
-      type: object
-    IncomeDetails:
-      description: Detailed income components for one parent (annual amounts in EUR)
-      properties:
-        grossIncome:
-          description: Bruttoeinkommen (Jahressumme)
-          type: number
-          example: 0
-        otherIncome:
-          description: Sonstige Einnahmen
-          type: number
-          example: 0
-        socialSecurityShare:
-          description: AN-Anteile Sozialversicherung
-          type: number
-          example: 0
-        privateInsurance:
-          description: Private KV/PV
-          type: number
-          example: 0
-        tax:
-          description: Lohnsteuer / Kirchensteuer / Solidaritätszuschlag
-          type: number
-          example: 0
-        advertisingCosts:
-          description: Werbungskosten-Pauschale
-          type: number
-          example: 0
-        profit:
-          description: Gewinn aus Gewerbebetrieb oder selbständiger Arbeit
-          type: number
-          example: 0
-        welfareExpense:
-          description: Abgabe für persönliche Daseinsfürsorge
-          type: number
-          example: 0
-        selfEmployedTax:
-          description: Steuern (ESt, KiSt, SolZu)
-          type: number
-          example: 0
-        parentalBenefit:
-          description: Elterngeld (nicht beitragsrelevant)
-          type: number
-          example: 0
-        maternityBenefit:
-          description: Mutterschaftsgeld (nicht beitragsrelevant)
-          type: number
-          example: 0
-        insurances:
-          description: Versicherungen
-          type: number
-          example: 0
-        maintenanceToPay:
-          description: Unterhalt (zu zahlen)
-          type: number
-          example: 0
-        maintenanceReceived:
-          description: Unterhalt (erhalten)
-          type: number
-          example: 0
-      type: object
-    HouseholdIncomeCalculation:
-      description: Full income calculation sheet for a household (both parents)
-      properties:
-        parent1:
-          $ref: "#/components/schemas/IncomeDetails"
-        parent2:
-          $ref: "#/components/schemas/IncomeDetails"
-      type: object
-    EinstufungMonthRow:
-      description: One month in the Einstufung letter table
-      properties:
-        month:
-          type: integer
-          example: 1
-        year:
-          type: integer
-          example: 2026
-        careHoursPerWeek:
-          type: integer
-          example: 45
-        careType:
-          type: string
-          example: Kindergarten
-        childcareFee:
-          type: number
-          example: 66
-        foodFee:
-          type: number
-          example: 45.4
-        membershipFee:
-          type: number
-          example: 30
-      type: object
-    Einstufung:
-      description: Fee classification for a child
-      properties:
-        id:
-          type: string
-        childId:
-          type: string
-        householdId:
-          type: string
-        year:
-          type: integer
-          example: 2026
-        validFrom:
-          type: string
-          example: "2026-01-01"
-        incomeCalculation:
-          $ref: "#/components/schemas/HouseholdIncomeCalculation"
-        annualNetIncome:
-          description: Fee-relevant household income
-          type: number
-          example: 36412.80
-        highestRateVoluntary:
-          type: boolean
-          example: false
-        careHoursPerWeek:
-          type: integer
-          example: 45
-        careType:
-          type: string
-          enum:
-            - krippe
-            - kindergarten
-          example: kindergarten
-        childrenCount:
-          type: integer
-          example: 1
-        monthlyChildcareFee:
-          type: number
-          example: 66
-        monthlyFoodFee:
-          type: number
-          example: 45.4
-        annualMembershipFee:
-          type: number
-          example: 30
-        feeRule:
-          type: string
-          example: Entlastung
-        discountPercent:
-          type: integer
-          example: 0
-        discountFactor:
-          type: number
-          example: 1
-        baseFee:
-          type: number
-          example: 66
-        notes:
-          type: string
-        monthlyTable:
-          type: array
-          items:
-            $ref: "#/components/schemas/EinstufungMonthRow"
-        createdAt:
-          type: string
-        updatedAt:
-          type: string
-        child:
-          description: Loaded child relation
-          type: object
-        household:
-          description: Loaded household relation
-          type: object
-      type: object
-    EinstufungList:
-      description: Paginated list of Einstufungen
-      properties:
-        data:
-          items:
-            $ref: "#/components/schemas/Einstufung"
-          type: array
-        page:
-          type: integer
-          example: 1
-        perPage:
-          type: integer
-          example: 20
-        total:
-          type: integer
-          example: 100
-        totalPages:
-          type: integer
-          example: 5
-      type: object
-    CreateEinstufungRequest:
-      description: Request body for creating a fee classification
-      properties:
-        childId:
-          type: string
-        year:
-          type: integer
-          example: 2026
-        validFrom:
-          description: ISO date (YYYY-MM-DD)
-          type: string
-          example: "2026-01-01"
-        incomeCalculation:
-          $ref: "#/components/schemas/HouseholdIncomeCalculation"
-        highestRateVoluntary:
-          type: boolean
-          example: false
-        careHoursPerWeek:
-          type: integer
-          example: 45
-        childrenCount:
-          type: integer
-          example: 1
-        notes:
-          type: string
-      type: object
-    UpdateEinstufungRequest:
-      description: Request body for updating a fee classification
-      properties:
-        incomeCalculation:
-          $ref: "#/components/schemas/HouseholdIncomeCalculation"
-        highestRateVoluntary:
-          type: boolean
-        careHoursPerWeek:
-          type: integer
-        childrenCount:
-          type: integer
-        validFrom:
-          type: string
-        notes:
-          type: string
-      type: object
-    CalculateIncomeRequest:
-      description: Request to calculate household income from parent details
-      properties:
-        parent1:
-          $ref: "#/components/schemas/IncomeDetails"
-        parent2:
-          $ref: "#/components/schemas/IncomeDetails"
-      type: object
-    CalculateIncomeResponse:
-      description: Computed income breakdown
-      properties:
-        parent1NetIncome:
-          type: number
-        parent2NetIncome:
-          type: number
-        parent1FeeRelevantIncome:
-          type: number
-        parent2FeeRelevantIncome:
-          type: number
-        householdFeeIncome:
-          type: number
-        householdFullIncome:
-          type: number
       type: object

@@ -58,6 +58,26 @@ type GenerateResult struct {
 	Skipped int `json:"skipped"`
 }
 
+// ChildcareExpectationSyncResult describes automatic expectation changes after a follow-up classification.
+type ChildcareExpectationSyncResult struct {
+	Created              int                  `json:"created"`
+	Updated              int                  `json:"updated"`
+	Skipped              int                  `json:"skipped"`
+	DeltaOpen            float64              `json:"deltaOpen"`
+	CreditReviewRequired []CreditReviewPeriod `json:"creditReviewRequired"`
+}
+
+// CreditReviewPeriod identifies a paid month that would become overpaid after a decrease.
+type CreditReviewPeriod struct {
+	FeeID         uuid.UUID `json:"feeId"`
+	Year          int       `json:"year"`
+	Month         int       `json:"month"`
+	OldAmount     float64   `json:"oldAmount"`
+	NewAmount     float64   `json:"newAmount"`
+	MatchedAmount float64   `json:"matchedAmount"`
+	CreditAmount  float64   `json:"creditAmount"`
+}
+
 // incomeInfo holds income and sibling information for fee calculation.
 type incomeInfo struct {
 	IsFosterFamily bool
@@ -287,6 +307,92 @@ func (s *FeeService) createFeeIfNotExists(ctx context.Context, childID uuid.UUID
 	}
 
 	return true, nil
+}
+
+// SyncChildcareExpectationsFrom updates CHILDCARE expectations from the effective month through year-end.
+func (s *FeeService) SyncChildcareExpectationsFrom(ctx context.Context, childID uuid.UUID, householdID *uuid.UUID, effectiveFromMonth time.Time, amount float64, exitDate *time.Time) (*ChildcareExpectationSyncResult, error) {
+	result := &ChildcareExpectationSyncResult{}
+	effectiveFromMonth = firstDayOfMonth(effectiveFromMonth)
+	endMonth := time.December
+	if exitDate != nil && exitDate.Year() == effectiveFromMonth.Year() && exitDate.Month() < endMonth {
+		endMonth = exitDate.Month()
+	}
+
+	for m := effectiveFromMonth.Month(); m <= endMonth; m++ {
+		year := effectiveFromMonth.Year()
+		month := int(m)
+		dueDate := time.Date(year, m, 5, 0, 0, 0, 0, time.UTC)
+		fee, err := s.feeRepo.GetByChildFeePeriod(ctx, childID, domain.FeeTypeChildcare, year, month)
+		if err != nil {
+			return nil, err
+		}
+
+		if fee == nil {
+			if amount <= 0 {
+				result.Skipped++
+				continue
+			}
+			created := &domain.FeeExpectation{
+				ID:          uuid.New(),
+				ChildID:     childID,
+				HouseholdID: householdID,
+				FeeType:     domain.FeeTypeChildcare,
+				Year:        year,
+				Month:       &month,
+				Amount:      amount,
+				DueDate:     dueDate,
+				CreatedAt:   time.Now(),
+			}
+			if err := s.feeRepo.Create(ctx, created); err != nil {
+				return nil, err
+			}
+			result.Created++
+			result.DeltaOpen = roundToTwoDecimals(result.DeltaOpen + amount)
+			continue
+		}
+
+		matchedAmount, err := s.matchRepo.GetTotalMatchedAmount(ctx, fee.ID)
+		if err != nil {
+			return nil, err
+		}
+		oldRemaining := fee.Amount - matchedAmount
+		if oldRemaining < 0 {
+			oldRemaining = 0
+		}
+
+		if matchedAmount > amount+0.01 {
+			result.CreditReviewRequired = append(result.CreditReviewRequired, CreditReviewPeriod{
+				FeeID:         fee.ID,
+				Year:          fee.Year,
+				Month:         month,
+				OldAmount:     fee.Amount,
+				NewAmount:     amount,
+				MatchedAmount: matchedAmount,
+				CreditAmount:  roundToTwoDecimals(matchedAmount - amount),
+			})
+			result.Skipped++
+			continue
+		}
+
+		if math.Abs(fee.Amount-amount) <= 0.01 {
+			result.Skipped++
+			continue
+		}
+
+		fee.Amount = amount
+		fee.DueDate = dueDate
+		if err := s.feeRepo.Update(ctx, fee); err != nil {
+			return nil, err
+		}
+		newRemaining := amount - matchedAmount
+		if newRemaining < 0 {
+			newRemaining = 0
+		}
+		result.Updated++
+		result.DeltaOpen = roundToTwoDecimals(result.DeltaOpen + newRemaining - oldRemaining)
+	}
+
+	return result, nil
 }
 
 func (s *FeeService) generateYearlyMembershipFees(ctx context.Context, year int, children []domain.Child) (*GenerateResult, error) {
@@ -667,6 +773,10 @@ func getSiblingDiscountFactor(siblingsCount, maxForDiscount int) float64 {
 // roundToTwoDecimals rounds a float to two decimal places.
 func roundToTwoDecimals(val float64) float64 {
 	return float64(int(val*100+0.5)) / 100
+}
+
+func firstDayOfMonth(t time.Time) time.Time {
+	return time.Date(t.Year(), t.Month(), 1, 0, 0, 0, 0, time.UTC)
 }
 
 // CreateFeeInput represents the input for creating a single fee.

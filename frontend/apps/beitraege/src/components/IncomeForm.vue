@@ -42,9 +42,6 @@ function updateField(key: keyof IncomeDetails, event: Event) {
   model.value = { ...model.value, [key]: val };
 }
 
-function renderGroup(fields: FieldDef[]) {
-  return fields;
-}
 </script>
 
 <template>

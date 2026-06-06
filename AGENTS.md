@@ -125,6 +125,15 @@ Primary areas:
 - `internal/repository/`
 - `migrations/`
 
+Current state:
+- Einstufung history with monthly cut-off follow-ups is implemented as of 2026-06-06.
+- Migration `backend-fees/migrations/000026_einstufung_periods.up.sql` adds `valid_until`, `source_einstufung_id`, `change_date`, and `effective_from_month` to `fees.einstufungen`, removes the old one-einstufung-per-child/year uniqueness, and enforces non-overlapping child periods with a GiST exclusion constraint.
+- Follow-up endpoint: `POST /api/fees/v1/einstufungen/{id}/follow-ups`. The request stores the entered `changeDate`; the API calculates `effectiveFromMonth` with the rule 1st-14th = same month and 15th+ = following month.
+- Creating a follow-up closes the source Einstufung at the day before `effectiveFromMonth`, creates the new Einstufung with `annual_membership_fee = 0`, and synchronizes `CHILDCARE` fee expectations from the effective month through year-end or child exit date.
+- CHILDCARE sync creates missing expectations, updates unmatched expectations, increases already matched expectations when no overpayment results, and reports decreases below matched amounts in `creditReviewRequired` without creating automatic credits. `FOOD` and `MEMBERSHIP` expectations are not changed.
+- New/changed OpenAPI fields and endpoint are generated in `openapi/fees/swagger.yaml` and `openapi/fees/openapi3.yaml`; `frontend/apps/beitraege/src/api/schema.d.ts` was regenerated from the OpenAPI 3 spec.
+- Regression coverage: `go test ./...` in `backend-fees` includes cut-off tests for `2026-06-14` and `2026-06-15`, and sync tests for paid increases and credit-review decreases.
+
 ### banking-sync
 
 - Path: `banking-sync/`

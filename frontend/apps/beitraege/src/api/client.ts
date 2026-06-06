@@ -61,6 +61,8 @@ import type {
   Einstufung,
   CreateEinstufungRequest,
   UpdateEinstufungRequest,
+  CreateFollowUpEinstufungRequest,
+  CreateFollowUpEinstufungResponse,
   IncomeDetails,
   CalculateIncomeResponse,
 } from './types';
@@ -945,6 +947,16 @@ class ApiClient {
   async updateEinstufung(id: string, data: UpdateEinstufungRequest): Promise<Einstufung> {
     return this.request<Einstufung>(`/einstufungen/${id}`, {
       method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async createFollowUpEinstufung(
+    sourceId: string,
+    data: CreateFollowUpEinstufungRequest
+  ): Promise<CreateFollowUpEinstufungResponse> {
+    return this.request<CreateFollowUpEinstufungResponse>(`/einstufungen/${sourceId}/follow-ups`, {
+      method: 'POST',
       body: JSON.stringify(data),
     });
   }

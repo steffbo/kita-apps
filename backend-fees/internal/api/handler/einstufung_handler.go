@@ -28,30 +28,34 @@ func NewEinstufungHandler(einstufungService *service.EinstufungService) *Einstuf
 // EinstufungResponse represents an Einstufung in API responses.
 // @Description Fee classification for a child
 type EinstufungResponse struct {
-	ID                   string                              `json:"id"`
-	ChildID              string                              `json:"childId"`
-	HouseholdID          string                              `json:"householdId"`
-	Year                 int                                 `json:"year"`
-	ValidFrom            string                              `json:"validFrom"`
-	IncomeCalculation    domain.HouseholdIncomeCalculation   `json:"incomeCalculation"`
-	AnnualNetIncome      float64                             `json:"annualNetIncome"`
-	HighestRateVoluntary bool                                `json:"highestRateVoluntary"`
-	CareHoursPerWeek     int                                 `json:"careHoursPerWeek"`
-	CareType             string                              `json:"careType"`
-	ChildrenCount        int                                 `json:"childrenCount"`
-	MonthlyChildcareFee  float64                             `json:"monthlyChildcareFee"`
-	MonthlyFoodFee       float64                             `json:"monthlyFoodFee"`
-	AnnualMembershipFee  float64                             `json:"annualMembershipFee"`
-	FeeRule              string                              `json:"feeRule"`
-	DiscountPercent      int                                 `json:"discountPercent"`
-	DiscountFactor       float64                             `json:"discountFactor"`
-	BaseFee              float64                             `json:"baseFee"`
-	Notes                string                              `json:"notes,omitempty"`
-	MonthlyTable         []domain.EinstufungMonthRow         `json:"monthlyTable,omitempty"`
-	CreatedAt            string                              `json:"createdAt"`
-	UpdatedAt            string                              `json:"updatedAt"`
-	Child                interface{}                         `json:"child,omitempty"`
-	Household            interface{}                         `json:"household,omitempty"`
+	ID                   string                            `json:"id"`
+	ChildID              string                            `json:"childId"`
+	HouseholdID          string                            `json:"householdId"`
+	Year                 int                               `json:"year"`
+	ValidFrom            string                            `json:"validFrom"`
+	ValidUntil           *string                           `json:"validUntil,omitempty"`
+	SourceEinstufungID   *string                           `json:"sourceEinstufungId,omitempty"`
+	ChangeDate           *string                           `json:"changeDate,omitempty"`
+	EffectiveFromMonth   string                            `json:"effectiveFromMonth"`
+	IncomeCalculation    domain.HouseholdIncomeCalculation `json:"incomeCalculation"`
+	AnnualNetIncome      float64                           `json:"annualNetIncome"`
+	HighestRateVoluntary bool                              `json:"highestRateVoluntary"`
+	CareHoursPerWeek     int                               `json:"careHoursPerWeek"`
+	CareType             string                            `json:"careType"`
+	ChildrenCount        int                               `json:"childrenCount"`
+	MonthlyChildcareFee  float64                           `json:"monthlyChildcareFee"`
+	MonthlyFoodFee       float64                           `json:"monthlyFoodFee"`
+	AnnualMembershipFee  float64                           `json:"annualMembershipFee"`
+	FeeRule              string                            `json:"feeRule"`
+	DiscountPercent      int                               `json:"discountPercent"`
+	DiscountFactor       float64                           `json:"discountFactor"`
+	BaseFee              float64                           `json:"baseFee"`
+	Notes                string                            `json:"notes,omitempty"`
+	MonthlyTable         []domain.EinstufungMonthRow       `json:"monthlyTable,omitempty"`
+	CreatedAt            string                            `json:"createdAt"`
+	UpdatedAt            string                            `json:"updatedAt"`
+	Child                interface{}                       `json:"child,omitempty"`
+	Household            interface{}                       `json:"household,omitempty"`
 } //@name Einstufung
 
 // EinstufungListResponse represents a paginated list of Einstufungen.
@@ -67,14 +71,14 @@ type EinstufungListResponse struct {
 // CreateEinstufungRequest represents a request to create an Einstufung.
 // @Description Request body for creating a fee classification
 type CreateEinstufungRequest struct {
-	ChildID              string                             `json:"childId"`
-	Year                 int                                `json:"year"`
-	ValidFrom            string                             `json:"validFrom"`            // ISO date, e.g. "2026-01-01"
-	IncomeCalculation    domain.HouseholdIncomeCalculation  `json:"incomeCalculation"`
-	HighestRateVoluntary bool                               `json:"highestRateVoluntary"`
-	CareHoursPerWeek     int                                `json:"careHoursPerWeek"`
-	ChildrenCount        int                                `json:"childrenCount"`
-	Notes                string                             `json:"notes"`
+	ChildID              string                            `json:"childId"`
+	Year                 int                               `json:"year"`
+	ValidFrom            string                            `json:"validFrom"` // ISO date, e.g. "2026-01-01"
+	IncomeCalculation    domain.HouseholdIncomeCalculation `json:"incomeCalculation"`
+	HighestRateVoluntary bool                              `json:"highestRateVoluntary"`
+	CareHoursPerWeek     int                               `json:"careHoursPerWeek"`
+	ChildrenCount        int                               `json:"childrenCount"`
+	Notes                string                            `json:"notes"`
 } //@name CreateEinstufungRequest
 
 // UpdateEinstufungRequest represents a request to update an Einstufung.
@@ -87,6 +91,46 @@ type UpdateEinstufungRequest struct {
 	ValidFrom            *string                            `json:"validFrom,omitempty"`
 	Notes                *string                            `json:"notes,omitempty"`
 } //@name UpdateEinstufungRequest
+
+// CreateFollowUpEinstufungRequest represents a request to create a follow-up Einstufung.
+// @Description Request body for creating a follow-up fee classification
+type CreateFollowUpEinstufungRequest struct {
+	ChangeDate           string                            `json:"changeDate"` // ISO date, cut-off: 1st-14th same month, 15th+ next month
+	IncomeCalculation    domain.HouseholdIncomeCalculation `json:"incomeCalculation"`
+	HighestRateVoluntary bool                              `json:"highestRateVoluntary"`
+	CareHoursPerWeek     int                               `json:"careHoursPerWeek"`
+	ChildrenCount        int                               `json:"childrenCount"`
+	Notes                string                            `json:"notes"`
+} //@name CreateFollowUpEinstufungRequest
+
+// CreditReviewPeriodResponse identifies a month needing manual credit review.
+// @Description Paid month that would become overpaid after a childcare fee decrease
+type CreditReviewPeriodResponse struct {
+	FeeID         string  `json:"feeId"`
+	Year          int     `json:"year"`
+	Month         int     `json:"month"`
+	OldAmount     float64 `json:"oldAmount"`
+	NewAmount     float64 `json:"newAmount"`
+	MatchedAmount float64 `json:"matchedAmount"`
+	CreditAmount  float64 `json:"creditAmount"`
+} //@name CreditReviewPeriod
+
+// ChildcareExpectationSyncResponse describes automatic expectation updates.
+// @Description Result of synchronizing CHILDCARE expectations after a follow-up
+type ChildcareExpectationSyncResponse struct {
+	Created              int                          `json:"created"`
+	Updated              int                          `json:"updated"`
+	Skipped              int                          `json:"skipped"`
+	DeltaOpen            float64                      `json:"deltaOpen"`
+	CreditReviewRequired []CreditReviewPeriodResponse `json:"creditReviewRequired"`
+} //@name ChildcareExpectationSyncResult
+
+// CreateFollowUpEinstufungResponse returns the created follow-up and contribution changes.
+// @Description Follow-up Einstufung creation result
+type CreateFollowUpEinstufungResponse struct {
+	Einstufung         EinstufungResponse               `json:"einstufung"`
+	ExpectationChanges ChildcareExpectationSyncResponse `json:"expectationChanges"`
+} //@name CreateFollowUpEinstufungResponse
 
 // CalculateIncomeRequest is a lightweight endpoint for calculating fee-relevant income
 // without creating a full Einstufung record.
@@ -236,6 +280,57 @@ func (h *EinstufungHandler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.Success(w, toEinstufungResponse(result))
+}
+
+// CreateFollowUp handles POST /einstufungen/{id}/follow-ups
+// @Summary Create a follow-up fee classification
+// @Description Creates a follow-up Einstufung, applies the monthly cut-off rule, closes the source period, and syncs open CHILDCARE expectations from the effective month.
+// @Tags Einstufungen
+// @Accept json
+// @Produce json
+// @Param id path string true "Source Einstufung ID"
+// @Param body body CreateFollowUpEinstufungRequest true "Follow-up data"
+// @Success 201 {object} CreateFollowUpEinstufungResponse
+// @Failure 400 {object} response.ErrorBody
+// @Failure 404 {object} response.ErrorBody
+// @Security BearerAuth
+// @Router /einstufungen/{id}/follow-ups [post]
+func (h *EinstufungHandler) CreateFollowUp(w http.ResponseWriter, r *http.Request) {
+	sourceID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		response.BadRequest(w, "invalid ID")
+		return
+	}
+
+	var req CreateFollowUpEinstufungRequest
+	if err := request.DecodeJSON(r, &req); err != nil {
+		response.BadRequest(w, "invalid request body")
+		return
+	}
+
+	changeDate, err := time.Parse("2006-01-02", req.ChangeDate)
+	if err != nil {
+		response.BadRequest(w, "invalid changeDate date (expected YYYY-MM-DD)")
+		return
+	}
+
+	result, err := h.einstufungService.CreateFollowUp(r.Context(), sourceID, service.CreateFollowUpEinstufungInput{
+		ChangeDate:           changeDate,
+		IncomeCalculation:    req.IncomeCalculation,
+		HighestRateVoluntary: req.HighestRateVoluntary,
+		CareHoursPerWeek:     req.CareHoursPerWeek,
+		ChildrenCount:        req.ChildrenCount,
+		Notes:                req.Notes,
+	})
+	if err != nil {
+		handleEinstufungError(w, err)
+		return
+	}
+
+	response.Created(w, CreateFollowUpEinstufungResponse{
+		Einstufung:         toEinstufungResponse(result.Einstufung),
+		ExpectationChanges: toChildcareExpectationSyncResponse(result.ExpectationChanges),
+	})
 }
 
 // Delete handles DELETE /einstufungen/{id}
@@ -411,6 +506,7 @@ func toEinstufungResponse(e *domain.Einstufung) EinstufungResponse {
 		HouseholdID:          e.HouseholdID.String(),
 		Year:                 e.Year,
 		ValidFrom:            e.ValidFrom.Format("2006-01-02"),
+		EffectiveFromMonth:   e.EffectiveFromMonth.Format("2006-01-02"),
 		IncomeCalculation:    e.IncomeCalculation,
 		AnnualNetIncome:      e.AnnualNetIncome,
 		HighestRateVoluntary: e.HighestRateVoluntary,
@@ -428,6 +524,21 @@ func toEinstufungResponse(e *domain.Einstufung) EinstufungResponse {
 		CreatedAt:            e.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:            e.UpdatedAt.Format(time.RFC3339),
 	}
+	if e.ValidUntil != nil {
+		validUntil := e.ValidUntil.Format("2006-01-02")
+		resp.ValidUntil = &validUntil
+	}
+	if e.SourceEinstufungID != nil {
+		sourceID := e.SourceEinstufungID.String()
+		resp.SourceEinstufungID = &sourceID
+	}
+	if e.ChangeDate != nil {
+		changeDate := e.ChangeDate.Format("2006-01-02")
+		resp.ChangeDate = &changeDate
+	}
+	if e.EffectiveFromMonth.IsZero() {
+		resp.EffectiveFromMonth = e.ValidFrom.Format("2006-01-02")
+	}
 
 	// Generate monthly table
 	var exitDate *time.Time
@@ -444,6 +555,31 @@ func toEinstufungResponse(e *domain.Einstufung) EinstufungResponse {
 	}
 
 	return resp
+}
+
+func toChildcareExpectationSyncResponse(result *service.ChildcareExpectationSyncResult) ChildcareExpectationSyncResponse {
+	if result == nil {
+		return ChildcareExpectationSyncResponse{}
+	}
+	creditReview := make([]CreditReviewPeriodResponse, len(result.CreditReviewRequired))
+	for i, item := range result.CreditReviewRequired {
+		creditReview[i] = CreditReviewPeriodResponse{
+			FeeID:         item.FeeID.String(),
+			Year:          item.Year,
+			Month:         item.Month,
+			OldAmount:     item.OldAmount,
+			NewAmount:     item.NewAmount,
+			MatchedAmount: item.MatchedAmount,
+			CreditAmount:  item.CreditAmount,
+		}
+	}
+	return ChildcareExpectationSyncResponse{
+		Created:              result.Created,
+		Updated:              result.Updated,
+		Skipped:              result.Skipped,
+		DeltaOpen:            result.DeltaOpen,
+		CreditReviewRequired: creditReview,
+	}
 }
 
 func handleEinstufungError(w http.ResponseWriter, err error) {

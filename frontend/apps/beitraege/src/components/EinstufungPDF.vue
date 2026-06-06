@@ -25,7 +25,7 @@ interface FeeColumn {
 
 const feeColumns = computed<FeeColumn[]>(() => {
   const e = props.einstufung;
-  const validFrom = new Date(e.validFrom);
+  const validFrom = new Date(e.effectiveFromMonth || e.validFrom);
   const startMonth = validFrom.getMonth(); // 0-based
   const startYear = validFrom.getFullYear();
 
@@ -96,6 +96,9 @@ const feeColumns = computed<FeeColumn[]>(() => {
 
   return cols;
 });
+
+const isFollowUp = computed(() => !!props.einstufung.sourceEinstufungId);
+const showMembershipRow = computed(() => isFollowUp.value || feeColumns.value.some(c => c.membershipFee > 0));
 
 const entryDateFormatted = computed(() => {
   if (!child.value?.entryDate) return '—';
@@ -352,15 +355,18 @@ defineExpose({ generatePdf });
                   {{ formatEur(col.foodFee) }}
                 </td>
               </tr>
-              <tr v-if="feeColumns.some(c => c.membershipFee > 0)" class="fee-table__row fee-table__row--membership">
-                <td class="fee-table__row-label fee-table__row-label--membership">Vereinsbeitrag (jährlich)</td>
+              <tr v-if="showMembershipRow" class="fee-table__row fee-table__row--membership">
+                <td class="fee-table__row-label fee-table__row-label--membership">
+                  Vereinsbeitrag (jährlich)
+                  <span v-if="isFollowUp"> · Jahresbeitrag bereits bezahlt</span>
+                </td>
                 <td
                   v-for="(col, idx) in feeColumns"
                   :key="col.label"
                   class="fee-table__amount fee-table__amount--membership"
                   :class="{ 'fee-table__amount--primary': idx === 0 }"
                 >
-                  {{ col.membershipFee > 0 ? formatEur(col.membershipFee) : '—' }}
+                  {{ col.membershipFee > 0 || isFollowUp ? formatEur(col.membershipFee) : '—' }}
                 </td>
               </tr>
             </tbody>
