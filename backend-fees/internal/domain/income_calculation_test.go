@@ -61,9 +61,8 @@ func TestIncomeCalculation_MatchesExcel(t *testing.T) {
 	// Parent 1 full net income (as shown in Mutter column): 19405.76 + 4224.63 = 23630.39
 	assert.InDelta(t, 23630.39, parent1.CalculateNetIncome(), 0.01, "Parent 1 net income (with benefits)")
 
-	// Parent 1 fee-relevant income: 19405.76 + 1430.00 Mutterschaftsgeld.
-	// Elterngeld is below the 300 EUR/month allowance and does not count.
-	assert.InDelta(t, 20835.76, parent1.CalculateFeeRelevantIncome(), 0.01, "Parent 1 fee-relevant income")
+	// Parent 1 fee-relevant income: all entered income components count.
+	assert.InDelta(t, 23630.39, parent1.CalculateFeeRelevantIncome(), 0.01, "Parent 1 fee-relevant income")
 
 	// Parent 2 (Vater) employee net: 29805.65 - 6219.29 - 2439.32 - 1500.00 = 19647.04
 	assert.InDelta(t, 19647.04, parent2.CalculateEmployeeNet(), 0.01, "Parent 2 employee net")
@@ -76,20 +75,20 @@ func TestIncomeCalculation_MatchesExcel(t *testing.T) {
 
 	// --- Household total (Gesamt column) ---
 
-	// Fee-relevant household income: 20835.76 + 17007.04 = 37842.80
+	// Fee-relevant household income: 23630.39 + 17007.04 = 40637.43
 	// This is the value used for fee bracket lookup.
-	assert.InDelta(t, 37842.80, household.CalculateAnnualNetIncome(), 0.01, "Household fee-relevant income")
+	assert.InDelta(t, 40637.43, household.CalculateAnnualNetIncome(), 0.01, "Household fee-relevant income")
 
 	// Full household income (including benefits): 23630.39 + 17007.04 = 40637.43
 	assert.InDelta(t, 40637.43, household.CalculateFullNetIncome(), 0.01, "Household full net income")
 }
 
 func TestIncomeCalculation_FeeResult(t *testing.T) {
-	// With household income 37,842.80 EUR, 1 child, Krippe, 45h/week:
+	// With household income 40,637.43 EUR, 1 child, Krippe, 45h/week:
 	// Falls in Entlastung bracket (35,000.01 - 55,000.00)
 	// FeeTableKrippeEntlastung row 35,000.01: rates [48, 54, 60, 66, 72, 78]
 	// 45h = index 3 → 66.00 EUR ✓ (matches Excel Sheet 1)
-	income := 37842.80
+	income := 40637.43
 	assert.True(t, income >= domain.ChildcareFeeLimits.MinIncomeEntlastungU3, "Should be in Entlastung bracket")
 	assert.True(t, income <= domain.ChildcareFeeLimits.MaxIncomeEntlastungU3, "Should be in Entlastung bracket")
 }
@@ -115,7 +114,7 @@ func TestIncomeCalculation_MixedIncome(t *testing.T) {
 		AdvertisingCosts:    1000.00,
 		Profit:              10000.00,
 		SelfEmployedTax:     2000.00,
-		ParentalBenefit:     3600.00, // 300/month, fully below Freibetrag
+		ParentalBenefit:     3600.00,
 	}
 
 	// Employee net: 30000 - 5000 - 3000 - 1000 = 21000
@@ -124,8 +123,8 @@ func TestIncomeCalculation_MixedIncome(t *testing.T) {
 	// Full net: 21000 + 8000 + 3600 = 32600
 	assert.InDelta(t, 32600.00, parent.CalculateNetIncome(), 0.01)
 
-	// Fee-relevant: 21000 + 8000 = 29000 (benefits excluded)
-	assert.InDelta(t, 29000.00, parent.CalculateFeeRelevantIncome(), 0.01)
+	// Fee-relevant: all entered income components count.
+	assert.InDelta(t, 32600.00, parent.CalculateFeeRelevantIncome(), 0.01)
 }
 
 func TestIncomeCalculation_BenefitsAndOtherIncome(t *testing.T) {
@@ -148,8 +147,8 @@ func TestIncomeCalculation_BenefitsAndOtherIncome(t *testing.T) {
 	assert.InDelta(t, 6000.00, parent.CalculateOtherIncome(), 0.01)
 	assert.InDelta(t, 24770.00, parent.CalculateEmployeeNet(), 0.01)
 	assert.InDelta(t, 7800.00, parent.CalculateBenefitsNet(), 0.01)
-	assert.InDelta(t, 2400.00, parent.CalculateFeeRelevantBenefits(), 0.01)
-	assert.InDelta(t, 27170.00, parent.CalculateFeeRelevantIncome(), 0.01)
+	assert.InDelta(t, 7800.00, parent.CalculateFeeRelevantBenefits(), 0.01)
+	assert.InDelta(t, 32570.00, parent.CalculateFeeRelevantIncome(), 0.01)
 	assert.InDelta(t, 32570.00, parent.CalculateNetIncome(), 0.01)
 }
 

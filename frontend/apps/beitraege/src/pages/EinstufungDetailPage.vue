@@ -93,7 +93,7 @@ function calcSelfEmployedNet(i: IncomeDetails): number {
   return i.profit - i.welfareExpense - i.selfEmployedTax;
 }
 function calcFeeRelevantBenefits(i: IncomeDetails): number {
-  return Math.max(0, i.parentalBenefit - 3600) + Math.max(0, i.parentalBenefitPlus - 1800) + i.maternityBenefit - i.insurances;
+  return i.parentalBenefit + i.parentalBenefitPlus + i.maternityBenefit - i.insurances;
 }
 function calcFeeRelevant(i: IncomeDetails): number {
   return calcEmployeeNet(i) + calcSelfEmployedNet(i) + calcFeeRelevantBenefits(i) - i.maintenanceToPay + i.maintenanceReceived;

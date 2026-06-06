@@ -33,8 +33,8 @@ const selfEmployedFields: FieldDef[] = [
 ];
 
 const benefitFields: FieldDef[] = [
-  { key: 'parentalBenefit', label: 'Basiselterngeld', sign: '+', hint: '3.600 EUR/Jahr frei' },
-  { key: 'parentalBenefitPlus', label: 'Elterngeld Plus', sign: '+', hint: '1.800 EUR/Jahr frei' },
+  { key: 'parentalBenefit', label: 'Basiselterngeld', sign: '+', hint: 'beitragsrelevant' },
+  { key: 'parentalBenefitPlus', label: 'Elterngeld Plus', sign: '+', hint: 'beitragsrelevant' },
   { key: 'maternityBenefit', label: 'Mutterschaftsgeld', sign: '+', hint: 'beitragsrelevant' },
   { key: 'insurances', label: 'Versicherungen', sign: '-' },
 ];

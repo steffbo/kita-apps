@@ -7,11 +7,6 @@ import (
 	"math"
 )
 
-const (
-	parentalBenefitAllowanceAnnual     = 3600.00
-	parentalBenefitPlusAllowanceAnnual = 1800.00
-)
-
 // IncomeDetails represents the detailed income components for one parent
 // as per the "Festsetzung des Elternbeitrages" calculation sheet (Sheet 2).
 // All values are annual amounts in EUR, stored as positive magnitudes.
@@ -74,13 +69,8 @@ func (i IncomeDetails) CalculateBenefitsNet() float64 {
 }
 
 // CalculateFeeRelevantBenefits returns benefits relevant for the fee bracket lookup.
-// Basiselterngeld is ignored up to 300 EUR/month, Elterngeld Plus up to 150 EUR/month.
-// Mutterschaftsgeld is counted according to the Frankfurt (Oder) 2025 contribution recommendation.
 func (i IncomeDetails) CalculateFeeRelevantBenefits() float64 {
-	return math.Max(0, i.ParentalBenefit-parentalBenefitAllowanceAnnual) +
-		math.Max(0, i.ParentalBenefitPlus-parentalBenefitPlusAllowanceAnnual) +
-		i.MaternityBenefit -
-		i.Insurances
+	return i.CalculateBenefitsNet()
 }
 
 // CalculateSubtotal calculates the Zwischensumme for one parent (before maintenance).
@@ -97,9 +87,8 @@ func (i IncomeDetails) CalculateNetIncome() float64 {
 }
 
 // CalculateFeeRelevantIncome calculates the income portion relevant for fee determination.
-// Per the Frankfurt (Oder) 2025 contribution recommendation and § 10 BEEG,
-// Basiselterngeld and Elterngeld Plus are counted only above their annualized
-// allowances. Mutterschaftsgeld is counted as a social-law benefit.
+// The app treats all entered income components as fee-relevant income unless
+// they are modeled explicitly as deductions.
 func (i IncomeDetails) CalculateFeeRelevantIncome() float64 {
 	return i.CalculateEmployeeNet() + i.CalculateSelfEmployedNet() + i.CalculateFeeRelevantBenefits() - i.MaintenanceToPay + i.MaintenanceReceived
 }

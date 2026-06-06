@@ -198,11 +198,11 @@ Bei Folgeeinstufungen setzt die API den jährlichen Vereinsbeitrag im Einstufung
 
 Die Einstufung speichert die Einkommensaufstellung als JSON in `income_calculation`. Alle Werte sind Jahresbeträge in EUR.
 
-Stand 2026-06-06 folgt die beitragsrelevante Berechnung der Empfehlung für die Erhebung von Elternbeiträgen in Kindertagesstätten in der Stadt Frankfurt (Oder), Beschlussfassung vom 17.07.2025, Abschnitt VI `Elterneinkommen`, zusammen mit § 10 BEEG:
+Stand 2026-06-06 behandelt die App alle eingegebenen Einkommensbestandteile als beitragsrelevant, sofern sie nicht ausdrücklich als Abzug modelliert sind. Diese bewusst einfache Regel vermeidet anteilige Freibetragslogik in der Einstufung.
 
-- `parentalBenefit` ist Basiselterngeld und zählt erst oberhalb von 3.600 EUR/Jahr.
-- `parentalBenefitPlus` ist Elterngeld Plus und zählt erst oberhalb von 1.800 EUR/Jahr.
-- `maternityBenefit` zählt als beitragsrelevante Leistung.
+- `parentalBenefit` ist Basiselterngeld und zählt vollständig.
+- `parentalBenefitPlus` ist Elterngeld Plus und zählt vollständig.
+- `maternityBenefit` ist Mutterschaftsgeld und zählt vollständig.
 - `insurances` werden vom Leistungsblock abgezogen.
 - `otherIncome` ist nur der Restposten für sonstige Einnahmen. Die UI und API haben eigene Felder für `minijobIncome`, `unemploymentBenefit`, `capitalIncome` und `rentalIncome`.
 
