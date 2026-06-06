@@ -44,6 +44,7 @@ const expectationChanges = ref<ChildcareExpectationSyncResult | null>(null);
 // Loaded einstufung (edit mode)
 const einstufung = ref<Einstufung | null>(null);
 const sourceEinstufung = ref<Einstufung | null>(null);
+const previousEinstufung = ref<Einstufung | null>(null);
 
 // Form data
 const selectedChildId = ref('');
@@ -178,6 +179,7 @@ const mailError = ref<string | null>(null);
 
 const einstufungChild = computed(() => einstufung.value?.child ?? selectedChild.value ?? null);
 const childMemberNumber = computed(() => einstufungChild.value?.memberNumber || '—');
+const previousEinstufungForPdf = computed(() => sourceEinstufung.value ?? previousEinstufung.value);
 
 const parentFirstNames = computed(() => {
   return householdParents.value
@@ -290,8 +292,13 @@ async function loadData() {
     households.value = householdRes.data;
 
     if (einstufungId.value) {
+      sourceEinstufung.value = null;
+      previousEinstufung.value = null;
       const e = await api.getEinstufung(einstufungId.value);
       einstufung.value = e;
+      if (e.sourceEinstufungId) {
+        previousEinstufung.value = await api.getEinstufung(e.sourceEinstufungId);
+      }
       selectedChildId.value = e.childId;
       selectedYear.value = e.year;
       validFrom.value = e.validFrom.split('T')[0];
@@ -312,6 +319,7 @@ async function loadData() {
         throw new Error('Keine bestehende Einstufung als Vorlage gefunden.');
       }
       sourceEinstufung.value = source;
+      previousEinstufung.value = null;
       selectedChildId.value = source.childId;
       selectedYear.value = new Date(calculateEffectiveFromMonth(todayIso())).getUTCFullYear();
       validFrom.value = todayIso();
@@ -322,6 +330,8 @@ async function loadData() {
       parent1Income.value = { ...emptyIncome(), ...source.incomeCalculation.parent1 };
       parent2Income.value = { ...emptyIncome(), ...source.incomeCalculation.parent2 };
     } else if (route.query.childId) {
+      sourceEinstufung.value = null;
+      previousEinstufung.value = null;
       // Pre-select child from query param
       const childId = route.query.childId as string;
       selectedChildId.value = childId;
@@ -856,7 +866,11 @@ watch(defaultEmailBody, (next) => {
       <!-- Submit -->
       <div class="flex items-center justify-between">
         <div>
-          <EinstufungPDF v-if="einstufung" :einstufung="einstufung" />
+          <EinstufungPDF
+            v-if="einstufung"
+            :einstufung="einstufung"
+            :previous-einstufung="previousEinstufungForPdf"
+          />
         </div>
         <div class="flex items-center gap-3">
         <button

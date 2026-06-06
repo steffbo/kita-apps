@@ -6,6 +6,7 @@ import printStyles from './EinstufungPDF.css?raw';
 
 const props = defineProps<{
   einstufung: Einstufung;
+  previousEinstufung?: Einstufung | null;
 }>();
 
 const isGenerating = ref(false);
@@ -23,23 +24,66 @@ interface FeeColumn {
   membershipFee: number;
 }
 
+function parseMonthStart(value?: string): Date | null {
+  if (!value) return null;
+  const [year, month] = value.split('T')[0].split('-').map(Number);
+  if (!year || !month) return null;
+  return new Date(Date.UTC(year, month - 1, 1));
+}
+
+function addUtcMonths(date: Date, months: number): Date {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + months, 1));
+}
+
+function isSameOrAfterMonth(left: Date, right: Date): boolean {
+  if (left.getUTCFullYear() !== right.getUTCFullYear()) {
+    return left.getUTCFullYear() > right.getUTCFullYear();
+  }
+  return left.getUTCMonth() >= right.getUTCMonth();
+}
+
+function formatCareType(ct: string) {
+  if (ct === 'krippe') return 'Krippe';
+  if (ct === 'kindergarten') return 'Kindergarten';
+  return ct.charAt(0).toUpperCase() + ct.slice(1);
+}
+
+function formatMonth(month: number, year: number) {
+  return new Date(Date.UTC(year, month, 1)).toLocaleString('de-DE', {
+    month: 'short',
+    year: '2-digit',
+    timeZone: 'UTC',
+  });
+}
+
 const feeColumns = computed<FeeColumn[]>(() => {
   const e = props.einstufung;
-  const validFrom = new Date(e.effectiveFromMonth || e.validFrom);
-  const startMonth = validFrom.getMonth(); // 0-based
-  const startYear = validFrom.getFullYear();
+  const validFrom = parseMonthStart(e.effectiveFromMonth || e.validFrom) ?? new Date();
+  const startMonth = validFrom.getUTCMonth(); // 0-based
+  const startYear = validFrom.getUTCFullYear();
 
   const cols: FeeColumn[] = [];
 
-  const formatMonth = (month: number, year: number) => {
-    return new Date(year, month).toLocaleString('de-DE', { month: 'short', year: '2-digit' });
-  };
+  if (e.sourceEinstufungId && props.previousEinstufung) {
+    const previous = props.previousEinstufung;
+    const previousMonth = addUtcMonths(validFrom, -1);
+    const previousStart = parseMonthStart(previous.effectiveFromMonth || previous.validFrom);
 
-  const formatCareType = (ct: string) => {
-    if (ct === 'krippe') return 'Krippe';
-    if (ct === 'kindergarten') return 'Kindergarten';
-    return ct.charAt(0).toUpperCase() + ct.slice(1);
-  };
+    if (previousStart && isSameOrAfterMonth(previousMonth, previousStart)) {
+      const previousRow = previous.monthlyTable?.find((row) =>
+        row.year === previousMonth.getUTCFullYear() && row.month === previousMonth.getUTCMonth() + 1
+      );
+
+      cols.push({
+        label: formatMonth(previousMonth.getUTCMonth(), previousMonth.getUTCFullYear()),
+        careHours: previousRow?.careHoursPerWeek ?? previous.careHoursPerWeek,
+        careType: previousRow?.careType ?? formatCareType(previous.careType),
+        childcareFee: previousRow?.childcareFee ?? previous.monthlyChildcareFee,
+        foodFee: previousRow?.foodFee ?? previous.monthlyFoodFee,
+        membershipFee: 0,
+      });
+    }
+  }
 
   // Column 1: First month (with membership fee)
   cols.push({
@@ -99,6 +143,8 @@ const feeColumns = computed<FeeColumn[]>(() => {
 
 const isFollowUp = computed(() => !!props.einstufung.sourceEinstufungId);
 const showMembershipRow = computed(() => isFollowUp.value || feeColumns.value.some(c => c.membershipFee > 0));
+const primaryFeeColumnIndex = computed(() => feeColumns.value.length > 2 && isFollowUp.value ? 1 : 0);
+const isPrimaryFeeColumn = (idx: number) => idx === primaryFeeColumnIndex.value;
 
 const entryDateFormatted = computed(() => {
   if (!child.value?.entryDate) return '—';
@@ -325,7 +371,7 @@ defineExpose({ generatePdf });
                   v-for="(col, idx) in feeColumns"
                   :key="col.label"
                   class="fee-table__col-month"
-                  :class="{ 'fee-table__col-month--first': idx === 0 }"
+                  :class="{ 'fee-table__col-month--first': isPrimaryFeeColumn(idx) }"
                 >
                   <div class="fee-table__month-name">{{ col.label }}</div>
                   <div class="fee-table__month-sub">{{ col.careType }} &middot; {{ col.careHours }} h/Woche</div>
@@ -339,7 +385,7 @@ defineExpose({ generatePdf });
                   v-for="(col, idx) in feeColumns"
                   :key="col.label"
                   class="fee-table__amount"
-                  :class="{ 'fee-table__amount--primary': idx === 0 }"
+                  :class="{ 'fee-table__amount--primary': isPrimaryFeeColumn(idx) }"
                 >
                   {{ formatEur(col.childcareFee) }}
                 </td>
@@ -350,7 +396,7 @@ defineExpose({ generatePdf });
                   v-for="(col, idx) in feeColumns"
                   :key="col.label"
                   class="fee-table__amount"
-                  :class="{ 'fee-table__amount--primary': idx === 0 }"
+                  :class="{ 'fee-table__amount--primary': isPrimaryFeeColumn(idx) }"
                 >
                   {{ formatEur(col.foodFee) }}
                 </td>
@@ -364,7 +410,7 @@ defineExpose({ generatePdf });
                   v-for="(col, idx) in feeColumns"
                   :key="col.label"
                   class="fee-table__amount fee-table__amount--membership"
-                  :class="{ 'fee-table__amount--primary': idx === 0 }"
+                  :class="{ 'fee-table__amount--primary': isPrimaryFeeColumn(idx) }"
                 >
                   {{ col.membershipFee > 0 || isFollowUp ? formatEur(col.membershipFee) : '—' }}
                 </td>

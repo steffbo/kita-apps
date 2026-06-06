@@ -194,6 +194,8 @@ Beim Speichern einer Folgeeinstufung wird die Vorgängerperiode am Tag vor `effe
 
 Bei Folgeeinstufungen setzt die API den jährlichen Vereinsbeitrag im Einstufungs-PDF-Kontext auf `0`, damit die UI den Hinweis "Jahresbeitrag bereits bezahlt" anzeigen kann.
 
+Die Beiträge-Frontend-PDF lädt bei Folgeeinstufungen den Vorgänger über `sourceEinstufungId` nach. Wenn der Monat vor `effectiveFromMonth` noch in der Vorgängerperiode liegt, wird dieser Vormonat links mit dem alten monatlichen Beitrag angezeigt; liegt die Folgeeinstufung im selben Wirksamkeitsmonat wie die erste Einstufung, wird kein Vormonat ergänzt.
+
 #### Einkommensberechnung
 
 Die Einstufung speichert die Einkommensaufstellung als JSON in `income_calculation`. Alle Werte sind Jahresbeträge in EUR.
