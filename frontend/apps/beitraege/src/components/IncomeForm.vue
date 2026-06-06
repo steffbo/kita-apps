@@ -12,11 +12,18 @@ interface FieldDef {
 
 const employeeFields: FieldDef[] = [
   { key: 'grossIncome', label: 'Bruttoeinkommen', sign: '+' },
-  { key: 'otherIncome', label: 'Sonstige Einnahmen', sign: '+' },
   { key: 'socialSecurityShare', label: 'AN-Anteile Sozialversicherung', sign: '-' },
   { key: 'privateInsurance', label: 'Private KV/PV', sign: '-' },
   { key: 'tax', label: 'Lohnsteuer / KiSt / SolZu', sign: '-' },
   { key: 'advertisingCosts', label: 'Werbungskosten-Pauschale', sign: '-' },
+];
+
+const otherIncomeFields: FieldDef[] = [
+  { key: 'minijobIncome', label: 'Minijob', sign: '+' },
+  { key: 'unemploymentBenefit', label: 'Arbeitslosengeld', sign: '+' },
+  { key: 'capitalIncome', label: 'Kapitalerträge', sign: '+' },
+  { key: 'rentalIncome', label: 'Vermietung / Verpachtung', sign: '+' },
+  { key: 'otherIncome', label: 'Sonstiges', sign: '+' },
 ];
 
 const selfEmployedFields: FieldDef[] = [
@@ -26,8 +33,9 @@ const selfEmployedFields: FieldDef[] = [
 ];
 
 const benefitFields: FieldDef[] = [
-  { key: 'parentalBenefit', label: 'Elterngeld', sign: '+', hint: 'nicht beitragsrelevant' },
-  { key: 'maternityBenefit', label: 'Mutterschaftsgeld', sign: '+', hint: 'nicht beitragsrelevant' },
+  { key: 'parentalBenefit', label: 'Basiselterngeld', sign: '+', hint: '3.600 EUR/Jahr frei' },
+  { key: 'parentalBenefitPlus', label: 'Elterngeld Plus', sign: '+', hint: '1.800 EUR/Jahr frei' },
+  { key: 'maternityBenefit', label: 'Mutterschaftsgeld', sign: '+', hint: 'beitragsrelevant' },
   { key: 'insurances', label: 'Versicherungen', sign: '-' },
 ];
 
@@ -51,6 +59,25 @@ function updateField(key: keyof IncomeDetails, event: Event) {
       <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Einkommen aus nichtselbständiger Arbeit</h4>
       <div class="space-y-2">
         <div v-for="field in employeeFields" :key="field.key" class="flex items-center gap-2">
+          <span class="w-5 text-center text-xs font-bold" :class="field.sign === '+' ? 'text-green-600' : 'text-red-500'">{{ field.sign }}</span>
+          <label class="flex-1 text-sm text-gray-600">{{ field.label }}</label>
+          <input
+            type="number"
+            step="0.01"
+            min="0"
+            :value="model[field.key]"
+            @input="updateField(field.key, $event)"
+            class="w-32 border rounded px-2 py-1 text-sm text-right focus:ring-2 focus:ring-primary/20 focus:border-primary"
+          />
+        </div>
+      </div>
+    </div>
+
+    <!-- Other income -->
+    <div>
+      <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Sonstige Einnahmen</h4>
+      <div class="space-y-2">
+        <div v-for="field in otherIncomeFields" :key="field.key" class="flex items-center gap-2">
           <span class="w-5 text-center text-xs font-bold" :class="field.sign === '+' ? 'text-green-600' : 'text-red-500'">{{ field.sign }}</span>
           <label class="flex-1 text-sm text-gray-600">{{ field.label }}</label>
           <input

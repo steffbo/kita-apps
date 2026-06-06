@@ -7464,30 +7464,40 @@ export interface components {
         "domain.IncomeDetails": {
             /** @description - WK-Pauschale */
             advertisingCosts?: number;
+            /** @description Kapitalerträge. */
+            capitalIncome?: number;
             /** @description Employee Income (bei AN) */
             grossIncome?: number;
-            /** @description - Versicherungen */
+            /** @description - Versicherungen. */
             insurances?: number;
             /** @description + Unterhalt (erhalten) */
             maintenanceReceived?: number;
             /** @description Maintenance (Unterhalt) */
             maintenanceToPay?: number;
-            /** @description Mutterschaftsgeld */
+            /** @description Mutterschaftsgeld. */
             maternityBenefit?: number;
-            /** @description + sonstige Einnahmen */
+            /** @description Minijob income. */
+            minijobIncome?: number;
+            /** @description Other remaining income not covered by the dedicated fields. */
             otherIncome?: number;
-            /** @description Other Benefits (NOT included in fee-relevant household income) */
+            /** @description Basiselterngeld. */
             parentalBenefit?: number;
+            /** @description Elterngeld Plus. */
+            parentalBenefitPlus?: number;
             /** @description - private KV/PV */
             privateInsurance?: number;
             /** @description Self-Employed Income (bei Gewerbetreibenden / Selbständigen) */
             profit?: number;
+            /** @description Income from Vermietung / Verpachtung. */
+            rentalIncome?: number;
             /** @description - Steuern (Est, KiSt, SolZu) */
             selfEmployedTax?: number;
             /** @description - AN-Anteile SV */
             socialSecurityShare?: number;
             /** @description - Lst bzw Est, KiSt, SolZu */
             tax?: number;
+            /** @description Arbeitslosengeld. */
+            unemploymentBenefit?: number;
             /** @description - Abgabe für persönliche Daseinsfürsorge */
             welfareExpense?: number;
         };

@@ -7,27 +7,46 @@ import (
 	"math"
 )
 
+const (
+	parentalBenefitAllowanceAnnual     = 3600.00
+	parentalBenefitPlusAllowanceAnnual = 1800.00
+)
+
 // IncomeDetails represents the detailed income components for one parent
 // as per the "Festsetzung des Elternbeitrages" calculation sheet (Sheet 2).
 // All values are annual amounts in EUR, stored as positive magnitudes.
 type IncomeDetails struct {
 	// Employee Income (bei AN)
 	GrossIncome         float64 `json:"grossIncome"`         // Bruttoeinkommen (Jahressummen)
-	OtherIncome         float64 `json:"otherIncome"`         // + sonstige Einnahmen
 	SocialSecurityShare float64 `json:"socialSecurityShare"` // - AN-Anteile SV
 	PrivateInsurance    float64 `json:"privateInsurance"`    // - private KV/PV
 	Tax                 float64 `json:"tax"`                 // - Lst bzw Est, KiSt, SolZu
 	AdvertisingCosts    float64 `json:"advertisingCosts"`    // - WK-Pauschale
+
+	// Minijob income.
+	MinijobIncome float64 `json:"minijobIncome"`
+	// Arbeitslosengeld.
+	UnemploymentBenefit float64 `json:"unemploymentBenefit"`
+	// Kapitalerträge.
+	CapitalIncome float64 `json:"capitalIncome"`
+	// Income from Vermietung / Verpachtung.
+	RentalIncome float64 `json:"rentalIncome"`
+	// Other remaining income not covered by the dedicated fields.
+	OtherIncome float64 `json:"otherIncome"`
 
 	// Self-Employed Income (bei Gewerbetreibenden / Selbständigen)
 	Profit          float64 `json:"profit"`          // Gewinn aus Gewerbebetrieb oder selbst. Arbeit
 	WelfareExpense  float64 `json:"welfareExpense"`  // - Abgabe für persönliche Daseinsfürsorge
 	SelfEmployedTax float64 `json:"selfEmployedTax"` // - Steuern (Est, KiSt, SolZu)
 
-	// Other Benefits (NOT included in fee-relevant household income)
-	ParentalBenefit  float64 `json:"parentalBenefit"`  // Elterngeld
-	MaternityBenefit float64 `json:"maternityBenefit"` // Mutterschaftsgeld
-	Insurances       float64 `json:"insurances"`       // - Versicherungen
+	// Basiselterngeld.
+	ParentalBenefit float64 `json:"parentalBenefit"`
+	// Elterngeld Plus.
+	ParentalBenefitPlus float64 `json:"parentalBenefitPlus"`
+	// Mutterschaftsgeld.
+	MaternityBenefit float64 `json:"maternityBenefit"`
+	// - Versicherungen.
+	Insurances float64 `json:"insurances"`
 
 	// Maintenance (Unterhalt)
 	MaintenanceToPay    float64 `json:"maintenanceToPay"`    // - Unterhalt (zu zahlen)
@@ -36,7 +55,12 @@ type IncomeDetails struct {
 
 // CalculateEmployeeNet returns the net employee income portion.
 func (i IncomeDetails) CalculateEmployeeNet() float64 {
-	return i.GrossIncome + i.OtherIncome - i.SocialSecurityShare - i.PrivateInsurance - i.Tax - i.AdvertisingCosts
+	return i.GrossIncome + i.CalculateOtherIncome() - i.SocialSecurityShare - i.PrivateInsurance - i.Tax - i.AdvertisingCosts
+}
+
+// CalculateOtherIncome returns the sum of non-salary income components.
+func (i IncomeDetails) CalculateOtherIncome() float64 {
+	return i.MinijobIncome + i.UnemploymentBenefit + i.CapitalIncome + i.RentalIncome + i.OtherIncome
 }
 
 // CalculateSelfEmployedNet returns the net self-employed income portion.
@@ -44,9 +68,19 @@ func (i IncomeDetails) CalculateSelfEmployedNet() float64 {
 	return i.Profit - i.WelfareExpense - i.SelfEmployedTax
 }
 
-// CalculateBenefitsNet returns the net benefits portion (Elterngeld + Mutterschaftsgeld - Versicherungen).
+// CalculateBenefitsNet returns the full net benefits portion before contribution exemptions.
 func (i IncomeDetails) CalculateBenefitsNet() float64 {
-	return i.ParentalBenefit + i.MaternityBenefit - i.Insurances
+	return i.ParentalBenefit + i.ParentalBenefitPlus + i.MaternityBenefit - i.Insurances
+}
+
+// CalculateFeeRelevantBenefits returns benefits relevant for the fee bracket lookup.
+// Basiselterngeld is ignored up to 300 EUR/month, Elterngeld Plus up to 150 EUR/month.
+// Mutterschaftsgeld is counted according to the Frankfurt (Oder) 2025 contribution recommendation.
+func (i IncomeDetails) CalculateFeeRelevantBenefits() float64 {
+	return math.Max(0, i.ParentalBenefit-parentalBenefitAllowanceAnnual) +
+		math.Max(0, i.ParentalBenefitPlus-parentalBenefitPlusAllowanceAnnual) +
+		i.MaternityBenefit -
+		i.Insurances
 }
 
 // CalculateSubtotal calculates the Zwischensumme for one parent (before maintenance).
@@ -57,17 +91,17 @@ func (i IncomeDetails) CalculateSubtotal() float64 {
 
 // CalculateNetIncome calculates the Jahresnettoeinkommen for one parent.
 // This is the per-parent total shown in the Mutter/Vater columns,
-// including Elterngeld and Mutterschaftsgeld.
+// including full Basiselterngeld, Elterngeld Plus, and Mutterschaftsgeld.
 func (i IncomeDetails) CalculateNetIncome() float64 {
 	return i.CalculateSubtotal() - i.MaintenanceToPay + i.MaintenanceReceived
 }
 
 // CalculateFeeRelevantIncome calculates the income portion relevant for fee determination.
-// Per Brandenburg Elternbeitragsgesetz, Elterngeld and Mutterschaftsgeld are excluded
-// from the household income used for the fee bracket lookup.
-// This corresponds to the "Gesamt" column in the Excel sheet.
+// Per the Frankfurt (Oder) 2025 contribution recommendation and § 10 BEEG,
+// Basiselterngeld and Elterngeld Plus are counted only above their annualized
+// allowances. Mutterschaftsgeld is counted as a social-law benefit.
 func (i IncomeDetails) CalculateFeeRelevantIncome() float64 {
-	return i.CalculateEmployeeNet() + i.CalculateSelfEmployedNet() - i.Insurances - i.MaintenanceToPay + i.MaintenanceReceived
+	return i.CalculateEmployeeNet() + i.CalculateSelfEmployedNet() + i.CalculateFeeRelevantBenefits() - i.MaintenanceToPay + i.MaintenanceReceived
 }
 
 // HouseholdIncomeCalculation represents the full income calculation sheet for a household.
@@ -78,7 +112,6 @@ type HouseholdIncomeCalculation struct {
 }
 
 // CalculateAnnualNetIncome computes the fee-relevant Jahresnettoeinkommen for the household.
-// This is the "Gesamt" column total, which excludes Elterngeld and Mutterschaftsgeld.
 // This value is used for the fee bracket lookup in the Satzung/Entlastung tables.
 func (h HouseholdIncomeCalculation) CalculateAnnualNetIncome() float64 {
 	return roundTo2(h.Parent1.CalculateFeeRelevantIncome() + h.Parent2.CalculateFeeRelevantIncome())

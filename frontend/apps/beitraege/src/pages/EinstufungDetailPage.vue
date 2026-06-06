@@ -58,15 +58,20 @@ const notes = ref('');
 function emptyIncome(): IncomeDetails {
   return {
     grossIncome: 0,
-    otherIncome: 0,
     socialSecurityShare: 0,
     privateInsurance: 0,
     tax: 0,
     advertisingCosts: 1500,
+    minijobIncome: 0,
+    unemploymentBenefit: 0,
+    capitalIncome: 0,
+    rentalIncome: 0,
+    otherIncome: 0,
     profit: 0,
     welfareExpense: 0,
     selfEmployedTax: 0,
     parentalBenefit: 0,
+    parentalBenefitPlus: 0,
     maternityBenefit: 0,
     insurances: 0,
     maintenanceToPay: 0,
@@ -78,17 +83,23 @@ const parent1Income = ref<IncomeDetails>(emptyIncome());
 const parent2Income = ref<IncomeDetails>(emptyIncome());
 
 // Income calculation (local, no API call needed)
+function calcOtherIncome(i: IncomeDetails): number {
+  return i.minijobIncome + i.unemploymentBenefit + i.capitalIncome + i.rentalIncome + i.otherIncome;
+}
 function calcEmployeeNet(i: IncomeDetails): number {
-  return i.grossIncome + i.otherIncome - i.socialSecurityShare - i.privateInsurance - i.tax - i.advertisingCosts;
+  return i.grossIncome + calcOtherIncome(i) - i.socialSecurityShare - i.privateInsurance - i.tax - i.advertisingCosts;
 }
 function calcSelfEmployedNet(i: IncomeDetails): number {
   return i.profit - i.welfareExpense - i.selfEmployedTax;
 }
+function calcFeeRelevantBenefits(i: IncomeDetails): number {
+  return Math.max(0, i.parentalBenefit - 3600) + Math.max(0, i.parentalBenefitPlus - 1800) + i.maternityBenefit - i.insurances;
+}
 function calcFeeRelevant(i: IncomeDetails): number {
-  return calcEmployeeNet(i) + calcSelfEmployedNet(i) - i.insurances - i.maintenanceToPay + i.maintenanceReceived;
+  return calcEmployeeNet(i) + calcSelfEmployedNet(i) + calcFeeRelevantBenefits(i) - i.maintenanceToPay + i.maintenanceReceived;
 }
 function calcNetIncome(i: IncomeDetails): number {
-  return calcFeeRelevant(i) + i.parentalBenefit + i.maternityBenefit;
+  return calcEmployeeNet(i) + calcSelfEmployedNet(i) + i.parentalBenefit + i.parentalBenefitPlus + i.maternityBenefit - i.insurances - i.maintenanceToPay + i.maintenanceReceived;
 }
 function round2(v: number): number {
   return Math.round(v * 100) / 100;

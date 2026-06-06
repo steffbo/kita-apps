@@ -2347,11 +2347,14 @@ definitions:
       advertisingCosts:
         description: '- WK-Pauschale'
         type: number
+      capitalIncome:
+        description: Kapitalerträge.
+        type: number
       grossIncome:
         description: Employee Income (bei AN)
         type: number
       insurances:
-        description: '- Versicherungen'
+        description: '- Versicherungen.'
         type: number
       maintenanceReceived:
         description: + Unterhalt (erhalten)
@@ -2360,19 +2363,28 @@ definitions:
         description: Maintenance (Unterhalt)
         type: number
       maternityBenefit:
-        description: Mutterschaftsgeld
+        description: Mutterschaftsgeld.
+        type: number
+      minijobIncome:
+        description: Minijob income.
         type: number
       otherIncome:
-        description: + sonstige Einnahmen
+        description: Other remaining income not covered by the dedicated fields.
         type: number
       parentalBenefit:
-        description: Other Benefits (NOT included in fee-relevant household income)
+        description: Basiselterngeld.
+        type: number
+      parentalBenefitPlus:
+        description: Elterngeld Plus.
         type: number
       privateInsurance:
         description: '- private KV/PV'
         type: number
       profit:
         description: Self-Employed Income (bei Gewerbetreibenden / Selbständigen)
+        type: number
+      rentalIncome:
+        description: Income from Vermietung / Verpachtung.
         type: number
       selfEmployedTax:
         description: '- Steuern (Est, KiSt, SolZu)'
@@ -2382,6 +2394,9 @@ definitions:
         type: number
       tax:
         description: '- Lst bzw Est, KiSt, SolZu'
+        type: number
+      unemploymentBenefit:
+        description: Arbeitslosengeld.
         type: number
       welfareExpense:
         description: '- Abgabe für persönliche Daseinsfürsorge'

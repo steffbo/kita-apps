@@ -194,6 +194,20 @@ Beim Speichern einer Folgeeinstufung wird die Vorgängerperiode am Tag vor `effe
 
 Bei Folgeeinstufungen setzt die API den jährlichen Vereinsbeitrag im Einstufungs-PDF-Kontext auf `0`, damit die UI den Hinweis "Jahresbeitrag bereits bezahlt" anzeigen kann.
 
+#### Einkommensberechnung
+
+Die Einstufung speichert die Einkommensaufstellung als JSON in `income_calculation`. Alle Werte sind Jahresbeträge in EUR.
+
+Stand 2026-06-06 folgt die beitragsrelevante Berechnung der Empfehlung für die Erhebung von Elternbeiträgen in Kindertagesstätten in der Stadt Frankfurt (Oder), Beschlussfassung vom 17.07.2025, Abschnitt VI `Elterneinkommen`, zusammen mit § 10 BEEG:
+
+- `parentalBenefit` ist Basiselterngeld und zählt erst oberhalb von 3.600 EUR/Jahr.
+- `parentalBenefitPlus` ist Elterngeld Plus und zählt erst oberhalb von 1.800 EUR/Jahr.
+- `maternityBenefit` zählt als beitragsrelevante Leistung.
+- `insurances` werden vom Leistungsblock abgezogen.
+- `otherIncome` ist nur der Restposten für sonstige Einnahmen. Die UI und API haben eigene Felder für `minijobIncome`, `unemploymentBenefit`, `capitalIncome` und `rentalIncome`.
+
+Die zusätzlichen JSON-Felder sind additiv. Alte gespeicherte Einstufungen ohne diese Felder werden beim Lesen mit dem Go-Nullwert `0` behandelt und benötigen keine Migration.
+
 **Query Parameter (GET /fees):**
 - `year` (int): Jahr filtern
 - `month` (int): Monat filtern

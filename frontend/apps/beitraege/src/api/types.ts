@@ -837,15 +837,20 @@ export interface FeeCoverage {
 
 export interface IncomeDetails {
   grossIncome: number;
-  otherIncome: number;
   socialSecurityShare: number;
   privateInsurance: number;
   tax: number;
   advertisingCosts: number;
+  minijobIncome: number;
+  unemploymentBenefit: number;
+  capitalIncome: number;
+  rentalIncome: number;
+  otherIncome: number;
   profit: number;
   welfareExpense: number;
   selfEmployedTax: number;
   parentalBenefit: number;
+  parentalBenefitPlus: number;
   maternityBenefit: number;
   insurances: number;
   maintenanceToPay: number;
