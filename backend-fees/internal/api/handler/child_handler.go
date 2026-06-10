@@ -646,6 +646,10 @@ func (h *ChildHandler) LinkParent(w http.ResponseWriter, r *http.Request) {
 			response.NotFound(w, "child or parent not found")
 			return
 		}
+		if err == service.ErrHouseholdMismatch {
+			response.Conflict(w, "child and parent belong to different households; merge households before linking")
+			return
+		}
 		response.InternalError(w, "failed to link parent")
 		return
 	}

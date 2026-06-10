@@ -10,4 +10,5 @@ var (
 	ErrUnauthorized          = errors.New("unauthorized")
 	ErrConflict              = errors.New("conflict")
 	ErrAlreadyExists         = errors.New("already exists")
+	ErrHouseholdMismatch     = errors.New("child and parent belong to different households")
 )

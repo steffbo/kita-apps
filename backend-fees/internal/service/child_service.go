@@ -395,39 +395,44 @@ func (s *ChildService) LinkParent(ctx context.Context, childID, parentID uuid.UU
 	// Create or assign household
 	if s.householdRepo != nil {
 		if child.HouseholdID == nil {
-			// Create a new household for this family
-			householdName := child.LastName
-			if parent.LastName != child.LastName {
-				householdName = parent.LastName + "/" + child.LastName
-			}
-			household := &domain.Household{
-				ID:               uuid.New(),
-				Name:             "Familie " + householdName,
-				MembershipStatus: domain.MembershipAssignmentStatusAssumed,
-				CreatedAt:        time.Now(),
-				UpdatedAt:        time.Now(),
-			}
+			if parent.HouseholdID != nil {
+				child.HouseholdID = parent.HouseholdID
+				if err := s.childRepo.Update(ctx, child); err != nil {
+					return err
+				}
+			} else {
+				// Create a new household for this family
+				householdName := child.LastName
+				if parent.LastName != child.LastName {
+					householdName = parent.LastName + "/" + child.LastName
+				}
+				household := &domain.Household{
+					ID:               uuid.New(),
+					Name:             "Familie " + householdName,
+					MembershipStatus: domain.MembershipAssignmentStatusAssumed,
+					CreatedAt:        time.Now(),
+					UpdatedAt:        time.Now(),
+				}
 
-			// Migrate income from parent to household if available
-			if parent.IncomeStatus != "" && parent.IncomeStatus != domain.IncomeStatusUnknown {
-				household.IncomeStatus = parent.IncomeStatus
-				household.AnnualHouseholdIncome = parent.AnnualHouseholdIncome
-			}
+				// Migrate income from parent to household if available
+				if parent.IncomeStatus != "" && parent.IncomeStatus != domain.IncomeStatusUnknown {
+					household.IncomeStatus = parent.IncomeStatus
+					household.AnnualHouseholdIncome = parent.AnnualHouseholdIncome
+				}
 
-			if err := s.householdRepo.Create(ctx, household); err != nil {
-				return err
-			}
+				if err := s.householdRepo.Create(ctx, household); err != nil {
+					return err
+				}
 
-			// Assign child to household
-			child.HouseholdID = &household.ID
-			if err := s.childRepo.Update(ctx, child); err != nil {
-				return err
-			}
+				child.HouseholdID = &household.ID
+				if err := s.childRepo.Update(ctx, child); err != nil {
+					return err
+				}
 
-			// Assign parent to household
-			parent.HouseholdID = &household.ID
-			if err := s.parentRepo.Update(ctx, parent); err != nil {
-				return err
+				parent.HouseholdID = &household.ID
+				if err := s.parentRepo.Update(ctx, parent); err != nil {
+					return err
+				}
 			}
 		} else if parent.HouseholdID == nil {
 			// Child has a household but parent doesn't - add parent to child's household
@@ -435,6 +440,8 @@ func (s *ChildService) LinkParent(ctx context.Context, childID, parentID uuid.UU
 			if err := s.parentRepo.Update(ctx, parent); err != nil {
 				return err
 			}
+		} else if *parent.HouseholdID != *child.HouseholdID {
+			return ErrHouseholdMismatch
 		}
 	}
 

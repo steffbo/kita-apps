@@ -133,8 +133,25 @@ Current state:
 - The Beiträge frontend PDF loads the source Einstufung for follow-ups and prepends the previous month with the old monthly contribution when that month still belongs to the source period. If a follow-up shares the first Einstufung's effective month, no previous-month column is shown.
 - CHILDCARE sync creates missing expectations, updates unmatched expectations, increases already matched expectations when no overpayment results, and reports decreases below matched amounts in `creditReviewRequired` without creating automatic credits. `FOOD` and `MEMBERSHIP` expectations are not changed.
 - Einstufung income calculation was corrected on 2026-06-06 to treat all entered income components as fee-relevant unless modeled explicitly as deductions. `Basiselterngeld`, `Elterngeld Plus`, and `Mutterschaftsgeld` are fully fee-relevant. The income JSON also breaks out `minijobIncome`, `unemploymentBenefit`, `capitalIncome`, and `rentalIncome`; `otherIncome` remains for residual other income. Existing stored JSON without these fields reads as zero.
+- Household consistency for child-parent links was corrected and guarded on 2026-06-10. Production data on `infra-dev` was cleaned for split Thränhardt/Tränhardt and Zeck households: inactive sibling records were moved into the active family household, duplicate empty households were deleted, and the global mismatch check returned `0` rows afterward. Migration `backend-fees/migrations/000027_validate_child_parent_households.up.sql` adds deferrable constraint triggers that reject `fees.child_parents` links, `fees.children.household_id` updates, and `fees.parents.household_id` updates when linked children and parents would belong to different non-null households. The same trigger SQL was applied manually to the production DB on 2026-06-10 before the code deployment, so future migrations may reapply it idempotently.
+- `backend-fees/internal/service/child_service.go` now prevents silent household splits when linking parents: if the child has no household but the parent does, the child joins the existing parent household; if both already have different households, the service returns `ErrHouseholdMismatch` and the API responds with HTTP 409. Imports that link an existing parent from another household now fail that row instead of creating inconsistent data.
 - New/changed OpenAPI fields and endpoint are generated in `openapi/fees/swagger.yaml` and `openapi/fees/openapi3.yaml`; `frontend/apps/beitraege/src/api/schema.d.ts` was regenerated from the OpenAPI 3 spec.
-- Regression coverage: `go test ./...` in `backend-fees` includes cut-off tests for `2026-06-14` and `2026-06-15`, and sync tests for paid increases and credit-review decreases.
+- Regression coverage: `go test ./...` in `backend-fees` includes cut-off tests for `2026-06-14` and `2026-06-15`, sync tests for paid increases and credit-review decreases, and household consistency tests for parent-link service behavior plus the DB trigger.
+
+Household consistency audit:
+
+```sql
+SELECT c.id, c.first_name, c.last_name,
+       c.household_id AS child_household_id,
+       p.id AS parent_id, p.first_name, p.last_name,
+       p.household_id AS parent_household_id
+FROM fees.child_parents cp
+JOIN fees.children c ON c.id = cp.child_id
+JOIN fees.parents p ON p.id = cp.parent_id
+WHERE c.household_id IS NOT NULL
+  AND p.household_id IS NOT NULL
+  AND c.household_id <> p.household_id;
+```
 
 ### banking-sync
 
