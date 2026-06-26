@@ -203,6 +203,11 @@ Current state:
 - Dev port: `5175`
 - Uses its own OpenAPI type generation from `openapi/fees/openapi3.yaml`
 
+Current state:
+- Mobile layout guardrails were added on 2026-06-26. `frontend/apps/beitraege/src/layouts/MainLayout.vue` prevents root horizontal overflow, uses tighter mobile content padding, and opens the mobile navigation drawer from the right to match the menu button position.
+- `frontend/apps/beitraege/src/assets/main.css` constrains app-wide horizontal overflow and adds touch-friendly internal scrolling/compact cell spacing for wide table containers on small screens.
+- `frontend/apps/beitraege/src/pages/ImportPage.vue` now wraps its import-history, unmatched, blacklist, and matched tables in internal horizontal scroll containers and makes the import tab bar scroll internally on mobile. If another Beitrags page still shifts the whole viewport sideways, first check for raw `<table>` markup or unbounded tab/filter rows that are missing an `overflow-x-auto` container.
+
 ### shared package
 
 - Path: `frontend/packages/shared/`

@@ -58,11 +58,48 @@
 }
 
 @layer base {
+  html,
+  body,
+  #app {
+    min-height: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
   * {
     @apply border-border;
   }
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+@layer components {
+  .overflow-x-auto {
+    max-width: 100%;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+  }
+}
+
+@media (max-width: 640px) {
+  table {
+    font-size: 0.8125rem;
+  }
+
+  th,
+  td {
+    overflow-wrap: anywhere;
+  }
+
+  th[class*="px-4"],
+  td[class*="px-4"] {
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  .rounded-xl {
+    border-radius: 0.625rem;
   }
 }

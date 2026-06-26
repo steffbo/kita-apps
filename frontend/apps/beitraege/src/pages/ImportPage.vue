@@ -887,11 +887,11 @@ function getWarningTypeColor(type: string): string {
     </div>
 
     <!-- Tabs -->
-    <div class="flex border-b mb-6">
+    <div class="flex border-b mb-6 overflow-x-auto whitespace-nowrap">
       <button
         @click="switchTab('upload')"
         :class="[
-          'px-4 py-2 text-sm font-medium border-b-2 transition-colors',
+          'flex-none px-4 py-2 text-sm font-medium border-b-2 transition-colors',
           activeTab === 'upload'
             ? 'border-primary text-primary'
             : 'border-transparent text-gray-600 hover:text-gray-900',
@@ -905,7 +905,7 @@ function getWarningTypeColor(type: string): string {
       <button
         @click="switchTab('history')"
         :class="[
-          'px-4 py-2 text-sm font-medium border-b-2 transition-colors',
+          'flex-none px-4 py-2 text-sm font-medium border-b-2 transition-colors',
           activeTab === 'history'
             ? 'border-primary text-primary'
             : 'border-transparent text-gray-600 hover:text-gray-900',
@@ -919,7 +919,7 @@ function getWarningTypeColor(type: string): string {
       <button
         @click="switchTab('unmatched')"
         :class="[
-          'px-4 py-2 text-sm font-medium border-b-2 transition-colors',
+          'flex-none px-4 py-2 text-sm font-medium border-b-2 transition-colors',
           activeTab === 'unmatched'
             ? 'border-primary text-primary'
             : 'border-transparent text-gray-600 hover:text-gray-900',
@@ -936,7 +936,7 @@ function getWarningTypeColor(type: string): string {
       <button
         @click="switchTab('matched')"
         :class="[
-          'px-4 py-2 text-sm font-medium border-b-2 transition-colors',
+          'flex-none px-4 py-2 text-sm font-medium border-b-2 transition-colors',
           activeTab === 'matched'
             ? 'border-primary text-primary'
             : 'border-transparent text-gray-600 hover:text-gray-900',
@@ -950,7 +950,7 @@ function getWarningTypeColor(type: string): string {
       <button
         @click="switchTab('warnings')"
         :class="[
-          'px-4 py-2 text-sm font-medium border-b-2 transition-colors',
+          'flex-none px-4 py-2 text-sm font-medium border-b-2 transition-colors',
           activeTab === 'warnings'
             ? 'border-primary text-primary'
             : 'border-transparent text-gray-600 hover:text-gray-900',
@@ -967,7 +967,7 @@ function getWarningTypeColor(type: string): string {
       <button
         @click="switchTab('blacklist')"
         :class="[
-          'px-4 py-2 text-sm font-medium border-b-2 transition-colors',
+          'flex-none px-4 py-2 text-sm font-medium border-b-2 transition-colors',
           activeTab === 'blacklist'
             ? 'border-primary text-primary'
             : 'border-transparent text-gray-600 hover:text-gray-900',
@@ -1314,59 +1314,61 @@ function getWarningTypeColor(type: string): string {
       </div>
 
       <div v-else class="bg-white rounded-xl border overflow-hidden">
-        <table class="w-full">
-          <thead class="bg-gray-50">
-            <tr class="text-left text-sm text-gray-500">
-              <th class="px-4 py-3 font-medium">Datei</th>
-              <th class="px-4 py-3 font-medium">Zeitraum</th>
-              <th class="px-4 py-3 font-medium">Transaktionen</th>
-              <th class="px-4 py-3 font-medium">Zugeordnet</th>
-              <th class="px-4 py-3 font-medium">Importiert am</th>
-              <th class="px-4 py-3 font-medium">Von</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="batch in importHistory"
-              :key="batch.id"
-              class="border-t hover:bg-gray-50"
-            >
-              <td class="px-4 py-3">
-                <div class="flex items-center gap-2">
-                  <FileSpreadsheet class="h-4 w-4 text-gray-400" />
-                  <span class="font-medium">{{ batch.fileName }}</span>
-                </div>
-              </td>
-              <td class="px-4 py-3 text-gray-600 text-sm">
-                <span v-if="batch.dateFrom && batch.dateTo">
-                  {{ formatDate(batch.dateFrom) }} - {{ formatDate(batch.dateTo) }}
-                </span>
-                <span v-else class="text-gray-400">-</span>
-              </td>
-              <td class="px-4 py-3">{{ batch.transactionCount }}</td>
-              <td class="px-4 py-3">
-                <span
-                  :class="[
-                    'px-2 py-0.5 rounded-full text-xs font-medium',
-                    batch.matchedCount === batch.transactionCount
-                      ? 'bg-green-100 text-green-700'
-                      : batch.matchedCount > 0
-                        ? 'bg-amber-100 text-amber-700'
-                        : 'bg-gray-100 text-gray-700',
-                  ]"
-                >
-                  {{ batch.matchedCount }} / {{ batch.transactionCount }}
-                </span>
-              </td>
-              <td class="px-4 py-3 text-gray-600">
-                {{ formatDateTime(batch.importedAt) }}
-              </td>
-              <td class="px-4 py-3 text-gray-600">
-                {{ batch.importedByEmail || batch.importedBy }}
-              </td>
-            </tr>
-          </tbody>
-        </table>
+        <div class="overflow-x-auto">
+          <table class="w-full">
+            <thead class="bg-gray-50">
+              <tr class="text-left text-sm text-gray-500">
+                <th class="px-4 py-3 font-medium">Datei</th>
+                <th class="px-4 py-3 font-medium">Zeitraum</th>
+                <th class="px-4 py-3 font-medium">Transaktionen</th>
+                <th class="px-4 py-3 font-medium">Zugeordnet</th>
+                <th class="px-4 py-3 font-medium">Importiert am</th>
+                <th class="px-4 py-3 font-medium">Von</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="batch in importHistory"
+                :key="batch.id"
+                class="border-t hover:bg-gray-50"
+              >
+                <td class="px-4 py-3">
+                  <div class="flex items-center gap-2">
+                    <FileSpreadsheet class="h-4 w-4 text-gray-400" />
+                    <span class="font-medium">{{ batch.fileName }}</span>
+                  </div>
+                </td>
+                <td class="px-4 py-3 text-gray-600 text-sm">
+                  <span v-if="batch.dateFrom && batch.dateTo">
+                    {{ formatDate(batch.dateFrom) }} - {{ formatDate(batch.dateTo) }}
+                  </span>
+                  <span v-else class="text-gray-400">-</span>
+                </td>
+                <td class="px-4 py-3">{{ batch.transactionCount }}</td>
+                <td class="px-4 py-3">
+                  <span
+                    :class="[
+                      'px-2 py-0.5 rounded-full text-xs font-medium',
+                      batch.matchedCount === batch.transactionCount
+                        ? 'bg-green-100 text-green-700'
+                        : batch.matchedCount > 0
+                          ? 'bg-amber-100 text-amber-700'
+                          : 'bg-gray-100 text-gray-700',
+                    ]"
+                  >
+                    {{ batch.matchedCount }} / {{ batch.transactionCount }}
+                  </span>
+                </td>
+                <td class="px-4 py-3 text-gray-600">
+                  {{ formatDateTime(batch.importedAt) }}
+                </td>
+                <td class="px-4 py-3 text-gray-600">
+                  {{ batch.importedByEmail || batch.importedBy }}
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -1443,7 +1445,8 @@ function getWarningTypeColor(type: string): string {
       </div>
 
       <div v-else class="bg-white rounded-xl border overflow-hidden">
-        <table class="w-full">
+        <div class="overflow-x-auto">
+          <table class="w-full">
           <thead class="bg-gray-50">
             <tr class="text-left text-sm text-gray-500">
               <th
@@ -1583,7 +1586,8 @@ function getWarningTypeColor(type: string): string {
               </td>
             </tr>
           </tbody>
-        </table>
+          </table>
+        </div>
 
         <!-- Pagination -->
         <div v-if="unmatchedTotalPages > 1" class="flex items-center justify-between px-4 py-3 border-t bg-gray-50">
@@ -1816,7 +1820,8 @@ function getWarningTypeColor(type: string): string {
       </div>
 
       <div v-else class="bg-white rounded-xl border overflow-hidden">
-        <table class="w-full">
+        <div class="overflow-x-auto">
+          <table class="w-full">
           <thead class="bg-gray-50">
             <tr class="text-left text-sm text-gray-500">
               <th class="px-4 py-3 font-medium">IBAN</th>
@@ -1861,7 +1866,8 @@ function getWarningTypeColor(type: string): string {
               </td>
             </tr>
           </tbody>
-        </table>
+          </table>
+        </div>
       </div>
     </div>
 
@@ -1907,7 +1913,8 @@ function getWarningTypeColor(type: string): string {
       </div>
 
       <div v-else class="bg-white rounded-xl border overflow-hidden">
-        <table class="w-full">
+        <div class="overflow-x-auto">
+          <table class="w-full">
           <thead class="bg-gray-50">
             <tr class="text-left text-sm text-gray-500">
               <th
@@ -2053,7 +2060,8 @@ function getWarningTypeColor(type: string): string {
               </td>
             </tr>
           </tbody>
-        </table>
+          </table>
+        </div>
 
         <!-- Pagination -->
         <div v-if="matchedTotalPages > 1" class="flex items-center justify-between px-4 py-3 border-t bg-gray-50">

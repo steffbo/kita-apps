@@ -54,9 +54,9 @@ function toggleUserMenu() {
 </script>
 
 <template>
-  <div class="min-h-screen bg-gray-50">
+  <div class="min-h-screen min-w-0 overflow-x-hidden bg-gray-50">
     <!-- Mobile menu button -->
-    <div class="lg:hidden fixed top-0 left-0 right-0 z-50 bg-white border-b px-4 py-3 flex items-center justify-between">
+    <div class="lg:hidden fixed top-0 left-0 right-0 z-30 bg-white border-b px-4 py-3 flex items-center justify-between">
       <span class="font-semibold text-lg text-primary">Beiträge</span>
       <button @click="mobileMenuOpen = !mobileMenuOpen" class="p-2 rounded-md hover:bg-gray-100">
         <Menu v-if="!mobileMenuOpen" class="h-6 w-6" />
@@ -74,8 +74,8 @@ function toggleUserMenu() {
     <!-- Sidebar -->
     <aside
       :class="[
-        'fixed inset-y-0 left-0 z-50 w-64 bg-white border-r transform transition-transform duration-200 ease-in-out lg:translate-x-0',
-        mobileMenuOpen ? 'translate-x-0' : '-translate-x-full',
+        'fixed inset-y-0 right-0 z-50 w-72 max-w-[calc(100vw-2rem)] bg-white border-l transform transition-transform duration-200 ease-in-out lg:left-0 lg:right-auto lg:w-64 lg:max-w-none lg:border-l-0 lg:border-r lg:translate-x-0',
+        mobileMenuOpen ? 'translate-x-0' : 'translate-x-full',
       ]"
     >
       <div class="flex flex-col h-full">
@@ -162,8 +162,8 @@ function toggleUserMenu() {
     />
 
     <!-- Main content -->
-    <main class="lg:pl-64 pt-14 lg:pt-0">
-      <div class="p-6">
+    <main class="min-w-0 overflow-x-hidden pt-14 lg:pl-64 lg:pt-0">
+      <div class="min-w-0 max-w-full px-4 py-5 sm:p-6">
         <RouterView />
       </div>
     </main>
