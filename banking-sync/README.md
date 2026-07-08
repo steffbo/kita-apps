@@ -9,10 +9,12 @@ Automatische CSV-Exporte von der SozialBank via Browser-Automatisierung (Playwri
 3. **Login** im Online-Banking (ggf. 2FA beim ersten Mal)
 4. **Navigation** zur Umsatzansicht
 5. **Zeitraum** setzen (Standard: letzte 90 Tage)
-6. **CSV exportieren** und im Download-Ordner speichern
+6. **CSV exportieren** und im Download-Ordner speichern; der Browser-Download wird bei Fehlern automatisch erneut versucht
 7. **Upload** der CSV per `multipart/form-data` an `POST /api/fees/v1/import/upload`
    - Auth via `X-Import-Token: ${CRON_API_TOKEN}`
-8. **Success-Ping an Uptime Kuma** (wenn `UPTIME_KUMA_PUSH_URL` gesetzt ist)
+8. **Push-Ping an Uptime Kuma** (wenn `UPTIME_KUMA_PUSH_URL` gesetzt ist)
+   - Success: `status=up`
+   - Fehler: `status=down`
 9. **Container beendet sich** (bei Host-Cron Variante)
 
 ## Anforderungen
@@ -36,6 +38,12 @@ Automatische CSV-Exporte von der SozialBank via Browser-Automatisierung (Playwri
 | `DATE_RANGE_DAYS` | optional | `90` | Zeitraum (Tage) |
 | `HEADLESS` | optional | `true` | Browser sichtbar machen |
 | `TWO_FA_TIMEOUT_SECONDS` | optional | `600` | Timeout für 2FA-Freigabe |
+| `DOWNLOAD_TIMEOUT_SECONDS` | optional | `120` | Timeout für das eigentliche CSV-Download-Event nach Klick auf Export |
+| `DOWNLOAD_RETRY_ATTEMPTS` | optional | `3` | Gesamtzahl der Bank-Download-Versuche; jeder Retry startet eine neue Browser-Session |
+| `DOWNLOAD_RETRY_DELAY_SECONDS` | optional | `30` | Wartezeit zwischen Bank-Download-Retries |
+| `GLOBAL_TIMEOUT_SECONDS` | optional | `900` | Gesamttimeout für einen Browser-Sync-Versuch |
+| `UPLOAD_TIMEOUT_SECONDS` | optional | `120` | Timeout für den Upload ans Fees-Backend |
+| `UPTIME_KUMA_TIMEOUT_SECONDS` | optional | `10` | Timeout für den Uptime-Kuma-Push |
 | `PORT` | optional | `3333` | Port für Runner-API |
 | `SYNC_API_TOKEN` | optional | - | Token für Runner-API (Header `X-Sync-Token`) |
 | `STATE_DIR` | optional | `./state` | Status/Log-Ordner für Runner-API |
@@ -43,6 +51,13 @@ Automatische CSV-Exporte von der SozialBank via Browser-Automatisierung (Playwri
 | `SCREENSHOT_DIR` | optional | `./output` | Ordner für Debug-Screenshots |
 | `DEBUG_SCREENSHOTS` | optional | `false` | Immer einen Screenshot/HTML Snapshot beim Login erzeugen |
 | `USER_AGENT` | optional | Chrome UA | User-Agent Override (Anti-Bot) |
+
+## Aktueller Betriebsstand
+
+- Seit 2026-07-08 startet der Bank-CSV-Download bei Timeout oder anderen Browser-/Exportfehlern standardmäßig bis zu 3 Versuche. Das betrifft `sync.js` direkt und den Runner-API-Modus über `server.js`.
+- Der Download-Event nach dem Export-Klick hat einen eigenen Timeout (`DOWNLOAD_TIMEOUT_SECONDS`, Default 120 Sekunden), damit Hänger nicht nur über den globalen Sync-Timeout beendet werden.
+- Uptime Kuma wird per Push-URL mit `status=up` nach erfolgreichem Upload und mit `status=down` bei Sync-Fehlern benachrichtigt. Die Push-URL muss im Runtime-Environment wirklich an den Container durchgereicht sein; wenn sie fehlt, schreibt der Runner einmalig `UPTIME_KUMA_PUSH_URL not set`.
+- Die Docker-Basis wurde von `oven/bun:1.1.29` auf `oven/bun:1` umgestellt, nachdem die Produktivlogs auf `infra-dev` mehrfach Bun-Segfaults des alten Runners gezeigt hatten.
 
 ## Lokal testen (sichtbar)
 
@@ -98,6 +113,9 @@ Endpoints:
       DOWNLOAD_DIR: /data/downloads
       DATE_RANGE_DAYS: "90"
       HEADLESS: "true"
+      DOWNLOAD_TIMEOUT_SECONDS: "120"
+      DOWNLOAD_RETRY_ATTEMPTS: "3"
+      DOWNLOAD_RETRY_DELAY_SECONDS: "30"
     volumes:
       - banking_sync_data:/data
     depends_on:
@@ -126,9 +144,10 @@ docker compose --profile banking-sync run --rm banking-sync
 ## Troubleshooting
 
 - **Timeout bei Login:** Selektoren in `sync.js` per Playwright Codegen anpassen
+- **Timeout/Fehler beim CSV-Export:** `DOWNLOAD_RETRY_ATTEMPTS`, `DOWNLOAD_RETRY_DELAY_SECONDS` und `DOWNLOAD_TIMEOUT_SECONDS` prüfen. Jeder Retry startet eine neue Browser-Session.
 - **2FA hängt:** ersten Run mit `HEADLESS=false`, danach profiliertes Login nutzen
 - **Upload 401:** `CRON_API_TOKEN` prüfen (Backend + Container müssen identisch sein)
-- **Kein Kuma-Ping:** `UPTIME_KUMA_PUSH_URL` setzen (sonst nur einmalige Startup-Warnung)
+- **Kein Kuma-Ping:** `UPTIME_KUMA_PUSH_URL` setzen und in Compose an den Runner durchreichen (sonst nur einmalige Startup-Warnung)
 
 ## Sicherheit
 

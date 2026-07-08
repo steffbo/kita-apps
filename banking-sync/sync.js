@@ -29,6 +29,11 @@ const CONFIG = {
   globalTimeoutMs: Number(process.env.GLOBAL_TIMEOUT_SECONDS || 900) * 1000,
   // Timeout for API upload request (default 2 minutes)
   uploadTimeoutMs: Number(process.env.UPLOAD_TIMEOUT_SECONDS || 120) * 1000,
+  // Timeout for the browser download event after clicking export (default 2 minutes)
+  downloadTimeoutMs: Number(process.env.DOWNLOAD_TIMEOUT_SECONDS || 120) * 1000,
+  // Total attempts for the bank CSV download flow. Retries restart the browser session.
+  downloadRetryAttempts: Number(process.env.DOWNLOAD_RETRY_ATTEMPTS || 3),
+  downloadRetryDelayMs: Number(process.env.DOWNLOAD_RETRY_DELAY_SECONDS || 30) * 1000,
   // Timeout for browser/context shutdown (default 20 seconds)
   browserCloseTimeoutMs: Number(process.env.BROWSER_CLOSE_TIMEOUT_SECONDS || 20) * 1000,
 };
@@ -92,6 +97,56 @@ function withTimeout(promise, timeoutMs, label) {
   return Promise.race([promise, timeoutPromise]).finally(() => {
     if (timeoutId) clearTimeout(timeoutId);
   });
+}
+
+function sleep(ms, signal = null) {
+  return new Promise((resolve, reject) => {
+    if (signal?.aborted) {
+      reject(new Error('Sync cancelled by user'));
+      return;
+    }
+
+    const timeoutId = setTimeout(resolve, ms);
+    if (signal) {
+      signal.addEventListener(
+        'abort',
+        () => {
+          clearTimeout(timeoutId);
+          reject(new Error('Sync cancelled by user'));
+        },
+        { once: true }
+      );
+    }
+  });
+}
+
+function getDownloadRetryAttempts() {
+  if (!Number.isFinite(CONFIG.downloadRetryAttempts) || CONFIG.downloadRetryAttempts < 1) {
+    return 1;
+  }
+  return Math.floor(CONFIG.downloadRetryAttempts);
+}
+
+function getDownloadRetryDelayMs() {
+  if (!Number.isFinite(CONFIG.downloadRetryDelayMs) || CONFIG.downloadRetryDelayMs < 0) {
+    return 0;
+  }
+  return CONFIG.downloadRetryDelayMs;
+}
+
+function shouldRetryDownload(error) {
+  const message = error && error.message ? error.message : String(error);
+  return !/Sync cancelled by user|BANK_USERNAME and BANK_PASSWORD required/i.test(message);
+}
+
+function appendQueryParams(rawUrl, params) {
+  const url = new URL(rawUrl);
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== null && value !== '') {
+      url.searchParams.set(key, value);
+    }
+  }
+  return url.toString();
 }
 
 function getRootUrl(root) {
@@ -537,7 +592,9 @@ async function downloadCSV(options = {}) {
     );
     await csvOption.click();
 
-    const downloadPromise = page.waitForEvent('download');
+    const downloadPromise = page.waitForEvent('download', {
+      timeout: CONFIG.downloadTimeoutMs,
+    });
     const confirmExportButton = await findFirstVisible(
       page,
       [root => root.getByRole('button', { name: /^Exportieren$/ })],
@@ -592,6 +649,38 @@ async function downloadCSV(options = {}) {
   }
 }
 
+async function downloadCSVWithRetries(options = {}) {
+  const { onLog, signal } = options;
+  const log = createLogger(onLog);
+  const attempts = getDownloadRetryAttempts();
+  const retryDelayMs = getDownloadRetryDelayMs();
+  let lastError = null;
+
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    if (attempt > 1) {
+      log(`🔁 Retrying bank CSV download (${attempt}/${attempts})...`);
+    }
+
+    try {
+      return await downloadCSV(options);
+    } catch (error) {
+      lastError = error;
+      const message = error && error.message ? error.message : String(error);
+      if (attempt >= attempts || !shouldRetryDownload(error)) {
+        throw error;
+      }
+
+      log(`⚠️  Bank CSV download attempt ${attempt}/${attempts} failed: ${message}`);
+      if (retryDelayMs > 0) {
+        log(`⏳ Waiting ${retryDelayMs / 1000}s before retry...`);
+        await sleep(retryDelayMs, signal || getAbortController()?.signal || null);
+      }
+    }
+  }
+
+  throw lastError || new Error('Bank CSV download failed');
+}
+
 async function uploadToAPI(csvPath, options = {}) {
   const { onLog } = options;
   const log = createLogger(onLog);
@@ -637,7 +726,7 @@ async function uploadToAPI(csvPath, options = {}) {
   return result;
 }
 
-async function pingUptimeKumaSuccess(options = {}) {
+async function pingUptimeKuma(status = 'up', message = 'OK', options = {}) {
   const { onLog } = options;
   const log = createLogger(onLog);
 
@@ -655,7 +744,13 @@ async function pingUptimeKumaSuccess(options = {}) {
   }, UPTIME_KUMA_PING_TIMEOUT_MS);
 
   try {
-    const response = await fetch(CONFIG.uptimeKumaPushUrl, {
+    const pushUrl = appendQueryParams(CONFIG.uptimeKumaPushUrl, {
+      status,
+      msg: message,
+      ping: '',
+    });
+
+    const response = await fetch(pushUrl, {
       method: 'GET',
       signal: controller.signal,
     });
@@ -669,7 +764,7 @@ async function pingUptimeKumaSuccess(options = {}) {
       };
     }
 
-    log('📡 Uptime Kuma success ping sent');
+    log(`📡 Uptime Kuma ${status} ping sent`);
     return {
       sent: true,
       ok: true,
@@ -686,12 +781,21 @@ async function pingUptimeKumaSuccess(options = {}) {
   }
 }
 
+async function pingUptimeKumaSuccess(options = {}) {
+  return pingUptimeKuma('up', 'Banking sync completed', options);
+}
+
+async function pingUptimeKumaFailure(error, options = {}) {
+  const message = error && error.message ? error.message : String(error);
+  return pingUptimeKuma('down', `Banking sync failed: ${message}`.slice(0, 180), options);
+}
+
 async function main() {
   const isTest = process.argv.includes('--test');
   warnIfUptimeKumaNotConfigured(console.warn);
 
   try {
-    const csvPath = await downloadCSV();
+    const csvPath = await downloadCSVWithRetries();
 
     if (isTest) {
       const csvContent = fs.readFileSync(csvPath, 'utf-8');
@@ -708,6 +812,10 @@ async function main() {
     }
     console.log('\n🎉 Banking sync completed!');
   } catch (error) {
+    const pingResult = await pingUptimeKumaFailure(error);
+    if (pingResult.sent && !pingResult.ok) {
+      console.warn(`⚠️ Uptime Kuma failure ping failed: ${pingResult.error}`);
+    }
     console.error('\n❌ Banking sync failed:', error.message);
     process.exit(1);
   }
@@ -719,8 +827,11 @@ if (require.main === module) {
 
 module.exports = {
   downloadCSV,
+  downloadCSVWithRetries,
   uploadToAPI,
+  pingUptimeKuma,
   pingUptimeKumaSuccess,
+  pingUptimeKumaFailure,
   warnIfUptimeKumaNotConfigured,
   cancelSync,
   getAbortController,

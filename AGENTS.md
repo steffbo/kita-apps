@@ -160,6 +160,14 @@ WHERE c.household_id IS NOT NULL
 - Built and pushed as separate GHCR image
 - Main files: `server.js`, `sync.js`, `upload.js`
 
+Current state:
+- As of 2026-07-08, bank CSV download retries are implemented in `banking-sync/sync.js` and used by both `bun sync.js` and the Runner API in `banking-sync/server.js`.
+- `DOWNLOAD_TIMEOUT_SECONDS` defaults to `120` and bounds the Playwright `download` event after clicking the export button.
+- `DOWNLOAD_RETRY_ATTEMPTS` defaults to `3`; each retry restarts the full browser download flow with a fresh browser session. `DOWNLOAD_RETRY_DELAY_SECONDS` defaults to `30`.
+- Uptime Kuma push handling now appends `status=up` for successful uploads and sends a best-effort `status=down` ping on sync failure. Runtime Compose must pass `UPTIME_KUMA_PUSH_URL` into `banking-sync-runner`; otherwise the runner logs `UPTIME_KUMA_PUSH_URL not set` once and sends no ping.
+- The Docker base image is `oven/bun:1` after `infra-dev` logs on 2026-07-08 showed repeated Bun 1.1.29 segmentation faults in the long-running runner.
+- Recent `infra-dev` logs also showed several daily Ofelia job failures caused by scheduler/runner coordination (`409 run already in progress`) or killed scheduler exec processes (`exit code 137`) while the underlying runner often completed the CSV download and API upload successfully. Check `kita-banking-sync-runner` logs and `/srv/homelab-data/kita/banking-sync/state/status.json` before assuming an import failed.
+
 ## Frontend Apps
 
 All frontend apps are under `frontend/apps/*`.

@@ -4,9 +4,10 @@ const path = require('path');
 const crypto = require('crypto');
 
 const {
-  downloadCSV,
+  downloadCSVWithRetries,
   uploadToAPI,
   pingUptimeKumaSuccess,
+  pingUptimeKumaFailure,
   warnIfUptimeKumaNotConfigured,
   cancelSync,
 } = require('./sync');
@@ -203,7 +204,7 @@ async function runSync({ test = false } = {}) {
   }, RUN_SYNC_TIMEOUT_MS);
 
   try {
-    const csvPath = await downloadCSV({
+    const csvPath = await downloadCSVWithRetries({
       onStatus: status => {
         if (status === 'waiting_for_2fa') {
           updateState({ status: 'waiting_for_2fa' });
@@ -236,6 +237,11 @@ async function runSync({ test = false } = {}) {
 
     updateState({ status: 'success', finishedAt: nowIso() });
   } catch (error) {
+    const pingResult = await pingUptimeKumaFailure(error, { onLog: appendLog });
+    if (pingResult.sent && !pingResult.ok) {
+      appendLog(`⚠️ Uptime Kuma failure ping failed: ${pingResult.error}`);
+    }
+
     updateState({
       status: 'error',
       finishedAt: nowIso(),
