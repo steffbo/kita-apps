@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api';
 import type {
@@ -283,6 +283,10 @@ function openEmailComposer() {
 async function loadData() {
   isLoading.value = true;
   error.value = null;
+  einstufung.value = null;
+  sourceEinstufung.value = null;
+  previousEinstufung.value = null;
+  expectationChanges.value = null;
   try {
     const [childRes, householdRes] = await Promise.all([
       api.getChildren({ limit: 2000 }),
@@ -292,8 +296,6 @@ async function loadData() {
     households.value = householdRes.data;
 
     if (einstufungId.value) {
-      sourceEinstufung.value = null;
-      previousEinstufung.value = null;
       const e = await api.getEinstufung(einstufungId.value);
       einstufung.value = e;
       if (e.sourceEinstufungId) {
@@ -319,7 +321,6 @@ async function loadData() {
         throw new Error('Keine bestehende Einstufung als Vorlage gefunden.');
       }
       sourceEinstufung.value = source;
-      previousEinstufung.value = null;
       selectedChildId.value = source.childId;
       selectedYear.value = new Date(calculateEffectiveFromMonth(todayIso())).getUTCFullYear();
       validFrom.value = todayIso();
@@ -330,8 +331,6 @@ async function loadData() {
       parent1Income.value = { ...emptyIncome(), ...source.incomeCalculation.parent1 };
       parent2Income.value = { ...emptyIncome(), ...source.incomeCalculation.parent2 };
     } else if (route.query.childId) {
-      sourceEinstufung.value = null;
-      previousEinstufung.value = null;
       // Pre-select child from query param
       const childId = route.query.childId as string;
       selectedChildId.value = childId;
@@ -431,7 +430,11 @@ function formatMonth(year: number, month: number): string {
   return new Date(year, month - 1).toLocaleString('de-DE', { month: 'long', year: 'numeric' });
 }
 
-onMounted(loadData);
+watch(
+  () => route.fullPath,
+  () => loadData(),
+  { immediate: true },
+);
 
 watch(defaultEmailSubject, (next) => {
   if (!emailSubjectDirty.value) {
