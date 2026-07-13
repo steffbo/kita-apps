@@ -1,0 +1,4 @@
+interface:
+  display_name: "Kita Live Data Access"
+  short_description: "Live-Daten sicher über API und DB prüfen"
+  default_prompt: "Use $kita-live-data-access to inspect or change Kita live data through the approved access path."

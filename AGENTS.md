@@ -46,6 +46,17 @@ This is mandatory:
 - `PORTAL_DATA_MODEL.md`: Phase 0 portal data model sketch for identity/session tables, read-only synced master-data snapshots, parent-work tables, and audit boundaries
 - `PORTAL_DATENSCHUTZ.md`: Phase 0 Datenschutz/provider/RBAC handoff with portal privacy notice draft, Hetzner/Resend AVV review, role matrix, and provider-account target state
 
+## Repository Skills
+
+Repository-local skills are versioned under `.agents/skills/`:
+
+- `kita-fees-einstufung`: case-neutral workflow for evidence inventory, annual household-income calculation, contribution determination, explanations, and explicitly authorized follow-up Einstufungen. It uses current backend code and OpenAPI as the rules source and delegates live access to `kita-live-data-access`.
+- `kita-live-data-access`: API-first live-data workflow with read-only PostgreSQL verification, narrow authorization boundaries, secret-handling guardrails, and post-write side-effect checks.
+
+The skills intentionally contain no family-specific values or assumptions. Their code maps must be checked against the current implementation before each calculation or mutation.
+
+The fees backend does not yet support a dedicated agent account. Authentication currently uses the single static admin identity configured by `USER_NAME` and `USER_PASSWORD`; `fees.users` was removed by migration `000020_drop_users`. A future dedicated agent service account should be separately revocable and auditable, use short-lived API credentials, and receive only the permissions required for authorized workflows. This is a documented target state, not implemented functionality.
+
 ## Backend Services
 
 ### backend-portal

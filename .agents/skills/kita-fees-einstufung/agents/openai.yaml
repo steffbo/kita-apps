@@ -1,0 +1,4 @@
+interface:
+  display_name: "Kita Fees Einstufung"
+  short_description: "Einstufungen fachlich prüfen und bearbeiten"
+  default_prompt: "Use $kita-fees-einstufung to calculate or manage a Kita fee classification from the available evidence."
