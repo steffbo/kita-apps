@@ -16,14 +16,16 @@ const logoSrc = ref<string>(logoUrl);
 
 const child = computed(() => props.einstufung.child as Child | undefined);
 
-// Compute the distinct fee columns for the letter
-interface FeeColumn {
-  label: string; // e.g. "Sept 25"
+// Zeiträume (statt Einzelmonate) für die Beitragstabelle
+interface FeePeriod {
+  key: string;
+  label: string; // z. B. "Aug. 2026 – Feb. 2027" oder "ab März 2027"
   careHours: number;
-  careType: string; // "Krippe" or "Kindergarten"
+  careType: string; // "Krippe" oder "Kindergarten"
   childcareFee: number;
   foodFee: number;
-  membershipFee: number;
+  isPrevious: boolean; // bisheriger Beitrag vor einer Folge-Einstufung
+  isCurrent: boolean; // aktuell gültiger Beitrag
 }
 
 function parseMonthStart(value?: string): Date | null {
@@ -44,110 +46,120 @@ function isSameOrAfterMonth(left: Date, right: Date): boolean {
   return left.getUTCMonth() >= right.getUTCMonth();
 }
 
+function isSameMonth(left: Date, right: Date): boolean {
+  return left.getUTCFullYear() === right.getUTCFullYear() && left.getUTCMonth() === right.getUTCMonth();
+}
+
 function formatCareType(ct: string) {
   if (ct === 'krippe') return 'Krippe';
   if (ct === 'kindergarten') return 'Kindergarten';
   return ct.charAt(0).toUpperCase() + ct.slice(1);
 }
 
-function formatMonth(month: number, year: number) {
-  return new Date(Date.UTC(year, month, 1)).toLocaleString('de-DE', {
-    month: 'short',
-    year: '2-digit',
-    timeZone: 'UTC',
-  });
+function formatMonthLabel(date: Date): string {
+  return date.toLocaleString('de-DE', { month: 'short', year: 'numeric', timeZone: 'UTC' });
 }
 
-const feeColumns = computed<FeeColumn[]>(() => {
+function formatPeriodLabel(from: Date, to: Date | null): string {
+  if (!to) return `ab ${formatMonthLabel(from)}`;
+  if (isSameMonth(from, to)) return formatMonthLabel(from);
+  return `${formatMonthLabel(from)} \u2013 ${formatMonthLabel(to)}`;
+}
+
+// Monat, ab dem das Kind als Kindergartenkind gilt (erster voller Monat nach dem 3. Geburtstag)
+const kindergartenFromMonth = computed<Date | null>(() => {
+  if (!child.value || props.einstufung.careType !== 'krippe') return null;
+
+  const birthDate = new Date(child.value.birthDate);
+  const turnsThree = new Date(birthDate.getFullYear() + 3, birthDate.getMonth(), birthDate.getDate());
+  let month = turnsThree.getMonth();
+  let year = turnsThree.getFullYear();
+  if (turnsThree.getDate() > 1) {
+    month += 1;
+    if (month > 11) {
+      month = 0;
+      year += 1;
+    }
+  }
+  return new Date(Date.UTC(year, month, 1));
+});
+
+const feePeriods = computed<FeePeriod[]>(() => {
   const e = props.einstufung;
   const validFrom = parseMonthStart(e.effectiveFromMonth || e.validFrom) ?? new Date();
-  const startMonth = validFrom.getUTCMonth(); // 0-based
-  const startYear = validFrom.getUTCFullYear();
+  const periods: FeePeriod[] = [];
 
-  const cols: FeeColumn[] = [];
-
+  // Bisheriger Beitrag, wenn diese Einstufung eine Folge-Einstufung ist
   if (e.sourceEinstufungId && props.previousEinstufung) {
     const previous = props.previousEinstufung;
-    const previousMonth = addUtcMonths(validFrom, -1);
+    const previousEnd = addUtcMonths(validFrom, -1);
     const previousStart = parseMonthStart(previous.effectiveFromMonth || previous.validFrom);
 
-    if (previousStart && isSameOrAfterMonth(previousMonth, previousStart)) {
+    if (previousStart && isSameOrAfterMonth(previousEnd, previousStart)) {
       const previousRow = previous.monthlyTable?.find((row) =>
-        row.year === previousMonth.getUTCFullYear() && row.month === previousMonth.getUTCMonth() + 1
+        row.year === previousEnd.getUTCFullYear() && row.month === previousEnd.getUTCMonth() + 1
       );
 
-      cols.push({
-        label: formatMonth(previousMonth.getUTCMonth(), previousMonth.getUTCFullYear()),
+      periods.push({
+        key: 'previous',
+        label: formatPeriodLabel(previousStart, previousEnd),
         careHours: previousRow?.careHoursPerWeek ?? previous.careHoursPerWeek,
         careType: previousRow?.careType ?? formatCareType(previous.careType),
         childcareFee: previousRow?.childcareFee ?? previous.monthlyChildcareFee,
         foodFee: previousRow?.foodFee ?? previous.monthlyFoodFee,
-        membershipFee: 0,
+        isPrevious: true,
+        isCurrent: false,
       });
     }
   }
 
-  // Column 1: First month (with membership fee)
-  cols.push({
-    label: formatMonth(startMonth, startYear),
+  // Ende dieser Einstufung, falls bereits eine Folge-Einstufung existiert
+  const closedUntil = parseMonthStart(e.validUntil);
+  const kindergartenFrom = kindergartenFromMonth.value;
+  const switchesToKindergarten =
+    !!kindergartenFrom &&
+    isSameOrAfterMonth(kindergartenFrom, addUtcMonths(validFrom, 1)) &&
+    (!closedUntil || isSameOrAfterMonth(closedUntil, kindergartenFrom));
+
+  const currentEnd = switchesToKindergarten
+    ? addUtcMonths(kindergartenFrom as Date, -1)
+    : closedUntil ?? null;
+
+  periods.push({
+    key: 'current',
+    label: formatPeriodLabel(validFrom, currentEnd),
     careHours: e.careHoursPerWeek,
     careType: formatCareType(e.careType),
     childcareFee: e.monthlyChildcareFee,
     foodFee: e.monthlyFoodFee,
-    membershipFee: e.annualMembershipFee,
+    isPrevious: false,
+    isCurrent: true,
   });
 
-  // Column 2: Second month (no membership fee)
-  const m2 = startMonth + 1;
-  const y2 = m2 > 11 ? startYear + 1 : startYear;
-  cols.push({
-    label: formatMonth(m2 % 12, y2),
-    careHours: e.careHoursPerWeek,
-    careType: formatCareType(e.careType),
-    childcareFee: e.monthlyChildcareFee,
-    foodFee: e.monthlyFoodFee,
-    membershipFee: 0,
-  });
-
-  // Column 3: If child turns 3 within the next 12 months → beitragsfrei
-  if (child.value && e.careType === 'krippe') {
-    const birthDate = new Date(child.value.birthDate);
-    const turnsThreeDate = new Date(birthDate.getFullYear() + 3, birthDate.getMonth(), birthDate.getDate());
-    // The month the child transitions to Kindergarten (first full month after turning 3)
-    let transMonth = turnsThreeDate.getMonth();
-    let transYear = turnsThreeDate.getFullYear();
-    // If birthday is not the first of the month, transition happens next month
-    if (turnsThreeDate.getDate() > 1) {
-      transMonth += 1;
-      if (transMonth > 11) {
-        transMonth = 0;
-        transYear += 1;
-      }
-    }
-
-    const transDate = new Date(transYear, transMonth, 1);
-    const windowEnd = new Date(startYear, startMonth + 12, 1);
-
-    if (transDate > validFrom && transDate <= windowEnd) {
-      cols.push({
-        label: formatMonth(transMonth, transYear),
-        careHours: e.careHoursPerWeek,
-        careType: 'Kindergarten',
-        childcareFee: 0,
-        foodFee: e.monthlyFoodFee,
-        membershipFee: 0,
-      });
-    }
+  // Ab dem Wechsel in den Kindergarten entfällt das Platzgeld
+  if (switchesToKindergarten && kindergartenFrom) {
+    periods.push({
+      key: 'kindergarten',
+      label: formatPeriodLabel(kindergartenFrom, closedUntil ?? null),
+      careHours: e.careHoursPerWeek,
+      careType: 'Kindergarten',
+      childcareFee: 0,
+      foodFee: e.monthlyFoodFee,
+      isPrevious: false,
+      isCurrent: false,
+    });
   }
 
-  return cols;
+  return periods;
 });
 
 const isFollowUp = computed(() => !!props.einstufung.sourceEinstufungId);
-const showMembershipRow = computed(() => isFollowUp.value || feeColumns.value.some(c => c.membershipFee > 0));
-const primaryFeeColumnIndex = computed(() => feeColumns.value.length > 2 && isFollowUp.value ? 1 : 0);
-const isPrimaryFeeColumn = (idx: number) => idx === primaryFeeColumnIndex.value;
-const monthlyTotal = (col: FeeColumn) => col.childcareFee + col.foodFee;
+const membershipFee = computed(() => props.einstufung.annualMembershipFee);
+const showMembershipNote = computed(() => isFollowUp.value || membershipFee.value > 0);
+const membershipDueMonth = computed(() => {
+  const start = parseMonthStart(props.einstufung.effectiveFromMonth || props.einstufung.validFrom);
+  return start ? formatMonthLabel(start) : '—';
+});
 
 const entryDateFormatted = computed(() => {
   if (!child.value?.entryDate) return '—';
@@ -409,86 +421,43 @@ defineExpose({ generatePdf });
           <table class="fee-table">
             <thead>
               <tr>
-                <th class="fee-table__col-label">&nbsp;</th>
-                <th
-                  v-for="(col, idx) in feeColumns"
-                  :key="col.label"
-                  :class="{ 'fee-table__col-month--primary': isPrimaryFeeColumn(idx) }"
-                >
-                  {{ col.label }}
-                </th>
+                <th class="fee-table__col-period">Zeitraum</th>
+                <th class="fee-table__col-area">Bereich</th>
+                <th class="fee-table__col-hours">Std./Woche</th>
+                <th class="fee-table__col-amount">Platzgeld</th>
+                <th class="fee-table__col-amount">Essensgeld</th>
               </tr>
             </thead>
             <tbody>
-              <tr>
-                <td class="fee-table__row-label">Betreuungsbereich</td>
-                <td
-                  v-for="(col, idx) in feeColumns"
-                  :key="col.label"
-                  class="fee-table__amount"
-                  :class="{ 'fee-table__amount--primary': isPrimaryFeeColumn(idx) }"
-                >
-                  {{ col.careType }}
+              <tr
+                v-for="period in feePeriods"
+                :key="period.key"
+                :class="{
+                  'fee-table__row--previous': period.isPrevious,
+                  'fee-table__row--current': period.isCurrent,
+                }"
+              >
+                <td class="fee-table__period">
+                  {{ period.label }}
+                  <span v-if="period.isPrevious" class="fee-table__period-note">(bisher)</span>
                 </td>
-              </tr>
-              <tr>
-                <td class="fee-table__row-label">Betreuungszeit je Woche</td>
-                <td
-                  v-for="(col, idx) in feeColumns"
-                  :key="col.label"
-                  class="fee-table__amount"
-                  :class="{ 'fee-table__amount--primary': isPrimaryFeeColumn(idx) }"
-                >
-                  {{ col.careHours }} Std.
-                </td>
-              </tr>
-              <tr>
-                <td class="fee-table__row-label">Platzgeld (monatlich)</td>
-                <td
-                  v-for="(col, idx) in feeColumns"
-                  :key="col.label"
-                  class="fee-table__amount"
-                  :class="{ 'fee-table__amount--primary': isPrimaryFeeColumn(idx) }"
-                >
-                  {{ formatEur(col.childcareFee) }}
-                </td>
-              </tr>
-              <tr>
-                <td class="fee-table__row-label">Essensgeld (monatlich)</td>
-                <td
-                  v-for="(col, idx) in feeColumns"
-                  :key="col.label"
-                  class="fee-table__amount"
-                  :class="{ 'fee-table__amount--primary': isPrimaryFeeColumn(idx) }"
-                >
-                  {{ formatEur(col.foodFee) }}
-                </td>
-              </tr>
-              <tr class="fee-table__row--total">
-                <td class="fee-table__row-label">Monatlich zu zahlen</td>
-                <td
-                  v-for="col in feeColumns"
-                  :key="col.label"
-                  class="fee-table__amount"
-                >
-                  {{ formatEur(monthlyTotal(col)) }}
-                </td>
-              </tr>
-              <tr v-if="showMembershipRow" class="fee-table__row--membership">
-                <td class="fee-table__row-label">
-                  Vereinsbeitrag (jährlich)
-                  <template v-if="isFollowUp"> &ndash; bereits bezahlt</template>
-                </td>
-                <td
-                  v-for="col in feeColumns"
-                  :key="col.label"
-                  class="fee-table__amount"
-                >
-                  {{ col.membershipFee > 0 || isFollowUp ? formatEur(col.membershipFee) : '—' }}
-                </td>
+                <td class="fee-table__text">{{ period.careType }}</td>
+                <td class="fee-table__amount">{{ period.careHours }}</td>
+                <td class="fee-table__amount">{{ formatEur(period.childcareFee) }}</td>
+                <td class="fee-table__amount">{{ formatEur(period.foodFee) }}</td>
               </tr>
             </tbody>
           </table>
+          <p v-if="showMembershipNote" class="fee-table__note">
+            Vereinsbeitrag: {{ formatEur(membershipFee) }} jährlich
+            <template v-if="isFollowUp">
+              &ndash; für dieses Jahr bereits bezahlt, in den oben genannten Monatsbeträgen nicht enthalten.
+            </template>
+            <template v-else>
+              &ndash; einmalig fällig mit dem ersten Beitrag im {{ membershipDueMonth }}, in den
+              Monatsbeträgen nicht enthalten.
+            </template>
+          </p>
         </section>
 
         <!-- Hinweis zur Zahlungsweise -->

@@ -225,38 +225,61 @@
 .fee-table thead th {
   border-bottom-width: 0.8pt;
   font-weight: 700;
-  text-align: center;
   white-space: nowrap;
 }
 
-.fee-table__col-label {
-  width: 38%;
-  border-left: none;
-  border-top: none;
-}
-
-.fee-table td.fee-table__row-label {
+.fee-table th.fee-table__col-period {
+  width: 34%;
   text-align: left;
-  font-weight: 400;
   border-left: none;
 }
 
-.fee-table__col-month--primary,
-.fee-table__amount--primary {
-  font-weight: 700;
+.fee-table th.fee-table__col-area {
+  width: 16%;
+  text-align: left;
+}
+
+.fee-table th.fee-table__col-hours {
+  width: 12%;
+}
+
+.fee-table th.fee-table__col-amount {
+  width: 19%;
+  white-space: normal;
+}
+
+.fee-table td.fee-table__period {
+  text-align: left;
+  border-left: none;
+}
+
+.fee-table td.fee-table__text {
+  text-align: left;
+}
+
+.fee-table__period-note {
+  color: #7a7a70;
+  font-size: 7.6pt;
+  font-weight: 400;
 }
 
 .fee-table__amount {
   white-space: nowrap;
 }
 
-.fee-table__row--total td {
-  border-top-width: 0.8pt;
+.fee-table__row--current td {
   font-weight: 700;
 }
 
-.fee-table__row--membership td {
+.fee-table__row--previous td {
+  color: #55554d;
+}
+
+.fee-table__note {
+  margin: 1.4mm 0 0;
+  font-size: 7.9pt;
   color: #33332c;
+  line-height: 1.35;
 }
 
 /* ── Kleingedrucktes, zweispaltig ──────────────────────────────────────────── */
