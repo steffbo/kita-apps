@@ -58,6 +58,12 @@ type UpdateChildForm = UpdateChildRequest & {
   careHoursValidFrom?: string;
 };
 
+type EffectiveCareHours = {
+  hours: number;
+  effectiveFrom: string | null;
+  isUpcoming: boolean;
+};
+
 // Edit dialog state
 const showEditDialog = ref(false);
 const editForm = ref<UpdateChildForm>({});
@@ -128,6 +134,7 @@ const reminderError = ref<string | null>(null);
 // Childcare fee calculation state
 const childcareFee = ref<ChildcareFeeResult | null>(null);
 const isLoadingChildcareFee = ref(false);
+const childcareFeeCareHours = ref<EffectiveCareHours | null>(null);
 
 // Trusted IBANs
 const trustedIbans = ref<KnownIBANSummary[]>([]);
@@ -180,9 +187,36 @@ async function loadTrustedIbans() {
   }
 }
 
+// Resolves the care hours the childcare fee must be based on.
+// `child.careHours` only reflects the period that is effective today, so for children
+// that have not started yet it is null. In that case the next upcoming care hours entry
+// is used instead of silently assuming a default value.
+function resolveEffectiveCareHours(): EffectiveCareHours | null {
+  if (!child.value) return null;
+
+  const current = child.value.careHours;
+  if (current !== undefined && current !== null) {
+    return { hours: current, effectiveFrom: null, isUpcoming: false };
+  }
+
+  const now = Date.now();
+  const upcoming = careHoursHistory.value
+    .filter((entry) => entry.careHours !== undefined && entry.careHours !== null)
+    .filter((entry) => new Date(entry.effectiveFrom).getTime() > now)
+    .sort((a, b) => new Date(a.effectiveFrom).getTime() - new Date(b.effectiveFrom).getTime())[0];
+
+  if (upcoming && upcoming.careHours !== undefined && upcoming.careHours !== null) {
+    return { hours: upcoming.careHours, effectiveFrom: upcoming.effectiveFrom, isUpcoming: true };
+  }
+
+  return null;
+}
+
 async function loadChildcareFee() {
   if (!child.value) return;
-  
+
+  childcareFeeCareHours.value = null;
+
   // Only calculate for U3 children (under 3 years)
   if (!isUnderThree(child.value.birthDate)) {
     childcareFee.value = null;
@@ -201,7 +235,15 @@ async function loadChildcareFee() {
     childcareFee.value = null;
     return;
   }
-  
+
+  // Without known care hours the fee is not calculable; never fall back to a default.
+  const effectiveCareHours = resolveEffectiveCareHours();
+  childcareFeeCareHours.value = effectiveCareHours;
+  if (!effectiveCareHours) {
+    childcareFee.value = null;
+    return;
+  }
+
   isLoadingChildcareFee.value = true;
   try {
     const isFosterFamily = status === 'FOSTER_FAMILY';
@@ -213,14 +255,11 @@ async function loadChildcareFee() {
       ?? household.children?.filter(c => c.isActive).length 
       ?? 1;
     
-    // Get care hours from child
-    const careHours = child.value.careHours || 30;
-    
     childcareFee.value = await api.calculateChildcareFee({
       income,
       childAgeType: 'krippe',
       siblingsCount,
-      careHours,
+      careHours: effectiveCareHours.hours,
       highestRate: isHighestRate,
       fosterFamily: isFosterFamily,
     });
@@ -1298,6 +1337,9 @@ async function createReminder() {
                   <div v-else-if="childcareFee">
                     <p class="font-semibold text-lg text-primary">{{ formatCurrency(childcareFee.fee) }}</p>
                     <p class="text-sm text-gray-500">{{ childcareFee.rule }}</p>
+                    <p v-if="childcareFeeCareHours" class="text-sm text-gray-500">
+                      Basis: {{ formatCareHours(childcareFeeCareHours.hours) }}<span v-if="childcareFeeCareHours.effectiveFrom"> (ab {{ formatDate(childcareFeeCareHours.effectiveFrom) }})</span>
+                    </p>
                     <p v-if="childcareFee.discountPercent > 0" class="text-sm text-green-600">
                       Geschwisterrabatt: {{ childcareFee.discountPercent }}%
                     </p>
@@ -1312,6 +1354,9 @@ async function createReminder() {
                       </span>
                       <span v-else-if="child.household.incomeStatus === 'NOT_REQUIRED' || child.household.incomeStatus === 'HISTORIC'">
                         Nicht zutreffend
+                      </span>
+                      <span v-else-if="!childcareFeeCareHours">
+                        Betreuungszeit nicht hinterlegt
                       </span>
                       <span v-else>
                         Kann nicht berechnet werden

@@ -247,11 +247,8 @@ func (s *FeeService) Generate(ctx context.Context, year int, month *int) (*Gener
 		if child.IsUnderThreeForEntireMonth(year, time.Month(*month)) {
 			info := s.getIncomeInfo(ctx, &child)
 
-			// Get care hours from child, default to 45
-			careHours := 45
-			if child.CareHours != nil && *child.CareHours > 0 {
-				careHours = *child.CareHours
-			}
+			// Care hours effective in the billed month (falls back to the default when unknown)
+			careHours := s.resolveCareHours(ctx, &child, year, month)
 
 			feeResult := s.CalculateChildcareFee(domain.ChildcareFeeInput{
 				ChildAgeType:  domain.ChildAgeTypeKrippe,
@@ -880,11 +877,8 @@ func (s *FeeService) calculateChildcareFeeForChild(ctx context.Context, child *d
 
 	info := s.getIncomeInfo(ctx, child)
 
-	// Get care hours from child, default to 45
-	careHours := 45
-	if child.CareHours != nil && *child.CareHours > 0 {
-		careHours = *child.CareHours
-	}
+	// Care hours effective in the billed month (falls back to the default when unknown)
+	careHours := s.resolveCareHours(ctx, child, year, month)
 
 	feeResult := s.CalculateChildcareFee(domain.ChildcareFeeInput{
 		ChildAgeType:  domain.ChildAgeTypeKrippe,
@@ -896,6 +890,69 @@ func (s *FeeService) calculateChildcareFeeForChild(ctx context.Context, child *d
 	})
 
 	return feeResult.Fee
+}
+
+// DefaultCareHours is used when no care hours are recorded for a child at all.
+const DefaultCareHours = 45
+
+// resolveCareHours determines the weekly care hours that apply for the billed period.
+//
+// fees.children.care_hours only mirrors the period that is effective today, so it is NULL
+// for children that have not started yet and stale for past/future months. The care hours
+// history is therefore the authoritative source; the stored current value and the default
+// are only used as fallbacks.
+func (s *FeeService) resolveCareHours(ctx context.Context, child *domain.Child, year int, month *int) int {
+	reference := time.Now()
+	if month != nil {
+		reference = time.Date(year, time.Month(*month), 1, 0, 0, 0, 0, time.UTC)
+	}
+
+	history, err := s.childRepo.ListCareHoursHistory(ctx, child.ID)
+	if err == nil {
+		if hours, ok := careHoursAt(history, reference); ok {
+			return hours
+		}
+	}
+
+	if child.CareHours != nil && *child.CareHours > 0 {
+		return *child.CareHours
+	}
+	return DefaultCareHours
+}
+
+// careHoursAt returns the care hours effective at the reference date. If no period covers
+// the reference date (e.g. the child starts later), the closest upcoming period is used.
+func careHoursAt(history []domain.ChildCareHoursHistory, reference time.Time) (int, bool) {
+	ref := time.Date(reference.Year(), reference.Month(), reference.Day(), 0, 0, 0, 0, time.UTC)
+
+	var upcoming *domain.ChildCareHoursHistory
+	for i := range history {
+		entry := history[i]
+		if entry.CareHours == nil || *entry.CareHours <= 0 {
+			continue
+		}
+		from := truncateToDayUTC(entry.EffectiveFrom)
+		if from.After(ref) {
+			if upcoming == nil || from.Before(truncateToDayUTC(upcoming.EffectiveFrom)) {
+				candidate := entry
+				upcoming = &candidate
+			}
+			continue
+		}
+		if entry.EffectiveUntil != nil && truncateToDayUTC(*entry.EffectiveUntil).Before(ref) {
+			continue
+		}
+		return *entry.CareHours, true
+	}
+
+	if upcoming != nil {
+		return *upcoming.CareHours, true
+	}
+	return 0, false
+}
+
+func truncateToDayUTC(t time.Time) time.Time {
+	return time.Date(t.Year(), t.Month(), t.Day(), 0, 0, 0, 0, time.UTC)
 }
 
 // CreateReminder creates a reminder fee (Mahngebühr) for an unpaid fee.
