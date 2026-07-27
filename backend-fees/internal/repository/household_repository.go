@@ -188,13 +188,10 @@ func (r *PostgresHouseholdRepository) GetParents(ctx context.Context, householdI
 func (r *PostgresHouseholdRepository) GetChildren(ctx context.Context, householdID uuid.UUID) ([]domain.Child, error) {
 	var children []domain.Child
 	err := r.db.SelectContext(ctx, &children, `
-		SELECT id, household_id, member_number, first_name, last_name, birth_date, entry_date, exit_date,
-		       street, street_no, postal_code, city,
-		       legal_hours, legal_hours_until, care_hours,
-		       is_active, created_at, updated_at
-		FROM fees.children
-		WHERE household_id = $1
-		ORDER BY last_name, first_name
+		SELECT `+childSelectColumns+`
+		FROM fees.children c`+childCurrentHoursJoins+`
+		WHERE c.household_id = $1
+		ORDER BY c.last_name, c.first_name
 	`, householdID)
 	if err != nil {
 		return nil, err

@@ -191,6 +191,27 @@ async function loadTrustedIbans() {
 // `child.careHours` only reflects the period that is effective today, so for children
 // that have not started yet it is null. In that case the next upcoming care hours entry
 // is used instead of silently assuming a default value.
+// Returns the period that starts closest in the future, if any.
+function nextUpcomingPeriod<T extends { effectiveFrom: string }>(entries: T[]): T | null {
+  const now = Date.now();
+  const upcoming = entries
+    .filter((entry) => new Date(entry.effectiveFrom).getTime() > now)
+    .sort((a, b) => new Date(a.effectiveFrom).getTime() - new Date(b.effectiveFrom).getTime());
+  return upcoming[0] ?? null;
+}
+
+// The backend only reports the hours effective today, so children that start later have no
+// current value. These computeds surface the already recorded upcoming period instead.
+const upcomingCareHours = computed(() => {
+  if (child.value?.careHours !== undefined && child.value?.careHours !== null) return null;
+  return nextUpcomingPeriod(careHoursHistory.value.filter((entry) => entry.careHours !== undefined && entry.careHours !== null));
+});
+
+const upcomingLegalHours = computed(() => {
+  if (child.value?.legalHours !== undefined && child.value?.legalHours !== null) return null;
+  return nextUpcomingPeriod(legalHoursHistory.value.filter((entry) => entry.legalHours !== undefined && entry.legalHours !== null));
+});
+
 function resolveEffectiveCareHours(): EffectiveCareHours | null {
   if (!child.value) return null;
 
@@ -199,12 +220,7 @@ function resolveEffectiveCareHours(): EffectiveCareHours | null {
     return { hours: current, effectiveFrom: null, isUpcoming: false };
   }
 
-  const now = Date.now();
-  const upcoming = careHoursHistory.value
-    .filter((entry) => entry.careHours !== undefined && entry.careHours !== null)
-    .filter((entry) => new Date(entry.effectiveFrom).getTime() > now)
-    .sort((a, b) => new Date(a.effectiveFrom).getTime() - new Date(b.effectiveFrom).getTime())[0];
-
+  const upcoming = upcomingCareHours.value;
   if (upcoming && upcoming.careHours !== undefined && upcoming.careHours !== null) {
     return { hours: upcoming.careHours, effectiveFrom: upcoming.effectiveFrom, isUpcoming: true };
   }
@@ -1199,13 +1215,23 @@ async function createReminder() {
             <div>
               <p class="text-sm text-gray-500">Betreuungszeiten</p>
               <p class="font-medium">
-                Rechtsanspruch: {{ formatCareHours(child.legalHours) }}
-                <span v-if="child.legalHoursUntil" class="text-sm text-gray-500">
-                  (bis {{ formatDate(child.legalHoursUntil) }})
-                </span>
+                Rechtsanspruch:
+                <template v-if="upcomingLegalHours">
+                  ab {{ formatDate(upcomingLegalHours.effectiveFrom) }}: {{ formatCareHours(upcomingLegalHours.legalHours) }}
+                </template>
+                <template v-else>
+                  {{ formatCareHours(child.legalHours) }}
+                  <span v-if="child.legalHoursUntil" class="text-sm text-gray-500">
+                    (bis {{ formatDate(child.legalHoursUntil) }})
+                  </span>
+                </template>
               </p>
               <p class="font-medium">
-                Betreuungszeit: {{ formatCareHours(child.careHours) }}
+                Betreuungszeit:
+                <template v-if="upcomingCareHours">
+                  ab {{ formatDate(upcomingCareHours.effectiveFrom) }}: {{ formatCareHours(upcomingCareHours.careHours) }}
+                </template>
+                <template v-else>{{ formatCareHours(child.careHours) }}</template>
               </p>
               <div v-if="legalHoursHistory.length > 0" class="mt-2 space-y-1">
                 <p class="text-xs uppercase tracking-wide text-gray-400">Historie Rechtsanspruch</p>

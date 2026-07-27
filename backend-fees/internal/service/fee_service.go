@@ -248,7 +248,7 @@ func (s *FeeService) Generate(ctx context.Context, year int, month *int) (*Gener
 			info := s.getIncomeInfo(ctx, &child)
 
 			// Care hours effective in the billed month (falls back to the default when unknown)
-			careHours := s.resolveCareHours(ctx, &child, year, month)
+			careHours := s.ResolveCareHours(ctx, &child, year, month)
 
 			feeResult := s.CalculateChildcareFee(domain.ChildcareFeeInput{
 				ChildAgeType:  domain.ChildAgeTypeKrippe,
@@ -878,7 +878,7 @@ func (s *FeeService) calculateChildcareFeeForChild(ctx context.Context, child *d
 	info := s.getIncomeInfo(ctx, child)
 
 	// Care hours effective in the billed month (falls back to the default when unknown)
-	careHours := s.resolveCareHours(ctx, child, year, month)
+	careHours := s.ResolveCareHours(ctx, child, year, month)
 
 	feeResult := s.CalculateChildcareFee(domain.ChildcareFeeInput{
 		ChildAgeType:  domain.ChildAgeTypeKrippe,
@@ -895,13 +895,12 @@ func (s *FeeService) calculateChildcareFeeForChild(ctx context.Context, child *d
 // DefaultCareHours is used when no care hours are recorded for a child at all.
 const DefaultCareHours = 45
 
-// resolveCareHours determines the weekly care hours that apply for the billed period.
+// ResolveCareHours determines the weekly care hours that apply for the billed period.
 //
-// fees.children.care_hours only mirrors the period that is effective today, so it is NULL
-// for children that have not started yet and stale for past/future months. The care hours
-// history is therefore the authoritative source; the stored current value and the default
-// are only used as fallbacks.
-func (s *FeeService) resolveCareHours(ctx context.Context, child *domain.Child, year int, month *int) int {
+// The care hours history is the single source of truth. The value carried on domain.Child
+// only reflects the period that is effective today, so it is empty for children that have
+// not started yet and must never be used for a different month.
+func (s *FeeService) ResolveCareHours(ctx context.Context, child *domain.Child, year int, month *int) int {
 	reference := time.Now()
 	if month != nil {
 		reference = time.Date(year, time.Month(*month), 1, 0, 0, 0, 0, time.UTC)

@@ -7,19 +7,27 @@ import (
 )
 
 // Child represents a child enrolled in the Kita.
+//
+// LegalHours, LegalHoursUntil and CareHours are not stored on the child row. They are
+// derived from fees.child_legal_hours_history and fees.child_care_hours_history and hold
+// the period that is effective today, so they are empty for children that have not started
+// yet. On write they are interpreted as the value effective from the child's entry date
+// (create) or from today (update). For any other point in time, read the history via
+// ChildRepository.ListCareHoursHistory / ListLegalHoursHistory.
 type Child struct {
-	ID              uuid.UUID  `json:"id" db:"id"`
-	HouseholdID     *uuid.UUID `json:"householdId,omitempty" db:"household_id"`
-	MemberNumber    string     `json:"memberNumber" db:"member_number"`
-	FirstName       string     `json:"firstName" db:"first_name"`
-	LastName        string     `json:"lastName" db:"last_name"`
-	BirthDate       time.Time  `json:"birthDate" db:"birth_date"`
-	EntryDate       time.Time  `json:"entryDate" db:"entry_date"`
-	ExitDate        *time.Time `json:"exitDate,omitempty" db:"exit_date"`
-	Street          *string    `json:"street,omitempty" db:"street"`
-	StreetNo        *string    `json:"streetNo,omitempty" db:"street_no"`
-	PostalCode      *string    `json:"postalCode,omitempty" db:"postal_code"`
-	City            *string    `json:"city,omitempty" db:"city"`
+	ID           uuid.UUID  `json:"id" db:"id"`
+	HouseholdID  *uuid.UUID `json:"householdId,omitempty" db:"household_id"`
+	MemberNumber string     `json:"memberNumber" db:"member_number"`
+	FirstName    string     `json:"firstName" db:"first_name"`
+	LastName     string     `json:"lastName" db:"last_name"`
+	BirthDate    time.Time  `json:"birthDate" db:"birth_date"`
+	EntryDate    time.Time  `json:"entryDate" db:"entry_date"`
+	ExitDate     *time.Time `json:"exitDate,omitempty" db:"exit_date"`
+	Street       *string    `json:"street,omitempty" db:"street"`
+	StreetNo     *string    `json:"streetNo,omitempty" db:"street_no"`
+	PostalCode   *string    `json:"postalCode,omitempty" db:"postal_code"`
+	City         *string    `json:"city,omitempty" db:"city"`
+	// Derived from the history tables (see type comment), not stored on fees.children.
 	LegalHours      *int       `json:"legalHours,omitempty" db:"legal_hours"`
 	LegalHoursUntil *time.Time `json:"legalHoursUntil,omitempty" db:"legal_hours_until"`
 	CareHours       *int       `json:"careHours,omitempty" db:"care_hours"`
