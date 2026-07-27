@@ -3,6 +3,7 @@ import { computed, nextTick, ref } from 'vue';
 import type { Einstufung, Child } from '@/api/types';
 import { FileDown, Loader2 } from 'lucide-vue-next';
 import printStyles from './EinstufungPDF.css?raw';
+import logoUrl from '@/assets/knirpsenstadt-logo.png';
 
 const props = defineProps<{
   einstufung: Einstufung;
@@ -11,6 +12,7 @@ const props = defineProps<{
 
 const isGenerating = ref(false);
 const pdfContainer = ref<HTMLElement | null>(null);
+const logoSrc = ref<string>(logoUrl);
 
 const child = computed(() => props.einstufung.child as Child | undefined);
 
@@ -145,6 +147,7 @@ const isFollowUp = computed(() => !!props.einstufung.sourceEinstufungId);
 const showMembershipRow = computed(() => isFollowUp.value || feeColumns.value.some(c => c.membershipFee > 0));
 const primaryFeeColumnIndex = computed(() => feeColumns.value.length > 2 && isFollowUp.value ? 1 : 0);
 const isPrimaryFeeColumn = (idx: number) => idx === primaryFeeColumnIndex.value;
+const monthlyTotal = (col: FeeColumn) => col.childcareFee + col.foodFee;
 
 const entryDateFormatted = computed(() => {
   if (!child.value?.entryDate) return '—';
@@ -154,6 +157,19 @@ const entryDateFormatted = computed(() => {
 const birthDateFormatted = computed(() => {
   if (!child.value?.birthDate) return '—';
   return new Date(child.value.birthDate).toLocaleDateString('de-DE');
+});
+
+const documentDateFormatted = computed(() => {
+  const raw = props.einstufung.createdAt;
+  const date = raw ? new Date(raw) : new Date();
+  const value = Number.isNaN(date.getTime()) ? new Date() : date;
+  return value.toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' });
+});
+
+const validFromFormatted = computed(() => {
+  const start = parseMonthStart(props.einstufung.effectiveFromMonth || props.einstufung.validFrom);
+  if (!start) return '—';
+  return start.toLocaleDateString('de-DE', { month: 'long', year: 'numeric', timeZone: 'UTC' });
 });
 
 const memberNumber = computed(() => child.value?.memberNumber ?? '—');
@@ -183,6 +199,29 @@ function formatEur(amount: number): string {
   return amount.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
 }
 
+let inlineLogoPromise: Promise<string> | null = null;
+
+// The print window is a blank document, so relative asset URLs would not
+// resolve there. Inline the logo as a data URL (with an absolute URL fallback).
+function loadInlineLogo(): Promise<string> {
+  if (!inlineLogoPromise) {
+    const absoluteUrl = new URL(logoUrl, window.location.href).href;
+    inlineLogoPromise = fetch(absoluteUrl)
+      .then((response) => (response.ok ? response.blob() : Promise.reject(new Error('logo request failed'))))
+      .then(
+        (blob) =>
+          new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(String(reader.result));
+            reader.onerror = () => reject(reader.error);
+            reader.readAsDataURL(blob);
+          })
+      )
+      .catch(() => absoluteUrl);
+  }
+  return inlineLogoPromise;
+}
+
 async function waitForPdfLayout() {
   await nextTick();
 
@@ -206,6 +245,7 @@ async function generatePdf() {
   isGenerating.value = true;
 
   try {
+    logoSrc.value = await loadInlineLogo();
     await waitForPdfLayout();
     const printWindow = window.open('', '_blank', 'width=960,height=1200');
     if (!printWindow) {
@@ -232,7 +272,7 @@ ${printStyles}
 
 @page {
   size: A4;
-  margin: 10mm 12mm 12mm 12mm;
+  margin: 13mm 15mm 10mm 15mm;
 }
 
 html,
@@ -299,88 +339,111 @@ defineExpose({ generatePdf });
     <div class="pdf-stage" aria-hidden="true">
       <div ref="pdfContainer" class="page">
 
-        <!-- page-header -->
-        <div class="page-header">
-          <div class="page-header__sender">
-            Elternverein Kita Knirpsenstadt e.V. &middot; Ahornallee 27 &middot; 16341 Panketal
-          </div>
-          <div class="page-header__sub">Der Vorstand der Kita</div>
-          <div class="page-header__rule"></div>
-        </div>
-
-        <!-- title -->
-        <div class="title">
-          Einstufung Elternbeiträge {{ einstufungYear }}
-        </div>
-
-        <!-- info-grid -->
-        <div class="info-grid">
-          <div class="info-grid__name">{{ childName }}</div>
-          <div class="info-grid__fields">
-            <div class="info-item">
-              <div class="info-item__label">Geburtsdatum</div>
-              <div class="info-item__value">{{ birthDateFormatted }}</div>
+        <!-- Briefkopf -->
+        <header>
+          <div class="letterhead">
+            <div class="letterhead__org">
+              <div class="letterhead__name">Kita Knirpsenstadt e.&thinsp;V.</div>
+              <div class="letterhead__claim">Elternverein &middot; Der Vorstand</div>
             </div>
-            <div class="info-item">
-              <div class="info-item__label">Besucht seit</div>
-              <div class="info-item__value">{{ entryDateFormatted }}</div>
-            </div>
-            <div class="info-item">
-              <div class="info-item__label">Mitgliedsnummer</div>
-              <div class="info-item__value">{{ memberNumber }}</div>
-            </div>
-            <div class="info-item info-item--wide">
-              <div class="info-item__label">Einrichtung</div>
-              <div class="info-item__value">Kita Knirpsenstadt e.V., Ahornallee 27, 16341 Panketal</div>
+            <div class="letterhead__mark">
+              <img class="letterhead__logo" :src="logoSrc" alt="Kita Knirpsenstadt e. V." />
             </div>
           </div>
+          <div class="letterhead__rule"></div>
+        </header>
+
+        <!-- Bezugszeile / Datum -->
+        <div class="meta">
+          <div class="meta__left">Mitgliedsnummer {{ memberNumber }}</div>
+          <div class="meta__right">Panketal, den {{ documentDateFormatted }}</div>
         </div>
 
-        <!-- section: Rechtstext -->
+        <!-- Betreff -->
+        <h1 class="subject">Einstufung der Elternbeiträge {{ einstufungYear }}</h1>
+        <div class="subject__sub">
+          für {{ childName }} &middot; gültig ab {{ validFromFormatted }}
+        </div>
+
+        <p class="salutation">Liebe Eltern,</p>
+        <p class="body-text">
+          auf Grundlage der eingereichten Nachweise und der Elternbeitragsordnung des Trägers haben
+          wir die Elternbeiträge für euer Kind wie folgt eingestuft.
+        </p>
+
+        <!-- Angaben zum Kind -->
         <section class="section">
-          <p class="body-text">
-            Nach § 17 des Kindertagesstättengesetzes haben die Erziehungsberechtigten Beiträge zur
-            Inanspruchnahme eines Platzes in der Kindertagesstätte zu entrichten. Dieser monatliche
-            Elternbeitrag wird in Verbindung mit der Elternbeitragsordnung des Trägers ermittelt.
-            Die Kindertagesstätte „Knirpsenstadt" in 16341 Panketal, Ahornallee 27 befindet sich in
-            freier Trägerschaft des „Knirpsenstadt e.V. Panketal".
-          </p>
-          <p class="body-text">
-            Berechnet wird nach wirtschaftlicher Leistungsfähigkeit (Nettoeinkommen im Jahr), dem
-            Alter des Kindes und der beanspruchten Betreuungszeit. Eine Ermäßigung des Elternbeitrages
-            wird auch nach der Anzahl der unterhaltspflichtigen Kinder gewährt (jedoch nicht nach dem
-            Brandenburg Entlastungspaket).
-          </p>
+          <div class="section__heading">Angaben zum Kind</div>
+          <table class="data-table">
+            <tbody>
+              <tr>
+                <th>Name</th>
+                <td>{{ childName }}</td>
+                <th>Geburtsdatum</th>
+                <td>{{ birthDateFormatted }}</td>
+              </tr>
+              <tr>
+                <th>Besucht die Kita seit</th>
+                <td>{{ entryDateFormatted }}</td>
+                <th>Mitgliedsnummer</th>
+                <td>{{ memberNumber }}</td>
+              </tr>
+              <tr>
+                <th>Einrichtung</th>
+                <td colspan="3">Kita Knirpsenstadt e.&thinsp;V., Ahornallee 27, 16341 Panketal</td>
+              </tr>
+            </tbody>
+          </table>
         </section>
 
-        <!-- notice-box: Einstufungsgrundlage -->
-        <div class="notice-box">
-          <div class="notice-box__label">Grundlage der Einstufung</div>
-          <div class="notice-box__text">{{ feeRuleText }}</div>
+        <!-- Grundlage der Einstufung -->
+        <div class="callout">
+          <span class="callout__lead">Grundlage der Einstufung:</span>
+          {{ feeRuleText }}
         </div>
 
-        <!-- section: Beitragsübersicht -->
+        <!-- Beitragsübersicht -->
         <section class="section">
           <div class="section__heading">Monatliche Beiträge</div>
 
           <table class="fee-table">
             <thead>
               <tr>
-                <th class="fee-table__col-label"></th>
+                <th class="fee-table__col-label">&nbsp;</th>
                 <th
                   v-for="(col, idx) in feeColumns"
                   :key="col.label"
-                  class="fee-table__col-month"
-                  :class="{ 'fee-table__col-month--first': isPrimaryFeeColumn(idx) }"
+                  :class="{ 'fee-table__col-month--primary': isPrimaryFeeColumn(idx) }"
                 >
-                  <div class="fee-table__month-name">{{ col.label }}</div>
-                  <div class="fee-table__month-sub">{{ col.careType }} &middot; {{ col.careHours }} h/Woche</div>
+                  {{ col.label }}
                 </th>
               </tr>
             </thead>
             <tbody>
-              <tr class="fee-table__row">
-                <td class="fee-table__row-label">Platzgeld</td>
+              <tr>
+                <td class="fee-table__row-label">Betreuungsbereich</td>
+                <td
+                  v-for="(col, idx) in feeColumns"
+                  :key="col.label"
+                  class="fee-table__amount"
+                  :class="{ 'fee-table__amount--primary': isPrimaryFeeColumn(idx) }"
+                >
+                  {{ col.careType }}
+                </td>
+              </tr>
+              <tr>
+                <td class="fee-table__row-label">Betreuungszeit je Woche</td>
+                <td
+                  v-for="(col, idx) in feeColumns"
+                  :key="col.label"
+                  class="fee-table__amount"
+                  :class="{ 'fee-table__amount--primary': isPrimaryFeeColumn(idx) }"
+                >
+                  {{ col.careHours }} Std.
+                </td>
+              </tr>
+              <tr>
+                <td class="fee-table__row-label">Platzgeld (monatlich)</td>
                 <td
                   v-for="(col, idx) in feeColumns"
                   :key="col.label"
@@ -390,8 +453,8 @@ defineExpose({ generatePdf });
                   {{ formatEur(col.childcareFee) }}
                 </td>
               </tr>
-              <tr class="fee-table__row">
-                <td class="fee-table__row-label">Essensgeld</td>
+              <tr>
+                <td class="fee-table__row-label">Essensgeld (monatlich)</td>
                 <td
                   v-for="(col, idx) in feeColumns"
                   :key="col.label"
@@ -401,16 +464,25 @@ defineExpose({ generatePdf });
                   {{ formatEur(col.foodFee) }}
                 </td>
               </tr>
-              <tr v-if="showMembershipRow" class="fee-table__row fee-table__row--membership">
-                <td class="fee-table__row-label fee-table__row-label--membership">
+              <tr class="fee-table__row--total">
+                <td class="fee-table__row-label">Monatlich zu zahlen</td>
+                <td
+                  v-for="col in feeColumns"
+                  :key="col.label"
+                  class="fee-table__amount"
+                >
+                  {{ formatEur(monthlyTotal(col)) }}
+                </td>
+              </tr>
+              <tr v-if="showMembershipRow" class="fee-table__row--membership">
+                <td class="fee-table__row-label">
                   Vereinsbeitrag (jährlich)
-                  <span v-if="isFollowUp"> · Jahresbeitrag bereits bezahlt</span>
+                  <template v-if="isFollowUp"> &ndash; bereits bezahlt</template>
                 </td>
                 <td
-                  v-for="(col, idx) in feeColumns"
+                  v-for="col in feeColumns"
                   :key="col.label"
-                  class="fee-table__amount fee-table__amount--membership"
-                  :class="{ 'fee-table__amount--primary': isPrimaryFeeColumn(idx) }"
+                  class="fee-table__amount"
                 >
                   {{ col.membershipFee > 0 || isFollowUp ? formatEur(col.membershipFee) : '—' }}
                 </td>
@@ -419,63 +491,78 @@ defineExpose({ generatePdf });
           </table>
         </section>
 
-        <!-- payment-note -->
-        <div class="payment-note">
-          <span class="payment-note__marker">Hinweis &ndash;</span>
-          <span class="payment-note__text">
-            Bitte gleicht die Beträge für Mitgliedschaft, Betreuung und Essensgeld in
-            <strong class="payment-note__emphasis">getrennten</strong> Zahlungen unter Angabe des
-            Namens und der Mitgliedsnummer aus.
-          </span>
+        <!-- Hinweis zur Zahlungsweise -->
+        <div class="callout callout--quiet">
+          <span class="callout__lead">Hinweis:</span>
+          Bitte gleicht die Beträge für Mitgliedschaft, Betreuung und Essensgeld in
+          <strong>getrennten</strong> Zahlungen unter Angabe des Namens des Kindes und der
+          Mitgliedsnummer aus. Die Beträge gelten fortlaufend ab dem jeweils genannten Monat,
+          bis eine neue Einstufung erfolgt.
         </div>
 
-        <!-- section: Zahlungsbedingungen & Änderungspflicht -->
-        <section class="section">
-          <div class="section__heading">Zahlungsbedingungen</div>
-          <p class="body-text">
-            Der monatliche Beitrag wird am 5. eines jeden Monats fällig. Beiträge, die
-            in Verzug sind, werden zusätzlich mit einer Mahngebühr von 10,00 € erhoben.
-          </p>
-          <p class="body-text">
-            Der Vereinsbeitrag (derzeit 30,00 €) ist jährlich zu zahlen: Bei Vertragsbeginn sofort,
-            ansonsten bis spätestens Ende des ersten Quartals. Nach Fristablauf wird ein Mahngeld
-            von 5,00 € erhoben.
-          </p>
-          <div class="section__heading section__heading--sub">Änderungspflicht</div>
-          <p class="body-text">
-            Wenn sich das Nettoeinkommen im laufenden Jahr gegenüber dem Vorjahr (bzw. bei
-            Selbständigen gegenüber der letzten Festsetzung) um mehr als 10 % verändert, ist dies
-            unter Vorlage entsprechender Nachweise unverzüglich anzuzeigen.
-          </p>
-        </section>
+        <!-- Kleingedrucktes -->
+        <div class="fineprint">
+          <div class="fineprint__col">
+            <div class="fineprint__heading">Rechtliche Grundlage</div>
+            <p>
+              Nach § 17 des Kindertagesstättengesetzes haben die Erziehungsberechtigten Beiträge zur
+              Inanspruchnahme eines Platzes in der Kindertagesstätte zu entrichten. Dieser monatliche
+              Elternbeitrag wird in Verbindung mit der Elternbeitragsordnung des Trägers ermittelt.
+              Die Kindertagesstätte „Knirpsenstadt“ in 16341 Panketal, Ahornallee 27 befindet sich in
+              freier Trägerschaft des „Knirpsenstadt e.&thinsp;V. Panketal“.
+            </p>
+            <p>
+              Berechnet wird nach wirtschaftlicher Leistungsfähigkeit (Nettoeinkommen im Jahr), dem
+              Alter des Kindes und der beanspruchten Betreuungszeit. Eine Ermäßigung des
+              Elternbeitrages wird auch nach der Anzahl der unterhaltspflichtigen Kinder gewährt
+              (jedoch nicht nach dem Brandenburger Entlastungspaket).
+            </p>
+          </div>
+          <div class="fineprint__col">
+            <div class="fineprint__heading">Zahlungsbedingungen</div>
+            <p>
+              Der monatliche Beitrag wird am 5. eines jeden Monats fällig. Beiträge, die in Verzug
+              sind, werden zusätzlich mit einer Mahngebühr von 10,00 € erhoben. Der Vereinsbeitrag
+              (derzeit 30,00 €) ist jährlich zu zahlen: bei Vertragsbeginn sofort, ansonsten bis
+              spätestens Ende des ersten Quartals. Nach Fristablauf wird ein Mahngeld von 5,00 €
+              erhoben.
+            </p>
+            <div class="fineprint__heading fineprint__heading--sub">Änderungspflicht</div>
+            <p>
+              Wenn sich das Nettoeinkommen im laufenden Jahr gegenüber dem Vorjahr (bzw. bei
+              Selbständigen gegenüber der letzten Festsetzung) um mehr als 10 % verändert, ist dies
+              unter Vorlage entsprechender Nachweise unverzüglich anzuzeigen.
+            </p>
+          </div>
+        </div>
 
-        <!-- footer -->
+        <!-- Grußformel -->
+        <div class="closing">
+          <p class="body-text">Mit freundlichen Grüßen</p>
+          <div class="closing__signature">Der Vorstand der Kita Knirpsenstadt e.&thinsp;V.</div>
+        </div>
+
+        <!-- Fußzeile -->
         <footer class="footer">
-          <div class="footer__rule"></div>
-          <div class="footer__register">
-            Kita Knirpsenstadt e.V. &middot; Vereinsregister VR 4217 beim Amtsgericht Frankfurt (Oder)
-          </div>
-          <div class="footer__columns">
-            <div class="footer__col">
-              <div class="footer__col-heading">Vorstandsmitglieder</div>
-              <div class="footer__line">André Rüger (1. Vorsitzender)</div>
-              <div class="footer__line">Sarah Thränhardt (2. Vorsitzende / Bauliches)</div>
-              <div class="footer__line">Marcus Rehaag (Finanzen)</div>
-              <div class="footer__line">Stefan Remer (Elternarbeit)</div>
-              <div class="footer__line">Samantha Lahl (Schriftführerin)</div>
-              <div class="footer__line">Dennis Braak (Personal)</div>
-            </div>
-            <div class="footer__col">
-              <div class="footer__col-heading">Bankverbindung</div>
-              <div class="footer__line">Knirpsenstadt e. V.</div>
-              <div class="footer__line">IBAN: DE33 3702 0500 0003 3214 00</div>
-              <div class="footer__line">BIC: BFSWDE33XXX</div>
-              <div class="footer__line">Bank für Sozialwirtschaft AG</div>
-            </div>
-          </div>
-          <div class="footer__legal">
+          <p class="footer__line">
+            <span class="footer__label">Verein</span>
+            Kita Knirpsenstadt e.&thinsp;V. &middot; Ahornallee 27 &middot; 16341 Panketal &middot;
+            Vereinsregister VR 4217, Amtsgericht Frankfurt (Oder)
+          </p>
+          <p class="footer__line">
+            <span class="footer__label">Vorstand</span>
+            André Rüger (1. Vorsitzender) &middot; Sarah Thränhardt (2. Vorsitzende / Bauliches) &middot;
+            Marcus Rehaag (Finanzen) &middot; Stefan Remer (Elternarbeit) &middot;
+            Samantha Lahl (Schriftführerin) &middot; Dennis Braak (Personal)
+          </p>
+          <p class="footer__line">
+            <span class="footer__label">Bank</span>
+            Knirpsenstadt e.&thinsp;V. &middot; IBAN DE33 3702 0500 0003 3214 00 &middot;
+            BIC BFSWDE33XXX &middot; Bank für Sozialwirtschaft AG
+          </p>
+          <p class="footer__legal">
             Rechtlich verbindliche Aussagen für den Verein trifft allein der Vorstand.
-          </div>
+          </p>
         </footer>
 
       </div>

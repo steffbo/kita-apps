@@ -1,4 +1,9 @@
-/* ── Design Tokens ─────────────────────────────────────────────────────────── */
+/* ───────────────────────────────────────────────────────────────────────────
+   Einstufung – Druckdokument (Geschäftsbrief-Anmutung, genau eine A4-Seite)
+   Bewusst monochrom, serifenbetont, ohne Web-Optik: keine farbigen Boxen,
+   keine getönten Flächen, nur Haarlinien und typografische Hierarchie.
+   ─────────────────────────────────────────────────────────────────────────── */
+
 .pdf-stage {
   position: absolute;
   left: -9999px;
@@ -7,374 +12,348 @@
 }
 
 .page {
-  width: 186mm;
-  font-family: Arial, Helvetica, sans-serif;
-  font-size: 10.75px;
-  color: #1c1c1c;
-  line-height: 1.6;
-  background: #ffffff;
-  padding: 0 0 8px;
+  width: 180mm;
   box-sizing: border-box;
+  background: #fff;
+  color: #14140f;
+  font-family: Palatino, 'Palatino Linotype', 'Book Antiqua', 'Liberation Serif',
+    'Times New Roman', Times, serif;
+  font-size: 9pt;
+  line-height: 1.36;
+  font-variant-numeric: lining-nums tabular-nums;
+  -webkit-font-feature-settings: 'lnum' 1, 'tnum' 1;
+  font-feature-settings: 'lnum' 1, 'tnum' 1;
 }
 
-/* ── Page Header ───────────────────────────────────────────────────────────── */
-.page-header {
-  margin-bottom: 18px;
-}
-
-.page-header__sender {
-  font-size: 8.5px;
-  color: #888;
-  letter-spacing: 0.2px;
-  margin-bottom: 3px;
-}
-
-.page-header__sub {
-  font-size: 9.5px;
-  color: #555;
-  font-weight: 500;
-}
-
-.page-header__rule {
-  margin-top: 10px;
-  height: 1px;
-  background: #d1d5db;
-}
-
-/* ── Title ─────────────────────────────────────────────────────────────────── */
-.title {
-  font-size: 18px;
-  font-weight: 700;
-  color: #1c6a38;
-  letter-spacing: -0.2px;
-  margin-bottom: 16px;
-  padding-bottom: 8px;
-  border-bottom: 2px solid #1c6a38;
-}
-
-/* ── Info Grid (Stammdaten) ────────────────────────────────────────────────── */
-.info-grid {
-  border: 1px solid #d1d5db;
-  border-left: 3px solid #1c6a38;
-  padding: 11px 13px;
-  margin-bottom: 16px;
-  background: #fafafa;
-  break-inside: avoid;
-  page-break-inside: avoid;
-}
-
-.info-grid__name {
-  font-size: 12.5px;
-  font-weight: 700;
-  color: #1c1c1c;
-  margin-bottom: 10px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid #e5e7eb;
-}
-
-.info-grid__fields {
+/* ── Briefkopf ─────────────────────────────────────────────────────────────── */
+.letterhead {
   display: table;
   width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
+  table-layout: fixed;
 }
 
-.info-item {
+.letterhead__org,
+.letterhead__mark {
   display: table-cell;
-  width: 20%;
-  vertical-align: top;
-  padding-right: 14px;
-  padding-top: 0;
+  vertical-align: bottom;
 }
 
-.info-item--wide {
-  width: 40%;
-  padding-right: 0;
+.letterhead__org {
+  width: 74%;
+  padding-bottom: 1.5mm;
 }
 
-.info-item__label {
-  font-size: 8.5px;
-  color: #777;
+.letterhead__name {
+  font-size: 13pt;
+  letter-spacing: 0.5pt;
+  line-height: 1.1;
+}
+
+.letterhead__claim {
+  font-size: 7.6pt;
+  letter-spacing: 1.5pt;
   text-transform: uppercase;
-  letter-spacing: 0.4px;
-  margin-bottom: 2px;
+  color: #55554d;
+  margin-top: 1.2mm;
 }
 
-.info-item__value {
-  font-size: 10px;
-  font-weight: 600;
-  color: #1c1c1c;
-  line-height: 1.45;
-  word-break: normal;
-  overflow-wrap: break-word;
+.letterhead__mark {
+  width: 26%;
+  text-align: right;
 }
 
-/* ── Sections ──────────────────────────────────────────────────────────────── */
-.section {
-  margin-bottom: 14px;
+.letterhead__logo {
+  width: 18mm;
+  height: auto;
+  display: inline-block;
 }
 
-.section__heading {
-  font-size: 11px;
+.letterhead__rule {
+  border-top: 1pt solid #14140f;
+  border-bottom: 0.4pt solid #14140f;
+  height: 0.9mm;
+  margin-bottom: 0;
+}
+
+/* ── Datum / Bezugszeile ───────────────────────────────────────────────────── */
+.meta {
+  display: table;
+  width: 100%;
+  margin-top: 3mm;
+  font-size: 8.4pt;
+  color: #33332c;
+}
+
+.meta__left,
+.meta__right {
+  display: table-cell;
+  vertical-align: bottom;
+}
+
+.meta__right {
+  text-align: right;
+}
+
+/* ── Betreff ───────────────────────────────────────────────────────────────── */
+.subject {
+  margin: 3mm 0 0;
+  font-size: 12pt;
   font-weight: 700;
-  color: #1c1c1c;
-  margin-bottom: 8px;
-  padding-bottom: 4px;
-  border-bottom: 1.5px solid #1c6a38;
+  line-height: 1.25;
 }
 
-.section__heading--sub {
-  margin-top: 10px;
-  border-bottom-color: #d1d5db;
+.subject__sub {
+  margin-top: 0.8mm;
+  font-size: 9.5pt;
+  color: #33332c;
 }
 
-/* ── Body Text ─────────────────────────────────────────────────────────────── */
+/* ── Absätze ───────────────────────────────────────────────────────────────── */
+.salutation {
+  margin: 3.2mm 0 1.6mm;
+}
+
 .body-text {
-  font-size: 9.75px;
-  color: #3a3a3a;
-  line-height: 1.62;
-  text-align: left;
-  margin-bottom: 7px;
-  word-break: normal;
-  overflow-wrap: break-word;
+  margin: 0 0 1.8mm;
+  line-height: 1.4;
+  text-align: justify;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+  orphans: 2;
+  widows: 2;
 }
 
 .body-text:last-child {
   margin-bottom: 0;
 }
 
-/* ── Notice Box (Einstufungsgrundlage) ─────────────────────────────────────── */
-.notice-box {
-  border: 1px solid #a7c9b2;
-  border-left: 3px solid #1c6a38;
-  background: #f4fbf6;
-  padding: 9px 13px;
-  margin-bottom: 14px;
+/* ── Abschnitte ────────────────────────────────────────────────────────────── */
+.section {
+  margin-top: 3.2mm;
+}
+
+.section__heading {
+  font-size: 8.4pt;
+  font-weight: 700;
+  letter-spacing: 1pt;
+  text-transform: uppercase;
+  padding-bottom: 0.8mm;
+  margin-bottom: 1.6mm;
+  border-bottom: 0.4pt solid #9a9a90;
+  break-after: avoid;
+  page-break-after: avoid;
+}
+
+/* ── Stammdaten (zweispaltig) ──────────────────────────────────────────────── */
+.data-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
   break-inside: avoid;
   page-break-inside: avoid;
 }
 
-.notice-box__label {
-  font-size: 8px;
+.data-table th,
+.data-table td {
+  text-align: left;
+  vertical-align: baseline;
+  padding: 0.8mm 0;
+  border-bottom: 0.3pt solid #dcdcd4;
+}
+
+.data-table tr:last-child th,
+.data-table tr:last-child td {
+  border-bottom: none;
+}
+
+.data-table th {
+  width: 30mm;
+  font-weight: 400;
+  color: #55554d;
+  padding-right: 3mm;
+}
+
+.data-table td {
   font-weight: 700;
-  color: #1c6a38;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 4px;
 }
 
-.notice-box__text {
-  font-size: 9.5px;
-  color: #1c3a26;
-  line-height: 1.6;
-  font-weight: 500;
+.data-table td + th {
+  padding-left: 6mm;
+  border-left: none;
 }
 
-/* ── Fee Table ─────────────────────────────────────────────────────────────── */
+/* ── Rahmenkasten (Grundlage / Hinweis) ────────────────────────────────────── */
+.callout {
+  border: 0.6pt solid #14140f;
+  padding: 1.8mm 3mm;
+  margin-top: 3mm;
+  line-height: 1.4;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.callout__lead {
+  font-weight: 700;
+}
+
+.callout--quiet {
+  border-color: #9a9a90;
+}
+
+.callout strong {
+  font-weight: 700;
+}
+
+/* ── Beitragstabelle ───────────────────────────────────────────────────────── */
 .fee-table {
   width: 100%;
   table-layout: fixed;
   border-collapse: collapse;
-  margin-bottom: 0;
-  font-size: 9.5px;
+  font-size: 8.8pt;
   break-inside: avoid;
   page-break-inside: avoid;
-  border-top: 1px solid #e5e7eb;
-  border-bottom: 1px solid #e5e7eb;
-  background: #ffffff;
 }
 
 .fee-table th,
 .fee-table td {
-  padding: 10px 10px;
+  border: 0.4pt solid #9a9a90;
+  padding: 0.9mm 2.5mm;
   text-align: right;
+  vertical-align: middle;
 }
 
-.fee-table th:first-child,
-.fee-table td:first-child {
-  text-align: left;
-  padding-left: 0;
-  padding-right: 16px;
-}
-
-.fee-table th + th,
-.fee-table td + td {
-  border-left: 1px solid #eef2ef;
-}
-
-.fee-table thead tr {
-  border-bottom: 1.5px solid #1c6a38;
-}
-
-.fee-table__col-label {
-  width: 28%;
-}
-
-.fee-table__col-month {
-  color: #3d3d3d;
-  font-weight: 400;
-  text-align: center;
-  background: #f7faf8;
-}
-
-.fee-table__col-month--first {
-  color: #1c6a38;
-  background: #eef7f1;
-}
-
-.fee-table__month-name {
-  font-size: 10px;
+.fee-table thead th {
+  border-bottom-width: 0.8pt;
   font-weight: 700;
-  margin-bottom: 1px;
-  line-height: 1.2;
-}
-
-.fee-table__month-sub {
-  font-size: 8px;
-  font-weight: 400;
-  color: #777;
-  line-height: 1.25;
-}
-
-.fee-table__row td {
-  border-bottom: 1px solid #ececec;
-  color: #1c1c1c;
-  background: #ffffff;
-}
-
-.fee-table__row:nth-child(even) td {
-  background: #fcfcfc;
-}
-
-.fee-table__row-label {
-  color: #2f2f2f;
-  font-size: 9.5px;
-  font-weight: 600;
-}
-
-.fee-table__amount {
-  font-size: 10px;
-  font-weight: 600;
-  color: #1c1c1c;
+  text-align: center;
   white-space: nowrap;
 }
 
+.fee-table__col-label {
+  width: 38%;
+  border-left: none;
+  border-top: none;
+}
+
+.fee-table td.fee-table__row-label {
+  text-align: left;
+  font-weight: 400;
+  border-left: none;
+}
+
+.fee-table__col-month--primary,
 .fee-table__amount--primary {
-  color: #1c6a38;
+  font-weight: 700;
+}
+
+.fee-table__amount {
+  white-space: nowrap;
+}
+
+.fee-table__row--total td {
+  border-top-width: 0.8pt;
+  font-weight: 700;
 }
 
 .fee-table__row--membership td {
-  border-top: 1px dashed #c3d9c9;
-  border-bottom: none;
-  padding-top: 8px;
-  background: #f7fbf8;
+  color: #33332c;
 }
 
-.fee-table__row-label--membership {
-  font-size: 9px;
-  color: #444;
-}
-
-.fee-table__amount--membership {
-  font-size: 9.5px;
-  color: #444;
-}
-
-.fee-table__amount--membership.fee-table__amount--primary {
-  color: #1c6a38;
-}
-
-/* ── Payment Note ──────────────────────────────────────────────────────────── */
-.payment-note {
-  background: #fffbf0;
-  border: 1px solid #d4a72c;
-  border-left: 3px solid #b8860b;
-  padding: 8px 13px;
-  margin-bottom: 14px;
-  break-inside: avoid;
-  page-break-inside: avoid;
-}
-
-.payment-note__marker {
-  display: inline;
-  font-size: 7.5px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: #b8860b;
-  margin-right: 6px;
-}
-
-.payment-note__text {
-  display: inline;
-  font-size: 9.5px;
-  color: #3d2e00;
-  line-height: 1.58;
-}
-
-.payment-note__emphasis {
-  font-weight: 700;
-}
-
-/* ── Footer ────────────────────────────────────────────────────────────────── */
-.footer {
-  margin-top: 12px;
-  break-inside: avoid;
-  page-break-inside: avoid;
-}
-
-.footer__rule {
-  height: 1px;
-  background: #c8c8c8;
-  margin-bottom: 8px;
-}
-
-.footer__register {
-  font-size: 8.5px;
-  color: #555;
-  font-weight: 600;
-  margin-bottom: 6px;
-  line-height: 1.45;
-}
-
-.footer__columns {
+/* ── Kleingedrucktes, zweispaltig ──────────────────────────────────────────── */
+.fineprint {
   display: table;
   width: 100%;
-  border-collapse: separate;
-  border-spacing: 0;
-  font-size: 8px;
-  color: #555;
-  line-height: 1.45;
-  margin-bottom: 4px;
+  table-layout: fixed;
+  margin-top: 3.4mm;
+  font-size: 7.9pt;
+  line-height: 1.34;
+  color: #33332c;
+  break-inside: avoid;
+  page-break-inside: avoid;
 }
 
-.footer__col {
+.fineprint__col {
   display: table-cell;
-  width: 50%;
   vertical-align: top;
-  padding-right: 12px;
+  padding-right: 7mm;
 }
 
-.footer__col:last-child {
+.fineprint__col:last-child {
   padding-right: 0;
+  padding-left: 7mm;
+  border-left: 0.3pt solid #dcdcd4;
 }
 
-.footer__col-heading {
-  font-size: 8px;
+.fineprint__heading {
+  font-size: 7.6pt;
   font-weight: 700;
-  color: #1c1c1c;
-  margin-bottom: 3px;
+  letter-spacing: 0.9pt;
   text-transform: uppercase;
-  letter-spacing: 0.3px;
+  color: #14140f;
+  margin-bottom: 1.2mm;
 }
 
-.footer__line {
+.fineprint__heading--sub {
+  margin-top: 2.4mm;
+}
+
+.fineprint p {
+  margin: 0 0 1.4mm;
+  text-align: justify;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+}
+
+.fineprint p:last-child {
   margin-bottom: 0;
 }
 
+/* ── Grußformel ────────────────────────────────────────────────────────────── */
+.closing {
+  margin-top: 3.5mm;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.closing__signature {
+  margin-top: 4mm;
+  border-top: 0.3pt solid #9a9a90;
+  padding-top: 0.8mm;
+  width: 66mm;
+  font-size: 8.4pt;
+  color: #33332c;
+}
+
+/* ── Fußzeile ──────────────────────────────────────────────────────────────── */
+.footer {
+  margin-top: 4mm;
+  padding-top: 1.4mm;
+  border-top: 0.4pt solid #9a9a90;
+  font-size: 6.9pt;
+  line-height: 1.4;
+  color: #55554d;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+.footer__label {
+  display: inline-block;
+  min-width: 13mm;
+  font-weight: 700;
+  letter-spacing: 0.45pt;
+  text-transform: uppercase;
+  font-size: 6.4pt;
+  color: #14140f;
+}
+
+.footer__line {
+  margin: 0;
+}
+
 .footer__legal {
-  font-size: 7px;
-  color: #999;
-  font-style: normal;
-  line-height: 1.35;
+  margin: 1.2mm 0 0;
+  padding-top: 1mm;
+  border-top: 0.3pt solid #dcdcd4;
+  font-size: 6.5pt;
+  color: #7a7a70;
 }
