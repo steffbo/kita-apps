@@ -289,9 +289,13 @@ Caddy kümmert sich automatisch um SSL-Zertifikate via Let's Encrypt.
 
 ## Dokumentation
 
-- [PLAN.md](PLAN.md) - Detaillierter Projektplan
+- [AGENTS.md](AGENTS.md) - kompakter Einstieg: Layout, Ports, Kommandos, Dokumentenkarte
+- [docs/status-fees.md](docs/status-fees.md) - Beiträge: Entscheidungen und Änderungshistorie
+- [docs/portal/STATUS.md](docs/portal/STATUS.md) - Portal: tatsächlicher Umsetzungsstand
+- [docs/deployment-ghcr.md](docs/deployment-ghcr.md), [docs/deployment-homelab.md](docs/deployment-homelab.md) - Deployment
 - [backend-management/README.md](backend-management/README.md) - Management Go-Backend Dokumentation
 - [backend-fees/README.md](backend-fees/README.md) - Beiträge Go-Backend Dokumentation
+- [docs/archive/](docs/archive/) - historische Pläne (nicht aktuell)
 
 ## License
 

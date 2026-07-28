@@ -88,7 +88,7 @@ Nachweisregeln:
 
 - Vertrags-/AVV-Dokumente gehoeren in eine nicht-oeffentliche Vereinsablage.
 - Im Repo wird nur dokumentiert, welche Nachweise existieren muessen und wo die operative Verantwortung liegt.
-- Nach jeder Provider-Aenderung dieses Dokument und `PORTAL_SPEC.md` aktualisieren.
+- Nach jeder Provider-Aenderung dieses Dokument und `SPEC.md` aktualisieren.
 
 ## Rollen- und Berechtigungskonzept
 

@@ -1,5 +1,7 @@
 # Kita Portal Spec 2026
 
+> **Reality check:** this spec is aspirational and largely unimplemented. Work stopped on 2026-05-25 after the Phase-1 skeleton. For what actually exists, read `STATUS.md` first.
+
 ## Status
 
 | Attribut | Wert |
@@ -12,8 +14,8 @@
 | Erstes Modul | Elternstunden |
 | Review-Status | Phase 0 reviewed und als Launch-Schnitt eingefroren am 2026-05-25 |
 | August-MVP-Schnitt | freigegeben: Portal-Shell, Identity/Onboarding, Elternstunden, read-only Stammdaten-Sync, Mail, Audit, Staging/VPS/Backup |
-| Datenmodell | `PORTAL_DATA_MODEL.md` |
-| Datenschutz/Governance | `PORTAL_DATENSCHUTZ.md` |
+| Datenmodell | `DATA_MODEL.md` |
+| Datenschutz/Governance | `DATENSCHUTZ.md` |
 
 ## Phase 0 Review Decision
 
@@ -22,10 +24,10 @@ Stand 2026-05-25 ist diese Spec fuer die Umsetzung reviewed und als verbindliche
 Phase-0-Ergebnis:
 
 - Spec ist reviewed und dient als Handoff-Vertrag fuer Architektur, Produktumfang und Launch Readiness.
-- Datenmodell-Skizze liegt in `PORTAL_DATA_MODEL.md` und beschreibt Identity/Session-Tabellen, Stammdaten-Snapshots, Parent-Work-Tabellen und Audit-Grenzen.
+- Datenmodell-Skizze liegt in `DATA_MODEL.md` und beschreibt Identity/Session-Tabellen, Stammdaten-Snapshots, Parent-Work-Tabellen und Audit-Grenzen.
 - Modulgrenzen sind bestaetigt: `parent_work` ist das einzige neue fachliche MVP-Modul; Identity, Admin, Sync, Mail-Outbox und Audit sind Portal-Foundation-Faehigkeiten; `fees`, `schedule`, `time_tracking` und vollstaendige `master_data`-Pflege bleiben ausserhalb des August-MVP.
 - August-Scope ist freigegeben: Eltern koennen onboarden, einloggen, eigene Kinder sehen und Elternstunden einreichen; Team/Leitung koennen pruefen, korrigieren, auswerten und erinnern; Betrieb laeuft nach Homelab-Test auf dem Hetzner VPS.
-- Provider-/Datenschutzentscheidungen sind fuer den Launch-Schnitt geklaert und in `PORTAL_DATENSCHUTZ.md` dokumentiert: Hetzner VPS fuer Produktivbetrieb, Resend fuer Portal-Mails ueber `portal.knirpsenstadt.de`, bestehendes Hetzner-Mailhosting fuer `@knirpsenstadt.de` bleibt unberuehrt. Vor Eltern-Rollout bleiben die accountbezogenen Nachweise Pflicht: AVV/DPA im jeweiligen Vereins-/Kita-Account abschliessen bzw. exportieren, Provider-Konten uebergabefaehig dem Verein zuordnen und finale Kontaktangaben im Datenschutzhinweis ergaenzen.
+- Provider-/Datenschutzentscheidungen sind fuer den Launch-Schnitt geklaert und in `DATENSCHUTZ.md` dokumentiert: Hetzner VPS fuer Produktivbetrieb, Resend fuer Portal-Mails ueber `portal.knirpsenstadt.de`, bestehendes Hetzner-Mailhosting fuer `@knirpsenstadt.de` bleibt unberuehrt. Vor Eltern-Rollout bleiben die accountbezogenen Nachweise Pflicht: AVV/DPA im jeweiligen Vereins-/Kita-Account abschliessen bzw. exportieren, Provider-Konten uebergabefaehig dem Verein zuordnen und finale Kontaktangaben im Datenschutzhinweis ergaenzen.
 
 ## Executive Summary
 
@@ -400,7 +402,7 @@ Risiko: Ohne regelmäßigen Restore-Test ist nicht bewiesen, dass ein Backup vol
 
 ## Privacy and Governance
 
-Der Phase-0-Stand ist in `PORTAL_DATENSCHUTZ.md` dokumentiert. Das Dokument enthaelt:
+Der Phase-0-Stand ist in `DATENSCHUTZ.md` dokumentiert. Das Dokument enthaelt:
 
 - den Datenschutzhinweis fuer das Portal,
 - die Provider-/AVV-Pruefung fuer Hetzner und Resend,
@@ -432,10 +434,10 @@ Status: abgeschlossen am 2026-05-25.
 Deliverables:
 
 - Spec reviewed und in diesem Dokument als Phase-0-Entscheidung markiert.
-- Datenmodell-Schnitt bestaetigt und in `PORTAL_DATA_MODEL.md` skizziert: `portal`-Schema mit Identity, read-only Sync-Snapshots, Parent-Work, Outbox und Audit ist der Startpunkt.
+- Datenmodell-Schnitt bestaetigt und in `DATA_MODEL.md` skizziert: `portal`-Schema mit Identity, read-only Sync-Snapshots, Parent-Work, Outbox und Audit ist der Startpunkt.
 - Modulgrenzen bestaetigt: August-MVP ist Portal-Foundation plus `parent_work`; Alt-Apps bleiben ausserhalb des Launch-Schnitts.
 - Launch-Schnitt bestaetigt: Homelab-Staging, Vorstand-Demo, dann Hetzner-VPS-Produktion fuer `portal.knirpsenstadt.de`.
-- Datenschutz-/Providerpunkte fuer Architektur geklaert und in `PORTAL_DATENSCHUTZ.md` dokumentiert: Hetzner VPS, Resend-Subdomain-Versand und bestehendes Mailhosting koexistieren; Datenschutztext, AVV/Anbieterpruefung, Rollenmatrix und Vereinskonto-Zielzustand sind schriftlich festgehalten. Account-Nachweise und finale Kontaktangaben bleiben Pflicht vor Eltern-Rollout.
+- Datenschutz-/Providerpunkte fuer Architektur geklaert und in `DATENSCHUTZ.md` dokumentiert: Hetzner VPS, Resend-Subdomain-Versand und bestehendes Mailhosting koexistieren; Datenschutztext, AVV/Anbieterpruefung, Rollenmatrix und Vereinskonto-Zielzustand sind schriftlich festgehalten. Account-Nachweise und finale Kontaktangaben bleiben Pflicht vor Eltern-Rollout.
 
 ### Phase 1: Portal Foundation
 

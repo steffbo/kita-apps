@@ -2,7 +2,8 @@
 
 Portal API for the shared Kita portal and the first `parent_work` module.
 
-The Phase 0 data model sketch is documented in `../PORTAL_DATA_MODEL.md`. It covers the portal identity/session tables, read-only synced master-data snapshots, parent-work tables, sync quarantine, and audit boundary.
+Implementation status: `../docs/portal/STATUS.md` (skeleton only — auth works, no business features).
+The Phase 0 data model sketch is documented in `../docs/portal/DATA_MODEL.md`. It covers the portal identity/session tables, read-only synced master-data snapshots, parent-work tables, sync quarantine, and audit boundary.
 
 ## Local Development
 
