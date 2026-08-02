@@ -2,6 +2,7 @@ package service_test
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -11,6 +12,66 @@ import (
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/repository"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/service"
 )
+
+func TestFeeService_Generate_UsesEnrollmentPeriodForMonthlyFees(t *testing.T) {
+	cleanupTestData()
+	defer cleanupTestData()
+
+	ctx := context.Background()
+	childRepo := repository.NewPostgresChildRepository(testDB)
+	feeRepo := repository.NewPostgresFeeRepository(testDB)
+	feeService := service.NewFeeService(feeRepo, childRepo, nil, nil, nil)
+
+	createChild := func(suffix string, entryDate time.Time, exitDate *time.Time, active bool) *domain.Child {
+		now := time.Now()
+		child := &domain.Child{
+			ID:           uuid.New(),
+			MemberNumber: fmt.Sprintf("TGEN%s", suffix),
+			FirstName:    "Test",
+			LastName:     "Generation",
+			BirthDate:    time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
+			EntryDate:    entryDate,
+			ExitDate:     exitDate,
+			IsActive:     active,
+			CreatedAt:    now,
+			UpdatedAt:    now,
+		}
+		if err := childRepo.Create(ctx, child); err != nil {
+			t.Fatalf("create child %s: %v", suffix, err)
+		}
+		return child
+	}
+
+	july31 := time.Date(2026, 7, 31, 0, 0, 0, 0, time.UTC)
+	august15 := time.Date(2026, 8, 15, 0, 0, 0, 0, time.UTC)
+	exitedBeforeAugust := createChild("01", time.Date(2021, 8, 1, 0, 0, 0, 0, time.UTC), &july31, true)
+	startsAfterAugust := createChild("02", time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC), nil, true)
+	inactiveButEnrolled := createChild("03", time.Date(2021, 8, 1, 0, 0, 0, 0, time.UTC), nil, false)
+	exitsDuringAugust := createChild("04", time.Date(2021, 8, 1, 0, 0, 0, 0, time.UTC), &august15, true)
+
+	month := 8
+	result, err := feeService.Generate(ctx, 2026, &month)
+	if err != nil {
+		t.Fatalf("Generate failed: %v", err)
+	}
+	if result.Created != 2 || result.Skipped != 0 {
+		t.Fatalf("expected 2 created and 0 skipped, got %d created and %d skipped", result.Created, result.Skipped)
+	}
+
+	assertFeeCount := func(child *domain.Child, expected int) {
+		fees, err := feeRepo.GetForChild(ctx, child.ID, nil)
+		if err != nil {
+			t.Fatalf("get fees for %s: %v", child.MemberNumber, err)
+		}
+		if len(fees) != expected {
+			t.Errorf("expected %d fees for %s, got %d", expected, child.MemberNumber, len(fees))
+		}
+	}
+	assertFeeCount(exitedBeforeAugust, 0)
+	assertFeeCount(startsAfterAugust, 0)
+	assertFeeCount(inactiveButEnrolled, 1)
+	assertFeeCount(exitsDuringAugust, 1)
+}
 
 func TestFeeService_GetByID_PartialMatch(t *testing.T) {
 	cleanupTestData()

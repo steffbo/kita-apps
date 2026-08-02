@@ -216,7 +216,8 @@ func (s *FeeService) GetOverview(ctx context.Context, year *int) (*domain.FeeOve
 
 // Generate creates fee expectations for the given period.
 func (s *FeeService) Generate(ctx context.Context, year int, month *int) (*GenerateResult, error) {
-	children, _, err := s.childRepo.List(ctx, true, false, false, false, "", "", "", 0, 1000)
+	// Monthly generation must use the billed period rather than today's active flag.
+	children, _, err := s.childRepo.List(ctx, month == nil, false, false, false, "", "", "", 0, 1000)
 	if err != nil {
 		return nil, err
 	}
@@ -228,8 +229,14 @@ func (s *FeeService) Generate(ctx context.Context, year int, month *int) (*Gener
 		return s.generateYearlyMembershipFees(ctx, year, children)
 	}
 
+	periodStart := time.Date(year, time.Month(*month), 1, 0, 0, 0, 0, time.UTC)
+	periodEnd := periodStart.AddDate(0, 1, 0)
+	dueDate := time.Date(year, time.Month(*month), 5, 0, 0, 0, 0, time.UTC)
+
 	for _, child := range children {
-		dueDate := time.Date(year, time.Month(*month), 5, 0, 0, 0, 0, time.UTC)
+		if !child.EntryDate.Before(periodEnd) || (child.ExitDate != nil && child.ExitDate.Before(periodStart)) {
+			continue
+		}
 
 		// Food fee (all children)
 		created, err := s.createFeeIfNotExists(ctx, child.ID, child.HouseholdID, domain.FeeTypeFood, year, month, domain.FoodFeeAmount, dueDate)

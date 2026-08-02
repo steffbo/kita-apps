@@ -5,6 +5,13 @@ Basics (ports, commands, layout) live in `AGENTS.md`.
 
 ## Backend (`backend-fees`)
 
+### Monthly fees respect enrollment periods (2026-08-02)
+
+- `FeeService.Generate` selects monthly fee candidates independently of the current `is_active` flag and checks whether each child's enrollment overlaps the billed month.
+- Children whose `exit_date` is before the first day of the month, or whose `entry_date` is on or after the first day of the following month, receive neither `FOOD` nor `CHILDCARE` expectations. Partial entry or exit months remain billable.
+- Yearly membership generation continues to use the active-child selection. Existing fee expectations are not changed automatically.
+- Coverage: `internal/service/fee_service_integration_test.go` includes children leaving before, entering after, and overlapping the billed month, including historical generation for an inactive child.
+
 ### Child hours as single source of truth (2026-07-27)
 
 - Migration `migrations/000028_drop_child_hours_columns.up.sql` backfills column-only values into the history tables and drops `fees.children.care_hours`, `legal_hours`, `legal_hours_until`. `fees.child_care_hours_history` and `fees.child_legal_hours_history` are now the only source; the down migration restores the columns from the currently effective periods.
