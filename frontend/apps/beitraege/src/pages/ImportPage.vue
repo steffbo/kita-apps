@@ -3,6 +3,7 @@ import { ref, onMounted, onUnmounted, computed, watch, type Ref } from 'vue';
 import { useRoute } from 'vue-router';
 import { api } from '@/api';
 import type { ImportResult, ImportBatch, BankTransaction, MatchConfirmation, KnownIBAN, TransactionWarning, MatchSuggestion, FeeExpectation } from '@/api/types';
+import BankingSyncCard from '@/components/BankingSyncCard.vue';
 import {
   Upload,
   FileSpreadsheet,
@@ -772,6 +773,13 @@ onMounted(() => {
   }
 });
 
+async function refreshAfterSync(): Promise<void> {
+  loadHistory();
+  loadWarnings();
+  loadBlacklist();
+  await switchTab(activeTab.value);
+}
+
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('de-DE');
 }
@@ -880,11 +888,14 @@ function getWarningTypeColor(type: string): string {
   <div>
     <!-- Header -->
     <div class="mb-6">
-      <h1 class="text-2xl font-bold text-gray-900">CSV-Import</h1>
+      <h1 class="text-2xl font-bold text-gray-900">Bankabgleich</h1>
       <p class="text-gray-600 mt-1">
-        Kontoauszüge importieren und Zahlungen zuordnen
+        Banktransaktionen abrufen und Zahlungen zuordnen
       </p>
     </div>
+
+    <!-- Banking Sync -->
+    <BankingSyncCard @sync-finished="refreshAfterSync" />
 
     <!-- Tabs -->
     <div class="flex border-b mb-6 overflow-x-auto whitespace-nowrap">

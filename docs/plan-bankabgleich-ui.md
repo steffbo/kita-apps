@@ -1,7 +1,7 @@
 # Bankabgleich UI Overhaul — Plan
 
-Status: planned, not started. This doc is the working agreement for the
-`/beitraege` import/automation UI rework. Implementation happens in small,
+Status: in progress. Increment 1 done. This doc is the working agreement for
+the `/beitraege` import/automation UI rework. Implementation happens in small,
 individually committed increments. Check off sections as they land and move
 finished facts into `docs/status-fees.md`.
 
@@ -72,8 +72,10 @@ Group the flat nav list, e.g.:
 
 ## Increments (one commit each)
 
-1. [ ] Extract `BankingSyncCard.vue` from AutomationPage; render it at the top of
-       ImportPage. Nav rename "Import" → "Bankabgleich"; keep `/import` route as alias.
+1. [x] Extract `BankingSyncCard.vue` from AutomationPage; render it at the top of
+       ImportPage. Nav rename "Import" → "Bankabgleich"; `/import` kept as route alias.
+       The card emits `sync-finished` after a run transitions running/2FA → success;
+       ImportPage then reloads all transaction tabs.
 2. [ ] Unified transaction list with status badges + filter chips; default chip
        = Offen (nicht zugeordnet + Warnungen). Upload demoted to header action/dialog.
 3. [ ] Move Blacklist to a secondary location (dialog or Erinnerungen page);

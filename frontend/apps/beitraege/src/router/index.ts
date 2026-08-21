@@ -61,8 +61,9 @@ const router = createRouter({
           component: () => import('@/pages/FeesPage.vue'),
         },
         {
-          path: 'import',
-          name: 'import',
+          path: 'bankabgleich',
+          name: 'bankabgleich',
+          alias: 'import',
           component: () => import('@/pages/ImportPage.vue'),
         },
         {

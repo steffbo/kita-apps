@@ -8,7 +8,7 @@ import {
   UserCircle,
   UserPlus,
   Receipt,
-  Upload,
+  RefreshCw,
   Zap,
   LogOut,
   Menu,
@@ -32,7 +32,7 @@ const navigation = [
   { name: 'Mitglieder', to: '/mitglieder', icon: UserPlus },
   { name: 'Beiträge', to: '/beitraege', icon: Receipt },
   { name: 'Einstufungen', to: '/einstufungen', icon: ClipboardList },
-  { name: 'Import', to: '/import', icon: Upload },
+  { name: 'Bankabgleich', to: '/bankabgleich', icon: RefreshCw },
   { name: 'Automatisierung', to: '/automatisierung', icon: Zap },
 ];
 
