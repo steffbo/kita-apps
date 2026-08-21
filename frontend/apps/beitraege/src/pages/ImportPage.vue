@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, watch, type Ref } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { api } from '@/api';
 import type { ImportResult, ImportBatch, BankTransaction, MatchConfirmation, KnownIBAN, TransactionWarning, MatchSuggestion, FeeExpectation } from '@/api/types';
@@ -12,7 +12,6 @@ import {
   XCircle,
   AlertTriangle,
   History,
-  Link2,
   ChevronDown,
   ChevronUp,
   ChevronLeft,
@@ -26,18 +25,29 @@ import {
   Euro,
   LinkIcon,
   Unlink,
+  RefreshCw,
   Search,
   ArrowUp,
   ArrowDown,
   ArrowUpDown,
 } from 'lucide-vue-next';
 
-type TabType = 'upload' | 'history' | 'unmatched' | 'matched' | 'warnings' | 'blacklist';
+type StatusFilter = 'offen' | 'warnungen' | 'zugeordnet' | 'alle';
+type SortField = 'date' | 'payer' | 'description' | 'amount';
+type SortDirection = 'asc' | 'desc';
+
+interface TxRow {
+  key: string;
+  tx: BankTransaction;
+  matched: boolean;
+  warnings: TransactionWarning[];
+}
 
 const route = useRoute();
-const activeTab = ref<TabType>('upload');
+const activeFilter = ref<StatusFilter>('offen');
 
 // Upload state
+const showUploadModal = ref(false);
 const isDragging = ref(false);
 const isUploading = ref(false);
 const uploadError = ref<string | null>(null);
@@ -47,32 +57,33 @@ const isConfirming = ref(false);
 const confirmResult = ref<{ confirmed: number; failed: number } | null>(null);
 
 // History state
+const showHistoryModal = ref(false);
 const importHistory = ref<ImportBatch[]>([]);
 const historyTotal = ref(0);
 const isLoadingHistory = ref(false);
 
-// Unmatched transactions state
+// Transactions state (unified list)
 const unmatchedTransactions = ref<BankTransaction[]>([]);
 const unmatchedTotal = ref(0);
-const isLoadingUnmatched = ref(false);
+const matchedTransactions = ref<BankTransaction[]>([]);
+const matchedTotal = ref(0);
+const warnings = ref<TransactionWarning[]>([]);
+const warningsTotal = ref(0);
+const isLoadingTransactions = ref(true);
 
 // Blacklist state
+const showBlacklistModal = ref(false);
 const blacklistedIBANs = ref<KnownIBAN[]>([]);
 const blacklistTotal = ref(0);
 const isLoadingBlacklist = ref(false);
 
-// Warnings state
-const warnings = ref<TransactionWarning[]>([]);
-const warningsTotal = ref(0);
-const isLoadingWarnings = ref(false);
+// Warning actions state
 const isResolvingWarning = ref<string | null>(null);
 const dismissWarningId = ref<string | null>(null);
 const dismissNote = ref('');
 
-// Matched transactions state
-const matchedTransactions = ref<BankTransaction[]>([]);
-const matchedTotal = ref(0);
-const isLoadingMatched = ref(false);
+// Expanded warning detail rows
+const expandedWarnings = ref<Set<string>>(new Set());
 
 // Manual match modal state
 const manualMatchTransaction = ref<BankTransaction | null>(null);
@@ -90,7 +101,7 @@ const PREFILTER_CONFIDENCE = 0.6;
 const isRescanning = ref(false);
 const rescanResult = ref<{ scanned: number; autoMatched: number; newMatches: number; suggestions: MatchSuggestion[] } | null>(null);
 
-// Dismiss state
+// Dismiss/hide/unmatch confirm state
 const isDismissing = ref<string | null>(null);
 const dismissConfirmId = ref<string | null>(null);
 const isHiding = ref<string | null>(null);
@@ -100,83 +111,143 @@ const deleteConfirmId = ref<string | null>(null);
 const isUnmatching = ref<string | null>(null);
 const isDeletingMatched = ref<string | null>(null);
 
-// Transaction search and sorting state (server-side)
+// Search, sort and pagination (client-side over the loaded sets)
 const transactionSearch = ref('');
-const debouncedTransactionSearch = ref('');
-type TransactionSortField = 'date' | 'payer' | 'description' | 'amount';
-type SortDirection = 'asc' | 'desc';
-const unmatchedSortField = ref<TransactionSortField>('date');
-const unmatchedSortDirection = ref<SortDirection>('desc');
-const matchedSortField = ref<TransactionSortField>('date');
-const matchedSortDirection = ref<SortDirection>('desc');
+const sortField = ref<SortField>('date');
+const sortDirection = ref<SortDirection>('desc');
+const page = ref(1);
+const pageSize = 50;
 
-// Pagination state
-const unmatchedPage = ref(1);
-const matchedPage = ref(1);
-const pageSize = 20;
+function toggleSort(field: SortField): void {
+  if (sortField.value === field) {
+    sortDirection.value = sortDirection.value === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortField.value = field;
+    sortDirection.value = field === 'date' ? 'desc' : 'asc';
+  }
+}
 
-// Debounce search
-let searchTimeout: ReturnType<typeof setTimeout>;
-watch(transactionSearch, (newVal) => {
-  clearTimeout(searchTimeout);
-  searchTimeout = setTimeout(() => {
-    debouncedTransactionSearch.value = newVal;
-    unmatchedPage.value = 1;
-    matchedPage.value = 1;
-
-    const reloadActions: Record<string, () => Promise<void>> = {
-      unmatched: loadUnmatched,
-      matched: loadMatched,
-    };
-
-    const reloadFn = reloadActions[activeTab.value];
-    if (reloadFn) {
-      reloadFn();
-    }
-  }, 300);
+watch([activeFilter, transactionSearch], () => {
+  page.value = 1;
 });
 
-function toggleSort(
-  field: TransactionSortField,
-  currentField: Ref<TransactionSortField>,
-  currentDirection: Ref<SortDirection>,
-  pageRef: Ref<number>,
-  reloadFn: () => Promise<void>
-): void {
-  if (currentField.value === field) {
-    currentDirection.value = currentDirection.value === 'asc' ? 'desc' : 'asc';
+// Unified rows: merge matched, unmatched and open warnings by transaction id
+const transactionRows = computed<TxRow[]>(() => {
+  const map = new Map<string, TxRow>();
+  for (const tx of unmatchedTransactions.value) {
+    map.set(tx.id, { key: tx.id, tx, matched: false, warnings: [] });
+  }
+  for (const tx of matchedTransactions.value) {
+    const existing = map.get(tx.id);
+    if (existing) {
+      existing.matched = true;
+    } else {
+      map.set(tx.id, { key: tx.id, tx, matched: true, warnings: [] });
+    }
+  }
+  for (const warning of warnings.value) {
+    let row = warning.transactionId ? map.get(warning.transactionId) : undefined;
+    if (!row && warning.transaction && !map.has(warning.transaction.id)) {
+      const tx = warning.transaction;
+      row = { key: tx.id || warning.id, tx, matched: false, warnings: [] };
+      map.set(row.key, row);
+    }
+    if (row) {
+      row.warnings.push(warning);
+    }
+  }
+  return [...map.values()];
+});
+
+const offenCount = computed(() => transactionRows.value.filter(r => !r.matched).length);
+const warnungenCount = computed(() => transactionRows.value.filter(r => r.warnings.length > 0).length);
+const zugeordnetCount = computed(() => matchedTotal.value);
+
+const filteredRows = computed<TxRow[]>(() => {
+  let rows = transactionRows.value;
+  if (activeFilter.value === 'offen') {
+    rows = rows.filter(r => !r.matched);
+  } else if (activeFilter.value === 'warnungen') {
+    rows = rows.filter(r => r.warnings.length > 0);
+  } else if (activeFilter.value === 'zugeordnet') {
+    rows = rows.filter(r => r.matched);
+  }
+
+  const search = transactionSearch.value.trim().toLowerCase();
+  if (search) {
+    rows = rows.filter(
+      r =>
+        (r.tx.payerName || '').toLowerCase().includes(search) ||
+        (r.tx.description || '').toLowerCase().includes(search) ||
+        (r.tx.payerIban || '').toLowerCase().includes(search)
+    );
+  }
+  return rows;
+});
+
+const sortedRows = computed<TxRow[]>(() => {
+  const dir = sortDirection.value === 'asc' ? 1 : -1;
+  return [...filteredRows.value].sort((a, b) => {
+    switch (sortField.value) {
+      case 'payer':
+        return dir * (a.tx.payerName || '').localeCompare(b.tx.payerName || '');
+      case 'description':
+        return dir * (a.tx.description || '').localeCompare(b.tx.description || '');
+      case 'amount':
+        return dir * (a.tx.amount - b.tx.amount);
+      default:
+        return dir * (new Date(a.tx.bookingDate).getTime() - new Date(b.tx.bookingDate).getTime());
+    }
+  });
+});
+
+const totalPages = computed(() => Math.max(1, Math.ceil(sortedRows.value.length / pageSize)));
+
+const visiblePages = computed<number[]>(() => {
+  const total = totalPages.value;
+  if (total <= 7) {
+    return Array.from({ length: total }, (_, i) => i + 1);
+  }
+  const start = Math.max(1, Math.min(page.value - 3, total - 6));
+  return Array.from({ length: 7 }, (_, i) => start + i);
+});
+
+const pagedRows = computed<TxRow[]>(() =>
+  sortedRows.value.slice((page.value - 1) * pageSize, page.value * pageSize)
+);
+
+function goToPage(target: number): void {
+  page.value = Math.min(Math.max(1, target), totalPages.value);
+}
+
+function toggleWarnings(key: string): void {
+  if (expandedWarnings.value.has(key)) {
+    expandedWarnings.value.delete(key);
   } else {
-    currentField.value = field;
-    currentDirection.value = 'asc';
-  }
-  pageRef.value = 1;
-  reloadFn();
-}
-
-function toggleUnmatchedSort(field: TransactionSortField): void {
-  toggleSort(field, unmatchedSortField, unmatchedSortDirection, unmatchedPage, loadUnmatched);
-}
-
-function toggleMatchedSort(field: TransactionSortField): void {
-  toggleSort(field, matchedSortField, matchedSortDirection, matchedPage, loadMatched);
-}
-
-const unmatchedTotalPages = computed(() => Math.ceil(unmatchedTotal.value / pageSize));
-const matchedTotalPages = computed(() => Math.ceil(matchedTotal.value / pageSize));
-
-function goToPage(page: number, pageRef: Ref<number>, totalPages: number, reloadFn: () => Promise<void>): void {
-  if (page >= 1 && page <= totalPages) {
-    pageRef.value = page;
-    reloadFn();
+    expandedWarnings.value.add(key);
   }
 }
 
-function goToUnmatchedPage(page: number): void {
-  goToPage(page, unmatchedPage, unmatchedTotalPages.value, loadUnmatched);
-}
-
-function goToMatchedPage(page: number): void {
-  goToPage(page, matchedPage, matchedTotalPages.value, loadMatched);
+async function loadTransactions(): Promise<void> {
+  isLoadingTransactions.value = true;
+  try {
+    const [unmatchedRes, matchedRes, warningsRes] = await Promise.all([
+      api.getUnmatchedTransactions({ offset: 0, limit: 500 }),
+      api.getMatchedTransactions({ offset: 0, limit: 1000 }),
+      api.getWarnings(0, 200),
+    ]);
+    unmatchedTransactions.value = unmatchedRes.data;
+    unmatchedTotal.value = unmatchedRes.total;
+    matchedTransactions.value = matchedRes.data;
+    matchedTotal.value = matchedRes.total;
+    warnings.value = warningsRes.data;
+    warningsTotal.value = warningsRes.total;
+  } catch (error) {
+    console.error('Failed to load transactions:', error);
+    uploadError.value = error instanceof Error ? error.message : 'Transaktionen konnten nicht geladen werden';
+  } finally {
+    isLoadingTransactions.value = false;
+  }
 }
 
 const expandedSuggestions = ref<Set<string>>(new Set());
@@ -300,6 +371,7 @@ async function confirmMatches(): Promise<void> {
       );
     }
     selectedMatches.value.clear();
+    await loadTransactions();
   } catch (error) {
     uploadError.value = error instanceof Error ? error.message : 'Bestätigung fehlgeschlagen';
   } finally {
@@ -320,25 +392,6 @@ async function loadHistory(): Promise<void> {
   }
 }
 
-async function loadUnmatched(): Promise<void> {
-  isLoadingUnmatched.value = true;
-  try {
-    const response = await api.getUnmatchedTransactions({
-      offset: (unmatchedPage.value - 1) * pageSize,
-      limit: pageSize,
-      search: debouncedTransactionSearch.value || undefined,
-      sortBy: unmatchedSortField.value,
-      sortDir: unmatchedSortDirection.value,
-    });
-    unmatchedTransactions.value = response.data;
-    unmatchedTotal.value = response.total;
-  } catch (error) {
-    console.error('Failed to load unmatched transactions:', error);
-  } finally {
-    isLoadingUnmatched.value = false;
-  }
-}
-
 async function loadBlacklist(): Promise<void> {
   isLoadingBlacklist.value = true;
   try {
@@ -352,36 +405,16 @@ async function loadBlacklist(): Promise<void> {
   }
 }
 
-async function loadWarnings(): Promise<void> {
-  isLoadingWarnings.value = true;
-  try {
-    const response = await api.getWarnings(0, 100);
-    warnings.value = response.data;
-    warningsTotal.value = response.total;
-  } catch (error) {
-    console.error('Failed to load warnings:', error);
-  } finally {
-    isLoadingWarnings.value = false;
+function openHistoryModal(): void {
+  showHistoryModal.value = true;
+  if (importHistory.value.length === 0) {
+    loadHistory();
   }
 }
 
-async function loadMatched(): Promise<void> {
-  isLoadingMatched.value = true;
-  try {
-    const response = await api.getMatchedTransactions({
-      offset: (matchedPage.value - 1) * pageSize,
-      limit: pageSize,
-      search: debouncedTransactionSearch.value || undefined,
-      sortBy: matchedSortField.value,
-      sortDir: matchedSortDirection.value,
-    });
-    matchedTransactions.value = response.data;
-    matchedTotal.value = response.total;
-  } catch (error) {
-    console.error('Failed to load matched transactions:', error);
-  } finally {
-    isLoadingMatched.value = false;
-  }
+function openBlacklistModal(): void {
+  showBlacklistModal.value = true;
+  loadBlacklist();
 }
 
 async function rescanTransactions(): Promise<void> {
@@ -390,7 +423,7 @@ async function rescanTransactions(): Promise<void> {
   try {
     const result = await api.rescanTransactions();
     rescanResult.value = result;
-    await loadUnmatched();
+    await loadTransactions();
   } catch (error) {
     console.error('Failed to rescan transactions:', error);
     uploadError.value = error instanceof Error ? error.message : 'Erneutes Zuordnen fehlgeschlagen';
@@ -461,14 +494,44 @@ function closeManualMatch(): void {
   showAllFees.value = false;
 }
 
+function closeUploadModal(): void {
+  showUploadModal.value = false;
+  resetUpload();
+}
+
 function handleKeydown(e: KeyboardEvent): void {
-  if (e.key === 'Escape' && manualMatchTransaction.value) {
+  if (e.key !== 'Escape') return;
+  if (manualMatchTransaction.value) {
     closeManualMatch();
+  } else if (showUploadModal.value) {
+    closeUploadModal();
+  } else if (showHistoryModal.value) {
+    showHistoryModal.value = false;
+  } else if (showBlacklistModal.value) {
+    showBlacklistModal.value = false;
   }
 }
 
 onMounted(() => {
   document.addEventListener('keydown', handleKeydown);
+
+  // Map legacy tab query params to the new filter/modal structure
+  const tabParam = route.query.tab as string | undefined;
+  if (tabParam === 'upload') {
+    showUploadModal.value = true;
+  } else if (tabParam === 'history') {
+    openHistoryModal();
+  } else if (tabParam === 'blacklist') {
+    openBlacklistModal();
+  } else if (tabParam === 'warnings') {
+    activeFilter.value = 'warnungen';
+  } else if (tabParam === 'matched') {
+    activeFilter.value = 'zugeordnet';
+  } else if (tabParam === 'unmatched') {
+    activeFilter.value = 'offen';
+  }
+
+  loadTransactions();
 });
 
 onUnmounted(() => {
@@ -481,11 +544,8 @@ async function confirmManualMatch(expectationId: string): Promise<void> {
   isCreatingMatch.value = true;
   try {
     await api.createManualMatch(manualMatchTransaction.value.id, expectationId);
-    unmatchedTransactions.value = unmatchedTransactions.value.filter(
-      tx => tx.id !== manualMatchTransaction.value?.id
-    );
-    unmatchedTotal.value = Math.max(0, unmatchedTotal.value - 1);
     closeManualMatch();
+    await loadTransactions();
   } catch (error) {
     console.error('Failed to create match:', error);
     uploadError.value = error instanceof Error ? error.message : 'Zuordnung fehlgeschlagen';
@@ -597,7 +657,6 @@ const displayedFeeCandidates = computed<ScoredFee[]>(() => {
   });
 });
 
-
 function showWarningDismiss(warningId: string): void {
   dismissWarningId.value = warningId;
   dismissNote.value = '';
@@ -675,12 +734,9 @@ async function dismissTransaction(transaction: BankTransaction): Promise<void> {
   isDismissing.value = transaction.id;
   dismissConfirmId.value = null;
   try {
-    const result = await api.dismissTransaction(transaction.id);
-    unmatchedTransactions.value = unmatchedTransactions.value.filter(
-      tx => tx.payerIban !== transaction.payerIban
-    );
-    unmatchedTotal.value = Math.max(0, unmatchedTotal.value - result.transactionsRemoved);
-    if (activeTab.value === 'blacklist') {
+    await api.dismissTransaction(transaction.id);
+    await loadTransactions();
+    if (showBlacklistModal.value) {
       loadBlacklist();
     }
   } catch (error) {
@@ -696,8 +752,7 @@ async function hideTransaction(transaction: BankTransaction): Promise<void> {
   hideConfirmId.value = null;
   try {
     await api.hideTransaction(transaction.id);
-    unmatchedTransactions.value = unmatchedTransactions.value.filter(tx => tx.id !== transaction.id);
-    unmatchedTotal.value = Math.max(0, unmatchedTotal.value - 1);
+    await loadTransactions();
   } catch (error) {
     console.error('Failed to hide transaction:', error);
     uploadError.value = error instanceof Error ? error.message : 'Ausblenden fehlgeschlagen';
@@ -715,8 +770,7 @@ async function unmatchTransaction(transaction: BankTransaction, deleteTransactio
   cancelMatchAction();
   try {
     await api.unmatchTransaction(transaction.id, { deleteTransaction });
-    await loadMatched();
-    await loadUnmatched();
+    await loadTransactions();
   } catch (error) {
     console.error('Failed to unmatch transaction:', error);
     uploadError.value = error instanceof Error ? error.message : 'Zuordnung konnte nicht aufgehoben werden';
@@ -740,44 +794,9 @@ async function removeFromBlacklist(iban: string): Promise<void> {
   }
 }
 
-function switchTab(tab: TabType): void {
-  activeTab.value = tab;
-
-  const tabActions: Record<TabType, (() => Promise<void>) | null> = {
-    upload: null,
-    history: loadHistory,
-    unmatched: loadUnmatched,
-    matched: loadMatched,
-    warnings: loadWarnings,
-    blacklist: loadBlacklist,
-  };
-
-  const loadFn = tabActions[tab];
-  if (loadFn) {
-    loadFn();
-  }
-}
-
-onMounted(() => {
-  // Check for query param to auto-switch tab
-  const tabParam = route.query.tab as TabType | undefined;
-  if (tabParam && ['upload', 'history', 'unmatched', 'matched', 'warnings', 'blacklist'].includes(tabParam)) {
-    activeTab.value = tabParam;
-    // Load the tab's data
-    switchTab(tabParam);
-  } else {
-    // Default behavior: pre-load counts in background
-    loadHistory();
-    loadWarnings();
-    loadUnmatched();
-  }
-});
-
 async function refreshAfterSync(): Promise<void> {
   loadHistory();
-  loadWarnings();
-  loadBlacklist();
-  await switchTab(activeTab.value);
+  await loadTransactions();
 }
 
 function formatDate(dateStr: string): string {
@@ -877,7 +896,7 @@ function getWarningTypeColor(type: string): string {
     case 'LATE_PAYMENT':
       return 'bg-orange-100 text-orange-700';
     case 'OVERPAYMENT':
-      return 'bg-amber-100 text-amber-700';
+      return 'bg-purple-100 text-purple-700';
     default:
       return 'bg-gray-100 text-gray-700';
   }
@@ -897,1215 +916,1075 @@ function getWarningTypeColor(type: string): string {
     <!-- Banking Sync -->
     <BankingSyncCard @sync-finished="refreshAfterSync" />
 
-    <!-- Tabs -->
-    <div class="flex border-b mb-6 overflow-x-auto whitespace-nowrap">
-      <button
-        @click="switchTab('upload')"
-        :class="[
-          'flex-none px-4 py-2 text-sm font-medium border-b-2 transition-colors',
-          activeTab === 'upload'
-            ? 'border-primary text-primary'
-            : 'border-transparent text-gray-600 hover:text-gray-900',
-        ]"
-      >
-        <div class="flex items-center gap-2">
-          <Upload class="h-4 w-4" />
-          Upload
-        </div>
-      </button>
-      <button
-        @click="switchTab('history')"
-        :class="[
-          'flex-none px-4 py-2 text-sm font-medium border-b-2 transition-colors',
-          activeTab === 'history'
-            ? 'border-primary text-primary'
-            : 'border-transparent text-gray-600 hover:text-gray-900',
-        ]"
-      >
-        <div class="flex items-center gap-2">
-          <History class="h-4 w-4" />
-          Historie
-        </div>
-      </button>
-      <button
-        @click="switchTab('unmatched')"
-        :class="[
-          'flex-none px-4 py-2 text-sm font-medium border-b-2 transition-colors',
-          activeTab === 'unmatched'
-            ? 'border-primary text-primary'
-            : 'border-transparent text-gray-600 hover:text-gray-900',
-        ]"
-      >
-        <div class="flex items-center gap-2">
-          <Link2 class="h-4 w-4" />
-          Nicht zugeordnet
-          <span v-if="unmatchedTotal > 0" class="px-1.5 py-0.5 text-xs bg-amber-100 text-amber-700 rounded-full">
-            {{ unmatchedTotal }}
-          </span>
-        </div>
-      </button>
-      <button
-        @click="switchTab('matched')"
-        :class="[
-          'flex-none px-4 py-2 text-sm font-medium border-b-2 transition-colors',
-          activeTab === 'matched'
-            ? 'border-primary text-primary'
-            : 'border-transparent text-gray-600 hover:text-gray-900',
-        ]"
-      >
-        <div class="flex items-center gap-2">
-          <CheckCircle class="h-4 w-4" />
-          Zugeordnet
-        </div>
-      </button>
-      <button
-        @click="switchTab('warnings')"
-        :class="[
-          'flex-none px-4 py-2 text-sm font-medium border-b-2 transition-colors',
-          activeTab === 'warnings'
-            ? 'border-primary text-primary'
-            : 'border-transparent text-gray-600 hover:text-gray-900',
-        ]"
-      >
-        <div class="flex items-center gap-2">
-          <AlertTriangle class="h-4 w-4" />
-          Warnungen
-          <span v-if="warningsTotal > 0" class="px-1.5 py-0.5 text-xs bg-orange-100 text-orange-700 rounded-full">
-            {{ warningsTotal }}
-          </span>
-        </div>
-      </button>
-      <button
-        @click="switchTab('blacklist')"
-        :class="[
-          'flex-none px-4 py-2 text-sm font-medium border-b-2 transition-colors',
-          activeTab === 'blacklist'
-            ? 'border-primary text-primary'
-            : 'border-transparent text-gray-600 hover:text-gray-900',
-        ]"
-      >
-        <div class="flex items-center gap-2">
-          <Ban class="h-4 w-4" />
-          Blacklist
-          <span v-if="blacklistTotal > 0" class="px-1.5 py-0.5 text-xs bg-gray-100 text-gray-700 rounded-full">
-            {{ blacklistTotal }}
-          </span>
-        </div>
-      </button>
-    </div>
-
-    <!-- Upload Tab -->
-    <div v-if="activeTab === 'upload'">
-      <!-- Upload Area -->
-      <div
-        v-if="!importResult"
-        @dragover="handleDragOver"
-        @dragleave="handleDragLeave"
-        @drop="handleDrop"
-        :class="[
-          'border-2 border-dashed rounded-xl p-12 text-center transition-colors',
-          isDragging
-            ? 'border-primary bg-primary/5'
-            : 'border-gray-300 hover:border-gray-400',
-          isUploading ? 'opacity-50 pointer-events-none' : '',
-        ]"
-      >
-        <div v-if="isUploading" class="flex flex-col items-center gap-4">
-          <Loader2 class="h-12 w-12 animate-spin text-primary" />
-          <p class="text-gray-600">CSV wird verarbeitet...</p>
-        </div>
-        <div v-else class="flex flex-col items-center gap-4">
-          <div class="p-4 bg-gray-100 rounded-full">
-            <FileSpreadsheet class="h-12 w-12 text-gray-400" />
-          </div>
-          <div>
-            <p class="text-lg font-medium text-gray-700">
-              CSV-Datei hierher ziehen
-            </p>
-            <p class="text-sm text-gray-500 mt-1">
-              oder klicken um eine Datei auszuwählen
-            </p>
-          </div>
-          <input
-            type="file"
-            accept=".csv"
-            @change="handleFileSelect"
-            class="hidden"
-            id="file-input"
-          />
-          <label
-            for="file-input"
-            class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 cursor-pointer transition-colors"
-          >
-            <Upload class="h-4 w-4" />
-            Datei auswählen
-          </label>
-          <p class="text-xs text-gray-400 mt-2">
-            Unterstützt: Deutsche Bankexporte (CSV, Semikolon-getrennt, ISO-8859-1 oder UTF-8)
-          </p>
-        </div>
-      </div>
-
-      <!-- Upload Error -->
-      <div
-        v-if="uploadError"
-        class="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3"
-      >
-        <XCircle class="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
-        <div>
-          <p class="text-red-700 font-medium">Fehler beim Upload</p>
-          <p class="text-sm text-red-600">{{ uploadError }}</p>
-        </div>
-      </div>
-
-      <!-- Import Result -->
-      <div v-if="importResult" class="space-y-6">
-        <!-- Summary Card -->
-        <div class="bg-white rounded-xl border p-6">
-          <div class="flex items-center justify-between mb-4">
-            <div class="flex items-center gap-3">
-              <div class="p-2 bg-green-100 rounded-lg">
-                <CheckCircle class="h-6 w-6 text-green-600" />
-              </div>
-              <div>
-                <h2 class="text-lg font-semibold">Import erfolgreich</h2>
-                <p class="text-sm text-gray-600">{{ importResult.fileName }}</p>
-              </div>
-            </div>
-            <button
-              @click="resetUpload"
-              class="text-sm text-gray-600 hover:text-gray-900 underline"
-            >
-              Neuer Import
-            </button>
-          </div>
-          <div class="grid grid-cols-3 gap-4">
-            <div class="p-3 bg-gray-50 rounded-lg text-center">
-              <div class="text-2xl font-bold text-gray-900">
-                {{ importResult.totalRows }}
-              </div>
-              <div class="text-sm text-gray-600">Zeilen gelesen</div>
-            </div>
-            <div class="p-3 bg-green-50 rounded-lg text-center">
-              <div class="text-2xl font-bold text-green-600">
-                {{ importResult.imported }}
-              </div>
-              <div class="text-sm text-gray-600">Importiert</div>
-            </div>
-            <div class="p-3 bg-gray-50 rounded-lg text-center">
-              <div class="text-2xl font-bold text-gray-500">
-                {{ importResult.skipped }}
-              </div>
-              <div class="text-sm text-gray-600">Übersprungen</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Confirm Result -->
-        <div
-          v-if="confirmResult"
-          class="p-4 bg-green-50 border border-green-200 rounded-lg flex items-start gap-3"
-        >
-          <CheckCircle class="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
-          <div>
-            <p class="text-green-700 font-medium">Zuordnungen bestätigt</p>
-            <p class="text-sm text-green-600">
-              {{ confirmResult.confirmed }} Zahlungen wurden als bezahlt markiert
-              <span v-if="confirmResult.failed > 0">, {{ confirmResult.failed }} fehlgeschlagen</span>
-            </p>
-          </div>
-        </div>
-
-        <!-- Match Suggestions -->
-        <div v-if="matchableSuggestions.length > 0" class="bg-white rounded-xl border">
-          <div class="p-4 border-b flex items-center justify-between">
-            <div>
-              <h3 class="font-semibold">Zuordnungsvorschläge</h3>
-              <p class="text-sm text-gray-600">
-                {{ selectedMatches.size }} von {{ matchableSuggestions.length }} ausgewählt
-              </p>
-            </div>
-            <div class="flex gap-2">
-              <button
-                @click="selectAllMatches"
-                class="text-sm text-primary hover:underline"
-              >
-                Alle auswählen
-              </button>
-              <span class="text-gray-300">|</span>
-              <button
-                @click="deselectAllMatches"
-                class="text-sm text-gray-600 hover:underline"
-              >
-                Keine
-              </button>
-            </div>
-          </div>
-          
-          <div class="divide-y">
-            <div
-              v-for="suggestion in matchableSuggestions"
-              :key="suggestion.transaction.id"
-              class="p-4"
-            >
-              <div class="flex items-start gap-3">
-                <!-- Checkbox -->
-                <button
-                  @click="toggleMatch(suggestion.transaction.id)"
-                  :class="[
-                    'mt-1 w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 transition-colors',
-                    selectedMatches.has(suggestion.transaction.id)
-                      ? 'bg-primary border-primary text-white'
-                      : 'border-gray-300 hover:border-gray-400',
-                  ]"
-                >
-                  <Check v-if="selectedMatches.has(suggestion.transaction.id)" class="h-3 w-3" />
-                </button>
-
-                <!-- Main Content -->
-                <div class="flex-1 min-w-0">
-                  <div class="flex items-start justify-between gap-4">
-                    <div>
-                      <div class="font-medium">
-                        {{ suggestion.transaction.payerName || 'Unbekannt' }}
-                      </div>
-                      <div class="text-sm text-gray-600 truncate">
-                        {{ suggestion.transaction.description }}
-                      </div>
-                    </div>
-                    <div class="text-right flex-shrink-0">
-                      <div class="font-semibold text-green-600">
-                        {{ formatCurrency(suggestion.transaction.amount) }}
-                      </div>
-                      <div class="text-xs text-gray-500">
-                        {{ formatDate(suggestion.transaction.bookingDate) }}
-                      </div>
-                    </div>
-                  </div>
-
-                  <!-- Match Details -->
-                  <div class="mt-3 flex items-center gap-4 text-sm">
-                    <span
-                      :class="[
-                        'px-2 py-0.5 rounded-full text-xs font-medium',
-                        getConfidenceColor(suggestion.confidence),
-                      ]"
-                    >
-                      {{ getConfidenceLabel(suggestion.confidence) }} ({{ Math.round(suggestion.confidence * 100) }}%)
-                    </span>
-                    <span class="text-gray-500">
-                      Erkannt als: {{ getFeeTypeName(suggestion.detectedType) }}
-                    </span>
-                    <span class="text-gray-500">
-                      Grund: {{ suggestion.matchedBy }}
-                    </span>
-                  </div>
-
-                  <!-- Expand Details -->
-                  <button
-                    @click="toggleSuggestion(suggestion.transaction.id)"
-                    class="mt-2 text-sm text-primary flex items-center gap-1"
-                  >
-                    <ChevronDown
-                      v-if="!expandedSuggestions.has(suggestion.transaction.id)"
-                      class="h-4 w-4"
-                    />
-                    <ChevronUp v-else class="h-4 w-4" />
-                    {{ expandedSuggestions.has(suggestion.transaction.id) ? 'Weniger' : 'Details' }}
-                  </button>
-
-                  <div
-                    v-if="expandedSuggestions.has(suggestion.transaction.id)"
-                    class="mt-3 p-3 bg-gray-50 rounded-lg text-sm space-y-2"
-                  >
-                    <div class="grid grid-cols-2 gap-4">
-                      <div>
-                        <span class="text-gray-500">Zugeordnetes Kind:</span>
-                        <span class="ml-2 font-medium">
-                          {{ suggestion.child?.firstName }} {{ suggestion.child?.lastName }}
-                        </span>
-                      </div>
-                      <div>
-                        <span class="text-gray-500">Beitragsart:</span>
-                        <span class="ml-2 font-medium">
-                          {{ getFeeTypeName(suggestion.expectation?.feeType) }}
-                        </span>
-                      </div>
-                      <div>
-                        <span class="text-gray-500">Erwarteter Betrag:</span>
-                        <span class="ml-2 font-medium">
-                          {{ formatCurrency(suggestion.expectation?.amount || 0) }}
-                        </span>
-                      </div>
-                      <div>
-                        <span class="text-gray-500">Zeitraum:</span>
-                        <span class="ml-2 font-medium">
-                          {{ suggestion.expectation?.month ? suggestion.expectation.month + '/' : '' }}{{ suggestion.expectation?.year }}
-                        </span>
-                      </div>
-                    </div>
-                    <div v-if="suggestion.transaction.payerIban">
-                      <span class="text-gray-500">IBAN:</span>
-                      <span class="ml-2 font-mono text-xs">
-                        {{ suggestion.transaction.payerIban }}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Confirm Button -->
-          <div class="p-4 border-t bg-gray-50 flex items-center justify-between">
-            <p class="text-sm text-gray-600">
-              {{ selectedMatches.size }} Zuordnungen ausgewählt
-            </p>
-            <button
-              @click="confirmMatches"
-              :disabled="selectedMatches.size === 0 || isConfirming"
-              class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <Loader2 v-if="isConfirming" class="h-4 w-4 animate-spin" />
-              <CheckCircle v-else class="h-4 w-4" />
-              Zuordnungen bestätigen
-            </button>
-          </div>
-        </div>
-
-        <!-- Unmatched from this import -->
-        <div v-if="unmatchableSuggestions.length > 0" class="bg-white rounded-xl border">
-          <div class="p-4 border-b">
-            <div class="flex items-center gap-2">
-              <AlertTriangle class="h-5 w-5 text-amber-500" />
-              <h3 class="font-semibold">Nicht zuordenbar</h3>
-            </div>
-            <p class="text-sm text-gray-600 mt-1">
-              Diese Transaktionen konnten keinem offenen Beitrag zugeordnet werden
-            </p>
-          </div>
-          
-          <div class="divide-y">
-            <div
-              v-for="suggestion in unmatchableSuggestions"
-              :key="suggestion.transaction.id"
-              class="p-4 flex items-center justify-between"
-            >
-              <div>
-                <div class="font-medium">
-                  {{ suggestion.transaction.payerName || 'Unbekannt' }}
-                </div>
-                <div class="text-sm text-gray-600 truncate max-w-md">
-                  {{ suggestion.transaction.description }}
-                </div>
-              </div>
-              <div class="text-right">
-                <div class="font-semibold">
-                  {{ formatCurrency(suggestion.transaction.amount) }}
-                </div>
-                <div class="text-xs text-gray-500">
-                  {{ formatDate(suggestion.transaction.bookingDate) }}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- History Tab -->
-    <div v-if="activeTab === 'history'">
-      <div v-if="isLoadingHistory" class="flex items-center justify-center py-12">
-        <Loader2 class="h-8 w-8 animate-spin text-primary" />
-      </div>
-
-      <div v-else-if="importHistory.length === 0" class="text-center py-12">
-        <History class="h-12 w-12 text-gray-300 mx-auto mb-4" />
-        <p class="text-gray-600">Noch keine Importe durchgeführt</p>
-      </div>
-
-      <div v-else class="bg-white rounded-xl border overflow-hidden">
-        <div class="overflow-x-auto">
-          <table class="w-full">
-            <thead class="bg-gray-50">
-              <tr class="text-left text-sm text-gray-500">
-                <th class="px-4 py-3 font-medium">Datei</th>
-                <th class="px-4 py-3 font-medium">Zeitraum</th>
-                <th class="px-4 py-3 font-medium">Transaktionen</th>
-                <th class="px-4 py-3 font-medium">Zugeordnet</th>
-                <th class="px-4 py-3 font-medium">Importiert am</th>
-                <th class="px-4 py-3 font-medium">Von</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="batch in importHistory"
-                :key="batch.id"
-                class="border-t hover:bg-gray-50"
-              >
-                <td class="px-4 py-3">
-                  <div class="flex items-center gap-2">
-                    <FileSpreadsheet class="h-4 w-4 text-gray-400" />
-                    <span class="font-medium">{{ batch.fileName }}</span>
-                  </div>
-                </td>
-                <td class="px-4 py-3 text-gray-600 text-sm">
-                  <span v-if="batch.dateFrom && batch.dateTo">
-                    {{ formatDate(batch.dateFrom) }} - {{ formatDate(batch.dateTo) }}
-                  </span>
-                  <span v-else class="text-gray-400">-</span>
-                </td>
-                <td class="px-4 py-3">{{ batch.transactionCount }}</td>
-                <td class="px-4 py-3">
-                  <span
-                    :class="[
-                      'px-2 py-0.5 rounded-full text-xs font-medium',
-                      batch.matchedCount === batch.transactionCount
-                        ? 'bg-green-100 text-green-700'
-                        : batch.matchedCount > 0
-                          ? 'bg-amber-100 text-amber-700'
-                          : 'bg-gray-100 text-gray-700',
-                    ]"
-                  >
-                    {{ batch.matchedCount }} / {{ batch.transactionCount }}
-                  </span>
-                </td>
-                <td class="px-4 py-3 text-gray-600">
-                  {{ formatDateTime(batch.importedAt) }}
-                </td>
-                <td class="px-4 py-3 text-gray-600">
-                  {{ batch.importedByEmail || batch.importedBy }}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-    </div>
-
-    <!-- Unmatched Tab -->
-    <div v-if="activeTab === 'unmatched'">
-      <div class="flex items-center justify-between mb-4">
-        <p class="text-sm text-gray-600">
-          {{ unmatchedTotal }} nicht zugeordnete Transaktionen
+    <!-- Rescan Result -->
+    <div
+      v-if="rescanResult"
+      class="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-3"
+    >
+      <CheckCircle class="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
+      <div>
+        <p class="text-blue-700 font-medium">Erneute Zuordnung abgeschlossen</p>
+        <p class="text-sm text-blue-600">
+          {{ rescanResult.scanned }} Transaktionen gescannt<span v-if="rescanResult.autoMatched > 0">, {{ rescanResult.autoMatched }} automatisch zugeordnet</span><span v-if="rescanResult.newMatches > 0">, {{ rescanResult.newMatches }} Vorschläge zur Überprüfung</span>
         </p>
+      </div>
+      <button
+        @click="rescanResult = null"
+        class="ml-auto text-blue-500 hover:text-blue-700"
+      >
+        <XCircle class="h-4 w-4" />
+      </button>
+    </div>
+
+    <!-- Toolbar -->
+    <div class="bg-white rounded-xl border p-4 mb-6 space-y-3">
+      <div class="flex flex-col lg:flex-row lg:items-center gap-3">
+        <div class="flex flex-wrap items-center gap-2">
+          <button
+            @click="activeFilter = 'offen'"
+            :class="[
+              'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition-colors',
+              activeFilter === 'offen'
+                ? 'bg-primary text-white border-primary'
+                : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50',
+            ]"
+          >
+            Offen
+            <span
+              v-if="offenCount > 0"
+              :class="[
+                'px-1.5 py-0.5 text-xs rounded-full',
+                activeFilter === 'offen' ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-700',
+              ]"
+            >
+              {{ offenCount }}
+            </span>
+          </button>
+          <button
+            @click="activeFilter = 'warnungen'"
+            :class="[
+              'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition-colors',
+              activeFilter === 'warnungen'
+                ? 'bg-primary text-white border-primary'
+                : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50',
+            ]"
+          >
+            Warnungen
+            <span
+              v-if="warnungenCount > 0"
+              :class="[
+                'px-1.5 py-0.5 text-xs rounded-full',
+                activeFilter === 'warnungen' ? 'bg-white/20 text-white' : 'bg-orange-100 text-orange-700',
+              ]"
+            >
+              {{ warnungenCount }}
+            </span>
+          </button>
+          <button
+            @click="activeFilter = 'zugeordnet'"
+            :class="[
+              'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition-colors',
+              activeFilter === 'zugeordnet'
+                ? 'bg-primary text-white border-primary'
+                : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50',
+            ]"
+          >
+            Zugeordnet
+            <span
+              v-if="zugeordnetCount > 0"
+              :class="[
+                'px-1.5 py-0.5 text-xs rounded-full',
+                activeFilter === 'zugeordnet' ? 'bg-white/20 text-white' : 'bg-green-100 text-green-700',
+              ]"
+            >
+              {{ zugeordnetCount }}
+            </span>
+          </button>
+          <button
+            @click="activeFilter = 'alle'"
+            :class="[
+              'px-3 py-1.5 rounded-full text-sm font-medium border transition-colors',
+              activeFilter === 'alle'
+                ? 'bg-primary text-white border-primary'
+                : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50',
+            ]"
+          >
+            Alle
+          </button>
+        </div>
+
+        <div class="flex-1 min-w-[220px]">
+          <div class="relative max-w-md lg:ml-auto">
+            <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <input
+              v-model="transactionSearch"
+              type="text"
+              placeholder="Suche nach Zahler oder Beschreibung..."
+              class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+            />
+          </div>
+        </div>
+
         <div class="flex items-center gap-2">
           <button
             @click="rescanTransactions"
-            :disabled="isRescanning || unmatchedTotal === 0"
-            class="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            :disabled="isRescanning || offenCount === 0"
+            class="inline-flex items-center gap-1 px-3 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Automatische Zuordnung erneut ausführen"
           >
             <Loader2 v-if="isRescanning" class="h-4 w-4 animate-spin" />
             <RefreshCw v-else class="h-4 w-4" />
             Erneut zuordnen
           </button>
           <button
-            @click="loadUnmatched"
-            class="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+            @click="showUploadModal = true"
+            class="inline-flex items-center gap-1 px-3 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
           >
-            <RefreshCw class="h-4 w-4" />
-            Aktualisieren
+            <Upload class="h-4 w-4" />
+            CSV hochladen
           </button>
         </div>
       </div>
 
-      <!-- Rescan Result -->
-      <div
-        v-if="rescanResult"
-        class="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-3"
-      >
-        <CheckCircle class="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
-        <div>
-          <p class="text-blue-700 font-medium">Erneute Zuordnung abgeschlossen</p>
-          <p class="text-sm text-blue-600">
-            {{ rescanResult.scanned }} Transaktionen gescannt<span v-if="rescanResult.autoMatched > 0">, {{ rescanResult.autoMatched }} automatisch zugeordnet</span><span v-if="rescanResult.newMatches > 0">, {{ rescanResult.newMatches }} Vorschläge zur Überprüfung</span>
-          </p>
-        </div>
-        <button
-          @click="rescanResult = null"
-          class="ml-auto text-blue-500 hover:text-blue-700"
-        >
-          <XCircle class="h-4 w-4" />
-        </button>
-      </div>
-
-      <!-- Search Bar -->
-      <div class="mb-4">
-        <div class="relative">
-          <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <input
-            v-model="transactionSearch"
-            type="text"
-            placeholder="Suche nach Zahler oder Beschreibung..."
-            class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-          />
-        </div>
-      </div>
-
-      <div v-if="isLoadingUnmatched" class="flex items-center justify-center py-12">
-        <Loader2 class="h-8 w-8 animate-spin text-primary" />
-      </div>
-
-      <div v-else-if="unmatchedTransactions.length === 0" class="text-center py-12">
-        <component :is="debouncedTransactionSearch ? Search : CheckCircle"
-                   :class="debouncedTransactionSearch ? 'h-12 w-12 text-gray-300 mx-auto mb-4' : 'h-12 w-12 text-green-300 mx-auto mb-4'" />
-        <p class="text-gray-600">
-          {{ debouncedTransactionSearch ? 'Keine Transaktionen gefunden' : 'Alle Transaktionen sind zugeordnet' }}
+      <div class="flex flex-wrap items-center justify-between gap-3 pt-1 border-t text-sm">
+        <p class="text-gray-500 pt-2">
+          {{ sortedRows.length }} Transaktionen
+          <span v-if="filteredRows.length !== transactionRows.length"> (gefiltert von {{ transactionRows.length }})</span>
         </p>
-        <p v-if="debouncedTransactionSearch" class="text-sm text-gray-500 mt-1">Versuche einen anderen Suchbegriff</p>
+        <div class="flex items-center gap-4 pt-2">
+          <button
+            @click="openHistoryModal"
+            class="inline-flex items-center gap-1 text-gray-600 hover:text-gray-900 underline"
+          >
+            <History class="h-4 w-4" />
+            Import-Historie
+          </button>
+          <button
+            @click="openBlacklistModal"
+            class="inline-flex items-center gap-1 text-gray-600 hover:text-gray-900 underline"
+          >
+            <ShieldOff class="h-4 w-4" />
+            Blacklist
+          </button>
+        </div>
       </div>
+    </div>
 
-      <div v-else class="bg-white rounded-xl border overflow-hidden">
-        <div class="overflow-x-auto">
-          <table class="w-full">
+    <!-- Error Banner -->
+    <div
+      v-if="uploadError"
+      class="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3"
+    >
+      <XCircle class="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+      <div>
+        <p class="text-red-700 font-medium">Fehler</p>
+        <p class="text-sm text-red-600">{{ uploadError }}</p>
+      </div>
+      <button @click="uploadError = null" class="ml-auto text-red-400 hover:text-red-600">
+        <XCircle class="h-4 w-4" />
+      </button>
+    </div>
+
+    <!-- Unified Transaction List -->
+    <div v-if="isLoadingTransactions" class="flex items-center justify-center py-12">
+      <Loader2 class="h-8 w-8 animate-spin text-primary" />
+    </div>
+
+    <div v-else-if="pagedRows.length === 0" class="bg-white rounded-xl border text-center py-12">
+      <component
+        :is="transactionSearch.trim() ? Search : CheckCircle"
+        :class="['h-12 w-12 mx-auto mb-4', transactionSearch.trim() ? 'text-gray-300' : 'text-green-300']"
+      />
+      <p class="text-gray-600">
+        {{ transactionSearch.trim() ? 'Keine Transaktionen gefunden' : 'Keine offenen Transaktionen' }}
+      </p>
+      <p v-if="transactionSearch.trim()" class="text-sm text-gray-500 mt-1">Versuche einen anderen Suchbegriff</p>
+      <p v-else-if="activeFilter === 'warnungen'" class="text-sm text-gray-500 mt-1">Alle Zahlungen wurden korrekt verarbeitet</p>
+      <p v-else-if="activeFilter === 'zugeordnet'" class="text-sm text-gray-500 mt-1">Noch keine zugeordneten Transaktionen</p>
+    </div>
+
+    <div v-else class="bg-white rounded-xl border overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full">
           <thead class="bg-gray-50">
             <tr class="text-left text-sm text-gray-500">
               <th
                 class="px-4 py-3 font-medium cursor-pointer hover:bg-gray-100 select-none"
-                @click="toggleUnmatchedSort('date')"
+                @click="toggleSort('date')"
               >
                 <div class="flex items-center gap-1">
                   Datum
-                  <ArrowUp v-if="unmatchedSortField === 'date' && unmatchedSortDirection === 'asc'" class="h-4 w-4" />
-                  <ArrowDown v-else-if="unmatchedSortField === 'date' && unmatchedSortDirection === 'desc'" class="h-4 w-4" />
+                  <ArrowUp v-if="sortField === 'date' && sortDirection === 'asc'" class="h-4 w-4" />
+                  <ArrowDown v-else-if="sortField === 'date' && sortDirection === 'desc'" class="h-4 w-4" />
                   <ArrowUpDown v-else class="h-4 w-4 text-gray-400" />
                 </div>
               </th>
               <th
                 class="px-4 py-3 font-medium cursor-pointer hover:bg-gray-100 select-none"
-                @click="toggleUnmatchedSort('payer')"
+                @click="toggleSort('payer')"
               >
                 <div class="flex items-center gap-1">
                   Zahler
-                  <ArrowUp v-if="unmatchedSortField === 'payer' && unmatchedSortDirection === 'asc'" class="h-4 w-4" />
-                  <ArrowDown v-else-if="unmatchedSortField === 'payer' && unmatchedSortDirection === 'desc'" class="h-4 w-4" />
+                  <ArrowUp v-if="sortField === 'payer' && sortDirection === 'asc'" class="h-4 w-4" />
+                  <ArrowDown v-else-if="sortField === 'payer' && sortDirection === 'desc'" class="h-4 w-4" />
                   <ArrowUpDown v-else class="h-4 w-4 text-gray-400" />
                 </div>
               </th>
               <th
                 class="px-4 py-3 font-medium cursor-pointer hover:bg-gray-100 select-none"
-                @click="toggleUnmatchedSort('description')"
+                @click="toggleSort('description')"
               >
                 <div class="flex items-center gap-1">
                   Beschreibung
-                  <ArrowUp v-if="unmatchedSortField === 'description' && unmatchedSortDirection === 'asc'" class="h-4 w-4" />
-                  <ArrowDown v-else-if="unmatchedSortField === 'description' && unmatchedSortDirection === 'desc'" class="h-4 w-4" />
+                  <ArrowUp v-if="sortField === 'description' && sortDirection === 'asc'" class="h-4 w-4" />
+                  <ArrowDown v-else-if="sortField === 'description' && sortDirection === 'desc'" class="h-4 w-4" />
                   <ArrowUpDown v-else class="h-4 w-4 text-gray-400" />
                 </div>
               </th>
               <th
                 class="px-4 py-3 font-medium text-right cursor-pointer hover:bg-gray-100 select-none"
-                @click="toggleUnmatchedSort('amount')"
+                @click="toggleSort('amount')"
               >
                 <div class="flex items-center justify-end gap-1">
                   Betrag
-                  <ArrowUp v-if="unmatchedSortField === 'amount' && unmatchedSortDirection === 'asc'" class="h-4 w-4" />
-                  <ArrowDown v-else-if="unmatchedSortField === 'amount' && unmatchedSortDirection === 'desc'" class="h-4 w-4" />
+                  <ArrowUp v-if="sortField === 'amount' && sortDirection === 'asc'" class="h-4 w-4" />
+                  <ArrowDown v-else-if="sortField === 'amount' && sortDirection === 'desc'" class="h-4 w-4" />
                   <ArrowUpDown v-else class="h-4 w-4 text-gray-400" />
                 </div>
               </th>
+              <th class="px-4 py-3 font-medium">Status</th>
               <th class="px-4 py-3 font-medium text-right">Aktionen</th>
             </tr>
           </thead>
           <tbody>
-            <tr
-              v-for="tx in unmatchedTransactions"
-              :key="tx.id"
-              class="border-t hover:bg-gray-50"
-            >
-              <td class="px-4 py-3 text-gray-600">
-                {{ formatDate(tx.bookingDate) }}
-              </td>
-              <td class="px-4 py-3">
-                <div class="font-medium">{{ tx.payerName || 'Unbekannt' }}</div>
-                <div v-if="tx.payerIban" class="text-xs text-gray-500 font-mono">
-                  {{ tx.payerIban }}
-                </div>
-              </td>
-              <td class="px-4 py-3 text-gray-600 truncate max-w-xs">
-                {{ tx.description }}
-              </td>
-              <td class="px-4 py-3 text-right font-medium">
-                {{ formatCurrency(tx.amount) }}
-              </td>
-              <td class="px-4 py-3 text-right">
-                <!-- Confirm Dialog -->
-                <div v-if="dismissConfirmId === tx.id" class="flex items-center justify-end gap-2">
-                  <span class="text-xs text-gray-500">Ignorieren?</span>
-                  <button
-                    @click="dismissTransaction(tx)"
-                    class="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600"
-                  >
-                    Ja
-                  </button>
-                  <button
-                    @click="cancelDismiss"
-                    class="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
-                  >
-                    Nein
-                  </button>
-                </div>
-                <div v-else-if="hideConfirmId === tx.id" class="flex items-center justify-end gap-2">
-                  <span class="text-xs text-gray-500">Ausblenden?</span>
-                  <button
-                    @click="hideTransaction(tx)"
-                    class="px-2 py-1 text-xs bg-gray-700 text-white rounded hover:bg-gray-800"
-                  >
-                    Ja
-                  </button>
-                  <button
-                    @click="cancelHide"
-                    class="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
-                  >
-                    Nein
-                  </button>
-                </div>
-                <!-- Action Buttons -->
-                <div v-else class="flex items-center justify-end gap-2">
-                  <!-- Manual Match Button -->
-                  <button
-                    @click="openManualMatch(tx)"
-                    class="inline-flex items-center gap-1 px-2 py-1 text-xs text-primary hover:text-primary/80 hover:bg-primary/10 rounded transition-colors"
-                    title="Manuell zuordnen"
-                  >
-                    <LinkIcon class="h-3 w-3" />
-                    Zuordnen
-                  </button>
-                  <!-- Hide Button -->
-                  <button
-                    @click="showHideConfirm(tx.id)"
-                    :disabled="isHiding === tx.id"
-                    class="inline-flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
-                    title="Transaktion ausblenden"
-                  >
-                    <Loader2 v-if="isHiding === tx.id" class="h-3 w-3 animate-spin" />
-                    <EyeOff v-else class="h-3 w-3" />
-                    Ausblenden
-                  </button>
-                  <!-- Dismiss Button -->
-                  <button
-                    @click="showDismissConfirm(tx.id)"
-                    :disabled="isDismissing === tx.id"
-                    class="inline-flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
-                    title="IBAN dauerhaft ignorieren"
-                  >
-                    <Loader2 v-if="isDismissing === tx.id" class="h-3 w-3 animate-spin" />
-                    <Ban v-else class="h-3 w-3" />
-                    Ignorieren
-                  </button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-          </table>
-        </div>
-
-        <!-- Pagination -->
-        <div v-if="unmatchedTotalPages > 1" class="flex items-center justify-between px-4 py-3 border-t bg-gray-50">
-          <div class="text-sm text-gray-600">
-            Seite {{ unmatchedPage }} von {{ unmatchedTotalPages }} ({{ unmatchedTotal }} Einträge)
-          </div>
-          <div class="flex items-center gap-2">
-            <button
-              @click="goToUnmatchedPage(unmatchedPage - 1)"
-              :disabled="unmatchedPage <= 1"
-              class="p-1 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <ChevronLeft class="h-5 w-5" />
-            </button>
-            <button
-              v-for="page in Math.min(5, unmatchedTotalPages)"
-              :key="page"
-              @click="goToUnmatchedPage(page)"
-              :class="[
-                'px-3 py-1 rounded text-sm',
-                page === unmatchedPage ? 'bg-primary text-white' : 'hover:bg-gray-200'
-              ]"
-            >
-              {{ page }}
-            </button>
-            <span v-if="unmatchedTotalPages > 5" class="text-gray-400">...</span>
-            <button
-              @click="goToUnmatchedPage(unmatchedPage + 1)"
-              :disabled="unmatchedPage >= unmatchedTotalPages"
-              class="p-1 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <ChevronRight class="h-5 w-5" />
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Warnings Tab -->
-    <div v-if="activeTab === 'warnings'">
-      <div class="flex items-center justify-between mb-4">
-        <div>
-          <p class="text-sm text-gray-600">
-            {{ warningsTotal }} offene Warnungen
-          </p>
-          <p class="text-xs text-gray-500 mt-1">
-            Warnungen zu Zahlungen, die manuell uberpruft werden sollten
-          </p>
-        </div>
-        <button
-          @click="loadWarnings"
-          class="inline-flex items-center gap-1 text-sm text-primary hover:underline"
-        >
-          <RefreshCw class="h-4 w-4" />
-          Aktualisieren
-        </button>
-      </div>
-
-      <div v-if="isLoadingWarnings" class="flex items-center justify-center py-12">
-        <Loader2 class="h-8 w-8 animate-spin text-primary" />
-      </div>
-
-      <div v-else-if="warnings.length === 0" class="text-center py-12">
-        <CheckCircle class="h-12 w-12 text-green-300 mx-auto mb-4" />
-        <p class="text-gray-600">Keine offenen Warnungen</p>
-        <p class="text-sm text-gray-500 mt-1">
-          Alle Zahlungen wurden korrekt verarbeitet
-        </p>
-      </div>
-
-      <div v-else class="space-y-4">
-        <div
-          v-for="warning in warnings"
-          :key="warning.id"
-          class="bg-white rounded-xl border p-4"
-        >
-          <div class="flex items-start justify-between gap-4">
-            <!-- Warning Info -->
-            <div class="flex-1">
-              <div class="flex items-center gap-2 mb-2">
-                <span
+            <template v-for="row in pagedRows" :key="row.key">
+              <tr class="border-t hover:bg-gray-50">
+                <td class="px-4 py-3 text-gray-600 whitespace-nowrap">
+                  {{ formatDate(row.tx.bookingDate) }}
+                </td>
+                <td class="px-4 py-3">
+                  <div class="font-medium">{{ row.tx.payerName || 'Unbekannt' }}</div>
+                  <div v-if="row.tx.payerIban" class="text-xs text-gray-500 font-mono">
+                    {{ row.tx.payerIban }}
+                  </div>
+                  <template v-for="warning in row.warnings" :key="warning.id">
+                    <router-link
+                      v-if="warning.child"
+                      :to="`/kinder/${warning.child.id}`"
+                      class="inline-block mt-1 px-2 py-0.5 bg-primary/10 text-primary rounded-full text-xs font-medium hover:bg-primary/20 transition-colors"
+                    >
+                      {{ warning.child.firstName }} {{ warning.child.lastName }}
+                    </router-link>
+                  </template>
+                </td>
+                <td class="px-4 py-3 text-gray-600 truncate max-w-xs">
+                  {{ row.tx.description }}
+                </td>
+                <td
                   :class="[
-                    'px-2 py-0.5 rounded-full text-xs font-medium',
-                    getWarningTypeColor(warning.warningType),
+                    'px-4 py-3 text-right font-medium whitespace-nowrap',
+                    row.matched ? 'text-green-600' : '',
                   ]"
                 >
-                  {{ getWarningTypeLabel(warning.warningType) }}
-                </span>
-                <!-- Child Name Badge -->
-                <router-link
-                  v-if="warning.child"
-                  :to="`/kinder/${warning.child.id}`"
-                  class="px-2 py-0.5 bg-primary/10 text-primary rounded-full text-xs font-medium hover:bg-primary/20 transition-colors"
-                >
-                  {{ warning.child.firstName }} {{ warning.child.lastName }}
-                </router-link>
-                <span class="text-xs text-gray-500">
-                  {{ formatDateTime(warning.createdAt) }}
-                </span>
-              </div>
-              
-              <p class="text-gray-700 mb-3">{{ warning.message }}</p>
-              
-              <!-- Transaction Details -->
-              <div v-if="warning.transaction" class="p-3 bg-gray-50 rounded-lg text-sm space-y-1">
-                <div class="flex justify-between">
-                  <span class="text-gray-500">Transaktion:</span>
-                  <span class="font-medium">{{ warning.transaction.payerName || 'Unbekannt' }}</span>
-                </div>
-                <div class="flex justify-between">
-                  <span class="text-gray-500">Betrag:</span>
-                  <span class="font-medium text-green-600">{{ formatCurrency(warning.transaction.amount) }}</span>
-                </div>
-                <div class="flex justify-between">
-                  <span class="text-gray-500">Datum:</span>
-                  <span>{{ formatDate(warning.transaction.bookingDate) }}</span>
-                </div>
-                <div v-if="warning.transaction.description" class="text-gray-600 text-xs truncate">
-                  {{ warning.transaction.description }}
-                </div>
-              </div>
+                  {{ formatCurrency(row.tx.amount) }}
+                </td>
+                <td class="px-4 py-3">
+                  <div class="flex flex-col items-start gap-1.5">
+                    <span
+                      v-if="row.matched"
+                      class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700"
+                    >
+                      <CheckCircle class="h-3 w-3" />
+                      Zugeordnet
+                    </span>
+                    <span
+                      v-else
+                      class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700"
+                    >
+                      <AlertTriangle class="h-3 w-3" />
+                      Nicht zugeordnet
+                    </span>
 
-              <!-- Matched Fee Details (for LATE_PAYMENT) -->
-              <div v-if="warning.warningType === 'LATE_PAYMENT' && warning.matchedFee" class="mt-2 p-3 bg-orange-50 rounded-lg text-sm space-y-1">
-                <div class="flex items-center gap-1 text-orange-700 font-medium mb-1">
-                  <Clock class="h-4 w-4" />
-                  Verspätete Zahlung für:
-                </div>
-                <div class="flex justify-between">
-                  <span class="text-gray-500">Beitragsart:</span>
-                  <span class="font-medium">{{ getFeeTypeName(warning.matchedFee.feeType) }}</span>
-                </div>
-                <div class="flex justify-between">
-                  <span class="text-gray-500">Zeitraum:</span>
-                  <span>{{ getMonthName(warning.matchedFee.month) }} {{ warning.matchedFee.year }}</span>
-                </div>
-                <div class="flex justify-between">
-                  <span class="text-gray-500">Betrag:</span>
-                  <span class="font-medium">{{ formatCurrency(warning.matchedFee.amount) }}</span>
-                </div>
-              </div>
-            </div>
+                    <div v-if="row.matched && row.tx.matches && row.tx.matches.length > 0" class="flex flex-wrap gap-1">
+                      <span
+                        v-for="match in row.tx.matches"
+                        :key="match.id"
+                        :class="[
+                          'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium',
+                          getFeeTypeColor(match.expectation?.feeType || ''),
+                        ]"
+                      >
+                        {{ getFeeTypeName(match.expectation?.feeType || '') }}
+                        <span class="ml-1 opacity-75">{{ formatCurrency(match.expectation?.amount || 0) }}</span>
+                      </span>
+                    </div>
 
-            <!-- Actions -->
-            <div class="flex flex-col gap-2">
-              <!-- Late Payment: Create Late Fee Button -->
-              <button
-                v-if="warning.warningType === 'LATE_PAYMENT'"
-                @click="resolveLateFee(warning)"
-                :disabled="isResolvingWarning === warning.id"
-                class="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50"
-                title="Mahngebuhr von 10 EUR erstellen"
-              >
-                <Loader2 v-if="isResolvingWarning === warning.id" class="h-4 w-4 animate-spin" />
-                <Euro v-else class="h-4 w-4" />
-                Mahngebuhr erstellen
-              </button>
+                    <button
+                      v-if="row.warnings.length > 0"
+                      @click="toggleWarnings(row.key)"
+                      class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700 hover:bg-orange-200 transition-colors"
+                    >
+                      <AlertTriangle class="h-3 w-3" />
+                      {{ row.warnings.length }} {{ row.warnings.length === 1 ? 'Warnung' : 'Warnungen' }}
+                      <ChevronDown v-if="!expandedWarnings.has(row.key)" class="h-3 w-3" />
+                      <ChevronUp v-else class="h-3 w-3" />
+                    </button>
+                  </div>
+                </td>
+                <td class="px-4 py-3 text-right">
+                  <!-- Unmatched actions -->
+                  <template v-if="!row.matched">
+                    <div v-if="dismissConfirmId === row.tx.id" class="flex items-center justify-end gap-2">
+                      <span class="text-xs text-gray-500">Ignorieren?</span>
+                      <button
+                        @click="dismissTransaction(row.tx)"
+                        class="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600"
+                      >
+                        Ja
+                      </button>
+                      <button
+                        @click="cancelDismiss"
+                        class="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                      >
+                        Nein
+                      </button>
+                    </div>
+                    <div v-else-if="hideConfirmId === row.tx.id" class="flex items-center justify-end gap-2">
+                      <span class="text-xs text-gray-500">Ausblenden?</span>
+                      <button
+                        @click="hideTransaction(row.tx)"
+                        class="px-2 py-1 text-xs bg-gray-700 text-white rounded hover:bg-gray-800"
+                      >
+                        Ja
+                      </button>
+                      <button
+                        @click="cancelHide"
+                        class="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                      >
+                        Nein
+                      </button>
+                    </div>
+                    <div v-else class="flex items-center justify-end gap-2">
+                      <button
+                        @click="openManualMatch(row.tx)"
+                        class="inline-flex items-center gap-1 px-2 py-1 text-xs text-primary hover:text-primary/80 hover:bg-primary/10 rounded transition-colors"
+                        title="Manuell zuordnen"
+                      >
+                        <LinkIcon class="h-3 w-3" />
+                        Zuordnen
+                      </button>
+                      <button
+                        @click="showHideConfirm(row.tx.id)"
+                        :disabled="isHiding === row.tx.id"
+                        class="inline-flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
+                        title="Transaktion ausblenden"
+                      >
+                        <Loader2 v-if="isHiding === row.tx.id" class="h-3 w-3 animate-spin" />
+                        <EyeOff v-else class="h-3 w-3" />
+                        Ausblenden
+                      </button>
+                      <button
+                        @click="showDismissConfirm(row.tx.id)"
+                        :disabled="isDismissing === row.tx.id"
+                        class="inline-flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
+                        title="IBAN dauerhaft ignorieren"
+                      >
+                        <Loader2 v-if="isDismissing === row.tx.id" class="h-3 w-3 animate-spin" />
+                        <Ban v-else class="h-3 w-3" />
+                        Ignorieren
+                      </button>
+                    </div>
+                  </template>
 
-              <!-- Dismiss Dialog -->
-              <div v-if="dismissWarningId === warning.id" class="p-3 bg-gray-50 rounded-lg space-y-2">
-                <input
-                  v-model="dismissNote"
-                  type="text"
-                  placeholder="Notiz (optional)"
-                  class="w-full px-2 py-1 text-sm border rounded"
-                />
-                <div class="flex gap-2">
-                  <button
-                    @click="dismissWarning(warning)"
-                    :disabled="isResolvingWarning === warning.id"
-                    class="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50"
-                  >
-                    Verwerfen
-                  </button>
-                  <button
-                    @click="cancelWarningDismiss"
-                    class="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
-                  >
-                    Abbrechen
-                  </button>
-                </div>
-              </div>
+                  <!-- Matched actions -->
+                  <template v-else>
+                    <div v-if="unmatchConfirmId === row.tx.id" class="flex items-center justify-end gap-2">
+                      <span class="text-xs text-gray-500">Zuordnung aufheben?</span>
+                      <button
+                        @click="unmatchTransaction(row.tx)"
+                        class="px-2 py-1 text-xs bg-amber-500 text-white rounded hover:bg-amber-600"
+                      >
+                        Ja
+                      </button>
+                      <button
+                        @click="cancelMatchAction"
+                        class="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                      >
+                        Nein
+                      </button>
+                    </div>
+                    <div v-else-if="deleteConfirmId === row.tx.id" class="flex items-center justify-end gap-2">
+                      <span class="text-xs text-gray-500">Transaktion löschen?</span>
+                      <button
+                        @click="unmatchTransaction(row.tx, true)"
+                        class="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600"
+                      >
+                        Ja
+                      </button>
+                      <button
+                        @click="cancelMatchAction"
+                        class="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                      >
+                        Nein
+                      </button>
+                    </div>
+                    <div v-else class="flex items-center justify-end gap-2">
+                      <button
+                        @click="showUnmatchConfirm(row.tx.id)"
+                        :disabled="isUnmatching === row.tx.id || isDeletingMatched === row.tx.id"
+                        class="inline-flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:text-amber-700 hover:bg-amber-50 rounded transition-colors disabled:opacity-50"
+                        title="Zuordnung aufheben"
+                      >
+                        <Loader2 v-if="isUnmatching === row.tx.id" class="h-3 w-3 animate-spin" />
+                        <Unlink v-else class="h-3 w-3" />
+                        Aufheben
+                      </button>
+                      <button
+                        @click="showDeleteConfirm(row.tx.id)"
+                        :disabled="isUnmatching === row.tx.id || isDeletingMatched === row.tx.id"
+                        class="inline-flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
+                        title="Transaktion löschen"
+                      >
+                        <Loader2 v-if="isDeletingMatched === row.tx.id" class="h-3 w-3 animate-spin" />
+                        <Trash2 v-else class="h-3 w-3" />
+                        Löschen
+                      </button>
+                    </div>
+                  </template>
+                </td>
+              </tr>
 
-              <!-- Dismiss Button -->
-              <button
-                v-else
-                @click="showWarningDismiss(warning.id)"
-                :disabled="isResolvingWarning === warning.id"
-                class="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
-              >
-                <XCircle class="h-4 w-4" />
-                Verwerfen
-              </button>
-            </div>
-          </div>
+              <!-- Expanded warning details -->
+              <tr v-if="expandedWarnings.has(row.key) && row.warnings.length > 0" class="border-t bg-orange-50/40">
+                <td colspan="6" class="px-4 py-4">
+                  <div class="space-y-4">
+                    <div
+                      v-for="warning in row.warnings"
+                      :key="warning.id"
+                      class="bg-white rounded-xl border p-4"
+                    >
+                      <div class="flex items-start justify-between gap-4">
+                        <div class="flex-1">
+                          <div class="flex items-center gap-2 mb-2">
+                            <span
+                              :class="[
+                                'px-2 py-0.5 rounded-full text-xs font-medium',
+                                getWarningTypeColor(warning.warningType),
+                              ]"
+                            >
+                              {{ getWarningTypeLabel(warning.warningType) }}
+                            </span>
+                            <router-link
+                              v-if="warning.child"
+                              :to="`/kinder/${warning.child.id}`"
+                              class="px-2 py-0.5 bg-primary/10 text-primary rounded-full text-xs font-medium hover:bg-primary/20 transition-colors"
+                            >
+                              {{ warning.child.firstName }} {{ warning.child.lastName }}
+                            </router-link>
+                            <span class="text-xs text-gray-500">
+                              {{ formatDateTime(warning.createdAt) }}
+                            </span>
+                          </div>
+
+                          <p class="text-gray-700 mb-3">{{ warning.message }}</p>
+
+                          <div v-if="warning.transaction" class="p-3 bg-gray-50 rounded-lg text-sm space-y-1">
+                            <div class="flex justify-between">
+                              <span class="text-gray-500">Transaktion:</span>
+                              <span class="font-medium">{{ warning.transaction.payerName || 'Unbekannt' }}</span>
+                            </div>
+                            <div class="flex justify-between">
+                              <span class="text-gray-500">Betrag:</span>
+                              <span class="font-medium text-green-600">{{ formatCurrency(warning.transaction.amount) }}</span>
+                            </div>
+                            <div class="flex justify-between">
+                              <span class="text-gray-500">Datum:</span>
+                              <span>{{ formatDate(warning.transaction.bookingDate) }}</span>
+                            </div>
+                            <div v-if="warning.transaction.description" class="text-gray-600 text-xs truncate">
+                              {{ warning.transaction.description }}
+                            </div>
+                          </div>
+
+                          <div
+                            v-if="warning.warningType === 'LATE_PAYMENT' && warning.matchedFee"
+                            class="mt-2 p-3 bg-orange-50 rounded-lg text-sm space-y-1"
+                          >
+                            <div class="flex items-center gap-1 text-orange-700 font-medium mb-1">
+                              <Clock class="h-4 w-4" />
+                              Verspätete Zahlung für:
+                            </div>
+                            <div class="flex justify-between">
+                              <span class="text-gray-500">Beitragsart:</span>
+                              <span class="font-medium">{{ getFeeTypeName(warning.matchedFee.feeType) }}</span>
+                            </div>
+                            <div class="flex justify-between">
+                              <span class="text-gray-500">Zeitraum:</span>
+                              <span>{{ getMonthName(warning.matchedFee.month) }} {{ warning.matchedFee.year }}</span>
+                            </div>
+                            <div class="flex justify-between">
+                              <span class="text-gray-500">Betrag:</span>
+                              <span class="font-medium">{{ formatCurrency(warning.matchedFee.amount) }}</span>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div class="flex flex-col gap-2">
+                          <button
+                            v-if="warning.warningType === 'LATE_PAYMENT'"
+                            @click="resolveLateFee(warning)"
+                            :disabled="isResolvingWarning === warning.id"
+                            class="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50"
+                            title="Mahngebuhr von 10 EUR erstellen"
+                          >
+                            <Loader2 v-if="isResolvingWarning === warning.id" class="h-4 w-4 animate-spin" />
+                            <Euro v-else class="h-4 w-4" />
+                            Mahngebuhr erstellen
+                          </button>
+
+                          <div v-if="dismissWarningId === warning.id" class="p-3 bg-gray-50 rounded-lg space-y-2">
+                            <input
+                              v-model="dismissNote"
+                              type="text"
+                              placeholder="Notiz (optional)"
+                              class="w-full px-2 py-1 text-sm border rounded"
+                            />
+                            <div class="flex gap-2">
+                              <button
+                                @click="dismissWarning(warning)"
+                                :disabled="isResolvingWarning === warning.id"
+                                class="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50"
+                              >
+                                Verwerfen
+                              </button>
+                              <button
+                                @click="cancelWarningDismiss"
+                                class="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                              >
+                                Abbrechen
+                              </button>
+                            </div>
+                          </div>
+
+                          <button
+                            v-else
+                            @click="showWarningDismiss(warning.id)"
+                            :disabled="isResolvingWarning === warning.id"
+                            class="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                          >
+                            <XCircle class="h-4 w-4" />
+                            Verwerfen
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            </template>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Pagination -->
+      <div v-if="totalPages > 1" class="flex items-center justify-between px-4 py-3 border-t bg-gray-50">
+        <div class="text-sm text-gray-600">
+          Seite {{ page }} von {{ totalPages }} ({{ sortedRows.length }} Einträge)
+        </div>
+        <div class="flex items-center gap-2">
+          <button
+            @click="goToPage(page - 1)"
+            :disabled="page <= 1"
+            class="p-1 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <ChevronLeft class="h-5 w-5" />
+          </button>
+          <button
+            v-for="pageNumber in visiblePages"
+            :key="pageNumber"
+            @click="goToPage(pageNumber)"
+            :class="[
+              'px-3 py-1 rounded text-sm',
+              pageNumber === page ? 'bg-primary text-white' : 'hover:bg-gray-200',
+            ]"
+          >
+            {{ pageNumber }}
+          </button>
+          <button
+            @click="goToPage(page + 1)"
+            :disabled="page >= totalPages"
+            class="p-1 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <ChevronRight class="h-5 w-5" />
+          </button>
         </div>
       </div>
     </div>
 
-    <!-- Blacklist Tab -->
-    <div v-if="activeTab === 'blacklist'">
-      <div class="flex items-center justify-between mb-4">
-        <div>
-          <p class="text-sm text-gray-600">
-            {{ blacklistTotal }} ignorierte IBANs
-          </p>
-          <p class="text-xs text-gray-500 mt-1">
-            Transaktionen von diesen IBANs werden beim Import automatisch ignoriert
-          </p>
+    <!-- Upload Modal -->
+    <div
+      v-if="showUploadModal"
+      class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+      @click.self="closeUploadModal"
+    >
+      <div class="bg-white rounded-xl shadow-xl max-w-3xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+        <div class="p-4 border-b flex items-center justify-between">
+          <h2 class="text-lg font-semibold">CSV hochladen</h2>
+          <button @click="closeUploadModal" class="text-gray-400 hover:text-gray-600">
+            <XCircle class="h-5 w-5" />
+          </button>
         </div>
-        <button
-          @click="loadBlacklist"
-          class="inline-flex items-center gap-1 text-sm text-primary hover:underline"
-        >
-          <RefreshCw class="h-4 w-4" />
-          Aktualisieren
-        </button>
-      </div>
 
-      <div v-if="isLoadingBlacklist" class="flex items-center justify-center py-12">
-        <Loader2 class="h-8 w-8 animate-spin text-primary" />
-      </div>
+        <div class="overflow-y-auto p-4 space-y-6">
+          <!-- Upload Area -->
+          <div
+            v-if="!importResult"
+            @dragover="handleDragOver"
+            @dragleave="handleDragLeave"
+            @drop="handleDrop"
+            :class="[
+              'border-2 border-dashed rounded-xl p-12 text-center transition-colors',
+              isDragging ? 'border-primary bg-primary/5' : 'border-gray-300 hover:border-gray-400',
+              isUploading ? 'opacity-50 pointer-events-none' : '',
+            ]"
+          >
+            <div v-if="isUploading" class="flex flex-col items-center gap-4">
+              <Loader2 class="h-12 w-12 animate-spin text-primary" />
+              <p class="text-gray-600">CSV wird verarbeitet...</p>
+            </div>
+            <div v-else class="flex flex-col items-center gap-4">
+              <div class="p-4 bg-gray-100 rounded-full">
+                <FileSpreadsheet class="h-12 w-12 text-gray-400" />
+              </div>
+              <div>
+                <p class="text-lg font-medium text-gray-700">CSV-Datei hierher ziehen</p>
+                <p class="text-sm text-gray-500 mt-1">oder klicken um eine Datei auszuwählen</p>
+              </div>
+              <input type="file" accept=".csv" @change="handleFileSelect" class="hidden" id="file-input" />
+              <label
+                for="file-input"
+                class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 cursor-pointer transition-colors"
+              >
+                <Upload class="h-4 w-4" />
+                Datei auswählen
+              </label>
+              <p class="text-xs text-gray-400 mt-2">
+                Unterstützt: Deutsche Bankexporte (CSV, Semikolon-getrennt, ISO-8859-1 oder UTF-8)
+              </p>
+            </div>
+          </div>
 
-      <div v-else-if="blacklistedIBANs.length === 0" class="text-center py-12">
-        <ShieldOff class="h-12 w-12 text-gray-300 mx-auto mb-4" />
-        <p class="text-gray-600">Keine IBANs auf der Blacklist</p>
-        <p class="text-sm text-gray-500 mt-1">
-          Klicken Sie bei nicht zugeordneten Transaktionen auf "Ignorieren", um IBANs zur Blacklist hinzuzufugen
-        </p>
-      </div>
-
-      <div v-else class="bg-white rounded-xl border overflow-hidden">
-        <div class="overflow-x-auto">
-          <table class="w-full">
-          <thead class="bg-gray-50">
-            <tr class="text-left text-sm text-gray-500">
-              <th class="px-4 py-3 font-medium">IBAN</th>
-              <th class="px-4 py-3 font-medium">Zahler</th>
-              <th class="px-4 py-3 font-medium">Letzte Transaktion</th>
-              <th class="px-4 py-3 font-medium">Hinzugefugt am</th>
-              <th class="px-4 py-3 font-medium text-right">Aktionen</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="item in blacklistedIBANs"
-              :key="item.iban"
-              class="border-t hover:bg-gray-50"
-            >
-              <td class="px-4 py-3">
-                <span class="font-mono text-sm">{{ item.iban }}</span>
-              </td>
-              <td class="px-4 py-3">
-                <span class="font-medium">{{ item.payerName || 'Unbekannt' }}</span>
-              </td>
-              <td class="px-4 py-3 text-gray-600">
-                <div v-if="item.originalDescription" class="truncate max-w-xs text-sm">
-                  {{ item.originalDescription }}
+          <template v-if="importResult">
+            <!-- Summary Card -->
+            <div class="rounded-xl border p-6">
+              <div class="flex items-center justify-between mb-4">
+                <div class="flex items-center gap-3">
+                  <div class="p-2 bg-green-100 rounded-lg">
+                    <CheckCircle class="h-6 w-6 text-green-600" />
+                  </div>
+                  <div>
+                    <h2 class="text-lg font-semibold">Import erfolgreich</h2>
+                    <p class="text-sm text-gray-600">{{ importResult.fileName }}</p>
+                  </div>
                 </div>
-                <div v-if="item.originalAmount" class="text-xs text-gray-500">
-                  {{ formatCurrency(item.originalAmount) }}
-                </div>
-              </td>
-              <td class="px-4 py-3 text-gray-600 text-sm">
-                {{ formatDate(item.createdAt) }}
-              </td>
-              <td class="px-4 py-3 text-right">
-                <button
-                  @click="removeFromBlacklist(item.iban)"
-                  class="inline-flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:text-green-600 hover:bg-green-50 rounded transition-colors"
-                  title="Von Blacklist entfernen"
-                >
-                  <Trash2 class="h-3 w-3" />
-                  Entfernen
+                <button @click="resetUpload" class="text-sm text-gray-600 hover:text-gray-900 underline">
+                  Neuer Import
                 </button>
-              </td>
-            </tr>
-          </tbody>
-          </table>
+              </div>
+              <div class="grid grid-cols-3 gap-4">
+                <div class="p-3 bg-gray-50 rounded-lg text-center">
+                  <div class="text-2xl font-bold text-gray-900">{{ importResult.totalRows }}</div>
+                  <div class="text-sm text-gray-600">Zeilen gelesen</div>
+                </div>
+                <div class="p-3 bg-green-50 rounded-lg text-center">
+                  <div class="text-2xl font-bold text-green-600">{{ importResult.imported }}</div>
+                  <div class="text-sm text-gray-600">Importiert</div>
+                </div>
+                <div class="p-3 bg-gray-50 rounded-lg text-center">
+                  <div class="text-2xl font-bold text-gray-500">{{ importResult.skipped }}</div>
+                  <div class="text-sm text-gray-600">Übersprungen</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Confirm Result -->
+            <div
+              v-if="confirmResult"
+              class="p-4 bg-green-50 border border-green-200 rounded-lg flex items-start gap-3"
+            >
+              <CheckCircle class="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+              <div>
+                <p class="text-green-700 font-medium">Zuordnungen bestätigt</p>
+                <p class="text-sm text-green-600">
+                  {{ confirmResult.confirmed }} Zahlungen wurden als bezahlt markiert
+                  <span v-if="confirmResult.failed > 0">, {{ confirmResult.failed }} fehlgeschlagen</span>
+                </p>
+              </div>
+            </div>
+
+            <!-- Match Suggestions -->
+            <div v-if="matchableSuggestions.length > 0" class="rounded-xl border">
+              <div class="p-4 border-b flex items-center justify-between">
+                <div>
+                  <h3 class="font-semibold">Zuordnungsvorschläge</h3>
+                  <p class="text-sm text-gray-600">
+                    {{ selectedMatches.size }} von {{ matchableSuggestions.length }} ausgewählt
+                  </p>
+                </div>
+                <div class="flex gap-2">
+                  <button @click="selectAllMatches" class="text-sm text-primary hover:underline">
+                    Alle auswählen
+                  </button>
+                  <span class="text-gray-300">|</span>
+                  <button @click="deselectAllMatches" class="text-sm text-gray-600 hover:underline">
+                    Keine
+                  </button>
+                </div>
+              </div>
+
+              <div class="divide-y">
+                <div
+                  v-for="suggestion in matchableSuggestions"
+                  :key="suggestion.transaction.id"
+                  class="p-4"
+                >
+                  <div class="flex items-start gap-3">
+                    <button
+                      @click="toggleMatch(suggestion.transaction.id)"
+                      :class="[
+                        'mt-1 w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 transition-colors',
+                        selectedMatches.has(suggestion.transaction.id)
+                          ? 'bg-primary border-primary text-white'
+                          : 'border-gray-300 hover:border-gray-400',
+                      ]"
+                    >
+                      <Check v-if="selectedMatches.has(suggestion.transaction.id)" class="h-3 w-3" />
+                    </button>
+
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-start justify-between gap-4">
+                        <div>
+                          <div class="font-medium">
+                            {{ suggestion.transaction.payerName || 'Unbekannt' }}
+                          </div>
+                          <div class="text-sm text-gray-600 truncate">
+                            {{ suggestion.transaction.description }}
+                          </div>
+                        </div>
+                        <div class="text-right flex-shrink-0">
+                          <div class="font-semibold text-green-600">
+                            {{ formatCurrency(suggestion.transaction.amount) }}
+                          </div>
+                          <div class="text-xs text-gray-500">
+                            {{ formatDate(suggestion.transaction.bookingDate) }}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="mt-3 flex items-center gap-4 text-sm">
+                        <span
+                          :class="[
+                            'px-2 py-0.5 rounded-full text-xs font-medium',
+                            getConfidenceColor(suggestion.confidence),
+                          ]"
+                        >
+                          {{ getConfidenceLabel(suggestion.confidence) }} ({{ Math.round(suggestion.confidence * 100) }}%)
+                        </span>
+                        <span class="text-gray-500">
+                          Erkannt als: {{ getFeeTypeName(suggestion.detectedType) }}
+                        </span>
+                        <span class="text-gray-500">Grund: {{ suggestion.matchedBy }}</span>
+                      </div>
+
+                      <button
+                        @click="toggleSuggestion(suggestion.transaction.id)"
+                        class="mt-2 text-sm text-primary flex items-center gap-1"
+                      >
+                        <ChevronDown
+                          v-if="!expandedSuggestions.has(suggestion.transaction.id)"
+                          class="h-4 w-4"
+                        />
+                        <ChevronUp v-else class="h-4 w-4" />
+                        {{ expandedSuggestions.has(suggestion.transaction.id) ? 'Weniger' : 'Details' }}
+                      </button>
+
+                      <div
+                        v-if="expandedSuggestions.has(suggestion.transaction.id)"
+                        class="mt-3 p-3 bg-gray-50 rounded-lg text-sm space-y-2"
+                      >
+                        <div class="grid grid-cols-2 gap-4">
+                          <div>
+                            <span class="text-gray-500">Zugeordnetes Kind:</span>
+                            <span class="ml-2 font-medium">
+                              {{ suggestion.child?.firstName }} {{ suggestion.child?.lastName }}
+                            </span>
+                          </div>
+                          <div>
+                            <span class="text-gray-500">Beitragsart:</span>
+                            <span class="ml-2 font-medium">
+                              {{ getFeeTypeName(suggestion.expectation?.feeType) }}
+                            </span>
+                          </div>
+                          <div>
+                            <span class="text-gray-500">Erwarteter Betrag:</span>
+                            <span class="ml-2 font-medium">
+                              {{ formatCurrency(suggestion.expectation?.amount || 0) }}
+                            </span>
+                          </div>
+                          <div>
+                            <span class="text-gray-500">Zeitraum:</span>
+                            <span class="ml-2 font-medium">
+                              {{ suggestion.expectation?.month ? suggestion.expectation.month + '/' : '' }}{{ suggestion.expectation?.year }}
+                            </span>
+                          </div>
+                        </div>
+                        <div v-if="suggestion.transaction.payerIban">
+                          <span class="text-gray-500">IBAN:</span>
+                          <span class="ml-2 font-mono text-xs">
+                            {{ suggestion.transaction.payerIban }}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="p-4 border-t bg-gray-50 flex items-center justify-between">
+                <p class="text-sm text-gray-600">{{ selectedMatches.size }} Zuordnungen ausgewählt</p>
+                <button
+                  @click="confirmMatches"
+                  :disabled="selectedMatches.size === 0 || isConfirming"
+                  class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <Loader2 v-if="isConfirming" class="h-4 w-4 animate-spin" />
+                  <CheckCircle v-else class="h-4 w-4" />
+                  Zuordnungen bestätigen
+                </button>
+              </div>
+            </div>
+
+            <!-- Unmatched from this import -->
+            <div v-if="unmatchableSuggestions.length > 0" class="rounded-xl border">
+              <div class="p-4 border-b">
+                <div class="flex items-center gap-2">
+                  <AlertTriangle class="h-5 w-5 text-amber-500" />
+                  <h3 class="font-semibold">Nicht zuordenbar</h3>
+                </div>
+                <p class="text-sm text-gray-600 mt-1">
+                  Diese Transaktionen konnten keinem offenen Beitrag zugeordnet werden
+                </p>
+              </div>
+
+              <div class="divide-y">
+                <div
+                  v-for="suggestion in unmatchableSuggestions"
+                  :key="suggestion.transaction.id"
+                  class="p-4 flex items-center justify-between"
+                >
+                  <div>
+                    <div class="font-medium">
+                      {{ suggestion.transaction.payerName || 'Unbekannt' }}
+                    </div>
+                    <div class="text-sm text-gray-600 truncate max-w-md">
+                      {{ suggestion.transaction.description }}
+                    </div>
+                  </div>
+                  <div class="text-right">
+                    <div class="font-semibold">
+                      {{ formatCurrency(suggestion.transaction.amount) }}
+                    </div>
+                    <div class="text-xs text-gray-500">
+                      {{ formatDate(suggestion.transaction.bookingDate) }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </template>
         </div>
       </div>
     </div>
 
-    <!-- Matched Tab -->
-    <div v-if="activeTab === 'matched'">
-      <div class="flex items-center justify-between mb-4">
-        <p class="text-sm text-gray-600">
-          {{ matchedTotal }} zugeordnete Transaktionen
-        </p>
-        <button
-          @click="loadMatched"
-          class="inline-flex items-center gap-1 text-sm text-primary hover:underline"
-        >
-          <RefreshCw class="h-4 w-4" />
-          Aktualisieren
-        </button>
-      </div>
-
-      <!-- Search Bar -->
-      <div class="mb-4">
-        <div class="relative">
-          <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <input
-            v-model="transactionSearch"
-            type="text"
-            placeholder="Suche nach Zahler oder Beschreibung..."
-            class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-          />
-        </div>
-      </div>
-
-      <div v-if="isLoadingMatched" class="flex items-center justify-center py-12">
-        <Loader2 class="h-8 w-8 animate-spin text-primary" />
-      </div>
-
-      <div v-else-if="matchedTransactions.length === 0" class="text-center py-12">
-        <component :is="debouncedTransactionSearch ? Search : Link2"
-                   class="h-12 w-12 text-gray-300 mx-auto mb-4" />
-        <p class="text-gray-600">
-          {{ debouncedTransactionSearch ? 'Keine Transaktionen gefunden' : 'Noch keine zugeordneten Transaktionen' }}
-        </p>
-        <p v-if="debouncedTransactionSearch" class="text-sm text-gray-500 mt-1">Versuche einen anderen Suchbegriff</p>
-      </div>
-
-      <div v-else class="bg-white rounded-xl border overflow-hidden">
-        <div class="overflow-x-auto">
-          <table class="w-full">
-          <thead class="bg-gray-50">
-            <tr class="text-left text-sm text-gray-500">
-              <th
-                class="px-4 py-3 font-medium cursor-pointer hover:bg-gray-100 select-none"
-                @click="toggleMatchedSort('date')"
-              >
-                <div class="flex items-center gap-1">
-                  Datum
-                  <ArrowUp v-if="matchedSortField === 'date' && matchedSortDirection === 'asc'" class="h-4 w-4" />
-                  <ArrowDown v-else-if="matchedSortField === 'date' && matchedSortDirection === 'desc'" class="h-4 w-4" />
-                  <ArrowUpDown v-else class="h-4 w-4 text-gray-400" />
-                </div>
-              </th>
-              <th
-                class="px-4 py-3 font-medium cursor-pointer hover:bg-gray-100 select-none"
-                @click="toggleMatchedSort('payer')"
-              >
-                <div class="flex items-center gap-1">
-                  Zahler
-                  <ArrowUp v-if="matchedSortField === 'payer' && matchedSortDirection === 'asc'" class="h-4 w-4" />
-                  <ArrowDown v-else-if="matchedSortField === 'payer' && matchedSortDirection === 'desc'" class="h-4 w-4" />
-                  <ArrowUpDown v-else class="h-4 w-4 text-gray-400" />
-                </div>
-              </th>
-              <th
-                class="px-4 py-3 font-medium cursor-pointer hover:bg-gray-100 select-none"
-                @click="toggleMatchedSort('description')"
-              >
-                <div class="flex items-center gap-1">
-                  Beschreibung
-                  <ArrowUp v-if="matchedSortField === 'description' && matchedSortDirection === 'asc'" class="h-4 w-4" />
-                  <ArrowDown v-else-if="matchedSortField === 'description' && matchedSortDirection === 'desc'" class="h-4 w-4" />
-                  <ArrowUpDown v-else class="h-4 w-4 text-gray-400" />
-                </div>
-              </th>
-              <th
-                class="px-4 py-3 font-medium text-right cursor-pointer hover:bg-gray-100 select-none"
-                @click="toggleMatchedSort('amount')"
-              >
-                <div class="flex items-center justify-end gap-1">
-                  Betrag
-                  <ArrowUp v-if="matchedSortField === 'amount' && matchedSortDirection === 'asc'" class="h-4 w-4" />
-                  <ArrowDown v-else-if="matchedSortField === 'amount' && matchedSortDirection === 'desc'" class="h-4 w-4" />
-                  <ArrowUpDown v-else class="h-4 w-4 text-gray-400" />
-                </div>
-              </th>
-              <th class="px-4 py-3 font-medium">Zugeordnete Beiträge</th>
-              <th class="px-4 py-3 font-medium text-right">Aktionen</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="tx in matchedTransactions"
-              :key="tx.id"
-              class="border-t hover:bg-gray-50"
-            >
-              <td class="px-4 py-3 text-gray-600">
-                {{ formatDate(tx.bookingDate) }}
-              </td>
-              <td class="px-4 py-3">
-                <div class="font-medium">{{ tx.payerName || 'Unbekannt' }}</div>
-                <div v-if="tx.payerIban" class="text-xs text-gray-500 font-mono">
-                  {{ tx.payerIban }}
-                </div>
-              </td>
-              <td class="px-4 py-3 text-gray-600 truncate max-w-xs">
-                {{ tx.description }}
-              </td>
-              <td class="px-4 py-3 text-right font-medium text-green-600">
-                {{ formatCurrency(tx.amount) }}
-              </td>
-              <td class="px-4 py-3">
-                <div v-if="tx.matches && tx.matches.length > 0" class="flex flex-wrap gap-1">
-                  <span
-                    v-for="match in tx.matches"
-                    :key="match.id"
-                    :class="[
-                      'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium',
-                      getFeeTypeColor(match.expectation?.feeType || '')
-                    ]"
-                  >
-                    {{ getFeeTypeName(match.expectation?.feeType || '') }}
-                    <span class="ml-1 opacity-75">{{ formatCurrency(match.expectation?.amount || 0) }}</span>
-                  </span>
-                </div>
-                <span v-else class="text-gray-400 text-sm">-</span>
-              </td>
-              <td class="px-4 py-3 text-right">
-                <!-- Confirm Dialogs -->
-                <div v-if="unmatchConfirmId === tx.id" class="flex items-center justify-end gap-2">
-                  <span class="text-xs text-gray-500">Zuordnung aufheben?</span>
-                  <button
-                    @click="unmatchTransaction(tx)"
-                    class="px-2 py-1 text-xs bg-amber-500 text-white rounded hover:bg-amber-600"
-                  >
-                    Ja
-                  </button>
-                  <button
-                    @click="cancelMatchAction"
-                    class="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
-                  >
-                    Nein
-                  </button>
-                </div>
-                <div v-else-if="deleteConfirmId === tx.id" class="flex items-center justify-end gap-2">
-                  <span class="text-xs text-gray-500">Transaktion löschen?</span>
-                  <button
-                    @click="unmatchTransaction(tx, true)"
-                    class="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600"
-                  >
-                    Ja
-                  </button>
-                  <button
-                    @click="cancelMatchAction"
-                    class="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
-                  >
-                    Nein
-                  </button>
-                </div>
-                <!-- Action Buttons -->
-                <div v-else class="flex items-center justify-end gap-2">
-                  <button
-                    @click="showUnmatchConfirm(tx.id)"
-                    :disabled="isUnmatching === tx.id || isDeletingMatched === tx.id"
-                    class="inline-flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:text-amber-700 hover:bg-amber-50 rounded transition-colors disabled:opacity-50"
-                    title="Zuordnung aufheben"
-                  >
-                    <Loader2 v-if="isUnmatching === tx.id" class="h-3 w-3 animate-spin" />
-                    <Unlink v-else class="h-3 w-3" />
-                    Aufheben
-                  </button>
-                  <button
-                    @click="showDeleteConfirm(tx.id)"
-                    :disabled="isUnmatching === tx.id || isDeletingMatched === tx.id"
-                    class="inline-flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
-                    title="Transaktion löschen"
-                  >
-                    <Loader2 v-if="isDeletingMatched === tx.id" class="h-3 w-3 animate-spin" />
-                    <Trash2 v-else class="h-3 w-3" />
-                    Löschen
-                  </button>
-                </div>
-              </td>
-            </tr>
-          </tbody>
-          </table>
-        </div>
-
-        <!-- Pagination -->
-        <div v-if="matchedTotalPages > 1" class="flex items-center justify-between px-4 py-3 border-t bg-gray-50">
-          <div class="text-sm text-gray-600">
-            Seite {{ matchedPage }} von {{ matchedTotalPages }} ({{ matchedTotal }} Einträge)
+    <!-- History Modal -->
+    <div
+      v-if="showHistoryModal"
+      class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+      @click.self="showHistoryModal = false"
+    >
+      <div class="bg-white rounded-xl shadow-xl max-w-4xl w-full mx-4 max-h-[85vh] overflow-hidden flex flex-col">
+        <div class="p-4 border-b flex items-center justify-between">
+          <div>
+            <h2 class="text-lg font-semibold">Import-Historie</h2>
+            <p class="text-sm text-gray-600">Frühere CSV- und Sync-Importe</p>
           </div>
-          <div class="flex items-center gap-2">
-            <button
-              @click="goToMatchedPage(matchedPage - 1)"
-              :disabled="matchedPage <= 1"
-              class="p-1 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <ChevronLeft class="h-5 w-5" />
+          <div class="flex items-center gap-3">
+            <button @click="loadHistory" class="text-sm text-gray-600 hover:text-gray-900 underline">
+              Aktualisieren
             </button>
-            <button
-              v-for="page in Math.min(5, matchedTotalPages)"
-              :key="page"
-              @click="goToMatchedPage(page)"
-              :class="[
-                'px-3 py-1 rounded text-sm',
-                page === matchedPage ? 'bg-primary text-white' : 'hover:bg-gray-200'
-              ]"
-            >
-              {{ page }}
+            <button @click="showHistoryModal = false" class="text-gray-400 hover:text-gray-600">
+              <XCircle class="h-5 w-5" />
             </button>
-            <span v-if="matchedTotalPages > 5" class="text-gray-400">...</span>
-            <button
-              @click="goToMatchedPage(matchedPage + 1)"
-              :disabled="matchedPage >= matchedTotalPages"
-              class="p-1 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <ChevronRight class="h-5 w-5" />
+          </div>
+        </div>
+
+        <div class="overflow-y-auto p-4">
+          <div v-if="isLoadingHistory" class="flex items-center justify-center py-12">
+            <Loader2 class="h-8 w-8 animate-spin text-primary" />
+          </div>
+
+          <div v-else-if="importHistory.length === 0" class="text-center py-12">
+            <History class="h-12 w-12 text-gray-300 mx-auto mb-4" />
+            <p class="text-gray-600">Noch keine Importe durchgeführt</p>
+          </div>
+
+          <div v-else class="rounded-xl border overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="w-full">
+                <thead class="bg-gray-50">
+                  <tr class="text-left text-sm text-gray-500">
+                    <th class="px-4 py-3 font-medium">Datei</th>
+                    <th class="px-4 py-3 font-medium">Zeitraum</th>
+                    <th class="px-4 py-3 font-medium">Transaktionen</th>
+                    <th class="px-4 py-3 font-medium">Zugeordnet</th>
+                    <th class="px-4 py-3 font-medium">Importiert am</th>
+                    <th class="px-4 py-3 font-medium">Von</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr
+                    v-for="batch in importHistory"
+                    :key="batch.id"
+                    class="border-t hover:bg-gray-50"
+                  >
+                    <td class="px-4 py-3">
+                      <div class="flex items-center gap-2">
+                        <FileSpreadsheet class="h-4 w-4 text-gray-400" />
+                        <span class="font-medium">{{ batch.fileName }}</span>
+                      </div>
+                    </td>
+                    <td class="px-4 py-3 text-gray-600 text-sm">
+                      <span v-if="batch.dateFrom && batch.dateTo">
+                        {{ formatDate(batch.dateFrom) }} - {{ formatDate(batch.dateTo) }}
+                      </span>
+                      <span v-else class="text-gray-400">-</span>
+                    </td>
+                    <td class="px-4 py-3">{{ batch.transactionCount }}</td>
+                    <td class="px-4 py-3">
+                      <span
+                        :class="[
+                          'px-2 py-0.5 rounded-full text-xs font-medium',
+                          batch.matchedCount === batch.transactionCount
+                            ? 'bg-green-100 text-green-700'
+                            : batch.matchedCount > 0
+                              ? 'bg-amber-100 text-amber-700'
+                              : 'bg-gray-100 text-gray-700',
+                        ]"
+                      >
+                        {{ batch.matchedCount }} / {{ batch.transactionCount }}
+                      </span>
+                    </td>
+                    <td class="px-4 py-3 text-gray-600">
+                      {{ formatDateTime(batch.importedAt) }}
+                    </td>
+                    <td class="px-4 py-3 text-gray-600">
+                      {{ batch.importedByEmail || batch.importedBy }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Blacklist Modal -->
+    <div
+      v-if="showBlacklistModal"
+      class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+      @click.self="showBlacklistModal = false"
+    >
+      <div class="bg-white rounded-xl shadow-xl max-w-4xl w-full mx-4 max-h-[85vh] overflow-hidden flex flex-col">
+        <div class="p-4 border-b flex items-center justify-between">
+          <div>
+            <h2 class="text-lg font-semibold">Blacklist</h2>
+            <p class="text-sm text-gray-600">
+              {{ blacklistTotal }} ignorierte IBANs – Transaktionen von diesen IBANs werden beim Import automatisch ignoriert
+            </p>
+          </div>
+          <div class="flex items-center gap-3">
+            <button @click="loadBlacklist" class="text-sm text-gray-600 hover:text-gray-900 underline">
+              Aktualisieren
             </button>
+            <button @click="showBlacklistModal = false" class="text-gray-400 hover:text-gray-600">
+              <XCircle class="h-5 w-5" />
+            </button>
+          </div>
+        </div>
+
+        <div class="overflow-y-auto p-4">
+          <div v-if="isLoadingBlacklist" class="flex items-center justify-center py-12">
+            <Loader2 class="h-8 w-8 animate-spin text-primary" />
+          </div>
+
+          <div v-else-if="blacklistedIBANs.length === 0" class="text-center py-12">
+            <ShieldOff class="h-12 w-12 text-gray-300 mx-auto mb-4" />
+            <p class="text-gray-600">Keine IBANs auf der Blacklist</p>
+            <p class="text-sm text-gray-500 mt-1">
+              Klicken Sie bei nicht zugeordneten Transaktionen auf "Ignorieren", um IBANs zur Blacklist hinzuzufugen
+            </p>
+          </div>
+
+          <div v-else class="rounded-xl border overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="w-full">
+                <thead class="bg-gray-50">
+                  <tr class="text-left text-sm text-gray-500">
+                    <th class="px-4 py-3 font-medium">IBAN</th>
+                    <th class="px-4 py-3 font-medium">Zahler</th>
+                    <th class="px-4 py-3 font-medium">Letzte Transaktion</th>
+                    <th class="px-4 py-3 font-medium">Hinzugefugt am</th>
+                    <th class="px-4 py-3 font-medium text-right">Aktionen</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr
+                    v-for="item in blacklistedIBANs"
+                    :key="item.iban"
+                    class="border-t hover:bg-gray-50"
+                  >
+                    <td class="px-4 py-3">
+                      <span class="font-mono text-sm">{{ item.iban }}</span>
+                    </td>
+                    <td class="px-4 py-3">
+                      <span class="font-medium">{{ item.payerName || 'Unbekannt' }}</span>
+                    </td>
+                    <td class="px-4 py-3 text-gray-600">
+                      <div v-if="item.originalDescription" class="truncate max-w-xs text-sm">
+                        {{ item.originalDescription }}
+                      </div>
+                      <div v-if="item.originalAmount" class="text-xs text-gray-500">
+                        {{ formatCurrency(item.originalAmount) }}
+                      </div>
+                    </td>
+                    <td class="px-4 py-3 text-gray-600 text-sm">
+                      {{ formatDate(item.createdAt) }}
+                    </td>
+                    <td class="px-4 py-3 text-right">
+                      <button
+                        @click="removeFromBlacklist(item.iban)"
+                        class="inline-flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:text-green-600 hover:bg-green-50 rounded transition-colors"
+                        title="Von Blacklist entfernen"
+                      >
+                        <Trash2 class="h-3 w-3" />
+                        Entfernen
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
@@ -2122,10 +2001,7 @@ function getWarningTypeColor(type: string): string {
         <div class="p-4 border-b">
           <div class="flex items-center justify-between">
             <h2 class="text-lg font-semibold">Transaktion manuell zuordnen</h2>
-            <button
-              @click="closeManualMatch"
-              class="text-gray-400 hover:text-gray-600"
-            >
+            <button @click="closeManualMatch" class="text-gray-400 hover:text-gray-600">
               <XCircle class="h-5 w-5" />
             </button>
           </div>
@@ -2265,10 +2141,7 @@ function getWarningTypeColor(type: string): string {
 
         <!-- Modal Footer -->
         <div class="p-4 border-t bg-gray-50 flex justify-end">
-          <button
-            @click="closeManualMatch"
-            class="px-4 py-2 text-sm text-gray-600 hover:text-gray-900"
-          >
+          <button @click="closeManualMatch" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-900">
             Abbrechen
           </button>
         </div>

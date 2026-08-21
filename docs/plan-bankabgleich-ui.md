@@ -76,10 +76,13 @@ Group the flat nav list, e.g.:
        ImportPage. Nav rename "Import" → "Bankabgleich"; `/import` kept as route alias.
        The card emits `sync-finished` after a run transitions running/2FA → success;
        ImportPage then reloads all transaction tabs.
-2. [ ] Unified transaction list with status badges + filter chips; default chip
+2. [x] Unified transaction list with status badges + filter chips; default chip
        = Offen (nicht zugeordnet + Warnungen). Upload demoted to header action/dialog.
-3. [ ] Move Blacklist to a secondary location (dialog or Erinnerungen page);
-       Historie behind a link/collapsible on the Bankabgleich page.
+       Decision: matched/unmatched/warnings are merged **client-side** (limits 1000/500/200)
+       instead of adding a backend endpoint — data volume is hundreds of rows; revisit
+       only if that grows by an order of magnitude.
+3. [x] Blacklist moved into a dialog on the Bankabgleich page; Historie likewise
+       (both reachable via small links in the toolbar footer).
 4. [ ] Slim AutomationPage down to reminders + email log; update its heading/nav.
 5. [ ] Dashboard widget (last sync + open counts + deep links).
 6. [ ] Sidebar grouping in MainLayout.
