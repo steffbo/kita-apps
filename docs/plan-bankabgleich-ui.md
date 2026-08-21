@@ -83,7 +83,8 @@ Group the flat nav list, e.g.:
        only if that grows by an order of magnitude.
 3. [x] Blacklist moved into a dialog on the Bankabgleich page; Historie likewise
        (both reachable via small links in the toolbar footer).
-4. [ ] Slim AutomationPage down to reminders + email log; update its heading/nav.
+4. [x] AutomationPage slimmed down to reminders + email log; banking-sync section
+       removed, page retitled "Erinnerungen" (route stays `/automatisierung`).
 5. [ ] Dashboard widget (last sync + open counts + deep links).
 6. [ ] Sidebar grouping in MainLayout.
 7. [ ] Update `docs/status-fees.md` (and AGENTS.md nav notes if wording changed),

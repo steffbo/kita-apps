@@ -9,7 +9,7 @@ import {
   UserPlus,
   Receipt,
   RefreshCw,
-  Zap,
+  Bell,
   LogOut,
   Menu,
   X,
@@ -33,7 +33,7 @@ const navigation = [
   { name: 'Beiträge', to: '/beitraege', icon: Receipt },
   { name: 'Einstufungen', to: '/einstufungen', icon: ClipboardList },
   { name: 'Bankabgleich', to: '/bankabgleich', icon: RefreshCw },
-  { name: 'Automatisierung', to: '/automatisierung', icon: Zap },
+  { name: 'Erinnerungen', to: '/automatisierung', icon: Bell },
 ];
 
 function isActive(path: string) {

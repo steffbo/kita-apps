@@ -4,7 +4,6 @@ import { api } from '@/api';
 import type { ReminderRunResponse, EmailLog } from '@/api/types';
 import { Eye, X } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/auth';
-import BankingSyncCard from '@/components/BankingSyncCard.vue';
 
 const authStore = useAuthStore();
 
@@ -283,12 +282,9 @@ watch(
   <div>
     <!-- Header -->
     <div class="mb-8">
-      <h1 class="text-2xl font-bold text-gray-900">Automatisierung</h1>
-      <p class="text-gray-600 mt-1">Automatische Prozesse und geplante Aufgaben</p>
+      <h1 class="text-2xl font-bold text-gray-900">Erinnerungen</h1>
+      <p class="text-gray-600 mt-1">Zahlungserinnerungen und Mahnungen versenden</p>
     </div>
-
-    <!-- Banking Sync Card -->
-    <BankingSyncCard />
 
     <!-- Zahlungserinnerungen Card -->
     <div v-if="authStore.isAdmin" class="bg-white rounded-xl border p-6 mb-6">
