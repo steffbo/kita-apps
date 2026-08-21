@@ -25,15 +25,30 @@ const showUserMenu = ref(false);
 
 const currentPath = computed(() => route.path);
 
-const navigation = [
-  { name: 'Dashboard', to: '/', icon: LayoutDashboard },
-  { name: 'Kinder', to: '/kinder', icon: Users },
-  { name: 'Eltern', to: '/eltern', icon: UserCircle },
-  { name: 'Mitglieder', to: '/mitglieder', icon: UserPlus },
-  { name: 'Beiträge', to: '/beitraege', icon: Receipt },
-  { name: 'Einstufungen', to: '/einstufungen', icon: ClipboardList },
-  { name: 'Bankabgleich', to: '/bankabgleich', icon: RefreshCw },
-  { name: 'Erinnerungen', to: '/automatisierung', icon: Bell },
+const navGroups = [
+  {
+    label: 'Täglich',
+    items: [
+      { name: 'Dashboard', to: '/', icon: LayoutDashboard },
+      { name: 'Bankabgleich', to: '/bankabgleich', icon: RefreshCw },
+    ],
+  },
+  {
+    label: 'Verwaltung',
+    items: [
+      { name: 'Kinder', to: '/kinder', icon: Users },
+      { name: 'Eltern', to: '/eltern', icon: UserCircle },
+      { name: 'Mitglieder', to: '/mitglieder', icon: UserPlus },
+    ],
+  },
+  {
+    label: 'Beiträge',
+    items: [
+      { name: 'Beiträge', to: '/beitraege', icon: Receipt },
+      { name: 'Einstufungen', to: '/einstufungen', icon: ClipboardList },
+      { name: 'Erinnerungen', to: '/automatisierung', icon: Bell },
+    ],
+  },
 ];
 
 function isActive(path: string) {
@@ -85,22 +100,29 @@ function toggleUserMenu() {
         </div>
 
         <!-- Navigation -->
-        <nav class="flex-1 px-3 py-4 space-y-1">
-          <RouterLink
-            v-for="item in navigation"
-            :key="item.to"
-            :to="item.to"
-            :class="[
-              'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-              isActive(item.to)
-                ? 'bg-primary text-white'
-                : 'text-gray-700 hover:bg-gray-100',
-            ]"
-            @click="mobileMenuOpen = false"
-          >
-            <component :is="item.icon" class="h-5 w-5" />
-            {{ item.name }}
-          </RouterLink>
+        <nav class="flex-1 px-3 py-4 space-y-5 overflow-y-auto">
+          <div v-for="group in navGroups" :key="group.label">
+            <p class="px-3 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-wide">
+              {{ group.label }}
+            </p>
+            <div class="space-y-1">
+              <RouterLink
+                v-for="item in group.items"
+                :key="item.to"
+                :to="item.to"
+                :class="[
+                  'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
+                  isActive(item.to)
+                    ? 'bg-primary text-white'
+                    : 'text-gray-700 hover:bg-gray-100',
+                ]"
+                @click="mobileMenuOpen = false"
+              >
+                <component :is="item.icon" class="h-5 w-5" />
+                {{ item.name }}
+              </RouterLink>
+            </div>
+          </div>
         </nav>
 
         <!-- User section -->

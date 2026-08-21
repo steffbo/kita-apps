@@ -88,7 +88,8 @@ Group the flat nav list, e.g.:
 5. [x] Dashboard widget: Bank-Import status card (last run + badge, deep link to
        `/bankabgleich`) as first card in the secondary row; unmatched-transactions
        card now links to `/bankabgleich`.
-6. [ ] Sidebar grouping in MainLayout.
+6. [x] Sidebar grouped into Täglich (Dashboard, Bankabgleich) / Verwaltung
+       (Kinder, Eltern, Mitglieder) / Beiträge (Beiträge, Einstufungen, Erinnerungen).
 7. [ ] Update `docs/status-fees.md` (and AGENTS.md nav notes if wording changed),
        remove checked-off plan content or mark done.
 
