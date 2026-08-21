@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { api } from '@/api';
-import type { FeeOverview, StichtagsmeldungReport, StichtagsmeldungStats, U3ChildDetail } from '@/api/types';
+import type { FeeOverview, StichtagsmeldungReport, StichtagsmeldungStats, U3ChildDetail, BankingSyncStatus } from '@/api/types';
 import {
   Receipt,
   CheckCircle,
@@ -16,6 +16,7 @@ import {
   Users2,
   X,
   CircleDollarSign,
+  RefreshCw,
 } from 'lucide-vue-next';
 import { useRouter } from 'vue-router';
 
@@ -23,6 +24,7 @@ const router = useRouter();
 const overview = ref<FeeOverview | null>(null);
 const monthlyOverview = ref<FeeOverview | null>(null);
 const unmatchedTotal = ref(0);
+const bankingSyncStatus = ref<BankingSyncStatus | null>(null);
 const stichtagStats = ref<StichtagsmeldungStats | null>(null);
 const u3Count = ref(0);
 const totalChildrenCount = ref(0);
@@ -48,6 +50,44 @@ const years = computed(() => {
 });
 
 const ue3Count = computed(() => totalChildrenCount.value - u3Count.value);
+
+const bankingSyncLabel = computed(() => {
+  switch (bankingSyncStatus.value?.status) {
+    case 'running':
+      return 'Läuft';
+    case 'waiting_for_2fa':
+      return 'Wartet auf 2FA';
+    case 'success':
+      return 'Erfolgreich';
+    case 'error':
+      return 'Fehlgeschlagen';
+    case 'idle':
+      return 'Bereit';
+    default:
+      return 'Unbekannt';
+  }
+});
+
+const bankingSyncTone = computed(() => {
+  switch (bankingSyncStatus.value?.status) {
+    case 'running':
+      return 'bg-blue-100 text-blue-700';
+    case 'waiting_for_2fa':
+      return 'bg-amber-100 text-amber-700';
+    case 'success':
+      return 'bg-green-100 text-green-700';
+    case 'error':
+      return 'bg-red-100 text-red-700';
+    default:
+      return 'bg-gray-100 text-gray-700';
+  }
+});
+
+const bankingSyncDate = computed(() => {
+  const date = bankingSyncStatus.value?.finishedAt || bankingSyncStatus.value?.startedAt;
+  if (!date) return null;
+  return new Date(date).toLocaleString('de-DE');
+});
 
 // Group U3 children by income bracket
 type IncomeBracket = 'upTo20k' | 'from20To35k' | 'from35To55k' | 'maxAccepted' | 'fosterFamily';
@@ -87,7 +127,7 @@ async function loadDashboard() {
   isLoading.value = true;
   error.value = null;
   try {
-    const [overviewData, monthlyData, unmatchedData, stichtagData, u3Data, totalData, warningsData] = await Promise.all([
+    const [overviewData, monthlyData, unmatchedData, stichtagData, u3Data, totalData, warningsData, syncStatusData] = await Promise.all([
       api.getFeeOverview(), // Current state - no year filter
       api.getFeeOverview(selectedYear.value), // Monthly overview with year
       api.getUnmatchedTransactions({ limit: 1 }),
@@ -95,6 +135,7 @@ async function loadDashboard() {
       api.getChildren({ activeOnly: true, u3Only: true, limit: 1 }),
       api.getChildren({ activeOnly: true, limit: 1 }),
       api.getChildren({ activeOnly: true, hasWarnings: true, limit: 1 }),
+      api.getBankingSyncStatus(),
     ]);
     overview.value = overviewData;
     monthlyOverview.value = monthlyData;
@@ -103,6 +144,7 @@ async function loadDashboard() {
     u3Count.value = u3Data.total;
     totalChildrenCount.value = totalData.total;
     childrenWithWarnings.value = warningsData.total;
+    bankingSyncStatus.value = syncStatusData;
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Fehler beim Laden';
   } finally {
@@ -311,6 +353,35 @@ function formatHoursLabel(hours: number | null | undefined): string {
 
       <!-- Secondary Cards Row -->
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <!-- Bank Import Status Card -->
+        <div
+          class="bg-white rounded-xl border p-5 cursor-pointer hover:bg-gray-50 transition-colors"
+          @click="router.push('/bankabgleich')"
+        >
+          <div class="flex items-start gap-3">
+            <div class="p-2.5 bg-gray-100 rounded-lg">
+              <RefreshCw class="h-5 w-5 text-gray-600" />
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center justify-between gap-2">
+                <p class="text-xs text-gray-500 font-medium">Bank-Import</p>
+                <span
+                  :class="[
+                    'inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium',
+                    bankingSyncTone,
+                  ]"
+                >
+                  {{ bankingSyncLabel }}
+                </span>
+              </div>
+              <p class="text-sm font-semibold text-gray-900 mt-0.5 truncate">
+                {{ bankingSyncDate || 'Noch kein Import' }}
+              </p>
+              <p class="text-xs text-gray-500 mt-1">Zum Bankabgleich</p>
+            </div>
+          </div>
+        </div>
+
         <!-- U3/Ü3 Children Card -->
         <div class="bg-white rounded-xl border p-5">
           <div class="flex items-center gap-3">
@@ -396,7 +467,7 @@ function formatHoursLabel(hours: number | null | undefined): string {
         <div
           v-if="unmatchedTotal > 0"
           class="bg-amber-50 border border-amber-200 rounded-xl p-5 cursor-pointer hover:bg-amber-100 transition-colors"
-          @click="router.push('/import?tab=unmatched')"
+          @click="router.push('/bankabgleich')"
         >
           <div class="flex items-center gap-3">
             <div class="p-2.5 bg-amber-100 rounded-lg">

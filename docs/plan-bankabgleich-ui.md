@@ -85,7 +85,9 @@ Group the flat nav list, e.g.:
        (both reachable via small links in the toolbar footer).
 4. [x] AutomationPage slimmed down to reminders + email log; banking-sync section
        removed, page retitled "Erinnerungen" (route stays `/automatisierung`).
-5. [ ] Dashboard widget (last sync + open counts + deep links).
+5. [x] Dashboard widget: Bank-Import status card (last run + badge, deep link to
+       `/bankabgleich`) as first card in the secondary row; unmatched-transactions
+       card now links to `/bankabgleich`.
 6. [ ] Sidebar grouping in MainLayout.
 7. [ ] Update `docs/status-fees.md` (and AGENTS.md nav notes if wording changed),
        remove checked-off plan content or mark done.
