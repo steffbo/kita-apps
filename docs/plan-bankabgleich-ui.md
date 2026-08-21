@@ -1,9 +1,8 @@
 # Bankabgleich UI Overhaul — Plan
 
-Status: in progress. Increment 1 done. This doc is the working agreement for
-the `/beitraege` import/automation UI rework. Implementation happens in small,
-individually committed increments. Check off sections as they land and move
-finished facts into `docs/status-fees.md`.
+Status: **done** (2026-08-22, all increments implemented). This doc records the
+working agreement for the `/beitraege` import/automation UI rework. Durable
+behaviour is documented in `docs/status-fees.md`.
 
 ## Problem
 
@@ -90,8 +89,8 @@ Group the flat nav list, e.g.:
        card now links to `/bankabgleich`.
 6. [x] Sidebar grouped into Täglich (Dashboard, Bankabgleich) / Verwaltung
        (Kinder, Eltern, Mitglieder) / Beiträge (Beiträge, Einstufungen, Erinnerungen).
-7. [ ] Update `docs/status-fees.md` (and AGENTS.md nav notes if wording changed),
-       remove checked-off plan content or mark done.
+7. [x] Change log entry added to `docs/status-fees.md`; plan marked done.
+       AGENTS.md needed no changes (no ports, commands, or boundaries changed).
 
 ## Out of scope
 

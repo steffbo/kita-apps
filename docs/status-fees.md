@@ -59,6 +59,16 @@ WHERE c.household_id IS NOT NULL
 
 ## Frontend (`frontend/apps/beitraege`)
 
+### Bankabgleich UI overhaul (2026-08-22)
+
+- The former `/import` page is now **Bankabgleich** (`/bankabgleich`, `/import` kept as route alias). Banking-Sync status + "Jetzt synchronisieren" live at the top of this page via the extracted `src/components/BankingSyncCard.vue`; after a run transitions running/2FA → success the card emits `sync-finished` and the transaction list reloads. No more hopping to the automation page to check sync results.
+- One unified transaction list replaces the six tabs: all transactions newest-first with per-row status badges (Zugeordnet green / Nicht zugeordnet amber / n Warnungen orange, expandable in-row for warning details and actions). Filter chips **Offen** (default) / **Warnungen** / **Zugeordnet** / **Alle** act as filters, not tabs.
+- Merge is client-side: `getMatchedTransactions({limit:1000})`, `getUnmatchedTransactions({limit:500})`, `getWarnings(0,200)` are combined by transaction id (warning rows win). Fine at current data volume (~hundreds of rows); if it grows by an order of magnitude, add a backend endpoint returning one paginated stream with status included instead.
+- Search, sorting (date/payer/description/amount) and pagination (50/page) are client-side over the loaded sets. Legacy `?tab=…` query params still work: they map to filters (`unmatched`→Offen etc.) or open dialogs (`upload`, `history`, `blacklist`).
+- CSV upload became a toolbar button opening a dialog (same dropzone + suggestion flow as before). Import-Historie and Blacklist are dialogs reachable from small links under the filter chips; Blacklist actions unchanged ("Ignorieren" on a transaction still adds the IBAN).
+- `AutomationPage.vue` keeps only reminders (Essens-/Platzgeld + Vereinsbeiträge) and E-Mail-Protokoll; retitled "Erinnerungen", sidebar entry renamed accordingly (route stays `/automatisierung`). Sidebar is grouped Täglich / Verwaltung / Beiträge.
+- Dashboard gained a Bank-Import status card (last run badge + timestamp, deep link to `/bankabgleich`); the unmatched-transactions card links there too.
+
 ### Einstufungs-PDF (2026-07-27)
 
 - `src/components/EinstufungPDF.vue` + `EinstufungPDF.css` render a monochrome serif Geschäftsbrief (Briefkopf with logo, Datumszeile, Betreff, Anrede, Angaben zum Kind, Beitragstabelle, Hinweiskasten, zweispaltiges Kleingedrucktes, Grußformel, Fußzeile).
