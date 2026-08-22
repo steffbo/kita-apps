@@ -81,6 +81,15 @@ WHERE c.household_id IS NOT NULL
 
 ## Frontend (`frontend/apps/beitraege`)
 
+### API types derived from the generated schema; race guards on list pages (2026-08-22)
+
+- `src/api/types.ts` no longer hand-maintains ~100 response interfaces: response shapes now derive from `src/api/schema.d.ts` via a recursive `DeepStrict` helper, so field names/types can no longer drift from `openapi/fees/openapi3.yaml`. Fields that are genuinely sparse (`omitempty`, joined values) are re-loosened explicitly; request payloads stay hand-written because the backend validates them manually. Exception: the child-import preview/row family stays plain-hand-written — vue-tsc resolves `Omit(DeepStrict)+intersection` compositions differently inside SFCs and wrongly required re-added optional fields.
+- List pages (Kinder, Eltern, Mitglieder, Beiträge, Einstufungen) previously fired two or three concurrent loads per interaction and had no stale-response protection. Each interaction now triggers exactly one load (explicit handlers for search/filter, conditional first-page reset), every loader carries a monotonic sequence guard against out-of-order responses, and an empty current page after deletes snaps back to the last valid page.
+- `ImportPage`'s rescan result uses the honest `RescanResult` type now — rescan suggestions are string-info DTOs, not domain suggestions.
+- Removed unused dependencies from the app: `@tanstack/vue-query` (plugin was registered but zero queries existed), `radix-vue`, `@vueuse/core`. Note: `radix-vue` remains a real dependency of `dienstplan`; the other three apps also register `VueQueryPlugin` without using it — same cleanup is likely safe there, not yet done.
+- `scripts/generate-api.sh` was rewritten: it previously referenced a Spring Boot/Maven flow from another repository. It now runs the real fees pipeline end-to-end (swag init → swagger2openapi → openapi-typescript) and documents that swagger2openapi must be fetched from registry.npmjs.org because the Artifactory mirror blocks it.
+- ESLint is not installed in this workspace (Artifactory blocks the fetch); verification gate here is `bun run build` (vue-tsc + vite). The Playwright e2e suite for beiträge requires the seeded `kita-db-e2e` environment described in `docs/test-seeding.md`.
+
 ### Reminder preview editing + email log filters (2026-08-22)
 
 - `POST /fees/reminders/run` and `/fees/membership-reminders/run` accept an optional JSON body `{ includeQR?: boolean, overrides?: { [householdId]: { subject?, body? } } }`. Query-param behaviour unchanged when no body is sent. Blank override fields keep the generated text; overrides apply to both preview and send (`applyReminderOverrides`, unit-tested in `reminder_run_options_test.go`). `includeQR: false` skips QR generation and attachment entirely.
