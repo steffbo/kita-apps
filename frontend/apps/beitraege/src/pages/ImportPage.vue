@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { api } from '@/api';
-import type { ImportResult, ImportBatch, BankTransaction, MatchConfirmation, KnownIBAN, TransactionWarning, MatchSuggestion, FeeExpectation } from '@/api/types';
+import type { ImportResult, ImportBatch, BankTransaction, MatchConfirmation, KnownIBAN, TransactionWarning, MatchSuggestion, FeeExpectation, RescanResult } from '@/api/types';
 import BankingSyncCard from '@/components/BankingSyncCard.vue';
 import {
   Upload,
@@ -108,7 +108,7 @@ const PREFILTER_CONFIDENCE = 0.6;
 
 // Rescan state
 const isRescanning = ref(false);
-const rescanResult = ref<{ scanned: number; autoMatched: number; newMatches: number; suggestions: MatchSuggestion[] } | null>(null);
+const rescanResult = ref<RescanResult | null>(null);
 
 // Dismiss/hide/unmatch confirm state
 const isDismissing = ref<string | null>(null);

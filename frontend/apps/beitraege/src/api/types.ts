@@ -1,90 +1,75 @@
-// API Types for the fees backend
+// API types for the fees backend.
+//
+// Response shapes are derived from the generated OpenAPI schema
+// (src/api/schema.d.ts, produced by `bun run generate:api` from
+// openapi/fees/openapi3.yaml) so field names/types can no longer drift
+// from the backend contract.
+//
+// The Go swag annotations declare no `required` markers, so every generated
+// property is optional — including fields the API always sends. DeepStrict
+// restores non-optionality; fields that are genuinely sparse (`omitempty`,
+// joined/computed values) are re-loosened per type below, mirroring the
+// runtime behaviour. Request payloads stay hand-written because the backend
+// validates them manually (spec marks everything optional there too).
+import type { components } from './schema';
 
-// Auth
-export interface LoginRequest {
-  email: string;
-  password: string;
-}
+type Schema = components['schemas'];
 
+/** Recursively strip optionality introduced by swag's missing `required` markers. */
+type DeepStrict<T> =
+  T extends (infer U)[]
+    ? DeepStrict<U>[]
+    : T extends object
+      ? { [K in keyof T]-?: DeepStrict<T[K]> }
+      : T;
+
+/** Re-declare selected keys as optional (for `omitempty` / joined fields). */
+type Loose<T, K extends keyof T> = Omit<T, K> & Partial<{ [P in K]: T[P] }>;
+
+// ── Auth ─────────────────────────────────────────────────────────────────────
+export type LoginRequest = Schema['LoginRequest'];
 export interface TokenPair {
   accessToken: string;
   refreshToken: string;
   expiresAt: string;
 }
+export type User = DeepStrict<Schema['User']>;
 
-export interface User {
-  id: string;
-  email: string;
-  firstName?: string;
-  lastName?: string;
-  role: 'ADMIN' | 'USER';
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-// Reminder settings and runs
-export interface ReminderPaymentSettings {
-  recipientName: string;
-  iban: string;
-  bic?: string;
-}
-
-export interface ReminderSettingsResponse {
-  autoEnabled: boolean;
-  payment: ReminderPaymentSettings;
-}
-
+// ── Reminder settings and runs ───────────────────────────────────────────────
+export type ReminderPaymentSettings = Loose<
+  DeepStrict<Schema['handler.ReminderPaymentSettingsPayload']>,
+  'bic'
+>;
+export type ReminderSettingsResponse = DeepStrict<
+  Schema['ReminderSettingsResponse'] & {
+    payment: ReminderPaymentSettings;
+  }
+>;
 export interface UpdateReminderSettingsRequest {
   autoEnabled: boolean;
   payment?: ReminderPaymentSettings;
 }
-
-export type ReminderRunStage = 'auto' | 'initial' | 'final' | 'none';
-
-export interface ReminderWarning {
-  householdName: string;
-  reason: string;
-}
-
-export interface ReminderPreview {
-  householdId: string;
-  householdName: string;
-  recipients: string[];
-  subject: string;
-  body: string;
-  qrImageDataUrl?: string;
-  qrPayload?: string;
-}
-
+export type ReminderRunStage = NonNullable<Schema['ReminderRunResponse']['stage']>;
+export type ReminderWarning = DeepStrict<Schema['ReminderWarningResponse']>;
+export type ReminderPreview = Loose<
+  DeepStrict<Schema['ReminderPreviewResponse']>,
+  'qrImageDataUrl' | 'qrPayload'
+>;
 export interface ReminderRunOverride {
   subject?: string;
   body?: string;
 }
-
 export interface ReminderRunBody {
   includeQR?: boolean;
   overrides?: Record<string, ReminderRunOverride>;
 }
-
-export interface ReminderRunResponse {
-  stage: ReminderRunStage;
-  date: string;
-  dryRun: boolean;
-  unpaidCount: number;
-  familiesProcessed: number;
-  familiesEmailed: number;
-  familiesSkippedNoEmail: number;
-  remindersCreated: number;
-  emailSent: boolean;
+export type ReminderRunResponse = Loose<
+  DeepStrict<Schema['ReminderRunResponse']>,
+  'warnings' | 'previews' | 'message' | 'recipient' | 'reminderCreated'
+> & {
   warnings?: ReminderWarning[];
   previews?: ReminderPreview[];
-  message?: string;
-
-  // Deprecated – kept for backward compat
-  recipient?: string;
-  reminderCreated?: number;
-}
+};
 
 export type EmailLogType =
   | 'REMINDER_INITIAL'
@@ -104,35 +89,24 @@ export interface EmailLog {
   sentBy?: string | null;
 }
 
-// Children
-export interface Child {
-  id: string;
-  householdId?: string;
-  memberNumber: string;
-  firstName: string;
-  lastName: string;
-  birthDate: string;
-  entryDate: string;
-  exitDate?: string;
-  street?: string;
-  streetNo?: string;
-  postalCode?: string;
-  city?: string;
-  legalHours?: number;
-  legalHoursUntil?: string;
-  careHours?: number;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-  parents?: Parent[];
-  household?: Household;
-  openFeesCount?: number;
-}
-
-export interface NextMemberNumberResponse {
-  memberNumber: string;
-}
-
+// ── Children ─────────────────────────────────────────────────────────────────
+export type Child = Loose<
+  Omit<DeepStrict<Schema['domain.Child']>, 'legalHours' | 'careHours'>,
+  | 'householdId'
+  | 'exitDate'
+  | 'street'
+  | 'streetNo'
+  | 'postalCode'
+  | 'city'
+  | 'legalHoursUntil'
+  | 'parents'
+  | 'household'
+  | 'openFeesCount'
+> & {
+  legalHours?: number | null;
+  careHours?: number | null;
+};
+export type NextMemberNumberResponse = DeepStrict<Schema['NextMemberNumberResponse']>;
 export interface CreateChildRequest {
   memberNumber: string;
   firstName: string;
@@ -144,11 +118,10 @@ export interface CreateChildRequest {
   streetNo?: string;
   postalCode?: string;
   city?: string;
-  legalHours?: number;
+  legalHours?: number | null;
   legalHoursUntil?: string;
-  careHours?: number;
+  careHours?: number | null;
 }
-
 export interface UpdateChildRequest {
   firstName?: string;
   lastName?: string;
@@ -159,64 +132,46 @@ export interface UpdateChildRequest {
   streetNo?: string;
   postalCode?: string;
   city?: string;
-  legalHours?: number;
+  legalHours?: number | null;
   legalHoursUntil?: string;
-  careHours?: number;
+  careHours?: number | null;
   isActive?: boolean;
   householdId?: string;
 }
-
-export interface CareHoursHistoryEntry {
-  id: string;
-  childId: string;
+export type CareHoursHistoryEntry = Omit<
+  DeepStrict<Schema['CareHoursHistoryEntry']>,
+  'careHours' | 'effectiveUntil'
+> & {
   careHours?: number | null;
-  effectiveFrom: string;
   effectiveUntil?: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
+};
 export interface CreateCareHoursHistoryRequest {
   careHours?: number | null;
   validFrom: string;
 }
-
-export interface LegalHoursHistoryEntry {
-  id: string;
-  childId: string;
+export type LegalHoursHistoryEntry = Omit<
+  DeepStrict<Schema['LegalHoursHistoryEntry']>,
+  'legalHours' | 'effectiveUntil'
+> & {
   legalHours?: number | null;
-  effectiveFrom: string;
   effectiveUntil?: string | null;
-  createdAt: string;
-  updatedAt: string;
-}
-
+};
 export interface CreateLegalHoursHistoryRequest {
   legalHours?: number | null;
   validFrom: string;
 }
 
-// Households
-export type IncomeStatus = '' | 'PROVIDED' | 'MAX_ACCEPTED' | 'PENDING' | 'NOT_REQUIRED' | 'HISTORIC' | 'FOSTER_FAMILY';
-
-export interface Household {
-  id: string;
-  name: string;
-  annualHouseholdIncome?: number;
-  incomeStatus: IncomeStatus;
-  childrenCountForFees?: number;
-  createdAt: string;
-  updatedAt: string;
-  parents?: Parent[];
-  children?: Child[];
-}
-
+// ── Households ───────────────────────────────────────────────────────────────
+export type IncomeStatus = Schema['domain.IncomeStatus'] | '';
+export type Household = Loose<
+  DeepStrict<Schema['domain.Household']>,
+  'annualHouseholdIncome' | 'childrenCountForFees' | 'parents' | 'children' | 'membershipParentId'
+>;
 export interface CreateHouseholdRequest {
   name: string;
   annualHouseholdIncome?: number;
   incomeStatus?: IncomeStatus;
 }
-
 export interface UpdateHouseholdRequest {
   name?: string;
   annualHouseholdIncome?: number;
@@ -224,27 +179,19 @@ export interface UpdateHouseholdRequest {
   childrenCountForFees?: number;
 }
 
-// Members (Vereinsmitglieder - can exist independently of children)
-export interface Member {
-  id: string;
-  memberNumber: string;
-  firstName: string;
-  lastName: string;
-  email?: string;
-  phone?: string;
-  street?: string;
-  streetNo?: string;
-  postalCode?: string;
-  city?: string;
-  householdId?: string;
-  membershipStart: string;
-  membershipEnd?: string;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-  household?: Household;
-}
-
+// ── Members (Vereinsmitglieder - can exist independently of children) ───────
+export type Member = Loose<
+  DeepStrict<Schema['domain.Member']>,
+  | 'email'
+  | 'phone'
+  | 'street'
+  | 'streetNo'
+  | 'postalCode'
+  | 'city'
+  | 'householdId'
+  | 'membershipEnd'
+  | 'household'
+>;
 export interface CreateMemberRequest {
   memberNumber?: string; // Auto-generated if not provided
   firstName: string;
@@ -259,7 +206,6 @@ export interface CreateMemberRequest {
   membershipStart: string;
   membershipEnd?: string;
 }
-
 export interface UpdateMemberRequest {
   firstName?: string;
   lastName?: string;
@@ -275,28 +221,22 @@ export interface UpdateMemberRequest {
   isActive?: boolean;
 }
 
-// Parents
-
-export interface Parent {
-  id: string;
-  householdId?: string;
-  memberId?: string; // Reference to Member if parent is also a Vereinsmitglied
-  firstName: string;
-  lastName: string;
-  birthDate?: string;
-  email?: string;
-  phone?: string;
-  street?: string;
-  streetNo?: string;
-  postalCode?: string;
-  city?: string;
-  createdAt: string;
-  updatedAt: string;
-  children?: Child[];
-  household?: Household;
-  member?: Member; // Linked member if parent is a Vereinsmitglied
-}
-
+// ── Parents ──────────────────────────────────────────────────────────────────
+export type Parent = Loose<
+  DeepStrict<Schema['domain.Parent']>,
+  | 'householdId'
+  | 'memberId'
+  | 'birthDate'
+  | 'email'
+  | 'phone'
+  | 'street'
+  | 'streetNo'
+  | 'postalCode'
+  | 'city'
+  | 'children'
+  | 'household'
+  | 'member'
+>;
 export interface CreateParentRequest {
   firstName: string;
   lastName: string;
@@ -310,7 +250,6 @@ export interface CreateParentRequest {
   householdId?: string;
   memberId?: string; // Link to existing Member
 }
-
 export interface UpdateParentRequest {
   firstName?: string;
   lastName?: string;
@@ -325,74 +264,37 @@ export interface UpdateParentRequest {
   memberId?: string; // Link to existing Member
 }
 
-// Fees
-export type FeeType = 'MEMBERSHIP' | 'FOOD' | 'CHILDCARE' | 'REMINDER';
+// ── Fees ─────────────────────────────────────────────────────────────────────
+export type FeeType = Schema['domain.FeeType'];
 export type FeeStatus = 'OPEN' | 'PAID' | 'OVERDUE';
 
-export interface FeeExpectation {
-  id: string;
-  childId: string;
-  feeType: FeeType;
-  year: number;
-  month?: number;
-  amount: number;
-  dueDate: string;
-  createdAt: string;
-  child?: Child;
-  isPaid: boolean;
-  paidAt?: string;
-  matchedBy?: PaymentMatch;
-  matchedAmount?: number;
-  remaining?: number;
-  partialMatches?: PaymentMatch[];
-  reminderForId?: string; // Links REMINDER fee to original fee
-}
-
-export interface PaymentMatch {
-  id: string;
-  transactionId: string;
-  expectationId: string;
-  amount: number;
-  matchType: 'AUTO' | 'MANUAL';
-  confidence?: number;
-  matchedAt: string;
-  matchedBy?: string;
-  transaction?: BankTransaction;
-}
-
-export interface FeeOverview {
-  totalOpen: number;
-  totalPaid: number;
-  totalOverdue: number;
-  amountOpen: number;
-  amountPaid: number;
-  amountOverdue: number;
-  byMonth: MonthSummary[];
-  childrenWithOpenFees: number;
-  openMembershipCount: number;
-  openFoodCount: number;
-  openChildcareCount: number;
-}
-
-export interface MonthSummary {
-  year: number;
-  month: number;
-  openCount: number;
-  paidCount: number;
-  openAmount: number;
-  paidAmount: number;
-}
-
+export type FeeExpectation = Loose<
+  DeepStrict<Schema['domain.FeeExpectation']>,
+  | 'householdId'
+  | 'month'
+  | 'paidAt'
+  | 'matchedBy'
+  | 'matchedAmount'
+  | 'remaining'
+  | 'partialMatches'
+  | 'reminderForId'
+  | 'reconciliationYear'
+  | 'child'
+>;
+export type PaymentMatch = Loose<
+  DeepStrict<Schema['domain.PaymentMatch']>,
+  'confidence' | 'matchedBy' | 'transaction' | 'expectation'
+>;
+export type FeeOverview = DeepStrict<Schema['domain.FeeOverview']>;
+export type MonthSummary = DeepStrict<Schema['domain.MonthSummary']>;
 export interface GenerateFeeRequest {
   year: number;
   month?: number;
 }
-
 export interface GenerateFeeResult {
   created: number;
   skipped: number;
 }
-
 export interface CreateFeeRequest {
   childId: string;
   feeType: FeeType;
@@ -403,78 +305,37 @@ export interface CreateFeeRequest {
   reconciliationYear?: number;
 }
 
-// Payment Match
-export interface PaymentMatch {
-  id: string;
-  transactionId: string;
-  expectationId: string;
-  amount: number;
-  matchType: 'AUTO' | 'MANUAL';
-  confidence?: number;
-  matchedAt: string;
-  matchedBy?: string;
-  expectation?: FeeExpectation;
-}
-
-// Bank Transactions
-export interface BankTransaction {
-  id: string;
-  bookingDate: string;
-  valueDate: string;
-  payerName?: string;
-  payerIban?: string;
-  description?: string;
-  amount: number;
-  currency: string;
-  importBatchId?: string;
-  importedAt: string;
-  matchedAmount?: number;
-  matches?: PaymentMatch[];
-}
-
-export interface MatchSuggestion {
+// ── Bank Transactions ────────────────────────────────────────────────────────
+export type BankTransaction = Loose<
+  DeepStrict<Schema['domain.BankTransaction']>,
+  'payerName' | 'payerIban' | 'description' | 'importBatchId' | 'matchedAmount' | 'matches'
+>;
+export type MatchSuggestion = Loose<
+  DeepStrict<Schema['domain.MatchSuggestion']>,
+  'expectation' | 'expectations' | 'child' | 'detectedType'
+> & {
   transaction: BankTransaction;
-  expectation?: FeeExpectation;
-  expectations?: FeeExpectation[];
-  child?: Child;
-  detectedType?: FeeType;
-  confidence: number;
-  matchedBy: string;
-}
-
-export interface ImportResult {
-  batchId: string;
-  fileName: string;
-  totalRows: number;
-  imported: number;
-  skipped: number;
+};
+export type ImportResult = Loose<
+  DeepStrict<Schema['service.ImportResult']>,
+  'warningList'
+> & {
   suggestions: MatchSuggestion[];
-}
-
+};
 export interface MatchConfirmation {
   transactionId: string;
   expectationId: string;
 }
+export type ConfirmResult = DeepStrict<Schema['ConfirmMatchResponse']>;
+export type ImportBatch = Loose<DeepStrict<Schema['domain.ImportBatch']>, 'dateFrom' | 'dateTo'>;
 
-export interface ConfirmResult {
-  confirmed: number;
-  failed: number;
-}
-
-export interface ImportBatch {
-  id: string;
-  fileName: string;
-  transactionCount: number;
-  matchedCount: number;
-  importedAt: string;
-  importedBy: string;
-  importedByEmail?: string;
-  dateFrom?: string;
-  dateTo?: string;
-}
-
-export type BankingSyncStatusType = 'idle' | 'running' | 'waiting_for_2fa' | 'success' | 'error';
-
+export type BankingSyncStatusType =
+  | 'idle'
+  | 'running'
+  | 'waiting_for_2fa'
+  | 'success'
+  | 'error'
+  | 'cancelled';
 export interface BankingSyncStatus {
   status: BankingSyncStatusType;
   runId?: string | null;
@@ -488,132 +349,86 @@ export interface BankingSyncStatus {
   updatedAt?: string;
 }
 
-// Paginated responses
+// ── Pagination envelope (response.Paginated; not generic in the spec) ────────
 export interface PaginatedResponse<T> {
   data: T[];
   total: number;
-  offset: number;
-  limit: number;
+  page: number;
+  perPage: number;
+  totalPages: number;
 }
 
-// API Error
+// ── API Error ────────────────────────────────────────────────────────────────
 export interface ApiError {
   error: string;
   message?: string;
 }
 
-// Known IBANs (IBAN Learning System)
-export type KnownIBANStatus = 'trusted' | 'blacklisted';
-
-export interface KnownIBAN {
-  iban: string;
-  payerName?: string;
-  status: KnownIBANStatus;
-  childId?: string;
-  reason?: string;
-  originalTransactionId?: string;
-  originalDescription?: string;
-  originalAmount?: number;
-  createdAt: string;
-  updatedAt: string;
-  child?: Child;
-}
-
-export interface KnownIBANSummary {
-  iban: string;
-  payerName?: string;
-  transactionCount: number;
-}
-
-export interface RescanResult {
-  scanned: number;
-  autoMatched: number;
-  newMatches: number;
+// ── Known IBANs (IBAN Learning System) ───────────────────────────────────────
+export type KnownIBANStatus = Schema['domain.KnownIBANStatus'];
+export type KnownIBAN = Loose<
+  DeepStrict<Schema['domain.KnownIBAN']>,
+  | 'payerName'
+  | 'childId'
+  | 'reason'
+  | 'originalTransactionId'
+  | 'originalDescription'
+  | 'originalAmount'
+  | 'child'
+>;
+export type KnownIBANSummary = Loose<
+  DeepStrict<Schema['ChildTrustedIBANsResponse']>,
+  'payerName'
+>;
+export type RescanResult = DeepStrict<Schema['RescanResponse']>;
+export type DismissResult = DeepStrict<Schema['DismissTransactionResponse']>;
+export type HideResult = DeepStrict<Schema['HideTransactionResponse']>;
+export type UnmatchResult = DeepStrict<Schema['UnmatchTransactionResponse']>;
+export type ChildUnmatchedSuggestionsResponse = Loose<
+  DeepStrict<Schema['ChildUnmatchedSuggestionsResponse']>,
+  'suggestions'
+> & {
   suggestions: MatchSuggestion[];
-}
-
-export interface DismissResult {
-  iban: string;
-  transactionsRemoved: number;
-}
-
-export interface HideResult {
-  transactionId: string;
-}
-
-export interface UnmatchResult {
-  transactionId: string;
-  matchesRemoved: number;
-  transactionDeleted: boolean;
-}
-
-export interface ChildUnmatchedSuggestionsResponse {
-  childId: string;
-  scanned: number;
-  suggestions: MatchSuggestion[];
-}
-
+};
 export interface AllocationInput {
   expectationId: string;
   amount: number;
 }
+export type AllocateTransactionResult = DeepStrict<Schema['AllocateTransactionResponse']>;
 
-export interface AllocateTransactionResult {
-  transactionId: string;
-  allocationsCreated: number;
-  totalAllocated: number;
-  overpayment: number;
-}
+// ── Transaction Warnings ─────────────────────────────────────────────────────
+export type WarningType = Schema['domain.WarningType'];
+export type ResolutionType = Schema['domain.ResolutionType'];
+export type TransactionWarning = Loose<
+  DeepStrict<Schema['domain.TransactionWarning']>,
+  | 'expectedAmount'
+  | 'actualAmount'
+  | 'childId'
+  | 'matchedFeeId'
+  | 'resolvedAt'
+  | 'resolvedBy'
+  | 'resolutionType'
+  | 'resolutionNote'
+  | 'transaction'
+  | 'child'
+  | 'matchedFee'
+> & {
+  expectedAmount?: number | null;
+  actualAmount?: number | null;
+};
+export type ResolveLateFeeResult = DeepStrict<Schema['ResolveLateFeeResponse']>;
 
-// Transaction Warnings
-export type WarningType =
-  | 'AMOUNT_MISMATCH'
-  | 'DUPLICATE_PAYMENT'
-  | 'UNKNOWN_IBAN'
-  | 'LATE_PAYMENT'
-  | 'OVERPAYMENT';
-export type ResolutionType = 'DISMISSED' | 'MATCHED' | 'AUTO_RESOLVED';
-
-export interface TransactionWarning {
-  id: string;
-  warningType: WarningType;
-  message: string;
-  transactionId?: string;
-  childId?: string;
-  feeId?: string;
-  matchedFeeId?: string; // For LATE_PAYMENT: the fee that was paid late
-  createdAt: string;
-  resolvedAt?: string;
-  resolvedBy?: string;
-  resolutionType?: ResolutionType;
-  resolutionNote?: string;
-  transaction?: BankTransaction;
-  child?: Child;
-  fee?: FeeExpectation;
-  matchedFee?: FeeExpectation;
-}
-
-export interface ResolveLateFeeResult {
-  warningId: string;
-  lateFeeId: string;
-  lateFeeAmount: number;
-}
-
-// Child Import Types
-export interface ChildImportParseResult {
-  headers: string[];
-  sampleRows: string[][];
-  detectedSeparator: string;
-  totalRows: number;
-}
-
+// ── Child Import ─────────────────────────────────────────────────────────────
+export type ChildImportParseResult = DeepStrict<Schema['service.ChildImportParseResult']>;
 export interface ChildImportPreviewRequest {
   fileContent: string; // Base64 encoded CSV content
   separator: string;
   mapping: Record<string, number>; // systemField -> csvColumnIndex
   skipHeader: boolean;
 }
-
+// NOTE: the preview/row family below is kept as plain interfaces instead of
+// derived DeepStrict+intersection types: vue-tsc resolves that combination
+// differently inside SFCs and wrongly requires the re-added optional fields.
 export interface ChildPreview {
   memberNumber: string;
   firstName: string;
@@ -624,17 +439,15 @@ export interface ChildPreview {
   streetNo?: string;
   postalCode?: string;
   city?: string;
-  legalHours?: number;
-  careHours?: number;
+  legalHours?: number | null;
+  careHours?: number | null;
 }
-
 export interface ParentMatch {
   id: string;
   firstName: string;
   lastName: string;
   email?: string;
 }
-
 export interface ParentPreview {
   firstName: string;
   lastName: string;
@@ -644,14 +457,12 @@ export interface ParentPreview {
   alreadyLinked?: boolean; // True if already linked to the existing child
   linkedParentId?: string; // ID of the already linked parent
 }
-
 export interface FieldConflict {
   field: string;
   fieldLabel: string;
   existingValue: string;
   newValue: string;
 }
-
 export interface ChildImportPreviewRow {
   index: number;
   child: ChildPreview;
@@ -665,13 +476,11 @@ export interface ChildImportPreviewRow {
   fieldConflicts?: FieldConflict[]; // Conflicts between CSV and existing data
   isValid: boolean;
 }
-
 export interface ChildImportPreviewResult {
   rows: ChildImportPreviewRow[];
   validCount: number;
   errorCount: number;
 }
-
 export interface ChildImportRow {
   index: number;
   child: ChildPreview;
@@ -681,26 +490,21 @@ export interface ChildImportRow {
   mergeParents?: boolean; // If true, add parents to existing child
   fieldUpdates?: Record<string, string>; // Field -> value for updates (from conflict resolution)
 }
-
 export interface ParentDecision {
   rowIndex: number;
   parentIndex: 1 | 2;
   action: 'create' | 'link';
   existingParentId?: string;
 }
-
 export interface ChildImportExecuteRequest {
   rows: ChildImportRow[];
   parentDecisions: ParentDecision[];
 }
-
 export interface ChildImportError {
   rowIndex: number;
   error: string;
 }
-
 export interface ChildImportExecuteResult {
-  imported: number;
   childrenCreated?: number;
   childrenUpdated?: number;
   parentsCreated?: number;
@@ -708,7 +512,7 @@ export interface ChildImportExecuteResult {
   errors: ChildImportError[];
 }
 
-// System fields for mapping UI
+// System fields for mapping UI (client-side only)
 export interface SystemField {
   key: string;
   label: string;
@@ -716,7 +520,7 @@ export interface SystemField {
   group: 'child' | 'parent1' | 'parent2';
 }
 
-// Childcare Fee Calculation
+// ── Childcare Fee Calculation ────────────────────────────────────────────────
 export type ChildAgeType = 'krippe' | 'kindergarten';
 
 export interface ChildcareFeeInput {
@@ -728,125 +532,61 @@ export interface ChildcareFeeInput {
   fosterFamily?: boolean;
 }
 
-export interface ChildcareFeeResult {
-  fee: number;
-  baseFee: number;
-  rule: string;
-  discountFactor: number;
-  discountPercent: number;
-  showEntlastung: boolean;
+export type ChildcareFeeResult = Loose<
+  DeepStrict<Schema['domain.ChildcareFeeResult']>,
+  'notes'
+> & {
   notes: string[];
-}
+};
 
-// Ledger Types
-export interface LedgerEntry {
-  id: string;
-  date: string;
-  type: 'fee' | 'payment';
-  description: string;
-  feeType?: FeeType;
-  year?: number;
-  month?: number;
-  debit: number;
-  credit: number;
-  balance: number;
-  isPaid?: boolean;
-  paidAt?: string;
-  fee?: FeeExpectation;
-  transaction?: BankTransaction;
-}
-
-export interface LedgerSummary {
-  totalFees: number;
-  totalPaid: number;
-  totalOpen: number;
-  openFeesCount: number;
-  paidFeesCount: number;
-  totalFeesCount: number;
-}
-
-export interface ChildLedger {
-  childId: string;
-  child?: Child;
+// ── Ledger ───────────────────────────────────────────────────────────────────
+export type LedgerEntry = Loose<
+  DeepStrict<Schema['LedgerEntry']>,
+  'feeType' | 'year' | 'month' | 'isPaid' | 'paidAt'
+>;
+export type LedgerSummary = DeepStrict<Schema['LedgerSummary']>;
+export type ChildLedger = Loose<DeepStrict<Schema['ChildLedger']>, 'child' | 'entries'> & {
   entries: LedgerEntry[];
-  summary: LedgerSummary;
-}
+};
 
-// Stichtagsmeldung
-export interface StichtagsmeldungStats {
-  nextStichtag: string;
-  daysUntilStichtag: number;
-  u3IncomeBreakdown: U3IncomeBreakdown;
-  totalChildrenInKita: number;
-}
-
-export interface StichtagsmeldungReport {
-  reportDate: string;
-  u3IncomeBreakdown: U3IncomeBreakdown;
-  totalChildrenInKita: number;
-  u3ChildrenCount: number;
-  ue3ChildrenCount: number;
-  careHoursBreakdown: CareHoursBreakdownItem[];
-  legalHoursBreakdown: LegalHoursBreakdownItem[];
-}
-
-export interface U3IncomeBreakdown {
-  upTo20k: number;
-  from20To35k: number;
-  from35To55k: number;
-  maxAccepted: number;
-  fosterFamily: number;
-  total: number;
-}
-
-export interface CareHoursBreakdownItem {
+// ── Stichtagsmeldung ─────────────────────────────────────────────────────────
+export type StichtagsmeldungStats = DeepStrict<Schema['StichtagsmeldungStats']>;
+export type StichtagsmeldungReport = DeepStrict<Schema['StichtagsmeldungReport']>;
+export type U3IncomeBreakdown = DeepStrict<Schema['U3IncomeBreakdown']>;
+export type CareHoursBreakdownItem = Omit<
+  DeepStrict<Schema['CareHoursBreakdownItem']>,
+  'careHours'
+> & {
   careHours?: number | null;
-  count: number;
-  u3Count: number;
-  ue3Count: number;
-}
-
-export interface LegalHoursBreakdownItem {
+};
+export type LegalHoursBreakdownItem = Omit<
+  DeepStrict<Schema['LegalHoursBreakdownItem']>,
+  'legalHours'
+> & {
   legalHours?: number | null;
-  count: number;
-  u3Count: number;
-  ue3Count: number;
-}
-
-export interface U3ChildDetail {
-  id: string;
-  memberNumber: string;
-  firstName: string;
-  lastName: string;
-  birthDate: string;
+};
+export type U3ChildDetail = Loose<
+  DeepStrict<Schema['handler.U3ChildDetailResponse']>,
+  'householdIncome' | 'incomeStatus'
+> & {
   householdIncome: number | null;
   incomeStatus: string | null;
-  isFosterFamily: boolean;
-}
+};
 
-// Fee Coverage Timeline
-export type CoverageStatus = 'UNPAID' | 'PARTIAL' | 'COVERED' | 'OVERPAID';
-
-export interface CoveredTransaction {
-  transactionId: string;
-  amount: number;
-  bookingDate: string;
-  description?: string;
-  isForThisMonth: boolean;
-}
-
-export interface FeeCoverage {
-  year: number;
-  month: number;
-  expectedTotal: number;
-  receivedTotal: number;
-  balance: number;
-  status: CoverageStatus;
+// ── Fee Coverage Timeline ────────────────────────────────────────────────────
+export type CoverageStatus = NonNullable<Schema['handler.FeeCoverageResponse']['status']>;
+export type CoveredTransaction = Loose<
+  DeepStrict<Schema['handler.CoveredTransactionResponse']>,
+  'description'
+>;
+export type FeeCoverage = Loose<
+  DeepStrict<Schema['handler.FeeCoverageResponse']>,
+  'transactions'
+> & {
   transactions: CoveredTransaction[];
-}
+};
 
-// Einstufung (Fee Classification)
-
+// ── Einstufung (Fee Classification) ──────────────────────────────────────────
 export interface IncomeDetails {
   grossIncome: number;
   socialSecurityShare: number;
@@ -868,53 +608,26 @@ export interface IncomeDetails {
   maintenanceToPay: number;
   maintenanceReceived: number;
 }
-
 export interface HouseholdIncomeCalculation {
   parent1: IncomeDetails;
   parent2: IncomeDetails;
 }
-
-export interface EinstufungMonthRow {
-  month: number;
-  year: number;
-  careHoursPerWeek: number;
-  careType: string;
-  childcareFee: number;
-  foodFee: number;
-  membershipFee: number;
-}
-
-export interface Einstufung {
-  id: string;
-  childId: string;
-  householdId: string;
-  year: number;
-  validFrom: string;
-  validUntil?: string;
-  sourceEinstufungId?: string;
-  changeDate?: string;
-  effectiveFromMonth: string;
+export type EinstufungMonthRow = DeepStrict<Schema['domain.EinstufungMonthRow']>;
+export type Einstufung = Loose<
+  DeepStrict<Schema['Einstufung']>,
+  | 'validUntil'
+  | 'sourceEinstufungId'
+  | 'changeDate'
+  | 'notes'
+  | 'monthlyTable'
+  | 'child'
+  | 'household'
+> & {
   incomeCalculation: HouseholdIncomeCalculation;
-  annualNetIncome: number;
-  highestRateVoluntary: boolean;
-  careHoursPerWeek: number;
-  careType: ChildAgeType;
-  childrenCount: number;
-  monthlyChildcareFee: number;
-  monthlyFoodFee: number;
-  annualMembershipFee: number;
-  feeRule: string;
-  discountPercent: number;
-  discountFactor: number;
-  baseFee: number;
-  notes?: string;
   monthlyTable?: EinstufungMonthRow[];
-  createdAt: string;
-  updatedAt: string;
   child?: Child;
   household?: Household;
-}
-
+};
 export interface CreateEinstufungRequest {
   childId: string;
   year: number;
@@ -925,7 +638,6 @@ export interface CreateEinstufungRequest {
   childrenCount: number;
   notes?: string;
 }
-
 export interface UpdateEinstufungRequest {
   incomeCalculation?: HouseholdIncomeCalculation;
   highestRateVoluntary?: boolean;
@@ -934,7 +646,6 @@ export interface UpdateEinstufungRequest {
   validFrom?: string;
   notes?: string;
 }
-
 export interface CreateFollowUpEinstufungRequest {
   changeDate: string;
   incomeCalculation: HouseholdIncomeCalculation;
@@ -943,35 +654,13 @@ export interface CreateFollowUpEinstufungRequest {
   childrenCount: number;
   notes?: string;
 }
-
-export interface CreditReviewPeriod {
-  feeId: string;
-  year: number;
-  month: number;
-  oldAmount: number;
-  newAmount: number;
-  matchedAmount: number;
-  creditAmount: number;
-}
-
-export interface ChildcareExpectationSyncResult {
-  created: number;
-  updated: number;
-  skipped: number;
-  deltaOpen: number;
-  creditReviewRequired: CreditReviewPeriod[];
-}
-
-export interface CreateFollowUpEinstufungResponse {
+export type CreditReviewPeriod = DeepStrict<Schema['CreditReviewPeriod']>;
+export type ChildcareExpectationSyncResult = DeepStrict<Schema['ChildcareExpectationSyncResult']>;
+export type CreateFollowUpEinstufungResponse = Loose<
+  DeepStrict<Schema['CreateFollowUpEinstufungResponse']>,
+  'einstufung' | 'expectationChanges'
+> & {
   einstufung: Einstufung;
   expectationChanges: ChildcareExpectationSyncResult;
-}
-
-export interface CalculateIncomeResponse {
-  parent1NetIncome: number;
-  parent2NetIncome: number;
-  parent1FeeRelevantIncome: number;
-  parent2FeeRelevantIncome: number;
-  householdFeeIncome: number;
-  householdFullIncome: number;
-}
+};
+export type CalculateIncomeResponse = DeepStrict<Schema['CalculateIncomeResponse']>;

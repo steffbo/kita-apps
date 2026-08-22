@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, onMounted, onUnmounted, type Ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { api } from '@/api';
 import type {
@@ -46,7 +46,7 @@ const fileContent = ref<string>(''); // Base64 encoded
 const mapping = ref<Record<string, number>>({});
 
 // Step 3: Preview
-const previewResult = ref<ChildImportPreviewResult | null>(null);
+const previewResult: Ref<ChildImportPreviewResult | null> = ref(null);
 const selectedRows = ref<Set<number>>(new Set());
 const parentDecisions = ref<Map<string, ParentDecision>>(new Map());
 // Track member numbers that exist in the database (detected as duplicates on initial preview)
@@ -67,8 +67,8 @@ const editedData = ref<{
   lastName: string;
   birthDate: string;
   entryDate: string;
-  legalHours?: number;
-  careHours?: number;
+  legalHours?: number | null;
+  careHours?: number | null;
 } | null>(null);
 
 // System fields for mapping
