@@ -2462,6 +2462,12 @@ export interface paths {
                     offset?: number;
                     /** @description Limit (alternative to page/perPage) */
                     limit?: number;
+                    /** @description Filter by email type */
+                    emailType?: "REMINDER_INITIAL" | "REMINDER_FINAL" | "MEMBERSHIP_REMINDER_INITIAL" | "MEMBERSHIP_REMINDER_FINAL" | "PASSWORD_RESET";
+                    /** @description Search in recipient and subject */
+                    search?: string;
+                    /** @description Sort by sent_at direction */
+                    sortDir?: "asc" | "desc";
                 };
                 header?: never;
                 path?: never;
@@ -2608,7 +2614,12 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: never;
+            /** @description Optional run behaviour (QR opt-out, per-household text overrides) */
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["ReminderRunRequestBody"];
+                };
+            };
             responses: {
                 /** @description Reminder run result */
                 200: {
@@ -2743,7 +2754,12 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            requestBody?: never;
+            /** @description Optional run behaviour (QR opt-out, per-household text overrides) */
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["ReminderRunRequestBody"];
+                };
+            };
             responses: {
                 /** @description Reminder run result */
                 200: {
@@ -7000,6 +7016,8 @@ export interface components {
             /** @example Schmidt */
             householdName?: string;
             qrImageDataUrl?: string;
+            /** @description SEPA payload encoded in the QR code (empty if no QR code) */
+            qrPayload?: string;
             /**
              * @example [
              *       "[\"anna@example.com\"]"
@@ -7008,6 +7026,19 @@ export interface components {
             recipients?: string[];
             /** @example Kita Zahlungserinnerung April 2026 */
             subject?: string;
+        };
+        /** @description Per-household override for generated reminder emails; empty fields keep the generated value */
+        ReminderRunOverrideRequest: {
+            body?: string;
+            subject?: string;
+        };
+        /** @description Optional run behaviour for reminder runs */
+        ReminderRunRequestBody: {
+            /** @default true */
+            includeQR: boolean;
+            overrides?: {
+                [key: string]: components["schemas"]["ReminderRunOverrideRequest"];
+            };
         };
         /** @description Ergebnis einer Erinnerungs-/Mahnungsprüfung */
         ReminderRunResponse: {

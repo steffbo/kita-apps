@@ -54,6 +54,17 @@ export interface ReminderPreview {
   subject: string;
   body: string;
   qrImageDataUrl?: string;
+  qrPayload?: string;
+}
+
+export interface ReminderRunOverride {
+  subject?: string;
+  body?: string;
+}
+
+export interface ReminderRunBody {
+  includeQR?: boolean;
+  overrides?: Record<string, ReminderRunOverride>;
 }
 
 export interface ReminderRunResponse {

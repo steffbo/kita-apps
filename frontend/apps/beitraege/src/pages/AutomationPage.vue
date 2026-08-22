@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue';
+import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { api } from '@/api';
-import type { ReminderRunResponse, EmailLog } from '@/api/types';
-import { Eye, X } from 'lucide-vue-next';
+import type { ReminderRunResponse, ReminderRunOverride, EmailLog } from '@/api/types';
+import { Eye, X, Search, ArrowUp, ArrowDown } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/auth';
 
 const authStore = useAuthStore();
@@ -50,11 +50,70 @@ const previewSendButtonClass = computed(() => {
     : 'bg-blue-600 hover:bg-blue-700';
 });
 
+// Editable preview content: per-household subject/body plus QR toggle
+const previewIncludeQR = ref(true);
+const previewEdits = ref<Record<string, { subject: string; body: string }>>({});
+const previewOriginals = ref<Record<string, { subject: string; body: string }>>({});
+
+function initPreviewEditState(): void {
+  const previews = reminderRunResult.value?.previews ?? [];
+  previewIncludeQR.value = true;
+  previewOriginals.value = Object.fromEntries(
+    previews.map((preview) => [preview.householdId, { subject: preview.subject, body: preview.body }])
+  );
+  previewEdits.value = Object.fromEntries(
+    previews.map((preview) => [preview.householdId, { subject: preview.subject, body: preview.body }])
+  );
+}
+
+function selectAllPreviewHouseholds(): void {
+  selectedPreviewHouseholdIds.value = (reminderRunResult.value?.previews ?? []).map(
+    (preview) => preview.householdId
+  );
+}
+
+function deselectAllPreviewHouseholds(): void {
+  selectedPreviewHouseholdIds.value = [];
+}
+
+function hasPreviewEdits(): boolean {
+  for (const [householdId, original] of Object.entries(previewOriginals.value)) {
+    const edited = previewEdits.value[householdId];
+    if (!edited) continue;
+    if (edited.subject.trim() !== '' && edited.subject !== original.subject) return true;
+    if (edited.body !== original.body) return true;
+  }
+  return false;
+}
+
+function buildPreviewOverrides(): Record<string, ReminderRunOverride> {
+  const overrides: Record<string, ReminderRunOverride> = {};
+  for (const householdId of selectedPreviewHouseholdIds.value) {
+    const original = previewOriginals.value[householdId];
+    const edited = previewEdits.value[householdId];
+    if (!original || !edited) continue;
+    const override: ReminderRunOverride = {};
+    if (edited.subject.trim() !== '' && edited.subject !== original.subject) {
+      override.subject = edited.subject;
+    }
+    if (edited.body !== original.body) {
+      override.body = edited.body;
+    }
+    if (override.subject !== undefined || override.body !== undefined) {
+      overrides[householdId] = override;
+    }
+  }
+  return overrides;
+}
+
 // Email logs state
 const emailLogs = ref<EmailLog[]>([]);
 const emailLogsTotal = ref(0);
-const emailLogsOffset = ref(0);
-const emailLogsLimit = 20;
+const emailLogsPage = ref(1);
+const emailLogsPerPage = 20;
+const emailLogsSearch = ref('');
+const emailLogsTypeFilter = ref('');
+const emailLogsSortDir = ref<'asc' | 'desc'>('desc');
 const isEmailLogsLoading = ref(false);
 const emailLogsError = ref<string | null>(null);
 const selectedEmailLog = ref<EmailLog | null>(null);
@@ -127,6 +186,7 @@ async function runReminders(stage: 'initial' | 'final') {
       previewRunType.value = 'regular';
       previewStage.value = stage;
       expandedPreview.value = null;
+      initPreviewEditState();
       selectedPreviewHouseholdIds.value = result.previews.map((preview) => preview.householdId);
       showPreviewModal.value = true;
     }
@@ -155,6 +215,7 @@ async function runMembershipReminders(stage: 'initial' | 'final') {
       previewRunType.value = 'membership';
       previewStage.value = stage;
       expandedPreview.value = null;
+      initPreviewEditState();
       selectedPreviewHouseholdIds.value = result.previews.map((preview) => preview.householdId);
       showPreviewModal.value = true;
     }
@@ -170,6 +231,11 @@ async function sendFromModal() {
     reminderRunError.value = 'Bitte mindestens eine Familie auswählen.';
     return;
   }
+  const overrides = buildPreviewOverrides();
+  const body = {
+    includeQR: previewIncludeQR.value,
+    ...(Object.keys(overrides).length > 0 ? { overrides } : {}),
+  };
   showPreviewModal.value = false;
   if (!authStore.isAdmin) return;
   isRunningReminders.value = true;
@@ -184,6 +250,7 @@ async function sendFromModal() {
           dryRun: false,
           deadline: reminderDeadline.value || undefined,
           selectedHouseholdIds: selectedPreviewHouseholdIds.value,
+          body,
         })
       : await api.runReminders({
           stage: previewStage.value,
@@ -191,6 +258,7 @@ async function sendFromModal() {
           dryRun: false,
           deadline: reminderDeadline.value || undefined,
           selectedHouseholdIds: selectedPreviewHouseholdIds.value,
+          body,
         });
     reminderRunResult.value = result;
   } catch (e) {
@@ -213,21 +281,48 @@ async function loadEmailLogs(reset = false) {
   emailLogsError.value = null;
   try {
     if (reset) {
-      emailLogsOffset.value = 0;
-      emailLogs.value = [];
+      emailLogsPage.value = 1;
     }
     const result = await api.getEmailLogs({
-      offset: emailLogsOffset.value,
-      limit: emailLogsLimit,
+      offset: (emailLogsPage.value - 1) * emailLogsPerPage,
+      limit: emailLogsPerPage,
+      emailType: emailLogsTypeFilter.value || undefined,
+      search: emailLogsSearch.value.trim() || undefined,
+      sortDir: emailLogsSortDir.value,
     });
-    emailLogs.value = [...emailLogs.value, ...result.data];
+    emailLogs.value = result.data;
     emailLogsTotal.value = result.total;
-    emailLogsOffset.value = emailLogs.value.length;
   } catch (e) {
     emailLogsError.value = e instanceof Error ? e.message : 'E-Mail-Protokoll konnte nicht geladen werden';
   } finally {
     isEmailLogsLoading.value = false;
   }
+}
+
+const emailLogsTotalPages = computed(() => Math.max(1, Math.ceil(emailLogsTotal.value / emailLogsPerPage)));
+
+function goToEmailLogsPage(target: number): void {
+  const page = Math.min(Math.max(1, target), emailLogsTotalPages.value);
+  if (page === emailLogsPage.value) return;
+  emailLogsPage.value = page;
+  loadEmailLogs();
+}
+
+let emailLogsSearchTimeout: ReturnType<typeof setTimeout> | null = null;
+
+watch(emailLogsSearch, () => {
+  if (emailLogsSearchTimeout) clearTimeout(emailLogsSearchTimeout);
+  emailLogsSearchTimeout = setTimeout(() => {
+    loadEmailLogs(true);
+  }, 300);
+});
+
+watch([emailLogsTypeFilter, emailLogsSortDir], () => {
+  loadEmailLogs(true);
+});
+
+function toggleEmailLogsSort(): void {
+  emailLogsSortDir.value = emailLogsSortDir.value === 'desc' ? 'asc' : 'desc';
 }
 
 function formatEmailType(type: string): string {
@@ -258,6 +353,10 @@ function openEmailLogModal(log: EmailLog): void {
 function closeEmailLogModal(): void {
   selectedEmailLog.value = null;
 }
+
+onUnmounted(() => {
+  if (emailLogsSearchTimeout) clearTimeout(emailLogsSearchTimeout);
+});
 
 // Lifecycle
 onMounted(() => {
@@ -539,10 +638,21 @@ watch(
               </template>
             </p>
             <p class="text-xs text-gray-500 mt-1">
-              {{ selectedPreviewHouseholdIds.length }} Familie(n) ausgewählt
+              {{ selectedPreviewHouseholdIds.length }} Familie(n) ausgewählt ·
+              <button class="text-primary hover:underline" @click="selectAllPreviewHouseholds">Alle</button>
+              <span class="mx-1">/</span>
+              <button class="text-gray-500 hover:text-gray-700 hover:underline" @click="deselectAllPreviewHouseholds">Keine</button>
             </p>
           </div>
           <button @click="showPreviewModal = false" class="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+        </div>
+
+        <div class="px-5 py-3 border-b bg-gray-50">
+          <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+            <input type="checkbox" v-model="previewIncludeQR" />
+            SEPA-QR-Codes anhängen
+          </label>
+          <span v-if="hasPreviewEdits()" class="ml-3 text-xs text-amber-700">E-Mail-Texte wurden angepasst</span>
         </div>
 
         <div class="overflow-y-auto p-5 space-y-3 flex-1">
@@ -573,6 +683,12 @@ watch(
                   :value="prev.householdId"
                 />
                 <span>{{ prev.householdName }}</span>
+                <span
+                  v-if="previewEdits[prev.householdId]?.subject !== previewOriginals[prev.householdId]?.subject || previewEdits[prev.householdId]?.body !== previewOriginals[prev.householdId]?.body"
+                  class="px-1.5 py-0.5 text-xs rounded-full bg-amber-100 text-amber-700 font-normal"
+                >
+                  bearbeitet
+                </span>
               </label>
               <button
                 class="text-xs text-gray-500 hover:text-gray-700 text-right"
@@ -582,16 +698,41 @@ watch(
               </button>
             </div>
             <div v-if="expandedPreview === prev.householdName" class="border-t px-4 py-3 bg-gray-50 text-sm space-y-2">
-              <p class="font-medium text-gray-700">Betreff: {{ prev.subject }}</p>
-              <pre class="whitespace-pre-wrap text-gray-600 bg-white border rounded p-3 text-xs">{{ prev.body }}</pre>
-              <div v-if="prev.qrImageDataUrl" class="space-y-2">
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">Betreff</label>
+                <input
+                  type="text"
+                  v-model="previewEdits[prev.householdId].subject"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                />
+              </div>
+              <div>
+                <label class="block text-xs text-gray-500 mb-1">Text</label>
+                <textarea
+                  v-model="previewEdits[prev.householdId].body"
+                  rows="14"
+                  class="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono text-xs focus:ring-2 focus:ring-primary focus:border-transparent outline-none whitespace-pre-wrap"
+                ></textarea>
+                <p
+                  v-if="previewEdits[prev.householdId].subject !== previewOriginals[prev.householdId]?.subject || previewEdits[prev.householdId].body !== previewOriginals[prev.householdId]?.body"
+                  class="mt-1 text-xs text-amber-700"
+                >
+                  Text angepasst – wird beim Senden übernommen.
+                </p>
+              </div>
+              <div v-if="previewIncludeQR && prev.qrImageDataUrl" class="space-y-2">
                 <p class="text-xs text-gray-500">SEPA-QR-Code</p>
                 <img
                   :src="prev.qrImageDataUrl"
                   alt="SEPA QR-Code"
                   class="w-full max-w-[260px] border rounded bg-white p-2"
                 />
+                <div v-if="prev.qrPayload">
+                  <p class="text-xs text-gray-500">Im QR-Code enthalten:</p>
+                  <pre class="whitespace-pre-wrap break-all font-mono text-xs text-gray-600 bg-white border rounded p-3">{{ prev.qrPayload }}</pre>
+                </div>
               </div>
+              <p v-else-if="!previewIncludeQR" class="text-xs text-gray-500">QR-Code ist deaktiviert und wird nicht angehängt.</p>
               <p v-else class="text-xs text-gray-500">Kein QR-Code verfügbar für diese Vorschau.</p>
             </div>
           </div>
@@ -636,8 +777,44 @@ watch(
         {{ emailLogsError }}
       </div>
 
+      <!-- Filter / search / sort -->
+      <div class="flex flex-col sm:flex-row sm:items-center gap-2 mb-4">
+        <select
+          v-model="emailLogsTypeFilter"
+          class="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+        >
+          <option value="">Alle Typen</option>
+          <option value="REMINDER_INITIAL">Zahlungserinnerung</option>
+          <option value="REMINDER_FINAL">Mahnung</option>
+          <option value="MEMBERSHIP_REMINDER_INITIAL">Vereinsbeitrag Erinnerung</option>
+          <option value="MEMBERSHIP_REMINDER_FINAL">Vereinsbeitrag Mahnung</option>
+          <option value="PASSWORD_RESET">Passwort-Reset</option>
+        </select>
+
+        <div class="relative flex-1 min-w-[200px]">
+          <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <input
+            v-model="emailLogsSearch"
+            type="text"
+            placeholder="Suche nach Empfänger oder Betreff..."
+            class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+          />
+        </div>
+
+        <button
+          type="button"
+          class="inline-flex items-center gap-1.5 px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+          @click="toggleEmailLogsSort"
+          :title="emailLogsSortDir === 'desc' ? 'Älteste zuerst' : 'Neueste zuerst'"
+        >
+          {{ emailLogsSortDir === 'desc' ? 'Neueste zuerst' : 'Älteste zuerst' }}
+          <ArrowDown v-if="emailLogsSortDir === 'desc'" class="h-4 w-4" />
+          <ArrowUp v-else class="h-4 w-4" />
+        </button>
+      </div>
+
       <div v-if="emailLogs.length === 0 && !isEmailLogsLoading" class="text-sm text-gray-500">
-        Noch keine E-Mails protokolliert.
+        Keine E-Mails für diese Filter gefunden.
       </div>
 
       <div v-else class="overflow-x-auto">
@@ -676,14 +853,32 @@ watch(
         E-Mail-Protokoll wird geladen...
       </div>
 
-      <div v-if="emailLogs.length < emailLogsTotal" class="mt-4">
-        <button
-          class="px-3 py-2 rounded-lg border text-sm font-medium hover:bg-gray-50 disabled:opacity-50"
-          :disabled="isEmailLogsLoading"
-          @click="loadEmailLogs()"
-        >
-          Mehr laden
-        </button>
+      <!-- Pagination -->
+      <div
+        v-if="emailLogsTotalPages > 1 || emailLogsPage > 1"
+        class="flex items-center justify-between mt-4 pt-4 border-t"
+      >
+        <p class="text-sm text-gray-600">
+          Seite {{ emailLogsPage }} von {{ emailLogsTotalPages }} ({{ emailLogsTotal }} Einträge)
+        </p>
+        <div class="flex items-center gap-2">
+          <button
+            type="button"
+            class="px-3 py-1.5 text-sm border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            :disabled="emailLogsPage <= 1 || isEmailLogsLoading"
+            @click="goToEmailLogsPage(emailLogsPage - 1)"
+          >
+            Zurück
+          </button>
+          <button
+            type="button"
+            class="px-3 py-1.5 text-sm border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            :disabled="emailLogsPage >= emailLogsTotalPages || isEmailLogsLoading"
+            @click="goToEmailLogsPage(emailLogsPage + 1)"
+          >
+            Weiter
+          </button>
+        </div>
       </div>
     </div>
 

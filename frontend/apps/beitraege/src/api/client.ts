@@ -55,6 +55,7 @@ import type {
   ChildcareFeeResult,
   MatchSuggestion,
   BankingSyncStatus,
+  ReminderRunBody,
   StichtagsmeldungStats,
   StichtagsmeldungReport,
   U3ChildDetail,
@@ -558,19 +559,9 @@ class ApiClient {
     dryRun?: boolean;
     deadline?: string;
     selectedHouseholdIds?: string[];
+    body?: ReminderRunBody;
   }): Promise<ReminderRunResponse> {
-    const query = new URLSearchParams();
-    if (params?.stage) query.set('stage', params.stage);
-    if (params?.date) query.set('date', params.date);
-    if (typeof params?.dryRun === 'boolean') query.set('dryRun', params.dryRun ? 'true' : 'false');
-    if (params?.deadline) query.set('deadline', params.deadline);
-    if (params?.selectedHouseholdIds && params.selectedHouseholdIds.length > 0) {
-      query.set('selectedHouseholdIds', params.selectedHouseholdIds.join(','));
-    }
-    const queryString = query.toString();
-    return this.request<ReminderRunResponse>(`/fees/reminders/run${queryString ? `?${queryString}` : ''}`, {
-      method: 'POST',
-    });
+    return this.postReminderRun('/fees/reminders/run', params);
   }
 
   async runMembershipReminders(params?: {
@@ -579,7 +570,22 @@ class ApiClient {
     dryRun?: boolean;
     deadline?: string;
     selectedHouseholdIds?: string[];
+    body?: ReminderRunBody;
   }): Promise<ReminderRunResponse> {
+    return this.postReminderRun('/fees/membership-reminders/run', params);
+  }
+
+  private async postReminderRun(
+    path: string,
+    params?: {
+      stage?: string;
+      date?: string;
+      dryRun?: boolean;
+      deadline?: string;
+      selectedHouseholdIds?: string[];
+      body?: ReminderRunBody;
+    }
+  ): Promise<ReminderRunResponse> {
     const query = new URLSearchParams();
     if (params?.stage) query.set('stage', params.stage);
     if (params?.date) query.set('date', params.date);
@@ -589,15 +595,28 @@ class ApiClient {
       query.set('selectedHouseholdIds', params.selectedHouseholdIds.join(','));
     }
     const queryString = query.toString();
-    return this.request<ReminderRunResponse>(`/fees/membership-reminders/run${queryString ? `?${queryString}` : ''}`, {
+    const hasBody = !!params?.body && Object.keys(params.body).length > 0;
+    return this.request<ReminderRunResponse>(`${path}${queryString ? `?${queryString}` : ''}`, {
       method: 'POST',
+      ...(hasBody
+        ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(params?.body) }
+        : {}),
     });
   }
 
-  async getEmailLogs(params?: { offset?: number; limit?: number }): Promise<PaginatedResponse<EmailLog>> {
+  async getEmailLogs(params?: {
+    offset?: number;
+    limit?: number;
+    emailType?: string;
+    search?: string;
+    sortDir?: 'asc' | 'desc';
+  }): Promise<PaginatedResponse<EmailLog>> {
     const query = new URLSearchParams();
     if (typeof params?.offset === 'number') query.set('offset', String(params.offset));
     if (typeof params?.limit === 'number') query.set('limit', String(params.limit));
+    if (params?.emailType) query.set('emailType', params.emailType);
+    if (params?.search && params.search.trim()) query.set('search', params.search.trim());
+    if (params?.sortDir) query.set('sortDir', params.sortDir);
     const queryString = query.toString();
     const response = await this.request<PaginatedResponse<EmailLog>>(`/fees/email-logs${queryString ? `?${queryString}` : ''}`);
     return this.normalizePaginated(response);
