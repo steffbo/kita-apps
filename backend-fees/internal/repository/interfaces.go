@@ -117,7 +117,14 @@ type SettingsRepository interface {
 // EmailLogRepository handles email log persistence.
 type EmailLogRepository interface {
 	Create(ctx context.Context, log *domain.EmailLog) error
-	List(ctx context.Context, offset, limit int) ([]domain.EmailLog, int64, error)
+	List(ctx context.Context, offset, limit int, filter EmailLogFilter) ([]domain.EmailLog, int64, error)
+}
+
+// EmailLogFilter narrows and orders email log listings.
+type EmailLogFilter struct {
+	EmailType *string // nil = all types
+	Search    string  // matches to_email or subject (case-insensitive)
+	SortDir   string  // "asc" or "desc" by sent_at; default "desc"
 }
 
 // TransactionRepository handles bank transaction persistence.

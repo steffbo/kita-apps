@@ -1,6 +1,8 @@
 package handler
 
 import (
+	"encoding/json"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -66,7 +68,22 @@ type ReminderPreviewResponse struct {
 	Subject        string   `json:"subject" example:"Kita Zahlungserinnerung April 2026"`
 	Body           string   `json:"body" example:"Hallo Anna,..."`
 	QRImageDataURL *string  `json:"qrImageDataUrl,omitempty"`
-} //@name ReminderPreviewResponse
+	QRPayload      string   `json:"qrPayload,omitempty" example:"BCD\n002\n1\nSCT..."` //@name ReminderPreviewResponse
+}
+
+// ReminderRunOverrideRequest replaces the generated subject and/or body for one household.
+// @Description Per-household override for generated reminder emails; empty fields keep the generated value
+type ReminderRunOverrideRequest struct {
+	Subject string `json:"subject,omitempty" example:"Kita Zahlungserinnerung"`
+	Body    string `json:"body,omitempty" example:"Hallo Anna,..."`
+} //@name ReminderRunOverrideRequest
+
+// ReminderRunRequestBody is the optional JSON body for reminder run endpoints.
+// @Description Optional run behaviour: disable the QR code attachment and override generated email content per household
+type ReminderRunRequestBody struct {
+	IncludeQR *bool                                                             `json:"includeQR,omitempty" example:"true"`
+	Overrides map[string]ReminderRunOverrideRequest                             `json:"overrides,omitempty"`
+} //@name ReminderRunRequestBody
 
 type ReminderPaymentSettingsPayload struct {
 	RecipientName string `json:"recipientName" example:"Knirpsenstadt e.V."`
@@ -710,10 +727,50 @@ func reminderRunResponseFromResult(result *service.ReminderRunResult) ReminderRu
 			Subject:        prev.Subject,
 			Body:           prev.Body,
 			QRImageDataURL: prev.QRImageDataURL,
+			QRPayload:      prev.QRPayload,
 		})
 	}
 
 	return resp
+}
+
+// parseReminderRunOptions reads the optional JSON body of reminder run
+// endpoints. An empty body yields nil options.
+func parseReminderRunOptions(r *http.Request, w http.ResponseWriter) (*service.ReminderRunOptions, bool) {
+	bodyBytes, err := io.ReadAll(io.LimitReader(r.Body, 1<<20))
+	if err != nil {
+		response.BadRequest(w, "failed to read request body")
+		return nil, false
+	}
+	if len(strings.TrimSpace(string(bodyBytes))) == 0 {
+		return nil, true
+	}
+
+	var body ReminderRunRequestBody
+	if err := json.Unmarshal(bodyBytes, &body); err != nil {
+		response.BadRequest(w, "invalid request body")
+		return nil, false
+	}
+
+	options := &service.ReminderRunOptions{
+		IncludeQR: body.IncludeQR,
+	}
+	if len(body.Overrides) > 0 {
+		overrides := make(map[uuid.UUID]service.ReminderOverride, len(body.Overrides))
+		for householdIDRaw, override := range body.Overrides {
+			householdID, err := uuid.Parse(householdIDRaw)
+			if err != nil {
+				response.BadRequest(w, "invalid overrides key (expected household UUID)")
+				return nil, false
+			}
+			overrides[householdID] = service.ReminderOverride{
+				Subject: override.Subject,
+				Body:    override.Body,
+			}
+		}
+		options.Overrides = overrides
+	}
+	return options, true
 }
 
 // RunReminders handles POST /fees/reminders/run
@@ -782,7 +839,12 @@ func (h *FeeHandler) RunReminders(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result, err := h.reminderService.Run(r.Context(), runDate, stage, sentBy, dryRun, deadline, selectedHouseholdIDs)
+	runOptions, ok := parseReminderRunOptions(r, w)
+	if !ok {
+		return
+	}
+
+	result, err := h.reminderService.Run(r.Context(), runDate, stage, sentBy, dryRun, deadline, selectedHouseholdIDs, runOptions)
 	if err != nil {
 		if err == service.ErrInvalidInput {
 			response.BadRequest(w, "invalid request")
@@ -866,7 +928,12 @@ func (h *FeeHandler) RunMembershipReminders(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	result, err := h.membershipReminderService.Run(r.Context(), runDate, stage, sentBy, dryRun, deadline, selectedHouseholdIDs)
+	runOptions, ok := parseReminderRunOptions(r, w)
+	if !ok {
+		return
+	}
+
+	result, err := h.membershipReminderService.Run(r.Context(), runDate, stage, sentBy, dryRun, deadline, selectedHouseholdIDs, runOptions)
 	if err != nil {
 		if err == service.ErrInvalidInput {
 			response.BadRequest(w, "invalid request")
@@ -967,7 +1034,7 @@ func (h *FeeHandler) UpdateReminderSettings(w http.ResponseWriter, r *http.Reque
 
 // GetEmailLogs handles GET /fees/email-logs
 // @Summary List email logs
-// @Description Get a paginated list of sent email logs
+// @Description Get a filtered, sorted and paginated list of sent email logs
 // @Tags Fees
 // @Produce json
 // @Security BearerAuth
@@ -975,6 +1042,9 @@ func (h *FeeHandler) UpdateReminderSettings(w http.ResponseWriter, r *http.Reque
 // @Param perPage query int false "Items per page" default(20)
 // @Param offset query int false "Offset (alternative to page/perPage)"
 // @Param limit query int false "Limit (alternative to page/perPage)"
+// @Param emailType query string false "Filter by email type" Enums(REMINDER_INITIAL, REMINDER_FINAL, MEMBERSHIP_REMINDER_INITIAL, MEMBERSHIP_REMINDER_FINAL, PASSWORD_RESET)
+// @Param search query string false "Search in recipient and subject"
+// @Param sortDir query string false "Sort by sent_at direction" Enums(asc, desc) default(desc)
 // @Success 200 {object} EmailLogListResponse "Paginated list of email logs"
 // @Failure 401 {object} response.ErrorBody "Not authenticated"
 // @Failure 500 {object} response.ErrorBody "Internal server error"
@@ -982,7 +1052,15 @@ func (h *FeeHandler) UpdateReminderSettings(w http.ResponseWriter, r *http.Reque
 func (h *FeeHandler) GetEmailLogs(w http.ResponseWriter, r *http.Request) {
 	pagination := request.GetPagination(r)
 
-	logs, total, err := h.emailLogRepo.List(r.Context(), pagination.Offset, pagination.PerPage)
+	filter := repository.EmailLogFilter{
+		SortDir: request.GetQueryString(r, "sortDir", "desc"),
+		Search:  request.GetQueryString(r, "search", ""),
+	}
+	if typeRaw := strings.TrimSpace(request.GetQueryString(r, "emailType", "")); typeRaw != "" {
+		filter.EmailType = &typeRaw
+	}
+
+	logs, total, err := h.emailLogRepo.List(r.Context(), pagination.Offset, pagination.PerPage, filter)
 	if err != nil {
 		response.InternalError(w, "failed to list email logs")
 		return

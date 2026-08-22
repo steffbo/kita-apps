@@ -40,6 +40,21 @@ type ReminderPreview struct {
 	Subject        string
 	Body           string
 	QRImageDataURL *string
+	QRPayload      string
+}
+
+// ReminderOverride replaces the generated subject and/or body for a household.
+// Empty fields keep the generated value.
+type ReminderOverride struct {
+	Subject string
+	Body    string
+}
+
+// ReminderRunOptions carries optional per-run behaviour: disabling the QR code
+// attachment and overriding generated email content per household.
+type ReminderRunOptions struct {
+	IncludeQR *bool
+	Overrides map[uuid.UUID]ReminderOverride
 }
 
 // ReminderRunResult holds the outcome of a reminder run.
@@ -117,7 +132,7 @@ func ParseReminderStage(stage string) (ReminderStage, error) {
 
 // Run executes reminder logic for the given date and stage.
 // deadline overrides the payment deadline shown in the email; if nil, the 10th of the run month is used.
-func (s *ReminderService) Run(ctx context.Context, runDate time.Time, stage ReminderStage, sentBy *uuid.UUID, dryRun bool, deadline *time.Time, selectedHouseholdIDs []uuid.UUID) (*ReminderRunResult, error) {
+func (s *ReminderService) Run(ctx context.Context, runDate time.Time, stage ReminderStage, sentBy *uuid.UUID, dryRun bool, deadline *time.Time, selectedHouseholdIDs []uuid.UUID, options *ReminderRunOptions) (*ReminderRunResult, error) {
 	if stage == ReminderStageAuto {
 		autoEnabled, err := s.GetAutoEnabled(ctx)
 		if err != nil {
@@ -234,14 +249,20 @@ func (s *ReminderService) Run(ctx context.Context, runDate time.Time, stage Remi
 
 		firstNames := parentFirstNames(parents)
 		subject, body := buildFamilyReminderEmail(stage, runDate, firstNames, group.items, deadline, paymentSettings)
+		subject, body = applyReminderOverrides(subject, body, options, group.householdID)
 		qrData, qrErr := s.buildReminderQRCode(paymentSettings, runDate, group.householdName, group.items)
 		if qrErr != nil {
 			log.Warn().Err(qrErr).Str("household", group.householdName).Msg("Failed to generate payment QR code, continuing without QR")
 		}
+		if qrData != nil && reminderQRDisabled(options) {
+			qrData = nil
+		}
 
 		var qrImageDataURL *string
+		var qrPayload string
 		if qrData != nil {
 			qrImageDataURL = &qrData.DataURL
+			qrPayload = qrData.Payload
 		}
 
 		if dryRun {
@@ -252,6 +273,7 @@ func (s *ReminderService) Run(ctx context.Context, runDate time.Time, stage Remi
 				Subject:        subject,
 				Body:           body,
 				QRImageDataURL: qrImageDataURL,
+				QRPayload:      qrPayload,
 			})
 			result.FamiliesEmailed++
 			continue
@@ -313,6 +335,36 @@ func filterHouseholdGroupsBySelection(groups []householdGroup, selectedHousehold
 		}
 	}
 	return filtered
+}
+
+// applyReminderOverrides replaces the generated subject and/or body when an
+// override exists for the household. Empty override fields keep the generated
+// value.
+func applyReminderOverrides(
+	subject, body string,
+	options *ReminderRunOptions,
+	householdID uuid.UUID,
+) (string, string) {
+	if options == nil || len(options.Overrides) == 0 {
+		return subject, body
+	}
+	override, ok := options.Overrides[householdID]
+	if !ok {
+		return subject, body
+	}
+	if strings.TrimSpace(override.Subject) != "" {
+		subject = override.Subject
+	}
+	if strings.TrimSpace(override.Body) != "" {
+		body = override.Body
+	}
+	return subject, body
+}
+
+// reminderQRDisabled reports whether QR code generation/attachment is switched
+// off for this run.
+func reminderQRDisabled(options *ReminderRunOptions) bool {
+	return options != nil && options.IncludeQR != nil && !*options.IncludeQR
 }
 
 // householdGroup holds items grouped under a single household.

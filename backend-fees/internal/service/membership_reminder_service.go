@@ -55,6 +55,7 @@ func (s *MembershipReminderService) Run(
 	dryRun bool,
 	deadline *time.Time,
 	selectedHouseholdIDs []uuid.UUID,
+	options *ReminderRunOptions,
 ) (*ReminderRunResult, error) {
 	if stage != ReminderStageInitial && stage != ReminderStageFinal {
 		return nil, ErrInvalidInput
@@ -157,14 +158,20 @@ func (s *MembershipReminderService) Run(
 
 		firstNames := parentFirstNames(parents)
 		subject, body := buildFamilyMembershipReminderEmail(stage, runDate, firstNames, group.items, deadline, paymentSettings)
+		subject, body = applyReminderOverrides(subject, body, options, group.householdID)
 		qrData, qrErr := helper.buildReminderQRCode(paymentSettings, runDate, group.householdName, group.items)
 		if qrErr != nil {
 			log.Warn().Err(qrErr).Str("household", group.householdName).Msg("Failed to generate payment QR code, continuing without QR")
 		}
+		if qrData != nil && reminderQRDisabled(options) {
+			qrData = nil
+		}
 
 		var qrImageDataURL *string
+		var qrPayload string
 		if qrData != nil {
 			qrImageDataURL = &qrData.DataURL
+			qrPayload = qrData.Payload
 		}
 
 		if dryRun {
@@ -175,6 +182,7 @@ func (s *MembershipReminderService) Run(
 				Subject:        subject,
 				Body:           body,
 				QRImageDataURL: qrImageDataURL,
+				QRPayload:      qrPayload,
 			})
 			result.FamiliesEmailed++
 			continue

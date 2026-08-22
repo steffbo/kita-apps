@@ -1660,6 +1660,31 @@ paths:
           name: limit
           schema:
             type: integer
+        - description: Filter by email type
+          in: query
+          name: emailType
+          schema:
+            type: string
+            enum:
+              - REMINDER_INITIAL
+              - REMINDER_FINAL
+              - MEMBERSHIP_REMINDER_INITIAL
+              - MEMBERSHIP_REMINDER_FINAL
+              - PASSWORD_RESET
+        - description: Search in recipient and subject
+          in: query
+          name: search
+          schema:
+            type: string
+        - description: Sort by sent_at direction
+          in: query
+          name: sortDir
+          schema:
+            type: string
+            enum:
+              - asc
+              - desc
+            default: desc
       responses:
         "200":
           description: Paginated list of email logs
@@ -1728,6 +1753,13 @@ paths:
     post:
       description: Sends reminder emails for unpaid Membership fees and optionally
         creates 5 EUR reminder fees
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReminderRunRequestBody"
+        description: Optional run behaviour (QR opt-out, per-household text overrides)
+        required: false
       parameters:
         - description: Run date (YYYY-MM-DD, defaults to today)
           in: query
@@ -1824,6 +1856,13 @@ paths:
     post:
       description: Sends reminder emails for unpaid Food/Childcare fees and optionally
         creates reminder fees
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReminderRunRequestBody"
+        description: Optional run behaviour (QR opt-out, per-household text overrides)
+        required: false
       parameters:
         - description: Run date (YYYY-MM-DD, defaults to today)
           in: query
@@ -5582,6 +5621,9 @@ components:
           type: string
         qrImageDataUrl:
           type: string
+        qrPayload:
+          description: SEPA payload encoded in the QR code (empty if no QR code)
+          type: string
         recipients:
           example:
             - '["anna@example.com"]'
@@ -5591,6 +5633,25 @@ components:
         subject:
           example: Kita Zahlungserinnerung April 2026
           type: string
+      type: object
+    ReminderRunOverrideRequest:
+      description: Per-household override for generated reminder emails; empty fields keep the generated value
+      properties:
+        body:
+          type: string
+        subject:
+          type: string
+      type: object
+    ReminderRunRequestBody:
+      description: Optional run behaviour for reminder runs
+      properties:
+        includeQR:
+          default: true
+          type: boolean
+        overrides:
+          additionalProperties:
+            $ref: "#/components/schemas/ReminderRunOverrideRequest"
+          type: object
       type: object
     ReminderRunResponse:
       description: Ergebnis einer Erinnerungs-/Mahnungsprüfung

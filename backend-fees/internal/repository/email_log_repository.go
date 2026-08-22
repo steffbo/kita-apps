@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"strings"
 
 	"github.com/jmoiron/sqlx"
 
@@ -27,10 +28,21 @@ func (r *PostgresEmailLogRepository) Create(ctx context.Context, log *domain.Ema
 	return err
 }
 
-// List returns a paginated list of email logs.
-func (r *PostgresEmailLogRepository) List(ctx context.Context, offset, limit int) ([]domain.EmailLog, int64, error) {
+// List returns a filtered, sorted and paginated list of email logs.
+func (r *PostgresEmailLogRepository) List(ctx context.Context, offset, limit int, filter EmailLogFilter) ([]domain.EmailLog, int64, error) {
+	sortDir := strings.ToUpper(strings.TrimSpace(filter.SortDir))
+	if sortDir != "ASC" && sortDir != "DESC" {
+		sortDir = "DESC"
+	}
+	search := strings.TrimSpace(filter.Search)
+
 	var total int64
-	if err := r.db.GetContext(ctx, &total, `SELECT COUNT(*) FROM fees.email_logs`); err != nil {
+	if err := r.db.GetContext(ctx, &total, `
+		SELECT COUNT(*)
+		FROM fees.email_logs
+		WHERE ($1::text IS NULL OR email_type = $1::text)
+		  AND ($2::text = '' OR to_email ILIKE '%' || $2 || '%' OR subject ILIKE '%' || $2 || '%')
+	`, filter.EmailType, search); err != nil {
 		return nil, 0, err
 	}
 
@@ -38,9 +50,11 @@ func (r *PostgresEmailLogRepository) List(ctx context.Context, offset, limit int
 	err := r.db.SelectContext(ctx, &logs, `
 		SELECT id, sent_at, to_email, subject, body, email_type, payload, sent_by
 		FROM fees.email_logs
-		ORDER BY sent_at DESC
-		LIMIT $1 OFFSET $2
-	`, limit, offset)
+		WHERE ($1::text IS NULL OR email_type = $1::text)
+		  AND ($2::text = '' OR to_email ILIKE '%' || $2 || '%' OR subject ILIKE '%' || $2 || '%')
+		ORDER BY sent_at `+sortDir+`
+		LIMIT $3 OFFSET $4
+	`, filter.EmailType, search, limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}
