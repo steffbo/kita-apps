@@ -27,27 +27,10 @@ type FeeHandler struct {
 	emailLogRepo              repository.EmailLogRepository
 }
 
-// FeeResponse represents a fee in API responses
-// @Description Fee information
-type FeeResponse struct {
-	ID          string  `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
-	ChildID     string  `json:"childId" example:"550e8400-e29b-41d4-a716-446655440001"`
-	ChildName   string  `json:"childName" example:"Max Mustermann"`
-	Type        string  `json:"type" example:"childcare" enums:"childcare,food,membership,reminder"`
-	Amount      float64 `json:"amount" example:"250.00"`
-	Year        int     `json:"year" example:"2024"`
-	Month       *int    `json:"month,omitempty" example:"3"`
-	Status      string  `json:"status" example:"open" enums:"open,paid,overdue"`
-	DueDate     string  `json:"dueDate" example:"2024-03-15"`
-	PaidAt      *string `json:"paidAt,omitempty" example:"2024-03-10"`
-	Description *string `json:"description,omitempty" example:"Betreuungsgebühr März 2024"`
-	ParentFeeID *string `json:"parentFeeId,omitempty" example:"550e8400-e29b-41d4-a716-446655440002"`
-} //@name Fee
-
 // FeeListResponse represents a paginated list of fees
-// @Description Paginated list of fees
+// @Description Paginated list of fee expectations as returned by the fee endpoints
 type FeeListResponse struct {
-	Data       []FeeResponse `json:"data"`
+	Data       []domain.FeeExpectation `json:"data"`
 	Total      int           `json:"total" example:"100"`
 	Page       int           `json:"page" example:"1"`
 	PerPage    int           `json:"perPage" example:"20"`
@@ -68,8 +51,8 @@ type ReminderPreviewResponse struct {
 	Subject        string   `json:"subject" example:"Kita Zahlungserinnerung April 2026"`
 	Body           string   `json:"body" example:"Hallo Anna,..."`
 	QRImageDataURL *string  `json:"qrImageDataUrl,omitempty"`
-	QRPayload      string   `json:"qrPayload,omitempty" example:"BCD\n002\n1\nSCT..."` //@name ReminderPreviewResponse
-}
+	QRPayload      string   `json:"qrPayload,omitempty" example:"BCD\n002\n1\nSCT..."`
+} //@name ReminderPreviewResponse
 
 // ReminderRunOverrideRequest replaces the generated subject and/or body for one household.
 // @Description Per-household override for generated reminder emails; empty fields keep the generated value
@@ -233,7 +216,7 @@ func (h *FeeHandler) List(w http.ResponseWriter, r *http.Request) {
 // @Produce json
 // @Security BearerAuth
 // @Param request body CreateFeeRequest true "Fee creation parameters"
-// @Success 201 {object} FeeResponse "Created fee"
+// @Success 201 {object} domain.FeeExpectation "Created fee expectation"
 // @Failure 400 {object} response.ErrorBody "Invalid request (missing fields, invalid child ID, etc.)"
 // @Failure 401 {object} response.ErrorBody "Not authenticated"
 // @Failure 404 {object} response.ErrorBody "Child not found"
@@ -326,32 +309,6 @@ func (h *FeeHandler) Create(w http.ResponseWriter, r *http.Request) {
 	response.Created(w, fee)
 }
 
-// OverviewResponse represents the fee overview response.
-// @Description Fee overview with totals and monthly breakdown
-type OverviewResponse struct {
-	TotalOpen           int             `json:"totalOpen" example:"25"`
-	TotalPaid           int             `json:"totalPaid" example:"150"`
-	TotalOverdue        int             `json:"totalOverdue" example:"5"`
-	AmountOpen          float64         `json:"amountOpen" example:"6250.00"`
-	AmountPaid          float64         `json:"amountPaid" example:"37500.00"`
-	AmountOverdue       float64         `json:"amountOverdue" example:"1250.00"`
-	ByMonth             []MonthOverview `json:"byMonth"`
-	OpenMembershipCount int             `json:"openMembershipCount" example:"3"`
-	OpenFoodCount       int             `json:"openFoodCount" example:"18"`
-	OpenChildcareCount  int             `json:"openChildcareCount" example:"12"`
-} //@name FeeOverview
-
-// MonthOverview represents fee overview for a single month.
-// @Description Monthly fee summary
-type MonthOverview struct {
-	Year       int     `json:"year" example:"2024"`
-	Month      int     `json:"month" example:"3"`
-	OpenCount  int     `json:"openCount" example:"10"`
-	PaidCount  int     `json:"paidCount" example:"40"`
-	OpenAmount float64 `json:"openAmount" example:"2500.00"`
-	PaidAmount float64 `json:"paidAmount" example:"10000.00"`
-} //@name MonthOverview
-
 // Overview handles GET /fees/overview
 // @Summary Get fee overview
 // @Description Get an overview of fees with totals and monthly breakdown
@@ -359,7 +316,7 @@ type MonthOverview struct {
 // @Produce json
 // @Security BearerAuth
 // @Param year query int false "Filter by year"
-// @Success 200 {object} OverviewResponse "Fee overview"
+// @Success 200 {object} domain.FeeOverview "Fee overview"
 // @Failure 401 {object} response.ErrorBody "Not authenticated"
 // @Failure 500 {object} response.ErrorBody "Internal server error"
 // @Router /fees/overview [get]
@@ -449,7 +406,7 @@ func (h *FeeHandler) Generate(w http.ResponseWriter, r *http.Request) {
 // @Produce json
 // @Security BearerAuth
 // @Param id path string true "Fee ID (UUID)"
-// @Success 200 {object} FeeResponse "Fee details"
+// @Success 200 {object} domain.FeeExpectation "Fee details"
 // @Failure 400 {object} response.ErrorBody "Invalid fee ID"
 // @Failure 401 {object} response.ErrorBody "Not authenticated"
 // @Failure 404 {object} response.ErrorBody "Fee not found"
@@ -489,7 +446,7 @@ type UpdateFeeRequest struct {
 // @Security BearerAuth
 // @Param id path string true "Fee ID (UUID)"
 // @Param fee body UpdateFeeRequest true "Updated fee data"
-// @Success 200 {object} FeeResponse "Updated fee"
+// @Success 200 {object} domain.FeeExpectation "Updated fee expectation"
 // @Failure 400 {object} response.ErrorBody "Invalid request"
 // @Failure 401 {object} response.ErrorBody "Not authenticated"
 // @Failure 404 {object} response.ErrorBody "Fee not found"
@@ -557,7 +514,7 @@ func (h *FeeHandler) Delete(w http.ResponseWriter, r *http.Request) {
 // @Produce json
 // @Security BearerAuth
 // @Param id path string true "Parent Fee ID (UUID)"
-// @Success 201 {object} FeeResponse "Created reminder fee"
+// @Success 201 {object} domain.FeeExpectation "Created reminder fee expectation"
 // @Failure 400 {object} response.ErrorBody "Invalid fee ID or fee is already paid"
 // @Failure 401 {object} response.ErrorBody "Not authenticated"
 // @Failure 404 {object} response.ErrorBody "Fee not found"

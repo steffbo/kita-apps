@@ -34,6 +34,45 @@ definitions:
         example: 550e8400-e29b-41d4-a716-446655440001
         type: string
     type: object
+  BankingSyncStatus:
+    description: Status of the banking-sync runner (proxied 1:1 from the banking-sync
+      service)
+    properties:
+      downloadPath:
+        type: string
+      finishedAt:
+        example: "2024-03-15T10:35:00Z"
+        type: string
+      lastError:
+        type: string
+      lastMessage:
+        example: Sync abgeschlossen
+        type: string
+      logs:
+        items:
+          type: string
+        type: array
+      runId:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      startedAt:
+        example: "2024-03-15T10:30:00Z"
+        type: string
+      status:
+        enum:
+        - idle
+        - running
+        - waiting_for_2fa
+        - success
+        - error
+        - cancelled
+        example: idle
+        type: string
+      updatedAt:
+        example: "2024-03-15T10:35:00Z"
+        type: string
+      uploadResult: {}
+    type: object
   CalculateIncomeRequest:
     description: Calculate household income from parent details
     properties:
@@ -828,61 +867,12 @@ definitions:
         example: invalid request body
         type: string
     type: object
-  Fee:
-    description: Fee information
-    properties:
-      amount:
-        example: 250
-        type: number
-      childId:
-        example: 550e8400-e29b-41d4-a716-446655440001
-        type: string
-      childName:
-        example: Max Mustermann
-        type: string
-      description:
-        example: Betreuungsgebühr März 2024
-        type: string
-      dueDate:
-        example: "2024-03-15"
-        type: string
-      id:
-        example: 550e8400-e29b-41d4-a716-446655440000
-        type: string
-      month:
-        example: 3
-        type: integer
-      paidAt:
-        example: "2024-03-10"
-        type: string
-      parentFeeId:
-        example: 550e8400-e29b-41d4-a716-446655440002
-        type: string
-      status:
-        enum:
-        - open
-        - paid
-        - overdue
-        example: open
-        type: string
-      type:
-        enum:
-        - childcare
-        - food
-        - membership
-        - reminder
-        example: childcare
-        type: string
-      year:
-        example: 2024
-        type: integer
-    type: object
   FeeList:
-    description: Paginated list of fees
+    description: Paginated list of fee expectations as returned by the fee endpoints
     properties:
       data:
         items:
-          $ref: '#/definitions/Fee'
+          $ref: '#/definitions/domain.FeeExpectation'
         type: array
       page:
         example: 1
@@ -895,41 +885,6 @@ definitions:
         type: integer
       totalPages:
         example: 5
-        type: integer
-    type: object
-  FeeOverview:
-    description: Fee overview with totals and monthly breakdown
-    properties:
-      amountOpen:
-        example: 6250
-        type: number
-      amountOverdue:
-        example: 1250
-        type: number
-      amountPaid:
-        example: 37500
-        type: number
-      byMonth:
-        items:
-          $ref: '#/definitions/MonthOverview'
-        type: array
-      openChildcareCount:
-        example: 12
-        type: integer
-      openFoodCount:
-        example: 18
-        type: integer
-      openMembershipCount:
-        example: 3
-        type: integer
-      totalOpen:
-        example: 25
-        type: integer
-      totalOverdue:
-        example: 5
-        type: integer
-      totalPaid:
-        example: 150
         type: integer
     type: object
   GenerateFeeRequest:
@@ -1038,34 +993,12 @@ definitions:
         example: 2
         type: integer
     type: object
-  IBANEntry:
-    description: IBAN entry
-    properties:
-      accountHolder:
-        example: Max Mustermann
-        type: string
-      addedAt:
-        example: "2024-03-15T10:30:00Z"
-        type: string
-      childId:
-        example: 550e8400-e29b-41d4-a716-446655440000
-        type: string
-      childName:
-        example: Max Mustermann
-        type: string
-      iban:
-        example: DE89370400440532013000
-        type: string
-      reason:
-        example: Fremdkonto
-        type: string
-    type: object
   IBANList:
-    description: Paginated IBAN list
+    description: Paginated IBAN list as returned by the blacklist/trusted endpoints
     properties:
       data:
         items:
-          $ref: '#/definitions/IBANEntry'
+          $ref: '#/definitions/domain.KnownIBAN'
         type: array
       page:
         example: 1
@@ -1080,40 +1013,12 @@ definitions:
         example: 1
         type: integer
     type: object
-  ImportHistoryEntry:
-    description: Import history entry
-    properties:
-      duplicates:
-        example: 5
-        type: integer
-      fileName:
-        example: kontoauszug_2024_03.csv
-        type: string
-      id:
-        example: 550e8400-e29b-41d4-a716-446655440000
-        type: string
-      importedAt:
-        example: "2024-03-15T10:30:00Z"
-        type: string
-      importedBy:
-        example: admin@knirpsenstadt.de
-        type: string
-      matched:
-        example: 120
-        type: integer
-      totalRows:
-        example: 150
-        type: integer
-      unmatched:
-        example: 25
-        type: integer
-    type: object
   ImportHistoryList:
     description: Paginated import history
     properties:
       data:
         items:
-          $ref: '#/definitions/ImportHistoryEntry'
+          $ref: '#/definitions/domain.ImportBatch'
         type: array
       page:
         example: 1
@@ -1402,28 +1307,6 @@ definitions:
         example: Operation completed successfully
         type: string
     type: object
-  MonthOverview:
-    description: Monthly fee summary
-    properties:
-      month:
-        example: 3
-        type: integer
-      openAmount:
-        example: 2500
-        type: number
-      openCount:
-        example: 10
-        type: integer
-      paidAmount:
-        example: 10000
-        type: number
-      paidCount:
-        example: 40
-        type: integer
-      year:
-        example: 2024
-        type: integer
-    type: object
   NextMemberNumberResponse:
     description: Next available member number
     properties:
@@ -1579,6 +1462,13 @@ definitions:
         type: string
       qrImageDataUrl:
         type: string
+      qrPayload:
+        example: |-
+          BCD
+          002
+          1
+          SCT...
+        type: string
       recipients:
         example:
         - '["anna@example.com"]'
@@ -1729,56 +1619,13 @@ definitions:
       u3IncomeBreakdown:
         $ref: '#/definitions/U3IncomeBreakdown'
     type: object
-  Transaction:
-    description: Bank transaction from CSV import
-    properties:
-      accountHolder:
-        example: Max Mustermann
-        type: string
-      amount:
-        example: 250
-        type: number
-      bic:
-        example: COBADEFFXXX
-        type: string
-      bookingDate:
-        example: "2024-03-15"
-        type: string
-      currency:
-        example: EUR
-        type: string
-      iban:
-        example: DE89370400440532013000
-        type: string
-      id:
-        example: 550e8400-e29b-41d4-a716-446655440000
-        type: string
-      matchedFeeId:
-        example: 550e8400-e29b-41d4-a716-446655440001
-        type: string
-      purpose:
-        example: Betreuungsgebühr März 2024
-        type: string
-      status:
-        enum:
-        - matched
-        - unmatched
-        - dismissed
-        example: unmatched
-        type: string
-      transactionType:
-        example: SEPA-Überweisung
-        type: string
-      valueDate:
-        example: "2024-03-15"
-        type: string
-    type: object
   TransactionList:
-    description: Paginated list of transactions
+    description: Paginated list of bank transactions as returned by the import transaction
+      endpoints
     properties:
       data:
         items:
-          $ref: '#/definitions/Transaction'
+          $ref: '#/definitions/domain.BankTransaction'
         type: array
       page:
         example: 1
@@ -2073,47 +1920,12 @@ definitions:
         example: ADMIN
         type: string
     type: object
-  WarningEntry:
-    description: Import warning for review
-    properties:
-      createdAt:
-        example: "2024-03-15T10:30:00Z"
-        type: string
-      dismissNote:
-        example: Eltern haben Restbetrag bar bezahlt
-        type: string
-      dismissedAt:
-        example: "2024-03-16T14:00:00Z"
-        type: string
-      dismissedBy:
-        example: admin@knirpsenstadt.de
-        type: string
-      feeId:
-        example: 550e8400-e29b-41d4-a716-446655440002
-        type: string
-      id:
-        example: 550e8400-e29b-41d4-a716-446655440000
-        type: string
-      message:
-        example: Betrag weicht um 5.00€ ab
-        type: string
-      transactionId:
-        example: 550e8400-e29b-41d4-a716-446655440001
-        type: string
-      type:
-        enum:
-        - amount_mismatch
-        - duplicate_payment
-        - unknown_iban
-        example: amount_mismatch
-        type: string
-    type: object
   WarningList:
-    description: Paginated warnings list
+    description: Paginated warnings list as returned by the warnings endpoint
     properties:
       data:
         items:
-          $ref: '#/definitions/WarningEntry'
+          $ref: '#/definitions/domain.TransactionWarning'
         type: array
       page:
         example: 1
@@ -2151,7 +1963,8 @@ definitions:
       isHidden:
         type: boolean
       matchedAmount:
-        description: Total amount of this transaction already allocated to fees (only set on unmatched lists)
+        description: MatchedAmount is the total amount of this transaction already
+          allocated to fees.
         type: number
       matches:
         description: Joined fields
@@ -2192,6 +2005,8 @@ definitions:
       lastName:
         type: string
       legalHours:
+        description: Derived from the history tables (see type comment), not stored
+          on fees.children.
         type: integer
       legalHoursUntil:
         type: string
@@ -2284,6 +2099,33 @@ definitions:
       year:
         type: integer
     type: object
+  domain.FeeOverview:
+    properties:
+      amountOpen:
+        type: number
+      amountOverdue:
+        type: number
+      amountPaid:
+        type: number
+      byMonth:
+        items:
+          $ref: '#/definitions/domain.MonthSummary'
+        type: array
+      childrenWithOpenFees:
+        type: integer
+      openChildcareCount:
+        type: integer
+      openFoodCount:
+        type: integer
+      openMembershipCount:
+        type: integer
+      totalOpen:
+        type: integer
+      totalOverdue:
+        type: integer
+      totalPaid:
+        type: integer
+    type: object
   domain.FeeType:
     enum:
     - MEMBERSHIP
@@ -2344,6 +2186,27 @@ definitions:
         $ref: '#/definitions/domain.IncomeDetails'
       parent2:
         $ref: '#/definitions/domain.IncomeDetails'
+    type: object
+  domain.ImportBatch:
+    properties:
+      dateFrom:
+        type: string
+      dateTo:
+        type: string
+      fileName:
+        type: string
+      id:
+        type: string
+      importedAt:
+        type: string
+      importedBy:
+        type: string
+      importedByEmail:
+        type: string
+      matchedCount:
+        type: integer
+      transactionCount:
+        type: integer
     type: object
   domain.IncomeDetails:
     properties:
@@ -2423,6 +2286,41 @@ definitions:
     - IncomeStatusNotRequired
     - IncomeStatusHistoric
     - IncomeStatusFosterFamily
+  domain.KnownIBAN:
+    properties:
+      child:
+        allOf:
+        - $ref: '#/definitions/domain.Child'
+        description: Joined fields
+      childId:
+        type: string
+      createdAt:
+        type: string
+      iban:
+        type: string
+      originalAmount:
+        type: number
+      originalDescription:
+        type: string
+      originalTransactionId:
+        type: string
+      payerName:
+        type: string
+      reason:
+        type: string
+      status:
+        $ref: '#/definitions/domain.KnownIBANStatus'
+      updatedAt:
+        type: string
+    type: object
+  domain.KnownIBANStatus:
+    enum:
+    - trusted
+    - blacklisted
+    type: string
+    x-enum-varnames:
+    - KnownIBANStatusTrusted
+    - KnownIBANStatusBlacklisted
   domain.MatchSuggestion:
     properties:
       child:
@@ -2499,6 +2397,21 @@ definitions:
     x-enum-varnames:
     - MembershipAssignmentStatusAssumed
     - MembershipAssignmentStatusConfirmed
+  domain.MonthSummary:
+    properties:
+      month:
+        type: integer
+      openAmount:
+        type: number
+      openCount:
+        type: integer
+      paidAmount:
+        type: number
+      paidCount:
+        type: integer
+      year:
+        type: integer
+    type: object
   domain.Parent:
     properties:
       annualHouseholdIncome:
@@ -2571,6 +2484,102 @@ definitions:
       transactionId:
         type: string
     type: object
+  domain.ResolutionType:
+    enum:
+    - dismissed
+    - matched
+    - auto_resolved
+    type: string
+    x-enum-comments:
+      ResolutionTypeAutoResolved: Automatically resolved
+      ResolutionTypeDismissed: Manually dismissed with a reason
+      ResolutionTypeMatched: Resolved by creating a match
+    x-enum-descriptions:
+    - Manually dismissed with a reason
+    - Resolved by creating a match
+    - Automatically resolved
+    x-enum-varnames:
+    - ResolutionTypeDismissed
+    - ResolutionTypeMatched
+    - ResolutionTypeAutoResolved
+  domain.TransactionWarning:
+    properties:
+      actualAmount:
+        type: number
+      child:
+        $ref: '#/definitions/domain.Child'
+      childId:
+        type: string
+      createdAt:
+        type: string
+      expectedAmount:
+        type: number
+      id:
+        type: string
+      matchedFee:
+        allOf:
+        - $ref: '#/definitions/domain.FeeExpectation'
+        description: 'For LATE_PAYMENT: the fee that was matched'
+      matchedFeeId:
+        description: 'For LATE_PAYMENT: the fee that was matched'
+        type: string
+      message:
+        type: string
+      resolutionNote:
+        type: string
+      resolutionType:
+        $ref: '#/definitions/domain.ResolutionType'
+      resolvedAt:
+        type: string
+      resolvedBy:
+        type: string
+      transaction:
+        allOf:
+        - $ref: '#/definitions/domain.BankTransaction'
+        description: Joined fields
+      transactionId:
+        type: string
+      warningType:
+        $ref: '#/definitions/domain.WarningType'
+    type: object
+  domain.WarningType:
+    enum:
+    - NO_MATCHING_FEE
+    - UNEXPECTED_AMOUNT
+    - PARTIAL_PAYMENT
+    - OVERPAYMENT
+    - POSSIBLE_BULK
+    - DUPLICATE_PAYMENT
+    - LATE_PAYMENT
+    - MULTIPLE_OPEN_FEES
+    type: string
+    x-enum-comments:
+      WarningTypeDuplicatePayment: Fee already paid, this might be duplicate
+      WarningTypeLatePayment: Payment received after the 15th of fee month
+      WarningTypeMultipleOpenFees: Multiple unpaid fees exist, manual review needed
+      WarningTypeNoMatchingFee: Trusted IBAN but no open fee found
+      WarningTypeOverpayment: Amount is more than expected
+      WarningTypePartialPayment: Amount is less than expected
+      WarningTypePossibleBulk: Amount could be multiple fees combined
+      WarningTypeUnexpectedAmount: Amount doesn't match any expected fee
+    x-enum-descriptions:
+    - Trusted IBAN but no open fee found
+    - Amount doesn't match any expected fee
+    - Amount is less than expected
+    - Amount is more than expected
+    - Amount could be multiple fees combined
+    - Fee already paid, this might be duplicate
+    - Payment received after the 15th of fee month
+    - Multiple unpaid fees exist, manual review needed
+    x-enum-varnames:
+    - WarningTypeNoMatchingFee
+    - WarningTypeUnexpectedAmount
+    - WarningTypePartialPayment
+    - WarningTypeOverpayment
+    - WarningTypePossibleBulk
+    - WarningTypeDuplicatePayment
+    - WarningTypeLatePayment
+    - WarningTypeMultipleOpenFees
   handler.CoveredTransactionResponse:
     properties:
       amount:
@@ -2903,6 +2912,84 @@ paths:
       summary: Refresh access token
       tags:
       - Auth
+  /banking-sync/cancel:
+    post:
+      description: Cancels the running sync in the banking-sync service
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Sync cancelled, resulting state returned
+          schema:
+            $ref: '#/definitions/BankingSyncStatus'
+        "400":
+          description: No sync in progress to cancel
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Not authenticated
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "503":
+          description: Banking sync not configured or unreachable
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Cancel a banking sync run
+      tags:
+      - Banking-Sync
+  /banking-sync/run:
+    post:
+      description: Triggers a sync run in the banking-sync service and returns its
+        current state
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Sync started, current state returned
+          schema:
+            $ref: '#/definitions/BankingSyncStatus'
+        "401":
+          description: Not authenticated
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "409":
+          description: A sync run is already in progress
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "503":
+          description: Banking sync not configured or unreachable
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Start a banking sync run
+      tags:
+      - Banking-Sync
+  /banking-sync/status:
+    get:
+      description: Returns the current state of the banking-sync service
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Current sync state
+          schema:
+            $ref: '#/definitions/BankingSyncStatus'
+        "401":
+          description: Not authenticated
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "503":
+          description: Banking sync not configured or unreachable
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get banking sync status
+      tags:
+      - Banking-Sync
   /childcare-fee/calculate:
     get:
       description: Calculate the monthly childcare fee based on income, child age,
@@ -3995,9 +4082,9 @@ paths:
       - application/json
       responses:
         "201":
-          description: Created fee
+          description: Created fee expectation
           schema:
-            $ref: '#/definitions/Fee'
+            $ref: '#/definitions/domain.FeeExpectation'
         "400":
           description: Invalid request (missing fields, invalid child ID, etc.)
           schema:
@@ -4070,7 +4157,7 @@ paths:
         "200":
           description: Fee details
           schema:
-            $ref: '#/definitions/Fee'
+            $ref: '#/definitions/domain.FeeExpectation'
         "400":
           description: Invalid fee ID
           schema:
@@ -4112,9 +4199,9 @@ paths:
       - application/json
       responses:
         "200":
-          description: Updated fee
+          description: Updated fee expectation
           schema:
-            $ref: '#/definitions/Fee'
+            $ref: '#/definitions/domain.FeeExpectation'
         "400":
           description: Invalid request
           schema:
@@ -4149,9 +4236,9 @@ paths:
       - application/json
       responses:
         "201":
-          description: Created reminder fee
+          description: Created reminder fee expectation
           schema:
-            $ref: '#/definitions/Fee'
+            $ref: '#/definitions/domain.FeeExpectation'
         "400":
           description: Invalid fee ID or fee is already paid
           schema:
@@ -4175,7 +4262,7 @@ paths:
       - Fees
   /fees/email-logs:
     get:
-      description: Get a paginated list of sent email logs
+      description: Get a filtered, sorted and paginated list of sent email logs
       parameters:
       - default: 1
         description: Page number
@@ -4195,6 +4282,28 @@ paths:
         in: query
         name: limit
         type: integer
+      - description: Filter by email type
+        enum:
+        - REMINDER_INITIAL
+        - REMINDER_FINAL
+        - MEMBERSHIP_REMINDER_INITIAL
+        - MEMBERSHIP_REMINDER_FINAL
+        - PASSWORD_RESET
+        in: query
+        name: emailType
+        type: string
+      - description: Search in recipient and subject
+        in: query
+        name: search
+        type: string
+      - default: desc
+        description: Sort by sent_at direction
+        enum:
+        - asc
+        - desc
+        in: query
+        name: sortDir
+        type: string
       produces:
       - application/json
       responses:
@@ -4318,7 +4427,7 @@ paths:
         "200":
           description: Fee overview
           schema:
-            $ref: '#/definitions/FeeOverview'
+            $ref: '#/definitions/domain.FeeOverview'
         "401":
           description: Not authenticated
           schema:

@@ -5,6 +5,13 @@ Basics (ports, commands, layout) live in `AGENTS.md`.
 
 ## Backend (`backend-fees`)
 
+### OpenAPI spec aligned with actual responses (2026-08-22)
+
+- Fee endpoints (`GET/POST /fees`, `GET/PUT /fees/{id}`, `POST /fees/{id}/reminder`) previously documented a fictional `Fee` DTO (`type`, `status`, `childName`); they actually serialize `domain.FeeExpectation` (`feeType`, `isPaid`, joined `child`, `matchedAmount`, …). The dead DTOs were deleted and the annotations now document the real structs; same for `/fees/overview` (now `domain.FeeOverview` incl. `childrenWithOpenFees`).
+- Import endpoints now document what they return: `/import/transactions*` → `domain.BankTransaction` (incl. `payerName`/`payerIban`/`matchedAmount`; the old fictional `Transaction` schema claimed `accountHolder`/`status`), `/import/history` → `domain.ImportBatch`, `/import/blacklist` + `/import/trusted` → `domain.KnownIBAN`, `/import/warnings` → `domain.TransactionWarning`.
+- `banking-sync/run|status|cancel` were missing from the spec entirely; annotated against a new `BankingSyncStatus` schema mirroring the banking-sync service state object (statuses incl. `cancelled`, which the frontend type did not know).
+- Spec regenerated via `swag init` + `swagger2openapi` and frontend `schema.d.ts` regenerated in the same commit. Note: `swagger2openapi` is blocked on the Artifactory npm mirror — install it from `registry.npmjs.org` directly (`bun add swagger2openapi --registry https://registry.npmjs.org/`).
+
 ### Partial and sibling-split transaction allocation (2026-08-22)
 
 - One bank transaction can now be allocated across multiple children (e.g. "Essensgeld - Henri 12011 . Niels 12012") and in multiple steps until its amount is fully allocated. Previously allocation was one-shot, single-child, and any match made the transaction vanish from all unmatched lists.

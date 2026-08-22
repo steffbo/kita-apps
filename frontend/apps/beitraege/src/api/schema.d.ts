@@ -298,6 +298,195 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/banking-sync/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel a banking sync run
+         * @description Cancels the running sync in the banking-sync service
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Sync cancelled, resulting state returned */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BankingSyncStatus"];
+                    };
+                };
+                /** @description No sync in progress to cancel */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Banking sync not configured or unreachable */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/banking-sync/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a banking sync run
+         * @description Triggers a sync run in the banking-sync service and returns its current state
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Sync started, current state returned */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BankingSyncStatus"];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description A sync run is already in progress */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Banking sync not configured or unreachable */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/banking-sync/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get banking sync status
+         * @description Returns the current state of the banking-sync service
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Current sync state */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["BankingSyncStatus"];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Banking sync not configured or unreachable */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/childcare-fee/calculate": {
         parameters: {
             query?: never;
@@ -2095,13 +2284,13 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description Created fee */
+                /** @description Created fee expectation */
                 201: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["Fee"];
+                        "application/json": components["schemas"]["domain.FeeExpectation"];
                     };
                 };
                 /** @description Invalid request (missing fields, invalid child ID, etc.) */
@@ -2186,7 +2375,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["Fee"];
+                        "application/json": components["schemas"]["domain.FeeExpectation"];
                     };
                 };
                 /** @description Invalid fee ID */
@@ -2248,13 +2437,13 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description Updated fee */
+                /** @description Updated fee expectation */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["Fee"];
+                        "application/json": components["schemas"]["domain.FeeExpectation"];
                     };
                 };
                 /** @description Invalid request */
@@ -2387,13 +2576,13 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description Created reminder fee */
+                /** @description Created reminder fee expectation */
                 201: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["Fee"];
+                        "application/json": components["schemas"]["domain.FeeExpectation"];
                     };
                 };
                 /** @description Invalid fee ID or fee is already paid */
@@ -2449,7 +2638,7 @@ export interface paths {
         };
         /**
          * List email logs
-         * @description Get a paginated list of sent email logs
+         * @description Get a filtered, sorted and paginated list of sent email logs
          */
         get: {
             parameters: {
@@ -2614,12 +2803,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            /** @description Optional run behaviour (QR opt-out, per-household text overrides) */
-            requestBody?: {
-                content: {
-                    "application/json": components["schemas"]["ReminderRunRequestBody"];
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description Reminder run result */
                 200: {
@@ -2694,7 +2878,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["FeeOverview"];
+                        "application/json": components["schemas"]["domain.FeeOverview"];
                     };
                 };
                 /** @description Not authenticated */
@@ -2754,12 +2938,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            /** @description Optional run behaviour (QR opt-out, per-household text overrides) */
-            requestBody?: {
-                content: {
-                    "application/json": components["schemas"]["ReminderRunRequestBody"];
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description Reminder run result */
                 200: {
@@ -6014,6 +6193,28 @@ export interface components {
             /** @example 550e8400-e29b-41d4-a716-446655440001 */
             expectationId?: string;
         };
+        /** @description Status of the banking-sync runner (proxied 1:1 from the banking-sync service) */
+        BankingSyncStatus: {
+            downloadPath?: string;
+            /** @example 2024-03-15T10:35:00Z */
+            finishedAt?: string;
+            lastError?: string;
+            /** @example Sync abgeschlossen */
+            lastMessage?: string;
+            logs?: string[];
+            /** @example 550e8400-e29b-41d4-a716-446655440000 */
+            runId?: string;
+            /** @example 2024-03-15T10:30:00Z */
+            startedAt?: string;
+            /**
+             * @example idle
+             * @enum {string}
+             */
+            status?: "idle" | "running" | "waiting_for_2fa" | "success" | "error" | "cancelled";
+            /** @example 2024-03-15T10:35:00Z */
+            updatedAt?: string;
+            uploadResult?: unknown;
+        };
         /** @description Calculate household income from parent details */
         CalculateIncomeRequest: {
             parent1?: components["schemas"]["domain.IncomeDetails"];
@@ -6517,42 +6718,9 @@ export interface components {
             /** @example invalid request body */
             message?: string;
         };
-        /** @description Fee information */
-        Fee: {
-            /** @example 250 */
-            amount?: number;
-            /** @example 550e8400-e29b-41d4-a716-446655440001 */
-            childId?: string;
-            /** @example Max Mustermann */
-            childName?: string;
-            /** @example Betreuungsgebühr März 2024 */
-            description?: string;
-            /** @example 2024-03-15 */
-            dueDate?: string;
-            /** @example 550e8400-e29b-41d4-a716-446655440000 */
-            id?: string;
-            /** @example 3 */
-            month?: number;
-            /** @example 2024-03-10 */
-            paidAt?: string;
-            /** @example 550e8400-e29b-41d4-a716-446655440002 */
-            parentFeeId?: string;
-            /**
-             * @example open
-             * @enum {string}
-             */
-            status?: "open" | "paid" | "overdue";
-            /**
-             * @example childcare
-             * @enum {string}
-             */
-            type?: "childcare" | "food" | "membership" | "reminder";
-            /** @example 2024 */
-            year?: number;
-        };
-        /** @description Paginated list of fees */
+        /** @description Paginated list of fee expectations as returned by the fee endpoints */
         FeeList: {
-            data?: components["schemas"]["Fee"][];
+            data?: components["schemas"]["domain.FeeExpectation"][];
             /** @example 1 */
             page?: number;
             /** @example 20 */
@@ -6561,28 +6729,6 @@ export interface components {
             total?: number;
             /** @example 5 */
             totalPages?: number;
-        };
-        /** @description Fee overview with totals and monthly breakdown */
-        FeeOverview: {
-            /** @example 6250 */
-            amountOpen?: number;
-            /** @example 1250 */
-            amountOverdue?: number;
-            /** @example 37500 */
-            amountPaid?: number;
-            byMonth?: components["schemas"]["MonthOverview"][];
-            /** @example 12 */
-            openChildcareCount?: number;
-            /** @example 18 */
-            openFoodCount?: number;
-            /** @example 3 */
-            openMembershipCount?: number;
-            /** @example 25 */
-            totalOpen?: number;
-            /** @example 5 */
-            totalOverdue?: number;
-            /** @example 150 */
-            totalPaid?: number;
         };
         /** @description Request body for generating fees */
         GenerateFeeRequest: {
@@ -6656,24 +6802,9 @@ export interface components {
             /** @example 2 */
             totalPages?: number;
         };
-        /** @description IBAN entry */
-        IBANEntry: {
-            /** @example Max Mustermann */
-            accountHolder?: string;
-            /** @example 2024-03-15T10:30:00Z */
-            addedAt?: string;
-            /** @example 550e8400-e29b-41d4-a716-446655440000 */
-            childId?: string;
-            /** @example Max Mustermann */
-            childName?: string;
-            /** @example DE89370400440532013000 */
-            iban?: string;
-            /** @example Fremdkonto */
-            reason?: string;
-        };
-        /** @description Paginated IBAN list */
+        /** @description Paginated IBAN list as returned by the blacklist/trusted endpoints */
         IBANList: {
-            data?: components["schemas"]["IBANEntry"][];
+            data?: components["schemas"]["domain.KnownIBAN"][];
             /** @example 1 */
             page?: number;
             /** @example 20 */
@@ -6683,28 +6814,9 @@ export interface components {
             /** @example 1 */
             totalPages?: number;
         };
-        /** @description Import history entry */
-        ImportHistoryEntry: {
-            /** @example 5 */
-            duplicates?: number;
-            /** @example kontoauszug_2024_03.csv */
-            fileName?: string;
-            /** @example 550e8400-e29b-41d4-a716-446655440000 */
-            id?: string;
-            /** @example 2024-03-15T10:30:00Z */
-            importedAt?: string;
-            /** @example admin@knirpsenstadt.de */
-            importedBy?: string;
-            /** @example 120 */
-            matched?: number;
-            /** @example 150 */
-            totalRows?: number;
-            /** @example 25 */
-            unmatched?: number;
-        };
         /** @description Paginated import history */
         ImportHistoryList: {
-            data?: components["schemas"]["ImportHistoryEntry"][];
+            data?: components["schemas"]["domain.ImportBatch"][];
             /** @example 1 */
             page?: number;
             /** @example 20 */
@@ -6899,21 +7011,6 @@ export interface components {
             /** @example Operation completed successfully */
             message?: string;
         };
-        /** @description Monthly fee summary */
-        MonthOverview: {
-            /** @example 3 */
-            month?: number;
-            /** @example 2500 */
-            openAmount?: number;
-            /** @example 10 */
-            openCount?: number;
-            /** @example 10000 */
-            paidAmount?: number;
-            /** @example 40 */
-            paidCount?: number;
-            /** @example 2024 */
-            year?: number;
-        };
         /** @description Next available member number */
         NextMemberNumberResponse: {
             /** @example 12002 */
@@ -7016,7 +7113,12 @@ export interface components {
             /** @example Schmidt */
             householdName?: string;
             qrImageDataUrl?: string;
-            /** @description SEPA payload encoded in the QR code (empty if no QR code) */
+            /**
+             * @example BCD
+             *     002
+             *     1
+             *     SCT...
+             */
             qrPayload?: string;
             /**
              * @example [
@@ -7026,19 +7128,6 @@ export interface components {
             recipients?: string[];
             /** @example Kita Zahlungserinnerung April 2026 */
             subject?: string;
-        };
-        /** @description Per-household override for generated reminder emails; empty fields keep the generated value */
-        ReminderRunOverrideRequest: {
-            body?: string;
-            subject?: string;
-        };
-        /** @description Optional run behaviour for reminder runs */
-        ReminderRunRequestBody: {
-            /** @default true */
-            includeQR: boolean;
-            overrides?: {
-                [key: string]: components["schemas"]["ReminderRunOverrideRequest"];
-            };
         };
         /** @description Ergebnis einer Erinnerungs-/Mahnungsprüfung */
         ReminderRunResponse: {
@@ -7125,39 +7214,9 @@ export interface components {
             totalChildrenInKita?: number;
             u3IncomeBreakdown?: components["schemas"]["U3IncomeBreakdown"];
         };
-        /** @description Bank transaction from CSV import */
-        Transaction: {
-            /** @example Max Mustermann */
-            accountHolder?: string;
-            /** @example 250 */
-            amount?: number;
-            /** @example COBADEFFXXX */
-            bic?: string;
-            /** @example 2024-03-15 */
-            bookingDate?: string;
-            /** @example EUR */
-            currency?: string;
-            /** @example DE89370400440532013000 */
-            iban?: string;
-            /** @example 550e8400-e29b-41d4-a716-446655440000 */
-            id?: string;
-            /** @example 550e8400-e29b-41d4-a716-446655440001 */
-            matchedFeeId?: string;
-            /** @example Betreuungsgebühr März 2024 */
-            purpose?: string;
-            /**
-             * @example unmatched
-             * @enum {string}
-             */
-            status?: "matched" | "unmatched" | "dismissed";
-            /** @example SEPA-Überweisung */
-            transactionType?: string;
-            /** @example 2024-03-15 */
-            valueDate?: string;
-        };
-        /** @description Paginated list of transactions */
+        /** @description Paginated list of bank transactions as returned by the import transaction endpoints */
         TransactionList: {
-            data?: components["schemas"]["Transaction"][];
+            data?: components["schemas"]["domain.BankTransaction"][];
             /** @example 1 */
             page?: number;
             /** @example 20 */
@@ -7352,33 +7411,9 @@ export interface components {
              */
             role?: "ADMIN" | "USER";
         };
-        /** @description Import warning for review */
-        WarningEntry: {
-            /** @example 2024-03-15T10:30:00Z */
-            createdAt?: string;
-            /** @example Eltern haben Restbetrag bar bezahlt */
-            dismissNote?: string;
-            /** @example 2024-03-16T14:00:00Z */
-            dismissedAt?: string;
-            /** @example admin@knirpsenstadt.de */
-            dismissedBy?: string;
-            /** @example 550e8400-e29b-41d4-a716-446655440002 */
-            feeId?: string;
-            /** @example 550e8400-e29b-41d4-a716-446655440000 */
-            id?: string;
-            /** @example Betrag weicht um 5.00€ ab */
-            message?: string;
-            /** @example 550e8400-e29b-41d4-a716-446655440001 */
-            transactionId?: string;
-            /**
-             * @example amount_mismatch
-             * @enum {string}
-             */
-            type?: "amount_mismatch" | "duplicate_payment" | "unknown_iban";
-        };
-        /** @description Paginated warnings list */
+        /** @description Paginated warnings list as returned by the warnings endpoint */
         WarningList: {
-            data?: components["schemas"]["WarningEntry"][];
+            data?: components["schemas"]["domain.TransactionWarning"][];
             /** @example 1 */
             page?: number;
             /** @example 20 */
@@ -7399,6 +7434,8 @@ export interface components {
             importBatchId?: string;
             importedAt?: string;
             isHidden?: boolean;
+            /** @description MatchedAmount is the total amount of this transaction already allocated to fees. */
+            matchedAmount?: number;
             /** @description Joined fields */
             matches?: components["schemas"]["domain.PaymentMatch"][];
             payerIban?: string;
@@ -7418,6 +7455,7 @@ export interface components {
             id?: string;
             isActive?: boolean;
             lastName?: string;
+            /** @description Derived from the history tables (see type comment), not stored on fees.children. */
             legalHours?: number;
             legalHoursUntil?: string;
             memberNumber?: string;
@@ -7470,6 +7508,19 @@ export interface components {
             reminderForId?: string;
             year?: number;
         };
+        "domain.FeeOverview": {
+            amountOpen?: number;
+            amountOverdue?: number;
+            amountPaid?: number;
+            byMonth?: components["schemas"]["domain.MonthSummary"][];
+            childrenWithOpenFees?: number;
+            openChildcareCount?: number;
+            openFoodCount?: number;
+            openMembershipCount?: number;
+            totalOpen?: number;
+            totalOverdue?: number;
+            totalPaid?: number;
+        };
         /** @enum {string} */
         "domain.FeeType": "MEMBERSHIP" | "FOOD" | "CHILDCARE" | "REMINDER";
         "domain.Household": {
@@ -7491,6 +7542,17 @@ export interface components {
         "domain.HouseholdIncomeCalculation": {
             parent1?: components["schemas"]["domain.IncomeDetails"];
             parent2?: components["schemas"]["domain.IncomeDetails"];
+        };
+        "domain.ImportBatch": {
+            dateFrom?: string;
+            dateTo?: string;
+            fileName?: string;
+            id?: string;
+            importedAt?: string;
+            importedBy?: string;
+            importedByEmail?: string;
+            matchedCount?: number;
+            transactionCount?: number;
         };
         "domain.IncomeDetails": {
             /** @description - WK-Pauschale */
@@ -7534,6 +7596,22 @@ export interface components {
         };
         /** @enum {string} */
         "domain.IncomeStatus": "" | "PROVIDED" | "MAX_ACCEPTED" | "PENDING" | "NOT_REQUIRED" | "HISTORIC" | "FOSTER_FAMILY";
+        "domain.KnownIBAN": {
+            /** @description Joined fields */
+            child?: components["schemas"]["domain.Child"];
+            childId?: string;
+            createdAt?: string;
+            iban?: string;
+            originalAmount?: number;
+            originalDescription?: string;
+            originalTransactionId?: string;
+            payerName?: string;
+            reason?: string;
+            status?: components["schemas"]["domain.KnownIBANStatus"];
+            updatedAt?: string;
+        };
+        /** @enum {string} */
+        "domain.KnownIBANStatus": "trusted" | "blacklisted";
         "domain.MatchSuggestion": {
             child?: components["schemas"]["domain.Child"];
             confidence?: number;
@@ -7569,6 +7647,14 @@ export interface components {
         };
         /** @enum {string} */
         "domain.MembershipAssignmentStatus": "ASSUMED" | "CONFIRMED";
+        "domain.MonthSummary": {
+            month?: number;
+            openAmount?: number;
+            openCount?: number;
+            paidAmount?: number;
+            paidCount?: number;
+            year?: number;
+        };
         "domain.Parent": {
             /** @description DEPRECATED: Income fields moved to Household. Kept for backwards compatibility during migration. */
             annualHouseholdIncome?: number;
@@ -7606,6 +7692,31 @@ export interface components {
             transaction?: components["schemas"]["domain.BankTransaction"];
             transactionId?: string;
         };
+        /** @enum {string} */
+        "domain.ResolutionType": "dismissed" | "matched" | "auto_resolved";
+        "domain.TransactionWarning": {
+            actualAmount?: number;
+            child?: components["schemas"]["domain.Child"];
+            childId?: string;
+            createdAt?: string;
+            expectedAmount?: number;
+            id?: string;
+            /** @description For LATE_PAYMENT: the fee that was matched */
+            matchedFee?: components["schemas"]["domain.FeeExpectation"];
+            /** @description For LATE_PAYMENT: the fee that was matched */
+            matchedFeeId?: string;
+            message?: string;
+            resolutionNote?: string;
+            resolutionType?: components["schemas"]["domain.ResolutionType"];
+            resolvedAt?: string;
+            resolvedBy?: string;
+            /** @description Joined fields */
+            transaction?: components["schemas"]["domain.BankTransaction"];
+            transactionId?: string;
+            warningType?: components["schemas"]["domain.WarningType"];
+        };
+        /** @enum {string} */
+        "domain.WarningType": "NO_MATCHING_FEE" | "UNEXPECTED_AMOUNT" | "PARTIAL_PAYMENT" | "OVERPAYMENT" | "POSSIBLE_BULK" | "DUPLICATE_PAYMENT" | "LATE_PAYMENT" | "MULTIPLE_OPEN_FEES";
         "handler.CoveredTransactionResponse": {
             /** @example 66 */
             amount?: number;

@@ -46,99 +46,44 @@ type MatchSuggestion struct {
 	Reason          string  `json:"reason" example:"Name match"`
 } //@name MatchSuggestion
 
-// TransactionResponse represents a bank transaction
-// @Description Bank transaction from CSV import
-type TransactionResponse struct {
-	ID              string  `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
-	BookingDate     string  `json:"bookingDate" example:"2024-03-15"`
-	ValueDate       string  `json:"valueDate" example:"2024-03-15"`
-	Amount          float64 `json:"amount" example:"250.00"`
-	Currency        string  `json:"currency" example:"EUR"`
-	IBAN            *string `json:"iban,omitempty" example:"DE89370400440532013000"`
-	BIC             *string `json:"bic,omitempty" example:"COBADEFFXXX"`
-	AccountHolder   *string `json:"accountHolder,omitempty" example:"Max Mustermann"`
-	Purpose         *string `json:"purpose,omitempty" example:"Betreuungsgebühr März 2024"`
-	TransactionType *string `json:"transactionType,omitempty" example:"SEPA-Überweisung"`
-	Status          string  `json:"status" example:"unmatched" enums:"matched,unmatched,dismissed"`
-	MatchedFeeID    *string `json:"matchedFeeId,omitempty" example:"550e8400-e29b-41d4-a716-446655440001"`
-} //@name Transaction
-
-// TransactionListResponse represents a paginated list of transactions
-// @Description Paginated list of transactions
+// TransactionListResponse represents a paginated list of bank transactions
+// @Description Paginated list of bank transactions as returned by the import transaction endpoints
 type TransactionListResponse struct {
-	Data       []TransactionResponse `json:"data"`
-	Total      int                   `json:"total" example:"25"`
-	Page       int                   `json:"page" example:"1"`
-	PerPage    int                   `json:"perPage" example:"20"`
-	TotalPages int                   `json:"totalPages" example:"2"`
+	Data       []domain.BankTransaction `json:"data"`
+	Total      int                      `json:"total" example:"25"`
+	Page       int                      `json:"page" example:"1"`
+	PerPage    int                      `json:"perPage" example:"20"`
+	TotalPages int                      `json:"totalPages" example:"2"`
 } //@name TransactionList
-
-// ImportHistoryEntry represents an import history entry
-// @Description Import history entry
-type ImportHistoryEntry struct {
-	ID         string `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
-	FileName   string `json:"fileName" example:"kontoauszug_2024_03.csv"`
-	ImportedAt string `json:"importedAt" example:"2024-03-15T10:30:00Z"`
-	ImportedBy string `json:"importedBy" example:"admin@knirpsenstadt.de"`
-	TotalRows  int    `json:"totalRows" example:"150"`
-	Matched    int    `json:"matched" example:"120"`
-	Unmatched  int    `json:"unmatched" example:"25"`
-	Duplicates int    `json:"duplicates" example:"5"`
-} //@name ImportHistoryEntry
 
 // ImportHistoryListResponse represents a paginated list of import history
 // @Description Paginated import history
 type ImportHistoryListResponse struct {
-	Data       []ImportHistoryEntry `json:"data"`
+	Data       []domain.ImportBatch `json:"data"`
 	Total      int                  `json:"total" example:"10"`
 	Page       int                  `json:"page" example:"1"`
 	PerPage    int                  `json:"perPage" example:"20"`
 	TotalPages int                  `json:"totalPages" example:"1"`
 } //@name ImportHistoryList
 
-// IBANEntry represents an IBAN in blacklist/trusted list
-// @Description IBAN entry
-type IBANEntry struct {
-	IBAN          string  `json:"iban" example:"DE89370400440532013000"`
-	AccountHolder *string `json:"accountHolder,omitempty" example:"Max Mustermann"`
-	ChildID       *string `json:"childId,omitempty" example:"550e8400-e29b-41d4-a716-446655440000"`
-	ChildName     *string `json:"childName,omitempty" example:"Max Mustermann"`
-	AddedAt       string  `json:"addedAt" example:"2024-03-15T10:30:00Z"`
-	Reason        *string `json:"reason,omitempty" example:"Fremdkonto"`
-} //@name IBANEntry
-
 // IBANListResponse represents a paginated list of IBANs
-// @Description Paginated IBAN list
+// @Description Paginated IBAN list as returned by the blacklist/trusted endpoints
 type IBANListResponse struct {
-	Data       []IBANEntry `json:"data"`
-	Total      int         `json:"total" example:"5"`
-	Page       int         `json:"page" example:"1"`
-	PerPage    int         `json:"perPage" example:"20"`
-	TotalPages int         `json:"totalPages" example:"1"`
+	Data       []domain.KnownIBAN `json:"data"`
+	Total      int                `json:"total" example:"5"`
+	Page       int                `json:"page" example:"1"`
+	PerPage    int                `json:"perPage" example:"20"`
+	TotalPages int                `json:"totalPages" example:"1"`
 } //@name IBANList
 
-// WarningEntry represents an import warning
-// @Description Import warning for review
-type WarningEntry struct {
-	ID            string  `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
-	Type          string  `json:"type" example:"amount_mismatch" enums:"amount_mismatch,duplicate_payment,unknown_iban"`
-	Message       string  `json:"message" example:"Betrag weicht um 5.00€ ab"`
-	TransactionID *string `json:"transactionId,omitempty" example:"550e8400-e29b-41d4-a716-446655440001"`
-	FeeID         *string `json:"feeId,omitempty" example:"550e8400-e29b-41d4-a716-446655440002"`
-	CreatedAt     string  `json:"createdAt" example:"2024-03-15T10:30:00Z"`
-	DismissedAt   *string `json:"dismissedAt,omitempty" example:"2024-03-16T14:00:00Z"`
-	DismissedBy   *string `json:"dismissedBy,omitempty" example:"admin@knirpsenstadt.de"`
-	DismissNote   *string `json:"dismissNote,omitempty" example:"Eltern haben Restbetrag bar bezahlt"`
-} //@name WarningEntry
-
 // WarningListResponse represents a paginated list of warnings
-// @Description Paginated warnings list
+// @Description Paginated warnings list as returned by the warnings endpoint
 type WarningListResponse struct {
-	Data       []WarningEntry `json:"data"`
-	Total      int            `json:"total" example:"3"`
-	Page       int            `json:"page" example:"1"`
-	PerPage    int            `json:"perPage" example:"20"`
-	TotalPages int            `json:"totalPages" example:"1"`
+	Data       []domain.TransactionWarning `json:"data"`
+	Total      int                         `json:"total" example:"3"`
+	Page       int                         `json:"page" example:"1"`
+	PerPage    int                         `json:"perPage" example:"20"`
+	TotalPages int                         `json:"totalPages" example:"1"`
 } //@name WarningList
 
 // NewImportHandler creates a new import handler.
