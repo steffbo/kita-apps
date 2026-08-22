@@ -172,7 +172,9 @@ function handleSearchInput() {
   }, 150);
 }
 
+let loadFeesSeq = 0;
 async function loadFees() {
+  const seq = ++loadFeesSeq;
   isLoading.value = true;
   error.value = null;
   selectedFeeIds.value = new Set(); // Clear selection on reload
@@ -186,12 +188,20 @@ async function loadFees() {
       sortBy: sortBy.value,
       sortDir: sortDir.value,
     });
+    if (seq !== loadFeesSeq) return; // a newer request superseded this one
     fees.value = response.data;
     total.value = response.total;
+
+    // If the current page ran empty (e.g. after deletes), fall back to the last valid page
+    if (response.data.length === 0 && currentPage.value > 1 && response.total > 0) {
+      currentPage.value = Math.max(1, Math.ceil(response.total / pageSize.value));
+      return;
+    }
   } catch (e) {
+    if (seq !== loadFeesSeq) return;
     error.value = e instanceof Error ? e.message : 'Fehler beim Laden';
   } finally {
-    isLoading.value = false;
+    if (seq === loadFeesSeq) isLoading.value = false;
   }
 }
 
@@ -483,21 +493,24 @@ function closeCreateFeeDialog() {
   childSearchResults.value = [];
 }
 
+let childSearchSeq = 0;
 watch(childSearchQuery, (newVal) => {
   clearTimeout(childSearchTimeout);
   if (newVal.length < 2) {
     childSearchResults.value = [];
     return;
   }
+  const seq = ++childSearchSeq;
   childSearchTimeout = setTimeout(async () => {
     isSearchingChildren.value = true;
     try {
       const response = await api.getChildren({ search: newVal, activeOnly: true, perPage: 10 });
+      if (seq !== childSearchSeq) return; // a newer keystroke superseded this request
       childSearchResults.value = response.data;
     } catch {
-      childSearchResults.value = [];
+      if (seq === childSearchSeq) childSearchResults.value = [];
     } finally {
-      isSearchingChildren.value = false;
+      if (seq === childSearchSeq) isSearchingChildren.value = false;
     }
   }, 300);
 });

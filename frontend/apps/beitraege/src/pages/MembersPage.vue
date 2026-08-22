@@ -81,7 +81,9 @@ const createError = ref<string | null>(null);
 const totalPages = computed(() => Math.ceil(total.value / pageSize.value));
 const offset = computed(() => (currentPage.value - 1) * pageSize.value);
 
+let loadMembersSeq = 0;
 async function loadMembers() {
+  const seq = ++loadMembersSeq;
   isLoading.value = true;
   error.value = null;
   try {
@@ -93,51 +95,58 @@ async function loadMembers() {
       page: currentPage.value,
       perPage: pageSize.value,
     });
+    if (seq !== loadMembersSeq) return; // a newer request superseded this one
     members.value = response.data;
     total.value = response.total;
-    
+
+    // If the current page ran empty (e.g. after deletes), fall back to the last valid page
+    if (response.data.length === 0 && currentPage.value > 1 && response.total > 0) {
+      currentPage.value = Math.max(1, Math.ceil(response.total / pageSize.value));
+      return;
+    }
+
     // Clear selection if items no longer exist
     const currentIds = new Set(response.data.map(m => m.id));
     selectedIds.value = new Set([...selectedIds.value].filter(id => currentIds.has(id)));
   } catch (e) {
+    if (seq !== loadMembersSeq) return;
     error.value = e instanceof Error ? e.message : 'Fehler beim Laden';
   } finally {
-    isLoading.value = false;
+    if (seq === loadMembersSeq) isLoading.value = false;
   }
 }
 
 // Debounce timer for search
+function goToFirstPageAndLoad() {
+  if (currentPage.value !== 1) {
+    currentPage.value = 1; // pagination watcher performs the reload
+  } else {
+    loadMembers();
+  }
+}
+
 let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
 function handleSearchInput() {
   if (searchDebounceTimer) {
     clearTimeout(searchDebounceTimer);
   }
-  searchDebounceTimer = setTimeout(() => {
-    currentPage.value = 1;
-    loadMembers();
-  }, 150);
+  searchDebounceTimer = setTimeout(() => goToFirstPageAndLoad(), 150);
 }
 
 function handleInactiveChange() {
-  currentPage.value = 1;
-  loadMembers();
+  goToFirstPageAndLoad();
 }
 
-// Watch for filter changes (backup for programmatic v-model changes)
-watch([searchQuery, showInactive], () => {
-  currentPage.value = 1;
-  loadMembers();
-}, { flush: 'post' });
-
+// Filters/search use the explicit handlers above so each interaction
+// triggers exactly one load
 watch([currentPage, pageSize], () => {
   loadMembers();
 });
 
-// Reload when sort changes
+// Sort changes restart at page 1
 watch([sortField, sortDirection], () => {
-  currentPage.value = 1;
-  loadMembers();
+  goToFirstPageAndLoad();
 });
 
 onMounted(loadMembers);

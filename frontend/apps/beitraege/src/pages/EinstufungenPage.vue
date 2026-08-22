@@ -33,7 +33,9 @@ const years = computed(() => {
   return [current - 2, current - 1, current, current + 1];
 });
 
+let loadSeq = 0;
 async function loadEinstufungen() {
+  const seq = ++loadSeq;
   isLoading.value = true;
   error.value = null;
   try {
@@ -42,9 +44,17 @@ async function loadEinstufungen() {
       page: currentPage.value,
       perPage: pageSize.value,
     });
+    if (seq !== loadSeq) return; // a newer request superseded this one
     einstufungen.value = response.data;
     total.value = response.total;
+
+    // If the current page ran empty (e.g. after a delete), fall back to the last valid page
+    if (response.data.length === 0 && currentPage.value > 1 && response.total > 0) {
+      currentPage.value = Math.max(1, Math.ceil(response.total / pageSize.value));
+      return;
+    }
   } catch (e) {
+    if (seq !== loadSeq) return;
     error.value = e instanceof Error ? e.message : 'Fehler beim Laden';
   } finally {
     isLoading.value = false;
@@ -111,8 +121,11 @@ async function handleDelete() {
 }
 
 watch([selectedYear], () => {
-  currentPage.value = 1;
-  loadEinstufungen();
+  if (currentPage.value !== 1) {
+    currentPage.value = 1; // pagination watcher performs the reload
+  } else {
+    loadEinstufungen();
+  }
 });
 
 watch([currentPage, pageSize], () => {

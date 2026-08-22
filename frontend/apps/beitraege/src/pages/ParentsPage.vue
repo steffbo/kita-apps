@@ -78,7 +78,9 @@ const parentForm = ref<CreateParentRequest>({
 const totalPages = computed(() => Math.ceil(total.value / pageSize.value));
 const offset = computed(() => (currentPage.value - 1) * pageSize.value);
 
+let loadParentsSeq = 0;
 async function loadParents() {
+  const seq = ++loadParentsSeq;
   isLoading.value = true;
   error.value = null;
   try {
@@ -89,16 +91,24 @@ async function loadParents() {
       page: currentPage.value,
       perPage: pageSize.value,
     });
+    if (seq !== loadParentsSeq) return; // a newer request superseded this one
     parents.value = response.data;
     total.value = response.total;
-    
+
+    // If the current page ran empty (e.g. after deletes), fall back to the last valid page
+    if (response.data.length === 0 && currentPage.value > 1 && response.total > 0) {
+      currentPage.value = Math.max(1, Math.ceil(response.total / pageSize.value));
+      return;
+    }
+
     // Clear selection if items no longer exist
     const currentIds = new Set(response.data.map(p => p.id));
     selectedIds.value = new Set([...selectedIds.value].filter(id => currentIds.has(id)));
   } catch (e) {
+    if (seq !== loadParentsSeq) return;
     error.value = e instanceof Error ? e.message : 'Fehler beim Laden';
   } finally {
-    isLoading.value = false;
+    if (seq === loadParentsSeq) isLoading.value = false;
   }
 }
 
