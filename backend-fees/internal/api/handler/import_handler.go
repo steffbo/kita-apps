@@ -23,18 +23,6 @@ type ImportHandler struct {
 	importService *service.ImportService
 }
 
-// UploadResponse represents the result of a CSV upload
-// @Description CSV upload and processing result
-type UploadResponse struct {
-	ImportID    string            `json:"importId" example:"550e8400-e29b-41d4-a716-446655440000"`
-	FileName    string            `json:"fileName" example:"kontoauszug_2024_03.csv"`
-	TotalRows   int               `json:"totalRows" example:"150"`
-	Matched     int               `json:"matched" example:"120"`
-	Unmatched   int               `json:"unmatched" example:"25"`
-	Duplicates  int               `json:"duplicates" example:"5"`
-	Suggestions []MatchSuggestion `json:"suggestions,omitempty"`
-} //@name UploadResponse
-
 // MatchSuggestion represents a suggested match between transaction and expectation
 // @Description Suggested match for manual review
 type MatchSuggestion struct {
@@ -99,7 +87,7 @@ func NewImportHandler(importService *service.ImportService) *ImportHandler {
 // @Produce json
 // @Security BearerAuth
 // @Param file formData file true "CSV file (max 10MB)"
-// @Success 200 {object} UploadResponse "Upload and processing result"
+// @Success 200 {object} service.ImportResult "Upload and processing result"
 // @Failure 400 {object} response.ErrorBody "No file provided or invalid format"
 // @Failure 401 {object} response.ErrorBody "Not authenticated"
 // @Failure 500 {object} response.ErrorBody "Internal server error"
@@ -1129,7 +1117,7 @@ func (h *ImportHandler) MatchedTransactions(w http.ResponseWriter, r *http.Reque
 // @Produce json
 // @Security BearerAuth
 // @Param id path string true "Transaction ID (UUID)"
-// @Success 200 {object} MatchSuggestion "Match suggestion"
+// @Success 200 {object} domain.MatchSuggestion "Match suggestion"
 // @Failure 400 {object} response.ErrorBody "Invalid transaction ID"
 // @Failure 401 {object} response.ErrorBody "Not authenticated"
 // @Failure 404 {object} response.ErrorBody "Transaction not found"

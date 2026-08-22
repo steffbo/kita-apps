@@ -8,6 +8,7 @@ import (
 
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/api/request"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/api/response"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/repository"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/service"
 )
@@ -34,36 +35,11 @@ func NewChildHandler(childService *service.ChildService, feeService *service.Fee
 	}
 }
 
-// ChildResponse represents a child in API responses.
-// @Description Child information
-type ChildResponse struct {
-	ID              string           `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
-	HouseholdID     *string          `json:"householdId,omitempty" example:"550e8400-e29b-41d4-a716-446655440001"`
-	MemberNumber    string           `json:"memberNumber" example:"K-2024-001"`
-	FirstName       string           `json:"firstName" example:"Emma"`
-	LastName        string           `json:"lastName" example:"Müller"`
-	BirthDate       string           `json:"birthDate" example:"2020-06-15"`
-	EntryDate       string           `json:"entryDate" example:"2023-08-01"`
-	ExitDate        *string          `json:"exitDate,omitempty" example:"2026-07-31"`
-	Street          *string          `json:"street,omitempty" example:"Hauptstraße"`
-	StreetNo        *string          `json:"streetNo,omitempty" example:"42"`
-	PostalCode      *string          `json:"postalCode,omitempty" example:"14467"`
-	City            *string          `json:"city,omitempty" example:"Potsdam"`
-	LegalHours      *int             `json:"legalHours,omitempty" example:"35"`
-	LegalHoursUntil *string          `json:"legalHoursUntil,omitempty" example:"2024-12-31"`
-	CareHours       *int             `json:"careHours,omitempty" example:"40"`
-	IsActive        bool             `json:"isActive" example:"true"`
-	CreatedAt       string           `json:"createdAt" example:"2023-08-01T10:00:00Z"`
-	UpdatedAt       string           `json:"updatedAt" example:"2023-08-01T10:00:00Z"`
-	Parents         []ParentResponse `json:"parents,omitempty"`
-	Household       interface{}      `json:"household,omitempty"`
-} //@name Child
-
 // ChildListResponse represents a paginated list of children.
-// @Description Paginated list of children
+// @Description Paginated list of children as returned by the child endpoints
 type ChildListResponse struct {
-	Data       []ChildResponse `json:"data"`
-	Total      int64           `json:"total" example:"100"`
+	Data       []domain.Child `json:"data"`
+	Total      int64          `json:"total" example:"100"`
 	Page       int             `json:"page" example:"1"`
 	PerPage    int             `json:"perPage" example:"20"`
 	TotalPages int             `json:"totalPages" example:"5"`
@@ -74,16 +50,6 @@ type ChildListResponse struct {
 type NextMemberNumberResponse struct {
 	MemberNumber string `json:"memberNumber" example:"12002"`
 } //@name NextMemberNumberResponse
-
-// ParentResponse represents a parent in API responses (summary).
-// @Description Parent information (summary)
-type ParentResponse struct {
-	ID        string  `json:"id" example:"550e8400-e29b-41d4-a716-446655440002"`
-	FirstName string  `json:"firstName" example:"Thomas"`
-	LastName  string  `json:"lastName" example:"Müller"`
-	Email     *string `json:"email,omitempty" example:"thomas.mueller@example.com"`
-	Phone     *string `json:"phone,omitempty" example:"+49 331 12345"`
-} //@name ParentSummary
 
 // CreateChildRequest represents a request to create a child.
 // @Description Request body for creating a new child
@@ -179,7 +145,7 @@ func (h *ChildHandler) NextMemberNumber(w http.ResponseWriter, r *http.Request) 
 // @Produce json
 // @Security BearerAuth
 // @Param request body CreateChildRequest true "Child data"
-// @Success 201 {object} ChildResponse "Child created successfully"
+// @Success 201 {object} domain.Child "Child created successfully"
 // @Failure 400 {object} response.ErrorBody "Invalid request body"
 // @Failure 401 {object} response.ErrorBody "Not authenticated"
 // @Failure 409 {object} response.ErrorBody "Member number already exists"
@@ -235,7 +201,7 @@ func (h *ChildHandler) Create(w http.ResponseWriter, r *http.Request) {
 // @Produce json
 // @Security BearerAuth
 // @Param id path string true "Child ID (UUID)"
-// @Success 200 {object} ChildResponse "Child found"
+// @Success 200 {object} domain.Child "Child found"
 // @Failure 400 {object} response.ErrorBody "Invalid child ID"
 // @Failure 401 {object} response.ErrorBody "Not authenticated"
 // @Failure 404 {object} response.ErrorBody "Child not found"
@@ -321,7 +287,7 @@ type CreateLegalHoursHistoryRequest struct {
 // @Security BearerAuth
 // @Param id path string true "Child ID (UUID)"
 // @Param request body UpdateChildRequest true "Updated child data"
-// @Success 200 {object} ChildResponse "Child updated"
+// @Success 200 {object} domain.Child "Child updated"
 // @Failure 400 {object} response.ErrorBody "Invalid request"
 // @Failure 401 {object} response.ErrorBody "Not authenticated"
 // @Failure 404 {object} response.ErrorBody "Child not found"

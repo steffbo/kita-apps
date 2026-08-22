@@ -305,7 +305,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ChildcareFeeResult"
+                $ref: "#/components/schemas/domain.ChildcareFeeResult"
         "400":
           description: Invalid income value
           content:
@@ -415,7 +415,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Child"
+                $ref: "#/components/schemas/domain.Child"
         "400":
           description: Invalid request body
           content:
@@ -502,7 +502,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Child"
+                $ref: "#/components/schemas/domain.Child"
         "400":
           description: Invalid child ID
           content:
@@ -554,7 +554,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Child"
+                $ref: "#/components/schemas/domain.Child"
         "400":
           description: Invalid request
           content:
@@ -988,7 +988,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ChildImportExecuteResponse"
+                $ref: "#/components/schemas/service.ExecuteResult"
         "400":
           description: Invalid request or no data to import
           content:
@@ -1024,7 +1024,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ParseCSVResponse"
+                $ref: "#/components/schemas/service.ChildImportParseResult"
         "400":
           description: File too large or invalid format
           content:
@@ -1064,7 +1064,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ChildImportPreviewResponse"
+                $ref: "#/components/schemas/service.PreviewResult"
         "400":
           description: Invalid request or missing mapping
           content:
@@ -2842,7 +2842,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MatchSuggestion"
+                $ref: "#/components/schemas/domain.MatchSuggestion"
         "400":
           description: Invalid transaction ID
           content:
@@ -3226,7 +3226,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/UploadResponse"
+                $ref: "#/components/schemas/service.ImportResult"
         "400":
           description: No file provided or invalid format
           content:
@@ -4258,86 +4258,6 @@ components:
           minLength: 8
           type: string
       type: object
-    Child:
-      description: Child information
-      properties:
-        birthDate:
-          example: 2020-06-15
-          type: string
-        careHours:
-          example: 40
-          type: integer
-        city:
-          example: Potsdam
-          type: string
-        createdAt:
-          example: 2023-08-01T10:00:00Z
-          type: string
-        entryDate:
-          example: 2023-08-01
-          type: string
-        exitDate:
-          example: 2026-07-31
-          type: string
-        firstName:
-          example: Emma
-          type: string
-        household: {}
-        householdId:
-          example: 550e8400-e29b-41d4-a716-446655440001
-          type: string
-        id:
-          example: 550e8400-e29b-41d4-a716-446655440000
-          type: string
-        isActive:
-          example: true
-          type: boolean
-        lastName:
-          example: Müller
-          type: string
-        legalHours:
-          example: 35
-          type: integer
-        legalHoursUntil:
-          example: 2024-12-31
-          type: string
-        memberNumber:
-          example: K-2024-001
-          type: string
-        parents:
-          items:
-            $ref: "#/components/schemas/ParentSummary"
-          type: array
-        postalCode:
-          example: "14467"
-          type: string
-        street:
-          example: Hauptstraße
-          type: string
-        streetNo:
-          example: "42"
-          type: string
-        updatedAt:
-          example: 2023-08-01T10:00:00Z
-          type: string
-      type: object
-    ChildImportExecuteResponse:
-      description: Import execution result
-      properties:
-        created:
-          example: 30
-          type: integer
-        errors:
-          items:
-            type: string
-          type: array
-        skipped:
-          example: 5
-          type: integer
-        updated:
-          example: 15
-          type: integer
-      type: object
     ChildImportPreviewRequest:
       description: Request body for generating import preview
       properties:
@@ -4356,32 +4276,6 @@ components:
           example: true
           type: boolean
       type: object
-    ChildImportPreviewResponse:
-      description: Import preview with validation results
-      properties:
-        hasErrors:
-          example: false
-          type: boolean
-        rows:
-          items:
-            $ref: "#/components/schemas/ChildPreviewRow"
-          type: array
-        toCreate:
-          example: 30
-          type: integer
-        toSkip:
-          example: 5
-          type: integer
-        toUpdate:
-          example: 15
-          type: integer
-        totalRows:
-          example: 50
-          type: integer
-        validRows:
-          example: 45
-          type: integer
-      type: object
     ChildLedger:
       description: Payment ledger for a child
       properties:
@@ -4397,11 +4291,11 @@ components:
           $ref: "#/components/schemas/LedgerSummary"
       type: object
     ChildList:
-      description: Paginated list of children
+      description: Paginated list of children as returned by the child endpoints
       properties:
         data:
           items:
-            $ref: "#/components/schemas/Child"
+            $ref: "#/components/schemas/domain.Child"
           type: array
         page:
           example: 1
@@ -4415,56 +4309,6 @@ components:
         totalPages:
           example: 5
           type: integer
-      type: object
-    ChildPreviewRow:
-      description: Single child preview with validation status
-      properties:
-        action:
-          enum:
-            - create
-            - update
-            - skip
-          example: create
-          type: string
-        birthDate:
-          example: 2020-05-15
-          type: string
-        errors:
-          example:
-            - Ungültiges Geburtsdatum
-          items:
-            type: string
-          type: array
-        existingId:
-          example: 550e8400-e29b-41d4-a716-446655440000
-          type: string
-        firstName:
-          example: Max
-          type: string
-        groupName:
-          example: Schmetterlinge
-          type: string
-        isValid:
-          example: true
-          type: boolean
-        lastName:
-          example: Mustermann
-          type: string
-        parentEmail:
-          example: hans@example.com
-          type: string
-        parentName:
-          example: Hans Mustermann
-          type: string
-        rowNumber:
-          example: 1
-          type: integer
-        warnings:
-          example:
-            - Gruppe nicht gefunden
-          items:
-            type: string
-          type: array
       type: object
     ChildTrustedIBANsResponse:
       description: Trusted IBANs with usage counts
@@ -4507,31 +4351,6 @@ components:
         skipped:
           type: integer
         updated:
-          type: integer
-      type: object
-    ChildcareFeeResult:
-      description: Childcare fee calculation result
-      properties:
-        careHours:
-          example: 40
-          type: integer
-        childAgeType:
-          example: krippe
-          type: string
-        discountApplied:
-          example: 0
-          type: number
-        highestRate:
-          example: false
-          type: boolean
-        incomeLevel:
-          example: level3
-          type: string
-        monthlyFee:
-          example: 250
-          type: number
-        siblingsCount:
-          example: 1
           type: integer
       type: object
     ConfirmMatchRequest:
@@ -5508,53 +5327,6 @@ components:
           example: 3
           type: integer
       type: object
-    ParentSummary:
-      description: Parent information (summary)
-      properties:
-        email:
-          example: thomas.mueller@example.com
-          type: string
-        firstName:
-          example: Thomas
-          type: string
-        id:
-          example: 550e8400-e29b-41d4-a716-446655440002
-          type: string
-        lastName:
-          example: Müller
-          type: string
-        phone:
-          example: +49 331 12345
-          type: string
-      type: object
-    ParseCSVResponse:
-      description: CSV parsing result with headers and sample data
-      properties:
-        fileContent:
-          description: Base64 encoded for re-use in preview
-          type: string
-        headers:
-          example:
-            - Vorname
-            - Nachname
-            - Geburtsdatum
-            - Gruppe
-          items:
-            type: string
-          type: array
-        sampleRows:
-          items:
-            items:
-              type: string
-            type: array
-          type: array
-        separator:
-          example: ;
-          type: string
-        totalRows:
-          example: 50
-          type: integer
-      type: object
     RefreshTokenRequest:
       properties:
         refreshToken:
@@ -5985,32 +5757,6 @@ components:
         payment:
           $ref: "#/components/schemas/handler.ReminderPaymentSettingsPayload"
       type: object
-    UploadResponse:
-      description: CSV upload and processing result
-      properties:
-        duplicates:
-          example: 5
-          type: integer
-        fileName:
-          example: kontoauszug_2024_03.csv
-          type: string
-        importId:
-          example: 550e8400-e29b-41d4-a716-446655440000
-          type: string
-        matched:
-          example: 120
-          type: integer
-        suggestions:
-          items:
-            $ref: "#/components/schemas/MatchSuggestion"
-          type: array
-        totalRows:
-          example: 150
-          type: integer
-        unmatched:
-          example: 25
-          type: integer
-      type: object
     User:
       properties:
         email:
@@ -6140,6 +5886,32 @@ components:
           type: string
         updatedAt:
           type: string
+      type: object
+    domain.ChildcareFeeResult:
+      properties:
+        baseFee:
+          description: Base fee before discounts
+          type: number
+        discountFactor:
+          description: Sibling discount factor (1.0 = no discount)
+          type: number
+        discountPercent:
+          description: Discount as percentage
+          type: integer
+        fee:
+          description: Final fee after discounts
+          type: number
+        notes:
+          description: Additional explanatory notes
+          items:
+            type: string
+          type: array
+        rule:
+          description: Rule/bracket applied
+          type: string
+        showEntlastung:
+          description: Show link to Entlastung info
+          type: boolean
       type: object
     domain.EinstufungMonthRow:
       properties:
@@ -6772,6 +6544,23 @@ components:
         memberNumber:
           type: string
       type: object
+    service.ChildImportParseResult:
+      properties:
+        detectedSeparator:
+          type: string
+        headers:
+          items:
+            type: string
+          type: array
+        sampleRows:
+          items:
+            items:
+              type: string
+            type: array
+          type: array
+        totalRows:
+          type: integer
+      type: object
     service.ChildPreview:
       properties:
         birthDate:
@@ -6807,6 +6596,66 @@ components:
           items:
             $ref: "#/components/schemas/service.ImportRow"
           type: array
+      type: object
+    service.ExecuteResult:
+      properties:
+        childrenCreated:
+          type: integer
+        childrenUpdated:
+          type: integer
+        errors:
+          items:
+            $ref: "#/components/schemas/service.ImportError"
+          type: array
+        parentsCreated:
+          type: integer
+        parentsLinked:
+          type: integer
+      type: object
+    service.FieldConflict:
+      properties:
+        existingValue:
+          type: string
+        field:
+          type: string
+        fieldLabel:
+          type: string
+        newValue:
+          type: string
+      type: object
+    service.ImportError:
+      properties:
+        error:
+          type: string
+        rowIndex:
+          type: integer
+      type: object
+    service.ImportResult:
+      properties:
+        autoMatched:
+          type: integer
+        batchId:
+          type: string
+        blacklisted:
+          type: integer
+        fileName:
+          type: string
+        imported:
+          type: integer
+        skipped:
+          type: integer
+        suggestions:
+          items:
+            $ref: "#/components/schemas/domain.MatchSuggestion"
+          type: array
+        totalRows:
+          type: integer
+        warningList:
+          items:
+            $ref: "#/components/schemas/domain.TransactionWarning"
+          type: array
+        warnings:
+          type: integer
       type: object
     service.ImportRow:
       properties:
@@ -6874,4 +6723,45 @@ components:
           type: string
         phone:
           type: string
+      type: object
+    service.PreviewResult:
+      properties:
+        errorCount:
+          type: integer
+        rows:
+          items:
+            $ref: "#/components/schemas/service.PreviewRow"
+          type: array
+        validCount:
+          type: integer
+      type: object
+    service.PreviewRow:
+      properties:
+        action:
+          description: '"create", "update", "no_change"'
+          type: string
+        child:
+          $ref: "#/components/schemas/service.ChildPreview"
+        existingChild:
+          $ref: "#/components/schemas/service.ChildPreview"
+        existingChildId:
+          type: string
+        fieldConflicts:
+          items:
+            $ref: "#/components/schemas/service.FieldConflict"
+          type: array
+        index:
+          type: integer
+        isDuplicate:
+          type: boolean
+        isValid:
+          type: boolean
+        parent1:
+          $ref: "#/components/schemas/service.ParentPreview"
+        parent2:
+          $ref: "#/components/schemas/service.ParentPreview"
+        warnings:
+          items:
+            type: string
+          type: array
       type: object

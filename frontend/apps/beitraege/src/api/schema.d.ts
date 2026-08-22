@@ -526,7 +526,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["ChildcareFeeResult"];
+                        "application/json": components["schemas"]["domain.ChildcareFeeResult"];
                     };
                 };
                 /** @description Invalid income value */
@@ -650,7 +650,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["Child"];
+                        "application/json": components["schemas"]["domain.Child"];
                     };
                 };
                 /** @description Invalid request body */
@@ -726,7 +726,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["Child"];
+                        "application/json": components["schemas"]["domain.Child"];
                     };
                 };
                 /** @description Invalid child ID */
@@ -794,7 +794,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["Child"];
+                        "application/json": components["schemas"]["domain.Child"];
                     };
                 };
                 /** @description Invalid request */
@@ -1533,7 +1533,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["ChildImportExecuteResponse"];
+                        "application/json": components["schemas"]["service.ExecuteResult"];
                     };
                 };
                 /** @description Invalid request or no data to import */
@@ -1599,7 +1599,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["ParseCSVResponse"];
+                        "application/json": components["schemas"]["service.ChildImportParseResult"];
                     };
                 };
                 /** @description File too large or invalid format */
@@ -1670,7 +1670,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["ChildImportPreviewResponse"];
+                        "application/json": components["schemas"]["service.PreviewResult"];
                     };
                 };
                 /** @description Invalid request or missing mapping */
@@ -4326,7 +4326,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["MatchSuggestion"];
+                        "application/json": components["schemas"]["domain.MatchSuggestion"];
                     };
                 };
                 /** @description Invalid transaction ID */
@@ -4909,7 +4909,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["UploadResponse"];
+                        "application/json": components["schemas"]["service.ImportResult"];
                     };
                 };
                 /** @description No file provided or invalid format */
@@ -6257,57 +6257,6 @@ export interface components {
             /** @example newPassword456 */
             newPassword?: string;
         };
-        /** @description Child information */
-        Child: {
-            /** @example 2020-06-15 */
-            birthDate?: string;
-            /** @example 40 */
-            careHours?: number;
-            /** @example Potsdam */
-            city?: string;
-            /** @example 2023-08-01T10:00:00Z */
-            createdAt?: string;
-            /** @example 2023-08-01 */
-            entryDate?: string;
-            /** @example 2026-07-31 */
-            exitDate?: string;
-            /** @example Emma */
-            firstName?: string;
-            household?: unknown;
-            /** @example 550e8400-e29b-41d4-a716-446655440001 */
-            householdId?: string;
-            /** @example 550e8400-e29b-41d4-a716-446655440000 */
-            id?: string;
-            /** @example true */
-            isActive?: boolean;
-            /** @example Müller */
-            lastName?: string;
-            /** @example 35 */
-            legalHours?: number;
-            /** @example 2024-12-31 */
-            legalHoursUntil?: string;
-            /** @example K-2024-001 */
-            memberNumber?: string;
-            parents?: components["schemas"]["ParentSummary"][];
-            /** @example 14467 */
-            postalCode?: string;
-            /** @example Hauptstraße */
-            street?: string;
-            /** @example 42 */
-            streetNo?: string;
-            /** @example 2023-08-01T10:00:00Z */
-            updatedAt?: string;
-        };
-        /** @description Import execution result */
-        ChildImportExecuteResponse: {
-            /** @example 30 */
-            created?: number;
-            errors?: string[];
-            /** @example 5 */
-            skipped?: number;
-            /** @example 15 */
-            updated?: number;
-        };
         /** @description Request body for generating import preview */
         ChildImportPreviewRequest: {
             /** @description Base64 encoded CSV content */
@@ -6321,22 +6270,6 @@ export interface components {
             /** @example true */
             skipHeader?: boolean;
         };
-        /** @description Import preview with validation results */
-        ChildImportPreviewResponse: {
-            /** @example false */
-            hasErrors?: boolean;
-            rows?: components["schemas"]["ChildPreviewRow"][];
-            /** @example 30 */
-            toCreate?: number;
-            /** @example 5 */
-            toSkip?: number;
-            /** @example 15 */
-            toUpdate?: number;
-            /** @example 50 */
-            totalRows?: number;
-            /** @example 45 */
-            validRows?: number;
-        };
         /** @description Payment ledger for a child */
         ChildLedger: {
             child?: unknown;
@@ -6345,9 +6278,9 @@ export interface components {
             entries?: components["schemas"]["LedgerEntry"][];
             summary?: components["schemas"]["LedgerSummary"];
         };
-        /** @description Paginated list of children */
+        /** @description Paginated list of children as returned by the child endpoints */
         ChildList: {
-            data?: components["schemas"]["Child"][];
+            data?: components["schemas"]["domain.Child"][];
             /** @example 1 */
             page?: number;
             /** @example 20 */
@@ -6356,44 +6289,6 @@ export interface components {
             total?: number;
             /** @example 5 */
             totalPages?: number;
-        };
-        /** @description Single child preview with validation status */
-        ChildPreviewRow: {
-            /**
-             * @example create
-             * @enum {string}
-             */
-            action?: "create" | "update" | "skip";
-            /** @example 2020-05-15 */
-            birthDate?: string;
-            /**
-             * @example [
-             *       "Ungültiges Geburtsdatum"
-             *     ]
-             */
-            errors?: string[];
-            /** @example 550e8400-e29b-41d4-a716-446655440000 */
-            existingId?: string;
-            /** @example Max */
-            firstName?: string;
-            /** @example Schmetterlinge */
-            groupName?: string;
-            /** @example true */
-            isValid?: boolean;
-            /** @example Mustermann */
-            lastName?: string;
-            /** @example hans@example.com */
-            parentEmail?: string;
-            /** @example Hans Mustermann */
-            parentName?: string;
-            /** @example 1 */
-            rowNumber?: number;
-            /**
-             * @example [
-             *       "Gruppe nicht gefunden"
-             *     ]
-             */
-            warnings?: string[];
         };
         /** @description Trusted IBANs with usage counts */
         ChildTrustedIBANsResponse: {
@@ -6419,23 +6314,6 @@ export interface components {
             deltaOpen?: number;
             skipped?: number;
             updated?: number;
-        };
-        /** @description Childcare fee calculation result */
-        ChildcareFeeResult: {
-            /** @example 40 */
-            careHours?: number;
-            /** @example krippe */
-            childAgeType?: string;
-            /** @example 0 */
-            discountApplied?: number;
-            /** @example false */
-            highestRate?: boolean;
-            /** @example level3 */
-            incomeLevel?: string;
-            /** @example 250 */
-            monthlyFee?: number;
-            /** @example 1 */
-            siblingsCount?: number;
         };
         /** @description Request body for confirming transaction-fee matches */
         ConfirmMatchRequest: {
@@ -7065,38 +6943,6 @@ export interface components {
             /** @example 3 */
             totalPages?: number;
         };
-        /** @description Parent information (summary) */
-        ParentSummary: {
-            /** @example thomas.mueller@example.com */
-            email?: string;
-            /** @example Thomas */
-            firstName?: string;
-            /** @example 550e8400-e29b-41d4-a716-446655440002 */
-            id?: string;
-            /** @example Müller */
-            lastName?: string;
-            /** @example +49 331 12345 */
-            phone?: string;
-        };
-        /** @description CSV parsing result with headers and sample data */
-        ParseCSVResponse: {
-            /** @description Base64 encoded for re-use in preview */
-            fileContent?: string;
-            /**
-             * @example [
-             *       "Vorname",
-             *       "Nachname",
-             *       "Geburtsdatum",
-             *       "Gruppe"
-             *     ]
-             */
-            headers?: string[];
-            sampleRows?: string[][];
-            /** @example ; */
-            separator?: string;
-            /** @example 50 */
-            totalRows?: number;
-        };
         RefreshTokenRequest: {
             /** @example eyJhbGciOiJIUzI1NiIs... */
             refreshToken?: string;
@@ -7376,22 +7222,6 @@ export interface components {
             autoEnabled?: boolean;
             payment?: components["schemas"]["handler.ReminderPaymentSettingsPayload"];
         };
-        /** @description CSV upload and processing result */
-        UploadResponse: {
-            /** @example 5 */
-            duplicates?: number;
-            /** @example kontoauszug_2024_03.csv */
-            fileName?: string;
-            /** @example 550e8400-e29b-41d4-a716-446655440000 */
-            importId?: string;
-            /** @example 120 */
-            matched?: number;
-            suggestions?: components["schemas"]["MatchSuggestion"][];
-            /** @example 150 */
-            totalRows?: number;
-            /** @example 25 */
-            unmatched?: number;
-        };
         User: {
             /** @example user@example.com */
             email?: string;
@@ -7463,6 +7293,22 @@ export interface components {
             street?: string;
             streetNo?: string;
             updatedAt?: string;
+        };
+        "domain.ChildcareFeeResult": {
+            /** @description Base fee before discounts */
+            baseFee?: number;
+            /** @description Sibling discount factor (1.0 = no discount) */
+            discountFactor?: number;
+            /** @description Discount as percentage */
+            discountPercent?: number;
+            /** @description Final fee after discounts */
+            fee?: number;
+            /** @description Additional explanatory notes */
+            notes?: string[];
+            /** @description Rule/bracket applied */
+            rule?: string;
+            /** @description Show link to Entlastung info */
+            showEntlastung?: boolean;
         };
         "domain.EinstufungMonthRow": {
             careHoursPerWeek?: number;
@@ -7762,6 +7608,12 @@ export interface components {
             lastName?: string;
             memberNumber?: string;
         };
+        "service.ChildImportParseResult": {
+            detectedSeparator?: string;
+            headers?: string[];
+            sampleRows?: string[][];
+            totalRows?: number;
+        };
         "service.ChildPreview": {
             birthDate?: string;
             careHours?: number;
@@ -7778,6 +7630,35 @@ export interface components {
         "service.ExecuteRequest": {
             parentDecisions?: components["schemas"]["service.ParentDecision"][];
             rows?: components["schemas"]["service.ImportRow"][];
+        };
+        "service.ExecuteResult": {
+            childrenCreated?: number;
+            childrenUpdated?: number;
+            errors?: components["schemas"]["service.ImportError"][];
+            parentsCreated?: number;
+            parentsLinked?: number;
+        };
+        "service.FieldConflict": {
+            existingValue?: string;
+            field?: string;
+            fieldLabel?: string;
+            newValue?: string;
+        };
+        "service.ImportError": {
+            error?: string;
+            rowIndex?: number;
+        };
+        "service.ImportResult": {
+            autoMatched?: number;
+            batchId?: string;
+            blacklisted?: number;
+            fileName?: string;
+            imported?: number;
+            skipped?: number;
+            suggestions?: components["schemas"]["domain.MatchSuggestion"][];
+            totalRows?: number;
+            warningList?: components["schemas"]["domain.TransactionWarning"][];
+            warnings?: number;
         };
         "service.ImportRow": {
             child?: components["schemas"]["service.ChildPreview"];
@@ -7817,6 +7698,25 @@ export interface components {
             /** @description ID of the already linked parent */
             linkedParentId?: string;
             phone?: string;
+        };
+        "service.PreviewResult": {
+            errorCount?: number;
+            rows?: components["schemas"]["service.PreviewRow"][];
+            validCount?: number;
+        };
+        "service.PreviewRow": {
+            /** @description "create", "update", "no_change" */
+            action?: string;
+            child?: components["schemas"]["service.ChildPreview"];
+            existingChild?: components["schemas"]["service.ChildPreview"];
+            existingChildId?: string;
+            fieldConflicts?: components["schemas"]["service.FieldConflict"][];
+            index?: number;
+            isDuplicate?: boolean;
+            isValid?: boolean;
+            parent1?: components["schemas"]["service.ParentPreview"];
+            parent2?: components["schemas"]["service.ParentPreview"];
+            warnings?: string[];
         };
     };
     responses: never;

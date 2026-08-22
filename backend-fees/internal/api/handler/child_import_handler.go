@@ -17,54 +17,6 @@ type ChildImportHandler struct {
 	importService *service.ChildImportService
 }
 
-// ParseCSVResponse represents the result of parsing a CSV file
-// @Description CSV parsing result with headers and sample data
-type ParseCSVResponse struct {
-	Headers     []string   `json:"headers" example:"Vorname,Nachname,Geburtsdatum,Gruppe"`
-	SampleRows  [][]string `json:"sampleRows"`
-	TotalRows   int        `json:"totalRows" example:"50"`
-	Separator   string     `json:"separator" example:";"`
-	FileContent string     `json:"fileContent"` // Base64 encoded for re-use in preview
-} //@name ParseCSVResponse
-
-// ChildPreviewRow represents a preview row for child import
-// @Description Single child preview with validation status
-type ChildPreviewRow struct {
-	RowNumber   int      `json:"rowNumber" example:"1"`
-	FirstName   string   `json:"firstName" example:"Max"`
-	LastName    string   `json:"lastName" example:"Mustermann"`
-	BirthDate   *string  `json:"birthDate,omitempty" example:"2020-05-15"`
-	GroupName   *string  `json:"groupName,omitempty" example:"Schmetterlinge"`
-	ParentName  *string  `json:"parentName,omitempty" example:"Hans Mustermann"`
-	ParentEmail *string  `json:"parentEmail,omitempty" example:"hans@example.com"`
-	IsValid     bool     `json:"isValid" example:"true"`
-	Errors      []string `json:"errors,omitempty" example:"Ungültiges Geburtsdatum"`
-	Warnings    []string `json:"warnings,omitempty" example:"Gruppe nicht gefunden"`
-	Action      string   `json:"action" example:"create" enums:"create,update,skip"`
-	ExistingID  *string  `json:"existingId,omitempty" example:"550e8400-e29b-41d4-a716-446655440000"`
-} //@name ChildPreviewRow
-
-// PreviewResponse represents the result of previewing a child import
-// @Description Import preview with validation results
-type PreviewResponse struct {
-	Rows      []ChildPreviewRow `json:"rows"`
-	TotalRows int               `json:"totalRows" example:"50"`
-	ValidRows int               `json:"validRows" example:"45"`
-	ToCreate  int               `json:"toCreate" example:"30"`
-	ToUpdate  int               `json:"toUpdate" example:"15"`
-	ToSkip    int               `json:"toSkip" example:"5"`
-	HasErrors bool              `json:"hasErrors" example:"false"`
-} //@name ChildImportPreviewResponse
-
-// ExecuteImportResponse represents the result of executing a child import
-// @Description Import execution result
-type ExecuteImportResponse struct {
-	Created int      `json:"created" example:"30"`
-	Updated int      `json:"updated" example:"15"`
-	Skipped int      `json:"skipped" example:"5"`
-	Errors  []string `json:"errors,omitempty"`
-} //@name ChildImportExecuteResponse
-
 // NewChildImportHandler creates a new child import handler
 func NewChildImportHandler(importService *service.ChildImportService) *ChildImportHandler {
 	return &ChildImportHandler{importService: importService}
@@ -79,7 +31,7 @@ func NewChildImportHandler(importService *service.ChildImportService) *ChildImpo
 // @Produce json
 // @Security BearerAuth
 // @Param file formData file true "CSV file (max 10MB)"
-// @Success 200 {object} ParseCSVResponse "Parsed CSV structure"
+// @Success 200 {object} service.ChildImportParseResult "Parsed CSV structure"
 // @Failure 400 {object} response.ErrorBody "File too large or invalid format"
 // @Failure 401 {object} response.ErrorBody "Not authenticated"
 // @Failure 500 {object} response.ErrorBody "Internal server error"
@@ -126,7 +78,7 @@ type PreviewRequest struct {
 // @Produce json
 // @Security BearerAuth
 // @Param preview body PreviewRequest true "Preview configuration"
-// @Success 200 {object} PreviewResponse "Import preview"
+// @Success 200 {object} service.PreviewResult "Import preview"
 // @Failure 400 {object} response.ErrorBody "Invalid request or missing mapping"
 // @Failure 401 {object} response.ErrorBody "Not authenticated"
 // @Failure 500 {object} response.ErrorBody "Internal server error"
@@ -203,7 +155,7 @@ func (h *ChildImportHandler) Preview(w http.ResponseWriter, r *http.Request) {
 // @Produce json
 // @Security BearerAuth
 // @Param execute body service.ExecuteRequest true "Import data"
-// @Success 200 {object} ExecuteImportResponse "Import result"
+// @Success 200 {object} service.ExecuteResult "Import result"
 // @Failure 400 {object} response.ErrorBody "Invalid request or no data to import"
 // @Failure 401 {object} response.ErrorBody "Not authenticated"
 // @Failure 500 {object} response.ErrorBody "Internal server error"

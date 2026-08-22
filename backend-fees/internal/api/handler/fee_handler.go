@@ -543,18 +543,6 @@ func (h *FeeHandler) CreateReminder(w http.ResponseWriter, r *http.Request) {
 	response.Created(w, reminder)
 }
 
-// ChildcareFeeResult represents the result of a childcare fee calculation
-// @Description Childcare fee calculation result
-type ChildcareFeeResult struct {
-	MonthlyFee      float64 `json:"monthlyFee" example:"250.00"`
-	ChildAgeType    string  `json:"childAgeType" example:"krippe"`
-	IncomeLevel     string  `json:"incomeLevel" example:"level3"`
-	CareHours       int     `json:"careHours" example:"40"`
-	SiblingsCount   int     `json:"siblingsCount" example:"1"`
-	HighestRate     bool    `json:"highestRate" example:"false"`
-	DiscountApplied float64 `json:"discountApplied" example:"0"`
-} //@name ChildcareFeeResult
-
 // CalculateChildcareFee handles GET /childcare-fee/calculate
 // @Summary Calculate childcare fee
 // @Description Calculate the monthly childcare fee based on income, child age, and care hours
@@ -567,7 +555,7 @@ type ChildcareFeeResult struct {
 // @Param careHours query int false "Weekly care hours" default(30) Enums(30, 35, 40, 45, 50, 55)
 // @Param highestRate query bool false "Apply highest rate" default(false)
 // @Param fosterFamily query bool false "Foster family (uses average rate)" default(false)
-// @Success 200 {object} ChildcareFeeResult "Calculated fee"
+// @Success 200 {object} domain.ChildcareFeeResult "Calculated fee"
 // @Failure 400 {object} response.ErrorBody "Invalid income value"
 // @Failure 401 {object} response.ErrorBody "Not authenticated"
 // @Router /childcare-fee/calculate [get]
