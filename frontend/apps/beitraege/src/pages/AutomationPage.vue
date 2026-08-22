@@ -46,8 +46,8 @@ const previewSendButtonLabel = computed(() => {
 
 const previewSendButtonClass = computed(() => {
   return previewStage.value === 'final'
-    ? 'bg-red-600 hover:bg-red-700'
-    : 'bg-blue-600 hover:bg-blue-700';
+    ? 'bg-amber-600 hover:bg-amber-700'
+    : 'bg-primary hover:bg-primary/90';
 });
 
 // Editable preview content: per-household subject/body plus QR toggle
@@ -464,42 +464,42 @@ watch(
 
       </div>
 
-      <div class="flex flex-col lg:flex-row lg:items-end gap-4 mt-4">
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Datum</label>
-          <input
-            type="date"
-            v-model="reminderDate"
-            class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-          />
+        <div class="flex flex-col sm:flex-row sm:items-end gap-4 mt-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Datum</label>
+            <input
+              type="date"
+              v-model="reminderDate"
+              class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Frist <span class="font-normal text-gray-400">(optional, Standard: 7 Tage ab Datum)</span>
+            </label>
+            <input
+              type="date"
+              v-model="reminderDeadline"
+              class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+            />
+          </div>
+          <div class="flex gap-2 sm:ml-auto">
+            <button
+              class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+              :disabled="isRunningReminders"
+              @click="runReminders('initial')"
+            >
+              Erinnerung senden
+            </button>
+            <button
+              class="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-50"
+              :disabled="isRunningReminders"
+              @click="runReminders('final')"
+            >
+              Mahnung senden
+            </button>
+          </div>
         </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">
-            Frist <span class="font-normal text-gray-400">(optional, Standard: 7 Tage ab Datum)</span>
-          </label>
-          <input
-            type="date"
-            v-model="reminderDeadline"
-            class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-          />
-        </div>
-        <div class="flex flex-col sm:flex-row gap-2">
-          <button
-            class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
-            :disabled="isRunningReminders"
-            @click="runReminders('initial')"
-          >
-            Erinnerung senden (Auswahl)
-          </button>
-          <button
-            class="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-50"
-            :disabled="isRunningReminders"
-            @click="runReminders('final')"
-          >
-            Mahnung senden (Auswahl)
-          </button>
-        </div>
-      </div>
 
       <div v-if="isReminderSettingsLoading" class="mt-3 text-sm text-gray-500">
         Einstellungen werden aktualisiert...
@@ -572,20 +572,20 @@ watch(
             class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
           />
         </div>
-        <div class="flex flex-col sm:flex-row gap-2">
+        <div class="flex gap-2 sm:ml-auto">
           <button
-            class="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50"
+            class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
             :disabled="isRunningReminders"
             @click="runMembershipReminders('initial')"
           >
-            Erinnerung Vereinsbeiträge (Auswahl)
+            Erinnerung senden
           </button>
           <button
-            class="px-4 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-50"
+            class="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-50"
             :disabled="isRunningReminders"
             @click="runMembershipReminders('final')"
           >
-            Mahnung Vereinsbeiträge (Auswahl)
+            Mahnung senden
           </button>
         </div>
       </div>

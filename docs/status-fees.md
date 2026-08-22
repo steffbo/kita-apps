@@ -64,6 +64,7 @@ WHERE c.household_id IS NOT NULL
 - `POST /fees/reminders/run` and `/fees/membership-reminders/run` accept an optional JSON body `{ includeQR?: boolean, overrides?: { [householdId]: { subject?, body? } } }`. Query-param behaviour unchanged when no body is sent. Blank override fields keep the generated text; overrides apply to both preview and send (`applyReminderOverrides`, unit-tested in `reminder_run_options_test.go`). `includeQR: false` skips QR generation and attachment entirely.
 - Dry-run previews now include `qrPayload` — the SEPA payload string encoded in the QR code.
 - Erinnerungen page preview modal: "Alle/Keine" selection shortcuts, per-household editable Betreff/Text (edits marked "bearbeitet" and sent as overrides only for selected households), QR toggle that hides previews' codes and passes `includeQR` on send, payload display under each QR code.
+- Erinnerungen page: action buttons follow the app design system now — Erinnerung = primary (green), Mahnung = amber escalation, red reserved for destructive actions; buttons right-aligned in the form row, "(Auswahl)" suffix dropped (selection happens in the preview modal anyway).
 - `GET /fees/email-logs` gained `emailType` (enum filter), `search` (ILIKE on recipient + subject) and `sortDir=asc|desc` (by `sent_at`); repository takes a `EmailLogFilter`. UI has type dropdown, search box, newest/oldest toggle and page/perPage pagination (20/page) replacing load-more.
 
 ### Bankabgleich UI overhaul (2026-08-22)
