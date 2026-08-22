@@ -5,6 +5,12 @@ Basics (ports, commands, layout) live in `AGENTS.md`.
 
 ## Backend (`backend-fees`)
 
+### Pagination collapsed to page/perPage (2026-08-22)
+
+- `request.GetPagination` accepted two query styles (`offset/limit` took precedence over `page/perPage`). The `offset/limit` branch is removed; all paginated endpoints now take `page`/`perPage` only (defaults 1/20, perPage capped at 100). The response envelope (`data`, `total`, `page`, `perPage`, `totalPages`) is unchanged.
+- Frontend client and all call sites switched from computed offsets to `page`/`perPage`. Wire-level behaviour is identical for every existing caller (they only ever sent page-aligned offsets).
+- Known pre-existing quirk, unchanged on purpose: the 100-item cap silently limits "load everything" calls such as ImportPage's `perPage: 1000` merge or EinstufungDetailPage's `perPage: 2000` option loads. If those lists outgrow 100 rows, raise the cap or add real pagination there.
+
 ### OpenAPI spec aligned with actual responses (2026-08-22)
 
 - Fee endpoints (`GET/POST /fees`, `GET/PUT /fees/{id}`, `POST /fees/{id}/reminder`) previously documented a fictional `Fee` DTO (`type`, `status`, `childName`); they actually serialize `domain.FeeExpectation` (`feeType`, `isPaid`, joined `child`, `matchedAmount`, …). The dead DTOs were deleted and the annotations now document the real structs; same for `/fees/overview` (now `domain.FeeOverview` incl. `childrenWithOpenFees`).

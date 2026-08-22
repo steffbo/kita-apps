@@ -1744,16 +1744,6 @@ paths:
           schema:
             type: integer
             default: 20
-        - description: Offset (alternative to page/perPage)
-          in: query
-          name: offset
-          schema:
-            type: integer
-        - description: Limit (alternative to page/perPage)
-          in: query
-          name: limit
-          schema:
-            type: integer
         - description: Filter by email type
           in: query
           name: emailType

@@ -97,8 +97,8 @@ async function loadChildren() {
       search: searchQuery.value || undefined,
       sortBy: sortField.value,
       sortDir: sortDirection.value,
-      offset: offset.value,
-      limit: pageSize.value,
+      page: currentPage.value,
+      perPage: pageSize.value,
     });
     children.value = response.data;
     total.value = response.total;

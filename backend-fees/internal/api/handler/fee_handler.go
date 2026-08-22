@@ -997,8 +997,6 @@ func (h *FeeHandler) UpdateReminderSettings(w http.ResponseWriter, r *http.Reque
 // @Security BearerAuth
 // @Param page query int false "Page number" default(1)
 // @Param perPage query int false "Items per page" default(20)
-// @Param offset query int false "Offset (alternative to page/perPage)"
-// @Param limit query int false "Limit (alternative to page/perPage)"
 // @Param emailType query string false "Filter by email type" Enums(REMINDER_INITIAL, REMINDER_FINAL, MEMBERSHIP_REMINDER_INITIAL, MEMBERSHIP_REMINDER_FINAL, PASSWORD_RESET)
 // @Param search query string false "Search in recipient and subject"
 // @Param sortDir query string false "Sort by sent_at direction" Enums(asc, desc) default(desc)

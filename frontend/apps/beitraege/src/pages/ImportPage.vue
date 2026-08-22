@@ -241,9 +241,9 @@ async function loadTransactions(): Promise<void> {
   isLoadingTransactions.value = true;
   try {
     const [unmatchedRes, matchedRes, warningsRes] = await Promise.all([
-      api.getUnmatchedTransactions({ offset: 0, limit: 500 }),
-      api.getMatchedTransactions({ offset: 0, limit: 1000 }),
-      api.getWarnings(0, 200),
+      api.getUnmatchedTransactions({ page: 1, perPage: 500 }),
+      api.getMatchedTransactions({ page: 1, perPage: 1000 }),
+      api.getWarnings(1, 200),
     ]);
     unmatchedTransactions.value = unmatchedRes.data;
     unmatchedTotal.value = unmatchedRes.total;
@@ -391,7 +391,7 @@ async function confirmMatches(): Promise<void> {
 async function loadHistory(): Promise<void> {
   isLoadingHistory.value = true;
   try {
-    const response = await api.getImportHistory(0, 50);
+    const response = await api.getImportHistory(1, 50);
     importHistory.value = response.data;
     historyTotal.value = response.total;
   } catch (error) {
@@ -404,7 +404,7 @@ async function loadHistory(): Promise<void> {
 async function loadBlacklist(): Promise<void> {
   isLoadingBlacklist.value = true;
   try {
-    const response = await api.getBlacklist(0, 100);
+    const response = await api.getBlacklist(1, 100);
     blacklistedIBANs.value = response.data;
     blacklistTotal.value = response.total;
   } catch (error) {
@@ -468,14 +468,14 @@ async function loadAvailableFees(): Promise<void> {
 
     const generalResponse = await api.getFees({
       search: feeSearch.value || undefined,
-      limit: 50,
+      perPage: 50,
     });
     let fees = generalResponse.data.filter(f => !f.isPaid);
 
     if (suggestedChildId && !feeSearch.value) {
       const childFeesResponse = await api.getFees({
         childId: suggestedChildId,
-        limit: 50,
+        perPage: 50,
       });
       const childFees = childFeesResponse.data.filter(f => !f.isPaid);
 

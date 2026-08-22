@@ -86,8 +86,8 @@ async function loadParents() {
       search: searchQuery.value || undefined,
       sortBy: sortField.value,
       sortDir: sortDirection.value,
-      offset: offset.value,
-      limit: pageSize.value,
+      page: currentPage.value,
+      perPage: pageSize.value,
     });
     parents.value = response.data;
     total.value = response.total;

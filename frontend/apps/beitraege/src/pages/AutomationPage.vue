@@ -284,8 +284,8 @@ async function loadEmailLogs(reset = false) {
       emailLogsPage.value = 1;
     }
     const result = await api.getEmailLogs({
-      offset: (emailLogsPage.value - 1) * emailLogsPerPage,
-      limit: emailLogsPerPage,
+      page: emailLogsPage.value,
+      perPage: emailLogsPerPage,
       emailType: emailLogsTypeFilter.value || undefined,
       search: emailLogsSearch.value.trim() || undefined,
       sortDir: emailLogsSortDir.value,

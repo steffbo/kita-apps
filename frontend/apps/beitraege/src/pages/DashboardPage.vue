@@ -130,11 +130,11 @@ async function loadDashboard() {
     const [overviewData, monthlyData, unmatchedData, stichtagData, u3Data, totalData, warningsData, syncStatusData] = await Promise.all([
       api.getFeeOverview(), // Current state - no year filter
       api.getFeeOverview(selectedYear.value), // Monthly overview with year
-      api.getUnmatchedTransactions({ limit: 1 }),
+      api.getUnmatchedTransactions({ perPage: 1 }),
       api.getStichtagsmeldungStats(),
-      api.getChildren({ activeOnly: true, u3Only: true, limit: 1 }),
-      api.getChildren({ activeOnly: true, limit: 1 }),
-      api.getChildren({ activeOnly: true, hasWarnings: true, limit: 1 }),
+      api.getChildren({ activeOnly: true, u3Only: true, perPage: 1 }),
+      api.getChildren({ activeOnly: true, perPage: 1 }),
+      api.getChildren({ activeOnly: true, hasWarnings: true, perPage: 1 }),
       api.getBankingSyncStatus(),
     ]);
     overview.value = overviewData;

@@ -162,7 +162,7 @@ async function loadChild() {
     child.value = await api.getChild(childId.value);
     careHoursHistory.value = await api.getCareHoursHistory(childId.value);
     legalHoursHistory.value = await api.getLegalHoursHistory(childId.value);
-    const feesResponse = await api.getFees({ childId: childId.value, limit: 50 });
+    const feesResponse = await api.getFees({ childId: childId.value, perPage: 50 });
     fees.value = feesResponse.data;
     // Load childcare fee if applicable
     await loadChildcareFee();
@@ -591,7 +591,7 @@ async function searchParents() {
   }
   isSearching.value = true;
   try {
-    const response = await api.getParents({ search: searchQuery.value, limit: 10 });
+    const response = await api.getParents({ search: searchQuery.value, perPage: 10 });
     // Filter out parents already linked to this child
     const linkedIds = new Set(child.value?.parents?.map(p => p.id) || []);
     searchResults.value = response.data.filter(p => !linkedIds.has(p.id));

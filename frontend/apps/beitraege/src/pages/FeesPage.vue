@@ -181,8 +181,8 @@ async function loadFees() {
       feeType: selectedType.value || undefined,
       status: selectedStatus.value !== 'all' ? selectedStatus.value : undefined,
       search: debouncedSearch.value || undefined,
-      offset: offset.value,
-      limit: pageSize.value,
+      page: currentPage.value,
+      perPage: pageSize.value,
       sortBy: sortBy.value,
       sortDir: sortDir.value,
     });
@@ -492,7 +492,7 @@ watch(childSearchQuery, (newVal) => {
   childSearchTimeout = setTimeout(async () => {
     isSearchingChildren.value = true;
     try {
-      const response = await api.getChildren({ search: newVal, activeOnly: true, limit: 10 });
+      const response = await api.getChildren({ search: newVal, activeOnly: true, perPage: 10 });
       childSearchResults.value = response.data;
     } catch {
       childSearchResults.value = [];

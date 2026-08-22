@@ -4274,14 +4274,6 @@ paths:
         in: query
         name: perPage
         type: integer
-      - description: Offset (alternative to page/perPage)
-        in: query
-        name: offset
-        type: integer
-      - description: Limit (alternative to page/perPage)
-        in: query
-        name: limit
-        type: integer
       - description: Filter by email type
         enum:
         - REMINDER_INITIAL

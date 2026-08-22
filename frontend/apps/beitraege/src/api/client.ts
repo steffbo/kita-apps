@@ -222,8 +222,8 @@ class ApiClient {
     search?: string;
     sortBy?: string;
     sortDir?: string;
-    offset?: number;
-    limit?: number;
+    page?: number;
+    perPage?: number;
   }): Promise<PaginatedResponse<Child>> {
     const query = new URLSearchParams();
     if (params?.activeOnly) query.set('active', 'true');
@@ -233,8 +233,8 @@ class ApiClient {
     if (params?.search) query.set('search', params.search);
     if (params?.sortBy) query.set('sortBy', params.sortBy);
     if (params?.sortDir) query.set('sortDir', params.sortDir);
-    if (params?.offset) query.set('offset', String(params.offset));
-    if (params?.limit) query.set('limit', String(params.limit));
+    if (params?.page) query.set('page', String(params.page));
+    if (params?.perPage) query.set('perPage', String(params.perPage));
     const queryString = query.toString();
     const response = await this.request<PaginatedResponse<Child>>(`/children${queryString ? `?${queryString}` : ''}`);
     return this.normalizePaginated(response);
@@ -320,15 +320,15 @@ class ApiClient {
     search?: string;
     sortBy?: string;
     sortDir?: string;
-    offset?: number;
-    limit?: number;
+    page?: number;
+    perPage?: number;
   }): Promise<PaginatedResponse<Parent>> {
     const query = new URLSearchParams();
     if (params?.search) query.set('search', params.search);
     if (params?.sortBy) query.set('sortBy', params.sortBy);
     if (params?.sortDir) query.set('sortDir', params.sortDir);
-    if (params?.offset) query.set('offset', String(params.offset));
-    if (params?.limit) query.set('limit', String(params.limit));
+    if (params?.page) query.set('page', String(params.page));
+    if (params?.perPage) query.set('perPage', String(params.perPage));
     const queryString = query.toString();
     const response = await this.request<PaginatedResponse<Parent>>(`/parents${queryString ? `?${queryString}` : ''}`);
     return this.normalizePaginated(response);
@@ -376,15 +376,15 @@ class ApiClient {
     search?: string;
     sortBy?: string;
     sortDir?: string;
-    offset?: number;
-    limit?: number;
+    page?: number;
+    perPage?: number;
   }): Promise<PaginatedResponse<Household>> {
     const query = new URLSearchParams();
     if (params?.search) query.set('search', params.search);
     if (params?.sortBy) query.set('sortBy', params.sortBy);
     if (params?.sortDir) query.set('sortDir', params.sortDir);
-    if (params?.offset) query.set('offset', String(params.offset));
-    if (params?.limit) query.set('limit', String(params.limit));
+    if (params?.page) query.set('page', String(params.page));
+    if (params?.perPage) query.set('perPage', String(params.perPage));
     const queryString = query.toString();
     const response = await this.request<PaginatedResponse<Household>>(`/households${queryString ? `?${queryString}` : ''}`);
     return this.normalizePaginated(response);
@@ -432,16 +432,16 @@ class ApiClient {
     search?: string;
     sortBy?: string;
     sortDir?: string;
-    offset?: number;
-    limit?: number;
+    page?: number;
+    perPage?: number;
   }): Promise<PaginatedResponse<Member>> {
     const query = new URLSearchParams();
     if (params?.activeOnly) query.set('active', 'true');
     if (params?.search) query.set('search', params.search);
     if (params?.sortBy) query.set('sortBy', params.sortBy);
     if (params?.sortDir) query.set('sortDir', params.sortDir);
-    if (params?.offset) query.set('offset', String(params.offset));
-    if (params?.limit) query.set('limit', String(params.limit));
+    if (params?.page) query.set('page', String(params.page));
+    if (params?.perPage) query.set('perPage', String(params.perPage));
     const queryString = query.toString();
     const response = await this.request<PaginatedResponse<Member>>(`/members${queryString ? `?${queryString}` : ''}`);
     return this.normalizePaginated(response);
@@ -479,8 +479,8 @@ class ApiClient {
     search?: string;
     sortBy?: string;
     sortDir?: string;
-    offset?: number;
-    limit?: number;
+    page?: number;
+    perPage?: number;
   }): Promise<PaginatedResponse<FeeExpectation>> {
     const query = new URLSearchParams();
     if (params?.year) query.set('year', String(params.year));
@@ -491,8 +491,8 @@ class ApiClient {
     if (params?.search) query.set('search', params.search);
     if (params?.sortBy) query.set('sortBy', params.sortBy);
     if (params?.sortDir) query.set('sortDir', params.sortDir);
-    if (params?.offset) query.set('offset', String(params.offset));
-    if (params?.limit) query.set('limit', String(params.limit));
+    if (params?.page) query.set('page', String(params.page));
+    if (params?.perPage) query.set('perPage', String(params.perPage));
     const queryString = query.toString();
     const response = await this.request<PaginatedResponse<FeeExpectation>>(`/fees${queryString ? `?${queryString}` : ''}`);
     return this.normalizePaginated(response);
@@ -605,15 +605,15 @@ class ApiClient {
   }
 
   async getEmailLogs(params?: {
-    offset?: number;
-    limit?: number;
+    page?: number;
+    perPage?: number;
     emailType?: string;
     search?: string;
     sortDir?: 'asc' | 'desc';
   }): Promise<PaginatedResponse<EmailLog>> {
     const query = new URLSearchParams();
-    if (typeof params?.offset === 'number') query.set('offset', String(params.offset));
-    if (typeof params?.limit === 'number') query.set('limit', String(params.limit));
+    if (typeof params?.page === 'number') query.set('page', String(params.page));
+    if (typeof params?.perPage === 'number') query.set('perPage', String(params.perPage));
     if (params?.emailType) query.set('emailType', params.emailType);
     if (params?.search && params.search.trim()) query.set('search', params.search.trim());
     if (params?.sortDir) query.set('sortDir', params.sortDir);
@@ -687,25 +687,25 @@ class ApiClient {
     });
   }
 
-  async getImportHistory(offset?: number, limit?: number): Promise<PaginatedResponse<ImportBatch>> {
+  async getImportHistory(page?: number, perPage?: number): Promise<PaginatedResponse<ImportBatch>> {
     const query = new URLSearchParams();
-    if (offset) query.set('offset', String(offset));
-    if (limit) query.set('limit', String(limit));
+    if (page) query.set('page', String(page));
+    if (perPage) query.set('perPage', String(perPage));
     const queryString = query.toString();
     const response = await this.request<PaginatedResponse<ImportBatch>>(`/import/history${queryString ? `?${queryString}` : ''}`);
     return this.normalizePaginated(response);
   }
 
   async getUnmatchedTransactions(params?: {
-    offset?: number;
-    limit?: number;
+    page?: number;
+    perPage?: number;
     search?: string;
     sortBy?: string;
     sortDir?: string;
   }): Promise<PaginatedResponse<BankTransaction>> {
     const query = new URLSearchParams();
-    if (params?.offset) query.set('offset', String(params.offset));
-    if (params?.limit) query.set('limit', String(params.limit));
+    if (params?.page) query.set('page', String(params.page));
+    if (params?.perPage) query.set('perPage', String(params.perPage));
     if (params?.search) query.set('search', params.search);
     if (params?.sortBy) query.set('sortBy', params.sortBy);
     if (params?.sortDir) query.set('sortDir', params.sortDir);
@@ -722,15 +722,15 @@ class ApiClient {
   }
 
   async getMatchedTransactions(params?: {
-    offset?: number;
-    limit?: number;
+    page?: number;
+    perPage?: number;
     search?: string;
     sortBy?: string;
     sortDir?: string;
   }): Promise<PaginatedResponse<BankTransaction>> {
     const query = new URLSearchParams();
-    if (params?.offset) query.set('offset', String(params.offset));
-    if (params?.limit) query.set('limit', String(params.limit));
+    if (params?.page) query.set('page', String(params.page));
+    if (params?.perPage) query.set('perPage', String(params.perPage));
     if (params?.search) query.set('search', params.search);
     if (params?.sortBy) query.set('sortBy', params.sortBy);
     if (params?.sortDir) query.set('sortDir', params.sortDir);
@@ -797,10 +797,10 @@ class ApiClient {
     );
   }
 
-  async getBlacklist(offset?: number, limit?: number): Promise<PaginatedResponse<KnownIBAN>> {
+  async getBlacklist(page?: number, perPage?: number): Promise<PaginatedResponse<KnownIBAN>> {
     const query = new URLSearchParams();
-    if (offset) query.set('offset', String(offset));
-    if (limit) query.set('limit', String(limit));
+    if (page) query.set('page', String(page));
+    if (perPage) query.set('perPage', String(perPage));
     const queryString = query.toString();
     const response = await this.request<PaginatedResponse<KnownIBAN>>(`/import/blacklist${queryString ? `?${queryString}` : ''}`);
     return this.normalizePaginated(response);
@@ -812,10 +812,10 @@ class ApiClient {
     });
   }
 
-  async getTrustedIBANs(offset?: number, limit?: number): Promise<PaginatedResponse<KnownIBAN>> {
+  async getTrustedIBANs(page?: number, perPage?: number): Promise<PaginatedResponse<KnownIBAN>> {
     const query = new URLSearchParams();
-    if (offset) query.set('offset', String(offset));
-    if (limit) query.set('limit', String(limit));
+    if (page) query.set('page', String(page));
+    if (perPage) query.set('perPage', String(perPage));
     const queryString = query.toString();
     const response = await this.request<PaginatedResponse<KnownIBAN>>(`/import/trusted${queryString ? `?${queryString}` : ''}`);
     return this.normalizePaginated(response);
@@ -839,10 +839,10 @@ class ApiClient {
   }
 
   // Warnings endpoints
-  async getWarnings(offset?: number, limit?: number): Promise<PaginatedResponse<TransactionWarning>> {
+  async getWarnings(page?: number, perPage?: number): Promise<PaginatedResponse<TransactionWarning>> {
     const query = new URLSearchParams();
-    if (offset) query.set('offset', String(offset));
-    if (limit) query.set('limit', String(limit));
+    if (page) query.set('page', String(page));
+    if (perPage) query.set('perPage', String(perPage));
     const queryString = query.toString();
     const response = await this.request<PaginatedResponse<TransactionWarning>>(`/import/warnings${queryString ? `?${queryString}` : ''}`);
     return this.normalizePaginated(response);

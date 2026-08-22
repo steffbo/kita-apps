@@ -289,8 +289,8 @@ async function loadData() {
   expectationChanges.value = null;
   try {
     const [childRes, householdRes] = await Promise.all([
-      api.getChildren({ limit: 2000 }),
-      api.getHouseholds({ limit: 2000 }),
+      api.getChildren({ perPage: 2000 }),
+      api.getHouseholds({ perPage: 2000 }),
     ]);
     children.value = childRes.data;
     households.value = householdRes.data;

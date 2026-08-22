@@ -2647,10 +2647,6 @@ export interface paths {
                     page?: number;
                     /** @description Items per page */
                     perPage?: number;
-                    /** @description Offset (alternative to page/perPage) */
-                    offset?: number;
-                    /** @description Limit (alternative to page/perPage) */
-                    limit?: number;
                     /** @description Filter by email type */
                     emailType?: "REMINDER_INITIAL" | "REMINDER_FINAL" | "MEMBERSHIP_REMINDER_INITIAL" | "MEMBERSHIP_REMINDER_FINAL" | "PASSWORD_RESET";
                     /** @description Search in recipient and subject */
