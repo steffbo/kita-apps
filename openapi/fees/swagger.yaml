@@ -2150,6 +2150,9 @@ definitions:
         type: string
       isHidden:
         type: boolean
+      matchedAmount:
+        description: Total amount of this transaction already allocated to fees (only set on unmatched lists)
+        type: number
       matches:
         description: Joined fields
         items:

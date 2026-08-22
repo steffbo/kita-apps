@@ -428,6 +428,7 @@ export interface BankTransaction {
   currency: string;
   importBatchId?: string;
   importedAt: string;
+  matchedAmount?: number;
   matches?: PaymentMatch[];
 }
 

@@ -155,18 +155,27 @@ func buildOrderByClause(sortBy, sortDir string) string {
 	return fmt.Sprintf("%s %s", orderColumn, orderDirection)
 }
 
-// ListUnmatched retrieves transactions that haven't been matched to any fee.
+// listUnmatchedCondition matches transactions that are not fully allocated yet.
+// Partially allocated transactions stay listed until their remaining amount is zero.
+const listUnmatchedCondition = `bt.amount > 0 AND bt.is_hidden = false AND
+	COALESCE((SELECT SUM(pm.amount) FROM fees.payment_matches pm WHERE pm.transaction_id = bt.id), 0) < bt.amount - 0.005`
+
+// listMatchedAmountExpr computes the total amount already allocated for a transaction.
+const listMatchedAmountExpr = `COALESCE((SELECT SUM(pm.amount) FROM fees.payment_matches pm WHERE pm.transaction_id = bt.id), 0)`
+
+// ListUnmatched retrieves transactions that haven't been fully matched to fees.
+// Transactions with partial allocations are included (with their matched amount),
+// so the remainder can still be assigned.
 func (r *PostgresTransactionRepository) ListUnmatched(ctx context.Context, search, sortBy, sortDir string, offset, limit int) ([]domain.BankTransaction, int64, error) {
 	var transactions []domain.BankTransaction
 	var total int64
 
-	whereClause, args, argIdx := buildSearchFilter("pm.id IS NULL AND bt.amount > 0 AND bt.is_hidden = false", search, 1)
+	whereClause, args, argIdx := buildSearchFilter(listUnmatchedCondition, search, 1)
 
 	// Count total unmatched with search filter
 	countQuery := fmt.Sprintf(`
 		SELECT COUNT(*)
 		FROM fees.bank_transactions bt
-		LEFT JOIN fees.payment_matches pm ON bt.id = pm.transaction_id
 		WHERE %s
 	`, whereClause)
 	err := r.db.GetContext(ctx, &total, countQuery, args...)
@@ -180,13 +189,13 @@ func (r *PostgresTransactionRepository) ListUnmatched(ctx context.Context, searc
 	selectQuery := fmt.Sprintf(`
 		SELECT bt.id, bt.booking_date, bt.value_date, bt.payer_name, bt.payer_iban,
 		       bt.description, bt.amount, bt.currency, bt.import_batch_id, bt.imported_at,
-		       bt.is_hidden, bt.hidden_at, bt.hidden_by
+		       bt.is_hidden, bt.hidden_at, bt.hidden_by,
+		       %s AS matched_amount
 		FROM fees.bank_transactions bt
-		LEFT JOIN fees.payment_matches pm ON bt.id = pm.transaction_id
 		WHERE %s
 		ORDER BY %s
 		LIMIT $%d OFFSET $%d
-	`, whereClause, orderBy, argIdx, argIdx+1)
+	`, listMatchedAmountExpr, whereClause, orderBy, argIdx, argIdx+1)
 	args = append(args, limit, offset)
 
 	err = r.db.SelectContext(ctx, &transactions, selectQuery, args...)

@@ -43,6 +43,15 @@ interface TxRow {
   warnings: TransactionWarning[];
 }
 
+function isPartiallyAllocated(row: TxRow): boolean {
+  return (row.tx.matchedAmount ?? 0) > 0.005 && row.tx.amount - (row.tx.matchedAmount ?? 0) > 0.005;
+}
+
+function getTxRemaining(tx: BankTransaction): number {
+  const remaining = tx.amount - (tx.matchedAmount ?? 0);
+  return remaining > 0 ? remaining : 0;
+}
+
 const route = useRoute();
 const activeFilter = ref<StatusFilter>('offen');
 
@@ -1191,7 +1200,14 @@ function getWarningTypeColor(type: string): string {
                 <td class="px-4 py-3">
                   <div class="flex flex-col items-start gap-1.5">
                     <span
-                      v-if="row.matched"
+                      v-if="isPartiallyAllocated(row)"
+                      class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700"
+                    >
+                      <AlertTriangle class="h-3 w-3" />
+                      Teilweise zugeordnet · Rest {{ formatCurrency(getTxRemaining(row.tx)) }}
+                    </span>
+                    <span
+                      v-else-if="row.matched"
                       class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700"
                     >
                       <CheckCircle class="h-3 w-3" />

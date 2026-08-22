@@ -744,6 +744,11 @@ function getFeeRemainingAmount(fee: FeeExpectation): number {
   return remaining > 0 ? remaining : 0;
 }
 
+function getTxRemainingAmount(tx: BankTransaction): number {
+  const remaining = tx.amount - (tx.matchedAmount ?? 0);
+  return remaining > 0.005 ? remaining : 0;
+}
+
 function getReminderCounts(reminders: FeeExpectation[]) {
   const total = reminders.length;
   const paid = reminders.filter(r => r.isPaid).length;
@@ -777,7 +782,9 @@ const allocationRemaining = computed(() => {
 
 function clampAllocationAmount(amount: number, fee: FeeExpectation): number {
   const maxFee = getFeeRemainingAmount(fee);
-  const maxTx = allocationSuggestion.value?.transaction.amount ?? 0;
+  const maxTx = allocationSuggestion.value
+    ? getTxRemainingAmount(allocationSuggestion.value.transaction)
+    : 0;
   if (amount <= 0) return 0;
   return Math.min(amount, maxFee, maxTx);
 }
@@ -802,7 +809,7 @@ function assignRemainingToFee(feeId: string): void {
 function openAllocationModal(suggestion: MatchSuggestion): void {
   allocationSuggestion.value = suggestion;
   const rows = openFees.value.map(fee => ({ fee, amount: 0 }));
-  let remaining = suggestion.transaction.amount;
+  let remaining = getTxRemainingAmount(suggestion.transaction);
 
   const applyAllocation = (feeId: string, desiredAmount: number) => {
     const row = rows.find(item => item.fee.id === feeId);
@@ -1595,6 +1602,13 @@ async function createReminder() {
                 </div>
                 <div class="text-right space-y-2">
                   <p class="font-semibold text-blue-900">{{ formatCurrency(suggestion.transaction.amount) }}</p>
+                  <p
+                    v-if="(suggestion.transaction.matchedAmount ?? 0) > 0"
+                    class="text-xs text-amber-700"
+                  >
+                    Bereits zugeordnet: {{ formatCurrency(suggestion.transaction.matchedAmount ?? 0) }}
+                    · Rest: {{ formatCurrency(getTxRemainingAmount(suggestion.transaction)) }}
+                  </p>
                   <button
                     @click="openAllocationModal(suggestion)"
                     class="inline-flex items-center gap-1 px-2 py-1 text-xs text-blue-700 bg-white hover:bg-blue-100 border border-blue-200 rounded transition-colors"
@@ -2403,6 +2417,10 @@ async function createReminder() {
             <span class="text-gray-500">Betrag</span>
             <span class="font-semibold text-blue-700">{{ formatCurrency(allocationSuggestion.transaction.amount) }}</span>
           </div>
+          <div v-if="(allocationSuggestion.transaction.matchedAmount ?? 0) > 0" class="flex justify-between text-sm">
+            <span class="text-gray-500">Bereits zugeordnet</span>
+            <span>{{ formatCurrency(allocationSuggestion.transaction.matchedAmount ?? 0) }}</span>
+          </div>
           <div v-if="allocationSuggestion.transaction.description" class="text-xs text-gray-600 mt-2 break-words">
             {{ allocationSuggestion.transaction.description }}
           </div>
@@ -2470,8 +2488,8 @@ async function createReminder() {
               {{ formatCurrency(allocationRemaining) }}
             </span>
           </div>
-          <p v-if="allocationRemaining > 0.01" class="text-xs text-amber-700">
-            Ein Restbetrag wird als Überzahlung markiert.
+          <p v-if="allocationRemaining > 0.01" class="text-xs text-gray-500">
+            Der Restbetrag bleibt offen und kann später einem anderen Beitrag oder Kind zugeordnet werden.
           </p>
           <p v-if="allocationError" class="text-sm text-red-600">
             {{ allocationError }}

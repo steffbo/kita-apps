@@ -5,6 +5,15 @@ Basics (ports, commands, layout) live in `AGENTS.md`.
 
 ## Backend (`backend-fees`)
 
+### Partial and sibling-split transaction allocation (2026-08-22)
+
+- One bank transaction can now be allocated across multiple children (e.g. "Essensgeld - Henri 12011 . Niels 12012") and in multiple steps until its amount is fully allocated. Previously allocation was one-shot, single-child, and any match made the transaction vanish from all unmatched lists.
+- `ListUnmatched` (`internal/repository/transaction_repository.go`) now filters on `SUM(payment_matches.amount) < bt.amount` instead of "has no match", so partially allocated transactions stay listed with a new joined `matched_amount` field (`domain.BankTransaction.MatchedAmount`). Fully allocated transactions drop out of the unmatched lists automatically.
+- `ImportService.AllocateTransaction` (`internal/service/import_service.go`) no longer rejects transactions that already have matches; it validates `existing + new <= tx.Amount` and rejects duplicate (transaction, expectation) pairs. The single-child rule was removed — allocations may target fees of different children; the IBAN is only auto-linked to a child when all allocations of one call belong to a single child.
+- The OVERPAYMENT warning on unallocated remainder was removed: the remainder keeps the transaction visible in the unmatched lists instead, which is the actionable signal now.
+- Frontend: `ChildDetailPage` caps allocation inputs at the transaction's remaining amount, shows "Bereits zugeordnet / Rest" for partial transactions, and explains that a remainder stays open; `ImportPage` shows an orange "Teilweise zugeordnet · Rest X" badge.
+- OpenAPI `domain.BankTransaction` gained optional `matchedAmount`. No migration needed — `payment_matches.amount` (migration 000017) already carried per-match amounts.
+
 ### Monthly fees respect enrollment periods (2026-08-02)
 
 - `FeeService.Generate` selects monthly fee candidates independently of the current `is_active` flag and checks whether each child's enrollment overlaps the billed month.

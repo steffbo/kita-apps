@@ -24,6 +24,8 @@ type BankTransaction struct {
 
 	// Joined fields
 	Matches []PaymentMatch `json:"matches,omitempty" db:"-"`
+	// MatchedAmount is the total amount of this transaction already allocated to fees.
+	MatchedAmount *float64 `json:"matchedAmount,omitempty" db:"matched_amount"`
 }
 
 // IsIncoming returns true if the transaction is an incoming payment.

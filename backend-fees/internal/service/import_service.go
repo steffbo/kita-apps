@@ -937,6 +937,9 @@ func (s *ImportService) HideTransaction(ctx context.Context, transactionID uuid.
 }
 
 // AllocateTransaction allocates a transaction across multiple fee expectations.
+// Allocations may target fees of different children (e.g. a shared sibling payment)
+// and can be repeated incrementally until the full transaction amount is allocated.
+// The unallocated remainder stays visible in the unmatched lists.
 func (s *ImportService) AllocateTransaction(ctx context.Context, transactionID, userID uuid.UUID, allocations []AllocationInput) (*AllocateResult, error) {
 	const epsilon = 0.01
 
@@ -949,18 +952,22 @@ func (s *ImportService) AllocateTransaction(ctx context.Context, transactionID, 
 		return nil, ErrNotFound
 	}
 
-	// Ensure transaction has no existing matches
-	exists, err := s.matchRepo.ExistsForTransaction(ctx, transactionID)
+	// Existing matches on this transaction stay untouched; further allocations are
+	// allowed as long as the total stays within the transaction amount.
+	existingMatches, err := s.matchRepo.GetByTransactionIDs(ctx, []uuid.UUID{transactionID})
 	if err != nil {
 		return nil, err
 	}
-	if exists {
-		return nil, ErrInvalidInput
+	existingByFee := make(map[uuid.UUID]float64)
+	var existingTotal float64
+	for _, m := range existingMatches[transactionID] {
+		existingByFee[m.ExpectationID] += m.Amount
+		existingTotal += m.Amount
 	}
 
-	var childID *uuid.UUID
+	requestedByFee := make(map[uuid.UUID]float64, len(allocations))
+	childCount := make(map[uuid.UUID]int)
 	var totalAllocated float64
-	fees := make(map[uuid.UUID]*domain.FeeExpectation, len(allocations))
 
 	for _, alloc := range allocations {
 		if alloc.Amount <= 0 {
@@ -971,14 +978,16 @@ func (s *ImportService) AllocateTransaction(ctx context.Context, transactionID, 
 		if err != nil {
 			return nil, ErrNotFound
 		}
-		fees[alloc.ExpectationID] = fee
+		childCount[fee.ChildID]++
 
-		if childID == nil {
-			id := fee.ChildID
-			childID = &id
-		} else if fee.ChildID != *childID {
+		// A fee can only receive one match per transaction (DB unique constraint).
+		if _, alreadyMatched := existingByFee[alloc.ExpectationID]; alreadyMatched {
 			return nil, ErrInvalidInput
 		}
+		if _, duplicate := requestedByFee[alloc.ExpectationID]; duplicate {
+			return nil, ErrInvalidInput
+		}
+		requestedByFee[alloc.ExpectationID] = alloc.Amount
 
 		matchedAmount, err := s.matchRepo.GetTotalMatchedAmount(ctx, fee.ID)
 		if err != nil {
@@ -995,18 +1004,18 @@ func (s *ImportService) AllocateTransaction(ctx context.Context, transactionID, 
 		totalAllocated += alloc.Amount
 	}
 
-	if totalAllocated-tx.Amount > epsilon {
+	if existingTotal+totalAllocated-tx.Amount > epsilon {
 		return nil, ErrInvalidInput
 	}
 
-	overpayment := tx.Amount - totalAllocated
+	overpayment := tx.Amount - existingTotal - totalAllocated
 	if overpayment < 0 {
 		overpayment = 0
 	}
 
 	result := &AllocateResult{
 		TransactionID:      transactionID,
-		TotalAllocated:     totalAllocated,
+		TotalAllocated:     existingTotal + totalAllocated,
 		Overpayment:        overpayment,
 		AllocationsCreated: 0,
 	}
@@ -1028,7 +1037,15 @@ func (s *ImportService) AllocateTransaction(ctx context.Context, transactionID, 
 		result.AllocationsCreated++
 	}
 
-	// Post-match actions
+	// Post-match actions. Only link the IBAN to a child when all allocations of this
+	// call belong to a single child; shared payments stay unlinked.
+	var childID *uuid.UUID
+	if len(childCount) == 1 {
+		for id := range childCount {
+			id := id
+			childID = &id
+		}
+	}
 	s.markIBANAsTrusted(ctx, transactionID, childID)
 	if s.warningRepo != nil {
 		s.warningRepo.ResolveByTransactionID(ctx, transactionID, domain.ResolutionTypeMatched, "Zahlung wurde manuell verteilt")
@@ -1037,20 +1054,8 @@ func (s *ImportService) AllocateTransaction(ctx context.Context, transactionID, 
 		s.checkLatePaymentAndCreateWarning(ctx, transactionID, alloc.ExpectationID)
 	}
 
-	// Create overpayment warning if any remainder exists
-	if result.Overpayment > epsilon && s.warningRepo != nil && childID != nil {
-		warning := &domain.TransactionWarning{
-			ID:             uuid.New(),
-			TransactionID:  tx.ID,
-			WarningType:    domain.WarningTypeOverpayment,
-			Message:        fmt.Sprintf("Überzahlung: %.2f EUR nicht zugeordnet", result.Overpayment),
-			ExpectedAmount: &totalAllocated,
-			ActualAmount:   &tx.Amount,
-			ChildID:        childID,
-			CreatedAt:      time.Now(),
-		}
-		_ = s.warningRepo.Create(ctx, warning)
-	}
+	// No overpayment warning here: an unallocated remainder keeps the transaction in
+	// the unmatched lists so the rest can be assigned later (e.g. to a sibling).
 
 	return result, nil
 }
