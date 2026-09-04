@@ -5,6 +5,17 @@ Basics (ports, commands, layout) live in `AGENTS.md`.
 
 ## Backend (`backend-fees`)
 
+### Vereinsmitglieder-Nachtrag aus Vereinsliste (2026-09-04)
+
+- Die vollständige Vereinsmitgliederliste des Vereins (33 Einträge inkl. Zuordnung „Vereinsmitglied → Kind/Kinder") wurde über die API nachgetragen. Weg war je Eintrag `POST /parents/{id}/member` (`ParentService.CreateMemberFromParent`): Mitglied erbt Kontaktdaten und Haushalt des gewählten Elternteils, `membership_start` = Eintrittsdatum des ältesten verknüpften Kindes, `households.membership_parent_id`/`membership_assignment_status=CONFIRMED` gesetzt.
+- Neuer Nummernkreis M0009–M0041, erzeugt in Reihenfolge des ältesten Kindeintrittsdatums (Gleichstand alphabetisch). Bestand M0001–M0008 blieb unangetastet, außer: M0001 `firstName` „Karo" → „Karola" (Vereinsliste). Insgesamt 41 aktive Mitglieder.
+- Mitgliederauswahl pro Familie folgte der Vereinsliste, bei den fünf vom Verein nachgereichten Familien: Gabriel→Nikolas, Waesch→Aileen Damer-Waesch, Omachil→Ewelina, Schulz→Anja, Kelle→Armin Schürer.
+- Startdatum-Anomalien mit Service-Default belassen (ältestes Kind inkl. ausgetretener Geschwister): Melanie Zeck M0009 start 2020-07-01 (Maximilian, ausgetreten; Luca trat 2025-09-15 ein), Sandor Akszenovics M0018 start 2023-08-15 (Max, ausgetreten; Zoe 2024-08-20). Fink-Haushalt hat zwei Mitglieder (Pierre M0037, Anika M0039); `membership_parent_id` endet bei Anika.
+- Namensabweichungen bewusst in DB-Schreibweise übernommen: „Annabell" Dörksen (Liste: Annabelle), „Anika" Fink (Liste: Annika), Kind „Leon Martin Fink" (Liste: Leon Marvin). Kein Datenfix am Kind.
+- Nicht auf der Vereinsliste und deshalb unangetastet: M0004 Sarah Thränhardt, M0006 Christin Hebert, M0008 Andrea Fritze.
+- Abdeckung nach Import: ohne Vereinsmitglied-Elternteil bleiben die Familien Strauss (Edgar), Kolenda (Clara), Jäckel (Alma), Babić (Alexander) — Mitgliedschaft vorerst unbekannt.
+- Keine MEMBERSHIP-Gebühren für die neuen Mitglieder generiert; läuft über den normalen Jahresgenerierungsprozess.
+
 ### Pagination collapsed to page/perPage (2026-08-22)
 
 - `request.GetPagination` accepted two query styles (`offset/limit` took precedence over `page/perPage`). The `offset/limit` branch is removed; all paginated endpoints now take `page`/`perPage` only (defaults 1/20, perPage capped at 100). The response envelope (`data`, `total`, `page`, `perPage`, `totalPages`) is unchanged.
