@@ -87,6 +87,8 @@ ssh -i ~/.ssh/PVE_id_ed25519 stefan@192.168.188.207 \
 
 Qualify schemas explicitly (`public.*`, `fees.*`, `portal.*`). `backend-fees` auth is still the single static admin identity from `USER_NAME` / `USER_PASSWORD`; there is no agent service account (`fees.users` was dropped in migration `000020`).
 
+Note on the kita stack `.env` (`/srv/homelab/stacks/infra-dev/apps/kita/.env` on infra-dev): values with special characters (e.g. `USER_PASSWORD`) are wrapped in single quotes. Docker Compose strips the quotes when passing them into containers, so login works — but when reading the file manually (scripts, shell parsing), strip surrounding `'` yourself or authentication will fail.
+
 ## Repository Skills (`.agents/skills/`)
 
 - `kita-fees-einstufung`: case-neutral Einstufung workflow (evidence → annual income → contribution → explanation → authorized follow-ups). Uses current code + OpenAPI as the rules source.
