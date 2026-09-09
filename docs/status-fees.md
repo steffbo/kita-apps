@@ -92,6 +92,11 @@ WHERE c.household_id IS NOT NULL
 
 ## Frontend (`frontend/apps/beitraege`)
 
+### Kinder-Spalte in der Mitgliederliste (2026-09-09)
+
+- `MembersPage` zeigt pro Mitglied die Kinder seines Haushalts in einer eigenen Spalte (komma-separierte Vor- und Nachnamen, „-" ohne Haushaltsverknüpfung). Hintergrund: die Vereinsmitglieder wurden aus der Vereinsliste mit Haushaltszuordnung importiert, die Zuordnung war in der Liste aber nicht sichtbar.
+- Umsetzung rein im Frontend ohne Backend-/Spec-Änderung: nach dem Mitglieder-Laden werden für die DISTINCT `householdId`s der aktuellen Seite die Haushalte über `GET /households/{id}` nachgeladen (`Promise.allSettled`, Fehlschläge → leere Liste), gecacht in `childNamesByHousehold`. Bewusst N-Requests pro Seite statt Members-Endpoint-Anreicherung, um swag-Regeneration zu vermeiden; bei Wachstum des Per-Page-Limits den Members-List-Query direkt mit Kindnamen anreichern.
+
 ### API types derived from the generated schema; race guards on list pages (2026-08-22)
 
 - `src/api/types.ts` no longer hand-maintains ~100 response interfaces: response shapes now derive from `src/api/schema.d.ts` via a recursive `DeepStrict` helper, so field names/types can no longer drift from `openapi/fees/openapi3.yaml`. Fields that are genuinely sparse (`omitempty`, joined values) are re-loosened explicitly; request payloads stay hand-written because the backend validates them manually. Exception: the child-import preview/row family stays plain-hand-written — vue-tsc resolves `Omit(DeepStrict)+intersection` compositions differently inside SFCs and wrongly required re-added optional fields.

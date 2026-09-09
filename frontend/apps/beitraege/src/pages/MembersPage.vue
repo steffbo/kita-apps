@@ -34,6 +34,9 @@ const total = ref(0);
 const isLoading = ref(true);
 const error = ref<string | null>(null);
 
+// Children of the household linked to each member (for the Kinder column)
+const childNamesByHousehold = ref<Record<string, string[]>>({});
+
 // Filters
 const searchQuery = ref('');
 const showInactive = ref(false);
@@ -108,6 +111,8 @@ async function loadMembers() {
     // Clear selection if items no longer exist
     const currentIds = new Set(response.data.map(m => m.id));
     selectedIds.value = new Set([...selectedIds.value].filter(id => currentIds.has(id)));
+
+    loadChildrenNames(response.data);
   } catch (e) {
     if (seq !== loadMembersSeq) return;
     error.value = e instanceof Error ? e.message : 'Fehler beim Laden';
@@ -171,6 +176,32 @@ onUnmounted(() => {
 // Helpers
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('de-DE');
+}
+
+async function loadChildrenNames(memberList: Member[]) {
+  const ids = [
+    ...new Set(
+      memberList
+        .map(m => m.householdId)
+        .filter((id): id is string => !!id && !childNamesByHousehold.value[id])
+    ),
+  ];
+  if (ids.length === 0) return;
+  const results = await Promise.allSettled(ids.map(id => api.getHousehold(id)));
+  const next = { ...childNamesByHousehold.value };
+  ids.forEach((id, i) => {
+    const result = results[i];
+    next[id] =
+      result.status === 'fulfilled'
+        ? (result.value.children ?? []).map(c => `${c.firstName} ${c.lastName}`)
+        : [];
+  });
+  childNamesByHousehold.value = next;
+}
+
+function childNamesFor(member: Member): string[] {
+  if (!member.householdId) return [];
+  return childNamesByHousehold.value[member.householdId] ?? [];
 }
 
 // Sorting
@@ -440,6 +471,13 @@ const visiblePages = computed(() => {
                   <component :is="getSortIcon('firstName')" class="h-4 w-4" />
                 </button>
               </th>
+              <!-- Children -->
+              <th class="px-4 py-3 font-medium">
+                <div class="flex items-center gap-1">
+                  <User class="h-4 w-4" />
+                  Kinder
+                </div>
+              </th>
               <!-- Email -->
               <th class="px-4 py-3 font-medium">
                 <button
@@ -498,6 +536,13 @@ const visiblePages = computed(() => {
               <td class="px-4 py-3 font-medium">{{ member.lastName }}</td>
               <!-- First Name -->
               <td class="px-4 py-3">{{ member.firstName }}</td>
+              <!-- Children -->
+              <td class="px-4 py-3 text-gray-600">
+                <span v-if="childNamesFor(member).length > 0" class="truncate">
+                  {{ childNamesFor(member).join(', ') }}
+                </span>
+                <span v-else class="text-gray-400">-</span>
+              </td>
               <!-- Email -->
               <td class="px-4 py-3 text-gray-600">
                 <span v-if="member.email" class="truncate">{{ member.email }}</span>
@@ -523,7 +568,7 @@ const visiblePages = computed(() => {
               </td>
             </tr>
             <tr v-if="members.length === 0">
-              <td colspan="8" class="px-4 py-8 text-center text-gray-500">
+              <td colspan="9" class="px-4 py-8 text-center text-gray-500">
                 Keine Mitglieder gefunden
               </td>
             </tr>
