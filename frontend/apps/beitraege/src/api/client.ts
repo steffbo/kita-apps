@@ -58,6 +58,7 @@ import type {
   ReminderRunBody,
   StichtagsmeldungStats,
   StichtagsmeldungReport,
+  MemberCountAsOf,
   U3ChildDetail,
   Einstufung,
   CreateEinstufungRequest,
@@ -449,6 +450,11 @@ class ApiClient {
 
   async getMember(id: string): Promise<Member> {
     return this.request<Member>(`/members/${id}`);
+  }
+
+  async getMemberCountAsOf(asOf?: string): Promise<MemberCountAsOf> {
+    const query = asOf ? `?asOf=${encodeURIComponent(asOf)}` : '';
+    return this.request<MemberCountAsOf>(`/members/count${query}`);
   }
 
   async createMember(data: CreateMemberRequest): Promise<Member> {

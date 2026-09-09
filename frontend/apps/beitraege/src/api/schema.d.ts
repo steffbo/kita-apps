@@ -5498,6 +5498,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/members/count": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Count members at a reference date
+         * @description Number of members whose membership period covers the given date (asOf), including already inactive members. Defaults to today.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Reference date (YYYY-MM-DD), defaults to today */
+                    asOf?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Member count at reference date */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MemberCountAsOf"];
+                    };
+                };
+                /** @description Invalid asOf date */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/parents": {
         parameters: {
             query?: never;
@@ -6868,6 +6937,17 @@ export interface components {
             street?: string;
             /** @example 42 */
             streetNo?: string;
+        };
+        /** @description Member count at a reference date, including inactive members */
+        MemberCountAsOf: {
+            /** @example 40 */
+            active?: number;
+            /** @example 2026-09-09 */
+            asOf?: string;
+            /** @example 5 */
+            inactive?: number;
+            /** @example 45 */
+            total?: number;
         };
         /** @description Paginated list of members */
         MemberList: {

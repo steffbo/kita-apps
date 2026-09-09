@@ -118,6 +118,7 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 			r.Route("/members", func(r chi.Router) {
 				r.Get("/", handlers.Member.List)
 				r.Post("/", handlers.Member.Create)
+				r.Get("/count", handlers.Member.CountAsOf)
 				r.Get("/{id}", handlers.Member.Get)
 				r.Put("/{id}", handlers.Member.Update)
 				r.Delete("/{id}", handlers.Member.Delete)

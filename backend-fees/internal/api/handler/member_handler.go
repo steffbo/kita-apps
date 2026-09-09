@@ -101,6 +101,56 @@ func (h *MemberHandler) List(w http.ResponseWriter, r *http.Request) {
 	response.Paginated(w, members, total, pagination.Page, pagination.PerPage)
 }
 
+// MemberCountAsOfResponse represents the member count at a reference date
+// @Description Member count at a reference date, including inactive members
+type MemberCountAsOfResponse struct {
+	AsOf     string `json:"asOf" example:"2026-09-09"`
+	Total    int    `json:"total" example:"45"`
+	Active   int    `json:"active" example:"40"`
+	Inactive int    `json:"inactive" example:"5"`
+} //@name MemberCountAsOf
+
+// CountAsOf handles GET /members/count
+// @Summary Count members at a reference date
+// @Description Number of members whose membership period covers the given date (asOf), including already inactive members. Defaults to today.
+// @Tags Members
+// @Produce json
+// @Security BearerAuth
+// @Param asOf query string false "Reference date (YYYY-MM-DD), defaults to today"
+// @Success 200 {object} MemberCountAsOfResponse "Member count at reference date"
+// @Failure 400 {object} response.ErrorBody "Invalid asOf date"
+// @Failure 401 {object} response.ErrorBody "Not authenticated"
+// @Failure 500 {object} response.ErrorBody "Internal server error"
+// @Router /members/count [get]
+func (h *MemberHandler) CountAsOf(w http.ResponseWriter, r *http.Request) {
+	asOf := time.Now()
+	if asOfStr := request.GetQueryString(r, "asOf", ""); asOfStr != "" {
+		parsed, err := time.Parse("2006-01-02", asOfStr)
+		if err != nil {
+			response.BadRequest(w, "invalid asOf format (use YYYY-MM-DD)")
+			return
+		}
+		asOf = parsed
+	}
+
+	members, err := h.memberService.ListActiveAt(r.Context(), asOf)
+	if err != nil {
+		response.InternalError(w, "failed to count members")
+		return
+	}
+
+	resp := MemberCountAsOfResponse{AsOf: asOf.Format("2006-01-02"), Total: len(members)}
+	for _, m := range members {
+		if m.IsActive {
+			resp.Active++
+		} else {
+			resp.Inactive++
+		}
+	}
+
+	response.Success(w, resp)
+}
+
 // Create handles POST /members
 // @Summary Create a new member
 // @Description Create a new membership record

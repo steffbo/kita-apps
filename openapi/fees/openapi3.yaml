@@ -3633,6 +3633,46 @@ paths:
       summary: Update a member
       tags:
         - Members
+  /members/count:
+    get:
+      description: Number of members whose membership period covers the given date
+        (asOf), including already inactive members. Defaults to today.
+      parameters:
+        - description: Reference date (YYYY-MM-DD), defaults to today
+          in: query
+          name: asOf
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Member count at reference date
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MemberCountAsOf"
+        "400":
+          description: Invalid asOf date
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Count members at a reference date
+      tags:
+        - Members
   /parents:
     get:
       description: Get a paginated list of parents with optional search and sorting
@@ -5211,6 +5251,22 @@ components:
         streetNo:
           example: "42"
           type: string
+      type: object
+    MemberCountAsOf:
+      description: Member count at a reference date, including inactive members
+      properties:
+        active:
+          example: 40
+          type: integer
+        asOf:
+          example: 2026-09-09
+          type: string
+        inactive:
+          example: 5
+          type: integer
+        total:
+          example: 45
+          type: integer
       type: object
     MemberList:
       description: Paginated list of members

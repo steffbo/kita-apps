@@ -3,7 +3,7 @@ import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { api } from '@/api';
 import { useAuthStore } from '@/stores/auth';
-import type { Member, CreateMemberRequest } from '@/api/types';
+import type { Member, CreateMemberRequest, MemberCountAsOf } from '@/api/types';
 import {
   Plus,
   Search,
@@ -13,6 +13,7 @@ import {
   Mail,
   Phone,
   Calendar,
+  CalendarClock,
   X,
   Check,
   AlertTriangle,
@@ -68,6 +69,13 @@ const showDeactivateDialog = ref(false);
 const showDeleteDialog = ref(false);
 const isBulkActionLoading = ref(false);
 const bulkActionError = ref<string | null>(null);
+
+// Stichtagsreport (member count at reference date)
+const showStichtagModal = ref(false);
+const stichtagDate = ref(new Date().toISOString().slice(0, 10));
+const stichtagData = ref<MemberCountAsOf | null>(null);
+const isLoadingStichtag = ref(false);
+const stichtagError = ref<string | null>(null);
 
 // Create form
 const createForm = ref<CreateMemberRequest>({
@@ -162,6 +170,7 @@ function handleKeydown(e: KeyboardEvent) {
     if (showDeleteDialog.value) showDeleteDialog.value = false;
     else if (showDeactivateDialog.value) showDeactivateDialog.value = false;
     else if (showCreateDialog.value) showCreateDialog.value = false;
+    else if (showStichtagModal.value) showStichtagModal.value = false;
   }
 }
 
@@ -312,6 +321,30 @@ async function handleBulkDelete() {
   }
 }
 
+// Stichtagsreport
+async function openStichtagModal() {
+  showStichtagModal.value = true;
+  stichtagDate.value = new Date().toISOString().slice(0, 10);
+  await loadStichtagCount();
+}
+
+async function loadStichtagCount() {
+  isLoadingStichtag.value = true;
+  stichtagError.value = null;
+  try {
+    stichtagData.value = await api.getMemberCountAsOf(stichtagDate.value);
+  } catch (e) {
+    stichtagError.value = e instanceof Error ? e.message : 'Fehler beim Laden';
+  } finally {
+    isLoadingStichtag.value = false;
+  }
+}
+
+function resetStichtagToToday() {
+  stichtagDate.value = new Date().toISOString().slice(0, 10);
+  loadStichtagCount();
+}
+
 // Pagination display helpers
 const visiblePages = computed(() => {
   const pages: (number | '...')[] = [];
@@ -345,13 +378,22 @@ const visiblePages = computed(() => {
         <h1 class="text-2xl font-bold text-gray-900">Vereinsmitglieder</h1>
         <p class="text-gray-600 mt-1">{{ total }} Mitglieder registriert</p>
       </div>
-      <button
-        @click="showCreateDialog = true"
-        class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
-      >
-        <Plus class="h-4 w-4" />
-        Mitglied hinzufügen
-      </button>
+      <div class="flex items-center gap-2">
+        <button
+          @click="openStichtagModal"
+          class="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 bg-white rounded-lg hover:bg-gray-50 transition-colors"
+        >
+          <CalendarClock class="h-4 w-4" />
+          Stichtagsreport
+        </button>
+        <button
+          @click="showCreateDialog = true"
+          class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+        >
+          <Plus class="h-4 w-4" />
+          Mitglied hinzufügen
+        </button>
+      </div>
     </div>
 
     <!-- Filters -->
@@ -818,5 +860,87 @@ const visiblePages = computed(() => {
         </div>
       </div>
     </div>
+
+    <!-- Stichtagsreport Modal -->
+    <Teleport to="body">
+      <div
+        v-if="showStichtagModal"
+        class="fixed inset-0 z-50 flex items-center justify-center p-4"
+      >
+        <!-- Backdrop -->
+        <div
+          class="absolute inset-0 bg-black/50"
+          @click="showStichtagModal = false"
+        />
+
+        <!-- Modal -->
+        <div class="relative bg-white rounded-xl shadow-xl w-full max-w-2xl">
+          <!-- Header -->
+          <div class="flex items-center justify-between p-6 border-b">
+            <div>
+              <h2 class="text-lg font-semibold text-gray-900">Mitglieder-Stichtagsreport</h2>
+              <p class="text-sm text-gray-500 mt-0.5">
+                Anzahl der Vereinsmitglieder zum Stichtag, inklusive bereits inaktiver Mitglieder
+              </p>
+            </div>
+            <button
+              @click="showStichtagModal = false"
+              class="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"
+            >
+              <X class="h-5 w-5" />
+            </button>
+          </div>
+
+          <!-- Content -->
+          <div class="p-6">
+            <div class="mb-6">
+              <label for="member-count-date" class="block text-sm font-medium text-gray-700 mb-2">Stichtag</label>
+              <div class="flex gap-2">
+                <input
+                  id="member-count-date"
+                  v-model="stichtagDate"
+                  type="date"
+                  class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                  @change="loadStichtagCount"
+                />
+                <button
+                  @click="resetStichtagToToday"
+                  class="px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors whitespace-nowrap"
+                >
+                  Heute
+                </button>
+              </div>
+            </div>
+
+            <div v-if="isLoadingStichtag" class="flex items-center justify-center py-8">
+              <Loader2 class="h-6 w-6 animate-spin text-primary" />
+            </div>
+
+            <div v-else-if="stichtagError" class="bg-red-50 border border-red-200 rounded-lg p-4">
+              <p class="text-red-600">{{ stichtagError }}</p>
+              <button @click="loadStichtagCount" class="mt-2 text-sm text-red-700 underline">
+                Erneut versuchen
+              </button>
+            </div>
+
+            <div v-else-if="stichtagData" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div class="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+                <p class="text-sm text-emerald-700 font-medium">Mitglieder am Stichtag</p>
+                <p class="text-2xl font-bold text-emerald-900 mt-1">{{ stichtagData.total }}</p>
+                <p class="text-xs text-emerald-700 mt-1">am {{ formatDate(stichtagData.asOf) }}</p>
+              </div>
+              <div class="rounded-lg border border-sky-200 bg-sky-50 p-4">
+                <p class="text-sm text-sky-700 font-medium">Davon aktuell aktiv</p>
+                <p class="text-2xl font-bold text-sky-900 mt-1">{{ stichtagData.active }}</p>
+              </div>
+              <div class="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                <p class="text-sm text-amber-700 font-medium">Davon inaktiv</p>
+                <p class="text-2xl font-bold text-amber-900 mt-1">{{ stichtagData.inactive }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </Teleport>
   </div>
 </template>

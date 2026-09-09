@@ -551,6 +551,7 @@ export type ChildLedger = Loose<DeepStrict<Schema['ChildLedger']>, 'child' | 'en
 
 // ── Stichtagsmeldung ─────────────────────────────────────────────────────────
 export type StichtagsmeldungStats = DeepStrict<Schema['StichtagsmeldungStats']>;
+export type MemberCountAsOf = DeepStrict<Schema['MemberCountAsOf']>;
 export type StichtagsmeldungReport = DeepStrict<Schema['StichtagsmeldungReport']>;
 export type U3IncomeBreakdown = DeepStrict<Schema['U3IncomeBreakdown']>;
 export type CareHoursBreakdownItem = Omit<

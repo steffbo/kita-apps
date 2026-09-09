@@ -92,6 +92,12 @@ WHERE c.household_id IS NOT NULL
 
 ## Frontend (`frontend/apps/beitraege`)
 
+### Mitglieder-Stichtagsreport auf der Mitgliederseite (2026-09-09)
+
+- `MembersPage` hat einen „Stichtagsreport"-Button im Header, der ein Modal im Stil des Dashboard-Stichtagsreports öffnet: Date-Input (Default heute) plus „Heute"-Button und drei Karten — Mitglieder am Stichtag, davon aktuell aktiv, davon inaktiv.
+- Neuer Backend-Endpoint `GET /members/count?asOf=YYYY-MM-DD` (Handler `MemberHandler.CountAsOf`): zählt Mitglieder, deren Mitgliedschaftszeitraum (`membership_start` ≤ asOf und `membership_end` ≥ asOf bzw. NULL) den Stichtag umfasst — inklusive `is_active = false`-Mitgliedern, da Deaktivieren den Datensatz erhält. `asOf` fehlt → heute; Antworten: `{ asOf, total, active, inactive }`. Implementiert über das bestehende `MemberRepository.ListActiveAt`.
+- OpenAPI-Spec und `schema.d.ts` regeneriert; Frontend-Zugriff über `api.getMemberCountAsOf(asOf)`.
+
 ### Kinder-Spalte in der Mitgliederliste (2026-09-09)
 
 - `MembersPage` zeigt pro Mitglied die Kinder seines Haushalts in einer eigenen Spalte (komma-separierte Vor- und Nachnamen, „-" ohne Haushaltsverknüpfung). Hintergrund: die Vereinsmitglieder wurden aus der Vereinsliste mit Haushaltszuordnung importiert, die Zuordnung war in der Liste aber nicht sichtbar.
