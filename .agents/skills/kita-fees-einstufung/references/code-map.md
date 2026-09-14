@@ -22,6 +22,7 @@ Re-read these sources before relying on a calculation or write contract:
 - Self-employed income and modeled benefits contribute according to the current domain functions; maintenance paid is deducted and maintenance received is added.
 - Household annual income is the rounded sum of both parents' fee-relevant income.
 - Fee selection depends on effective-month child age, household income, child count, care hours, voluntary highest-rate selection, and foster-family status.
+- Foster-family households (`FOSTER_FAMILY`) are exempt from the income-based Entlastung brackets (§§ 50 ff. KitaG): their U3 fee is the average of all Satzung rates for the care hours, income is ignored, no sibling discount. The age-based fee exemption from the month of completing the 3rd year of life (§ 17a KitaG) applies to foster children as well — the age check runs before the foster-family branch.
 - A follow-up uses `POST /api/fees/v1/einstufungen/{sourceId}/follow-ups`.
 - The current cut-off rule maps change days 1–14 to the same month's first day and day 15 onward to the following month's first day.
 - Follow-up creation closes the source period, creates the successor, updates household fee metadata, and synchronizes `CHILDCARE` expectations. `FOOD` and `MEMBERSHIP` expectations are not part of that synchronization.

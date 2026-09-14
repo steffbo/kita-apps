@@ -5,6 +5,14 @@ Basics (ports, commands, layout) live in `AGENTS.md`.
 
 ## Backend (`backend-fees`)
 
+### Beitragsregel Pflegekinder (Pflegefamilie) (2026-09-14)
+
+- Pflegekinder (Haushalt `income_status = FOSTER_FAMILY`) werden **nicht** nach der einkommensabhängigen Elternbeitragsentlastung (§§ 50 ff. KitaG) behandelt — die Entlastungs-Bracket-Logik greift für sie nicht. Stattdessen gilt § 17 Abs. 1 KitaG: Beitrag = **Durchschnitt aller Satzungssätze** für die Betreuungsstunden (`calculateAverageSatzungRate`), Einkommen wird ignoriert, kein Geschwisterrabatt, `ShowEntlastung: false`. Code: `internal/service/fee_service.go:597-609`, Regeltext „Pflegefamilie (Durchschnittsbeitrag)".
+- **Ab dem Monat der Vollendung des 3. Lebensjahres** greift die altersabhängige Beitragsfreiheit nach § 17a KitaG **ausdrücklich auch für Pflegekinder** (§§ 33, 34 SGB VIII). Die Altersprüfung steht in `CalculateChildcareFee` **vor** dem Pflegefamilie-Zweig (`fee_service.go:582-593`), d. h. jedes Kind ab dem Kindergartenalter bekommt unabhängig vom Haushaltsstatus `Beitragsfrei (ab 3 Jahren)` mit 0 €.
+- Übergang praktisch handhaben: Folgeeinstufung mit wirksamem Monat = Geburtstagsmonat. Der Care-Type wird am wirksamen Monat bestimmt (`einstufung_service.go:91`), § 188 Abs. 2 BGB zählt den Tag vor dem 3. Geburtstag (`domain/child.go:61-78`), daher ist der Geburtstagsmonat selbst bereits beitragsfrei.
+- Pflegefamilien-U3-Kinder zählen nicht in die Einkommens-Bracket-Statistik der Stichtagsmeldung (Frontend filtert sie separat, `DashboardPage.vue:825`).
+- Kein Codebedarf: Die Implementierung entspricht dieser Rechtslage bereits. Referenzfall in der Testseeding-Doku (`docs/test-seeding.md` §4) ist U3-only — ein Seeding-Fall „Pflegekind wird 3" existiert nicht.
+
 ### Vereinsmitglieder-Nachtrag aus Vereinsliste (2026-09-04)
 
 - Die vollständige Vereinsmitgliederliste des Vereins (33 Einträge inkl. Zuordnung „Vereinsmitglied → Kind/Kinder") wurde über die API nachgetragen. Weg war je Eintrag `POST /parents/{id}/member` (`ParentService.CreateMemberFromParent`): Mitglied erbt Kontaktdaten und Haushalt des gewählten Elternteils, `membership_start` = Eintrittsdatum des ältesten verknüpften Kindes, `households.membership_parent_id`/`membership_assignment_status=CONFIRMED` gesetzt.
