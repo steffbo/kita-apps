@@ -36,6 +36,11 @@ const router = createRouter({
           component: () => import('@/pages/ChildDetailPage.vue'),
         },
         {
+          path: 'notizen',
+          name: 'notes',
+          component: () => import('@/pages/NotesPage.vue'),
+        },
+        {
           path: 'eltern',
           name: 'parents',
           component: () => import('@/pages/ParentsPage.vue'),

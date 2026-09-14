@@ -53,6 +53,8 @@ import (
 // @tag.description Bankdaten-Import
 // @tag.name Calculator
 // @tag.description Gebührenrechner
+// @tag.name Notes
+// @tag.description Notizen zu Kindern
 
 func main() {
 	// Load .env file if it exists (for local development)
@@ -87,6 +89,7 @@ func main() {
 	settingsRepo := repository.NewPostgresSettingsRepository(db)
 	emailLogRepo := repository.NewPostgresEmailLogRepository(db)
 	einstufungRepo := repository.NewPostgresEinstufungRepository(db)
+	childNoteRepo := repository.NewPostgresChildNoteRepository(db)
 
 	// Initialize services
 	jwtService := auth.NewJWTService(cfg.JWT.Secret, cfg.JWT.AccessExpiry, cfg.JWT.RefreshExpiry, cfg.JWT.Issuer)
@@ -112,12 +115,14 @@ func main() {
 	membershipReminderService := service.NewMembershipReminderService(feeRepo, childRepo, householdRepo, settingsRepo, emailLogRepo, emailService)
 	stichtagService := service.NewStichtagsmeldungService(childRepo)
 	einstufungService := service.NewEinstufungService(einstufungRepo, householdRepo, childRepo, feeService)
+	childNoteService := service.NewChildNoteService(childNoteRepo, childService)
 
 	// Initialize handlers
 	handlers := &api.Handlers{
 		Auth:             handler.NewAuthHandler(authService, jwtService),
 		Child:            handler.NewChildHandler(childService, feeService, coverageService, feeRepo, matchRepo, transactionRepo),
 		ChildImport:      handler.NewChildImportHandler(childImportService),
+		ChildNote:        handler.NewChildNoteHandler(childNoteService),
 		Parent:           handler.NewParentHandler(parentService),
 		Household:        handler.NewHouseholdHandler(householdService),
 		Member:           handler.NewMemberHandler(memberService),

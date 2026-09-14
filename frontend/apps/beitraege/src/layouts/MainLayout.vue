@@ -15,6 +15,7 @@ import {
   X,
   ChevronDown,
   ClipboardList,
+  NotebookPen,
 } from 'lucide-vue-next';
 
 const authStore = useAuthStore();
@@ -39,6 +40,7 @@ const navGroups = [
       { name: 'Kinder', to: '/kinder', icon: Users },
       { name: 'Eltern', to: '/eltern', icon: UserCircle },
       { name: 'Mitglieder', to: '/mitglieder', icon: UserPlus },
+      { name: 'Notizen', to: '/notizen', icon: NotebookPen },
     ],
   },
   {

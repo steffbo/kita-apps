@@ -84,6 +84,12 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 				r.Post("/{id}/parents", handlers.Child.LinkParent)
 				r.Delete("/{id}/parents/{parentId}", handlers.Child.UnlinkParent)
 
+				// Child notes
+				r.Get("/{id}/notes", handlers.ChildNote.ListByChild)
+				r.Post("/{id}/notes", handlers.ChildNote.Create)
+				r.Put("/{id}/notes/{noteId}", handlers.ChildNote.Update)
+				r.Delete("/{id}/notes/{noteId}", handlers.ChildNote.Delete)
+
 				// Child import routes
 				r.Route("/import", func(r chi.Router) {
 					r.Post("/parse", handlers.ChildImport.Parse)
@@ -91,6 +97,9 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 					r.Post("/execute", handlers.ChildImport.Execute)
 				})
 			})
+
+			// Notes (global list across children)
+			r.Get("/notes", handlers.ChildNote.ListAll)
 
 			// Parents
 			r.Route("/parents", func(r chi.Router) {
@@ -204,6 +213,7 @@ type Handlers struct {
 	Auth             *handler.AuthHandler
 	Child            *handler.ChildHandler
 	ChildImport      *handler.ChildImportHandler
+	ChildNote        *handler.ChildNoteHandler
 	Parent           *handler.ParentHandler
 	Household        *handler.HouseholdHandler
 	Member           *handler.MemberHandler

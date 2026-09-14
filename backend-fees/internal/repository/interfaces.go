@@ -205,6 +205,16 @@ type WarningRepository interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 }
 
+// ChildNoteRepository handles child note persistence.
+type ChildNoteRepository interface {
+	Create(ctx context.Context, note *domain.ChildNote) error
+	Update(ctx context.Context, note *domain.ChildNote) error
+	Delete(ctx context.Context, id uuid.UUID) error
+	GetByID(ctx context.Context, id uuid.UUID) (*domain.ChildNote, error)
+	ListByChild(ctx context.Context, childID uuid.UUID, offset, limit int) ([]domain.ChildNote, int64, error)
+	ListAll(ctx context.Context, offset, limit int) ([]domain.ChildNote, int64, error)
+}
+
 // EinstufungRepository handles Einstufung (fee classification) persistence.
 type EinstufungRepository interface {
 	Create(ctx context.Context, e *domain.Einstufung) error

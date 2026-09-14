@@ -827,6 +827,222 @@ paths:
       summary: Add child legal hours history entry
       tags:
         - Children
+  "/children/{id}/notes":
+    get:
+      description: Returns a paginated list of notes for a child, newest first
+      parameters:
+        - description: Child ID (UUID)
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - description: Page number
+          in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - description: Items per page
+          in: query
+          name: perPage
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Paginated notes for the child
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChildNoteList"
+        "400":
+          description: Invalid child ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Child not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: List notes for a child
+      tags:
+        - Notes
+    post:
+      description: Adds a new note to a child
+      parameters:
+        - description: Child ID (UUID)
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateChildNoteRequest"
+        description: Note data
+        required: true
+      responses:
+        "201":
+          description: Note created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChildNote"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Child not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Create child note
+      tags:
+        - Notes
+  "/children/{id}/notes/{noteId}":
+    delete:
+      description: Deletes an existing note of a child
+      parameters:
+        - description: Child ID (UUID)
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - description: Note ID (UUID)
+          in: path
+          name: noteId
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Note deleted
+        "400":
+          description: Invalid request
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Note not found
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Delete child note
+      tags:
+        - Notes
+    put:
+      description: Updates the text of an existing note of a child
+      parameters:
+        - description: Child ID (UUID)
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - description: Note ID (UUID)
+          in: path
+          name: noteId
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateChildNoteRequest"
+        description: Updated note data
+        required: true
+      responses:
+        "200":
+          description: Note updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChildNote"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Note not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Update child note
+      tags:
+        - Notes
   "/children/{id}/parents":
     post:
       description: Create a relationship between a parent and a child
@@ -3673,6 +3889,46 @@ paths:
       summary: Count members at a reference date
       tags:
         - Members
+  /notes:
+    get:
+      description: Returns a paginated list of all notes across children, newest first
+      parameters:
+        - description: Page number
+          in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - description: Items per page
+          in: query
+          name: perPage
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Paginated list of all notes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChildNoteList"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: List all notes
+      tags:
+        - Notes
   /parents:
     get:
       description: Get a paginated list of parents with optional search and sorting
@@ -4127,6 +4383,8 @@ tags:
     name: Import
   - description: Gebührenrechner
     name: Calculator
+  - description: Notizen zu Kindern
+    name: Notes
 servers:
   - url: http://localhost:8081/api/fees/v1
   - url: https://localhost:8081/api/fees/v1
@@ -4350,6 +4608,47 @@ components:
           example: 5
           type: integer
       type: object
+    ChildNote:
+      properties:
+        childId:
+          example: 550e8400-e29b-41d4-a716-446655440000
+          type: string
+        childName:
+          example: Emma Müller
+          type: string
+        createdAt:
+          example: 2026-09-01T10:00:00Z
+          type: string
+        id:
+          example: 550e8400-e29b-41d4-a716-446655440012
+          type: string
+        text:
+          example: Muss früher abgeholt werden am 12.09.
+          type: string
+        updatedAt:
+          example: 2026-09-01T10:00:00Z
+          type: string
+      type: object
+    ChildNoteList:
+      description: Paginated list of child notes as returned by the note endpoints
+      properties:
+        data:
+          items:
+            $ref: "#/components/schemas/ChildNote"
+          type: array
+        page:
+          example: 1
+          type: integer
+        perPage:
+          example: 20
+          type: integer
+        total:
+          example: 100
+          type: integer
+        totalPages:
+          example: 5
+          type: integer
+      type: object
     ChildTrustedIBANsResponse:
       description: Trusted IBANs with usage counts
       properties:
@@ -4417,6 +4716,13 @@ components:
           type: integer
         validFrom:
           example: 2026-01-01
+          type: string
+      type: object
+    CreateChildNoteRequest:
+      description: Request body for creating a new child note
+      properties:
+        text:
+          example: Muss früher abgeholt werden am 12.09.
           type: string
       type: object
     CreateChildRequest:
@@ -5620,6 +5926,13 @@ components:
           type: boolean
         transactionId:
           example: 550e8400-e29b-41d4-a716-446655440000
+          type: string
+      type: object
+    UpdateChildNoteRequest:
+      description: Request body for updating a child note
+      properties:
+        text:
+          example: Muss früher abgeholt werden am 12.09.
           type: string
       type: object
     UpdateChildRequest:

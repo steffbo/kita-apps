@@ -5,6 +5,13 @@ Basics (ports, commands, layout) live in `AGENTS.md`.
 
 ## Backend (`backend-fees`)
 
+### Notizen zu Kindern (2026-09-14)
+
+- Neue Tabelle `fees.child_notes` (Migration `000029_add_child_notes`): `id`, `child_id` (FK auf `fees.children` mit `ON DELETE CASCADE`), `text`, `created_at`, `updated_at` (Trigger `fees.update_updated_at_column()`). Kein Autor-/Owner-Feld — **jeder authentifizierte Benutzer darf alle Notizen bearbeiten und löschen**. Indizes: `(child_id, created_at DESC, id DESC)` für die Kindliste, `(created_at DESC, id DESC)` für die globale Liste.
+- Endpunkte (Swagger-Tag `Notes`, Pagination wie überall `page`/`perPage` + `data/total/page/perPage/totalPages`): `POST`/`GET /children/{id}/notes`, `PUT`/`DELETE /children/{id}/notes/{noteId}`, `GET /notes` (globale Liste, inkl. `childName` über Join auf `fees.children`). Statuscodes: 201/200/204, 400 bei ungültiger UUID oder leerem/Whitespace-Text (Backend trimmt), 404 bei unbekanntem Kind/Notiz oder falscher Kind-Notiz-Zuordnung (Update/Delete gegen andere `childId` geben bewusst 404, kein 403).
+- Service (`child_note_service.go`) validiert Kind-Existenz über eine schmale `ChildLookup`-Schnittstelle statt des ganzen `ChildRepository`; Repository sortiert stabil nach `created_at DESC, id DESC`. Notizen werden beim Löschen eines Kindes automatisch per Cascade entfernt. Tests: Service-Unit-Tests mit In-Memory-Fakes (`child_note_service_test.go`) + Integrationstests gegen Testcontainers (`child_note_integration_test.go`, Cleanup in `testutil_test.go` ergänzt).
+- OpenAPI-Spec und `schema.d.ts` via `scripts/generate-api.sh` regeneriert. Hinweis: das Skript verschluckt sich aktuell am `bunx --registry …`-Aufruf (bunx parst den Flag als Paketnamen); `npx --registry=https://registry.npmjs.org/ swagger2openapi …` + `bun run generate:api` funktionieren.
+
 ### Beitragsregel Pflegekinder (Pflegefamilie) (2026-09-14)
 
 - Pflegekinder (Haushalt `income_status = FOSTER_FAMILY`) werden **nicht** nach der einkommensabhängigen Elternbeitragsentlastung (§§ 50 ff. KitaG) behandelt — die Entlastungs-Bracket-Logik greift für sie nicht. Stattdessen gilt § 17 Abs. 1 KitaG: Beitrag = **Durchschnitt aller Satzungssätze** für die Betreuungsstunden (`calculateAverageSatzungRate`), Einkommen wird ignoriert, kein Geschwisterrabatt, `ShowEntlastung: false`. Code: `internal/service/fee_service.go:597-609`, Regeltext „Pflegefamilie (Durchschnittsbeitrag)".
@@ -99,6 +106,12 @@ WHERE c.household_id IS NOT NULL
 - Coverage: `go test ./...` includes cut-off tests for `2026-06-14` / `2026-06-15`, sync tests for paid increases and credit-review decreases, plus household consistency tests (service + DB trigger).
 
 ## Frontend (`frontend/apps/beitraege`)
+
+### Notizen zu Kindern (2026-09-14)
+
+- Neue Card „Notizen" in `ChildDetailPage.vue` (paginiert 5/Seite, Create/Edit im gemeinsamen Dialog mit Pflicht-Textarea, separater Löschdialog, ESC schließt erst Lösch- dann Notizdialog, Reload nach jeder Aktion, leere Seite nach Löschen springt auf die letzte gültige Seite, `toLocaleString('de-DE')`, „Bearbeitet"-Marker wenn `updatedAt` > `createdAt`).
+- Neue globale Seite `NotesPage.vue` unter `/notizen` nach dem ChildrenPage-Pattern: Seitengrößen 10/25/50/100, gekürzte Textvorschau, Kindname als Link auf `/kinder/:id`, Erstellt-/Änderungszeit, Lade-/Fehler-/Leerzustand, responsive (Bearbeitet-Spalte `hidden md:table-cell`). Navigationseintrag „Notizen" (Lucide `NotebookPen`) unter „Verwaltung" im `MainLayout`.
+- API-Zugriff über `api.getChildNotes/createChildNote/updateChildNote/deleteChildNote/getNotes` mit `normalizePaginated`; `ChildNote`-Typ aus dem generierten Schema abgeleitet, Requests handgeschrieben. ESLint ist im Workspace nicht installiert — Gate bleibt `bun run build` (vue-tsc + vite).
 
 ### Mitglieder-Stichtagsreport auf der Mitgliederseite (2026-09-09)
 

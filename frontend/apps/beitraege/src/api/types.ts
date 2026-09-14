@@ -161,6 +161,17 @@ export interface CreateLegalHoursHistoryRequest {
   validFrom: string;
 }
 
+// ── Notes ────────────────────────────────────────────────────────────────────
+// Free-text notes for children. Every authenticated user may edit and delete
+// any note; there is no owner field.
+export type ChildNote = Loose<DeepStrict<Schema['ChildNote']>, 'childName'>;
+export interface CreateChildNoteRequest {
+  text: string;
+}
+export interface UpdateChildNoteRequest {
+  text: string;
+}
+
 // ── Households ───────────────────────────────────────────────────────────────
 export type IncomeStatus = Schema['domain.IncomeStatus'] | '';
 export type Household = Loose<

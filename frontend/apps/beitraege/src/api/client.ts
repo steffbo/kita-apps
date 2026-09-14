@@ -67,6 +67,9 @@ import type {
   CreateFollowUpEinstufungResponse,
   IncomeDetails,
   CalculateIncomeResponse,
+  ChildNote,
+  CreateChildNoteRequest,
+  UpdateChildNoteRequest,
 } from './types';
 
 const API_BASE = '/api/fees/v1';
@@ -997,6 +1000,49 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify({ parent1, parent2 }),
     });
+  }
+
+  // Notes endpoints
+  async getChildNotes(childId: string, params?: { page?: number; perPage?: number }): Promise<PaginatedResponse<ChildNote>> {
+    const query = new URLSearchParams();
+    if (params?.page) query.set('page', String(params.page));
+    if (params?.perPage) query.set('perPage', String(params.perPage));
+    const queryString = query.toString();
+    const response = await this.request<PaginatedResponse<ChildNote>>(
+      `/children/${childId}/notes${queryString ? `?${queryString}` : ''}`
+    );
+    return this.normalizePaginated(response);
+  }
+
+  async createChildNote(childId: string, data: CreateChildNoteRequest): Promise<ChildNote> {
+    return this.request<ChildNote>(`/children/${childId}/notes`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateChildNote(childId: string, noteId: string, data: UpdateChildNoteRequest): Promise<ChildNote> {
+    return this.request<ChildNote>(`/children/${childId}/notes/${noteId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteChildNote(childId: string, noteId: string): Promise<void> {
+    return this.request<void>(`/children/${childId}/notes/${noteId}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getNotes(params?: { page?: number; perPage?: number }): Promise<PaginatedResponse<ChildNote>> {
+    const query = new URLSearchParams();
+    if (params?.page) query.set('page', String(params.page));
+    if (params?.perPage) query.set('perPage', String(params.perPage));
+    const queryString = query.toString();
+    const response = await this.request<PaginatedResponse<ChildNote>>(
+      `/notes${queryString ? `?${queryString}` : ''}`
+    );
+    return this.normalizePaginated(response);
   }
 
 }

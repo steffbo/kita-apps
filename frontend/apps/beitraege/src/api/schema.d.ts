@@ -1269,6 +1269,303 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/children/{id}/notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List notes for a child
+         * @description Returns a paginated list of notes for a child, newest first
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Page number */
+                    page?: number;
+                    /** @description Items per page */
+                    perPage?: number;
+                };
+                header?: never;
+                path: {
+                    /** @description Child ID (UUID) */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Paginated notes for the child */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ChildNoteList"];
+                    };
+                };
+                /** @description Invalid child ID */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Child not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Create child note
+         * @description Adds a new note to a child
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Child ID (UUID) */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Note data */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateChildNoteRequest"];
+                };
+            };
+            responses: {
+                /** @description Note created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ChildNote"];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Child not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/children/{id}/notes/{noteId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update child note
+         * @description Updates the text of an existing note of a child
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Child ID (UUID) */
+                    id: string;
+                    /** @description Note ID (UUID) */
+                    noteId: string;
+                };
+                cookie?: never;
+            };
+            /** @description Updated note data */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UpdateChildNoteRequest"];
+                };
+            };
+            responses: {
+                /** @description Note updated */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ChildNote"];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Note not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        /**
+         * Delete child note
+         * @description Deletes an existing note of a child
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Child ID (UUID) */
+                    id: string;
+                    /** @description Note ID (UUID) */
+                    noteId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Note deleted */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Note not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/children/{id}/parents": {
         parameters: {
             query?: never;
@@ -5567,6 +5864,68 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List all notes
+         * @description Returns a paginated list of all notes across children, newest first
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Page number */
+                    page?: number;
+                    /** @description Items per page */
+                    perPage?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Paginated list of all notes */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ChildNoteList"];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/parents": {
         parameters: {
             query?: never;
@@ -6359,6 +6718,32 @@ export interface components {
             /** @example 5 */
             totalPages?: number;
         };
+        ChildNote: {
+            /** @example 550e8400-e29b-41d4-a716-446655440000 */
+            childId?: string;
+            /** @example Emma Müller */
+            childName?: string;
+            /** @example 2026-09-01T10:00:00Z */
+            createdAt?: string;
+            /** @example 550e8400-e29b-41d4-a716-446655440012 */
+            id?: string;
+            /** @example Muss früher abgeholt werden am 12.09. */
+            text?: string;
+            /** @example 2026-09-01T10:00:00Z */
+            updatedAt?: string;
+        };
+        /** @description Paginated list of child notes as returned by the note endpoints */
+        ChildNoteList: {
+            data?: components["schemas"]["ChildNote"][];
+            /** @example 1 */
+            page?: number;
+            /** @example 20 */
+            perPage?: number;
+            /** @example 100 */
+            total?: number;
+            /** @example 5 */
+            totalPages?: number;
+        };
         /** @description Trusted IBANs with usage counts */
         ChildTrustedIBANsResponse: {
             /** @example DE89370400440532013000 */
@@ -6399,6 +6784,11 @@ export interface components {
             careHours?: number;
             /** @example 2026-01-01 */
             validFrom?: string;
+        };
+        /** @description Request body for creating a new child note */
+        CreateChildNoteRequest: {
+            /** @example Muss früher abgeholt werden am 12.09. */
+            text?: string;
         };
         /** @description Request body for creating a new child */
         CreateChildRequest: {
@@ -7176,6 +7566,11 @@ export interface components {
             transactionDeleted?: boolean;
             /** @example 550e8400-e29b-41d4-a716-446655440000 */
             transactionId?: string;
+        };
+        /** @description Request body for updating a child note */
+        UpdateChildNoteRequest: {
+            /** @example Muss früher abgeholt werden am 12.09. */
+            text?: string;
         };
         /** @description Request body for updating a child */
         UpdateChildRequest: {
