@@ -39,8 +39,8 @@ func TestBuildFamilyMembershipReminderEmail_InitialStageUsesNeutralWording(t *te
 	if strings.Contains(body, "Mitgliedsnr.") {
 		t.Fatalf("did not expect child member number hint in membership email, got: %s", body)
 	}
-	if !strings.Contains(body, "bis zum 31.03.2026") {
-		t.Fatalf("expected default deadline 31.03.<year>, got: %s", body)
+	if !strings.Contains(body, "bis zum 25.04.2026") {
+		t.Fatalf("expected default deadline 7 days after run date, got: %s", body)
 	}
 	if strings.Contains(body, "wird leider automatisch eine Mahngebühr fällig") {
 		t.Fatalf("did not expect automatic reminder fee warning, got: %s", body)
@@ -72,8 +72,8 @@ func TestBuildFamilyMembershipReminderEmail_FinalStageUsesDunningWording(t *test
 	if !strings.Contains(body, "Dies ist eine Mahnung") {
 		t.Fatalf("expected final warning wording in body, got: %s", body)
 	}
-	if !strings.Contains(body, "spätestens bis zum 31.03.2026") {
-		t.Fatalf("expected default deadline 31.03.<year> in dunning body, got: %s", body)
+	if !strings.Contains(body, "spätestens bis zum 25.04.2026") {
+		t.Fatalf("expected default deadline 7 days after run date in dunning body, got: %s", body)
 	}
 	if strings.Contains(body, "Mia") {
 		t.Fatalf("did not expect child name in membership dunning email, got: %s", body)
@@ -141,7 +141,7 @@ func TestBuildFamilyMembershipReminderEmail_UsesDeadlineOverrideWhenProvided(t *
 	if !strings.Contains(body, "bis zum 05.05.2026") {
 		t.Fatalf("expected override deadline in body, got: %s", body)
 	}
-	if strings.Contains(body, "31.03.2026") {
+	if strings.Contains(body, "25.04.2026") {
 		t.Fatalf("did not expect default deadline when override is set, got: %s", body)
 	}
 }

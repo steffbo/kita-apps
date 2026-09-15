@@ -20,11 +20,10 @@ import (
 
 // FeeHandler handles fee-related requests.
 type FeeHandler struct {
-	feeService                *service.FeeService
-	importService             *service.ImportService
-	reminderService           *service.ReminderService
-	membershipReminderService *service.MembershipReminderService
-	emailLogRepo              repository.EmailLogRepository
+	feeService      *service.FeeService
+	importService   *service.ImportService
+	reminderService *service.ReminderService
+	emailLogRepo    repository.EmailLogRepository
 }
 
 // FeeListResponse represents a paginated list of fees
@@ -148,15 +147,13 @@ func NewFeeHandler(
 	feeService *service.FeeService,
 	importService *service.ImportService,
 	reminderService *service.ReminderService,
-	membershipReminderService *service.MembershipReminderService,
 	emailLogRepo repository.EmailLogRepository,
 ) *FeeHandler {
 	return &FeeHandler{
-		feeService:                feeService,
-		importService:             importService,
-		reminderService:           reminderService,
-		membershipReminderService: membershipReminderService,
-		emailLogRepo:              emailLogRepo,
+		feeService:      feeService,
+		importService:   importService,
+		reminderService: reminderService,
+		emailLogRepo:    emailLogRepo,
 	}
 }
 
@@ -824,10 +821,6 @@ func (h *FeeHandler) RunMembershipReminders(w http.ResponseWriter, r *http.Reque
 		response.Error(w, http.StatusUnauthorized, "user not authenticated")
 		return
 	}
-	if h.membershipReminderService == nil {
-		response.InternalError(w, "membership reminder service not configured")
-		return
-	}
 
 	runDate := time.Now()
 	if dateStr := request.GetQueryString(r, "date", ""); dateStr != "" {
@@ -878,7 +871,7 @@ func (h *FeeHandler) RunMembershipReminders(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	result, err := h.membershipReminderService.Run(r.Context(), runDate, stage, sentBy, dryRun, deadline, selectedHouseholdIDs, runOptions)
+	result, err := h.reminderService.RunMembership(r.Context(), runDate, stage, sentBy, dryRun, deadline, selectedHouseholdIDs, runOptions)
 	if err != nil {
 		if err == service.ErrInvalidInput {
 			response.BadRequest(w, "invalid request")

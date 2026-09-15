@@ -5,6 +5,14 @@ Basics (ports, commands, layout) live in `AGENTS.md`.
 
 ## Backend (`backend-fees`)
 
+### Gemeinsamer Reminder-Kern (2026-09-15)
+
+- Erster Schritt des familienbasierten Erinnerungs-Workflows: `ReminderService` ist jetzt der gemeinsame fachliche Kern für beide Beitragsarten-Familien. Aufbau: `reminder_service.go` (Service-Typ, `Run` für Essens-/Platzgeld inkl. Auto-Stufen, `RunMembership` für Vereinsbeiträge, Stage-Parsing, Settings), `reminder_core.go` (Scope-basierte Pipeline `runScope`: Fee-Auswahl, Mahngebühren-Erzeugung, Haushaltsgruppierung, Mailversand, Log), `reminder_email.go` (beide Mail-Text-Builders + Formatierung), `reminder_payment_qr.go` (unverändert).
+- Der near-duplicate `MembershipReminderService` (**Datei gelöscht**) wurde in den Kern überführt: ein `reminderScope` beschreibt je Beitragsfamilie Fee-Types, Auswahl-Strategie (Monat vs. fällig-bis), Mahngebührenbetrag/Fälligkeit (10 € am 15. vs. 5 € am Laufenden), Mail-Builder und Log-Typen. Beide Legacy-Endpunkte `POST /fees/reminders/run` und `/fees/membership-reminders/run` behalten Request-/Response-Format und delegieren an denselben Kern; der Handler hält keinen zweiten Service mehr (`NewFeeHandler` ohne Membership-Parameter).
+- **Verhaltensänderung Legacy:** Vereinsbeitrags-Mails verwenden jetzt als Standardfrist `runDate + 7 Tage` statt 31.03. des Beitragsjahres (`buildFamilyMembershipReminderEmail` nutzt `defaultReminderDeadline`). Ein manuell übergebener `deadline`-Query-Param überschreibt weiterhin. Die Mahngebühren-Fälligkeit für Vereinsbeiträge bleibt beim Laufdatum (Ende des Tages), die Mailfrist ist davon unabhängig.
+- Log-Payload (`fees.email_logs.payload`) unverändert: `stage`, `runDate`, `unpaidCount`, `remindersCreated`, `feeIds` — für beide Scopes identisch erzeugt (`logScopeEmail`). Mail-Texte und Log-Typen (`REMINDER_*` vs. `MEMBERSHIP_REMINDER_*`) bleiben je Scope distinct.
+- Alle bestehenden Service-/Integrationstests laufen unverändert grün; Membership-Mail-Tests auf 7-Tage-Frist umgestellt.
+
 ### Notizen zu Kindern (2026-09-14)
 
 - Neue Tabelle `fees.child_notes` (Migration `000029_add_child_notes`): `id`, `child_id` (FK auf `fees.children` mit `ON DELETE CASCADE`), `text`, `created_at`, `updated_at` (Trigger `fees.update_updated_at_column()`). Kein Autor-/Owner-Feld — **jeder authentifizierte Benutzer darf alle Notizen bearbeiten und löschen**. Indizes: `(child_id, created_at DESC, id DESC)` für die Kindliste, `(created_at DESC, id DESC)` für die globale Liste.

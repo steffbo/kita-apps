@@ -112,7 +112,6 @@ func main() {
 	childImportService := service.NewChildImportService(childRepo, parentRepo)
 	coverageService := service.NewCoverageService(feeRepo, childRepo, transactionRepo, matchRepo)
 	reminderService := service.NewReminderService(feeRepo, childRepo, householdRepo, settingsRepo, emailLogRepo, emailService)
-	membershipReminderService := service.NewMembershipReminderService(feeRepo, childRepo, householdRepo, settingsRepo, emailLogRepo, emailService)
 	stichtagService := service.NewStichtagsmeldungService(childRepo)
 	einstufungService := service.NewEinstufungService(einstufungRepo, householdRepo, childRepo, feeService)
 	childNoteService := service.NewChildNoteService(childNoteRepo, childService)
@@ -126,7 +125,7 @@ func main() {
 		Parent:           handler.NewParentHandler(parentService),
 		Household:        handler.NewHouseholdHandler(householdService),
 		Member:           handler.NewMemberHandler(memberService),
-		Fee:              handler.NewFeeHandler(feeService, importService, reminderService, membershipReminderService, emailLogRepo),
+		Fee:              handler.NewFeeHandler(feeService, importService, reminderService, emailLogRepo),
 		Import:           handler.NewImportHandler(importService),
 		BankingSync:      handler.NewBankingSyncHandler(cfg.BankingSync.BaseURL, cfg.BankingSync.Token, cfg.BankingSync.Timeout),
 		Einstufung:       handler.NewEinstufungHandler(einstufungService),
