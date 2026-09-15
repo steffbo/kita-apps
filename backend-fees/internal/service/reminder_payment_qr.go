@@ -215,7 +215,7 @@ func buildSEPAPayload(settings ReminderPaymentSettings, amount float64, referenc
 
 func buildSEPAReference(runDate time.Time, householdName string, items []reminderItem) string {
 	purpose := reminderReferencePurpose(items)
-	period := reminderReferencePeriod(runDate, purpose)
+	period := reminderReferencePeriod(items, runDate)
 	family := sanitizeSEPAText(householdName)
 	memberNumbers := uniqueMemberNumbers(items)
 
@@ -228,11 +228,36 @@ func buildSEPAReference(runDate time.Time, householdName string, items []reminde
 	return truncateRunes(reference, maxSEPAReferenceLengthInRunes)
 }
 
-func reminderReferencePeriod(runDate time.Time, purpose string) string {
-	if purpose == "Vereinsbeitrag" {
-		return fmt.Sprintf("%d", runDate.Year())
+// reminderReferencePeriod derives the period part of the SEPA reference from
+// the actual fee periods (MM/YYYY for monthly fees, YYYY for yearly ones) —
+// not from the run date, which in the family-based workflow may differ from
+// the fee months.
+func reminderReferencePeriod(items []reminderItem, runDate time.Time) string {
+	periods := make(map[string]struct{})
+	for _, item := range items {
+		year := item.Year
+		month := item.Month
+		if item.FeeType == domain.FeeTypeReminder && item.BaseFeeType != nil {
+			year = item.BaseYear
+			month = item.BaseMonth
+		}
+		switch {
+		case month > 0 && year > 0:
+			periods[fmt.Sprintf("%02d/%d", month, year)] = struct{}{}
+		case year > 0:
+			periods[fmt.Sprintf("%d", year)] = struct{}{}
+		}
 	}
-	return fmt.Sprintf("%s %d", germanMonthName(int(runDate.Month())), runDate.Year())
+	if len(periods) == 0 {
+		return fmt.Sprintf("%s %d", germanMonthName(int(runDate.Month())), runDate.Year())
+	}
+
+	keys := make([]string, 0, len(periods))
+	for key := range periods {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return strings.Join(keys, "+")
 }
 
 func reminderReferencePurpose(items []reminderItem) string {

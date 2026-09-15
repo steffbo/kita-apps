@@ -38,9 +38,9 @@ func TestBuildSEPAPayload_FormatsAmountAndReference(t *testing.T) {
 func TestBuildSEPAReference_IncludesPurposeFamilyAndMemberNumbers(t *testing.T) {
 	runDate := time.Date(2026, time.April, 5, 0, 0, 0, 0, time.UTC)
 	items := []reminderItem{
-		{FeeType: domain.FeeTypeFood, MemberNumber: "12345"},
-		{FeeType: domain.FeeTypeFood, MemberNumber: "12346"},
-		{FeeType: domain.FeeTypeFood, MemberNumber: "12345"}, // duplicate should be deduplicated
+		{FeeType: domain.FeeTypeFood, Year: 2026, Month: 4, MemberNumber: "12345"},
+		{FeeType: domain.FeeTypeFood, Year: 2026, Month: 4, MemberNumber: "12346"},
+		{FeeType: domain.FeeTypeFood, Year: 2026, Month: 4, MemberNumber: "12345"}, // duplicate should be deduplicated
 	}
 
 	reference := buildSEPAReference(runDate, "Schmidt", items)
@@ -48,8 +48,11 @@ func TestBuildSEPAReference_IncludesPurposeFamilyAndMemberNumbers(t *testing.T) 
 	if !strings.Contains(reference, "Essensbeitrag") {
 		t.Fatalf("expected purpose in reference, got: %s", reference)
 	}
-	if !strings.Contains(reference, "April 2026") {
-		t.Fatalf("expected month/year in reference, got: %s", reference)
+	if !strings.Contains(reference, "04/2026") {
+		t.Fatalf("expected fee period in reference, got: %s", reference)
+	}
+	if strings.Contains(reference, "April") {
+		t.Fatalf("did not expect run month name in reference, got: %s", reference)
 	}
 	if !strings.Contains(reference, "Schmidt") {
 		t.Fatalf("expected household name in reference, got: %s", reference)
@@ -62,7 +65,7 @@ func TestBuildSEPAReference_IncludesPurposeFamilyAndMemberNumbers(t *testing.T) 
 func TestBuildSEPAReference_OmitsMonthForMembershipFee(t *testing.T) {
 	runDate := time.Date(2026, time.May, 5, 0, 0, 0, 0, time.UTC)
 	items := []reminderItem{
-		{FeeType: domain.FeeTypeMembership, MemberNumber: "11038"},
+		{FeeType: domain.FeeTypeMembership, Year: 2026, MemberNumber: "11038"},
 	}
 
 	reference := buildSEPAReference(runDate, "Wrana", items)
@@ -72,6 +75,38 @@ func TestBuildSEPAReference_OmitsMonthForMembershipFee(t *testing.T) {
 	}
 	if strings.Contains(reference, "Mai") {
 		t.Fatalf("did not expect month in membership reference, got: %s", reference)
+	}
+}
+
+func TestBuildSEPAReference_ListsDistinctFeePeriods(t *testing.T) {
+	runDate := time.Date(2026, time.September, 15, 0, 0, 0, 0, time.UTC)
+	items := []reminderItem{
+		{FeeType: domain.FeeTypeFood, Year: 2026, Month: 1, MemberNumber: "T9001"},
+		{FeeType: domain.FeeTypeFood, Year: 2026, Month: 8, MemberNumber: "T9001"},
+		{FeeType: domain.FeeTypeChildcare, Year: 2026, Month: 8, MemberNumber: "T9001"},
+	}
+
+	reference := buildSEPAReference(runDate, "Familie Muster", items)
+
+	if !strings.Contains(reference, "01/2026+08/2026") {
+		t.Fatalf("expected distinct fee periods in reference, got: %s", reference)
+	}
+	if strings.Contains(reference, "September") {
+		t.Fatalf("did not expect run month in reference, got: %s", reference)
+	}
+}
+
+func TestBuildSEPAReference_ReminderFeeUsesBasePeriod(t *testing.T) {
+	runDate := time.Date(2026, time.September, 15, 0, 0, 0, 0, time.UTC)
+	baseType := domain.FeeTypeFood
+	items := []reminderItem{
+		{FeeType: domain.FeeTypeReminder, Amount: 10, BaseFeeType: &baseType, BaseYear: 2026, BaseMonth: 8},
+	}
+
+	reference := buildSEPAReference(runDate, "Schmidt", items)
+
+	if !strings.Contains(reference, "08/2026") {
+		t.Fatalf("expected base fee period in reference, got: %s", reference)
 	}
 }
 

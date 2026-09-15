@@ -305,10 +305,11 @@ func (s *ReminderService) groupByHousehold(items []reminderItem, children map[uu
 	return result, nil
 }
 
-// collectEmails returns deduplicated non-empty parent email addresses.
+// collectEmails returns deduplicated non-empty parent email addresses. The
+// result is never nil so it marshals to an empty JSON array.
 func collectEmails(parents []domain.Parent) []string {
 	seen := make(map[string]bool)
-	var result []string
+	result := make([]string, 0)
 	for _, p := range parents {
 		if p.Email == nil || *p.Email == "" {
 			continue

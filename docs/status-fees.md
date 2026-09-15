@@ -5,6 +5,13 @@ Basics (ports, commands, layout) live in `AGENTS.md`.
 
 ## Backend (`backend-fees`)
 
+### Reminder-Fixes aus dem manuellen Test (2026-09-15)
+
+- **Mahngebühren nur bei „Mahnung"**: `prepareCasePlan` plante Gebühren für beide Stufen — bei „Erinnerung" erschienen geplante 10-€-Gebühren in Vorschau/Mail, und ein Send hätte sie erstellt. Jetzt nur noch `stage=final`. Regressionstest ergänzt.
+- **SEPA-Verwendungszweck aus Fee-Perioden**: `buildSEPAReference` nutzte den Laufmonat (`Essens- und Platzbeitrag September 2026`) — im Legacy korrekt (Laufmonat = Beitragsmonat), im familienbasierten Workflow mit älteren/offenen Fees aber irreführend. Neu: `reminderReferencePeriod(items)` leitet die Periode aus den Fees ab — monatlich `MM/YYYY` (mehrere Perioden `01/2026+08/2026`), Vereinsbeitrag `YYYY`, Mahngebühren über `BaseYear/BaseMonth`. Mitgliedsnummern und Betrag stehen unverändert im QR-Payload. Fallback ohne Perioden: Laufmonat.
+- **Nil-Slices → JSON `null`**: `collectEmails`, geplante Gebühren und Warnungen lieferten Go-nil-Slices; das Frontend crashte beim Rendern (`null.length`). Jetzt immer leere Arrays.
+- Playwright-Suite `e2e/tests/beitraege/reminder-cases.spec.ts` (4 Szenarien, seedt Familien selbst über die API: Kind+Parent werden via `POST /households/{id}/children|parents` verknüpft — `CreateChildRequest`/`CreateParentRequest` nehmen keine `householdId`): Arbeitsliste/Suche/Auswahl/Vorschau/QR/Text-Reset/Mahnung-Warnung/Bestätigung (Send → erwartete 503 ohne SMTP), blockierte Familie ohne E-Mail, Scope-Filter. 4/4 grün, `go test ./...` und `bun run build:beitraege` grün.
+
 ### Familienbasierte Erinnerungs-UI (2026-09-15)
 
 - `AutomationPage.vue` (**komplett neu geschrieben**, Route bleibt `/automatisierung`, Nav „Erinnerungen"): Die vier globalen Versandaktionen und der **Automatik-Schalter entfallen aus der Oberfläche** (der Wert wird beim Speichern der Zahlungsdaten unverändert zurückgeschrieben). Neue Struktur: Tabs **Arbeitsliste** / **Versandverlauf**, Zahlungsdaten hinter einem Einstellungs-Dialog.

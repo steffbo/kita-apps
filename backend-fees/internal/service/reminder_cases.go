@@ -437,8 +437,15 @@ func (s *ReminderService) SendReminderCase(ctx context.Context, householdID uuid
 		Subject:             subject,
 		Deadline:            plan.deadline,
 		Stage:               plan.stage,
-		CreatedReminderFees: plan.plannedFees,
+		CreatedReminderFees: ensurePlannedFeesSlice(plan.plannedFees),
 	}, nil
+}
+
+func ensurePlannedFeesSlice(fees []ReminderCasePlannedFee) []ReminderCasePlannedFee {
+	if fees == nil {
+		return make([]ReminderCasePlannedFee, 0)
+	}
+	return fees
 }
 
 // casePlan is the validated internal state shared by preview and send.
@@ -558,28 +565,32 @@ func (s *ReminderService) prepareCasePlan(ctx context.Context, householdID uuid.
 		}
 	}
 
-	// Planned reminder fees: one per selected base fee without an existing
-	// reminder fee. Reminder fees themselves never get reminder fees.
 	existingReminders, err := s.feeRepo.GetOpenReminderBaseIDs(ctx, baseIDs)
 	if err != nil {
 		return nil, err
 	}
-	var planned []ReminderCasePlannedFee
-	for _, fee := range selected {
-		if fee.FeeType == domain.FeeTypeReminder || existingReminders[fee.FeeID] {
-			continue
+
+	// Planned reminder fees: only on the final stage (Mahnung), one per
+	// selected base fee without an existing reminder fee. Reminder fees
+	// themselves never get reminder fees.
+	planned := make([]ReminderCasePlannedFee, 0)
+	if req.Stage == ReminderStageFinal {
+		for _, fee := range selected {
+			if fee.FeeType == domain.FeeTypeReminder || existingReminders[fee.FeeID] {
+				continue
+			}
+			amount := reminderFeeAmountFor(fee.FeeType)
+			if amount <= 0 {
+				continue
+			}
+			planned = append(planned, ReminderCasePlannedFee{
+				BaseFeeID:   fee.FeeID,
+				BaseFeeType: fee.FeeType,
+				BaseLabel:   feeTypeLabel(fee.FeeType),
+				Amount:      amount,
+				DueDate:     deadline,
+			})
 		}
-		amount := reminderFeeAmountFor(fee.FeeType)
-		if amount <= 0 {
-			continue
-		}
-		planned = append(planned, ReminderCasePlannedFee{
-			BaseFeeID:   fee.FeeID,
-			BaseFeeType: fee.FeeType,
-			BaseLabel:   feeTypeLabel(fee.FeeType),
-			Amount:      amount,
-			DueDate:     deadline,
-		})
 	}
 
 	// Mail/QR items: selected fees with remaining amounts plus planned fees.
@@ -681,7 +692,7 @@ func recommendedStageFor(selected []ReminderCaseFee) ReminderStage {
 // buildCaseWarnings creates concrete warnings for deviations from the
 // recommended flow.
 func buildCaseWarnings(stage ReminderStage, selected []ReminderCaseFee, existingReminders map[uuid.UUID]bool) []string {
-	var warnings []string
+	warnings := make([]string, 0)
 	for _, fee := range selected {
 		label := fmt.Sprintf("%s: %s", fee.ChildName, feeTypeLabel(fee.FeeType))
 		switch fee.Status {

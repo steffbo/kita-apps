@@ -406,6 +406,40 @@ func TestReminderCase_Preview_MixedTypesPlansFees(t *testing.T) {
 	}
 }
 
+func TestReminderCase_Preview_InitialStagePlansNoFees(t *testing.T) {
+	cleanupTestData()
+	defer cleanupTestData()
+
+	ctx := context.Background()
+	householdRepo := repository.NewPostgresHouseholdRepository(testDB)
+	childRepo := repository.NewPostgresChildRepository(testDB)
+	feeRepo := repository.NewPostgresFeeRepository(testDB)
+	reminderService := newReminderCaseService(&fakeReminderSender{})
+
+	household := createCaseHousehold(t, householdRepo, "TEST Initial No Fees")
+	createCaseParent(t, repository.NewPostgresParentRepository(testDB), household.ID, "Anna")
+	child, err := createTestChild(childRepo, "INF")
+	if err != nil {
+		t.Fatalf("failed to create child: %v", err)
+	}
+	foodFee := createCaseFee(t, feeRepo, child.ID, household.ID, domain.FeeTypeFood, 45.40, 2026, ptrInt(8), time.Date(2026, 9, 5, 0, 0, 0, 0, time.UTC))
+
+	preview, err := reminderService.PreviewReminderCase(ctx, household.ID, &service.ReminderCaseRequest{
+		Stage:  service.ReminderStageInitial,
+		RunDate: time.Date(2026, 9, 15, 0, 0, 0, 0, time.UTC),
+		FeeIDs: []uuid.UUID{foodFee.ID},
+	})
+	if err != nil {
+		t.Fatalf("PreviewReminderCase failed: %v", err)
+	}
+	if len(preview.PlannedReminderFees) != 0 {
+		t.Fatalf("initial stage must not plan reminder fees, got %d", len(preview.PlannedReminderFees))
+	}
+	if preview.TotalAmount != 45.40 {
+		t.Fatalf("expected total 45.40 without planned fees, got %v", preview.TotalAmount)
+	}
+}
+
 func TestReminderCase_Send_CreatesFeesLogsAndPreventsDuplicates(t *testing.T) {
 	cleanupTestData()
 	defer cleanupTestData()
