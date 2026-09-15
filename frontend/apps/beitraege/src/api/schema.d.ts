@@ -2946,6 +2946,8 @@ export interface paths {
                     perPage?: number;
                     /** @description Filter by email type */
                     emailType?: "REMINDER_INITIAL" | "REMINDER_FINAL" | "MEMBERSHIP_REMINDER_INITIAL" | "MEMBERSHIP_REMINDER_FINAL" | "PASSWORD_RESET";
+                    /** @description Filter by household UUID (family chronology) */
+                    householdId?: string;
                     /** @description Search in recipient and subject */
                     search?: string;
                     /** @description Sort by sent_at direction */
@@ -7268,6 +7270,8 @@ export interface components {
             body?: string;
             /** @example REMINDER_INITIAL */
             emailType?: string;
+            /** @example 550e8400-e29b-41d4-a716-446655440002 */
+            householdId?: string;
             /** @example 550e8400-e29b-41d4-a716-446655440000 */
             id?: string;
             /** @example 2026-02-05T10:15:00Z */

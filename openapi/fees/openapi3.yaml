@@ -1971,6 +1971,11 @@ paths:
               - MEMBERSHIP_REMINDER_INITIAL
               - MEMBERSHIP_REMINDER_FINAL
               - PASSWORD_RESET
+        - description: Filter by household UUID (family chronology)
+          in: query
+          name: householdId
+          schema:
+            type: string
         - description: Search in recipient and subject
           in: query
           name: search
@@ -5271,6 +5276,9 @@ components:
           type: string
         emailType:
           example: REMINDER_INITIAL
+          type: string
+        householdId:
+          example: 550e8400-e29b-41d4-a716-446655440002
           type: string
         id:
           example: 550e8400-e29b-41d4-a716-446655440000

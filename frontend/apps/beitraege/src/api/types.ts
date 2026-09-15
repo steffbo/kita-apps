@@ -71,6 +71,43 @@ export type ReminderRunResponse = Loose<
   previews?: ReminderPreview[];
 };
 
+// ── Family reminder cases ────────────────────────────────────────────────────
+export type ReminderCaseFeeStatus = NonNullable<Schema['service.ReminderCaseFee']['status']>;
+export type ReminderCaseStage = 'initial' | 'final';
+export type ReminderCaseFee = Loose<
+  DeepStrict<Schema['service.ReminderCaseFee']>,
+  'memberNumber' | 'lastContact'
+>;
+export type ReminderCase = DeepStrict<Schema['service.ReminderCase']>;
+export type ReminderCasesResult = DeepStrict<Schema['service.ReminderCasesResult']>;
+export type ReminderCasePlannedFee = DeepStrict<Schema['service.ReminderCasePlannedFee']>;
+export type ReminderCasePreview = Loose<
+  DeepStrict<Schema['service.ReminderCasePreview']>,
+  'qrImageDataUrl' | 'qrPayload' | 'warnings'
+>;
+export type ReminderCaseSendResult = DeepStrict<Schema['service.ReminderCaseSendResult']>;
+export interface ReminderCaseRequest {
+  stage: ReminderCaseStage;
+  runDate?: string;
+  feeIds: string[];
+  includeQR?: boolean;
+  subject?: string;
+  body?: string;
+  previewedAt?: string;
+}
+export interface ReminderCaseConflict {
+  message: string;
+  feeIds: string[];
+}
+export class ReminderCaseConflictError extends Error {
+  feeIds: string[];
+  constructor(conflict: ReminderCaseConflict) {
+    super(conflict.message);
+    this.name = 'ReminderCaseConflictError';
+    this.feeIds = conflict.feeIds ?? [];
+  }
+}
+
 export type EmailLogType =
   | 'REMINDER_INITIAL'
   | 'REMINDER_FINAL'

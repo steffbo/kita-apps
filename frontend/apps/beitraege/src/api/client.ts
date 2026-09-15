@@ -56,6 +56,11 @@ import type {
   MatchSuggestion,
   BankingSyncStatus,
   ReminderRunBody,
+  ReminderCasesResult,
+  ReminderCasePreview,
+  ReminderCaseRequest,
+  ReminderCaseSendResult,
+  ReminderCaseConflictError,
   StichtagsmeldungStats,
   StichtagsmeldungReport,
   MemberCountAsOf,
@@ -582,6 +587,68 @@ class ApiClient {
     body?: ReminderRunBody;
   }): Promise<ReminderRunResponse> {
     return this.postReminderRun('/fees/membership-reminders/run', params);
+  }
+
+  async getReminderCases(params?: {
+    asOf?: string;
+    scope?: 'actionable' | 'all';
+  }): Promise<ReminderCasesResult> {
+    const query = new URLSearchParams();
+    if (params?.asOf) query.set('asOf', params.asOf);
+    if (params?.scope) query.set('scope', params.scope);
+    const queryString = query.toString();
+    return this.request<ReminderCasesResult>(`/fees/reminder-cases${queryString ? `?${queryString}` : ''}`);
+  }
+
+  async previewReminderCase(householdId: string, data: ReminderCaseRequest): Promise<ReminderCasePreview> {
+    return this.request<ReminderCasePreview>(`/fees/reminder-cases/${householdId}/preview`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async sendReminderCase(householdId: string, data: ReminderCaseRequest): Promise<ReminderCaseSendResult> {
+    return this.requestWithErrorBody<ReminderCaseSendResult>(`/fees/reminder-cases/${householdId}/send`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  /** Like request(), but surfaces structured error bodies (e.g. 409 conflicts). */
+  private async requestWithErrorBody<T>(path: string, options: RequestInit = {}, isRetry = false): Promise<T> {
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    };
+    if (this.accessToken) {
+      (headers as Record<string, string>)['Authorization'] = `Bearer ${this.accessToken}`;
+    }
+
+    const response = await fetch(`${API_BASE}${path}`, { ...options, headers });
+
+    if (!response.ok) {
+      if (response.status === 401 && !isRetry) {
+        const refreshed = await this.tryRefreshToken();
+        if (refreshed) {
+          return this.requestWithErrorBody<T>(path, options, true);
+        }
+        if (this.onAuthFailed) {
+          this.onAuthFailed();
+        }
+        throw new Error('Unauthorized');
+      }
+      const error = await response.json().catch(() => ({ message: 'Unknown error' }));
+      if (response.status === 409 && Array.isArray(error.feeIds)) {
+        throw new ReminderCaseConflictError({ message: error.message || 'Konflikt', feeIds: error.feeIds });
+      }
+      throw new Error(error.message || error.error || `HTTP ${response.status}`);
+    }
+
+    if (response.status === 204) {
+      return undefined as T;
+    }
+
+    return response.json();
   }
 
   private async postReminderRun(

@@ -46,7 +46,8 @@ func (r *PostgresEmailLogRepository) List(ctx context.Context, offset, limit int
 		FROM fees.email_logs
 		WHERE ($1::text IS NULL OR email_type = $1::text)
 		  AND ($2::text = '' OR to_email ILIKE '%' || $2 || '%' OR subject ILIKE '%' || $2 || '%')
-	`, filter.EmailType, search); err != nil {
+		  AND ($3::uuid IS NULL OR household_id = $3::uuid)
+	`, filter.EmailType, search, filter.HouseholdID); err != nil {
 		return nil, 0, err
 	}
 
@@ -56,9 +57,10 @@ func (r *PostgresEmailLogRepository) List(ctx context.Context, offset, limit int
 		FROM fees.email_logs
 		WHERE ($1::text IS NULL OR email_type = $1::text)
 		  AND ($2::text = '' OR to_email ILIKE '%' || $2 || '%' OR subject ILIKE '%' || $2 || '%')
+		  AND ($3::uuid IS NULL OR household_id = $3::uuid)
 		ORDER BY sent_at `+sortDir+`
-		LIMIT $3 OFFSET $4
-	`, filter.EmailType, search, limit, offset)
+		LIMIT $4 OFFSET $5
+	`, filter.EmailType, search, filter.HouseholdID, limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}
