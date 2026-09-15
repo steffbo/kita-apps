@@ -7,6 +7,8 @@ Basics (ports, commands, layout) live in `AGENTS.md`.
 
 ### Review-Fixes Erinnerungs-Workflow (2026-09-15)
 
+- **UTF-8-Betreffzeilen:** SMTP-Nachrichten kodieren den `Subject` jetzt nach RFC 2047 (`mime.QEncoding`). Die MIME-Charset-Angabe des Nachrichtentextes gilt nicht für Header; ohne die explizite Header-Kodierung erschienen Umlaute wie „Beiträge" in einzelnen Mail-Clients als „BeitrÃ¤ge". Der Multipart-Versand ist mit einem Decode-Regressionstest abgesichert.
+
 Ergebnis eines externen Review-Agenten (3 Blocker, 5 P2) — alle umgesetzt:
 
 - **Doppelte Mahngebühren bei Parallel-Send (P1)**: Neue Migration 000031 legt einen

@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+	"mime"
 	"mime/multipart"
 	"net/smtp"
 	"net/textproto"
@@ -129,9 +130,15 @@ func (s *Service) sendMulti(to []string, subject, body string) error {
 		"Subject: %s\r\n"+
 		"Content-Type: text/plain; charset=UTF-8\r\n"+
 		"\r\n"+
-		"%s", s.config.From, toHeader, subject, body)
+		"%s", s.config.From, toHeader, encodeHeader(subject), body)
 
 	return s.sendRawMulti(to, subject, []byte(msg))
+}
+
+// encodeHeader applies the RFC 2047 encoding required for non-ASCII mail headers.
+// MIME body charsets do not apply to headers such as Subject.
+func encodeHeader(value string) string {
+	return mime.QEncoding.Encode("UTF-8", value)
 }
 
 func (s *Service) sendRawMulti(to []string, subject string, msg []byte) error {
@@ -274,7 +281,7 @@ func buildMultipartMessage(
 	var msg bytes.Buffer
 	fmt.Fprintf(&msg, "From: %s\r\n", from)
 	fmt.Fprintf(&msg, "To: %s\r\n", toHeader)
-	fmt.Fprintf(&msg, "Subject: %s\r\n", subject)
+	fmt.Fprintf(&msg, "Subject: %s\r\n", encodeHeader(subject))
 	fmt.Fprintf(&msg, "MIME-Version: 1.0\r\n")
 	fmt.Fprintf(&msg, "Content-Type: multipart/related; boundary=%q\r\n", relatedWriter.Boundary())
 	fmt.Fprintf(&msg, "\r\n")
