@@ -60,7 +60,6 @@ import type {
   ReminderCasePreview,
   ReminderCaseRequest,
   ReminderCaseSendResult,
-  ReminderCaseConflictError,
   StichtagsmeldungStats,
   StichtagsmeldungReport,
   MemberCountAsOf,
@@ -76,6 +75,7 @@ import type {
   CreateChildNoteRequest,
   UpdateChildNoteRequest,
 } from './types';
+import { ReminderCaseConflictError } from './types';
 
 const API_BASE = '/api/fees/v1';
 
@@ -686,6 +686,7 @@ class ApiClient {
     emailType?: string;
     search?: string;
     sortDir?: 'asc' | 'desc';
+    householdId?: string;
   }): Promise<PaginatedResponse<EmailLog>> {
     const query = new URLSearchParams();
     if (typeof params?.page === 'number') query.set('page', String(params.page));
@@ -693,6 +694,7 @@ class ApiClient {
     if (params?.emailType) query.set('emailType', params.emailType);
     if (params?.search && params.search.trim()) query.set('search', params.search.trim());
     if (params?.sortDir) query.set('sortDir', params.sortDir);
+    if (params?.householdId) query.set('householdId', params.householdId);
     const queryString = query.toString();
     const response = await this.request<PaginatedResponse<EmailLog>>(`/fees/email-logs${queryString ? `?${queryString}` : ''}`);
     return this.normalizePaginated(response);

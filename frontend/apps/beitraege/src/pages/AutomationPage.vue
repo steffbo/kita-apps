@@ -1,125 +1,302 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { api } from '@/api';
-import type { ReminderRunResponse, ReminderRunOverride, EmailLog } from '@/api/types';
-import { Eye, X, Search, ArrowUp, ArrowDown } from 'lucide-vue-next';
+import type {
+  EmailLog,
+  ReminderCase,
+  ReminderCaseFee,
+  ReminderCasePreview,
+  ReminderCaseSendResult,
+  ReminderCaseStage,
+} from '@/api/types';
+import { ReminderCaseConflictError } from '@/api/types';
+import { Eye, X, Search, ArrowUp, ArrowDown, ArrowLeft, Settings, Mail, Clock } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/auth';
 
 const authStore = useAuthStore();
 
-// Reminder state
+// ── Page tabs ────────────────────────────────────────────────────────────────
+const activeTab = ref<'worklist' | 'log'>('worklist');
+
+// ── Worklist state ───────────────────────────────────────────────────────────
+const scope = ref<'actionable' | 'all'>('actionable');
+const cases = ref<ReminderCase[]>([]);
+const isCasesLoading = ref(false);
+const casesError = ref<string | null>(null);
+const caseSearch = ref('');
+const selectedHouseholdId = ref<string | null>(null);
+
+const filteredCases = computed(() => {
+  const term = caseSearch.value.trim().toLowerCase();
+  if (!term) return cases.value;
+  return cases.value.filter((item) => item.householdName.toLowerCase().includes(term));
+});
+
+const selectedCase = computed(() => {
+  if (!selectedHouseholdId.value) return null;
+  return cases.value.find((item) => item.householdId === selectedHouseholdId.value) ?? null;
+});
+
+function lastContactOf(item: ReminderCase): string | null {
+  let latest: string | null = null;
+  for (const fee of item.fees) {
+    const at = fee.lastContact?.lastContactAt;
+    if (at && (!latest || at > latest)) latest = at;
+  }
+  return latest;
+}
+
+function hasBlockedEmail(item: ReminderCase): boolean {
+  return !item.recipients || item.recipients.length === 0;
+}
+
+async function loadCases(selectId: string | null = null): Promise<void> {
+  if (!authStore.isAdmin) return;
+  isCasesLoading.value = true;
+  casesError.value = null;
+  try {
+    const result = await api.getReminderCases({ scope: scope.value });
+    cases.value = result.cases;
+    if (selectId && cases.value.some((item) => item.householdId === selectId)) {
+      selectedHouseholdId.value = selectId;
+    } else if (selectedHouseholdId.value && !cases.value.some((item) => item.householdId === selectedHouseholdId.value)) {
+      selectedHouseholdId.value = null;
+    }
+  } catch (e) {
+    casesError.value = e instanceof Error ? e.message : 'Familien konnten nicht geladen werden';
+  } finally {
+    isCasesLoading.value = false;
+  }
+}
+
+function openCase(householdId: string): void {
+  selectedHouseholdId.value = householdId;
+  const item = selectedCase.value;
+  const actionableIds = (item?.fees ?? [])
+    .filter((fee) => fee.status === 'actionable_initial' || fee.status === 'actionable_final' || fee.status === 'history_unknown')
+    .map((fee) => fee.feeId);
+  selectedFeeIds.value = actionableIds;
+  stage.value = deriveRecommendedStage(actionableIds, item?.fees ?? []) ?? 'initial';
+  sendResult.value = null;
+  sendError.value = null;
+  resetNotice.value = false;
+  userEdited.value = false;
+  loadChronology();
+}
+
+function closeCase(): void {
+  selectedHouseholdId.value = null;
+}
+
+// ── Case detail state ────────────────────────────────────────────────────────
+const selectedFeeIds = ref<string[]>([]);
+const stage = ref<ReminderCaseStage>('initial');
+const includeQR = ref(true);
+const preview = ref<ReminderCasePreview | null>(null);
+const isPreviewLoading = ref(false);
+const previewError = ref<string | null>(null);
+const subjectEdit = ref('');
+const bodyEdit = ref('');
+const userEdited = ref(false);
+const resetNotice = ref(false);
+const isSending = ref(false);
+const sendError = ref<string | null>(null);
+const conflictFeeCount = ref(0);
+const sendResult = ref<ReminderCaseSendResult | null>(null);
+const showConfirmModal = ref(false);
+const showSettingsDialog = ref(false);
+
+let previewRequestedAt: string | null = null;
+let previewTimer: ReturnType<typeof setTimeout> | null = null;
+
+// Derive the recommendation the way the backend does: initial only when every
+// selected fee is actionable_initial, final only when every one is
+// actionable_final.
+function deriveRecommendedStage(selectedIds: string[], fees: ReminderCaseFee[]): ReminderCaseStage | null {
+  if (selectedIds.length === 0) return null;
+  const byId = new Map<string, ReminderCaseFee>(fees.map((fee) => [fee.feeId, fee]));
+  const selected = selectedIds
+    .map((id) => byId.get(id))
+    .filter((fee): fee is ReminderCaseFee => !!fee);
+  if (selected.length === 0) return null;
+  const allInitial = selected.every((fee) => fee.status === 'actionable_initial');
+  const allFinal = selected.every((fee) => fee.status === 'actionable_final');
+  if (allInitial) return 'initial';
+  if (allFinal) return 'final';
+  return null;
+}
+
+const recommendedStage = computed<ReminderCaseStage | null>(() => {
+  if (!selectedCase.value) return null;
+  return deriveRecommendedStage(selectedFeeIds.value, selectedCase.value.fees);
+});
+
+const stageWarning = computed<string | null>(() => {
+  const recommended = recommendedStage.value;
+  if (!recommended || recommended === stage.value) return null;
+  if (stage.value === 'final') {
+    return 'Empfehlung: Erinnerung — mindestens ein ausgewählter Beitrag wurde noch nicht erinnert.';
+  }
+  return 'Empfehlung: Mahnung — alle ausgewählten Beiträge haben eine abgelaufene Frist.';
+});
+
+function toggleFee(feeId: string): void {
+  const index = selectedFeeIds.value.indexOf(feeId);
+  if (index >= 0) {
+    selectedFeeIds.value.splice(index, 1);
+  } else {
+    selectedFeeIds.value.push(feeId);
+  }
+}
+
+async function refreshPreview(): Promise<void> {
+  const item = selectedCase.value;
+  if (!item || selectedFeeIds.value.length === 0) {
+    preview.value = null;
+    return;
+  }
+  if (previewTimer) clearTimeout(previewTimer);
+  isPreviewLoading.value = true;
+  previewError.value = null;
+  previewRequestedAt = new Date().toISOString();
+  try {
+    const result = await api.previewReminderCase(item.householdId, {
+      stage: stage.value,
+      runDate: todayISO(),
+      feeIds: selectedFeeIds.value,
+      includeQR: includeQR.value,
+    });
+    const hadEdits = userEdited.value;
+    preview.value = result;
+    subjectEdit.value = result.subject;
+    bodyEdit.value = result.body;
+    if (hadEdits) {
+      resetNotice.value = true;
+    }
+    userEdited.value = false;
+  } catch (e) {
+    previewError.value = e instanceof Error ? e.message : 'Vorschau konnte nicht geladen werden';
+  } finally {
+    isPreviewLoading.value = false;
+  }
+}
+
+function schedulePreviewRefresh(): void {
+  if (previewTimer) clearTimeout(previewTimer);
+  previewTimer = setTimeout(() => {
+    void refreshPreview();
+  }, 250);
+}
+
+watch(selectedFeeIds, () => {
+  resetNotice.value = false;
+  schedulePreviewRefresh();
+}, { deep: true });
+
+watch(stage, () => {
+  resetNotice.value = false;
+  schedulePreviewRefresh();
+});
+
+watch(includeQR, () => {
+  schedulePreviewRefresh();
+});
+
+function onSubjectInput(): void {
+  userEdited.value = true;
+  resetNotice.value = false;
+}
+
+function onBodyInput(): void {
+  userEdited.value = true;
+  resetNotice.value = false;
+}
+
+function resetEdits(): void {
+  if (!preview.value) return;
+  subjectEdit.value = preview.value.subject;
+  bodyEdit.value = preview.value.body;
+  userEdited.value = false;
+  resetNotice.value = false;
+}
+
+async function openSendConfirmation(): Promise<void> {
+  if (!preview.value) return;
+  sendError.value = null;
+  conflictFeeCount.value = 0;
+  showConfirmModal.value = true;
+}
+
+async function confirmSend(): Promise<void> {
+  const item = selectedCase.value;
+  if (!item || !preview.value) return;
+  isSending.value = true;
+  sendError.value = null;
+  conflictFeeCount.value = 0;
+  try {
+    const result = await api.sendReminderCase(item.householdId, {
+      stage: stage.value,
+      runDate: todayISO(),
+      feeIds: selectedFeeIds.value,
+      includeQR: includeQR.value,
+      ...(subjectEdit.value.trim() !== '' && subjectEdit.value !== preview.value.subject ? { subject: subjectEdit.value } : {}),
+      ...(bodyEdit.value !== preview.value.body ? { body: bodyEdit.value } : {}),
+      ...(previewRequestedAt ? { previewedAt: previewRequestedAt } : {}),
+    });
+    sendResult.value = result;
+    showConfirmModal.value = false;
+    preview.value = null;
+    await loadCases();
+    // Open the next actionable family, if any.
+    const next = cases.value.find((entry) => entry.householdId !== item.householdId);
+    if (next) {
+      openCase(next.householdId);
+    } else {
+      selectedHouseholdId.value = null;
+    }
+  } catch (e) {
+    showConfirmModal.value = false;
+    if (e instanceof ReminderCaseConflictError) {
+      conflictFeeCount.value = e.feeIds.length;
+      sendError.value = `Zustand hat sich geändert (${e.message}). Bitte Vorschau neu prüfen.`;
+      await loadCases(item.householdId);
+      await refreshPreview();
+    } else {
+      sendError.value = e instanceof Error ? e.message : 'Versand fehlgeschlagen';
+    }
+  } finally {
+    isSending.value = false;
+  }
+}
+
+// ── Family chronology ────────────────────────────────────────────────────────
+const chronology = ref<EmailLog[]>([]);
+const isChronologyLoading = ref(false);
+const selectedChronologyLog = ref<EmailLog | null>(null);
+
+async function loadChronology(): Promise<void> {
+  const item = selectedCase.value;
+  if (!item) return;
+  isChronologyLoading.value = true;
+  try {
+    const result = await api.getEmailLogs({ householdId: item.householdId, perPage: 20, sortDir: 'desc' });
+    chronology.value = result.data;
+  } catch {
+    chronology.value = [];
+  } finally {
+    isChronologyLoading.value = false;
+  }
+}
+
+// ── Settings (payment data) ──────────────────────────────────────────────────
 const reminderAutoEnabled = ref(false);
-const isReminderSettingsLoading = ref(false);
-const reminderSettingsError = ref<string | null>(null);
-const reminderRunError = ref<string | null>(null);
-const reminderRunResult = ref<ReminderRunResponse | null>(null);
-const reminderResultContext = ref<'regular' | 'membership' | null>(null);
-const reminderDate = ref(new Date().toLocaleDateString('en-CA'));
-const reminderDeadline = ref('');
 const reminderPaymentRecipientName = ref('');
 const reminderPaymentIBAN = ref('');
 const reminderPaymentBIC = ref('');
-const isRunningReminders = ref(false);
+const isReminderSettingsLoading = ref(false);
+const reminderSettingsError = ref<string | null>(null);
 
-// Dry-run preview modal state
-const showPreviewModal = ref(false);
-const previewStage = ref<'initial' | 'final'>('initial');
-const previewRunType = ref<'regular' | 'membership'>('regular');
-const expandedPreview = ref<string | null>(null);
-const selectedPreviewHouseholdIds = ref<string[]>([]);
-
-const previewModalTitle = computed(() => {
-  if (previewRunType.value === 'membership') {
-    return previewStage.value === 'final'
-      ? 'Vorschau Mahnungen Vereinsbeiträge'
-      : 'Vorschau Zahlungserinnerungen Vereinsbeiträge';
-  }
-  return previewStage.value === 'final' ? 'Vorschau Mahnungen' : 'Vorschau Zahlungserinnerungen';
-});
-
-const previewSendButtonLabel = computed(() => {
-  if (previewRunType.value === 'membership') {
-    return previewStage.value === 'final' ? 'Mahnungen Vereinsbeiträge senden' : 'Erinnerungen Vereinsbeiträge senden';
-  }
-  return previewStage.value === 'final' ? 'Mahnungen senden' : 'Erinnerungen senden';
-});
-
-const previewSendButtonClass = computed(() => {
-  return previewStage.value === 'final'
-    ? 'bg-amber-600 hover:bg-amber-700'
-    : 'bg-primary hover:bg-primary/90';
-});
-
-// Editable preview content: per-household subject/body plus QR toggle
-const previewIncludeQR = ref(true);
-const previewEdits = ref<Record<string, { subject: string; body: string }>>({});
-const previewOriginals = ref<Record<string, { subject: string; body: string }>>({});
-
-function initPreviewEditState(): void {
-  const previews = reminderRunResult.value?.previews ?? [];
-  previewIncludeQR.value = true;
-  previewOriginals.value = Object.fromEntries(
-    previews.map((preview) => [preview.householdId, { subject: preview.subject, body: preview.body }])
-  );
-  previewEdits.value = Object.fromEntries(
-    previews.map((preview) => [preview.householdId, { subject: preview.subject, body: preview.body }])
-  );
-}
-
-function selectAllPreviewHouseholds(): void {
-  selectedPreviewHouseholdIds.value = (reminderRunResult.value?.previews ?? []).map(
-    (preview) => preview.householdId
-  );
-}
-
-function deselectAllPreviewHouseholds(): void {
-  selectedPreviewHouseholdIds.value = [];
-}
-
-function hasPreviewEdits(): boolean {
-  for (const [householdId, original] of Object.entries(previewOriginals.value)) {
-    const edited = previewEdits.value[householdId];
-    if (!edited) continue;
-    if (edited.subject.trim() !== '' && edited.subject !== original.subject) return true;
-    if (edited.body !== original.body) return true;
-  }
-  return false;
-}
-
-function buildPreviewOverrides(): Record<string, ReminderRunOverride> {
-  const overrides: Record<string, ReminderRunOverride> = {};
-  for (const householdId of selectedPreviewHouseholdIds.value) {
-    const original = previewOriginals.value[householdId];
-    const edited = previewEdits.value[householdId];
-    if (!original || !edited) continue;
-    const override: ReminderRunOverride = {};
-    if (edited.subject.trim() !== '' && edited.subject !== original.subject) {
-      override.subject = edited.subject;
-    }
-    if (edited.body !== original.body) {
-      override.body = edited.body;
-    }
-    if (override.subject !== undefined || override.body !== undefined) {
-      overrides[householdId] = override;
-    }
-  }
-  return overrides;
-}
-
-// Email logs state
-const emailLogs = ref<EmailLog[]>([]);
-const emailLogsTotal = ref(0);
-const emailLogsPage = ref(1);
-const emailLogsPerPage = 20;
-const emailLogsSearch = ref('');
-const emailLogsTypeFilter = ref('');
-const emailLogsSortDir = ref<'asc' | 'desc'>('desc');
-const isEmailLogsLoading = ref(false);
-const emailLogsError = ref<string | null>(null);
-const selectedEmailLog = ref<EmailLog | null>(null);
-
-// Reminder Functions
-async function loadReminderSettings() {
+async function loadReminderSettings(): Promise<void> {
   if (!authStore.isAdmin) return;
   isReminderSettingsLoading.value = true;
   reminderSettingsError.value = null;
@@ -144,12 +321,12 @@ function normalizeBIC(value: string): string {
   return value.trim().toUpperCase();
 }
 
-async function updateReminderAutoEnabled() {
+async function savePaymentSettings(): Promise<void> {
   if (!authStore.isAdmin) return;
   isReminderSettingsLoading.value = true;
   reminderSettingsError.value = null;
   try {
-    const settings = await api.updateReminderSettings({
+    await api.updateReminderSettings({
       autoEnabled: reminderAutoEnabled.value,
       payment: {
         recipientName: reminderPaymentRecipientName.value.trim(),
@@ -157,10 +334,7 @@ async function updateReminderAutoEnabled() {
         bic: normalizeBIC(reminderPaymentBIC.value),
       },
     });
-    reminderAutoEnabled.value = settings.autoEnabled;
-    reminderPaymentRecipientName.value = settings.payment?.recipientName ?? '';
-    reminderPaymentIBAN.value = settings.payment?.iban ?? '';
-    reminderPaymentBIC.value = settings.payment?.bic ?? '';
+    showSettingsDialog.value = false;
   } catch (e) {
     reminderSettingsError.value = e instanceof Error ? e.message : 'Einstellungen konnten nicht gespeichert werden';
   } finally {
@@ -168,121 +342,25 @@ async function updateReminderAutoEnabled() {
   }
 }
 
-async function runReminders(stage: 'initial' | 'final') {
-  if (!authStore.isAdmin) return;
-  isRunningReminders.value = true;
-  reminderRunError.value = null;
-  reminderRunResult.value = null;
-  reminderResultContext.value = 'regular';
-  try {
-    const result = await api.runReminders({
-      stage,
-      date: reminderDate.value,
-      dryRun: true,
-      deadline: reminderDeadline.value || undefined,
-    });
-    reminderRunResult.value = result;
-    if (result.dryRun && result.previews && result.previews.length > 0) {
-      previewRunType.value = 'regular';
-      previewStage.value = stage;
-      expandedPreview.value = null;
-      initPreviewEditState();
-      selectedPreviewHouseholdIds.value = result.previews.map((preview) => preview.householdId);
-      showPreviewModal.value = true;
-    }
-  } catch (e) {
-    reminderRunError.value = e instanceof Error ? e.message : 'Erinnerung konnte nicht ausgelöst werden';
-  } finally {
-    isRunningReminders.value = false;
-  }
-}
+// ── Global log (Versandverlauf) ──────────────────────────────────────────────
+const emailLogs = ref<EmailLog[]>([]);
+const emailLogsTotal = ref(0);
+const emailLogsPage = ref(1);
+const emailLogsPerPage = 20;
+const emailLogsSearch = ref('');
+const emailLogsTypeFilter = ref('');
+const emailLogsSortDir = ref<'asc' | 'desc'>('desc');
+const isEmailLogsLoading = ref(false);
+const emailLogsError = ref<string | null>(null);
+const selectedEmailLog = ref<EmailLog | null>(null);
 
-async function runMembershipReminders(stage: 'initial' | 'final') {
-  if (!authStore.isAdmin) return;
-  isRunningReminders.value = true;
-  reminderRunError.value = null;
-  reminderRunResult.value = null;
-  reminderResultContext.value = 'membership';
-  try {
-    const result = await api.runMembershipReminders({
-      stage,
-      date: reminderDate.value,
-      dryRun: true,
-      deadline: reminderDeadline.value || undefined,
-    });
-    reminderRunResult.value = result;
-    if (result.dryRun && result.previews && result.previews.length > 0) {
-      previewRunType.value = 'membership';
-      previewStage.value = stage;
-      expandedPreview.value = null;
-      initPreviewEditState();
-      selectedPreviewHouseholdIds.value = result.previews.map((preview) => preview.householdId);
-      showPreviewModal.value = true;
-    }
-  } catch (e) {
-    reminderRunError.value = e instanceof Error ? e.message : 'Vereinsbeitrags-Erinnerung konnte nicht ausgelöst werden';
-  } finally {
-    isRunningReminders.value = false;
-  }
-}
-
-async function sendFromModal() {
-  if (selectedPreviewHouseholdIds.value.length === 0) {
-    reminderRunError.value = 'Bitte mindestens eine Familie auswählen.';
-    return;
-  }
-  const overrides = buildPreviewOverrides();
-  const body = {
-    includeQR: previewIncludeQR.value,
-    ...(Object.keys(overrides).length > 0 ? { overrides } : {}),
-  };
-  showPreviewModal.value = false;
-  if (!authStore.isAdmin) return;
-  isRunningReminders.value = true;
-  reminderRunError.value = null;
-  reminderRunResult.value = null;
-  reminderResultContext.value = previewRunType.value;
-  try {
-    const result = previewRunType.value === 'membership'
-      ? await api.runMembershipReminders({
-          stage: previewStage.value,
-          date: reminderDate.value,
-          dryRun: false,
-          deadline: reminderDeadline.value || undefined,
-          selectedHouseholdIds: selectedPreviewHouseholdIds.value,
-          body,
-        })
-      : await api.runReminders({
-          stage: previewStage.value,
-          date: reminderDate.value,
-          dryRun: false,
-          deadline: reminderDeadline.value || undefined,
-          selectedHouseholdIds: selectedPreviewHouseholdIds.value,
-          body,
-        });
-    reminderRunResult.value = result;
-  } catch (e) {
-    reminderRunError.value = e instanceof Error ? e.message : 'Erinnerung konnte nicht ausgelöst werden';
-  } finally {
-    isRunningReminders.value = false;
-  }
-}
-
-function togglePreview(householdName: string) {
-  expandedPreview.value = expandedPreview.value === householdName ? null : householdName;
-}
-
-// Email Logs Functions
-async function loadEmailLogs(reset = false) {
+async function loadEmailLogs(reset = false): Promise<void> {
   if (!authStore.isAdmin) return;
   if (isEmailLogsLoading.value) return;
-
   isEmailLogsLoading.value = true;
   emailLogsError.value = null;
   try {
-    if (reset) {
-      emailLogsPage.value = 1;
-    }
+    if (reset) emailLogsPage.value = 1;
     const result = await api.getEmailLogs({
       page: emailLogsPage.value,
       perPage: emailLogsPerPage,
@@ -293,7 +371,7 @@ async function loadEmailLogs(reset = false) {
     emailLogs.value = result.data;
     emailLogsTotal.value = result.total;
   } catch (e) {
-    emailLogsError.value = e instanceof Error ? e.message : 'E-Mail-Protokoll konnte nicht geladen werden';
+    emailLogsError.value = e instanceof Error ? e.message : 'Versandverlauf konnte nicht geladen werden';
   } finally {
     isEmailLogsLoading.value = false;
   }
@@ -321,8 +399,93 @@ watch([emailLogsTypeFilter, emailLogsSortDir], () => {
   loadEmailLogs(true);
 });
 
+watch(activeTab, (tab) => {
+  if (tab === 'log') loadEmailLogs(true);
+});
+
 function toggleEmailLogsSort(): void {
   emailLogsSortDir.value = emailLogsSortDir.value === 'desc' ? 'asc' : 'desc';
+}
+
+// ── Formatting helpers ───────────────────────────────────────────────────────
+function todayISO(): string {
+  return new Date().toLocaleDateString('en-CA');
+}
+
+function formatCurrency(value: number): string {
+  return value.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
+}
+
+function formatDate(value: string | undefined): string {
+  if (!value) return '—';
+  return new Date(value).toLocaleDateString('de-DE');
+}
+
+function formatDateTime(value: string): string {
+  return new Date(value).toLocaleString('de-DE');
+}
+
+function formatPeriod(fee: ReminderCaseFee): string {
+  if (fee.month > 0) return `${fee.month}/${fee.year}`;
+  return String(fee.year);
+}
+
+const feeTypeLabels: Record<string, string> = {
+  MEMBERSHIP: 'Vereinsbeitrag',
+  FOOD: 'Essensgeld',
+  CHILDCARE: 'Platzgeld',
+  REMINDER: 'Mahngebühr',
+};
+
+function feeTypeLabel(feeType: string): string {
+  return feeTypeLabels[feeType] ?? feeType;
+}
+
+function feeChipClass(feeType: string): string {
+  switch (feeType) {
+    case 'MEMBERSHIP':
+      return 'bg-purple-100 text-purple-700';
+    case 'FOOD':
+      return 'bg-orange-100 text-orange-700';
+    case 'CHILDCARE':
+      return 'bg-blue-100 text-blue-700';
+    case 'REMINDER':
+      return 'bg-red-100 text-red-700';
+    default:
+      return 'bg-gray-100 text-gray-700';
+  }
+}
+
+function feeTypesIn(item: ReminderCase): string[] {
+  const types = new Set(item.fees.map((fee) => fee.feeType));
+  return Array.from(types);
+}
+
+const statusLabels: Record<string, string> = {
+  actionable_initial: 'Erinnerung fällig',
+  actionable_final: 'Mahnung fällig',
+  waiting: 'In Frist',
+  never_contacted: 'Nicht fällig',
+  history_unknown: 'Historie unbekannt',
+};
+
+function statusLabel(status: string): string {
+  return statusLabels[status] ?? status;
+}
+
+function statusBadgeClass(status: string): string {
+  switch (status) {
+    case 'actionable_initial':
+      return 'bg-amber-100 text-amber-700';
+    case 'actionable_final':
+      return 'bg-red-100 text-red-700';
+    case 'waiting':
+      return 'bg-blue-100 text-blue-700';
+    case 'history_unknown':
+      return 'bg-gray-200 text-gray-700';
+    default:
+      return 'bg-gray-100 text-gray-600';
+  }
 }
 
 function formatEmailType(type: string): string {
@@ -342,36 +505,25 @@ function formatEmailType(type: string): string {
   }
 }
 
-function formatDateTime(date: string): string {
-  return new Date(date).toLocaleString('de-DE');
-}
-
-function openEmailLogModal(log: EmailLog): void {
-  selectedEmailLog.value = log;
-}
-
-function closeEmailLogModal(): void {
-  selectedEmailLog.value = null;
-}
+// ── Lifecycle ────────────────────────────────────────────────────────────────
+onMounted(() => {
+  if (authStore.isAdmin) {
+    loadCases();
+    loadReminderSettings();
+  }
+});
 
 onUnmounted(() => {
   if (emailLogsSearchTimeout) clearTimeout(emailLogsSearchTimeout);
-});
-
-// Lifecycle
-onMounted(() => {
-  if (authStore.isAdmin) {
-    loadReminderSettings();
-    loadEmailLogs(true);
-  }
+  if (previewTimer) clearTimeout(previewTimer);
 });
 
 watch(
   () => authStore.isAdmin,
   (isAdmin) => {
     if (isAdmin) {
+      loadCases();
       loadReminderSettings();
-      loadEmailLogs(true);
     }
   }
 );
@@ -380,404 +532,378 @@ watch(
 <template>
   <div>
     <!-- Header -->
-    <div class="mb-8">
-      <h1 class="text-2xl font-bold text-gray-900">Erinnerungen</h1>
-      <p class="text-gray-600 mt-1">Zahlungserinnerungen und Mahnungen versenden</p>
+    <div class="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900">Erinnerungen</h1>
+        <p class="text-gray-600 mt-1">Familien mit offenen Beiträgen bearbeiten</p>
+      </div>
+      <button
+        class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium hover:bg-gray-50"
+        @click="showSettingsDialog = true"
+      >
+        <Settings class="h-4 w-4" />
+        Zahlungsdaten
+      </button>
     </div>
 
-    <!-- Zahlungserinnerungen Card -->
-    <div v-if="authStore.isAdmin" class="bg-white rounded-xl border p-6 mb-6">
-      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
-        <div>
-          <h2 class="text-lg font-semibold text-gray-900">Zahlungserinnerungen Essens- und Platzgeld</h2>
-          <p class="text-sm text-gray-600">
-            Erinnerungen und Mahnungen werden direkt an die Eltern der jeweiligen Familie gesendet.
-          </p>
-        </div>
-        <div class="flex items-center gap-3">
-          <span class="text-sm text-gray-600">Automatik</span>
-          <label class="relative inline-flex items-center cursor-pointer">
-            <input
-              type="checkbox"
-              class="sr-only peer"
-              v-model="reminderAutoEnabled"
-              :disabled="isReminderSettingsLoading"
-              @change="updateReminderAutoEnabled"
-            />
-            <div
-              class="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:bg-primary transition-colors"
-            ></div>
-            <div
-              class="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition-transform peer-checked:translate-x-5"
-            ></div>
-          </label>
-        </div>
-      </div>
+    <!-- Tab switch -->
+    <div class="flex gap-1 mb-6 border-b">
+      <button
+        class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors"
+        :class="activeTab === 'worklist' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700'"
+        @click="activeTab = 'worklist'"
+      >
+        Arbeitsliste
+      </button>
+      <button
+        class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors"
+        :class="activeTab === 'log' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700'"
+        @click="activeTab = 'log'"
+      >
+        Versandverlauf
+      </button>
+    </div>
 
-      <div class="flex flex-col lg:flex-row lg:items-end gap-4">
-        <div class="w-full rounded-lg border border-gray-200 p-4 bg-gray-50">
-          <p class="text-sm font-medium text-gray-800 mb-3">Zahlungsdaten für QR-Code</p>
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Empfänger</label>
-              <input
-                type="text"
-                v-model="reminderPaymentRecipientName"
-                placeholder="Knirpsenstadt e.V."
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-              />
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">IBAN</label>
-              <input
-                type="text"
-                v-model="reminderPaymentIBAN"
-                placeholder="DE33370205000003321400"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-              />
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">
-                BIC <span class="font-normal text-gray-400">(optional)</span>
-              </label>
-              <input
-                type="text"
-                v-model="reminderPaymentBIC"
-                placeholder="BFSWDE33XXX"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-              />
-            </div>
-          </div>
-          <div class="mt-3 flex items-center justify-between gap-3">
-            <p class="text-xs text-gray-500">
-              Wenn Felder leer bleiben, werden die Standard-Zahlungsdaten der Kita verwendet.
-            </p>
-            <button
-              class="px-3 py-2 rounded-lg border text-sm font-medium hover:bg-white disabled:opacity-50"
-              :disabled="isReminderSettingsLoading"
-              @click="updateReminderAutoEnabled"
-            >
-              Zahlungsdaten speichern
-            </button>
-          </div>
-        </div>
-
-      </div>
-
-        <div class="flex flex-col sm:flex-row sm:items-end gap-4 mt-4">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Datum</label>
-            <input
-              type="date"
-              v-model="reminderDate"
-              class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-            />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">
-              Frist <span class="font-normal text-gray-400">(optional, Standard: 7 Tage ab Datum)</span>
-            </label>
-            <input
-              type="date"
-              v-model="reminderDeadline"
-              class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-            />
-          </div>
-          <div class="flex gap-2 sm:ml-auto">
-            <button
-              class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
-              :disabled="isRunningReminders"
-              @click="runReminders('initial')"
-            >
-              Erinnerung senden
-            </button>
-            <button
-              class="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-50"
-              :disabled="isRunningReminders"
-              @click="runReminders('final')"
-            >
-              Mahnung senden
-            </button>
-          </div>
-        </div>
-
-      <div v-if="isReminderSettingsLoading" class="mt-3 text-sm text-gray-500">
-        Einstellungen werden aktualisiert...
-      </div>
-      <div v-if="reminderSettingsError" class="mt-3 text-sm text-red-600">
-        {{ reminderSettingsError }}
-      </div>
-
-      <div v-if="reminderResultContext === 'regular' && reminderRunError" class="mt-3 text-sm text-red-600">
-        {{ reminderRunError }}
-      </div>
-
-      <!-- Result after real run -->
-      <div v-if="reminderResultContext === 'regular' && reminderRunResult && !reminderRunResult.dryRun" class="mt-4 p-4 bg-gray-50 border rounded-lg text-sm text-gray-700">
-        <p class="font-medium mb-2">Ergebnis</p>
-        <p>
-          Familien kontaktiert: <span class="font-medium">{{ reminderRunResult.familiesEmailed }}</span>
-          · Übersprungen: <span class="font-medium">{{ reminderRunResult.familiesSkippedNoEmail }}</span>
-          · Offene Beiträge: <span class="font-medium">{{ reminderRunResult.unpaidCount }}</span>
-        </p>
-        <p v-if="reminderRunResult.remindersCreated" class="mt-1">
-          Mahngebühren erstellt: <span class="font-medium">{{ reminderRunResult.remindersCreated }}</span>
-        </p>
-        <ul v-if="reminderRunResult.warnings && reminderRunResult.warnings.length > 0" class="mt-2 space-y-1">
-          <li
-            v-for="warn in reminderRunResult.warnings"
-            :key="warn.householdName"
-            class="text-amber-700"
+    <!-- ════════════════════ Worklist ════════════════════ -->
+    <div v-if="activeTab === 'worklist'" v-show="authStore.isAdmin">
+      <!-- Scope + search -->
+      <div class="flex flex-col sm:flex-row sm:items-center gap-2 mb-4">
+        <div class="inline-flex rounded-lg border overflow-hidden">
+          <button
+            class="px-4 py-2 text-sm font-medium transition-colors"
+            :class="scope === 'actionable' ? 'bg-primary text-white' : 'bg-white text-gray-600 hover:bg-gray-50'"
+            @click="scope = 'actionable'"
           >
-            Familie {{ warn.householdName }}: {{ warn.reason }}
-          </li>
-        </ul>
-        <p v-if="reminderRunResult.message" class="mt-1 text-gray-500">
-          {{ reminderRunResult.message }}
-        </p>
-      </div>
-
-      <!-- Result after dry-run (when no previews or empty result) -->
-      <div v-if="reminderResultContext === 'regular' && reminderRunResult && reminderRunResult.dryRun && (!reminderRunResult.previews || reminderRunResult.previews.length === 0)" class="mt-4 p-4 bg-gray-50 border rounded-lg text-sm text-gray-700">
-        <p class="font-medium">Vorschau</p>
-        <p class="text-gray-500">{{ reminderRunResult.message || 'Keine offenen Beiträge für diesen Zeitraum.' }}</p>
-      </div>
-    </div>
-
-    <!-- Vereinsbeiträge Card -->
-    <div v-if="authStore.isAdmin" class="bg-white rounded-xl border p-6 mb-6">
-      <div class="mb-4">
-        <h2 class="text-lg font-semibold text-gray-900">Zahlungserinnerungen Vereinsbeiträge</h2>
-        <p class="text-sm text-gray-600">
-          Separater Versand für offene Vereinsbeiträge. Standardfrist ist der 31.03. des ausgewählten Jahres.
-        </p>
-      </div>
-
-      <div class="flex flex-col lg:flex-row lg:items-end gap-4">
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Datum</label>
+            Handlungsbedarf
+          </button>
+          <button
+            class="px-4 py-2 text-sm font-medium transition-colors"
+            :class="scope === 'all' ? 'bg-primary text-white' : 'bg-white text-gray-600 hover:bg-gray-50'"
+            @click="scope = 'all'"
+          >
+            Alle offenen
+          </button>
+        </div>
+        <div class="relative flex-1 min-w-[200px]">
+          <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
           <input
-            type="date"
-            v-model="reminderDate"
-            class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+            v-model="caseSearch"
+            type="text"
+            placeholder="Familie suchen..."
+            class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
           />
         </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">
-            Frist <span class="font-normal text-gray-400">(optional, Standard: 31.03. des Jahres)</span>
-          </label>
-          <input
-            type="date"
-            v-model="reminderDeadline"
-            class="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-          />
-        </div>
-        <div class="flex gap-2 sm:ml-auto">
-          <button
-            class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
-            :disabled="isRunningReminders"
-            @click="runMembershipReminders('initial')"
-          >
-            Erinnerung senden
-          </button>
-          <button
-            class="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-50"
-            :disabled="isRunningReminders"
-            @click="runMembershipReminders('final')"
-          >
-            Mahnung senden
-          </button>
-        </div>
-      </div>
-
-      <div v-if="reminderResultContext === 'membership' && reminderRunError" class="mt-3 text-sm text-red-600">
-        {{ reminderRunError }}
-      </div>
-
-      <div v-if="reminderResultContext === 'membership' && reminderRunResult && !reminderRunResult.dryRun" class="mt-4 p-4 bg-gray-50 border rounded-lg text-sm text-gray-700">
-        <p class="font-medium mb-2">Ergebnis</p>
-        <p>
-          Familien kontaktiert: <span class="font-medium">{{ reminderRunResult.familiesEmailed }}</span>
-          · Übersprungen: <span class="font-medium">{{ reminderRunResult.familiesSkippedNoEmail }}</span>
-          · Offene Beiträge: <span class="font-medium">{{ reminderRunResult.unpaidCount }}</span>
-        </p>
-        <p v-if="reminderRunResult.remindersCreated" class="mt-1">
-          Mahngebühren erstellt: <span class="font-medium">{{ reminderRunResult.remindersCreated }}</span>
-        </p>
-        <ul v-if="reminderRunResult.warnings && reminderRunResult.warnings.length > 0" class="mt-2 space-y-1">
-          <li
-            v-for="warn in reminderRunResult.warnings"
-            :key="warn.householdName"
-            class="text-amber-700"
-          >
-            Familie {{ warn.householdName }}: {{ warn.reason }}
-          </li>
-        </ul>
-        <p v-if="reminderRunResult.message" class="mt-1 text-gray-500">
-          {{ reminderRunResult.message }}
-        </p>
-      </div>
-
-      <div v-if="reminderResultContext === 'membership' && reminderRunResult && reminderRunResult.dryRun && (!reminderRunResult.previews || reminderRunResult.previews.length === 0)" class="mt-4 p-4 bg-gray-50 border rounded-lg text-sm text-gray-700">
-        <p class="font-medium">Vorschau</p>
-        <p class="text-gray-500">{{ reminderRunResult.message || 'Keine offenen Vereinsbeiträge für diesen Zeitraum.' }}</p>
-      </div>
-    </div>
-
-    <!-- Dry-run preview modal -->
-    <div v-if="showPreviewModal" class="fixed inset-0 z-50 flex items-start justify-center pt-16 px-4">
-      <div class="absolute inset-0 bg-black/40" @click="showPreviewModal = false"></div>
-      <div class="relative bg-white rounded-xl border shadow-xl w-full max-w-2xl max-h-[80vh] flex flex-col">
-        <div class="flex items-center justify-between p-5 border-b">
-          <div>
-            <h3 class="text-base font-semibold text-gray-900">{{ previewModalTitle }}</h3>
-            <p class="text-sm mt-0.5" :class="reminderRunResult?.familiesSkippedNoEmail ? 'text-amber-700 font-medium' : 'text-gray-500'">
-              {{ reminderRunResult?.familiesEmailed }} Familie(n) würden kontaktiert
-              <template v-if="reminderRunResult?.familiesSkippedNoEmail">
-                · <span class="font-semibold">{{ reminderRunResult?.familiesSkippedNoEmail }} ohne gültige E-Mail-Adresse</span>
-              </template>
-            </p>
-            <p class="text-xs text-gray-500 mt-1">
-              {{ selectedPreviewHouseholdIds.length }} Familie(n) ausgewählt ·
-              <button class="text-primary hover:underline" @click="selectAllPreviewHouseholds">Alle</button>
-              <span class="mx-1">/</span>
-              <button class="text-gray-500 hover:text-gray-700 hover:underline" @click="deselectAllPreviewHouseholds">Keine</button>
-            </p>
-          </div>
-          <button @click="showPreviewModal = false" class="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
-        </div>
-
-        <div class="px-5 py-3 border-b bg-gray-50">
-          <label class="inline-flex items-center gap-2 text-sm text-gray-700">
-            <input type="checkbox" v-model="previewIncludeQR" />
-            SEPA-QR-Codes anhängen
-          </label>
-          <span v-if="hasPreviewEdits()" class="ml-3 text-xs text-amber-700">E-Mail-Texte wurden angepasst</span>
-        </div>
-
-        <div class="overflow-y-auto p-5 space-y-3 flex-1">
-          <!-- Warnings -->
-          <div
-            v-if="reminderRunResult?.warnings && reminderRunResult.warnings.length > 0"
-            class="p-4 bg-amber-50 border-2 border-amber-400 rounded-lg text-sm text-amber-900"
-          >
-            <p class="font-semibold mb-2">⚠ {{ reminderRunResult.warnings.length }} Familie(n) werden nicht kontaktiert — keine gültige E-Mail-Adresse</p>
-            <ul class="space-y-0.5">
-              <li v-for="warn in reminderRunResult.warnings" :key="warn.householdName">
-                <span class="font-medium">{{ warn.householdName }}</span>: {{ warn.reason }}
-              </li>
-            </ul>
-          </div>
-
-          <!-- Per-family previews -->
-          <div
-            v-for="prev in reminderRunResult?.previews"
-            :key="prev.householdId"
-            class="border rounded-lg overflow-hidden"
-          >
-            <div class="w-full flex items-center justify-between gap-3 px-4 py-3 text-sm font-medium text-gray-800">
-              <label class="inline-flex items-center gap-2 shrink-0">
-                <input
-                  type="checkbox"
-                  v-model="selectedPreviewHouseholdIds"
-                  :value="prev.householdId"
-                />
-                <span>{{ prev.householdName }}</span>
-                <span
-                  v-if="previewEdits[prev.householdId]?.subject !== previewOriginals[prev.householdId]?.subject || previewEdits[prev.householdId]?.body !== previewOriginals[prev.householdId]?.body"
-                  class="px-1.5 py-0.5 text-xs rounded-full bg-amber-100 text-amber-700 font-normal"
-                >
-                  bearbeitet
-                </span>
-              </label>
-              <button
-                class="text-xs text-gray-500 hover:text-gray-700 text-right"
-                @click="togglePreview(prev.householdName)"
-              >
-                {{ prev.recipients.join(', ') }}
-              </button>
-            </div>
-            <div v-if="expandedPreview === prev.householdName" class="border-t px-4 py-3 bg-gray-50 text-sm space-y-2">
-              <div>
-                <label class="block text-xs text-gray-500 mb-1">Betreff</label>
-                <input
-                  type="text"
-                  v-model="previewEdits[prev.householdId].subject"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-                />
-              </div>
-              <div>
-                <label class="block text-xs text-gray-500 mb-1">Text</label>
-                <textarea
-                  v-model="previewEdits[prev.householdId].body"
-                  rows="14"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono text-xs focus:ring-2 focus:ring-primary focus:border-transparent outline-none whitespace-pre-wrap"
-                ></textarea>
-                <p
-                  v-if="previewEdits[prev.householdId].subject !== previewOriginals[prev.householdId]?.subject || previewEdits[prev.householdId].body !== previewOriginals[prev.householdId]?.body"
-                  class="mt-1 text-xs text-amber-700"
-                >
-                  Text angepasst – wird beim Senden übernommen.
-                </p>
-              </div>
-              <div v-if="previewIncludeQR && prev.qrImageDataUrl" class="space-y-2">
-                <p class="text-xs text-gray-500">SEPA-QR-Code</p>
-                <img
-                  :src="prev.qrImageDataUrl"
-                  alt="SEPA QR-Code"
-                  class="w-full max-w-[260px] border rounded bg-white p-2"
-                />
-                <div v-if="prev.qrPayload">
-                  <p class="text-xs text-gray-500">Im QR-Code enthalten:</p>
-                  <pre class="whitespace-pre-wrap break-all font-mono text-xs text-gray-600 bg-white border rounded p-3">{{ prev.qrPayload }}</pre>
-                </div>
-              </div>
-              <p v-else-if="!previewIncludeQR" class="text-xs text-gray-500">QR-Code ist deaktiviert und wird nicht angehängt.</p>
-              <p v-else class="text-xs text-gray-500">Kein QR-Code verfügbar für diese Vorschau.</p>
-            </div>
-          </div>
-        </div>
-
-        <div class="flex justify-end gap-3 p-5 border-t">
-          <button
-            class="px-4 py-2 rounded-lg border text-sm font-medium hover:bg-gray-50"
-            @click="showPreviewModal = false"
-          >
-            Schließen
-          </button>
-          <button
-            class="px-4 py-2 rounded-lg text-white text-sm font-medium disabled:opacity-50"
-            :class="previewSendButtonClass"
-            :disabled="isRunningReminders || selectedPreviewHouseholdIds.length === 0"
-            @click="sendFromModal"
-          >
-            {{ previewSendButtonLabel }}
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Email Logs Card -->
-    <div v-if="authStore.isAdmin" class="bg-white rounded-xl border p-6">
-      <div class="flex items-center justify-between mb-4">
-        <div>
-          <h2 class="text-lg font-semibold text-gray-900">E-Mail-Protokoll</h2>
-          <p class="text-sm text-gray-600">Alle versendeten E-Mails inklusive Inhalt.</p>
-        </div>
-        <button
-          class="text-sm text-primary hover:underline"
-          :disabled="isEmailLogsLoading"
-          @click="loadEmailLogs(true)"
-        >
+        <button class="text-sm text-primary hover:underline" :disabled="isCasesLoading" @click="loadCases()">
           Neu laden
         </button>
       </div>
 
-      <div v-if="emailLogsError" class="text-sm text-red-600 mb-3">
-        {{ emailLogsError }}
+      <div v-if="casesError" class="mb-4 text-sm text-red-600">{{ casesError }}</div>
+      <div v-if="isCasesLoading && cases.length === 0" class="text-sm text-gray-500">Familien werden geladen...</div>
+      <div v-else-if="filteredCases.length === 0" class="text-sm text-gray-500 py-8 text-center">
+        Keine offenen Fälle in dieser Ansicht.
       </div>
 
-      <!-- Filter / search / sort -->
+      <!-- Master-detail -->
+      <div :class="selectedCase ? 'lg:grid lg:grid-cols-[minmax(300px,2fr)_minmax(0,3fr)] lg:gap-6' : ''">
+        <!-- Family list -->
+        <div :class="selectedCase ? 'hidden lg:block' : ''">
+          <ul class="space-y-2">
+            <li v-for="item in filteredCases" :key="item.householdId">
+              <button
+                class="w-full text-left p-4 border rounded-xl transition-colors hover:bg-gray-50"
+                :class="item.householdId === selectedHouseholdId ? 'border-primary ring-1 ring-primary' : 'border-gray-200'"
+                @click="openCase(item.householdId)"
+              >
+                <div class="flex items-center justify-between gap-3">
+                  <span class="font-medium text-gray-900">{{ item.householdName }}</span>
+                  <span class="font-semibold text-gray-900 whitespace-nowrap">{{ formatCurrency(item.totalRemaining) }}</span>
+                </div>
+                <div class="flex flex-wrap items-center gap-1.5 mt-2">
+                  <span
+                    v-for="feeType in feeTypesIn(item)"
+                    :key="feeType"
+                    class="px-2 py-0.5 text-xs rounded-full font-medium"
+                    :class="feeChipClass(feeType)"
+                  >
+                    {{ feeTypeLabel(feeType) }}
+                  </span>
+                  <span
+                    v-if="hasBlockedEmail(item)"
+                    class="px-2 py-0.5 text-xs rounded-full font-medium bg-red-600 text-white"
+                  >
+                    Keine E-Mail
+                  </span>
+                </div>
+                <div class="flex flex-wrap items-center gap-4 mt-2 text-xs text-gray-500">
+                  <span class="inline-flex items-center gap-1">
+                    <Clock class="h-3.5 w-3.5" />
+                    Nächste Aktion: {{ formatDate(item.nextActionAt) }}
+                  </span>
+                  <span v-if="lastContactOf(item)" class="inline-flex items-center gap-1">
+                    <Mail class="h-3.5 w-3.5" />
+                    Letzter Kontakt: {{ formatDate(lastContactOf(item) ?? undefined) }}
+                  </span>
+                </div>
+              </button>
+            </li>
+          </ul>
+        </div>
+
+        <!-- Detail panel (desktop) / full view (mobile) -->
+        <div v-if="selectedCase" class="mt-6 lg:mt-0">
+          <div class="lg:sticky lg:top-6">
+            <!-- Mobile back -->
+            <button
+              class="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 mb-3 lg:hidden"
+              @click="closeCase"
+            >
+              <ArrowLeft class="h-4 w-4" />
+              Zurück zur Liste
+            </button>
+
+            <div class="bg-white border rounded-xl p-5">
+              <!-- Success banner -->
+              <div v-if="sendResult" class="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg text-sm">
+                <p class="font-medium text-green-800">E-Mail gesendet an {{ sendResult.sentTo.join(', ') }}</p>
+                <p class="text-green-700 mt-1">
+                  Frist: {{ formatDate(sendResult.deadline) }}
+                  <template v-if="sendResult.createdReminderFees.length > 0">
+                    · Mahngebühren erstellt: {{ sendResult.createdReminderFees.length }}
+                  </template>
+                </p>
+              </div>
+
+              <div class="flex items-start justify-between gap-3 mb-4">
+                <div>
+                  <h2 class="text-lg font-semibold text-gray-900">{{ selectedCase.householdName }}</h2>
+                  <p class="text-sm text-gray-500">
+                    Empfänger:
+                    <template v-if="selectedCase.recipients.length > 0">{{ selectedCase.recipients.join(', ') }}</template>
+                    <template v-else><span class="text-red-600 font-medium">keine gültige E-Mail-Adresse</span></template>
+                  </p>
+                </div>
+                <div class="text-right shrink-0">
+                  <p class="text-xs text-gray-500">Offen gesamt</p>
+                  <p class="font-semibold text-gray-900">{{ formatCurrency(selectedCase.totalRemaining) }}</p>
+                </div>
+              </div>
+
+              <!-- Stage selector -->
+              <div class="flex flex-wrap items-center gap-2 mb-3">
+                <button
+                  class="px-4 py-2 text-sm font-medium rounded-lg border transition-colors"
+                  :class="stage === 'initial' ? 'bg-primary text-white border-primary' : 'border-gray-300 text-gray-700 hover:bg-gray-50'"
+                  @click="stage = 'initial'"
+                >
+                  Erinnerung
+                </button>
+                <button
+                  class="px-4 py-2 text-sm font-medium rounded-lg border transition-colors"
+                  :class="stage === 'final' ? 'bg-amber-600 text-white border-amber-600' : 'border-gray-300 text-gray-700 hover:bg-gray-50'"
+                  @click="stage = 'final'"
+                >
+                  Mahnung
+                </button>
+                <label class="inline-flex items-center gap-2 text-sm text-gray-700 ml-2">
+                  <input type="checkbox" v-model="includeQR" />
+                  QR-Code
+                </label>
+              </div>
+              <p v-if="stageWarning" class="text-xs text-amber-700 mb-3">{{ stageWarning }}</p>
+              <p v-else-if="recommendedStage" class="text-xs text-gray-500 mb-3">
+                Empfehlung: {{ recommendedStage === 'final' ? 'Mahnung' : 'Erinnerung' }}
+              </p>
+
+              <!-- Fee selection -->
+              <div class="border rounded-lg overflow-hidden mb-4">
+                <div class="overflow-x-auto">
+                  <table class="w-full text-sm">
+                    <thead>
+                      <tr class="text-left text-gray-500 border-b bg-gray-50">
+                        <th class="w-8 py-2 pl-3"></th>
+                        <th class="py-2 pr-3 font-medium">Kind / Beitrag</th>
+                        <th class="py-2 pr-3 font-medium">Zeitraum</th>
+                        <th class="py-2 pr-3 font-medium">Fällig</th>
+                        <th class="py-2 pr-3 font-medium text-right">Soll</th>
+                        <th class="py-2 pr-3 font-medium text-right">Offen</th>
+                        <th class="py-2 pr-3 font-medium">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr
+                        v-for="fee in selectedCase.fees"
+                        :key="fee.feeId"
+                        class="border-b last:border-0"
+                      >
+                        <td class="py-2 pl-3">
+                          <input
+                            type="checkbox"
+                            :checked="selectedFeeIds.includes(fee.feeId)"
+                            @change="toggleFee(fee.feeId)"
+                          />
+                        </td>
+                        <td class="py-2 pr-3">
+                          <div class="flex items-center gap-2">
+                            <span>{{ fee.childName }}</span>
+                            <span class="px-2 py-0.5 text-xs rounded-full font-medium" :class="feeChipClass(fee.feeType)">
+                              {{ feeTypeLabel(fee.feeType) }}
+                            </span>
+                          </div>
+                        </td>
+                        <td class="py-2 pr-3 whitespace-nowrap">{{ formatPeriod(fee) }}</td>
+                        <td class="py-2 pr-3 whitespace-nowrap">{{ formatDate(fee.dueDate) }}</td>
+                        <td class="py-2 pr-3 text-right whitespace-nowrap">{{ formatCurrency(fee.amount) }}</td>
+                        <td class="py-2 pr-3 text-right font-medium whitespace-nowrap">{{ formatCurrency(fee.remaining) }}</td>
+                        <td class="py-2 pr-3">
+                          <span class="px-2 py-0.5 text-xs rounded-full font-medium whitespace-nowrap" :class="statusBadgeClass(fee.status)">
+                            {{ statusLabel(fee.status) }}
+                          </span>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <!-- Warnings -->
+              <div
+                v-if="preview && preview.warnings && preview.warnings.length > 0"
+                class="p-3 bg-amber-50 border border-amber-300 rounded-lg text-sm text-amber-900 mb-4"
+              >
+                <p class="font-semibold mb-1">Hinweise</p>
+                <ul class="space-y-0.5">
+                  <li v-for="(warning, index) in preview.warnings" :key="index">· {{ warning }}</li>
+                </ul>
+              </div>
+
+              <!-- Send error -->
+              <div v-if="sendError" class="p-3 bg-red-50 border border-red-300 rounded-lg text-sm text-red-800 mb-4">
+                {{ sendError }}
+                <span v-if="conflictFeeCount > 0" class="block text-xs mt-1">
+                  Betroffene Beiträge: {{ conflictFeeCount }} — bitte Auswahl prüfen.
+                </span>
+              </div>
+
+              <!-- Preview -->
+              <div v-if="selectedFeeIds.length === 0" class="text-sm text-gray-500 mb-4">
+                Bitte mindestens einen Beitrag auswählen.
+              </div>
+              <div v-else-if="isPreviewLoading && !preview" class="text-sm text-gray-500 mb-4">Vorschau wird erstellt...</div>
+              <div v-else-if="previewError" class="text-sm text-red-600 mb-4">{{ previewError }}</div>
+              <div v-else-if="preview" class="border rounded-lg p-4 mb-4 bg-gray-50">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                  <p class="text-sm font-medium text-gray-800">
+                    Vorschau · Frist: <span class="font-semibold">{{ formatDate(preview.deadline) }}</span>
+                    · Gesamtbetrag: <span class="font-semibold">{{ formatCurrency(preview.totalAmount) }}</span>
+                  </p>
+                  <p v-if="resetNotice" class="text-xs text-amber-700">Manuelle Textänderungen wurden zurückgesetzt.</p>
+                </div>
+
+                <!-- Planned reminder fees -->
+                <div v-if="preview.plannedReminderFees.length > 0" class="mb-3 p-3 bg-white border rounded-lg text-sm">
+                  <p class="font-medium text-gray-800 mb-1">Neu entstehende Mahngebühren</p>
+                  <ul class="space-y-0.5 text-gray-700">
+                    <li v-for="planned in preview.plannedReminderFees" :key="planned.baseFeeId" class="flex justify-between gap-3">
+                      <span>Mahngebühr für {{ planned.baseLabel }}</span>
+                      <span class="font-medium">{{ formatCurrency(planned.amount) }}</span>
+                    </li>
+                  </ul>
+                </div>
+
+                <div class="space-y-2">
+                  <div>
+                    <label class="block text-xs text-gray-500 mb-1">Betreff</label>
+                    <input
+                      type="text"
+                      v-model="subjectEdit"
+                      @input="onSubjectInput"
+                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-white"
+                    />
+                  </div>
+                  <div>
+                    <label class="block text-xs text-gray-500 mb-1">Text</label>
+                    <textarea
+                      v-model="bodyEdit"
+                      @input="onBodyInput"
+                      rows="14"
+                      class="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono text-xs focus:ring-2 focus:ring-primary focus:border-transparent outline-none whitespace-pre-wrap bg-white"
+                    ></textarea>
+                    <p v-if="userEdited" class="mt-1 text-xs text-amber-700">
+                      Text angepasst — Änderungen an Auswahl oder Mahnstufe setzen ihn zurück.
+                    </p>
+                  </div>
+                  <div v-if="includeQR && preview.qrImageDataUrl" class="space-y-2">
+                    <p class="text-xs text-gray-500">SEPA-QR-Code</p>
+                    <img :src="preview.qrImageDataUrl" alt="SEPA QR-Code" class="w-full max-w-[220px] border rounded bg-white p-2" />
+                    <details v-if="preview.qrPayload">
+                      <summary class="text-xs text-gray-500 cursor-pointer">Im QR-Code enthalten</summary>
+                      <pre class="mt-1 whitespace-pre-wrap break-all font-mono text-xs text-gray-600 bg-white border rounded p-3">{{ preview.qrPayload }}</pre>
+                    </details>
+                  </div>
+                  <p v-else-if="!includeQR" class="text-xs text-gray-500">QR-Code ist deaktiviert und wird nicht angehängt.</p>
+                </div>
+              </div>
+
+              <!-- Actions -->
+              <div class="flex flex-wrap justify-end gap-3">
+                <button
+                  class="px-4 py-2 rounded-lg border text-sm font-medium hover:bg-gray-50"
+                  @click="resetEdits"
+                  v-if="preview && userEdited"
+                >
+                  Text zurücksetzen
+                </button>
+                <button
+                  class="px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+                  :disabled="!preview || isPreviewLoading || isSending || selectedCase.recipients.length === 0"
+                  @click="openSendConfirmation"
+                >
+                  {{ stage === 'final' ? 'Mahnung senden' : 'Erinnerung senden' }}
+                </button>
+              </div>
+
+              <!-- Family chronology -->
+              <div class="mt-6 pt-4 border-t">
+                <h3 class="text-sm font-semibold text-gray-800 mb-2">Chronik dieser Familie</h3>
+                <div v-if="isChronologyLoading" class="text-xs text-gray-500">Wird geladen...</div>
+                <div v-else-if="chronology.length === 0" class="text-xs text-gray-500">Noch keine E-Mails an diese Familie gesendet.</div>
+                <ul v-else class="divide-y">
+                  <li v-for="log in chronology" :key="log.id" class="py-2 flex items-center justify-between gap-3 text-sm">
+                    <div class="min-w-0">
+                      <span class="text-gray-900">{{ formatDateTime(log.sentAt) }}</span>
+                      <span class="text-gray-500"> · {{ formatEmailType(log.emailType) }}</span>
+                      <span class="block truncate text-gray-600">{{ log.subject }}</span>
+                    </div>
+                    <button class="text-primary hover:underline shrink-0 inline-flex items-center gap-1" @click="selectedChronologyLog = log">
+                      <Eye class="h-4 w-4" />
+                      Anzeigen
+                    </button>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Desktop empty state -->
+        <div v-else class="hidden lg:flex items-center justify-center border border-dashed rounded-xl p-12 text-gray-400 text-sm">
+          Familie aus der Liste auswählen, um den Entwurf zu erstellen.
+        </div>
+      </div>
+    </div>
+
+    <!-- ════════════════════ Versandverlauf ════════════════════ -->
+    <div v-if="activeTab === 'log'" v-show="authStore.isAdmin">
+      <div class="flex items-center justify-between mb-4">
+        <p class="text-sm text-gray-600">Alle versendeten E-Mails inklusive Inhalt.</p>
+        <button class="text-sm text-primary hover:underline" :disabled="isEmailLogsLoading" @click="loadEmailLogs(true)">
+          Neu laden
+        </button>
+      </div>
+
+      <div v-if="emailLogsError" class="text-sm text-red-600 mb-3">{{ emailLogsError }}</div>
+
       <div class="flex flex-col sm:flex-row sm:items-center gap-2 mb-4">
         <select
           v-model="emailLogsTypeFilter"
@@ -838,7 +964,7 @@ watch(
                 <button
                   type="button"
                   class="inline-flex items-center gap-1.5 text-primary hover:underline"
-                  @click="openEmailLogModal(log)"
+                  @click="selectedEmailLog = log"
                 >
                   <Eye class="h-4 w-4" />
                   Anzeigen
@@ -849,11 +975,8 @@ watch(
         </table>
       </div>
 
-      <div v-if="isEmailLogsLoading" class="mt-3 text-sm text-gray-500">
-        E-Mail-Protokoll wird geladen...
-      </div>
+      <div v-if="isEmailLogsLoading" class="mt-3 text-sm text-gray-500">Versandverlauf wird geladen...</div>
 
-      <!-- Pagination -->
       <div
         v-if="emailLogsTotalPages > 1 || emailLogsPage > 1"
         class="flex items-center justify-between mt-4 pt-4 border-t"
@@ -882,23 +1005,157 @@ watch(
       </div>
     </div>
 
-    <!-- Email Log Modal -->
+    <!-- ════════════════════ Modals ════════════════════ -->
+
+    <!-- Send confirmation -->
     <div
-      v-if="selectedEmailLog"
+      v-if="showConfirmModal && preview"
       class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
-      @click.self="closeEmailLogModal"
+      @click.self="showConfirmModal = false"
+    >
+      <div class="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col">
+        <div class="flex items-start justify-between gap-4 p-5 border-b">
+          <h3 class="text-lg font-semibold text-gray-900">
+            {{ stage === 'final' ? 'Mahnung senden?' : 'Erinnerung senden?' }}
+          </h3>
+          <button type="button" class="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-900" @click="showConfirmModal = false">
+            <X class="h-5 w-5" />
+          </button>
+        </div>
+        <div class="overflow-y-auto p-5 text-sm space-y-3">
+          <dl class="grid grid-cols-2 gap-3">
+            <div>
+              <dt class="text-gray-500">Familie</dt>
+              <dd class="font-medium text-gray-900">{{ selectedCase?.householdName }}</dd>
+            </div>
+            <div>
+              <dt class="text-gray-500">Empfänger</dt>
+              <dd class="font-medium text-gray-900 break-all">{{ preview.recipients.join(', ') }}</dd>
+            </div>
+            <div>
+              <dt class="text-gray-500">Beiträge</dt>
+              <dd class="font-medium text-gray-900">{{ preview.selectedFees.length }}</dd>
+            </div>
+            <div>
+              <dt class="text-gray-500">Gesamtbetrag</dt>
+              <dd class="font-medium text-gray-900">{{ formatCurrency(preview.totalAmount) }}</dd>
+            </div>
+            <div>
+              <dt class="text-gray-500">Frist</dt>
+              <dd class="font-medium text-gray-900">{{ formatDate(preview.deadline) }}</dd>
+            </div>
+            <div>
+              <dt class="text-gray-500">QR-Code</dt>
+              <dd class="font-medium text-gray-900">{{ includeQR ? 'angehängt' : 'deaktiviert' }}</dd>
+            </div>
+          </dl>
+          <div v-if="preview.plannedReminderFees.length > 0" class="p-3 bg-amber-50 border border-amber-300 rounded-lg">
+            <p class="font-medium text-amber-900 mb-1">Neu entstehende Mahngebühren</p>
+            <ul class="space-y-0.5 text-amber-900">
+              <li v-for="planned in preview.plannedReminderFees" :key="planned.baseFeeId" class="flex justify-between gap-3">
+                <span>Mahngebühr für {{ planned.baseLabel }}</span>
+                <span class="font-medium">{{ formatCurrency(planned.amount) }}</span>
+              </li>
+            </ul>
+          </div>
+          <p v-if="preview.warnings && preview.warnings.length > 0" class="text-xs text-amber-700">
+            {{ preview.warnings.length }} Hinweis(e) — siehe Vorschau.
+          </p>
+        </div>
+        <div class="flex justify-end gap-3 p-5 border-t">
+          <button class="px-4 py-2 rounded-lg border text-sm font-medium hover:bg-gray-50" @click="showConfirmModal = false">
+            Abbrechen
+          </button>
+          <button
+            class="px-4 py-2 rounded-lg text-white text-sm font-medium disabled:opacity-50"
+            :class="stage === 'final' ? 'bg-amber-600 hover:bg-amber-700' : 'bg-primary hover:bg-primary/90'"
+            :disabled="isSending"
+            @click="confirmSend"
+          >
+            {{ isSending ? 'Wird gesendet...' : 'Jetzt senden' }}
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings dialog -->
+    <div
+      v-if="showSettingsDialog"
+      class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+      @click.self="showSettingsDialog = false"
+    >
+      <div class="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col">
+        <div class="flex items-start justify-between gap-4 p-5 border-b">
+          <h3 class="text-lg font-semibold text-gray-900">Zahlungsdaten für QR-Code</h3>
+          <button type="button" class="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-900" @click="showSettingsDialog = false">
+            <X class="h-5 w-5" />
+          </button>
+        </div>
+        <div class="overflow-y-auto p-5 space-y-3">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Empfänger</label>
+            <input
+              type="text"
+              v-model="reminderPaymentRecipientName"
+              placeholder="Knirpsenstadt e.V."
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">IBAN</label>
+            <input
+              type="text"
+              v-model="reminderPaymentIBAN"
+              placeholder="DE33370205000003321400"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+            />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              BIC <span class="font-normal text-gray-400">(optional)</span>
+            </label>
+            <input
+              type="text"
+              v-model="reminderPaymentBIC"
+              placeholder="BFSWDE33XXX"
+              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+            />
+          </div>
+          <p class="text-xs text-gray-500">Wenn Felder leer bleiben, werden die Standard-Zahlungsdaten der Kita verwendet.</p>
+          <div v-if="reminderSettingsError" class="text-sm text-red-600">{{ reminderSettingsError }}</div>
+        </div>
+        <div class="flex justify-end gap-3 p-5 border-t">
+          <button class="px-4 py-2 rounded-lg border text-sm font-medium hover:bg-gray-50" @click="showSettingsDialog = false">
+            Abbrechen
+          </button>
+          <button
+            class="px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary/90 disabled:opacity-50"
+            :disabled="isReminderSettingsLoading"
+            @click="savePaymentSettings"
+          >
+            Speichern
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Email detail modal (shared by chronology + global log) -->
+    <div
+      v-if="selectedEmailLog || selectedChronologyLog"
+      class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
+      @click.self="selectedEmailLog = null; selectedChronologyLog = null"
     >
       <div class="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
         <div class="flex items-start justify-between gap-4 p-5 border-b">
           <div class="min-w-0">
             <h3 class="text-lg font-semibold text-gray-900">Gesendete E-Mail</h3>
-            <p class="text-sm text-gray-500 truncate">{{ selectedEmailLog.subject }}</p>
+            <p class="text-sm text-gray-500 truncate">{{ (selectedChronologyLog ?? selectedEmailLog)?.subject }}</p>
           </div>
           <button
             type="button"
             class="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-900"
             aria-label="Modal schließen"
-            @click="closeEmailLogModal"
+            @click="selectedEmailLog = null; selectedChronologyLog = null"
           >
             <X class="h-5 w-5" />
           </button>
@@ -908,30 +1165,30 @@ watch(
           <dl class="grid gap-4 text-sm sm:grid-cols-2">
             <div>
               <dt class="font-medium text-gray-500">Zeitpunkt</dt>
-              <dd class="mt-1 text-gray-900">{{ formatDateTime(selectedEmailLog.sentAt) }}</dd>
+              <dd class="mt-1 text-gray-900">{{ formatDateTime((selectedChronologyLog ?? selectedEmailLog)?.sentAt ?? '') }}</dd>
             </div>
             <div>
               <dt class="font-medium text-gray-500">Typ</dt>
-              <dd class="mt-1 text-gray-900">{{ formatEmailType(selectedEmailLog.emailType) }}</dd>
+              <dd class="mt-1 text-gray-900">{{ formatEmailType((selectedChronologyLog ?? selectedEmailLog)?.emailType ?? '') }}</dd>
             </div>
             <div class="sm:col-span-2">
               <dt class="font-medium text-gray-500">Empfänger</dt>
-              <dd class="mt-1 break-all text-gray-900">{{ selectedEmailLog.toEmail }}</dd>
+              <dd class="mt-1 break-all text-gray-900">{{ (selectedChronologyLog ?? selectedEmailLog)?.toEmail }}</dd>
             </div>
             <div class="sm:col-span-2">
               <dt class="font-medium text-gray-500">Betreff</dt>
-              <dd class="mt-1 text-gray-900">{{ selectedEmailLog.subject }}</dd>
+              <dd class="mt-1 text-gray-900">{{ (selectedChronologyLog ?? selectedEmailLog)?.subject }}</dd>
             </div>
           </dl>
 
-          <pre class="mt-5 max-h-[55vh] overflow-auto whitespace-pre-wrap rounded-lg border bg-gray-50 p-4 text-sm leading-6 text-gray-700">{{ selectedEmailLog.body || '-' }}</pre>
+          <pre class="mt-5 max-h-[55vh] overflow-auto whitespace-pre-wrap rounded-lg border bg-gray-50 p-4 text-sm leading-6 text-gray-700">{{ (selectedChronologyLog ?? selectedEmailLog)?.body || '-' }}</pre>
         </div>
 
         <div class="flex justify-end p-5 border-t">
           <button
             type="button"
             class="px-4 py-2 rounded-lg border text-sm font-medium hover:bg-gray-50"
-            @click="closeEmailLogModal"
+            @click="selectedEmailLog = null; selectedChronologyLog = null"
           >
             Schließen
           </button>
