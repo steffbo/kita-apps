@@ -1,0 +1,3 @@
+interface:
+  display_name: "Homelab Ubuntu Access"
+  short_description: "SSH and deploy the local Homelab safely"
