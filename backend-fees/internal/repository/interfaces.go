@@ -118,6 +118,9 @@ type SettingsRepository interface {
 type EmailLogRepository interface {
 	Create(ctx context.Context, log *domain.EmailLog) error
 	List(ctx context.Context, offset, limit int, filter EmailLogFilter) ([]domain.EmailLog, int64, error)
+	BackfillHouseholdIDs(ctx context.Context) (int64, error)
+	ListByHouseholdAndTypes(ctx context.Context, householdID uuid.UUID, types []domain.EmailLogType) ([]domain.EmailLog, error)
+	ListByHousehold(ctx context.Context, householdID uuid.UUID, limit int) ([]domain.EmailLog, error)
 }
 
 // EmailLogFilter narrows and orders email log listings.

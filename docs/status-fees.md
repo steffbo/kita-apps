@@ -5,6 +5,15 @@ Basics (ports, commands, layout) live in `AGENTS.md`.
 
 ## Backend (`backend-fees`)
 
+### E-Mail-Log-Historie: household_id, Stichtag, Backfill (2026-09-15)
+
+- Migration `000030_email_log_household_history`: `fees.email_logs.household_id` (nullable FK auf `fees.households`, `ON DELETE SET NULL`, Index `idx_email_logs_household_id`).
+- Backfill als wiederverwendbare SQL-Funktion `fees.backfill_email_log_households()` (wird von der Migration und von `EmailLogRepository.BackfillHouseholdIDs` genutzt): mappt Logs über `payload.feeIds` auf den Haushalt der referenzierten `fee_expectations`. Logs, deren Fee-IDs zu **keinem oder mehreren** Haushalten auflösen (oder keinen Payload haben), bleiben bewusst ohne household_id — sie existieren nur im globalen Versandverlauf. Wichtig: Postgres hat kein `MIN(uuid)`, daher `ARRAY_AGG(... ORDER BY ... NULLS LAST)[1]` nach `HAVING COUNT(DISTINCT household_id) = 1`.
+- Zuverlässigkeits-Stichtag in `fees.app_settings` (`reminder_history_reliable_from`, UTC-Datum der Migration): Fees, die **bis** zum Stichtag ohne zuordenbaren Log angelegt wurden, gelten als `history_unknown`; danach angelegte ohne Log als zuverlässig `never_contacted`. Lesezugriff über `ReminderService.GetHistoryReliableFrom`.
+- Neuer Service-Layer `reminder_history.go`: `ResolveFeeContacts(logs)` leitet je Fee den letzten Kontakt aus Reminder-Logs ab (neuester Log gewinnt; Stage + `runDate` aus dem Payload, Deadline daraus in Schritt 3); `ListFeeContacts(householdID)` lädt die Kontakte je Haushalt. `EmailLog`-Domain-Methoden `FeeIDsFromPayload()`/`StageFromPayload()` parsen den Payload tolerant.
+- Neue Repository-Queries: `ListByHouseholdAndTypes` (Reminder-Logs je Haushalt, `pq.Array` für den Typen-Filter — lib/pq braucht den Wrapper für Slices) und `ListByHousehold` (Familien-Chronik). `Create`/`List` schreiben/lesen `household_id` mit; das Log-Payload-Format bleibt unverändert.
+- Integrationstests (`email_log_history_integration_test.go`): Backfill (eindeutig/ambig/unauflösbar/ohne Payload), neue Logs tragen household_id, Kontakt-Auflösung (neuester gewinnt), Stichtag von der Migration gesetzt.
+
 ### Gemeinsamer Reminder-Kern (2026-09-15)
 
 - Erster Schritt des familienbasierten Erinnerungs-Workflows: `ReminderService` ist jetzt der gemeinsame fachliche Kern für beide Beitragsarten-Familien. Aufbau: `reminder_service.go` (Service-Typ, `Run` für Essens-/Platzgeld inkl. Auto-Stufen, `RunMembership` für Vereinsbeiträge, Stage-Parsing, Settings), `reminder_core.go` (Scope-basierte Pipeline `runScope`: Fee-Auswahl, Mahngebühren-Erzeugung, Haushaltsgruppierung, Mailversand, Log), `reminder_email.go` (beide Mail-Text-Builders + Formatierung), `reminder_payment_qr.go` (unverändert).
