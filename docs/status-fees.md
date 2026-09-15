@@ -28,7 +28,12 @@ Ergebnis eines externen Review-Agenten (3 Blocker, 5 P2) — alle umgesetzt:
   korrelieren Responses über Request-Sequenznummern — veraltete Antworten (z. B. das
   initiale scope=actionable-Laden nach einem Scope-Wechsel, eine langsame Preview oder die
   Chronik der vorherigen Familie) überschreiben nichts mehr. Der Send-Dialog öffnet nicht,
-  während eine Preview lädt.
+  während eine Preview lädt. Zusätzlich invalidiert `invalidatePreview()` die Vorschau
+  synchron bei jeder Eingabeänderung (Fee-Auswahl, Stufe, QR, Fallwechsel, Fall schließen):
+  Die Sequenznummer wird sofort erhöht und die Vorschau geleert, sodass eine noch in der
+  Luft hängende alte Response während des 250-ms-Debounce-Fensters nichts mehr
+  überschreiben kann (kein kurzzeitiges Anzeigen fremder Beträge/Texte, kein Senden eines
+  veralteten Override-Textes).
 - **Scope-Wechsler lädt neu (P1)**: `watch(scope)` triggert `loadCases()`; „Alle offenen“
   zeigt jetzt tatsächlich wartende/zukünftige Familien.
 - Tests: paralleler Send (genau 1 Gebühr), Send ohne `previewedAt`, SMTP-Kompensation mit

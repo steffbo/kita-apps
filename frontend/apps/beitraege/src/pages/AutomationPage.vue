@@ -90,11 +90,13 @@ function openCase(householdId: string): void {
   sendError.value = null;
   resetNotice.value = false;
   userEdited.value = false;
+  invalidatePreview();
   loadChronology();
 }
 
 function closeCase(): void {
   selectedHouseholdId.value = null;
+  invalidatePreview();
 }
 
 // ── Case detail state ────────────────────────────────────────────────────────
@@ -199,6 +201,18 @@ async function refreshPreview(): Promise<void> {
   }
 }
 
+function invalidatePreview(): void {
+  if (previewTimer) clearTimeout(previewTimer);
+  // Invalidate synchronously on every input change: a response that is still
+  // in flight during the debounce window carries the current sequence number
+  // and would otherwise overwrite the UI with the previous selection's
+  // amounts/text.
+  previewRequestSeq++;
+  preview.value = null;
+  isPreviewLoading.value = false;
+  previewError.value = null;
+}
+
 function schedulePreviewRefresh(): void {
   if (previewTimer) clearTimeout(previewTimer);
   previewTimer = setTimeout(() => {
@@ -208,15 +222,18 @@ function schedulePreviewRefresh(): void {
 
 watch(selectedFeeIds, () => {
   resetNotice.value = false;
+  invalidatePreview();
   schedulePreviewRefresh();
 }, { deep: true });
 
 watch(stage, () => {
   resetNotice.value = false;
+  invalidatePreview();
   schedulePreviewRefresh();
 });
 
 watch(includeQR, () => {
+  invalidatePreview();
   schedulePreviewRefresh();
 });
 
