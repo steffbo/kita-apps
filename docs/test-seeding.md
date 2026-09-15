@@ -10,6 +10,12 @@ Stand: 2026-02-04
 
 ## Backend
 - Backend-fees läuft i.d.R. auf `http://localhost:8081`
+- Erinnerungs-Stichtag: `fees.app_settings` Key `reminder_history_reliable_from` wird von
+  Migration 000030 auf den Migrationslauf gesetzt. Fees, die am Stichtag oder früher ohne
+  zuordenbaren Mail-Log erstellt wurden, sind `history_unknown` (Kalendertags-Vergleich).
+  Für E2E-Tests mit „frisch“ erstellten Fees den Stichtag auf ein Vergangsdatum fixieren:
+  `UPDATE fees.app_settings SET value='2026-01-01' WHERE key='reminder_history_reliable_from';`
+  (auf `kita-db-e2e`, Port 5433)
 
 ## CSV-Datei für Import
 - Pfad: `example-import.csv`

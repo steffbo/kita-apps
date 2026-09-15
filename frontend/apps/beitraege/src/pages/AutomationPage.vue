@@ -50,12 +50,18 @@ function hasBlockedEmail(item: ReminderCase): boolean {
   return !item.recipients || item.recipients.length === 0;
 }
 
+let casesRequestSeq = 0;
+
 async function loadCases(selectId: string | null = null): Promise<void> {
   if (!authStore.isAdmin) return;
+  // Correlate responses with requests: a slow response for an outdated scope
+  // (e.g. the initial load) must not overwrite a newer scope's result.
+  const requestSeq = ++casesRequestSeq;
   isCasesLoading.value = true;
   casesError.value = null;
   try {
     const result = await api.getReminderCases({ scope: scope.value });
+    if (requestSeq !== casesRequestSeq) return;
     cases.value = result.cases;
     if (selectId && cases.value.some((item) => item.householdId === selectId)) {
       selectedHouseholdId.value = selectId;
@@ -63,9 +69,12 @@ async function loadCases(selectId: string | null = null): Promise<void> {
       selectedHouseholdId.value = null;
     }
   } catch (e) {
+    if (requestSeq !== casesRequestSeq) return;
     casesError.value = e instanceof Error ? e.message : 'Familien konnten nicht geladen werden';
   } finally {
-    isCasesLoading.value = false;
+    if (requestSeq === casesRequestSeq) {
+      isCasesLoading.value = false;
+    }
   }
 }
 
@@ -108,6 +117,7 @@ const showSettingsDialog = ref(false);
 
 let previewRequestedAt: string | null = null;
 let previewTimer: ReturnType<typeof setTimeout> | null = null;
+let previewRequestSeq = 0;
 
 // Derive the recommendation the way the backend does: initial only when every
 // selected fee is actionable_initial, final only when every one is
@@ -156,6 +166,10 @@ async function refreshPreview(): Promise<void> {
     return;
   }
   if (previewTimer) clearTimeout(previewTimer);
+  // Correlate responses with requests: only the latest request may update the
+  // preview, otherwise a slow older response could overwrite a newer one with
+  // wrong amounts or texts.
+  const requestSeq = ++previewRequestSeq;
   isPreviewLoading.value = true;
   previewError.value = null;
   previewRequestedAt = new Date().toISOString();
@@ -166,6 +180,7 @@ async function refreshPreview(): Promise<void> {
       feeIds: selectedFeeIds.value,
       includeQR: includeQR.value,
     });
+    if (requestSeq !== previewRequestSeq) return;
     const hadEdits = userEdited.value;
     preview.value = result;
     subjectEdit.value = result.subject;
@@ -175,9 +190,12 @@ async function refreshPreview(): Promise<void> {
     }
     userEdited.value = false;
   } catch (e) {
+    if (requestSeq !== previewRequestSeq) return;
     previewError.value = e instanceof Error ? e.message : 'Vorschau konnte nicht geladen werden';
   } finally {
-    isPreviewLoading.value = false;
+    if (requestSeq === previewRequestSeq) {
+      isPreviewLoading.value = false;
+    }
   }
 }
 
@@ -221,7 +239,9 @@ function resetEdits(): void {
 }
 
 async function openSendConfirmation(): Promise<void> {
-  if (!preview.value) return;
+  // Do not confirm against a preview that is still loading: the shown text
+  // may not match the current selection yet.
+  if (!preview.value || isPreviewLoading.value) return;
   sendError.value = null;
   conflictFeeCount.value = 0;
   showConfirmModal.value = true;
@@ -273,18 +293,27 @@ async function confirmSend(): Promise<void> {
 const chronology = ref<EmailLog[]>([]);
 const isChronologyLoading = ref(false);
 const selectedChronologyLog = ref<EmailLog | null>(null);
+let chronologyRequestSeq = 0;
 
 async function loadChronology(): Promise<void> {
   const item = selectedCase.value;
   if (!item) return;
+  // Correlate responses with the selected household: a slow response for a
+  // previously selected family must never render under another family.
+  const requestSeq = ++chronologyRequestSeq;
+  const householdId = item.householdId;
   isChronologyLoading.value = true;
   try {
-    const result = await api.getEmailLogs({ householdId: item.householdId, perPage: 20, sortDir: 'desc' });
+    const result = await api.getEmailLogs({ householdId, perPage: 20, sortDir: 'desc' });
+    if (requestSeq !== chronologyRequestSeq || selectedHouseholdId.value !== householdId) return;
     chronology.value = result.data;
   } catch {
+    if (requestSeq !== chronologyRequestSeq) return;
     chronology.value = [];
   } finally {
-    isChronologyLoading.value = false;
+    if (requestSeq === chronologyRequestSeq) {
+      isChronologyLoading.value = false;
+    }
   }
 }
 
@@ -387,6 +416,10 @@ function goToEmailLogsPage(target: number): void {
 }
 
 let emailLogsSearchTimeout: ReturnType<typeof setTimeout> | null = null;
+
+watch(scope, () => {
+  void loadCases();
+});
 
 watch(emailLogsSearch, () => {
   if (emailLogsSearchTimeout) clearTimeout(emailLogsSearchTimeout);

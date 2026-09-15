@@ -3,12 +3,14 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 	"github.com/rs/zerolog/log"
 
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
@@ -278,9 +280,14 @@ func (s *ReminderService) loadCaseFees(ctx context.Context, householdID uuid.UUI
 
 // feeWorkflowStatus derives the per-fee status and the next action date.
 // asOfStart is the first moment of the reference day; a fee is overdue when
-// its due date lies before that day.
+// its due date lies before that day. Not-yet-due fees stay never_contacted
+// regardless of earlier contacts: actionability is defined by the due date.
 func feeWorkflowStatus(createdAt, dueDate time.Time, contact FeeContact, cutoff, asOfStart time.Time) (ReminderCaseFeeStatus, time.Time) {
 	overdue := dueDate.Before(asOfStart)
+
+	if !overdue {
+		return FeeStatusNeverContacted, dueDate
+	}
 
 	if !contact.LastContactAt.IsZero() {
 		deadline := defaultReminderDeadline(contact.RunDate)
@@ -290,10 +297,9 @@ func feeWorkflowStatus(createdAt, dueDate time.Time, contact FeeContact, cutoff,
 		return FeeStatusActionableFinal, deadline
 	}
 
-	if !overdue {
-		return FeeStatusNeverContacted, dueDate
-	}
-	if !cutoff.IsZero() && !createdAt.After(cutoff) {
+	// Fees created on or before the reliability cutoff date have no
+	// assignable history; compare calendar days, not exact timestamps.
+	if !cutoff.IsZero() && !startOfDayUTC(createdAt).After(cutoff) {
 		return FeeStatusHistoryUnknown, dueDate
 	}
 	return FeeStatusActionableInitial, dueDate
@@ -359,8 +365,13 @@ func (s *ReminderService) PreviewReminderCase(ctx context.Context, householdID u
 
 // SendReminderCase validates the plan again, sends the email and persists
 // reminder fees. It returns a CaseConflictError when the state changed since
-// the preview.
+// the preview (fees paid or closed, reminder fees created after the preview,
+// including a concurrent send detected via the unique reminder-fee index).
+// previewedAt is mandatory: without it the concurrency guard could be bypassed.
 func (s *ReminderService) SendReminderCase(ctx context.Context, householdID uuid.UUID, req *ReminderCaseRequest, sentBy *uuid.UUID) (*ReminderCaseSendResult, error) {
+	if req.PreviewedAt == nil {
+		return nil, ErrInvalidInput
+	}
 	plan, err := s.prepareCasePlan(ctx, householdID, req)
 	if err != nil {
 		return nil, err
@@ -373,8 +384,12 @@ func (s *ReminderService) SendReminderCase(ctx context.Context, householdID uuid
 		return nil, &CaseConflictError{Reason: "family has no valid email address"}
 	}
 
-	// Persist planned reminder fees.
+	// Persist planned reminder fees. The unique index on reminder fees makes
+	// a concurrent send of the same base fee fail on insert. On any later
+	// failure the fees created by this request are removed again, so a retry
+	// can plan them once more.
 	createdAt := s.now().UTC()
+	createdFeeIDs := make([]uuid.UUID, 0, len(plan.plannedFees))
 	for _, planned := range plan.plannedFees {
 		reminder := &domain.FeeExpectation{
 			ID:            uuid.New(),
@@ -389,12 +404,18 @@ func (s *ReminderService) SendReminderCase(ctx context.Context, householdID uuid
 			ReminderForID: &planned.BaseFeeID,
 		}
 		if err := s.feeRepo.Create(ctx, reminder); err != nil {
+			s.deleteFeesBestEffort(ctx, createdFeeIDs)
+			if isUniqueReminderFeeViolation(err) {
+				return nil, &CaseConflictError{FeeIDs: []uuid.UUID{planned.BaseFeeID}, Reason: "reminder fees were created after the preview"}
+			}
 			return nil, err
 		}
+		createdFeeIDs = append(createdFeeIDs, reminder.ID)
 	}
 
 	paymentSettings, err := s.GetPaymentSettings(ctx)
 	if err != nil {
+		s.deleteFeesBestEffort(ctx, createdFeeIDs)
 		return nil, err
 	}
 
@@ -419,10 +440,12 @@ func (s *ReminderService) SendReminderCase(ctx context.Context, householdID uuid
 	if qrData != nil {
 		htmlBody := buildReminderEmailHTML(body, reminderEmailQRCodeCID)
 		if err := s.emailSender.SendTextAndHTMLEmailMulti(plan.recipients, subject, body, htmlBody, reminderEmailQRCodeCID, qrData.PNG); err != nil {
+			s.deleteFeesBestEffort(ctx, createdFeeIDs)
 			return nil, err
 		}
 	} else {
 		if err := s.emailSender.SendTextEmailMulti(plan.recipients, subject, body); err != nil {
+			s.deleteFeesBestEffort(ctx, createdFeeIDs)
 			return nil, err
 		}
 	}
@@ -446,6 +469,27 @@ func ensurePlannedFeesSlice(fees []ReminderCasePlannedFee) []ReminderCasePlanned
 		return make([]ReminderCasePlannedFee, 0)
 	}
 	return fees
+}
+
+// deleteFeesBestEffort removes reminder fees created by a failed send so no
+// orphaned reminder fees remain. Failures are logged but do not mask the
+// original error.
+func (s *ReminderService) deleteFeesBestEffort(ctx context.Context, ids []uuid.UUID) {
+	for _, id := range ids {
+		if err := s.feeRepo.Delete(ctx, id); err != nil {
+			log.Error().Err(err).Str("feeId", id.String()).Msg("Failed to remove reminder fee after failed send")
+		}
+	}
+}
+
+// isUniqueReminderFeeViolation reports whether the error is a violation of
+// the unique reminder-per-base-fee index (concurrent send).
+func isUniqueReminderFeeViolation(err error) bool {
+	var pqErr *pq.Error
+	if errors.As(err, &pqErr) {
+		return pqErr.Code == "23505" && pqErr.Constraint == "uq_fee_expectations_reminder_for_id"
+	}
+	return false
 }
 
 // casePlan is the validated internal state shared by preview and send.

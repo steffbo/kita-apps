@@ -23,11 +23,11 @@ async function loginApi(page: Page): Promise<string> {
 
 interface SeededFamily {
   householdId: string;
-  overdueFeeId: string;
+  overdueFeeId: string | null;
   futureFeeId: string;
 }
 
-async function seedFamily(page: Page, token: string, name: string, withEmail: boolean): Promise<SeededFamily> {
+async function seedFamily(page: Page, token: string, name: string, withEmail: boolean, onlyFuture = false): Promise<SeededFamily> {
   const headers = { Authorization: `Bearer ${token}` };
 
   const householdResponse = await page.request.post('/api/fees/v1/households', {
@@ -92,7 +92,7 @@ async function seedFamily(page: Page, token: string, name: string, withEmail: bo
 
   return {
     householdId: household.id,
-    overdueFeeId: await createFee(OVERDUE_DUE_DATE),
+    overdueFeeId: onlyFuture ? null : await createFee(OVERDUE_DUE_DATE),
     futureFeeId: await createFee(FUTURE_DUE_DATE),
   };
 }
@@ -182,13 +182,19 @@ test.describe('Familienbasierter Erinnerungs-Workflow', () => {
   });
 
   test('Scope-Filter Alle offenen zeigt wartende Familien', async ({ page }) => {
-    await openReminders(page);
+    const token = await loginApi(page);
+    // Only-future family: not actionable yet, so it must be absent from the
+    // actionable scope and appear only under "Alle offenen" — proving the
+    // scope switch actually reloads the list.
+    const familyName = `E2E Zukunft ${Date.now()}`;
+    await seedFamily(page, token, familyName, true, true);
 
+    await openReminders(page);
     const actionableButton = page.getByRole('button', { name: 'Handlungsbedarf' });
     await expect(actionableButton).toBeVisible();
+    await expect(page.locator('li button', { hasText: familyName })).toHaveCount(0);
 
     await page.getByRole('button', { name: 'Alle offenen' }).click();
-    // Both scopes load without error; the list container is present.
-    await expect(page.locator('li button').first()).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('li button', { hasText: familyName }).first()).toBeVisible({ timeout: 15000 });
   });
 });

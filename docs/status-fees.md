@@ -5,6 +5,37 @@ Basics (ports, commands, layout) live in `AGENTS.md`.
 
 ## Backend (`backend-fees`)
 
+### Review-Fixes Erinnerungs-Workflow (2026-09-15)
+
+Ergebnis eines externen Review-Agenten (3 Blocker, 5 P2) — alle umgesetzt:
+
+- **Doppelte Mahngebühren bei Parallel-Send (P1)**: Neue Migration 000031 legt einen
+  Unique-Partial-Index auf `fee_expectations(reminder_for_id) WHERE fee_type='REMINDER'`
+  (mit defensivem Dedupe davor, damit Bestandsdaten den Index nicht blockieren). Der Send
+  erkennt den Unique-Verstoß und antwortet mit 409 statt doppelter 10-/5-€-Gebühren; der
+  Verlierer eines Rennens entfernt seine bereits erstellten Gebühren wieder (Kompensation).
+- **PreviewedAt ist Pflicht (P2)**: `POST .../send` ohne `previewedAt` → 400; der
+  Konkurrenzschutz ist damit serverseitig erzwingbar, nicht nur UI-Konvention.
+- **Nicht fällige Fees bleiben `never_contacted` (P2)**: `feeWorkflowStatus` prüft jetzt
+  erst die Fälligkeit, dann den Kontakt. Eine vorzeitig kontaktierte, noch nicht fällige
+  Fee wird nicht mehr `actionable_final`, solange `due_date >= asOf`.
+- **Stichtag als Kalendertag (P2)**: Fees, die am Stichtag selbst (nicht nur vor
+  Mitternacht) erstellt wurden, sind `history_unknown` — „bis zum Stichtag einschließlich“.
+- **SMTP-Fehler erzeugen keine verwaisten Mahngebühren mehr (P2)**: Schlägt der Versand
+  fehl, werden die in diesem Request erstellten Mahngebühren best effort gelöscht; ein
+  Retry plant sie erneut.
+- **Frontend-Races (P1/P2)**: `loadCases`, `refreshPreview` und `loadChronology`
+  korrelieren Responses über Request-Sequenznummern — veraltete Antworten (z. B. das
+  initiale scope=actionable-Laden nach einem Scope-Wechsel, eine langsame Preview oder die
+  Chronik der vorherigen Familie) überschreiben nichts mehr. Der Send-Dialog öffnet nicht,
+  während eine Preview lädt.
+- **Scope-Wechsler lädt neu (P1)**: `watch(scope)` triggert `loadCases()`; „Alle offenen“
+  zeigt jetzt tatsächlich wartende/zukünftige Familien.
+- Tests: paralleler Send (genau 1 Gebühr), Send ohne `previewedAt`, SMTP-Kompensation mit
+  Retry, `never_contacted` bei Frühkontakt, Stichtags-Kalendertag, geschärfter E2E-Scope-Test
+  (seedt eine Nur-Zukunft-Familie). E2E-Stack: `reminder_history_reliable_from` auf
+  `2026-01-01` fixiert, siehe `docs/test-seeding.md`.
+
 ### Reminder-Fixes aus dem manuellen Test (2026-09-15)
 
 - **Mahngebühren nur bei „Mahnung"**: `prepareCasePlan` plante Gebühren für beide Stufen — bei „Erinnerung" erschienen geplante 10-€-Gebühren in Vorschau/Mail, und ein Send hätte sie erstellt. Jetzt nur noch `stage=final`. Regressionstest ergänzt.
