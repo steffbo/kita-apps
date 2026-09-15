@@ -106,6 +106,21 @@ type FeeRepository interface {
 	// ListUnpaidWithoutReminderByTypesDueOnOrBefore returns unpaid base fees due on or before a date
 	// for fee types that do not yet have a linked reminder.
 	ListUnpaidWithoutReminderByTypesDueOnOrBefore(ctx context.Context, feeTypes []domain.FeeType, dueOnOrBefore time.Time) ([]domain.FeeExpectation, error)
+	// ListOpenByHousehold returns all open fees (any type, including reminders)
+	// for a household with their matched amounts. Open means matched < amount.
+	ListOpenByHousehold(ctx context.Context, householdID uuid.UUID) ([]OpenFeeRow, error)
+	// GetOpenReminderBaseIDs returns the base-fee IDs of the given fees that
+	// already have at least one reminder fee.
+	GetOpenReminderBaseIDs(ctx context.Context, baseFeeIDs []uuid.UUID) (map[uuid.UUID]bool, error)
+	// GetReminderBaseIDsCreatedAfter returns the base-fee IDs that received a
+	// reminder fee created after the given time (concurrency guard).
+	GetReminderBaseIDsCreatedAfter(ctx context.Context, baseFeeIDs []uuid.UUID, after time.Time) (map[uuid.UUID]bool, error)
+}
+
+// OpenFeeRow is an open fee expectation joined with its matched amount.
+type OpenFeeRow struct {
+	domain.FeeExpectation
+	Matched float64 `db:"matched_amount"`
 }
 
 // SettingsRepository handles app settings persistence.
@@ -175,6 +190,7 @@ type KnownIBANRepository interface {
 // HouseholdRepository handles household persistence.
 type HouseholdRepository interface {
 	List(ctx context.Context, search string, sortBy string, sortDir string, offset, limit int) ([]domain.Household, int64, error)
+	ListAll(ctx context.Context) ([]domain.Household, error)
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.Household, error)
 	GetByIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]*domain.Household, error)
 	Create(ctx context.Context, household *domain.Household) error

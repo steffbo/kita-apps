@@ -3202,6 +3202,243 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/fees/reminder-cases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List family reminder cases
+         * @description Returns open fees grouped by household with workflow status; scope filters to actionable families
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Reference date (YYYY-MM-DD, defaults to today) */
+                    asOf?: string;
+                    /** @description Scope */
+                    scope?: "actionable" | "all";
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Family reminder cases */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["service.ReminderCasesResult"];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/fees/reminder-cases/{householdId}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview a family reminder email
+         * @description Builds the final mail content, QR data, planned reminder fees, recommendation and warnings without side effects
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Household UUID */
+                    householdId: string;
+                };
+                cookie?: never;
+            };
+            /** @description Preview parameters */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ReminderCaseRequest"];
+                };
+            };
+            responses: {
+                /** @description Email preview */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["service.ReminderCasePreview"];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Stale preview state */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["handler.ReminderCaseConflictResponse"];
+                    };
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/fees/reminder-cases/{householdId}/send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a family reminder email
+         * @description Re-validates the preview state, creates planned reminder fees, sends the email and writes the log; 409 when state changed
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Household UUID */
+                    householdId: string;
+                };
+                cookie?: never;
+            };
+            /** @description Send parameters */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["ReminderCaseRequest"];
+                };
+            };
+            responses: {
+                /** @description Send result */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["service.ReminderCaseSendResult"];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Stale preview state */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["handler.ReminderCaseConflictResponse"];
+                    };
+                };
+                /** @description Email service disabled */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/fees/reminders/run": {
         parameters: {
             query?: never;
@@ -7417,6 +7654,23 @@ export interface components {
             /** @example eyJhbGciOiJIUzI1NiIs... */
             refreshToken?: string;
         };
+        /** @description Stage selection, fee IDs and content overrides; the deadline is computed server-side as runDate + 7 days */
+        ReminderCaseRequest: {
+            body?: string;
+            feeIds?: string[];
+            /** @example true */
+            includeQR?: boolean;
+            /** @example 2026-09-15T10:00:00Z */
+            previewedAt?: string;
+            /** @example 2026-09-15 */
+            runDate?: string;
+            /**
+             * @example initial
+             * @enum {string}
+             */
+            stage?: "initial" | "final";
+            subject?: string;
+        };
         ReminderPreviewResponse: {
             /** @example Hallo Anna,... */
             body?: string;
@@ -8065,6 +8319,12 @@ export interface components {
             /** @example 2024 */
             year?: number;
         };
+        /** @description Selected fees are no longer open, are foreign to the household, or received reminder fees after the preview */
+        "handler.ReminderCaseConflictResponse": {
+            feeIds?: string[];
+            /** @example selected fees are no longer open */
+            message?: string;
+        };
         "handler.ReminderPaymentSettingsPayload": {
             /** @example BFSWDE33XXX */
             bic?: string;
@@ -8112,6 +8372,11 @@ export interface components {
             errors?: components["schemas"]["service.ImportError"][];
             parentsCreated?: number;
             parentsLinked?: number;
+        };
+        "service.FeeContact": {
+            lastContactAt?: string;
+            runDate?: string;
+            stage?: components["schemas"]["service.ReminderStage"];
         };
         "service.FieldConflict": {
             existingValue?: string;
@@ -8193,6 +8458,70 @@ export interface components {
             parent2?: components["schemas"]["service.ParentPreview"];
             warnings?: string[];
         };
+        "service.ReminderCase": {
+            fees?: components["schemas"]["service.ReminderCaseFee"][];
+            householdId?: string;
+            householdName?: string;
+            nextActionAt?: string;
+            recipients?: string[];
+            totalRemaining?: number;
+        };
+        "service.ReminderCaseFee": {
+            actionableAt?: string;
+            amount?: number;
+            childId?: string;
+            childName?: string;
+            dueDate?: string;
+            feeId?: string;
+            feeType?: components["schemas"]["domain.FeeType"];
+            hasReminder?: boolean;
+            lastContact?: components["schemas"]["service.FeeContact"];
+            memberNumber?: string;
+            month?: number;
+            remaining?: number;
+            status?: components["schemas"]["service.ReminderCaseFeeStatus"];
+            year?: number;
+        };
+        /** @enum {string} */
+        "service.ReminderCaseFeeStatus": "never_contacted" | "waiting" | "actionable_initial" | "actionable_final" | "history_unknown";
+        "service.ReminderCasePlannedFee": {
+            amount?: number;
+            baseFeeId?: string;
+            baseFeeType?: components["schemas"]["domain.FeeType"];
+            baseLabel?: string;
+            dueDate?: string;
+        };
+        "service.ReminderCasePreview": {
+            body?: string;
+            deadline?: string;
+            householdId?: string;
+            householdName?: string;
+            includeQR?: boolean;
+            plannedReminderFees?: components["schemas"]["service.ReminderCasePlannedFee"][];
+            qrImageDataUrl?: string;
+            qrPayload?: string;
+            recipients?: string[];
+            recommendedStage?: components["schemas"]["service.ReminderStage"];
+            selectedFees?: components["schemas"]["service.ReminderCaseFee"][];
+            subject?: string;
+            totalAmount?: number;
+            warnings?: string[];
+        };
+        "service.ReminderCaseSendResult": {
+            createdReminderFees?: components["schemas"]["service.ReminderCasePlannedFee"][];
+            deadline?: string;
+            householdId?: string;
+            sentTo?: string[];
+            stage?: components["schemas"]["service.ReminderStage"];
+            subject?: string;
+        };
+        "service.ReminderCasesResult": {
+            asOf?: string;
+            cases?: components["schemas"]["service.ReminderCase"][];
+            scope?: string;
+        };
+        /** @enum {string} */
+        "service.ReminderStage": "auto" | "initial" | "final" | "none";
     };
     responses: never;
     parameters: never;

@@ -220,3 +220,17 @@ func (r *PostgresHouseholdRepository) GetWithMembers(ctx context.Context, id uui
 
 	return household, nil
 }
+
+// ListAll returns all households (id and name), unpaginated.
+func (r *PostgresHouseholdRepository) ListAll(ctx context.Context) ([]domain.Household, error) {
+	var households []domain.Household
+	err := r.db.SelectContext(ctx, &households, `
+		SELECT id, name, annual_household_income, income_status, membership_parent_id, membership_assignment_status, children_count_for_fees, created_at, updated_at
+		FROM fees.households
+		ORDER BY name ASC
+	`)
+	if err != nil {
+		return nil, err
+	}
+	return households, nil
+}

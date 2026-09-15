@@ -1285,6 +1285,34 @@ definitions:
         example: eyJhbGciOiJIUzI1NiIs...
         type: string
     type: object
+  ReminderCaseRequest:
+    description: Stage selection, fee IDs and content overrides; the deadline is computed
+      server-side as runDate + 7 days
+    properties:
+      body:
+        type: string
+      feeIds:
+        items:
+          type: string
+        type: array
+      includeQR:
+        example: true
+        type: boolean
+      previewedAt:
+        example: "2026-09-15T10:00:00Z"
+        type: string
+      runDate:
+        example: "2026-09-15"
+        type: string
+      stage:
+        enum:
+        - initial
+        - final
+        example: initial
+        type: string
+      subject:
+        type: string
+    type: object
   ReminderPreviewResponse:
     properties:
       body:
@@ -2472,6 +2500,18 @@ definitions:
         example: 2024
         type: integer
     type: object
+  handler.ReminderCaseConflictResponse:
+    description: Selected fees are no longer open, are foreign to the household, or
+      received reminder fees after the preview
+    properties:
+      feeIds:
+        items:
+          type: string
+        type: array
+      message:
+        example: selected fees are no longer open
+        type: string
+    type: object
   handler.ReminderPaymentSettingsPayload:
     properties:
       bic:
@@ -2570,6 +2610,15 @@ definitions:
         type: integer
       parentsLinked:
         type: integer
+    type: object
+  service.FeeContact:
+    properties:
+      lastContactAt:
+        type: string
+      runDate:
+        type: string
+      stage:
+        $ref: '#/definitions/service.ReminderStage'
     type: object
   service.FieldConflict:
     properties:
@@ -2724,6 +2773,164 @@ definitions:
           type: string
         type: array
     type: object
+  service.ReminderCase:
+    properties:
+      fees:
+        items:
+          $ref: '#/definitions/service.ReminderCaseFee'
+        type: array
+      householdId:
+        type: string
+      householdName:
+        type: string
+      nextActionAt:
+        type: string
+      recipients:
+        items:
+          type: string
+        type: array
+      totalRemaining:
+        type: number
+    type: object
+  service.ReminderCaseFee:
+    properties:
+      actionableAt:
+        type: string
+      amount:
+        type: number
+      childId:
+        type: string
+      childName:
+        type: string
+      dueDate:
+        type: string
+      feeId:
+        type: string
+      feeType:
+        $ref: '#/definitions/domain.FeeType'
+      hasReminder:
+        type: boolean
+      lastContact:
+        $ref: '#/definitions/service.FeeContact'
+      memberNumber:
+        type: string
+      month:
+        type: integer
+      remaining:
+        type: number
+      status:
+        $ref: '#/definitions/service.ReminderCaseFeeStatus'
+      year:
+        type: integer
+    type: object
+  service.ReminderCaseFeeStatus:
+    enum:
+    - never_contacted
+    - waiting
+    - actionable_initial
+    - actionable_final
+    - history_unknown
+    type: string
+    x-enum-varnames:
+    - FeeStatusNeverContacted
+    - FeeStatusWaiting
+    - FeeStatusActionableInitial
+    - FeeStatusActionableFinal
+    - FeeStatusHistoryUnknown
+  service.ReminderCasePlannedFee:
+    properties:
+      amount:
+        type: number
+      baseFeeId:
+        type: string
+      baseFeeType:
+        $ref: '#/definitions/domain.FeeType'
+      baseLabel:
+        type: string
+      dueDate:
+        type: string
+    type: object
+  service.ReminderCasePreview:
+    properties:
+      body:
+        type: string
+      deadline:
+        type: string
+      householdId:
+        type: string
+      householdName:
+        type: string
+      includeQR:
+        type: boolean
+      plannedReminderFees:
+        items:
+          $ref: '#/definitions/service.ReminderCasePlannedFee'
+        type: array
+      qrImageDataUrl:
+        type: string
+      qrPayload:
+        type: string
+      recipients:
+        items:
+          type: string
+        type: array
+      recommendedStage:
+        $ref: '#/definitions/service.ReminderStage'
+      selectedFees:
+        items:
+          $ref: '#/definitions/service.ReminderCaseFee'
+        type: array
+      subject:
+        type: string
+      totalAmount:
+        type: number
+      warnings:
+        items:
+          type: string
+        type: array
+    type: object
+  service.ReminderCaseSendResult:
+    properties:
+      createdReminderFees:
+        items:
+          $ref: '#/definitions/service.ReminderCasePlannedFee'
+        type: array
+      deadline:
+        type: string
+      householdId:
+        type: string
+      sentTo:
+        items:
+          type: string
+        type: array
+      stage:
+        $ref: '#/definitions/service.ReminderStage'
+      subject:
+        type: string
+    type: object
+  service.ReminderCasesResult:
+    properties:
+      asOf:
+        type: string
+      cases:
+        items:
+          $ref: '#/definitions/service.ReminderCase'
+        type: array
+      scope:
+        type: string
+    type: object
+  service.ReminderStage:
+    enum:
+    - auto
+    - initial
+    - final
+    - none
+    type: string
+    x-enum-varnames:
+    - ReminderStageAuto
+    - ReminderStageInitial
+    - ReminderStageFinal
+    - ReminderStageNone
 host: localhost:8081
 info:
   contact:
@@ -4570,6 +4777,139 @@ paths:
       security:
       - BearerAuth: []
       summary: Get fee overview
+      tags:
+      - Fees
+  /fees/reminder-cases:
+    get:
+      description: Returns open fees grouped by household with workflow status; scope
+        filters to actionable families
+      parameters:
+      - description: Reference date (YYYY-MM-DD, defaults to today)
+        in: query
+        name: asOf
+        type: string
+      - default: actionable
+        description: Scope
+        enum:
+        - actionable
+        - all
+        in: query
+        name: scope
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Family reminder cases
+          schema:
+            $ref: '#/definitions/service.ReminderCasesResult'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Not authenticated
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List family reminder cases
+      tags:
+      - Fees
+  /fees/reminder-cases/{householdId}/preview:
+    post:
+      consumes:
+      - application/json
+      description: Builds the final mail content, QR data, planned reminder fees,
+        recommendation and warnings without side effects
+      parameters:
+      - description: Household UUID
+        in: path
+        name: householdId
+        required: true
+        type: string
+      - description: Preview parameters
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/ReminderCaseRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Email preview
+          schema:
+            $ref: '#/definitions/service.ReminderCasePreview'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Not authenticated
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "409":
+          description: Stale preview state
+          schema:
+            $ref: '#/definitions/handler.ReminderCaseConflictResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Preview a family reminder email
+      tags:
+      - Fees
+  /fees/reminder-cases/{householdId}/send:
+    post:
+      consumes:
+      - application/json
+      description: Re-validates the preview state, creates planned reminder fees,
+        sends the email and writes the log; 409 when state changed
+      parameters:
+      - description: Household UUID
+        in: path
+        name: householdId
+        required: true
+        type: string
+      - description: Send parameters
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/ReminderCaseRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Send result
+          schema:
+            $ref: '#/definitions/service.ReminderCaseSendResult'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Not authenticated
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "409":
+          description: Stale preview state
+          schema:
+            $ref: '#/definitions/handler.ReminderCaseConflictResponse'
+        "503":
+          description: Email service disabled
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Send a family reminder email
       tags:
       - Fees
   /fees/reminders/run:

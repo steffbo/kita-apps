@@ -249,6 +249,14 @@ func reminderLine(item reminderItem, includeChild bool) string {
 				formatCurrencyEUR(item.Amount),
 			)
 		}
+		if item.Year > 0 {
+			return fmt.Sprintf("%s%s %d — %s",
+				prefix,
+				label,
+				item.Year,
+				formatCurrencyEUR(item.Amount),
+			)
+		}
 		return fmt.Sprintf("%s%s — %s",
 			prefix,
 			label,
@@ -341,4 +349,81 @@ func buildReminderEmailHTML(textBody string, qrImageCID string) string {
 
 	builder.WriteString("</body></html>")
 	return builder.String()
+}
+
+// buildFamilyMixedReminderEmail builds the unified parent-facing email for the
+// family-based workflow: one mail for any combination of fee types. deadline
+// is always set (server-computed runDate + 7 days).
+func buildFamilyMixedReminderEmail(
+	stage ReminderStage,
+	runDate time.Time,
+	deadline time.Time,
+	parentFirstNames []string,
+	items []reminderItem,
+	paymentSettings ReminderPaymentSettings,
+) (string, string) {
+	isFinal := stage == ReminderStageFinal
+
+	var subject string
+	if isFinal {
+		subject = "Kita Mahnung: offene Beiträge"
+	} else {
+		subject = "Kita Zahlungserinnerung: offene Beiträge"
+	}
+
+	greeting := "Hallo"
+	if len(parentFirstNames) > 0 {
+		greeting = "Hallo " + strings.Join(parentFirstNames, " und ")
+	}
+
+	deadlineStr := deadline.Format("02.01.2006")
+
+	var builder strings.Builder
+	builder.WriteString(greeting + ",\n\n")
+
+	if len(items) == 1 {
+		if isFinal {
+			builder.WriteString("für eure Familie ist folgender offener Beitrag vermerkt:\n\n")
+		} else {
+			builder.WriteString("für eure Familie ist folgender Beitrag offen:\n\n")
+		}
+		builder.WriteString(reminderLine(items[0], true) + "\n")
+	} else {
+		if isFinal {
+			builder.WriteString("für eure Familie sind folgende offene Beiträge vermerkt:\n\n")
+		} else {
+			builder.WriteString("für eure Familie sind folgende Beiträge offen:\n\n")
+		}
+		for _, item := range items {
+			builder.WriteString("- " + reminderLine(item, true) + "\n")
+		}
+	}
+
+	if isFinal {
+		builder.WriteString(fmt.Sprintf("\nBitte überweist den Gesamtbetrag spätestens bis zum %s auf folgendes Konto:\n\n", deadlineStr))
+	} else {
+		builder.WriteString(fmt.Sprintf("\nBitte überweist den Gesamtbetrag bis zum %s auf folgendes Konto:\n\n", deadlineStr))
+	}
+
+	effectivePaymentSettings := applyLegacyReminderPaymentDefaults(paymentSettings)
+	builder.WriteString(fmt.Sprintf("Empfänger: %s\n", effectivePaymentSettings.RecipientName))
+	builder.WriteString(fmt.Sprintf("IBAN: %s\n", formatIBANForEmail(effectivePaymentSettings.IBAN)))
+	if effectivePaymentSettings.BIC != "" {
+		builder.WriteString(fmt.Sprintf("BIC: %s\n", effectivePaymentSettings.BIC))
+	}
+	builder.WriteString("\n")
+	builder.WriteString(fmt.Sprintf("Wichtig: Bitte gebt als Empfänger genau \"%s\" an, damit das Matching bei eurer Bank korrekt funktioniert.\n\n", effectivePaymentSettings.RecipientName))
+	if isFinal {
+		builder.WriteString(fmt.Sprintf("Dies ist eine Mahnung. Bitte begleicht die offenen Beiträge spätestens bis zum %s.\n\n", deadlineStr))
+		builder.WriteString("Falls ihr die Zahlung bereits veranlasst habt, betrachtet diese Nachricht bitte als gegenstandslos.\n\n")
+	} else {
+		builder.WriteString(fmt.Sprintf("Falls die Zahlung bis zum %s nicht eingeht, werden für die offenen Beiträge Mahngebühren fällig.\n\n", deadlineStr))
+	}
+	builder.WriteString("Vielen Dank!\n\n")
+	builder.WriteString("Freundliche Grüße\n")
+	builder.WriteString("Knirpsenstadt Beitrag\n\n")
+	builder.WriteString("---\n")
+	builder.WriteString("Diese E-Mail wurde automatisch erstellt. Fehler sind nicht ausgeschlossen — bei Fragen wendet euch gerne direkt an uns.\n")
+
+	return subject, builder.String()
 }

@@ -716,3 +716,73 @@ func (r *PostgresFeeRepository) GetOverview(ctx context.Context, year int) (*dom
 
 	return overview, nil
 }
+
+// ListOpenByHousehold returns all open fees (any type, including reminders)
+// for a household with their matched amounts. Open means matched < amount.
+func (r *PostgresFeeRepository) ListOpenByHousehold(ctx context.Context, householdID uuid.UUID) ([]OpenFeeRow, error) {
+	var rows []OpenFeeRow
+	err := r.db.SelectContext(ctx, &rows, `
+		SELECT fe.id, fe.child_id, fe.household_id, fe.fee_type, fe.year, fe.month, fe.amount, fe.due_date, fe.created_at, fe.reminder_for_id, fe.reconciliation_year,
+		       COALESCE(pm_sum.matched_amount, 0) AS matched_amount
+		FROM fees.fee_expectations fe
+		LEFT JOIN (
+			SELECT expectation_id, COALESCE(SUM(amount), 0) AS matched_amount
+			FROM fees.payment_matches
+			GROUP BY expectation_id
+		) pm_sum ON fe.id = pm_sum.expectation_id
+		WHERE fe.household_id = $1
+		  AND COALESCE(pm_sum.matched_amount, 0) < fe.amount - 0.01
+		ORDER BY fe.due_date ASC, fe.created_at ASC
+	`, householdID)
+	if err != nil {
+		return nil, err
+	}
+	return rows, nil
+}
+
+// GetOpenReminderBaseIDs returns which of the given base-fee IDs already have
+// at least one reminder fee (paid or unpaid).
+func (r *PostgresFeeRepository) GetOpenReminderBaseIDs(ctx context.Context, baseFeeIDs []uuid.UUID) (map[uuid.UUID]bool, error) {
+	result := make(map[uuid.UUID]bool)
+	if len(baseFeeIDs) == 0 {
+		return result, nil
+	}
+	var ids []uuid.UUID
+	err := r.db.SelectContext(ctx, &ids, `
+		SELECT DISTINCT rem.reminder_for_id
+		FROM fees.fee_expectations rem
+		WHERE rem.fee_type = $1
+		  AND rem.reminder_for_id = ANY($2::uuid[])
+	`, domain.FeeTypeReminder, pq.Array(baseFeeIDs))
+	if err != nil {
+		return nil, err
+	}
+	for _, id := range ids {
+		result[id] = true
+	}
+	return result, nil
+}
+
+// GetReminderBaseIDsCreatedAfter returns the base-fee IDs that received a
+// reminder fee created after the given time (concurrency guard).
+func (r *PostgresFeeRepository) GetReminderBaseIDsCreatedAfter(ctx context.Context, baseFeeIDs []uuid.UUID, after time.Time) (map[uuid.UUID]bool, error) {
+	result := make(map[uuid.UUID]bool)
+	if len(baseFeeIDs) == 0 {
+		return result, nil
+	}
+	var ids []uuid.UUID
+	err := r.db.SelectContext(ctx, &ids, `
+		SELECT DISTINCT rem.reminder_for_id
+		FROM fees.fee_expectations rem
+		WHERE rem.fee_type = $1
+		  AND rem.reminder_for_id = ANY($2::uuid[])
+		  AND rem.created_at > $3
+	`, domain.FeeTypeReminder, pq.Array(baseFeeIDs), after)
+	if err != nil {
+		return nil, err
+	}
+	for _, id := range ids {
+		result[id] = true
+	}
+	return result, nil
+}
