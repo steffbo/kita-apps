@@ -25,6 +25,7 @@ Re-read these sources before relying on a calculation or write contract:
 - Foster-family households (`FOSTER_FAMILY`) are exempt from the income-based Entlastung brackets (§§ 50 ff. KitaG): their U3 fee is the average of all Satzung rates for the care hours, income is ignored, no sibling discount. The age-based fee exemption from the month of completing the 3rd year of life (§ 17a KitaG) applies to foster children as well — the age check runs before the foster-family branch.
 - A follow-up uses `POST /api/fees/v1/einstufungen/{sourceId}/follow-ups`.
 - The current cut-off rule maps change days 1–14 to the same month's first day and day 15 onward to the following month's first day.
+- Independently of that follow-up cut-off, an initial admission after the 15th halves FOOD and CHILDCARE for the admission month; admission through the 15th is billed in full.
 - Follow-up creation closes the source period, creates the successor, updates household fee metadata, and synchronizes `CHILDCARE` expectations. `FOOD` and `MEMBERSHIP` expectations are not part of that synchronization.
 
 Treat these as navigation aids, not frozen duplicates. If any invariant changed, use the current code and update this reference.

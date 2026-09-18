@@ -152,7 +152,27 @@ func (r *PostgresEinstufungRepository) GetByChildAndYear(ctx context.Context, ch
 // Update updates an existing Einstufung.
 func (r *PostgresEinstufungRepository) Update(ctx context.Context, e *domain.Einstufung) error {
 	e.UpdatedAt = time.Now()
-	_, err := r.db.ExecContext(ctx, `
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	var stored struct {
+		EffectiveFromMonth time.Time  `db:"effective_from_month"`
+		SourceEinstufungID *uuid.UUID `db:"source_einstufung_id"`
+	}
+	if err := tx.GetContext(ctx, &stored, `
+		SELECT effective_from_month, source_einstufung_id
+		FROM fees.einstufungen
+		WHERE id = $1
+		FOR UPDATE
+	`, e.ID); err != nil {
+		return err
+	}
+
+	updateCurrent := func() error {
+		_, err := tx.ExecContext(ctx, `
 		UPDATE fees.einstufungen SET
 			child_id = $2, household_id = $3, year = $4, valid_from = $5, valid_until = $6,
 			source_einstufung_id = $7, change_date = $8, effective_from_month = $9,
@@ -162,16 +182,48 @@ func (r *PostgresEinstufungRepository) Update(ctx context.Context, e *domain.Ein
 			fee_rule = $19, discount_percent = $20, discount_factor = $21, base_fee = $22,
 			notes = $23, updated_at = $24
 		WHERE id = $1
-	`,
-		e.ID, e.ChildID, e.HouseholdID, e.Year, e.ValidFrom, e.ValidUntil,
-		e.SourceEinstufungID, e.ChangeDate, e.EffectiveFromMonth,
-		e.IncomeCalculation, e.AnnualNetIncome,
-		e.HighestRateVoluntary, e.CareHoursPerWeek, e.CareType, e.ChildrenCount,
-		e.MonthlyChildcareFee, e.MonthlyFoodFee, e.AnnualMembershipFee,
-		e.FeeRule, e.DiscountPercent, e.DiscountFactor, e.BaseFee,
-		e.Notes, e.UpdatedAt,
-	)
-	return err
+		`,
+			e.ID, e.ChildID, e.HouseholdID, e.Year, e.ValidFrom, e.ValidUntil,
+			e.SourceEinstufungID, e.ChangeDate, e.EffectiveFromMonth,
+			e.IncomeCalculation, e.AnnualNetIncome,
+			e.HighestRateVoluntary, e.CareHoursPerWeek, e.CareType, e.ChildrenCount,
+			e.MonthlyChildcareFee, e.MonthlyFoodFee, e.AnnualMembershipFee,
+			e.FeeRule, e.DiscountPercent, e.DiscountFactor, e.BaseFee,
+			e.Notes, e.UpdatedAt,
+		)
+		return err
+	}
+	updateSourceEnd := func() error {
+		if stored.SourceEinstufungID == nil {
+			return nil
+		}
+		sourceValidUntil := e.EffectiveFromMonth.AddDate(0, 0, -1)
+		_, err := tx.ExecContext(ctx, `
+			UPDATE fees.einstufungen
+			SET valid_until = $2, updated_at = $3
+			WHERE id = $1
+		`, *stored.SourceEinstufungID, sourceValidUntil, e.UpdatedAt)
+		return err
+	}
+
+	// Respect the immediate no-overlap constraint while moving a follow-up.
+	if stored.SourceEinstufungID != nil && e.EffectiveFromMonth.Before(stored.EffectiveFromMonth) {
+		if err := updateSourceEnd(); err != nil {
+			return err
+		}
+		if err := updateCurrent(); err != nil {
+			return err
+		}
+	} else {
+		if err := updateCurrent(); err != nil {
+			return err
+		}
+		if err := updateSourceEnd(); err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
 }
 
 // Delete deletes an Einstufung.

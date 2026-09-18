@@ -540,12 +540,8 @@ func toEinstufungResponse(e *domain.Einstufung) EinstufungResponse {
 		resp.EffectiveFromMonth = e.ValidFrom.Format("2006-01-02")
 	}
 
-	// Generate monthly table
-	var exitDate *time.Time
-	if e.Child != nil {
-		exitDate = e.Child.ExitDate
-	}
-	resp.MonthlyTable = e.GenerateMonthlyTable(exitDate)
+	// Generate monthly table, including entry-month proration.
+	resp.MonthlyTable = e.GenerateMonthlyTable(e.Child)
 
 	if e.Child != nil {
 		resp.Child = e.Child

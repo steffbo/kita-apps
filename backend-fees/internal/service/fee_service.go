@@ -239,7 +239,8 @@ func (s *FeeService) Generate(ctx context.Context, year int, month *int) (*Gener
 		}
 
 		// Food fee (all children)
-		created, err := s.createFeeIfNotExists(ctx, child.ID, child.HouseholdID, domain.FeeTypeFood, year, month, domain.FoodFeeAmount, dueDate)
+		foodAmount := domain.ContributionAmountForMonth(domain.FoodFeeAmount, child.EntryDate, year, time.Month(*month))
+		created, err := s.createFeeIfNotExists(ctx, child.ID, child.HouseholdID, domain.FeeTypeFood, year, month, foodAmount, dueDate)
 		if err != nil {
 			return nil, err
 		}
@@ -269,7 +270,8 @@ func (s *FeeService) Generate(ctx context.Context, year int, month *int) (*Gener
 				// Beitrag frei: kein Platzgeld erzeugen
 				continue
 			}
-			created, err := s.createFeeIfNotExists(ctx, child.ID, child.HouseholdID, domain.FeeTypeChildcare, year, month, feeResult.Fee, dueDate)
+			childcareAmount := domain.ContributionAmountForMonth(feeResult.Fee, child.EntryDate, year, time.Month(*month))
+			created, err := s.createFeeIfNotExists(ctx, child.ID, child.HouseholdID, domain.FeeTypeChildcare, year, month, childcareAmount, dueDate)
 			if err != nil {
 				return nil, err
 			}
@@ -830,6 +832,9 @@ func (s *FeeService) Create(ctx context.Context, input CreateFeeInput) (*domain.
 			amount = s.calculateChildcareFeeForChild(ctx, child, input.Year, input.Month)
 		default:
 			return nil, ErrInvalidInput
+		}
+		if input.Month != nil && (input.FeeType == domain.FeeTypeFood || input.FeeType == domain.FeeTypeChildcare) {
+			amount = domain.ContributionAmountForMonth(amount, child.EntryDate, input.Year, time.Month(*input.Month))
 		}
 	}
 

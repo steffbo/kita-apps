@@ -67,8 +67,9 @@ type EinstufungMonthRow struct {
 }
 
 // GenerateMonthlyTable generates the monthly fee breakdown for the Einstufung letter.
-// It produces rows from validFrom until the end of the year (or exitDate if earlier).
-func (e *Einstufung) GenerateMonthlyTable(exitDate *time.Time) []EinstufungMonthRow {
+// It produces rows from validFrom until the end of the year (or the child's exit date
+// if earlier) and applies the half contribution for an admission after the 15th.
+func (e *Einstufung) GenerateMonthlyTable(child *Child) []EinstufungMonthRow {
 	var rows []EinstufungMonthRow
 
 	periodStart := e.ValidFrom
@@ -81,8 +82,8 @@ func (e *Einstufung) GenerateMonthlyTable(exitDate *time.Time) []EinstufungMonth
 	endYear := startYear
 
 	// If exit date is within this year, stop there
-	if exitDate != nil && exitDate.Year() == startYear && exitDate.Month() <= time.December {
-		endMonth = exitDate.Month()
+	if child != nil && child.ExitDate != nil && child.ExitDate.Year() == startYear && child.ExitDate.Month() <= time.December {
+		endMonth = child.ExitDate.Month()
 	}
 	if e.ValidUntil != nil && e.ValidUntil.Year() == startYear && e.ValidUntil.Month() < endMonth {
 		endMonth = e.ValidUntil.Month()
@@ -96,6 +97,10 @@ func (e *Einstufung) GenerateMonthlyTable(exitDate *time.Time) []EinstufungMonth
 			CareType:         formatCareType(e.CareType),
 			ChildcareFee:     e.MonthlyChildcareFee,
 			FoodFee:          e.MonthlyFoodFee,
+		}
+		if child != nil {
+			row.ChildcareFee = ContributionAmountForMonth(row.ChildcareFee, child.EntryDate, startYear, m)
+			row.FoodFee = ContributionAmountForMonth(row.FoodFee, child.EntryDate, startYear, m)
 		}
 
 		// Membership fee only in the first month

@@ -50,6 +50,19 @@ function isSameMonth(left: Date, right: Date): boolean {
   return left.getUTCFullYear() === right.getUTCFullYear() && left.getUTCMonth() === right.getUTCMonth();
 }
 
+function monthRow(einstufung: Einstufung, date: Date) {
+  return einstufung.monthlyTable?.find((row) =>
+    row.year === date.getUTCFullYear() && row.month === date.getUTCMonth() + 1
+  );
+}
+
+function hasDifferentContribution(row: ReturnType<typeof monthRow>, einstufung: Einstufung): boolean {
+  return !!row && (
+    row.childcareFee !== einstufung.monthlyChildcareFee ||
+    row.foodFee !== einstufung.monthlyFoodFee
+  );
+}
+
 function formatCareType(ct: string) {
   if (ct === 'krippe') return 'Krippe';
   if (ct === 'kindergarten') return 'Kindergarten';
@@ -96,20 +109,36 @@ const feePeriods = computed<FeePeriod[]>(() => {
     const previousStart = parseMonthStart(previous.effectiveFromMonth || previous.validFrom);
 
     if (previousStart && isSameOrAfterMonth(previousEnd, previousStart)) {
-      const previousRow = previous.monthlyTable?.find((row) =>
-        row.year === previousEnd.getUTCFullYear() && row.month === previousEnd.getUTCMonth() + 1
-      );
+      const firstRow = monthRow(previous, previousStart);
+      const previousRow = monthRow(previous, previousEnd);
+      let regularStart = previousStart;
 
-      periods.push({
-        key: 'previous',
-        label: formatPeriodLabel(previousStart, previousEnd),
-        careHours: previousRow?.careHoursPerWeek ?? previous.careHoursPerWeek,
-        careType: previousRow?.careType ?? formatCareType(previous.careType),
-        childcareFee: previousRow?.childcareFee ?? previous.monthlyChildcareFee,
-        foodFee: previousRow?.foodFee ?? previous.monthlyFoodFee,
-        isPrevious: true,
-        isCurrent: false,
-      });
+      if (hasDifferentContribution(firstRow, previous)) {
+        periods.push({
+          key: 'previous-entry-month',
+          label: formatPeriodLabel(previousStart, previousStart),
+          careHours: firstRow?.careHoursPerWeek ?? previous.careHoursPerWeek,
+          careType: firstRow?.careType ?? formatCareType(previous.careType),
+          childcareFee: firstRow?.childcareFee ?? previous.monthlyChildcareFee,
+          foodFee: firstRow?.foodFee ?? previous.monthlyFoodFee,
+          isPrevious: true,
+          isCurrent: false,
+        });
+        regularStart = addUtcMonths(previousStart, 1);
+      }
+
+      if (isSameOrAfterMonth(previousEnd, regularStart)) {
+        periods.push({
+          key: 'previous',
+          label: formatPeriodLabel(regularStart, previousEnd),
+          careHours: previousRow?.careHoursPerWeek ?? previous.careHoursPerWeek,
+          careType: previousRow?.careType ?? formatCareType(previous.careType),
+          childcareFee: previousRow?.childcareFee ?? previous.monthlyChildcareFee,
+          foodFee: previousRow?.foodFee ?? previous.monthlyFoodFee,
+          isPrevious: true,
+          isCurrent: false,
+        });
+      }
     }
   }
 
@@ -125,16 +154,34 @@ const feePeriods = computed<FeePeriod[]>(() => {
     ? addUtcMonths(kindergartenFrom as Date, -1)
     : closedUntil ?? null;
 
-  periods.push({
-    key: 'current',
-    label: formatPeriodLabel(validFrom, currentEnd),
-    careHours: e.careHoursPerWeek,
-    careType: formatCareType(e.careType),
-    childcareFee: e.monthlyChildcareFee,
-    foodFee: e.monthlyFoodFee,
-    isPrevious: false,
-    isCurrent: true,
-  });
+  const firstCurrentRow = monthRow(e, validFrom);
+  let regularCurrentStart = validFrom;
+  if (hasDifferentContribution(firstCurrentRow, e)) {
+    periods.push({
+      key: 'current-entry-month',
+      label: formatPeriodLabel(validFrom, validFrom),
+      careHours: firstCurrentRow?.careHoursPerWeek ?? e.careHoursPerWeek,
+      careType: firstCurrentRow?.careType ?? formatCareType(e.careType),
+      childcareFee: firstCurrentRow?.childcareFee ?? e.monthlyChildcareFee,
+      foodFee: firstCurrentRow?.foodFee ?? e.monthlyFoodFee,
+      isPrevious: false,
+      isCurrent: true,
+    });
+    regularCurrentStart = addUtcMonths(validFrom, 1);
+  }
+
+  if (!currentEnd || isSameOrAfterMonth(currentEnd, regularCurrentStart)) {
+    periods.push({
+      key: 'current',
+      label: formatPeriodLabel(regularCurrentStart, currentEnd),
+      careHours: e.careHoursPerWeek,
+      careType: formatCareType(e.careType),
+      childcareFee: e.monthlyChildcareFee,
+      foodFee: e.monthlyFoodFee,
+      isPrevious: false,
+      isCurrent: true,
+    });
+  }
 
   // Ab dem Wechsel in den Kindergarten entfällt das Platzgeld
   if (switchesToKindergarten && kindergartenFrom) {

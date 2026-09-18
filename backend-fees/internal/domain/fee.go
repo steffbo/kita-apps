@@ -1,10 +1,21 @@
 package domain
 
 import (
+	"math"
 	"time"
 
 	"github.com/google/uuid"
 )
+
+// ContributionAmountForMonth applies the initial-month rule from the
+// Elternbeitragsordnung: admission through the 15th is billed in full, while
+// admission after the 15th is billed at half the monthly amount.
+func ContributionAmountForMonth(monthlyAmount float64, entryDate time.Time, year int, month time.Month) float64 {
+	if entryDate.Year() == year && entryDate.Month() == month && entryDate.Day() > 15 {
+		return math.Round(monthlyAmount*50) / 100
+	}
+	return monthlyAmount
+}
 
 // FeeType represents the type of fee.
 type FeeType string

@@ -59,6 +59,63 @@ func TestEinstufungPeriods_AllowConsecutiveRejectOverlapping(t *testing.T) {
 	}
 }
 
+func TestEinstufungPeriods_UpdateFollowUpMovesSourceBoundary(t *testing.T) {
+	cleanupTestData()
+	defer cleanupTestData()
+
+	ctx := context.Background()
+	childRepo := repository.NewPostgresChildRepository(testDB)
+	householdRepo := repository.NewPostgresHouseholdRepository(testDB)
+	einstufungRepo := repository.NewPostgresEinstufungRepository(testDB)
+
+	child, err := createTestChild(childRepo, "EPU")
+	if err != nil {
+		t.Fatal(err)
+	}
+	household := &domain.Household{
+		ID:               uuid.New(),
+		Name:             "TEST Einstufung Update",
+		IncomeStatus:     domain.IncomeStatusProvided,
+		MembershipStatus: domain.MembershipAssignmentStatusAssumed,
+	}
+	if err := householdRepo.Create(ctx, household); err != nil {
+		t.Fatal(err)
+	}
+	child.HouseholdID = &household.ID
+	if err := childRepo.Update(ctx, child); err != nil {
+		t.Fatal(err)
+	}
+
+	sourceStart := time.Date(2026, time.August, 1, 0, 0, 0, 0, time.UTC)
+	source := testEinstufung(child.ID, household.ID, sourceStart)
+	if err := einstufungRepo.Create(ctx, source); err != nil {
+		t.Fatal(err)
+	}
+
+	followUpStart := time.Date(2026, time.September, 1, 0, 0, 0, 0, time.UTC)
+	followUp := testEinstufung(child.ID, household.ID, followUpStart)
+	followUp.SourceEinstufungID = &source.ID
+	if err := einstufungRepo.CreateFollowUp(ctx, source.ID, followUpStart.AddDate(0, 0, -1), followUp); err != nil {
+		t.Fatal(err)
+	}
+
+	movedStart := time.Date(2026, time.October, 1, 0, 0, 0, 0, time.UTC)
+	followUp.ValidFrom = movedStart
+	followUp.EffectiveFromMonth = movedStart
+	followUp.ChangeDate = &movedStart
+	if err := einstufungRepo.Update(ctx, followUp); err != nil {
+		t.Fatalf("move follow-up: %v", err)
+	}
+
+	reloadedSource, err := einstufungRepo.GetByID(ctx, source.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reloadedSource.ValidUntil == nil || !reloadedSource.ValidUntil.Equal(time.Date(2026, time.September, 30, 0, 0, 0, 0, time.UTC)) {
+		t.Fatalf("source valid_until = %v, want 2026-09-30", reloadedSource.ValidUntil)
+	}
+}
+
 func testEinstufung(childID uuid.UUID, householdID uuid.UUID, start time.Time) *domain.Einstufung {
 	changeDate := start
 	return &domain.Einstufung{

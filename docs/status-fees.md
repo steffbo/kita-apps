@@ -3,6 +3,12 @@
 Rolling change log of non-obvious implementation decisions. Newest first.
 Basics (ports, commands, layout) live in `AGENTS.md`.
 
+## Eintrittsmonat anteilig berechnen (2026-09-18)
+
+- Die Beitragserzeugung berücksichtigt jetzt § 12 Abs. 3 der Elternbeitragsordnung: Bei Eintritt nach dem 15. werden Platz- und Essensgeld im Eintrittsmonat hälftig angesetzt; bis einschließlich 15. bleibt der volle Monatsbeitrag fällig.
+- Die Monatsübersicht der Einstufung und das Druck-PDF zeigen den hälftigen Eintrittsmonat als eigenen Zeitraum und danach wieder die vollen Monatswerte.
+- Wird das Datum einer Einstufung korrigiert, werden `change_date`, `effective_from_month` und das Einstufungsjahr konsistent nachgeführt. Bei einer Folgeeinstufung wird außerdem das Ende des Vorgängerzeitraums atomar angepasst; ihre Stichtagslogik bleibt erhalten.
+
 ## Backend (`backend-fees`)
 
 ### Review-Fixes Erinnerungs-Workflow (2026-09-15)

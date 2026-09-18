@@ -315,7 +315,14 @@ func (s *EinstufungService) Update(ctx context.Context, id uuid.UUID, input Upda
 		existing.ChildrenCount = *input.ChildrenCount
 	}
 	if input.ValidFrom != nil {
-		existing.ValidFrom = *input.ValidFrom
+		existing.ChangeDate = input.ValidFrom
+		if existing.SourceEinstufungID == nil {
+			existing.EffectiveFromMonth = firstDayOfMonth(*input.ValidFrom)
+		} else {
+			existing.EffectiveFromMonth = CalculateEffectiveFromMonth(*input.ValidFrom)
+		}
+		existing.ValidFrom = existing.EffectiveFromMonth
+		existing.Year = existing.EffectiveFromMonth.Year()
 	}
 	if input.Notes != nil {
 		existing.Notes = *input.Notes
