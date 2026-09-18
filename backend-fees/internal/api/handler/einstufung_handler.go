@@ -540,8 +540,12 @@ func toEinstufungResponse(e *domain.Einstufung) EinstufungResponse {
 		resp.EffectiveFromMonth = e.ValidFrom.Format("2006-01-02")
 	}
 
-	// Generate monthly table, including entry-month proration.
-	resp.MonthlyTable = e.GenerateMonthlyTable(e.Child)
+	// The service builds this from the child's care-hours history. Keep the
+	// domain fallback for callers that do not load relations through the service.
+	resp.MonthlyTable = e.MonthlyTable
+	if resp.MonthlyTable == nil {
+		resp.MonthlyTable = e.GenerateMonthlyTable(e.Child)
+	}
 
 	if e.Child != nil {
 		resp.Child = e.Child

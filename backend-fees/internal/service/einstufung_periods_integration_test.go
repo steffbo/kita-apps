@@ -9,6 +9,7 @@ import (
 
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/repository"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/service"
 )
 
 func TestEinstufungPeriods_AllowConsecutiveRejectOverlapping(t *testing.T) {
@@ -114,6 +115,123 @@ func TestEinstufungPeriods_UpdateFollowUpMovesSourceBoundary(t *testing.T) {
 	if reloadedSource.ValidUntil == nil || !reloadedSource.ValidUntil.Equal(time.Date(2026, time.September, 30, 0, 0, 0, 0, time.UTC)) {
 		t.Fatalf("source valid_until = %v, want 2026-09-30", reloadedSource.ValidUntil)
 	}
+}
+
+func TestEinstufungPeriods_DeleteFollowUpReopensSource(t *testing.T) {
+	cleanupTestData()
+	defer cleanupTestData()
+
+	ctx := context.Background()
+	childRepo := repository.NewPostgresChildRepository(testDB)
+	householdRepo := repository.NewPostgresHouseholdRepository(testDB)
+	einstufungRepo := repository.NewPostgresEinstufungRepository(testDB)
+
+	child, err := createTestChild(childRepo, "EPD")
+	if err != nil {
+		t.Fatal(err)
+	}
+	household := &domain.Household{
+		ID:               uuid.New(),
+		Name:             "TEST Einstufung Delete",
+		IncomeStatus:     domain.IncomeStatusProvided,
+		MembershipStatus: domain.MembershipAssignmentStatusAssumed,
+	}
+	if err := householdRepo.Create(ctx, household); err != nil {
+		t.Fatal(err)
+	}
+	child.HouseholdID = &household.ID
+	if err := childRepo.Update(ctx, child); err != nil {
+		t.Fatal(err)
+	}
+
+	source := testEinstufung(child.ID, household.ID, time.Date(2026, time.August, 1, 0, 0, 0, 0, time.UTC))
+	if err := einstufungRepo.Create(ctx, source); err != nil {
+		t.Fatal(err)
+	}
+	followUpStart := time.Date(2026, time.October, 1, 0, 0, 0, 0, time.UTC)
+	followUp := testEinstufung(child.ID, household.ID, followUpStart)
+	followUp.SourceEinstufungID = &source.ID
+	if err := einstufungRepo.CreateFollowUp(ctx, source.ID, followUpStart.AddDate(0, 0, -1), followUp); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := einstufungRepo.Delete(ctx, followUp.ID); err != nil {
+		t.Fatalf("delete follow-up: %v", err)
+	}
+	reloadedSource, err := einstufungRepo.GetByID(ctx, source.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if reloadedSource.ValidUntil != nil {
+		t.Fatalf("source valid_until = %v, want open period", reloadedSource.ValidUntil)
+	}
+}
+
+func TestEinstufungMonthlyTableUsesChildCareHoursHistory(t *testing.T) {
+	cleanupTestData()
+	defer cleanupTestData()
+
+	ctx := context.Background()
+	childRepo := repository.NewPostgresChildRepository(testDB)
+	householdRepo := repository.NewPostgresHouseholdRepository(testDB)
+	einstufungRepo := repository.NewPostgresEinstufungRepository(testDB)
+	feeService := service.NewFeeService(nil, childRepo, householdRepo, nil, nil)
+	einstufungService := service.NewEinstufungService(einstufungRepo, householdRepo, childRepo, feeService)
+
+	household := &domain.Household{
+		ID:               uuid.New(),
+		Name:             "TEST Einstufung Timeline",
+		IncomeStatus:     domain.IncomeStatusMaxAccepted,
+		MembershipStatus: domain.MembershipAssignmentStatusAssumed,
+	}
+	if err := householdRepo.Create(ctx, household); err != nil {
+		t.Fatal(err)
+	}
+	child := &domain.Child{
+		ID:           uuid.New(),
+		HouseholdID:  &household.ID,
+		MemberNumber: "TEPT",
+		FirstName:    "Test",
+		LastName:     "Timeline",
+		BirthDate:    time.Date(2025, time.June, 10, 0, 0, 0, 0, time.UTC),
+		EntryDate:    time.Date(2026, time.August, 17, 0, 0, 0, 0, time.UTC),
+		CareHours:    intPtr(30),
+		IsActive:     true,
+	}
+	if err := childRepo.Create(ctx, child); err != nil {
+		t.Fatal(err)
+	}
+	if err := childRepo.UpsertCareHoursHistory(ctx, child.ID, intPtr(40), time.Date(2026, time.October, 1, 0, 0, 0, 0, time.UTC)); err != nil {
+		t.Fatal(err)
+	}
+
+	e := testEinstufung(child.ID, household.ID, time.Date(2026, time.August, 1, 0, 0, 0, 0, time.UTC))
+	e.HighestRateVoluntary = true
+	e.ChildrenCount = 2
+	if err := einstufungRepo.Create(ctx, e); err != nil {
+		t.Fatal(err)
+	}
+	loaded, err := einstufungService.GetByID(ctx, e.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	assertRow := func(year, month, hours int, childcare, food float64) {
+		t.Helper()
+		for _, row := range loaded.MonthlyTable {
+			if row.Year == year && row.Month == month {
+				if row.CareHoursPerWeek != hours || row.ChildcareFee != childcare || row.FoodFee != food {
+					t.Fatalf("%d-%02d row = %dh %.2f/%.2f, want %dh %.2f/%.2f", year, month, row.CareHoursPerWeek, row.ChildcareFee, row.FoodFee, hours, childcare, food)
+				}
+				return
+			}
+		}
+		t.Fatalf("missing row for %d-%02d", year, month)
+	}
+	assertRow(2026, 8, 30, 124.92, 22.70)
+	assertRow(2026, 9, 30, 249.84, 45.40)
+	assertRow(2026, 10, 40, 312.30, 45.40)
+	assertRow(2028, 6, 40, 0, 45.40)
 }
 
 func testEinstufung(childID uuid.UUID, householdID uuid.UUID, start time.Time) *domain.Einstufung {

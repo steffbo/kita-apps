@@ -4934,6 +4934,8 @@ components:
       description: Request body for creating a fee classification
       properties:
         careHoursPerWeek:
+          deprecated: true
+          description: Ignored; resolved from the child's care-hours history.
           type: integer
         childId:
           type: string
@@ -4946,7 +4948,8 @@ components:
         notes:
           type: string
         validFrom:
-          description: ISO date, e.g. "2026-01-01"
+          deprecated: true
+          description: Ignored for initial classifications; validity is derived from year and child entry date.
           type: string
         year:
           type: integer
@@ -4985,6 +4988,8 @@ components:
       description: Request body for creating a follow-up fee classification
       properties:
         careHoursPerWeek:
+          deprecated: true
+          description: Ignored; resolved from the child's care-hours history at the effective month.
           type: integer
         changeDate:
           description: "ISO date, cut-off: 1st-14th same month, 15th+ next month"
@@ -6175,6 +6180,8 @@ components:
       description: Request body for updating a fee classification
       properties:
         careHoursPerWeek:
+          deprecated: true
+          description: Ignored; resolved from the child's care-hours history.
           type: integer
         childrenCount:
           type: integer
@@ -6185,6 +6192,7 @@ components:
         notes:
           type: string
         validFrom:
+          description: Only used for follow-up income classifications; ignored for initial classifications.
           type: string
       type: object
     UpdateFeeRequest:

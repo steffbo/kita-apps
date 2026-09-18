@@ -83,23 +83,29 @@ func (s *EinstufungService) Create(ctx context.Context, input CreateEinstufungIn
 		return nil, ErrNotFound
 	}
 
-	effectiveFromMonth := firstDayOfMonth(input.ValidFrom)
-	changeDate := input.ValidFrom
+	classificationYear := input.Year
+	if classificationYear == 0 {
+		classificationYear = child.EntryDate.Year()
+	}
+	changeDate := time.Date(classificationYear, time.January, 1, 0, 0, 0, 0, time.UTC)
+	effectiveFromMonth := changeDate
+	if child.EntryDate.After(changeDate) {
+		changeDate = child.EntryDate
+		effectiveFromMonth = firstDayOfMonth(child.EntryDate)
+	}
 
 	// Determine care type from child age at the billing-effective month
 	careType := domain.ChildAgeTypeKrippe
-	if !child.IsUnderThree(effectiveFromMonth) {
+	if !child.IsUnderThreeForEntireMonth(effectiveFromMonth.Year(), effectiveFromMonth.Month()) {
 		careType = domain.ChildAgeTypeKindergarten
 	}
 
 	// Calculate fee-relevant household income
 	annualNetIncome := input.IncomeCalculation.CalculateAnnualNetIncome()
 
-	// Default care hours
-	careHours := input.CareHoursPerWeek
-	if careHours == 0 {
-		careHours = 30 // Default
-	}
+	// Care hours are child data and are always resolved from the history.
+	startMonth := int(effectiveFromMonth.Month())
+	careHours := s.feeService.ResolveCareHours(ctx, child, effectiveFromMonth.Year(), &startMonth)
 
 	// Default children count
 	childrenCount := input.ChildrenCount
@@ -172,9 +178,10 @@ func (s *EinstufungService) Create(ctx context.Context, input CreateEinstufungIn
 		return nil, err
 	}
 
-	// Load relations for response
+	// Load relations and the month-specific contribution timeline for response.
 	einstufung.Child = child
 	einstufung.Household = household
+	s.populateMonthlyTable(ctx, einstufung)
 
 	return einstufung, nil
 }
@@ -206,17 +213,15 @@ func (s *EinstufungService) CreateFollowUp(ctx context.Context, sourceID uuid.UU
 		return nil, ErrNotFound
 	}
 
-	careHours := input.CareHoursPerWeek
-	if careHours == 0 {
-		careHours = source.CareHoursPerWeek
-	}
+	changeMonth := int(effectiveFromMonth.Month())
+	careHours := s.feeService.ResolveCareHours(ctx, child, effectiveFromMonth.Year(), &changeMonth)
 	childrenCount := input.ChildrenCount
 	if childrenCount == 0 {
 		childrenCount = source.ChildrenCount
 	}
 
 	careType := domain.ChildAgeTypeKrippe
-	if !child.IsUnderThree(effectiveFromMonth) {
+	if !child.IsUnderThreeForEntireMonth(effectiveFromMonth.Year(), effectiveFromMonth.Month()) {
 		careType = domain.ChildAgeTypeKindergarten
 	}
 	annualNetIncome := input.IncomeCalculation.CalculateAnnualNetIncome()
@@ -278,6 +283,7 @@ func (s *EinstufungService) CreateFollowUp(ctx context.Context, sourceID uuid.UU
 
 	einstufung.Child = child
 	einstufung.Household = household
+	s.populateMonthlyTable(ctx, einstufung)
 	return &CreateFollowUpEinstufungResult{
 		Einstufung:         einstufung,
 		ExpectationChanges: changes,
@@ -308,19 +314,12 @@ func (s *EinstufungService) Update(ctx context.Context, id uuid.UUID, input Upda
 	if input.HighestRateVoluntary != nil {
 		existing.HighestRateVoluntary = *input.HighestRateVoluntary
 	}
-	if input.CareHoursPerWeek != nil {
-		existing.CareHoursPerWeek = *input.CareHoursPerWeek
-	}
 	if input.ChildrenCount != nil {
 		existing.ChildrenCount = *input.ChildrenCount
 	}
-	if input.ValidFrom != nil {
+	if input.ValidFrom != nil && existing.SourceEinstufungID != nil {
 		existing.ChangeDate = input.ValidFrom
-		if existing.SourceEinstufungID == nil {
-			existing.EffectiveFromMonth = firstDayOfMonth(*input.ValidFrom)
-		} else {
-			existing.EffectiveFromMonth = CalculateEffectiveFromMonth(*input.ValidFrom)
-		}
+		existing.EffectiveFromMonth = CalculateEffectiveFromMonth(*input.ValidFrom)
 		existing.ValidFrom = existing.EffectiveFromMonth
 		existing.Year = existing.EffectiveFromMonth.Year()
 	}
@@ -338,10 +337,12 @@ func (s *EinstufungService) Update(ctx context.Context, id uuid.UUID, input Upda
 	}
 
 	careType := domain.ChildAgeTypeKrippe
-	if !child.IsUnderThree(existing.ValidFrom) {
+	if !child.IsUnderThreeForEntireMonth(existing.EffectiveFromMonth.Year(), existing.EffectiveFromMonth.Month()) {
 		careType = domain.ChildAgeTypeKindergarten
 	}
 	existing.CareType = careType
+	startMonth := int(existing.EffectiveFromMonth.Month())
+	existing.CareHoursPerWeek = s.feeService.ResolveCareHours(ctx, child, existing.EffectiveFromMonth.Year(), &startMonth)
 
 	household, err := s.householdRepo.GetByID(ctx, existing.HouseholdID)
 	if err != nil {
@@ -375,6 +376,7 @@ func (s *EinstufungService) Update(ctx context.Context, id uuid.UUID, input Upda
 
 	existing.Child = child
 	existing.Household = household
+	s.populateMonthlyTable(ctx, existing)
 
 	return existing, nil
 }
@@ -455,4 +457,67 @@ func (s *EinstufungService) loadRelations(ctx context.Context, e *domain.Einstuf
 	if household, err := s.householdRepo.GetWithMembers(ctx, e.HouseholdID); err == nil {
 		e.Household = household
 	}
+	s.populateMonthlyTable(ctx, e)
+}
+
+// populateMonthlyTable derives the contribution timeline from child data. Care-hour
+// changes never require another Einstufung; only a new income decision does.
+func (s *EinstufungService) populateMonthlyTable(ctx context.Context, e *domain.Einstufung) {
+	if e.Child == nil || e.Household == nil {
+		return
+	}
+
+	start := firstDayOfMonth(e.EffectiveFromMonth)
+	if e.EffectiveFromMonth.IsZero() {
+		start = firstDayOfMonth(e.ValidFrom)
+	}
+	end := start
+	if e.ValidUntil != nil {
+		end = firstDayOfMonth(*e.ValidUntil)
+	} else if e.Child.ExitDate != nil {
+		end = firstDayOfMonth(*e.Child.ExitDate)
+	} else {
+		feeFreeMonth := firstDayOfMonth(e.Child.BirthDate.AddDate(3, 0, 0))
+		if feeFreeMonth.After(end) {
+			end = feeFreeMonth
+		}
+	}
+
+	rows := make([]domain.EinstufungMonthRow, 0)
+	for current := start; !current.After(end); current = current.AddDate(0, 1, 0) {
+		month := int(current.Month())
+		careHours := s.feeService.ResolveCareHours(ctx, e.Child, current.Year(), &month)
+		careType := domain.ChildAgeTypeKrippe
+		if !e.Child.IsUnderThreeForEntireMonth(current.Year(), current.Month()) {
+			careType = domain.ChildAgeTypeKindergarten
+		}
+		feeResult := s.feeService.CalculateChildcareFee(domain.ChildcareFeeInput{
+			ChildAgeType:  careType,
+			NetIncome:     e.AnnualNetIncome,
+			SiblingsCount: e.ChildrenCount,
+			CareHours:     careHours,
+			HighestRate:   e.HighestRateVoluntary,
+			FosterFamily:  e.Household.IncomeStatus == domain.IncomeStatusFosterFamily,
+		})
+		row := domain.EinstufungMonthRow{
+			Month:            month,
+			Year:             current.Year(),
+			CareHoursPerWeek: careHours,
+			CareType:         formatEinstufungCareType(careType),
+			ChildcareFee:     domain.ContributionAmountForMonth(feeResult.Fee, e.Child.EntryDate, current.Year(), current.Month()),
+			FoodFee:          domain.ContributionAmountForMonth(domain.FoodFeeAmount, e.Child.EntryDate, current.Year(), current.Month()),
+		}
+		if current.Equal(start) {
+			row.MembershipFee = e.AnnualMembershipFee
+		}
+		rows = append(rows, row)
+	}
+	e.MonthlyTable = rows
+}
+
+func formatEinstufungCareType(careType domain.ChildAgeType) string {
+	if careType == domain.ChildAgeTypeKindergarten {
+		return "Kindergarten"
+	}
+	return "Krippe"
 }

@@ -51,7 +51,6 @@ const successorEinstufung = ref<Einstufung | null>(null);
 const selectedChildId = ref('');
 const selectedYear = ref(new Date().getFullYear());
 const validFrom = ref(`${new Date().getFullYear()}-01-01`);
-const careHoursPerWeek = ref(45);
 const childrenCount = ref(1);
 const highestRateVoluntary = ref(false);
 const notes = ref('');
@@ -144,9 +143,6 @@ const emailRecipients = computed(() => {
   }
   return recipients;
 });
-
-// Care hour options
-const careHourOptions = [30, 35, 40, 45, 50, 55];
 
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
@@ -314,7 +310,6 @@ async function loadData() {
       // The form edits the actual change/admission date. `validFrom` is the
       // normalized billing-month boundary and must not replace that date.
       validFrom.value = (e.changeDate || e.validFrom).split('T')[0];
-      careHoursPerWeek.value = e.careHoursPerWeek;
       childrenCount.value = e.childrenCount;
       highestRateVoluntary.value = e.highestRateVoluntary;
       notes.value = e.notes || '';
@@ -334,7 +329,6 @@ async function loadData() {
       selectedChildId.value = source.childId;
       selectedYear.value = new Date(calculateEffectiveFromMonth(todayIso())).getUTCFullYear();
       validFrom.value = todayIso();
-      careHoursPerWeek.value = source.careHoursPerWeek;
       childrenCount.value = source.childrenCount;
       highestRateVoluntary.value = source.highestRateVoluntary;
       notes.value = source.notes || '';
@@ -389,7 +383,7 @@ async function handleSubmit() {
           changeDate: validFrom.value,
           incomeCalculation,
           highestRateVoluntary: highestRateVoluntary.value,
-          careHoursPerWeek: careHoursPerWeek.value,
+          careHoursPerWeek: 0,
           childrenCount: childrenCount.value,
           notes: notes.value || undefined,
         });
@@ -399,10 +393,10 @@ async function handleSubmit() {
         created = await api.createEinstufung({
           childId: selectedChildId.value,
           year: selectedYear.value,
-          validFrom: validFrom.value,
+          validFrom: selectedChild.value?.entryDate?.split('T')[0] ?? `${selectedYear.value}-01-01`,
           incomeCalculation,
           highestRateVoluntary: highestRateVoluntary.value,
-          careHoursPerWeek: careHoursPerWeek.value,
+          careHoursPerWeek: 0,
           childrenCount: childrenCount.value,
           notes: notes.value || undefined,
         });
@@ -416,9 +410,7 @@ async function handleSubmit() {
       const updated = await api.updateEinstufung(einstufungId.value!, {
         incomeCalculation,
         highestRateVoluntary: highestRateVoluntary.value,
-        careHoursPerWeek: careHoursPerWeek.value,
         childrenCount: childrenCount.value,
-        validFrom: validFrom.value,
         notes: notes.value || undefined,
       });
       einstufung.value = updated;
@@ -535,11 +527,9 @@ watch(defaultEmailBody, (next) => {
             </select>
           </div>
 
-          <!-- Valid from / change date -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">
-              {{ isFollowUpMode ? 'Änderungsdatum *' : 'Gültig ab *' }}
-            </label>
+          <!-- Income changes still need a date; initial validity comes from the child. -->
+          <div v-if="isFollowUpMode">
+            <label class="block text-sm font-medium text-gray-700 mb-1">Änderungsdatum *</label>
             <input
               type="date"
               v-model="validFrom"
@@ -551,16 +541,8 @@ watch(defaultEmailBody, (next) => {
             </p>
           </div>
 
-          <!-- Care hours -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Betreuungsstunden pro Woche *</label>
-            <select
-              v-model.number="careHoursPerWeek"
-              class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              required
-            >
-              <option v-for="h in careHourOptions" :key="h" :value="h">{{ h }} Stunden</option>
-            </select>
+          <div v-else class="md:col-span-2 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+            Gültigkeit und Betreuungsstunden werden automatisch aus dem Kinddatensatz und dessen Stundenverlauf übernommen.
           </div>
 
           <!-- Children count -->

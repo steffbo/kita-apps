@@ -228,8 +228,46 @@ func (r *PostgresEinstufungRepository) Update(ctx context.Context, e *domain.Ein
 
 // Delete deletes an Einstufung.
 func (r *PostgresEinstufungRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	_, err := r.db.ExecContext(ctx, `DELETE FROM fees.einstufungen WHERE id = $1`, id)
-	return err
+	tx, err := r.db.BeginTxx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	var sourceID *uuid.UUID
+	if err := tx.GetContext(ctx, &sourceID, `
+		SELECT source_einstufung_id
+		FROM fees.einstufungen
+		WHERE id = $1
+		FOR UPDATE
+	`, id); err != nil {
+		return err
+	}
+
+	var successors int
+	if err := tx.GetContext(ctx, &successors, `
+		SELECT COUNT(*) FROM fees.einstufungen WHERE source_einstufung_id = $1
+	`, id); err != nil {
+		return err
+	}
+	if successors > 0 {
+		return fmt.Errorf("cannot delete Einstufung with a successor")
+	}
+
+	if _, err := tx.ExecContext(ctx, `DELETE FROM fees.einstufungen WHERE id = $1`, id); err != nil {
+		return err
+	}
+	if sourceID != nil {
+		if _, err := tx.ExecContext(ctx, `
+			UPDATE fees.einstufungen
+			SET valid_until = NULL, updated_at = NOW()
+			WHERE id = $1
+		`, *sourceID); err != nil {
+			return err
+		}
+	}
+
+	return tx.Commit()
 }
 
 // ListByHousehold retrieves all Einstufungen for a household, ordered by year desc.

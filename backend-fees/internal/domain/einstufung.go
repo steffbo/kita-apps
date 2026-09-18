@@ -50,8 +50,9 @@ type Einstufung struct {
 	UpdatedAt time.Time `json:"updatedAt" db:"updated_at"`
 
 	// Loaded relations
-	Child     *Child     `json:"child,omitempty" db:"-"`
-	Household *Household `json:"household,omitempty" db:"-"`
+	Child        *Child               `json:"child,omitempty" db:"-"`
+	Household    *Household           `json:"household,omitempty" db:"-"`
+	MonthlyTable []EinstufungMonthRow `json:"monthlyTable,omitempty" db:"-"`
 }
 
 // EinstufungMonthRow represents one month in the Einstufung letter table.

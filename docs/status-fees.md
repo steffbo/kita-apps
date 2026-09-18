@@ -12,6 +12,13 @@ Basics (ports, commands, layout) live in `AGENTS.md`.
 - Beim Öffnen einer ursprünglichen Einstufung lädt die PDF-Vorschau einen vorhandenen direkten Nachfolger mit, sodass das Gesamtdokument Eintrittsmonat, Übergangszeit und den aktuellen Beitrag enthält.
 - Die Altersbefreiung beginnt in der PDF – konsistent mit der Gebührenerzeugung – bereits im Monat des 3. Geburtstags und nicht erst im Folgemonat.
 
+## Einstufung aus Kinddaten ableiten (2026-09-18)
+
+- Die Einstufung erfasst keine manuell gesetzte Gültigkeit oder Betreuungszeit mehr. Für eine neue Jahreseinstufung wird der Beginn aus Einstufungsjahr und Eintrittsdatum bestimmt; die Wochenstunden werden für jeden Monat aus `child_care_hours_history` gelesen.
+- Änderungen der Betreuungszeit erfordern damit keine Folgeeinstufung. Die API-Monatstabelle berechnet jeden Monat mit den zu diesem Zeitpunkt gültigen Stunden, der Eintrittsmonatsregel und der Altersbefreiung neu; die PDF fasst identische aufeinanderfolgende Monate zu Zeiträumen zusammen.
+- Das Frontend blendet Gültigkeits- und Stundenfelder bei normalen Einstufungen aus und weist auf die Herkunft aus dem Kinddatensatz hin. Nur echte Folgeeinstufungen wegen einer geänderten Einkommensentscheidung benötigen weiterhin ein Änderungsdatum.
+- Beim Löschen der letzten Folgeeinstufung wird deren direkter Vorgänger atomar wieder geöffnet. Einstufungen mit eigenem Nachfolger können nicht gelöscht werden.
+
 ## Backend (`backend-fees`)
 
 ### Review-Fixes Erinnerungs-Workflow (2026-09-15)
