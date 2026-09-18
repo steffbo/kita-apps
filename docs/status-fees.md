@@ -9,6 +9,8 @@ Basics (ports, commands, layout) live in `AGENTS.md`.
 - Die Monatsübersicht der Einstufung und das Druck-PDF zeigen den hälftigen Eintrittsmonat als eigenen Zeitraum und danach wieder die vollen Monatswerte.
 - Wird das Datum einer Einstufung korrigiert, werden `change_date`, `effective_from_month` und das Einstufungsjahr konsistent nachgeführt. Bei einer Folgeeinstufung wird außerdem das Ende des Vorgängerzeitraums atomar angepasst; ihre Stichtagslogik bleibt erhalten.
 - Das Bearbeitungsformular zeigt als „Gültig ab“ wieder den tatsächlichen Änderungs-/Eintrittstag aus `changeDate`; der intern normalisierte Monatsbeginn aus `validFrom` bleibt ausschließlich die Periodengrenze.
+- Beim Öffnen einer ursprünglichen Einstufung lädt die PDF-Vorschau einen vorhandenen direkten Nachfolger mit, sodass das Gesamtdokument Eintrittsmonat, Übergangszeit und den aktuellen Beitrag enthält.
+- Die Altersbefreiung beginnt in der PDF – konsistent mit der Gebührenerzeugung – bereits im Monat des 3. Geburtstags und nicht erst im Folgemonat.
 
 ## Backend (`backend-fees`)
 

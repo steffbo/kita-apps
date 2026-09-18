@@ -45,6 +45,7 @@ const expectationChanges = ref<ChildcareExpectationSyncResult | null>(null);
 const einstufung = ref<Einstufung | null>(null);
 const sourceEinstufung = ref<Einstufung | null>(null);
 const previousEinstufung = ref<Einstufung | null>(null);
+const successorEinstufung = ref<Einstufung | null>(null);
 
 // Form data
 const selectedChildId = ref('');
@@ -179,7 +180,10 @@ const mailError = ref<string | null>(null);
 
 const einstufungChild = computed(() => einstufung.value?.child ?? selectedChild.value ?? null);
 const childMemberNumber = computed(() => einstufungChild.value?.memberNumber || '—');
-const previousEinstufungForPdf = computed(() => sourceEinstufung.value ?? previousEinstufung.value);
+const einstufungForPdf = computed(() => successorEinstufung.value ?? einstufung.value);
+const previousEinstufungForPdf = computed(() =>
+  successorEinstufung.value ? einstufung.value : sourceEinstufung.value ?? previousEinstufung.value
+);
 
 const parentFirstNames = computed(() => {
   return householdParents.value
@@ -286,6 +290,7 @@ async function loadData() {
   einstufung.value = null;
   sourceEinstufung.value = null;
   previousEinstufung.value = null;
+  successorEinstufung.value = null;
   expectationChanges.value = null;
   try {
     const [childRes, householdRes] = await Promise.all([
@@ -300,6 +305,9 @@ async function loadData() {
       einstufung.value = e;
       if (e.sourceEinstufungId) {
         previousEinstufung.value = await api.getEinstufung(e.sourceEinstufungId);
+      } else if (e.householdId) {
+        const householdEinstufungen = await api.getEinstufungenForHousehold(e.householdId);
+        successorEinstufung.value = householdEinstufungen.find((item) => item.sourceEinstufungId === e.id) ?? null;
       }
       selectedChildId.value = e.childId;
       selectedYear.value = e.year;
@@ -690,7 +698,7 @@ watch(defaultEmailBody, (next) => {
             Ergebnis
           </h2>
           <button
-            v-if="!isNew"
+            v-if="!isNew && !successorEinstufung"
             type="button"
             @click="router.push(`/einstufungen/neu?sourceId=${einstufung.id}`)"
             class="inline-flex items-center gap-2 px-3 py-2 text-xs text-white bg-primary rounded-lg hover:bg-primary/90 transition-colors"
@@ -872,8 +880,8 @@ watch(defaultEmailBody, (next) => {
       <div class="flex items-center justify-between">
         <div>
           <EinstufungPDF
-            v-if="einstufung"
-            :einstufung="einstufung"
+            v-if="einstufungForPdf"
+            :einstufung="einstufungForPdf"
             :previous-einstufung="previousEinstufungForPdf"
           />
         </div>

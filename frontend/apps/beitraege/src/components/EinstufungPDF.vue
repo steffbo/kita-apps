@@ -79,22 +79,13 @@ function formatPeriodLabel(from: Date, to: Date | null): string {
   return `${formatMonthLabel(from)} \u2013 ${formatMonthLabel(to)}`;
 }
 
-// Monat, ab dem das Kind als Kindergartenkind gilt (erster voller Monat nach dem 3. Geburtstag)
+// Monat des 3. Geburtstags: Ab diesem Monat entfällt das Platzgeld.
 const kindergartenFromMonth = computed<Date | null>(() => {
   if (!child.value || props.einstufung.careType !== 'krippe') return null;
 
   const birthDate = new Date(child.value.birthDate);
   const turnsThree = new Date(birthDate.getFullYear() + 3, birthDate.getMonth(), birthDate.getDate());
-  let month = turnsThree.getMonth();
-  let year = turnsThree.getFullYear();
-  if (turnsThree.getDate() > 1) {
-    month += 1;
-    if (month > 11) {
-      month = 0;
-      year += 1;
-    }
-  }
-  return new Date(Date.UTC(year, month, 1));
+  return new Date(Date.UTC(turnsThree.getFullYear(), turnsThree.getMonth(), 1));
 });
 
 const feePeriods = computed<FeePeriod[]>(() => {
