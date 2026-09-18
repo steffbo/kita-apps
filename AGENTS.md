@@ -72,16 +72,25 @@ cd frontend/apps/beitraege  && bun run generate:api   # from openapi/fees/openap
 Target: homelab VM `infra-dev`. Flow: commit + push → GitHub Actions builds GHCR images (`.github/workflows/build-images.yml`, on `main`) → deploy from `../homelab`.
 
 ```bash
-gh run watch $(gh run list -R steffbo/kita-apps --branch main --limit 1 --json databaseId --jq '.[0].databaseId')
-cd /Users/stefan.remer/workspace/homelab/ansible && ansible-playbook playbooks/deploy-app.yml -e "app=kita"
+expected_sha=$(git rev-parse HEAD)
+run_id=$(gh run list -R steffbo/kita-apps --branch main --limit 20 --json databaseId,headSha \
+  --jq ".[] | select(.headSha == \"$expected_sha\") | .databaseId" | head -n1)
+test -n "$run_id"
+gh run watch "$run_id" -R steffbo/kita-apps --exit-status
+
+cd /home/stefan/workspace/homelab/ansible
+ansible-playbook playbooks/deploy-app.yml -e "app=kita" \
+  -e "ansible_ssh_private_key_file=/home/stefan/.ssh/homelab_from_ubuntu"
 ```
+
+Do not deploy after a fixed sleep or merely watch the newest workflow run: pin the run to the pushed commit and require success. After deployment, verify the container OCI revision, both health endpoints, and the affected public page. An interrupted deploy has unknown state until inspected; verify before retrying.
 
 Portal backend/frontend are intentionally not in Docker/GHCR/Caddy/Compose yet. Details: `docs/deployment-ghcr.md`, `docs/deployment-homelab.md`.
 
 ## Live Data on infra-dev
 
 ```bash
-ssh -i ~/.ssh/PVE_id_ed25519 stefan@192.168.188.207 \
+ssh vm-infra-dev \
   "sudo docker exec kita-db psql -U kita -d kita -c 'SELECT COUNT(*) FROM fees.children;'"
 ```
 

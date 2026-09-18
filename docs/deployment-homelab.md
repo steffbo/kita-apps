@@ -1,6 +1,6 @@
 # Deployment to kita.remer.cc
 
-This document describes the deployment workflow for the Kita apps to the production environment at `https://kita.remer.cc`.
+This document describes the verified deployment workflow from the Ubuntu development workstation to `https://kita.remer.cc` on `vm-infra-dev`.
 
 ## Architecture
 
@@ -12,84 +12,95 @@ This document describes the deployment workflow for the Kita apps to the product
 
 ## Deployment Steps
 
-### 1. Commit and Push Changes
+### 1. Verify, commit, and push
 
 ```bash
-cd /Users/stefan.remer/workspace/kita-apps
-git add -A
+cd /home/stefan/workspace/kita-apps
+# Run the tests/builds relevant to the change before committing.
+git status --short
+git add path/to/changed-file path/to/another-file
 git commit -m "your commit message"
-git push
+git push origin main
 ```
 
 Note: the Docker image build workflow only runs on `main` (or via manual dispatch). If you work on a branch, merge to `main` before expecting images to be built.
 
-### 2. Monitor GitHub Actions Build
+### 2. Wait for the build of the exact commit
 
-Watch the build progress using the GitHub CLI:
+Do not sleep for a fixed duration and do not assume the newest workflow run belongs to this release. Resolve the run by the pushed commit SHA and require a successful conclusion:
 
 ```bash
-# List recent workflow runs
-gh run list -R steffbo/kita-apps --branch main --limit 5
-
-# Watch a specific run (get run ID from list above)
-gh run watch <run-id> -R steffbo/kita-apps
-
-# Or watch the latest run
-gh run watch $(gh run list -R steffbo/kita-apps --branch main --limit 1 --json databaseId --jq '.[0].databaseId')
+expected_sha=$(git rev-parse HEAD)
+run_id=$(gh run list -R steffbo/kita-apps --branch main --limit 20 \
+  --json databaseId,headSha \
+  --jq ".[] | select(.headSha == \"$expected_sha\") | .databaseId" | head -n1)
+test -n "$run_id"
+gh run watch "$run_id" -R steffbo/kita-apps --exit-status
 ```
 
-The workflow builds Docker images and pushes them to `ghcr.io/steffbo/kita-backend-fees:latest` and `ghcr.io/steffbo/kita-backend-management:latest`.
+The workflow builds and publishes these images:
+
+- `ghcr.io/steffbo/kita-backend-management`
+- `ghcr.io/steffbo/kita-backend-fees`
+- `ghcr.io/steffbo/kita-banking-sync`
+
+The Vue frontends are embedded in the Go backend images; there are no separate frontend images in the current pipeline.
 
 ### 3. Deploy to Server
 
 Deployment is handled via ansible (pulls latest image from GHCR and restarts the container):
 
 ```bash
-cd ~/workspace/homelab/ansible
-ansible-playbook playbooks/deploy-app.yml -e "app=kita"
+cd /home/stefan/workspace/homelab/ansible
+ansible-playbook playbooks/deploy-app.yml -e "app=kita" \
+  -e "ansible_ssh_private_key_file=/home/stefan/.ssh/homelab_from_ubuntu"
 ```
 
-### 4. Run Database Migrations (if needed)
+The inventory still references a legacy key that is absent on this workstation. Use the one-run override above; do not create a replacement at the legacy path. The playbook deploys the database, both backends, and both banking-sync containers.
 
-`backend-fees` runs migrations automatically on container start (compose command is `/app/migrate -direction up && /app/server`).
+If the command is interrupted or its result is otherwise unclear, treat the deployment state as unknown. Inspect the containers and deployed revisions before deciding whether a retry is needed.
 
-If you added new migrations for `backend-management`, run them manually:
+### 4. Database migrations
 
-```bash
-# SSH to server (if not already connected)
-ssh -i ~/.ssh/PVE_id_ed25519 stefan@192.168.188.207
+Both backends run migrations automatically on container start:
 
-# Run migrations for backend-management (manual)
-sudo docker exec kita-backend-management ./migrate -direction up
+- `backend-management`: `/app/migrate -direction up && /app/server`
+- `backend-fees`: `/app/migrate -direction up && /app/server`
 
-# Check current migration version
-sudo docker exec kita-db psql -U kita -d kita -c "SELECT * FROM fees.schema_migrations;"
-```
+Do not run a manual migration as a routine release step. When investigating migration state, inspect the service logs and the applicable schema migration table first.
 
 ### 5. Verify Deployment
 
-```bash
-# Check container status
-sudo docker ps | grep kita
-
-# Check logs
-sudo docker logs kita-backend-fees --tail 50
-sudo docker logs kita-backend-management --tail 50
-
-# Health check
-curl -s https://kita.remer.cc/api-fees/health
-curl -s https://kita.remer.cc/api/health
-```
-
-## Quick One-Liner Deploy
-
-For a quick deploy after pushing (wait ~90 seconds for build):
+Verify the expected revision, container health, service endpoints, and the affected public page. `docker ps` alone is not release verification.
 
 ```bash
-# From local machine - deploy backend-fees
-ssh -i ~/.ssh/PVE_id_ed25519 stefan@192.168.188.207 \
-  "cd /srv/homelab/stacks/infra-dev && sudo docker compose pull backend-fees && sudo docker compose up -d --force-recreate backend-fees"
+# From the kita-apps checkout
+expected_sha=$(git rev-parse HEAD)
+
+ssh vm-infra-dev 'sudo docker ps --filter name=kita --format "table {{.Names}}\t{{.Status}}\t{{.Image}}"'
+
+for container in kita-backend-management kita-backend-fees kita-banking-sync-runner; do
+  actual_sha=$(ssh vm-infra-dev \
+    "sudo docker inspect $container --format '{{index .Config.Labels \"org.opencontainers.image.revision\"}}'")
+  test "$actual_sha" = "$expected_sha" || {
+    echo "$container runs $actual_sha, expected $expected_sha"
+    exit 1
+  }
+done
+
+curl -fsS https://kita.remer.cc/health
+curl -fsS https://kita.remer.cc/healthz
+curl -fsS -o /dev/null https://kita.remer.cc/beitraege/
 ```
+
+Also inspect recent logs when migrations ran or the change is operationally sensitive:
+
+```bash
+ssh vm-infra-dev 'sudo docker logs kita-backend-fees --tail 50'
+ssh vm-infra-dev 'sudo docker logs kita-backend-management --tail 50'
+```
+
+There is intentionally no quick deploy that bypasses the commit-pinned CI gate or the Ansible playbook.
 
 ## URLs
 
@@ -98,8 +109,9 @@ ssh -i ~/.ssh/PVE_id_ed25519 stefan@192.168.188.207 \
 | Beitraege (Fees) | https://kita.remer.cc/beitraege |
 | Plan (Schedule) | https://kita.remer.cc/plan |
 | Zeit (Time Tracking) | https://kita.remer.cc/zeit |
-| Fees API | https://kita.remer.cc/api-fees/v1/ |
-| Management API | https://kita.remer.cc/api/v1/ |
+| Fees health | https://kita.remer.cc/health |
+| Management health | https://kita.remer.cc/healthz |
+| Fees API (public prefix) | https://kita.remer.cc/api-fees/v1/ |
 
 ## Troubleshooting
 
@@ -112,27 +124,40 @@ gh run view <run-id> --log-failed
 ### Container won't start
 ```bash
 # Check logs
-sudo docker logs kita-backend-fees
+ssh vm-infra-dev 'sudo docker logs kita-backend-fees --tail 100'
 
 # Check if port is in use
-sudo docker ps -a | grep 8081
+ssh vm-infra-dev 'sudo docker ps -a --filter publish=8081'
 ```
 
 ### Migration failed
 ```bash
-# Check migration status (look for dirty=true)
-sudo docker exec kita-db psql -U kita -d kita -c "SELECT * FROM fees.schema_migrations;"
-
-# If dirty, fix the issue and force version
-sudo docker exec kita-backend-fees ./migrate -direction down -steps 1
-sudo docker exec kita-backend-fees ./migrate -direction up
+# Inspect without changing state
+ssh vm-infra-dev 'sudo docker logs kita-backend-fees --tail 100'
+ssh vm-infra-dev 'sudo docker logs kita-backend-management --tail 100'
+ssh vm-infra-dev \
+  'sudo docker exec kita-db psql -U kita -d kita -c "SELECT * FROM fees.schema_migrations;"'
 ```
+
+Do not blindly run `down`, force a migration version, or retry a partially applied migration. Determine which backend and schema are affected, inspect the migration, confirm backup/recovery options, and obtain explicit authorization before any corrective write.
 
 ### Database connection issues
 ```bash
 # Check database container
-sudo docker logs kita-db
+ssh vm-infra-dev 'sudo docker logs kita-db --tail 100'
 
 # Test connection
-sudo docker exec kita-db psql -U kita -d kita -c "SELECT 1;"
+ssh vm-infra-dev 'sudo docker exec kita-db psql -U kita -d kita -c "SELECT 1;"'
 ```
+
+## Live-data corrections after a release
+
+Keep application deployment and business-data correction as separate, verifiable phases:
+
+1. Inspect current state with read-only API and database queries.
+2. Confirm the deployed revision and health before relying on new behavior.
+3. Perform the authorized mutation through the application API, not direct SQL.
+4. Verify the API response and independently verify database postconditions with `SELECT` queries.
+5. If a request is interrupted, inspect the target before retrying; the outcome is unknown until verified.
+
+Never print credentials or decrypted `.env` contents. Follow `.agents/skills/kita-live-data-access/` for authentication and write safeguards.

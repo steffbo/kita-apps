@@ -1,229 +1,64 @@
-# Deployment Guide
+# GHCR images and release identity
 
-This guide covers deploying Kita-Apps to a production server using pre-built Docker images from GitHub Container Registry (GHCR).
+This document describes the container images produced by the current GitHub Actions pipeline. The supported deployment of `kita.remer.cc` is the Homelab workflow in `docs/deployment-homelab.md`.
 
-## Prerequisites
+## Current images
 
-- A server with Docker and Docker Compose installed
-- A domain name with DNS configured (e.g., `knirpsenstadt.de`)
-- Ports 80 and 443 open for HTTP/HTTPS traffic
+| Image | Contents | Runtime port |
+| --- | --- | --- |
+| `ghcr.io/steffbo/kita-backend-management` | Management API plus embedded Dienstplan and Zeiterfassung frontends | 8080 |
+| `ghcr.io/steffbo/kita-backend-fees` | Fees API plus embedded Beiträge frontend | 8081 |
+| `ghcr.io/steffbo/kita-banking-sync` | Banking-sync runner used by the scheduled Homelab service | 3333 |
 
-## Architecture Overview
+There are no separately published frontend images. The portal backend and frontend are not part of the image pipeline or production deployment.
 
-```
-                    ┌─────────────────────────────────────────────────────────┐
-                    │                      Caddy                              │
-                    │              (Reverse Proxy + Auto HTTPS)               │
-                    └─────────────────────────────────────────────────────────┘
-                                              │
-        ┌─────────────────┬─────────────────┬─┴───────────────┬───────────────┐
-        │                 │                 │                 │               │
-        ▼                 ▼                 ▼                 ▼               ▼
-┌───────────────┐ ┌───────────────┐ ┌───────────────┐ ┌───────────────┐ ┌───────────┐
-│  frontend-    │ │  frontend-    │ │  frontend-    │ │   backend-    │ │  backend- │
-│    plan       │ │    zeit       │ │  beitraege    │ │  management   │ │   fees    │
-│   :80         │ │   :80         │ │   :80         │ │   :8080       │ │  :8081    │
-└───────────────┘ └───────────────┘ └───────────────┘ └───────────────┘ └───────────┘
-                                                              │               │
-                                                              └───────┬───────┘
-                                                                      ▼
-                                                              ┌───────────────┐
-                                                              │   PostgreSQL  │
-                                                              │    :5432      │
-                                                              └───────────────┘
-```
+## Build pipeline
 
-## Domain Configuration
+`.github/workflows/build-images.yml` runs on every push to `main` and through manual dispatch. Its matrix builds all three images and publishes:
 
-Configure DNS A records pointing to your server:
+- `latest` on the default branch;
+- a Git-SHA tag such as `sha-abc1234`;
+- OCI metadata labels, including the full commit in `org.opencontainers.image.revision`.
 
-| Subdomain | Purpose |
-|-----------|---------|
-| `plan.knirpsenstadt.de` | Dienstplan Frontend |
-| `zeit.knirpsenstadt.de` | Zeiterfassung Frontend |
-| `beitraege.knirpsenstadt.de` | Beitraege Frontend |
-| `api.knirpsenstadt.de` | Backend Management API |
-| `api-fees.knirpsenstadt.de` | Backend Fees API |
-
-## Setup on Server
+A release must be tied to the workflow run whose `headSha` equals the intended commit. Do not rely on an arbitrary delay or assume that the newest run belongs to the change being released.
 
 ```bash
-# Clone the repository (or copy the docker/ directory)
-git clone https://github.com/steffbo/kita-apps.git
-cd kita-apps/docker
-
-# Copy and configure environment variables
-cp .env.example .env
-nano .env  # or use your preferred editor
+expected_sha=$(git rev-parse HEAD)
+run_id=$(gh run list -R steffbo/kita-apps --branch main --limit 20 \
+  --json databaseId,headSha \
+  --jq ".[] | select(.headSha == \"$expected_sha\") | .databaseId" | head -n1)
+test -n "$run_id"
+gh run watch "$run_id" -R steffbo/kita-apps --exit-status
 ```
 
-### Required Environment Variables
+## Consuming images
 
-Edit `.env` and set these values:
+Prefer an immutable SHA tag when deploying outside the managed Homelab workflow:
 
 ```bash
-# Database (use strong passwords!)
-DB_NAME=kita
-DB_USER=kita
-DB_PASSWORD=your_secure_database_password
-
-# JWT Secret (generate with: openssl rand -base64 64)
-JWT_SECRET=your_generated_jwt_secret
-
-# Mail settings
-MAIL_HOST=smtp.your-provider.com
-MAIL_PORT=587
-MAIL_USER=noreply@knirpsenstadt.de
-MAIL_PASSWORD=your_mail_password
-
-# Domains (customize if needed)
-DOMAIN_BASE=knirpsenstadt.de
-DOMAIN_PLAN=plan.knirpsenstadt.de
-DOMAIN_ZEIT=zeit.knirpsenstadt.de
-DOMAIN_BEITRAEGE=beitraege.knirpsenstadt.de
-DOMAIN_API=api.knirpsenstadt.de
-DOMAIN_API_FEES=api-fees.knirpsenstadt.de
-
-# GitHub user (for image paths)
-GITHUB_USER=steffbo
+docker pull ghcr.io/steffbo/kita-backend-fees:sha-abc1234
 ```
 
-## Start the Stack
+If a deployment intentionally uses `latest`, wait for the commit-pinned workflow to finish successfully before pulling it. After startup, compare the container's revision label with the expected full SHA:
 
 ```bash
-# Pull all images (no authentication needed - public repo!)
-docker compose -f docker-compose.ghcr.yml pull
-
-# Start all services
-docker compose -f docker-compose.ghcr.yml up -d
-
-# Check status
-docker compose -f docker-compose.ghcr.yml ps
-
-# View logs
-docker compose -f docker-compose.ghcr.yml logs -f
+expected_sha=$(git rev-parse HEAD)
+actual_sha=$(docker inspect <container> \
+  --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')
+test "$actual_sha" = "$expected_sha"
 ```
 
-## Updating to New Versions
+A successful pull, a running container, or a passing healthcheck does not by itself prove that the intended release is active.
 
-When new images are pushed to GHCR:
+## Legacy standalone Compose file
 
-```bash
-cd /path/to/kita-apps/docker
+`docker/docker-compose.ghcr.yml` is a legacy standalone configuration. It still models the former split-frontend architecture and references frontend images that the current workflow no longer builds. It is retained for historical reference but is not wired to the current image set and must not be used for a new deployment without migration and testing.
 
-# Pull latest images
-docker compose -f docker-compose.ghcr.yml pull
+The former domain, backup, and Caddy examples belonged to that legacy stack and are not the source of truth for the Homelab. Current routing, encrypted environment handling, persistent storage, migration startup, and backup behavior live in the Homelab repository.
 
-# Restart with new images
-docker compose -f docker-compose.ghcr.yml up -d
+## Security and recovery
 
-# Clean up old images (optional)
-docker image prune -f
-```
-
-## Database Migrations
-
-Migrations run automatically when the backend containers start. To run migrations manually:
-
-```bash
-# backend-management migrations
-docker compose -f docker-compose.ghcr.yml exec backend-management ./server migrate up
-
-# backend-fees migrations
-docker compose -f docker-compose.ghcr.yml exec backend-fees ./server migrate up
-```
-
-## Backup & Restore
-
-### Automatic Backups
-
-A backup service runs daily at 3 AM, storing backups in `./backup/`:
-
-```bash
-# List backups
-ls -la backup/
-
-# Manual backup
-docker compose -f docker-compose.ghcr.yml exec backup /pg-backup.sh
-```
-
-### Manual Backup
-
-```bash
-# Create backup
-docker compose -f docker-compose.ghcr.yml exec db pg_dump -U $DB_USER $DB_NAME > backup_$(date +%Y%m%d).sql
-
-# Restore backup
-docker compose -f docker-compose.ghcr.yml exec -T db psql -U $DB_USER $DB_NAME < backup_20240101.sql
-```
-
-## Monitoring
-
-### Health Checks
-
-```bash
-# Check backend-management health
-curl https://api.knirpsenstadt.de/healthz
-
-# Check backend-fees health  
-curl https://api-fees.knirpsenstadt.de/health
-```
-
-### Container Status
-
-```bash
-# View all containers
-docker compose -f docker-compose.ghcr.yml ps
-
-# View resource usage
-docker stats
-
-# View logs for specific service
-docker compose -f docker-compose.ghcr.yml logs -f backend-management
-```
-
-## Troubleshooting
-
-### Caddy Certificate Issues
-
-If HTTPS isn't working:
-
-```bash
-# Check Caddy logs
-docker compose -f docker-compose.ghcr.yml logs caddy
-
-# Verify DNS is configured correctly
-dig +short plan.knirpsenstadt.de
-```
-
-### Database Connection Issues
-
-```bash
-# Check if database is healthy
-docker compose -f docker-compose.ghcr.yml exec db pg_isready -U $DB_USER
-
-# View database logs
-docker compose -f docker-compose.ghcr.yml logs db
-```
-
-## Security Recommendations
-
-1. **Firewall**: Only allow ports 80, 443, and SSH
-2. **SSH**: Use key-based authentication, disable password login
-3. **Updates**: Keep the host OS and Docker updated
-4. **Secrets**: Never commit `.env` files to version control
-5. **Backups**: Regularly test backup restoration
-
-## CI/CD Pipeline
-
-Images are automatically built and pushed to GHCR on every push to `main`:
-
-- `ghcr.io/steffbo/kita-backend-management:latest`
-- `ghcr.io/steffbo/kita-backend-fees:latest`
-- `ghcr.io/steffbo/kita-frontend-plan:latest`
-- `ghcr.io/steffbo/kita-frontend-zeit:latest`
-- `ghcr.io/steffbo/kita-frontend-beitraege:latest`
-
-Each image is also tagged with the Git SHA (e.g., `sha-abc1234`) for rollback capability.
-
-Since the repository is public, **no authentication is required** to pull images.
+- Never print registry credentials, decrypted environment files, or image pull tokens.
+- Diagnose a failed migration from container logs and schema state before making any corrective write.
+- Do not blindly run down migrations or force schema versions; confirm backup and recovery options first.
+- Treat an interrupted deployment as having unknown state until containers, revisions, and health endpoints have been inspected.
