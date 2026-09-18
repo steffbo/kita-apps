@@ -303,7 +303,9 @@ async function loadData() {
       }
       selectedChildId.value = e.childId;
       selectedYear.value = e.year;
-      validFrom.value = e.validFrom.split('T')[0];
+      // The form edits the actual change/admission date. `validFrom` is the
+      // normalized billing-month boundary and must not replace that date.
+      validFrom.value = (e.changeDate || e.validFrom).split('T')[0];
       careHoursPerWeek.value = e.careHoursPerWeek;
       childrenCount.value = e.childrenCount;
       highestRateVoluntary.value = e.highestRateVoluntary;

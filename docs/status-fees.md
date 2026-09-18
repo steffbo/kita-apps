@@ -8,6 +8,7 @@ Basics (ports, commands, layout) live in `AGENTS.md`.
 - Die Beitragserzeugung berücksichtigt jetzt § 12 Abs. 3 der Elternbeitragsordnung: Bei Eintritt nach dem 15. werden Platz- und Essensgeld im Eintrittsmonat hälftig angesetzt; bis einschließlich 15. bleibt der volle Monatsbeitrag fällig.
 - Die Monatsübersicht der Einstufung und das Druck-PDF zeigen den hälftigen Eintrittsmonat als eigenen Zeitraum und danach wieder die vollen Monatswerte.
 - Wird das Datum einer Einstufung korrigiert, werden `change_date`, `effective_from_month` und das Einstufungsjahr konsistent nachgeführt. Bei einer Folgeeinstufung wird außerdem das Ende des Vorgängerzeitraums atomar angepasst; ihre Stichtagslogik bleibt erhalten.
+- Das Bearbeitungsformular zeigt als „Gültig ab“ wieder den tatsächlichen Änderungs-/Eintrittstag aus `changeDate`; der intern normalisierte Monatsbeginn aus `validFrom` bleibt ausschließlich die Periodengrenze.
 
 ## Backend (`backend-fees`)
 
