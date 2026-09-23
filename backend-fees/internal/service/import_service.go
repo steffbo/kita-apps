@@ -1062,8 +1062,9 @@ func (s *ImportService) AllocateTransaction(ctx context.Context, transactionID, 
 	return result, nil
 }
 
+// Amounts are compared in cents with domain.PaymentToleranceCents slack.
 func (s *ImportService) allocateTransaction(ctx context.Context, transactionID, userID uuid.UUID, allocations []AllocationInput) (*AllocateResult, error) {
-	const epsilon = 0.01
+	const tolerance = domain.PaymentToleranceCents
 
 	if len(allocations) == 0 {
 		return nil, ErrInvalidInput
@@ -1080,16 +1081,16 @@ func (s *ImportService) allocateTransaction(ctx context.Context, transactionID, 
 	if err != nil {
 		return nil, err
 	}
-	existingByFee := make(map[uuid.UUID]float64)
-	var existingTotal float64
+	existingByFee := make(map[uuid.UUID]bool)
+	var existingTotal int64
 	for _, m := range existingMatches[transactionID] {
-		existingByFee[m.ExpectationID] += m.Amount
-		existingTotal += m.Amount
+		existingByFee[m.ExpectationID] = true
+		existingTotal += domain.Cents(m.Amount)
 	}
 
-	requestedByFee := make(map[uuid.UUID]float64, len(allocations))
+	requestedByFee := make(map[uuid.UUID]bool, len(allocations))
 	childCount := make(map[uuid.UUID]int)
-	var totalAllocated float64
+	var totalAllocated int64
 
 	for _, alloc := range allocations {
 		if alloc.Amount <= 0 {
@@ -1109,36 +1110,36 @@ func (s *ImportService) allocateTransaction(ctx context.Context, transactionID, 
 		if _, duplicate := requestedByFee[alloc.ExpectationID]; duplicate {
 			return nil, ErrInvalidInput
 		}
-		requestedByFee[alloc.ExpectationID] = alloc.Amount
+		requestedByFee[alloc.ExpectationID] = true
 
 		matchedAmount, err := s.matchRepo.GetTotalMatchedAmount(ctx, fee.ID)
 		if err != nil {
 			return nil, err
 		}
-		remaining := fee.Amount - matchedAmount
-		if remaining <= epsilon {
+		remaining := domain.Cents(fee.Amount) - domain.Cents(matchedAmount)
+		if remaining <= tolerance {
 			return nil, ErrInvalidInput
 		}
-		if alloc.Amount-remaining > epsilon {
+		if domain.Cents(alloc.Amount)-remaining > tolerance {
 			return nil, ErrInvalidInput
 		}
 
-		totalAllocated += alloc.Amount
+		totalAllocated += domain.Cents(alloc.Amount)
 	}
 
-	if existingTotal+totalAllocated-tx.Amount > epsilon {
+	if existingTotal+totalAllocated-domain.Cents(tx.Amount) > tolerance {
 		return nil, ErrInvalidInput
 	}
 
-	overpayment := tx.Amount - existingTotal - totalAllocated
+	overpayment := domain.Cents(tx.Amount) - existingTotal - totalAllocated
 	if overpayment < 0 {
 		overpayment = 0
 	}
 
 	result := &AllocateResult{
 		TransactionID:      transactionID,
-		TotalAllocated:     existingTotal + totalAllocated,
-		Overpayment:        overpayment,
+		TotalAllocated:     domain.Euros(existingTotal + totalAllocated),
+		Overpayment:        domain.Euros(overpayment),
 		AllocationsCreated: 0,
 	}
 

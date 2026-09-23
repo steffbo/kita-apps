@@ -307,11 +307,11 @@ func uniqueMemberNumbers(items []reminderItem) []string {
 }
 
 func sumReminderItems(items []reminderItem) float64 {
-	total := 0.0
+	var total int64
 	for _, item := range items {
-		total += item.Amount
+		total += domain.Cents(item.Amount)
 	}
-	return total
+	return domain.Euros(total)
 }
 
 func sanitizeSEPAText(value string) string {

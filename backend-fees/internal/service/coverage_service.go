@@ -139,10 +139,12 @@ func (s *CoverageService) calculateMonthCoverage(
 		Transactions: []domain.CoveredTransaction{},
 	}
 
-	// Calculate expected total for this month
+	// Calculate expected total for this month (in cents, see domain.Cents)
+	var expected int64
 	for _, fee := range fees {
-		coverage.ExpectedTotal += fee.Amount
+		expected += domain.Cents(fee.Amount)
 	}
+	coverage.ExpectedTotal = domain.Euros(expected)
 
 	// Find transactions that arrived IN this month (temporal matching)
 	var monthTransactions []domain.BankTransaction
@@ -170,18 +172,19 @@ func (s *CoverageService) calculateMonthCoverage(
 	})
 
 	// Apply transactions that arrived in this month first
-	remaining := coverage.ExpectedTotal
+	remaining := expected
+	var received int64
 	for _, tx := range monthTransactions {
 		if remaining <= 0 {
 			break
 		}
 
-		applied := tx.Amount
+		applied := domain.Cents(tx.Amount)
 		if applied > remaining {
 			applied = remaining // Cap at what's needed
 		}
 
-		coverage.ReceivedTotal += applied
+		received += applied
 		remaining -= applied
 
 		desc := ""
@@ -191,7 +194,7 @@ func (s *CoverageService) calculateMonthCoverage(
 
 		coverage.Transactions = append(coverage.Transactions, domain.CoveredTransaction{
 			TransactionID:  tx.ID,
-			Amount:         applied,
+			Amount:         domain.Euros(applied),
 			BookingDate:    tx.BookingDate,
 			Description:    &desc,
 			IsForThisMonth: true,
@@ -205,12 +208,12 @@ func (s *CoverageService) calculateMonthCoverage(
 			break
 		}
 
-		applied := tx.Amount
+		applied := domain.Cents(tx.Amount)
 		if applied > remaining {
 			applied = remaining
 		}
 
-		coverage.ReceivedTotal += applied
+		received += applied
 		remaining -= applied
 
 		desc := ""
@@ -220,7 +223,7 @@ func (s *CoverageService) calculateMonthCoverage(
 
 		coverage.Transactions = append(coverage.Transactions, domain.CoveredTransaction{
 			TransactionID:  tx.ID,
-			Amount:         applied,
+			Amount:         domain.Euros(applied),
 			BookingDate:    tx.BookingDate,
 			Description:    &desc,
 			IsForThisMonth: false, // Mark as from different month
@@ -228,14 +231,15 @@ func (s *CoverageService) calculateMonthCoverage(
 	}
 
 	// Calculate final balance and status
-	coverage.Balance = coverage.ExpectedTotal - coverage.ReceivedTotal
+	coverage.ReceivedTotal = domain.Euros(received)
+	coverage.Balance = domain.Euros(expected - received)
 
 	switch {
-	case coverage.ReceivedTotal == 0:
+	case received == 0:
 		coverage.Status = domain.CoverageStatusUnpaid
-	case coverage.ReceivedTotal < coverage.ExpectedTotal:
+	case received < expected:
 		coverage.Status = domain.CoverageStatusPartial
-	case coverage.ReceivedTotal == coverage.ExpectedTotal:
+	case received == expected:
 		coverage.Status = domain.CoverageStatusCovered
 	default:
 		coverage.Status = domain.CoverageStatusOverpaid

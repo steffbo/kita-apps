@@ -162,10 +162,10 @@ func (s *ReminderService) ListReminderCases(ctx context.Context, asOf time.Time,
 			return nil, err
 		}
 
-		total := 0.0
+		var totalCents int64
 		nextAction := time.Time{}
 		for _, fee := range fees {
-			total += fee.Remaining
+			totalCents += domain.Cents(fee.Remaining)
 			if nextAction.IsZero() || fee.ActionableAt.Before(nextAction) {
 				nextAction = fee.ActionableAt
 			}
@@ -175,7 +175,7 @@ func (s *ReminderService) ListReminderCases(ctx context.Context, asOf time.Time,
 			HouseholdID:    household.ID,
 			HouseholdName:  household.Name,
 			Recipients:     collectEmails(parents),
-			TotalRemaining: roundCent(total),
+			TotalRemaining: domain.Euros(totalCents),
 			NextActionAt:   nextAction,
 			Fees:           fees,
 		})
@@ -639,9 +639,9 @@ func (s *ReminderService) prepareCasePlan(ctx context.Context, householdID uuid.
 
 	// Mail/QR items: selected fees with remaining amounts plus planned fees.
 	items := make([]reminderItem, 0, len(selected)+len(planned))
-	total := 0.0
+	var totalCents int64
 	for _, fee := range selected {
-		total += fee.Remaining
+		totalCents += domain.Cents(fee.Remaining)
 		items = append(items, reminderItem{
 			FeeID:        fee.FeeID,
 			ChildID:      fee.ChildID,
@@ -655,7 +655,7 @@ func (s *ReminderService) prepareCasePlan(ctx context.Context, householdID uuid.
 		})
 	}
 	for _, plannedFee := range planned {
-		total += plannedFee.Amount
+		totalCents += domain.Cents(plannedFee.Amount)
 		baseFee := feeByID[plannedFee.BaseFeeID]
 		baseType := plannedFee.BaseFeeType
 		items = append(items, reminderItem{
@@ -697,7 +697,7 @@ func (s *ReminderService) prepareCasePlan(ctx context.Context, householdID uuid.
 		childIDByFee:     childIDByFee,
 		recommendedStage: recommendedStageFor(selected),
 		warnings:         buildCaseWarnings(req.Stage, selected, existingReminders),
-		totalAmount:      roundCent(total),
+		totalAmount:      domain.Euros(totalCents),
 	}, nil
 }
 

@@ -44,12 +44,12 @@ Leitplanke für alle Refactorings: **keine fachliche Verhaltensänderung**, auß
 
 ## Phase 3 – Fachliche Absicherung
 
-- [x] **12. Konfigurierbare Beitragstabellen** – Tabellen + Einkommensgrenzen aus
+- [x] **12. Konfigurierbare Beitragstabellen** (`10f565e`) – Tabellen + Einkommensgrenzen aus
       `domain/childcare_fee.go` in die DB (`fees.fee_schedules` mit `valid_from`), Seed = heutige
       Werte. Berechnung wählt die Tabelle nach Stichtag. Eigener Bereich „Beitragsordnung" im
       Frontend (anzeigen, neue Version ab Datum anlegen; alte Versionen read-only).
       Tests: Ergebnisse vor/nach Migration identisch.
-- [ ] **13. Geldbeträge als Cent** – DB bleibt `NUMERIC(…,2)` (ist bereits exakt, **keine
+- [x] **13. Geldbeträge als Cent** – umgesetzt als Cent-Arithmetik in Go bei unveränderten Structs/API (siehe status-fees). Ursprünglich: DB bleibt `NUMERIC(…,2)` (ist bereits exakt, **keine
       Datenmigration nötig**). In Go ein Typ `Cents int64` mit `Scan`/`Value`
       (NUMERIC ↔ Cent) und JSON-Ausgabe weiterhin als Euro-Zahl, damit die API unverändert bleibt.
       Epsilon-Vergleiche (`0.01`) entfallen. Schrittweise: zuerst Matching/Allocation, dann Rest.

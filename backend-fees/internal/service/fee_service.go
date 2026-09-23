@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"math"
 	"sort"
 	"time"
 
@@ -383,7 +382,7 @@ func (s *FeeService) SyncChildcareExpectationsFrom(ctx context.Context, childID 
 			oldRemaining = 0
 		}
 
-		if matchedAmount > amount+0.01 {
+		if domain.Cents(matchedAmount) > domain.Cents(amount)+domain.PaymentToleranceCents {
 			result.CreditReviewRequired = append(result.CreditReviewRequired, CreditReviewPeriod{
 				FeeID:         fee.ID,
 				Year:          fee.Year,
@@ -397,7 +396,7 @@ func (s *FeeService) SyncChildcareExpectationsFrom(ctx context.Context, childID 
 			continue
 		}
 
-		if math.Abs(fee.Amount-amount) <= 0.01 {
+		if abs64(domain.Cents(fee.Amount)-domain.Cents(amount)) <= domain.PaymentToleranceCents {
 			result.Skipped++
 			continue
 		}
@@ -588,6 +587,13 @@ func (s *FeeService) Delete(ctx context.Context, id uuid.UUID) error {
 	}
 
 	return s.feeRepo.Delete(ctx, id)
+}
+
+func abs64(v int64) int64 {
+	if v < 0 {
+		return -v
+	}
+	return v
 }
 
 // roundToTwoDecimals rounds a float to two decimal places.
@@ -884,20 +890,20 @@ func (s *FeeService) GetChildLedger(ctx context.Context, childID uuid.UUID, year
 
 	// Build ledger entries
 	entries := make([]LedgerEntry, 0, len(fees)*2)
-	var totalFees, totalPaid float64
+	var totalFees, totalPaid int64 // cents
 	var openFeesCount, paidFeesCount int
 
 	for _, fee := range fees {
-		const epsilon = 0.01
 		matches, _ := s.matchRepo.GetAllByExpectation(ctx, fee.ID)
-		var totalMatched float64
 		var paidAt *time.Time
 
+		var totalMatchedCents int64
 		for i := range matches {
-			totalMatched += matches[i].Amount
+			totalMatchedCents += domain.Cents(matches[i].Amount)
 		}
+		totalMatched := domain.Euros(totalMatchedCents)
 
-		isPaid := totalMatched >= fee.Amount-epsilon
+		isPaid := domain.IsPaid(totalMatched, fee.Amount)
 		if isPaid && len(matches) > 0 {
 			paidAt = &matches[0].MatchedAt
 			paidFeesCount++
@@ -905,13 +911,13 @@ func (s *FeeService) GetChildLedger(ctx context.Context, childID uuid.UUID, year
 			openFeesCount++
 		}
 
-		paidAmount := totalMatched
-		if paidAmount > fee.Amount {
-			paidAmount = fee.Amount
+		paidCents := totalMatchedCents
+		if feeCents := domain.Cents(fee.Amount); paidCents > feeCents {
+			paidCents = feeCents
 		}
-		totalPaid += paidAmount
+		totalPaid += paidCents
 
-		totalFees += fee.Amount
+		totalFees += domain.Cents(fee.Amount)
 
 		// Build description
 		description := util.FeeTypeToGerman(fee.FeeType)
@@ -989,9 +995,9 @@ func (s *FeeService) GetChildLedger(ctx context.Context, childID uuid.UUID, year
 		Child:   child,
 		Entries: entries,
 		Summary: LedgerSummary{
-			TotalFees:      totalFees,
-			TotalPaid:      totalPaid,
-			TotalOpen:      totalFees - totalPaid,
+			TotalFees:      domain.Euros(totalFees),
+			TotalPaid:      domain.Euros(totalPaid),
+			TotalOpen:      domain.Euros(totalFees - totalPaid),
 			OpenFeesCount:  openFeesCount,
 			PaidFeesCount:  paidFeesCount,
 			TotalFeesCount: len(fees),
@@ -1003,16 +1009,14 @@ func (s *FeeService) GetChildLedger(ctx context.Context, childID uuid.UUID, year
 
 // enrichWithPaymentStatus checks if a fee is paid and loads match details with transaction.
 func (s *FeeService) enrichWithPaymentStatus(ctx context.Context, fee *domain.FeeExpectation) {
-	const epsilon = 0.01
-
 	matches, _ := s.matchRepo.GetAllByExpectation(ctx, fee.ID)
 	if len(matches) == 0 {
 		return
 	}
 
-	var totalMatched float64
+	var totalMatchedCents int64
 	for i := range matches {
-		totalMatched += matches[i].Amount
+		totalMatchedCents += domain.Cents(matches[i].Amount)
 		if s.transactionRepo != nil {
 			tx, err := s.transactionRepo.GetByID(ctx, matches[i].TransactionID)
 			if err == nil {
@@ -1021,19 +1025,19 @@ func (s *FeeService) enrichWithPaymentStatus(ctx context.Context, fee *domain.Fe
 		}
 	}
 
-	fee.MatchedAmount = totalMatched
-	if totalMatched >= fee.Amount-epsilon {
+	fee.MatchedAmount = domain.Euros(totalMatchedCents)
+	if domain.IsPaid(fee.MatchedAmount, fee.Amount) {
 		fee.IsPaid = true
 		paidAt := matches[0].MatchedAt
 		fee.PaidAt = &paidAt
 	} else {
 		fee.IsPaid = false
 	}
-	remaining := fee.Amount - totalMatched
+	remaining := domain.Cents(fee.Amount) - totalMatchedCents
 	if remaining < 0 {
 		remaining = 0
 	}
-	fee.Remaining = remaining
+	fee.Remaining = domain.Euros(remaining)
 	fee.PartialMatches = matches
 	fee.MatchedBy = &matches[0]
 }
