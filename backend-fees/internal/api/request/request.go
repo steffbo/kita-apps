@@ -6,9 +6,12 @@ import (
 	"strconv"
 )
 
-// DecodeJSON decodes a JSON request body into the given struct.
+// MaxJSONBodyBytes caps JSON bodies decoded via DecodeJSON.
+const MaxJSONBodyBytes = 1 << 20
+
+// DecodeJSON decodes a JSON request body (max MaxJSONBodyBytes) into the given struct.
 func DecodeJSON(r *http.Request, v interface{}) error {
-	return json.NewDecoder(r.Body).Decode(v)
+	return json.NewDecoder(http.MaxBytesReader(nil, r.Body, MaxJSONBodyBytes)).Decode(v)
 }
 
 // Pagination holds pagination parameters from query strings.

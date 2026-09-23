@@ -362,6 +362,7 @@ definitions:
     description: Request body for creating a fee classification
     properties:
       careHoursPerWeek:
+        description: 'Deprecated: Ignored; resolved from the child''s care-hours history.'
         type: integer
       childId:
         type: string
@@ -374,7 +375,8 @@ definitions:
       notes:
         type: string
       validFrom:
-        description: ISO date, e.g. "2026-01-01"
+        description: 'Deprecated: Ignored for initial classifications; validity is
+          derived from year and child entry date.'
         type: string
       year:
         type: integer
@@ -413,6 +415,8 @@ definitions:
     description: Request body for creating a follow-up fee classification
     properties:
       careHoursPerWeek:
+        description: 'Deprecated: Ignored; resolved from the child''s care-hours history
+          at the effective month.'
         type: integer
       changeDate:
         description: 'ISO date, cut-off: 1st-14th same month, 15th+ next month'
@@ -1603,6 +1607,7 @@ definitions:
     description: Request body for updating a fee classification
     properties:
       careHoursPerWeek:
+        description: 'Deprecated: Ignored; resolved from the child''s care-hours history.'
         type: integer
       childrenCount:
         type: integer
@@ -1613,6 +1618,8 @@ definitions:
       notes:
         type: string
       validFrom:
+        description: Only used for follow-up income classifications; ignored for initial
+          classifications.
         type: string
     type: object
   UpdateFeeRequest:
@@ -3987,7 +3994,7 @@ paths:
       description: Upload and parse a CSV file to extract headers and sample data
         for mapping
       parameters:
-      - description: CSV file (max 10MB)
+      - description: CSV file (max 5MB)
         in: formData
         name: file
         required: true
@@ -4000,11 +4007,15 @@ paths:
           schema:
             $ref: '#/definitions/service.ChildImportParseResult'
         "400":
-          description: File too large or invalid format
+          description: Invalid format
           schema:
             $ref: '#/definitions/ErrorResponse'
         "401":
           description: Not authenticated
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "413":
+          description: File larger than 5MB
           schema:
             $ref: '#/definitions/ErrorResponse'
         "500":
@@ -6001,7 +6012,7 @@ paths:
       description: Upload and process a bank statement CSV file to match transactions
         with fees
       parameters:
-      - description: CSV file (max 10MB)
+      - description: CSV file (max 5MB)
         in: formData
         name: file
         required: true
@@ -6019,6 +6030,10 @@ paths:
             $ref: '#/definitions/ErrorResponse'
         "401":
           description: Not authenticated
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "413":
+          description: File larger than 5MB
           schema:
             $ref: '#/definitions/ErrorResponse'
         "500":

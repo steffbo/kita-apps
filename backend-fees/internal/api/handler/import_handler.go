@@ -86,15 +86,17 @@ func NewImportHandler(importService *service.ImportService) *ImportHandler {
 // @Accept multipart/form-data
 // @Produce json
 // @Security BearerAuth
-// @Param file formData file true "CSV file (max 10MB)"
+// @Param file formData file true "CSV file (max 5MB)"
 // @Success 200 {object} service.ImportResult "Upload and processing result"
 // @Failure 400 {object} response.ErrorBody "No file provided or invalid format"
 // @Failure 401 {object} response.ErrorBody "Not authenticated"
+// @Failure 413 {object} response.ErrorBody "File larger than 5MB"
 // @Failure 500 {object} response.ErrorBody "Internal server error"
 // @Router /import/upload [post]
 func (h *ImportHandler) Upload(w http.ResponseWriter, r *http.Request) {
-	// Max 10MB file
-	r.ParseMultipartForm(10 << 20)
+	if !parseUpload(w, r) {
+		return
+	}
 
 	file, header, err := r.FormFile("file")
 	if err != nil {

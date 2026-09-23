@@ -1899,7 +1899,7 @@ export interface paths {
                         "application/json": components["schemas"]["service.ChildImportParseResult"];
                     };
                 };
-                /** @description File too large or invalid format */
+                /** @description Invalid format */
                 400: {
                     headers: {
                         [name: string]: unknown;
@@ -1910,6 +1910,15 @@ export interface paths {
                 };
                 /** @description Not authenticated */
                 401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description File larger than 5MB */
+                413: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -5466,6 +5475,15 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorResponse"];
                     };
                 };
+                /** @description File larger than 5MB */
+                413: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
                 /** @description Internal server error */
                 500: {
                     headers: {
@@ -7060,13 +7078,14 @@ export interface components {
         };
         /** @description Request body for creating a fee classification */
         CreateEinstufungRequest: {
+            /** @description Deprecated: Ignored; resolved from the child's care-hours history. */
             careHoursPerWeek?: number;
             childId?: string;
             childrenCount?: number;
             highestRateVoluntary?: boolean;
             incomeCalculation?: components["schemas"]["domain.HouseholdIncomeCalculation"];
             notes?: string;
-            /** @description ISO date, e.g. "2026-01-01" */
+            /** @description Deprecated: Ignored for initial classifications; validity is derived from year and child entry date. */
             validFrom?: string;
             year?: number;
         };
@@ -7092,6 +7111,7 @@ export interface components {
         };
         /** @description Request body for creating a follow-up fee classification */
         CreateFollowUpEinstufungRequest: {
+            /** @description Deprecated: Ignored; resolved from the child's care-hours history at the effective month. */
             careHoursPerWeek?: number;
             /** @description ISO date, cut-off: 1st-14th same month, 15th+ next month */
             changeDate?: string;
@@ -7861,11 +7881,13 @@ export interface components {
         };
         /** @description Request body for updating a fee classification */
         UpdateEinstufungRequest: {
+            /** @description Deprecated: Ignored; resolved from the child's care-hours history. */
             careHoursPerWeek?: number;
             childrenCount?: number;
             highestRateVoluntary?: boolean;
             incomeCalculation?: components["schemas"]["domain.HouseholdIncomeCalculation"];
             notes?: string;
+            /** @description Only used for follow-up income classifications; ignored for initial classifications. */
             validFrom?: string;
         };
         /** @description Request body for updating a fee */
@@ -8535,7 +8557,7 @@ export interface components {
                 "multipart/form-data": {
                     /**
                      * Format: binary
-                     * @description CSV file (max 10MB)
+                     * @description CSV file (max 5MB)
                      */
                     file: string;
                 };

@@ -30,17 +30,15 @@ func NewChildImportHandler(importService *service.ChildImportService) *ChildImpo
 // @Accept multipart/form-data
 // @Produce json
 // @Security BearerAuth
-// @Param file formData file true "CSV file (max 10MB)"
+// @Param file formData file true "CSV file (max 5MB)"
 // @Success 200 {object} service.ChildImportParseResult "Parsed CSV structure"
-// @Failure 400 {object} response.ErrorBody "File too large or invalid format"
+// @Failure 400 {object} response.ErrorBody "Invalid format"
+// @Failure 413 {object} response.ErrorBody "File larger than 5MB"
 // @Failure 401 {object} response.ErrorBody "Not authenticated"
 // @Failure 500 {object} response.ErrorBody "Internal server error"
 // @Router /children/import/parse [post]
 func (h *ChildImportHandler) Parse(w http.ResponseWriter, r *http.Request) {
-	// Max 10MB file
-	err := r.ParseMultipartForm(10 << 20)
-	if err != nil {
-		response.BadRequest(w, "Datei zu groß oder ungültiges Format")
+	if !parseUpload(w, r) {
 		return
 	}
 

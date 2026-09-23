@@ -93,6 +93,11 @@ func Conflict(w http.ResponseWriter, message string) {
 	Error(w, http.StatusConflict, message)
 }
 
+// TooLarge sends a 413 Payload Too Large error response.
+func TooLarge(w http.ResponseWriter, message string) {
+	Error(w, http.StatusRequestEntityTooLarge, message)
+}
+
 // InternalError writes a 500 Internal Server Error response.
 func InternalError(w http.ResponseWriter, message string) {
 	Error(w, http.StatusInternalServerError, message)

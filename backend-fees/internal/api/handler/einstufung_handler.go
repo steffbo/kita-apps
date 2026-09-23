@@ -73,10 +73,10 @@ type EinstufungListResponse struct {
 type CreateEinstufungRequest struct {
 	ChildID              string                            `json:"childId"`
 	Year                 int                               `json:"year"`
-	ValidFrom            string                            `json:"validFrom"` // ISO date, e.g. "2026-01-01"
+	ValidFrom            string                            `json:"validFrom"` // Deprecated: Ignored for initial classifications; validity is derived from year and child entry date.
 	IncomeCalculation    domain.HouseholdIncomeCalculation `json:"incomeCalculation"`
 	HighestRateVoluntary bool                              `json:"highestRateVoluntary"`
-	CareHoursPerWeek     int                               `json:"careHoursPerWeek"`
+	CareHoursPerWeek     int                               `json:"careHoursPerWeek"` // Deprecated: Ignored; resolved from the child's care-hours history.
 	ChildrenCount        int                               `json:"childrenCount"`
 	Notes                string                            `json:"notes"`
 } //@name CreateEinstufungRequest
@@ -86,9 +86,9 @@ type CreateEinstufungRequest struct {
 type UpdateEinstufungRequest struct {
 	IncomeCalculation    *domain.HouseholdIncomeCalculation `json:"incomeCalculation,omitempty"`
 	HighestRateVoluntary *bool                              `json:"highestRateVoluntary,omitempty"`
-	CareHoursPerWeek     *int                               `json:"careHoursPerWeek,omitempty"`
+	CareHoursPerWeek     *int                               `json:"careHoursPerWeek,omitempty"` // Deprecated: Ignored; resolved from the child's care-hours history.
 	ChildrenCount        *int                               `json:"childrenCount,omitempty"`
-	ValidFrom            *string                            `json:"validFrom,omitempty"`
+	ValidFrom            *string                            `json:"validFrom,omitempty"` // Only used for follow-up income classifications; ignored for initial classifications.
 	Notes                *string                            `json:"notes,omitempty"`
 } //@name UpdateEinstufungRequest
 
@@ -98,7 +98,7 @@ type CreateFollowUpEinstufungRequest struct {
 	ChangeDate           string                            `json:"changeDate"` // ISO date, cut-off: 1st-14th same month, 15th+ next month
 	IncomeCalculation    domain.HouseholdIncomeCalculation `json:"incomeCalculation"`
 	HighestRateVoluntary bool                              `json:"highestRateVoluntary"`
-	CareHoursPerWeek     int                               `json:"careHoursPerWeek"`
+	CareHoursPerWeek     int                               `json:"careHoursPerWeek"` // Deprecated: Ignored; resolved from the child's care-hours history at the effective month.
 	ChildrenCount        int                               `json:"childrenCount"`
 	Notes                string                            `json:"notes"`
 } //@name CreateFollowUpEinstufungRequest

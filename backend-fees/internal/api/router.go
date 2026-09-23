@@ -23,6 +23,7 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 	r.Use(middleware.RealIP)
 	r.Use(customMiddleware.Logging)
 	r.Use(middleware.Recoverer)
+	r.Use(customMiddleware.MaxBodySize(customMiddleware.MaxUploadBytes))
 
 	// CORS is only needed for cross-origin browser clients. The Beiträge frontend
 	// is served same-origin (embedded in prod, Vite proxy in dev).

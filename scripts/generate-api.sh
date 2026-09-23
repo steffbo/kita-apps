@@ -30,7 +30,7 @@ command -v "$SWAG" >/dev/null 2>&1 || {
 run_s2o() {
   if [ -n "${S2O:-}" ]; then "$S2O" "$@"; return; fi
   if command -v swagger2openapi >/dev/null 2>&1; then swagger2openapi "$@"; return; fi
-  if command -v bunx >/dev/null 2>&1; then bunx --registry https://registry.npmjs.org/ swagger2openapi "$@"; return; fi
+  if command -v bunx >/dev/null 2>&1; then BUN_CONFIG_REGISTRY=https://registry.npmjs.org/ bunx swagger2openapi "$@"; return; fi
   npx --registry=https://registry.npmjs.org/ swagger2openapi "$@"
 }
 
