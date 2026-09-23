@@ -90,6 +90,14 @@ type ReminderService struct {
 	now           func() time.Time
 }
 
+// EmailLogFilter filters the sent-email log.
+type EmailLogFilter = repository.EmailLogFilter
+
+// ListEmailLogs returns a page of sent emails.
+func (s *ReminderService) ListEmailLogs(ctx context.Context, offset, limit int, filter EmailLogFilter) ([]domain.EmailLog, int64, error) {
+	return s.emailLogRepo.List(ctx, offset, limit, filter)
+}
+
 // NewReminderService creates a new reminder service.
 func NewReminderService(
 	feeRepo repository.FeeRepository,

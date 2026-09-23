@@ -14,7 +14,6 @@ import (
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/api/request"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/api/response"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
-	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/repository"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/service"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/util"
 )
@@ -24,7 +23,6 @@ type FeeHandler struct {
 	feeService      *service.FeeService
 	importService   *service.ImportService
 	reminderService *service.ReminderService
-	emailLogRepo    repository.EmailLogRepository
 }
 
 // FeeListResponse represents a paginated list of fees
@@ -149,13 +147,11 @@ func NewFeeHandler(
 	feeService *service.FeeService,
 	importService *service.ImportService,
 	reminderService *service.ReminderService,
-	emailLogRepo repository.EmailLogRepository,
 ) *FeeHandler {
 	return &FeeHandler{
 		feeService:      feeService,
 		importService:   importService,
 		reminderService: reminderService,
-		emailLogRepo:    emailLogRepo,
 	}
 }
 
@@ -1005,7 +1001,7 @@ func (h *FeeHandler) UpdateReminderSettings(w http.ResponseWriter, r *http.Reque
 func (h *FeeHandler) GetEmailLogs(w http.ResponseWriter, r *http.Request) {
 	pagination := request.GetPagination(r)
 
-	filter := repository.EmailLogFilter{
+	filter := service.EmailLogFilter{
 		SortDir: request.GetQueryString(r, "sortDir", "desc"),
 		Search:  request.GetQueryString(r, "search", ""),
 	}
@@ -1021,7 +1017,7 @@ func (h *FeeHandler) GetEmailLogs(w http.ResponseWriter, r *http.Request) {
 		filter.HouseholdID = &householdID
 	}
 
-	logs, total, err := h.emailLogRepo.List(r.Context(), pagination.Offset, pagination.PerPage, filter)
+	logs, total, err := h.reminderService.ListEmailLogs(r.Context(), pagination.Offset, pagination.PerPage, filter)
 	if err != nil {
 		response.InternalError(w, "failed to list email logs")
 		return

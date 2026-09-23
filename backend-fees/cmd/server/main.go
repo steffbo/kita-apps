@@ -131,13 +131,13 @@ func main() {
 	// Initialize handlers
 	handlers := &api.Handlers{
 		Auth:             handler.NewAuthHandler(authService, jwtService),
-		Child:            handler.NewChildHandler(childService, feeService, coverageService, feeRepo, matchRepo, transactionRepo),
+		Child:            handler.NewChildHandler(childService, feeService, coverageService),
 		ChildImport:      handler.NewChildImportHandler(childImportService),
 		ChildNote:        handler.NewChildNoteHandler(childNoteService),
 		Parent:           handler.NewParentHandler(parentService),
 		Household:        handler.NewHouseholdHandler(householdService),
 		Member:           handler.NewMemberHandler(memberService),
-		Fee:              handler.NewFeeHandler(feeService, importService, reminderService, emailLogRepo),
+		Fee:              handler.NewFeeHandler(feeService, importService, reminderService),
 		Import:           handler.NewImportHandler(importService),
 		BankingSync:      handler.NewBankingSyncHandler(cfg.BankingSync.BaseURL, cfg.BankingSync.Token, cfg.BankingSync.Timeout),
 		Einstufung:       handler.NewEinstufungHandler(einstufungService),

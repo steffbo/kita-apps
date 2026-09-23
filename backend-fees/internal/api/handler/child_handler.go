@@ -9,7 +9,6 @@ import (
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/api/request"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/api/response"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
-	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/repository"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/service"
 )
 
@@ -18,20 +17,14 @@ type ChildHandler struct {
 	childService    *service.ChildService
 	feeService      *service.FeeService
 	coverageService *service.CoverageService
-	feeRepo         repository.FeeRepository
-	matchRepo       repository.MatchRepository
-	transactionRepo repository.TransactionRepository
 }
 
 // NewChildHandler creates a new child handler.
-func NewChildHandler(childService *service.ChildService, feeService *service.FeeService, coverageService *service.CoverageService, feeRepo repository.FeeRepository, matchRepo repository.MatchRepository, transactionRepo repository.TransactionRepository) *ChildHandler {
+func NewChildHandler(childService *service.ChildService, feeService *service.FeeService, coverageService *service.CoverageService) *ChildHandler {
 	return &ChildHandler{
 		childService:    childService,
 		feeService:      feeService,
 		coverageService: coverageService,
-		feeRepo:         feeRepo,
-		matchRepo:       matchRepo,
-		transactionRepo: transactionRepo,
 	}
 }
 
