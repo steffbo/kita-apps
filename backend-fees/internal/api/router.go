@@ -24,15 +24,18 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 	r.Use(customMiddleware.Logging)
 	r.Use(middleware.Recoverer)
 
-	// CORS configuration
-	r.Use(cors.Handler(cors.Options{
-		AllowedOrigins:   cfg.Server.CORSOrigins,
-		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type"},
-		ExposedHeaders:   []string{"Link"},
-		AllowCredentials: true,
-		MaxAge:           300,
-	}))
+	// CORS is only needed for cross-origin browser clients. The Beiträge frontend
+	// is served same-origin (embedded in prod, Vite proxy in dev).
+	if len(cfg.Server.CORSOrigins) > 0 {
+		r.Use(cors.Handler(cors.Options{
+			AllowedOrigins:   cfg.Server.CORSOrigins,
+			AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+			AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type"},
+			ExposedHeaders:   []string{"Link"},
+			AllowCredentials: cfg.Server.CORSAllowCredentials,
+			MaxAge:           300,
+		}))
+	}
 
 	// Health check (public)
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
@@ -55,7 +58,7 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 		r.Get("/childcare-fee/calculate", handlers.Fee.CalculateChildcareFee)
 
 		// CSV import upload (JWT or import token)
-		r.With(customMiddleware.ImportAuthMiddleware(handlers.JWTService)).
+		r.With(customMiddleware.ImportAuthMiddleware(handlers.JWTService, cfg.Import.Token)).
 			Post("/import/upload", handlers.Import.Upload)
 
 		// Protected routes

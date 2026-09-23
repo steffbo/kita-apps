@@ -14,6 +14,12 @@ type Config struct {
 	SMTP        SMTPConfig
 	BankingSync BankingSyncConfig
 	User        UserConfig
+	Import      ImportConfig
+}
+
+// ImportConfig holds configuration for automated CSV uploads.
+type ImportConfig struct {
+	Token string // CRON_API_TOKEN, sent by banking-sync as X-Import-Token
 }
 
 // UserConfig holds user authentication configuration.
@@ -35,10 +41,12 @@ type SMTPConfig struct {
 
 // ServerConfig holds HTTP server configuration.
 type ServerConfig struct {
-	Port         string
-	CORSOrigins  []string
-	ReadTimeout  time.Duration
-	WriteTimeout time.Duration
+	Port        string
+	CORSOrigins []string
+	// CORSAllowCredentials is derived by Harden, not read from env.
+	CORSAllowCredentials bool
+	ReadTimeout          time.Duration
+	WriteTimeout         time.Duration
 }
 
 // DatabaseConfig holds database connection configuration.
@@ -69,7 +77,7 @@ func Load() *Config {
 	return &Config{
 		Server: ServerConfig{
 			Port:         getEnv("PORT", "8081"),
-			CORSOrigins:  getEnvSlice("CORS_ORIGINS", []string{"*"}),
+			CORSOrigins:  getEnvSlice("CORS_ORIGINS", nil),
 			ReadTimeout:  getEnvDuration("READ_TIMEOUT", 15*time.Second),
 			WriteTimeout: getEnvDuration("WRITE_TIMEOUT", 15*time.Second),
 		},
@@ -80,7 +88,7 @@ func Load() *Config {
 			ConnMaxLifetime: getEnvDuration("DB_CONN_MAX_LIFETIME", 5*time.Minute),
 		},
 		JWT: JWTConfig{
-			Secret:        getEnv("JWT_SECRET", "dev-secret-change-in-production"),
+			Secret:        getEnv("JWT_SECRET", ""),
 			AccessExpiry:  getEnvDuration("JWT_ACCESS_EXPIRY", 15*time.Minute),
 			RefreshExpiry: getEnvDuration("JWT_REFRESH_EXPIRY", 7*24*time.Hour),
 			Issuer:        getEnv("JWT_ISSUER", "kita-fees"),
@@ -102,6 +110,9 @@ func Load() *Config {
 		User: UserConfig{
 			Username: getEnv("USER_NAME", ""),
 			Password: getEnv("USER_PASSWORD", ""),
+		},
+		Import: ImportConfig{
+			Token: getEnv("CRON_API_TOKEN", ""),
 		},
 	}
 }

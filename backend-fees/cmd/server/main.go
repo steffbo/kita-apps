@@ -66,6 +66,13 @@ func main() {
 
 	// Load configuration
 	cfg := config.Load()
+	warnings, err := cfg.Harden()
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to harden configuration")
+	}
+	for _, w := range warnings {
+		log.Warn().Msg(w)
+	}
 	log.Info().Str("port", cfg.Server.Port).Msg("Starting fees service")
 
 	// Connect to database

@@ -14,10 +14,10 @@ Leitplanke für alle Refactorings: **keine fachliche Verhaltensänderung**, auß
       hängt davon ab (`needs`). Erwartung: +2–4 min zusätzlich zum heutigen Build (~2–2,5 min).
 - [x] **2. gofmt** auf die 10 unformatierten Dateien anwenden (reiner Format-Commit). (`49b48d4`)
 - [x] **3. tsconfig TS6310** – `tsconfig.node.json` so anpassen, dass `vue-tsc -b` ohne Fehler läuft. (`d2952ab`)
-- [ ] **4. Import-Token härten** – `CRON_API_TOKEN` (genutzt vom banking-sync-Container,
+- [x] **4. Import-Token härten** – `CRON_API_TOKEN` (genutzt vom banking-sync-Container,
       Header `X-Import-Token`) über `config` laden statt `os.Getenv`, Vergleich mit
       `subtle.ConstantTimeCompare`.
-- [ ] **5. Produktions-Defaults absichern** – Start abbrechen, wenn `JWT_SECRET` der Dev-Default ist
+- [x] **5. Produktions-Defaults absichern** – umgesetzt als `config.Harden()` (zufälliges Secret + Warnung statt Abbruch, siehe status-fees). Ursprünglich: Start abbrechen, wenn `JWT_SECRET` der Dev-Default ist
       oder `CORS_ORIGINS=*` mit Credentials aktiv ist (außer im Dev-Modus).
 - [ ] **6. Request-Limits** – `http.MaxBytesReader` zentral: 1 MB für JSON-Bodies
       (`request.Decode`), 5 MB für CSV-Uploads (Bank- und Kinder-Import).

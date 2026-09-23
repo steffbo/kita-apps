@@ -32,34 +32,45 @@ func AuthMiddleware(jwtService *auth.JWTService) func(http.Handler) http.Handler
 				return
 			}
 
-			parts := strings.Split(authHeader, " ")
-			if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
-				response.Error(w, http.StatusUnauthorized, "invalid authorization header format")
+			userCtx, ok := authenticateBearer(w, jwtService, authHeader)
+			if !ok {
 				return
 			}
 
-			tokenString := parts[1]
-			claims, err := jwtService.ValidateToken(tokenString, auth.TokenTypeAccess)
-			if err != nil {
-				switch err {
-				case auth.ErrExpiredToken:
-					response.Error(w, http.StatusUnauthorized, "token has expired")
-				default:
-					response.Error(w, http.StatusUnauthorized, "invalid token")
-				}
-				return
-			}
-
-			userCtx := &UserContext{
-				UserID: claims.UserID.String(),
-				Email:  claims.Email,
-				Role:   claims.Role,
-			}
-
-			ctx := context.WithValue(r.Context(), UserContextKey, userCtx)
-			next.ServeHTTP(w, r.WithContext(ctx))
+			next.ServeHTTP(w, r.WithContext(withUser(r.Context(), userCtx)))
 		})
 	}
+}
+
+// authenticateBearer validates a "Bearer <token>" header. On failure it writes
+// the 401 response and returns ok=false.
+func authenticateBearer(w http.ResponseWriter, jwtService *auth.JWTService, authHeader string) (*UserContext, bool) {
+	parts := strings.Split(authHeader, " ")
+	if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
+		response.Error(w, http.StatusUnauthorized, "invalid authorization header format")
+		return nil, false
+	}
+
+	claims, err := jwtService.ValidateToken(parts[1], auth.TokenTypeAccess)
+	if err != nil {
+		switch err {
+		case auth.ErrExpiredToken:
+			response.Error(w, http.StatusUnauthorized, "token has expired")
+		default:
+			response.Error(w, http.StatusUnauthorized, "invalid token")
+		}
+		return nil, false
+	}
+
+	return &UserContext{
+		UserID: claims.UserID.String(),
+		Email:  claims.Email,
+		Role:   claims.Role,
+	}, true
+}
+
+func withUser(ctx context.Context, userCtx *UserContext) context.Context {
+	return context.WithValue(ctx, UserContextKey, userCtx)
 }
 
 // RequireRole creates a middleware that requires a specific role.
