@@ -251,3 +251,13 @@ type EinstufungRepository interface {
 	ListByYear(ctx context.Context, year int, offset, limit int) ([]domain.Einstufung, int64, error)
 	GetLatestForChild(ctx context.Context, childID uuid.UUID) (*domain.Einstufung, error)
 }
+
+// FeeScheduleRepository stores versions of the fee regulation.
+type FeeScheduleRepository interface {
+	List(ctx context.Context) (domain.FeeSchedules, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*domain.FeeSchedule, error)
+	GetAt(ctx context.Context, date time.Time) (*domain.FeeSchedule, error)
+	Create(ctx context.Context, schedule *domain.FeeSchedule) error
+	Update(ctx context.Context, schedule *domain.FeeSchedule) error
+	Delete(ctx context.Context, id uuid.UUID) error
+}

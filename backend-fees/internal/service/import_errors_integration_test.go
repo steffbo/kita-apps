@@ -50,6 +50,7 @@ func TestImportService_ProcessCSV_ReportsAndStoresRowErrors(t *testing.T) {
 		repository.NewPostgresKnownIBANRepository(testDB),
 		repository.NewPostgresWarningRepository(testDB),
 		repository.NewTxManager(testDB),
+		repository.NewPostgresFeeScheduleRepository(testDB),
 	)
 
 	csv := importErrorsCSVHeader +
@@ -92,6 +93,7 @@ func TestImportService_ProcessCSV_FailsWhenReferenceDataUnavailable(t *testing.T
 		failingBlacklistRepo{repository.NewPostgresKnownIBANRepository(testDB)},
 		repository.NewPostgresWarningRepository(testDB),
 		repository.NewTxManager(testDB),
+		repository.NewPostgresFeeScheduleRepository(testDB),
 	)
 
 	var batchesBefore int

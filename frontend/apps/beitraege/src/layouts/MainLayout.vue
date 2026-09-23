@@ -16,6 +16,7 @@ import {
   ChevronDown,
   ClipboardList,
   NotebookPen,
+  Scale,
 } from 'lucide-vue-next';
 
 const authStore = useAuthStore();
@@ -49,6 +50,7 @@ const navGroups = [
       { name: 'Beiträge', to: '/beitraege', icon: Receipt },
       { name: 'Einstufungen', to: '/einstufungen', icon: ClipboardList },
       { name: 'Erinnerungen', to: '/automatisierung', icon: Bell },
+      { name: 'Beitragsordnung', to: '/beitragsordnung', icon: Scale },
     ],
   },
 ];

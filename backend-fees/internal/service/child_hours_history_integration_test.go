@@ -138,6 +138,7 @@ func TestChildHours_FuturePeriodIsNotCurrentButDrivesFees(t *testing.T) {
 		repository.NewPostgresHouseholdRepository(testDB),
 		repository.NewPostgresMatchRepository(testDB),
 		repository.NewPostgresTransactionRepository(testDB),
+		repository.NewPostgresFeeScheduleRepository(testDB),
 	)
 	month := int(entryDate.Month())
 	hours := feeService.ResolveCareHours(ctx, loaded, entryDate.Year(), &month)

@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/rs/zerolog/log"
 
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/repository"
@@ -124,8 +125,12 @@ func (s *EinstufungService) Create(ctx context.Context, input CreateEinstufungIn
 		}
 	}
 
-	// Calculate childcare fee using existing fee calculation logic
-	feeResult := s.feeService.CalculateChildcareFee(domain.ChildcareFeeInput{
+	// Calculate childcare fee with the fee schedule valid in the first month
+	schedule, err := s.feeService.ScheduleAt(ctx, effectiveFromMonth)
+	if err != nil {
+		return nil, err
+	}
+	feeResult := schedule.Config.CalculateChildcareFee(domain.ChildcareFeeInput{
 		ChildAgeType:  careType,
 		NetIncome:     annualNetIncome,
 		SiblingsCount: childrenCount,
@@ -150,8 +155,8 @@ func (s *EinstufungService) Create(ctx context.Context, input CreateEinstufungIn
 		CareType:             careType,
 		ChildrenCount:        childrenCount,
 		MonthlyChildcareFee:  feeResult.Fee,
-		MonthlyFoodFee:       domain.FoodFeeAmount,
-		AnnualMembershipFee:  domain.MembershipFeeAmount,
+		MonthlyFoodFee:       schedule.Config.MonthlyFoodFee,
+		AnnualMembershipFee:  schedule.Config.AnnualMembershipFee,
 		FeeRule:              feeResult.Rule,
 		DiscountPercent:      feeResult.DiscountPercent,
 		DiscountFactor:       feeResult.DiscountFactor,
@@ -225,7 +230,11 @@ func (s *EinstufungService) CreateFollowUp(ctx context.Context, sourceID uuid.UU
 		careType = domain.ChildAgeTypeKindergarten
 	}
 	annualNetIncome := input.IncomeCalculation.CalculateAnnualNetIncome()
-	feeResult := s.feeService.CalculateChildcareFee(domain.ChildcareFeeInput{
+	schedule, err := s.feeService.ScheduleAt(ctx, effectiveFromMonth)
+	if err != nil {
+		return nil, err
+	}
+	feeResult := schedule.Config.CalculateChildcareFee(domain.ChildcareFeeInput{
 		ChildAgeType:  careType,
 		NetIncome:     annualNetIncome,
 		SiblingsCount: childrenCount,
@@ -250,7 +259,7 @@ func (s *EinstufungService) CreateFollowUp(ctx context.Context, sourceID uuid.UU
 		CareType:             careType,
 		ChildrenCount:        childrenCount,
 		MonthlyChildcareFee:  feeResult.Fee,
-		MonthlyFoodFee:       domain.FoodFeeAmount,
+		MonthlyFoodFee:       schedule.Config.MonthlyFoodFee,
 		AnnualMembershipFee:  0,
 		FeeRule:              feeResult.Rule,
 		DiscountPercent:      feeResult.DiscountPercent,
@@ -349,7 +358,11 @@ func (s *EinstufungService) Update(ctx context.Context, id uuid.UUID, input Upda
 		return nil, ErrNotFound
 	}
 
-	feeResult := s.feeService.CalculateChildcareFee(domain.ChildcareFeeInput{
+	schedule, err := s.feeService.ScheduleAt(ctx, existing.EffectiveFromMonth)
+	if err != nil {
+		return nil, err
+	}
+	feeResult := schedule.Config.CalculateChildcareFee(domain.ChildcareFeeInput{
 		ChildAgeType:  existing.CareType,
 		NetIncome:     existing.AnnualNetIncome,
 		SiblingsCount: existing.ChildrenCount,
@@ -483,15 +496,26 @@ func (s *EinstufungService) populateMonthlyTable(ctx context.Context, e *domain.
 		}
 	}
 
+	schedules, err := s.feeService.Schedules(ctx)
+	if err != nil {
+		log.Warn().Err(err).Str("einstufungId", e.ID.String()).Msg("cannot load fee schedules for monthly table")
+		return
+	}
+
 	rows := make([]domain.EinstufungMonthRow, 0)
 	for current := start; !current.After(end); current = current.AddDate(0, 1, 0) {
+		schedule, err := schedules.At(current)
+		if err != nil {
+			log.Warn().Err(err).Str("einstufungId", e.ID.String()).Msg("no fee schedule for month")
+			return
+		}
 		month := int(current.Month())
 		careHours := s.feeService.ResolveCareHours(ctx, e.Child, current.Year(), &month)
 		careType := domain.ChildAgeTypeKrippe
 		if !e.Child.IsUnderThreeForEntireMonth(current.Year(), current.Month()) {
 			careType = domain.ChildAgeTypeKindergarten
 		}
-		feeResult := s.feeService.CalculateChildcareFee(domain.ChildcareFeeInput{
+		feeResult := schedule.Config.CalculateChildcareFee(domain.ChildcareFeeInput{
 			ChildAgeType:  careType,
 			NetIncome:     e.AnnualNetIncome,
 			SiblingsCount: e.ChildrenCount,
@@ -505,7 +529,7 @@ func (s *EinstufungService) populateMonthlyTable(ctx context.Context, e *domain.
 			CareHoursPerWeek: careHours,
 			CareType:         formatEinstufungCareType(careType),
 			ChildcareFee:     domain.ContributionAmountForMonth(feeResult.Fee, e.Child.EntryDate, current.Year(), current.Month()),
-			FoodFee:          domain.ContributionAmountForMonth(domain.FoodFeeAmount, e.Child.EntryDate, current.Year(), current.Month()),
+			FoodFee:          domain.ContributionAmountForMonth(schedule.Config.MonthlyFoodFee, e.Child.EntryDate, current.Year(), current.Month()),
 		}
 		if current.Equal(start) {
 			row.MembershipFee = e.AnnualMembershipFee

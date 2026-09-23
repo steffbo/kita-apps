@@ -45,7 +45,7 @@ func TestImportService_BlacklistFiltering(t *testing.T) {
 	knownIBANRepo := repository.NewPostgresKnownIBANRepository(testDB)
 
 	// Initialize service
-	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, nil, repository.NewTxManager(testDB))
+	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, nil, repository.NewTxManager(testDB), repository.NewPostgresFeeScheduleRepository(testDB))
 
 	// Add a blacklisted IBAN
 	blacklistedIBAN := "TESTDE123456789012"
@@ -108,7 +108,7 @@ func TestImportService_TrustedIBANOnMatch(t *testing.T) {
 	}
 
 	// Initialize service
-	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, nil, repository.NewTxManager(testDB))
+	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, nil, repository.NewTxManager(testDB), repository.NewPostgresFeeScheduleRepository(testDB))
 
 	// Get admin user ID (seeded in migrations)
 	adminUserID := uuid.MustParse("a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11")
@@ -209,7 +209,7 @@ func TestImportService_TrustedIBAN_SiblingMemberNumberOverridesLinkedChild(t *te
 		t.Fatal(err)
 	}
 
-	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, nil, repository.NewTxManager(testDB))
+	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, nil, repository.NewTxManager(testDB), repository.NewPostgresFeeScheduleRepository(testDB))
 
 	result, err := importService.Rescan(context.Background())
 	if err != nil {
@@ -263,7 +263,7 @@ func TestImportService_DismissTransaction(t *testing.T) {
 	}
 
 	// Initialize service
-	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, nil, repository.NewTxManager(testDB))
+	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, nil, repository.NewTxManager(testDB), repository.NewPostgresFeeScheduleRepository(testDB))
 
 	// Get one of the transactions
 	transactions, _, err := txRepo.ListUnmatched(context.Background(), "", "date", "desc", 0, 100)
@@ -346,7 +346,7 @@ func TestImportService_Rescan(t *testing.T) {
 	}
 
 	// Initialize service
-	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, nil, repository.NewTxManager(testDB))
+	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, nil, repository.NewTxManager(testDB), repository.NewPostgresFeeScheduleRepository(testDB))
 
 	// Rescan before fee exists - should find child match but no fee expectation
 	result1, err := importService.Rescan(context.Background())
@@ -405,7 +405,7 @@ func TestImportService_RemoveFromBlacklist(t *testing.T) {
 	}
 
 	// Initialize service
-	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, nil, repository.NewTxManager(testDB))
+	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, nil, repository.NewTxManager(testDB), repository.NewPostgresFeeScheduleRepository(testDB))
 
 	// Remove from blacklist
 	err = importService.RemoveFromBlacklist(context.Background(), blacklistedIBAN)
@@ -454,7 +454,7 @@ func TestImportService_LinkIBANToChild(t *testing.T) {
 	}
 
 	// Initialize service
-	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, nil, repository.NewTxManager(testDB))
+	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, nil, repository.NewTxManager(testDB), repository.NewPostgresFeeScheduleRepository(testDB))
 
 	// Link IBAN to child
 	err = importService.LinkIBANToChild(context.Background(), trustedIBAN, child.ID)
@@ -526,7 +526,7 @@ func TestImportService_OldestFeeMatchedFirst(t *testing.T) {
 	}
 
 	// Initialize service
-	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, warningRepo, repository.NewTxManager(testDB))
+	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, warningRepo, repository.NewTxManager(testDB), repository.NewPostgresFeeScheduleRepository(testDB))
 
 	// Rescan - should match January fee (only one unpaid)
 	result, err := importService.Rescan(context.Background())
@@ -635,7 +635,7 @@ func TestImportService_OldestFeeMatchedFirst_DifferentAmounts(t *testing.T) {
 	}
 
 	// Initialize service
-	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, nil, repository.NewTxManager(testDB))
+	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, nil, repository.NewTxManager(testDB), repository.NewPostgresFeeScheduleRepository(testDB))
 
 	// Rescan
 	result, err := importService.Rescan(context.Background())
@@ -712,7 +712,7 @@ func TestImportService_CombinedFeeAndReminderMatch(t *testing.T) {
 	}
 
 	// Initialize service
-	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, nil, repository.NewTxManager(testDB))
+	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, nil, repository.NewTxManager(testDB), repository.NewPostgresFeeScheduleRepository(testDB))
 
 	// Rescan to get suggestions
 	result, err := importService.Rescan(context.Background())
@@ -797,7 +797,7 @@ func TestImportService_CombinedMatch_PreferExactMatch(t *testing.T) {
 	}
 
 	// Initialize service
-	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, nil, repository.NewTxManager(testDB))
+	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, nil, repository.NewTxManager(testDB), repository.NewPostgresFeeScheduleRepository(testDB))
 
 	// Rescan
 	result, err := importService.Rescan(context.Background())
@@ -882,7 +882,7 @@ func TestImportService_PartialPayment_FeeOnlyNotReminder(t *testing.T) {
 	}
 
 	// Initialize service
-	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, nil, repository.NewTxManager(testDB))
+	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, nil, repository.NewTxManager(testDB), repository.NewPostgresFeeScheduleRepository(testDB))
 
 	// Rescan to get suggestions
 	result, err := importService.Rescan(context.Background())
@@ -992,7 +992,7 @@ func TestImportService_GetBlacklistAndTrusted(t *testing.T) {
 	}
 
 	// Initialize service
-	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, nil, repository.NewTxManager(testDB))
+	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, nil, repository.NewTxManager(testDB), repository.NewPostgresFeeScheduleRepository(testDB))
 
 	// Get blacklist
 	blacklist, total, err := importService.GetBlacklist(context.Background(), 0, 100)
@@ -1065,7 +1065,7 @@ func TestWarningFromTrustedIBAN(t *testing.T) {
 	}
 
 	// Initialize service with warning repo
-	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, warningRepo, repository.NewTxManager(testDB))
+	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, warningRepo, repository.NewTxManager(testDB), repository.NewPostgresFeeScheduleRepository(testDB))
 
 	// Rescan to trigger warning generation
 	// Note: ProcessCSV triggers warnings automatically, but rescan also needs to check
@@ -1197,7 +1197,7 @@ func TestImportService_MultipleOpenFees_NoAutoMatch(t *testing.T) {
 	}
 
 	// Initialize service with warning repo
-	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, warningRepo, repository.NewTxManager(testDB))
+	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, warningRepo, repository.NewTxManager(testDB), repository.NewPostgresFeeScheduleRepository(testDB))
 
 	// Rescan to get suggestions
 	result, err := importService.Rescan(context.Background())
@@ -1253,7 +1253,7 @@ func TestImportService_SingleOpenFee_AutoMatch(t *testing.T) {
 	}
 
 	// Initialize service
-	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, warningRepo, repository.NewTxManager(testDB))
+	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, warningRepo, repository.NewTxManager(testDB), repository.NewPostgresFeeScheduleRepository(testDB))
 
 	// Rescan to get suggestions
 	result, err := importService.Rescan(context.Background())
@@ -1317,7 +1317,7 @@ func TestImportService_ProcessCSV_AutoMatch(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, warningRepo, repository.NewTxManager(testDB))
+	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, warningRepo, repository.NewTxManager(testDB), repository.NewPostgresFeeScheduleRepository(testDB))
 
 	csvContent := `Bezeichnung Auftragskonto;IBAN Auftragskonto;BIC Auftragskonto;Bankname Auftragskonto;Buchungstag;Valutadatum;Name Zahlungsbeteiligter;IBAN Zahlungsbeteiligter;BIC (SWIFT-Code) Zahlungsbeteiligter;Buchungstext;Verwendungszweck;Betrag;Waehrung;Saldo nach Buchung
 Test;DE1234;BIC;Bank;02.01.2026;02.01.2026;Test Zahler;TESTDE111222333444;BIC;Transfer;Essensgeld ` + memberNum + `;45,40;EUR;1000,00
@@ -1396,7 +1396,7 @@ func TestWarningAutoResolveOnMatch(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, warningRepo, repository.NewTxManager(testDB))
+	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, warningRepo, repository.NewTxManager(testDB), repository.NewPostgresFeeScheduleRepository(testDB))
 
 	// Create a warning for this transaction (as if ProcessCSV detected it)
 	warning := &domain.TransactionWarning{

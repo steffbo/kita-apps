@@ -55,6 +55,8 @@ import (
 // @tag.description Gebührenrechner
 // @tag.name Notes
 // @tag.description Notizen zu Kindern
+// @tag.name FeeSchedules
+// @tag.description Beitragsordnung (versioniert)
 
 func main() {
 	// Load .env file if it exists (for local development)
@@ -97,6 +99,7 @@ func main() {
 	emailLogRepo := repository.NewPostgresEmailLogRepository(db)
 	einstufungRepo := repository.NewPostgresEinstufungRepository(db)
 	childNoteRepo := repository.NewPostgresChildNoteRepository(db)
+	feeScheduleRepo := repository.NewPostgresFeeScheduleRepository(db)
 
 	// Initialize services
 	jwtService := auth.NewJWTService(cfg.JWT.Secret, cfg.JWT.AccessExpiry, cfg.JWT.RefreshExpiry, cfg.JWT.Issuer)
@@ -114,15 +117,16 @@ func main() {
 	parentService := service.NewParentService(parentRepo, childRepo, memberRepo, householdRepo)
 	householdService := service.NewHouseholdService(householdRepo, parentRepo, childRepo)
 	memberService := service.NewMemberService(memberRepo, householdRepo)
-	feeService := service.NewFeeService(feeRepo, childRepo, householdRepo, matchRepo, transactionRepo)
+	feeService := service.NewFeeService(feeRepo, childRepo, householdRepo, matchRepo, transactionRepo, feeScheduleRepo)
 	txManager := repository.NewTxManager(db)
-	importService := service.NewImportService(transactionRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, warningRepo, txManager)
+	importService := service.NewImportService(transactionRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, warningRepo, txManager, feeScheduleRepo)
 	childImportService := service.NewChildImportService(childRepo, parentRepo)
 	coverageService := service.NewCoverageService(feeRepo, childRepo, transactionRepo, matchRepo)
 	reminderService := service.NewReminderService(feeRepo, childRepo, householdRepo, settingsRepo, emailLogRepo, emailService)
 	stichtagService := service.NewStichtagsmeldungService(childRepo)
 	einstufungService := service.NewEinstufungService(einstufungRepo, householdRepo, childRepo, feeService)
 	childNoteService := service.NewChildNoteService(childNoteRepo, childService)
+	feeScheduleService := service.NewFeeScheduleService(feeScheduleRepo)
 
 	// Initialize handlers
 	handlers := &api.Handlers{
@@ -137,6 +141,7 @@ func main() {
 		Import:           handler.NewImportHandler(importService),
 		BankingSync:      handler.NewBankingSyncHandler(cfg.BankingSync.BaseURL, cfg.BankingSync.Token, cfg.BankingSync.Timeout),
 		Einstufung:       handler.NewEinstufungHandler(einstufungService),
+		FeeSchedule:      handler.NewFeeScheduleHandler(feeScheduleService),
 		Stichtagsmeldung: handler.NewStichtagsmeldungHandler(stichtagService),
 		JWTService:       jwtService,
 	}

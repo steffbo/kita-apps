@@ -18,10 +18,6 @@ import (
 )
 
 const (
-	// Fee combination amounts
-	foodWithReminderAmount       = domain.FoodFeeAmount + domain.ReminderFeeAmount                 // 55.40
-	membershipWithReminderAmount = domain.MembershipFeeAmount + domain.MembershipReminderFeeAmount // 35.00
-
 	// Late payment threshold: 15th day of the month
 	latePaymentDayThreshold = 15
 
@@ -44,6 +40,7 @@ type ImportService struct {
 	knownIBANRepo   repository.KnownIBANRepository
 	warningRepo     repository.WarningRepository
 	txm             *repository.TxManager
+	scheduleRepo    repository.FeeScheduleRepository
 }
 
 // NewImportService creates a new import service.
@@ -55,6 +52,7 @@ func NewImportService(
 	knownIBANRepo repository.KnownIBANRepository,
 	warningRepo repository.WarningRepository,
 	txm *repository.TxManager,
+	scheduleRepo repository.FeeScheduleRepository,
 ) *ImportService {
 	return &ImportService{
 		transactionRepo: transactionRepo,
@@ -64,6 +62,7 @@ func NewImportService(
 		knownIBANRepo:   knownIBANRepo,
 		warningRepo:     warningRepo,
 		txm:             txm,
+		scheduleRepo:    scheduleRepo,
 	}
 }
 
@@ -164,6 +163,11 @@ func (s *ImportService) ProcessCSV(ctx context.Context, file io.Reader, fileName
 		return nil, err
 	}
 
+	schedules, err := s.scheduleRepo.List(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("load fee schedules: %w", err)
+	}
+
 	batchID := uuid.New()
 	result := &ImportResult{
 		BatchID:   batchID,
@@ -213,7 +217,7 @@ func (s *ImportService) ProcessCSV(ctx context.Context, file io.Reader, fileName
 		result.Imported++
 
 		// Try to match
-		suggestion, warning := s.matchTransaction(ctx, tx, children)
+		suggestion, warning := s.matchTransaction(ctx, tx, children, schedules)
 		if suggestion != nil {
 			// High confidence with matching fee expectation(s) -> auto-confirm
 			if suggestion.Confidence >= autoMatchConfidenceThreshold && (suggestion.Expectation != nil || len(suggestion.Expectations) > 0) {
@@ -230,7 +234,7 @@ func (s *ImportService) ProcessCSV(ctx context.Context, file io.Reader, fileName
 			s.saveWarning(ctx, tx, warning, result)
 		} else {
 			// No match - check if trusted IBAN needs a warning
-			if w := s.checkForWarning(ctx, tx); w != nil {
+			if w := s.checkForWarning(ctx, tx, schedules); w != nil {
 				s.saveWarning(ctx, tx, w, result)
 			}
 		}
@@ -279,10 +283,10 @@ func (s *ImportService) saveWarning(ctx context.Context, tx domain.BankTransacti
 	}
 }
 
-func (s *ImportService) matchTransaction(ctx context.Context, tx domain.BankTransaction, children []domain.Child) (*domain.MatchSuggestion, *domain.TransactionWarning) {
+func (s *ImportService) matchTransaction(ctx context.Context, tx domain.BankTransaction, children []domain.Child, schedules domain.FeeSchedules) (*domain.MatchSuggestion, *domain.TransactionWarning) {
 	suggestion := &domain.MatchSuggestion{
 		Transaction:  tx,
-		DetectedType: s.detectFeeType(tx.Amount),
+		DetectedType: detectFeeType(tx.Amount, feeConfigAt(schedules, tx.BookingDate)),
 	}
 
 	matchText := buildMatchText(tx)
@@ -402,24 +406,28 @@ func findSiblings(child domain.Child, children []domain.Child) []domain.Child {
 	return siblings
 }
 
-func (s *ImportService) detectFeeType(amount float64) *domain.FeeType {
-	switch amount {
-	case domain.FoodFeeAmount:
-		feeType := domain.FeeTypeFood
-		return &feeType
-	case domain.MembershipFeeAmount:
-		feeType := domain.FeeTypeMembership
-		return &feeType
-	case foodWithReminderAmount:
-		feeType := domain.FeeTypeFood
-		return &feeType
-	case membershipWithReminderAmount:
-		feeType := domain.FeeTypeMembership
-		return &feeType
-	default:
-		feeType := domain.FeeTypeChildcare
-		return &feeType
+// feeConfigAt returns the fee schedule config valid at date, or nil if none.
+func feeConfigAt(schedules domain.FeeSchedules, date time.Time) *domain.FeeScheduleConfig {
+	schedule, err := schedules.At(date)
+	if err != nil {
+		return nil
 	}
+	return &schedule.Config
+}
+
+// detectFeeType guesses the fee type from the amount using the fee schedule
+// valid at the booking date. Unknown amounts are treated as childcare fees.
+func detectFeeType(amount float64, cfg *domain.FeeScheduleConfig) *domain.FeeType {
+	feeType := domain.FeeTypeChildcare
+	if cfg != nil {
+		switch amount {
+		case cfg.MonthlyFoodFee, cfg.MonthlyFoodFee + domain.ReminderFeeAmount:
+			feeType = domain.FeeTypeFood
+		case cfg.AnnualMembershipFee, cfg.AnnualMembershipFee + domain.MembershipReminderFeeAmount:
+			feeType = domain.FeeTypeMembership
+		}
+	}
+	return &feeType
 }
 
 func (s *ImportService) matchChild(matchText string, children []domain.Child, suggestion *domain.MatchSuggestion) {
@@ -581,7 +589,7 @@ func buildMatchText(tx domain.BankTransaction) string {
 }
 
 // checkForWarning checks if an unmatched transaction from a trusted IBAN should generate a warning.
-func (s *ImportService) checkForWarning(ctx context.Context, tx domain.BankTransaction) *domain.TransactionWarning {
+func (s *ImportService) checkForWarning(ctx context.Context, tx domain.BankTransaction, schedules domain.FeeSchedules) *domain.TransactionWarning {
 	if tx.PayerIBAN == nil {
 		return nil
 	}
@@ -605,7 +613,7 @@ func (s *ImportService) checkForWarning(ctx context.Context, tx domain.BankTrans
 		childID := *knownIBAN.ChildID
 
 		// Check for possible bulk payment (amount is multiple of known fee amounts)
-		bulkCount := s.checkBulkPayment(tx.Amount)
+		bulkCount := checkBulkPayment(tx.Amount, feeConfigAt(schedules, tx.BookingDate))
 		if bulkCount > 1 {
 			warning.WarningType = domain.WarningTypePossibleBulk
 			warning.Message = fmt.Sprintf("Betrag %.2f EUR könnte eine Sammelzahlung sein (%d Zahlungen)", tx.Amount, bulkCount)
@@ -652,14 +660,16 @@ func (s *ImportService) checkForWarning(ctx context.Context, tx domain.BankTrans
 }
 
 // checkBulkPayment checks if an amount could be a bulk payment of multiple fees.
-func (s *ImportService) checkBulkPayment(amount float64) int {
-	// Common fee amounts
-	foodFee := domain.FoodFeeAmount             // 45.40
-	membershipFee := domain.MembershipFeeAmount // 30.00
-	reminderFee := domain.ReminderFeeAmount     // 10.00
+func checkBulkPayment(amount float64, cfg *domain.FeeScheduleConfig) int {
+	if cfg == nil {
+		return 1
+	}
+	foodFee := cfg.MonthlyFoodFee
+	membershipFee := cfg.AnnualMembershipFee
+	reminderFee := domain.ReminderFeeAmount
 
 	// Check for exact multiples of food fee
-	if amount >= foodFee*2 {
+	if foodFee > 0 && amount >= foodFee*2 {
 		count := int(amount / foodFee)
 		if amount == foodFee*float64(count) {
 			return count
@@ -667,7 +677,7 @@ func (s *ImportService) checkBulkPayment(amount float64) int {
 	}
 
 	// Check for exact multiples of membership fee
-	if amount >= membershipFee*2 {
+	if membershipFee > 0 && amount >= membershipFee*2 {
 		count := int(amount / membershipFee)
 		if amount == membershipFee*float64(count) {
 			return count
@@ -825,10 +835,15 @@ func (s *ImportService) Rescan(ctx context.Context) (*RescanResult, error) {
 		return nil, err
 	}
 
+	schedules, err := s.scheduleRepo.List(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("load fee schedules: %w", err)
+	}
+
 	// Re-scan each transaction
 	for _, tx := range transactions {
 		result.Scanned++
-		suggestion, warning := s.matchTransaction(ctx, tx, children)
+		suggestion, warning := s.matchTransaction(ctx, tx, children, schedules)
 
 		if warning != nil {
 			if s.warningRepo != nil {
@@ -1205,6 +1220,11 @@ func (s *ImportService) GetUnmatchedSuggestionsForChild(ctx context.Context, chi
 		return nil, err
 	}
 
+	schedules, err := s.scheduleRepo.List(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("load fee schedules: %w", err)
+	}
+
 	result := &ChildUnmatchedSuggestionsResult{
 		ChildID: childID,
 	}
@@ -1213,7 +1233,7 @@ func (s *ImportService) GetUnmatchedSuggestionsForChild(ctx context.Context, chi
 		result.Scanned++
 		suggestion := &domain.MatchSuggestion{
 			Transaction:  tx,
-			DetectedType: s.detectFeeType(tx.Amount),
+			DetectedType: detectFeeType(tx.Amount, feeConfigAt(schedules, tx.BookingDate)),
 		}
 
 		s.matchChild(buildMatchText(tx), children, suggestion)
@@ -1684,18 +1704,24 @@ func (s *ImportService) GetSuggestionsForTransaction(ctx context.Context, transa
 		return nil, ErrNotFound
 	}
 
-	// Get all children for matching
-	children, _, _ := s.childRepo.List(ctx, true, false, false, false, "", "", "", 0, 1000)
-	s.enrichChildrenWithParents(ctx, children)
+	children, err := s.loadMatchingChildren(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	schedules, err := s.scheduleRepo.List(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("load fee schedules: %w", err)
+	}
 
 	// Run matching algorithm
-	suggestion, warning := s.matchTransaction(ctx, *tx, children)
+	suggestion, warning := s.matchTransaction(ctx, *tx, children, schedules)
 	if suggestion == nil && warning != nil && warning.WarningType == domain.WarningTypeMultipleOpenFees {
 		// Provide child/type confidence even when multiple open fees exist,
 		// so the manual matching UI can still surface high-confidence candidates.
 		fallback := &domain.MatchSuggestion{
 			Transaction:  *tx,
-			DetectedType: s.detectFeeType(tx.Amount),
+			DetectedType: detectFeeType(tx.Amount, feeConfigAt(schedules, tx.BookingDate)),
 		}
 		s.matchTrustedIBAN(ctx, *tx, children, fallback)
 		if fallback.Child == nil {

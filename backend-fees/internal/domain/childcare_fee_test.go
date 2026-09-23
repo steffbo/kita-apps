@@ -1,4 +1,4 @@
-package service
+package domain_test
 
 import (
 	"math"
@@ -8,7 +8,7 @@ import (
 )
 
 func TestCalculateChildcareFee(t *testing.T) {
-	s := &FeeService{} // No dependencies needed for fee calculation
+	s := testFeeScheduleConfig()
 
 	tests := []struct {
 		name            string
@@ -384,7 +384,7 @@ func TestCalculateChildcareFee(t *testing.T) {
 }
 
 func TestCalculateChildcareFee_DiscountFactors(t *testing.T) {
-	s := &FeeService{}
+	s := testFeeScheduleConfig()
 
 	tests := []struct {
 		siblingsCount           int
@@ -421,7 +421,7 @@ func TestCalculateChildcareFee_DiscountFactors(t *testing.T) {
 }
 
 func TestCalculateChildcareFee_ShowEntlastung(t *testing.T) {
-	s := &FeeService{}
+	s := testFeeScheduleConfig()
 
 	tests := []struct {
 		name           string
@@ -493,7 +493,7 @@ func TestCalculateChildcareFee_ShowEntlastung(t *testing.T) {
 }
 
 func TestCalculateChildcareFee_DefaultValues(t *testing.T) {
-	s := &FeeService{}
+	s := testFeeScheduleConfig()
 
 	// Test with zero/default values
 	result := s.CalculateChildcareFee(domain.ChildcareFeeInput{
@@ -528,9 +528,9 @@ func TestHoursToIndex(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run("hours_"+string(rune('0'+tt.hours/10))+string(rune('0'+tt.hours%10)), func(t *testing.T) {
-			result := hoursToIndex(tt.hours)
+			result := domain.HoursToIndex(tt.hours)
 			if result != tt.expected {
-				t.Errorf("hoursToIndex(%d): got %d, want %d", tt.hours, result, tt.expected)
+				t.Errorf("domain.HoursToIndex(%d): got %d, want %d", tt.hours, result, tt.expected)
 			}
 		})
 	}
@@ -566,7 +566,7 @@ func TestFindRateInTable(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run("", func(t *testing.T) {
-			result := findRateInTable(domain.FeeTableKrippeEntlastung, tt.income, tt.hours)
+			result := domain.FindRateInTable(testFeeScheduleConfig().EntlastungTable, tt.income, tt.hours)
 			if math.Abs(result-tt.expected) > 0.01 {
 				t.Errorf("findRateInTable(Entlastung, %v, %d): got %v, want %v", tt.income, tt.hours, result, tt.expected)
 			}
@@ -575,7 +575,7 @@ func TestFindRateInTable(t *testing.T) {
 }
 
 func TestCalculateChildcareFee_FosterFamily(t *testing.T) {
-	s := &FeeService{}
+	s := testFeeScheduleConfig()
 
 	// Calculate expected average for 45h (index 3)
 	// Sum of all 13 rows in FeeTableKrippeSatzung at index 3:
@@ -689,7 +689,7 @@ func TestCalculateAverageSatzungRate(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run("hours_"+string(rune('0'+tt.hours/10))+string(rune('0'+tt.hours%10)), func(t *testing.T) {
-			result := calculateAverageSatzungRate(tt.hours)
+			result := domain.AverageSatzungRate(testFeeScheduleConfig(), tt.hours)
 			if math.Abs(result-tt.expectedAvg) > tt.tolerance {
 				t.Errorf("calculateAverageSatzungRate(%d): got %v, want %v", tt.hours, result, tt.expectedAvg)
 			}
@@ -714,7 +714,7 @@ func TestGetSiblingDiscountFactor(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run("", func(t *testing.T) {
-			result := getSiblingDiscountFactor(tt.siblings, 6)
+			result := domain.SiblingDiscountFactor(testFeeScheduleConfig(), tt.siblings)
 			if math.Abs(result-tt.expected) > 0.001 {
 				t.Errorf("getSiblingDiscountFactor(%d): got %v, want %v", tt.siblings, result, tt.expected)
 			}

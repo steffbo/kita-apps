@@ -554,8 +554,9 @@ func (h *FeeHandler) CreateReminder(w http.ResponseWriter, r *http.Request) {
 // @Param careHours query int false "Weekly care hours" default(30) Enums(30, 35, 40, 45, 50, 55)
 // @Param highestRate query bool false "Apply highest rate" default(false)
 // @Param fosterFamily query bool false "Foster family (uses average rate)" default(false)
+// @Param date query string false "Reference date (YYYY-MM-DD) selecting the fee schedule; default today"
 // @Success 200 {object} domain.ChildcareFeeResult "Calculated fee"
-// @Failure 400 {object} response.ErrorBody "Invalid income value"
+// @Failure 400 {object} response.ErrorBody "Invalid income value or date"
 // @Failure 401 {object} response.ErrorBody "Not authenticated"
 // @Router /childcare-fee/calculate [get]
 func (h *FeeHandler) CalculateChildcareFee(w http.ResponseWriter, r *http.Request) {
@@ -616,9 +617,22 @@ func (h *FeeHandler) CalculateChildcareFee(w http.ResponseWriter, r *http.Reques
 		FosterFamily:  fosterFamily,
 	}
 
-	result := h.feeService.CalculateChildcareFee(input)
+	date := util.Today()
+	if dateStr := request.GetQueryString(r, "date", ""); dateStr != "" {
+		parsed, err := time.Parse("2006-01-02", dateStr)
+		if err != nil {
+			response.BadRequest(w, "invalid date format (expected YYYY-MM-DD)")
+			return
+		}
+		date = parsed
+	}
+	schedule, err := h.feeService.ScheduleAt(r.Context(), date)
+	if err != nil {
+		response.InternalError(w, "failed to load fee schedule: "+err.Error())
+		return
+	}
 
-	response.Success(w, result)
+	response.Success(w, schedule.Config.CalculateChildcareFee(input))
 }
 
 func parseSelectedHouseholdIDs(w http.ResponseWriter, r *http.Request) ([]uuid.UUID, bool) {

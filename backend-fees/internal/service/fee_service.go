@@ -21,6 +21,7 @@ type FeeService struct {
 	householdRepo   repository.HouseholdRepository
 	matchRepo       repository.MatchRepository
 	transactionRepo repository.TransactionRepository
+	scheduleRepo    repository.FeeScheduleRepository
 }
 
 // NewFeeService creates a new fee service.
@@ -30,6 +31,7 @@ func NewFeeService(
 	householdRepo repository.HouseholdRepository,
 	matchRepo repository.MatchRepository,
 	transactionRepo repository.TransactionRepository,
+	scheduleRepo repository.FeeScheduleRepository,
 ) *FeeService {
 	return &FeeService{
 		feeRepo:         feeRepo,
@@ -37,7 +39,18 @@ func NewFeeService(
 		householdRepo:   householdRepo,
 		matchRepo:       matchRepo,
 		transactionRepo: transactionRepo,
+		scheduleRepo:    scheduleRepo,
 	}
+}
+
+// ScheduleAt returns the fee schedule (Elternbeitragsordnung) valid at date.
+func (s *FeeService) ScheduleAt(ctx context.Context, date time.Time) (*domain.FeeSchedule, error) {
+	return s.scheduleRepo.GetAt(ctx, date)
+}
+
+// Schedules returns all fee schedule versions, e.g. to evaluate many months at once.
+func (s *FeeService) Schedules(ctx context.Context) (domain.FeeSchedules, error) {
+	return s.scheduleRepo.List(ctx)
 }
 
 // FeeFilter defines filters for listing fees.
@@ -232,6 +245,10 @@ func (s *FeeService) Generate(ctx context.Context, year int, month *int) (*Gener
 	periodStart := time.Date(year, time.Month(*month), 1, 0, 0, 0, 0, time.UTC)
 	periodEnd := periodStart.AddDate(0, 1, 0)
 	dueDate := time.Date(year, time.Month(*month), 5, 0, 0, 0, 0, time.UTC)
+	schedule, err := s.ScheduleAt(ctx, periodStart)
+	if err != nil {
+		return nil, err
+	}
 
 	for _, child := range children {
 		if !child.EntryDate.Before(periodEnd) || (child.ExitDate != nil && child.ExitDate.Before(periodStart)) {
@@ -239,7 +256,7 @@ func (s *FeeService) Generate(ctx context.Context, year int, month *int) (*Gener
 		}
 
 		// Food fee (all children)
-		foodAmount := domain.ContributionAmountForMonth(domain.FoodFeeAmount, child.EntryDate, year, time.Month(*month))
+		foodAmount := domain.ContributionAmountForMonth(schedule.Config.MonthlyFoodFee, child.EntryDate, year, time.Month(*month))
 		created, err := s.createFeeIfNotExists(ctx, child.ID, child.HouseholdID, domain.FeeTypeFood, year, month, foodAmount, dueDate)
 		if err != nil {
 			return nil, err
@@ -258,7 +275,7 @@ func (s *FeeService) Generate(ctx context.Context, year int, month *int) (*Gener
 			// Care hours effective in the billed month (falls back to the default when unknown)
 			careHours := s.ResolveCareHours(ctx, &child, year, month)
 
-			feeResult := s.CalculateChildcareFee(domain.ChildcareFeeInput{
+			feeResult := schedule.Config.CalculateChildcareFee(domain.ChildcareFeeInput{
 				ChildAgeType:  domain.ChildAgeTypeKrippe,
 				NetIncome:     info.Income,
 				SiblingsCount: info.SiblingsCount,
@@ -404,6 +421,12 @@ func (s *FeeService) SyncChildcareExpectationsFrom(ctx context.Context, childID 
 func (s *FeeService) generateYearlyMembershipFees(ctx context.Context, year int, children []domain.Child) (*GenerateResult, error) {
 	result := &GenerateResult{}
 	dueDate := time.Date(year, 3, 31, 0, 0, 0, 0, time.UTC)
+	// The annual membership fee follows the schedule in effect on 1 January.
+	schedule, err := s.ScheduleAt(ctx, time.Date(year, 1, 1, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		return nil, err
+	}
+	membershipFee := schedule.Config.AnnualMembershipFee
 
 	groupedByHousehold := make(map[uuid.UUID][]domain.Child)
 	childrenWithoutHousehold := make([]domain.Child, 0)
@@ -449,7 +472,7 @@ func (s *FeeService) generateYearlyMembershipFees(ctx context.Context, year int,
 		}
 
 		representativeChild := pickRepresentativeChildForMembership(householdChildren)
-		created, err := s.createFeeIfNotExists(ctx, representativeChild.ID, &householdID, domain.FeeTypeMembership, year, nil, domain.MembershipFeeAmount, dueDate)
+		created, err := s.createFeeIfNotExists(ctx, representativeChild.ID, &householdID, domain.FeeTypeMembership, year, nil, membershipFee, dueDate)
 		if err != nil {
 			return nil, err
 		}
@@ -466,7 +489,7 @@ func (s *FeeService) generateYearlyMembershipFees(ctx context.Context, year int,
 
 	// Legacy fallback: if no household linkage exists, keep per-child generation.
 	for _, child := range childrenWithoutHousehold {
-		created, err := s.createFeeIfNotExists(ctx, child.ID, nil, domain.FeeTypeMembership, year, nil, domain.MembershipFeeAmount, dueDate)
+		created, err := s.createFeeIfNotExists(ctx, child.ID, nil, domain.FeeTypeMembership, year, nil, membershipFee, dueDate)
 		if err != nil {
 			return nil, err
 		}
@@ -567,215 +590,6 @@ func (s *FeeService) Delete(ctx context.Context, id uuid.UUID) error {
 	return s.feeRepo.Delete(ctx, id)
 }
 
-// CalculateChildcareFee calculates the childcare fee (Platzgeld) based on income,
-// care hours, number of siblings, and child age type.
-func (s *FeeService) CalculateChildcareFee(input domain.ChildcareFeeInput) *domain.ChildcareFeeResult {
-	limits := domain.ChildcareFeeLimits
-	meta := domain.ChildcareFeeMeta
-
-	// Default values
-	if input.SiblingsCount < 1 {
-		input.SiblingsCount = 1
-	}
-	if input.CareHours == 0 {
-		input.CareHours = 30
-	}
-
-	// Kindergarten (>= 3 years) is free in Brandenburg
-	if input.ChildAgeType == domain.ChildAgeTypeKindergarten {
-		return &domain.ChildcareFeeResult{
-			Fee:             0,
-			BaseFee:         0,
-			Rule:            "Beitragsfrei (ab 3 Jahren)",
-			DiscountFactor:  1.0,
-			DiscountPercent: 0,
-			ShowEntlastung:  false,
-			Notes:           []string{"Die Betreuung im Kindergartenalter ist in Brandenburg beitragsfrei."},
-		}
-	}
-
-	// Krippe (< 3 years)
-
-	// Foster family: average of all Satzung rates for the care hours (no sibling discount)
-	if input.FosterFamily {
-		avgFee := calculateAverageSatzungRate(input.CareHours)
-		return &domain.ChildcareFeeResult{
-			Fee:             roundToTwoDecimals(avgFee),
-			BaseFee:         avgFee,
-			Rule:            "Pflegefamilie (Durchschnittsbeitrag)",
-			DiscountFactor:  1.0,
-			DiscountPercent: 0,
-			ShowEntlastung:  false,
-			Notes:           []string{"Beitrag ist der Durchschnitt aller Sätze für die entsprechende Betreuungszeit."},
-		}
-	}
-
-	// 7+ children: free
-	if input.SiblingsCount >= meta.SiblingsFreeThreshold {
-		return &domain.ChildcareFeeResult{
-			Fee:             0,
-			BaseFee:         0,
-			Rule:            "Beitragsfrei (≥ 7 Kinder)",
-			DiscountFactor:  1.0,
-			DiscountPercent: 0,
-			ShowEntlastung:  false,
-			Notes:           []string{"Bei 7 oder mehr unterhaltsberechtigten Kindern entfällt der Elternbeitrag."},
-		}
-	}
-
-	// Highest rate voluntarily chosen (no income check, but sibling discount applies)
-	if input.HighestRate {
-		lastRow := domain.FeeTableKrippeSatzung[len(domain.FeeTableKrippeSatzung)-1]
-		baseFee := findRate(lastRow.Rates[:], input.CareHours)
-		discountFactor := getSiblingDiscountFactor(input.SiblingsCount, meta.MaxSiblingsForDiscount)
-		fee := baseFee * discountFactor
-		discountPercent := int(math.Round((1 - discountFactor) * 100))
-
-		notes := []string{}
-		if input.SiblingsCount > 1 && discountFactor < 1.0 {
-			notes = append(notes, "Geschwisterermäßigung berücksichtigt.")
-		}
-
-		return &domain.ChildcareFeeResult{
-			Fee:             roundToTwoDecimals(fee),
-			BaseFee:         baseFee,
-			Rule:            "Höchstsatz (Satzung U3)",
-			DiscountFactor:  discountFactor,
-			DiscountPercent: discountPercent,
-			ShowEntlastung:  false,
-			Notes:           notes,
-		}
-	}
-
-	// Income <= 35,000: free
-	if input.NetIncome <= limits.MinIncomeFreeU3 {
-		return &domain.ChildcareFeeResult{
-			Fee:             0,
-			BaseFee:         0,
-			Rule:            "Beitragsfrei (Einkommen ≤ 35.000 EUR)",
-			DiscountFactor:  1.0,
-			DiscountPercent: 0,
-			ShowEntlastung:  true,
-			Notes:           []string{"Gemäß Elternbeitragsentlastungsgesetz."},
-		}
-	}
-
-	// Entlastung bracket: 35,000.01 - 55,000.00 (no sibling discount)
-	if input.NetIncome >= limits.MinIncomeEntlastungU3 && input.NetIncome <= limits.MaxIncomeEntlastungU3 {
-		baseFee := findRateInTable(domain.FeeTableKrippeEntlastung, input.NetIncome, input.CareHours)
-		return &domain.ChildcareFeeResult{
-			Fee:             baseFee,
-			BaseFee:         baseFee,
-			Rule:            "Reduzierter Beitrag (Entlastung U3)",
-			DiscountFactor:  1.0,
-			DiscountPercent: 0,
-			ShowEntlastung:  true,
-			Notes: []string{
-				"Kein zusätzlicher Geschwisterrabatt in diesem Einkommensbereich.",
-				"Rechtsgrundlage: Elternbeitragsentlastungsgesetz.",
-			},
-		}
-	}
-
-	// Satzung bracket: >= 55,000.01 (sibling discount applies)
-	if input.NetIncome >= limits.MinIncomeSatzungU3 {
-		baseFee := findRateInTable(domain.FeeTableKrippeSatzung, input.NetIncome, input.CareHours)
-		discountFactor := getSiblingDiscountFactor(input.SiblingsCount, meta.MaxSiblingsForDiscount)
-		fee := baseFee * discountFactor
-		discountPercent := int(math.Round((1 - discountFactor) * 100))
-
-		notes := []string{}
-		if input.SiblingsCount > 1 && discountFactor < 1.0 {
-			notes = append(notes, "Geschwisterermäßigung berücksichtigt.")
-		}
-
-		return &domain.ChildcareFeeResult{
-			Fee:             roundToTwoDecimals(fee),
-			BaseFee:         baseFee,
-			Rule:            "Regulärer Beitrag (Satzung U3)",
-			DiscountFactor:  discountFactor,
-			DiscountPercent: discountPercent,
-			ShowEntlastung:  false,
-			Notes:           notes,
-		}
-	}
-
-	// Fallback (should not occur, covered by <= 35k)
-	return &domain.ChildcareFeeResult{
-		Fee:             0,
-		BaseFee:         0,
-		Rule:            "Beitragsfrei (Einkommen U3 < 35k)",
-		DiscountFactor:  1.0,
-		DiscountPercent: 0,
-		ShowEntlastung:  true,
-		Notes:           []string{},
-	}
-}
-
-// hoursToIndex maps care hours (30, 35, 40, 45, 50, 55) to array index (0-5).
-func hoursToIndex(hours int) int {
-	idx := (hours - 30) / 5
-	if idx < 0 {
-		return 0
-	}
-	if idx > 5 {
-		return 5
-	}
-	return idx
-}
-
-// findRate finds the rate for the given hours from a rates array.
-func findRate(rates []float64, hours int) float64 {
-	idx := hoursToIndex(hours)
-	if idx >= 0 && idx < len(rates) {
-		return rates[idx]
-	}
-	return 0
-}
-
-// findRateInTable finds the appropriate rate from a fee table based on income and hours.
-func findRateInTable(table []domain.FeeTableRow, income float64, hours int) float64 {
-	idx := hoursToIndex(hours)
-
-	// Find last bracket where income >= minIncome
-	for i := len(table) - 1; i >= 0; i-- {
-		if income >= table[i].MinIncome {
-			return table[i].Rates[idx]
-		}
-	}
-
-	return 0
-}
-
-// calculateAverageSatzungRate calculates the average of all Satzung rates for the given care hours.
-// Used for foster family fee calculation.
-func calculateAverageSatzungRate(hours int) float64 {
-	idx := hoursToIndex(hours)
-	table := domain.FeeTableKrippeSatzung
-
-	var sum float64
-	for _, row := range table {
-		sum += row.Rates[idx]
-	}
-
-	if len(table) == 0 {
-		return 0
-	}
-
-	return sum / float64(len(table))
-}
-
-// getSiblingDiscountFactor returns the discount factor based on number of siblings.
-func getSiblingDiscountFactor(siblingsCount, maxForDiscount int) float64 {
-	if siblingsCount > maxForDiscount {
-		siblingsCount = maxForDiscount
-	}
-	if factor, ok := domain.SiblingDiscount[siblingsCount]; ok {
-		return factor
-	}
-	return 1.0
-}
-
 // roundToTwoDecimals rounds a float to two decimal places.
 func roundToTwoDecimals(val float64) float64 {
 	return float64(int(val*100+0.5)) / 100
@@ -820,16 +634,24 @@ func (s *FeeService) Create(ctx context.Context, input CreateFeeInput) (*domain.
 		amount = *input.Amount
 	} else {
 		// Calculate default amount based on fee type
+		scheduleDate := time.Date(input.Year, 1, 1, 0, 0, 0, 0, time.UTC)
+		if input.Month != nil {
+			scheduleDate = time.Date(input.Year, time.Month(*input.Month), 1, 0, 0, 0, 0, time.UTC)
+		}
+		schedule, err := s.ScheduleAt(ctx, scheduleDate)
+		if err != nil {
+			return nil, err
+		}
 		switch input.FeeType {
 		case domain.FeeTypeFood:
-			amount = domain.FoodFeeAmount
+			amount = schedule.Config.MonthlyFoodFee
 		case domain.FeeTypeMembership:
-			amount = domain.MembershipFeeAmount
+			amount = schedule.Config.AnnualMembershipFee
 		case domain.FeeTypeReminder:
 			amount = domain.ReminderFeeAmount
 		case domain.FeeTypeChildcare:
 			// Calculate childcare fee based on household income
-			amount = s.calculateChildcareFeeForChild(ctx, child, input.Year, input.Month)
+			amount = s.calculateChildcareFeeForChild(ctx, schedule, child, input.Year, input.Month)
 		default:
 			return nil, ErrInvalidInput
 		}
@@ -873,7 +695,7 @@ func (s *FeeService) Create(ctx context.Context, input CreateFeeInput) (*domain.
 }
 
 // calculateChildcareFeeForChild calculates the childcare fee for a specific child.
-func (s *FeeService) calculateChildcareFeeForChild(ctx context.Context, child *domain.Child, year int, month *int) float64 {
+func (s *FeeService) calculateChildcareFeeForChild(ctx context.Context, schedule *domain.FeeSchedule, child *domain.Child, year int, month *int) float64 {
 	// Only U3 children pay childcare fees
 	// If child turns 3 at any point during the month, no childcare fee is charged
 	if month != nil {
@@ -892,7 +714,7 @@ func (s *FeeService) calculateChildcareFeeForChild(ctx context.Context, child *d
 	// Care hours effective in the billed month (falls back to the default when unknown)
 	careHours := s.ResolveCareHours(ctx, child, year, month)
 
-	feeResult := s.CalculateChildcareFee(domain.ChildcareFeeInput{
+	feeResult := schedule.Config.CalculateChildcareFee(domain.ChildcareFeeInput{
 		ChildAgeType:  domain.ChildAgeTypeKrippe,
 		NetIncome:     info.Income,
 		SiblingsCount: info.SiblingsCount,

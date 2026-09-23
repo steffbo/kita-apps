@@ -77,6 +77,11 @@ const router = createRouter({
           component: () => import('@/pages/AutomationPage.vue'),
         },
         {
+          path: 'beitragsordnung',
+          name: 'fee-schedules',
+          component: () => import('@/pages/FeeSchedulesPage.vue'),
+        },
+        {
           path: 'einstufungen',
           name: 'einstufungen',
           component: () => import('@/pages/EinstufungenPage.vue'),

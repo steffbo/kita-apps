@@ -1,71 +1,136 @@
 package domain
 
-// ChildcareFeeLimits defines income limits for fee calculation.
-var ChildcareFeeLimits = struct {
-	MinIncomeFreeU3       float64 // Income <= this is free
-	MinIncomeEntlastungU3 float64 // Start of "Entlastung" bracket
-	MaxIncomeEntlastungU3 float64 // End of "Entlastung" bracket
-	MinIncomeSatzungU3    float64 // Start of "Satzung" bracket
-}{
-	MinIncomeFreeU3:       35000.00,
-	MinIncomeEntlastungU3: 35000.01,
-	MaxIncomeEntlastungU3: 55000.00,
-	MinIncomeSatzungU3:    55000.01,
-}
+import (
+	"database/sql/driver"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"math"
+	"sort"
+	"strconv"
+	"strings"
+	"time"
 
-// ChildcareFeeMeta defines metadata constants.
-var ChildcareFeeMeta = struct {
-	KigaAgeThreshold       int
-	MaxSiblingsForDiscount int
-	SiblingsFreeThreshold  int
-}{
-	KigaAgeThreshold:       3,
-	MaxSiblingsForDiscount: 6,
-	SiblingsFreeThreshold:  7,
-}
+	"github.com/google/uuid"
+)
 
-// FeeTableRow represents a row in the fee table.
+// CareHourSteps are the weekly care hours the fee tables have columns for.
+var CareHourSteps = [6]int{30, 35, 40, 45, 50, 55}
+
+// FeeTableRow is one income bracket of a fee table.
 type FeeTableRow struct {
-	MinIncome float64
-	Rates     [6]float64 // Rates for 30, 35, 40, 45, 50, 55 hours
+	MinIncome float64    `json:"minIncome"`
+	Rates     [6]float64 `json:"rates"` // monthly rates for CareHourSteps
+} //@name FeeTableRow
+
+// FeeScheduleConfig holds all amounts of one version of the fee regulation
+// (Elternbeitragsordnung). Brackets are evaluated as:
+//
+//	income <= FreeIncomeLimit                     → free
+//	FreeIncomeLimit < income <= EntlastungLimit   → EntlastungTable (no sibling discount)
+//	income > EntlastungIncomeLimit                → SatzungTable (sibling discount)
+//
+// The last SatzungTable row is the highest rate; the average of all SatzungTable
+// rows is the foster family rate.
+type FeeScheduleConfig struct {
+	FreeIncomeLimit       float64       `json:"freeIncomeLimit"`
+	EntlastungIncomeLimit float64       `json:"entlastungIncomeLimit"`
+	EntlastungTable       []FeeTableRow `json:"entlastungTable"`
+	SatzungTable          []FeeTableRow `json:"satzungTable"`
+	// SiblingDiscountFactors[i] applies to i+1 children; more children use the last factor.
+	SiblingDiscountFactors []float64 `json:"siblingDiscountFactors"`
+	// From this many children on, the childcare fee is waived.
+	SiblingsFreeThreshold int     `json:"siblingsFreeThreshold"`
+	MonthlyFoodFee        float64 `json:"monthlyFoodFee"`
+	AnnualMembershipFee   float64 `json:"annualMembershipFee"`
+} //@name FeeScheduleConfig
+
+// FeeSchedule is a version of the fee regulation, valid from ValidFrom until the
+// next version starts.
+type FeeSchedule struct {
+	ID        uuid.UUID         `json:"id" db:"id"`
+	ValidFrom time.Time         `json:"validFrom" db:"valid_from"`
+	Name      string            `json:"name" db:"name"`
+	Config    FeeScheduleConfig `json:"config" db:"config"`
+	CreatedAt time.Time         `json:"createdAt" db:"created_at"`
+	UpdatedAt time.Time         `json:"updatedAt" db:"updated_at"`
+} //@name FeeSchedule
+
+// ErrNoFeeSchedule is returned when no fee schedule covers a date.
+var ErrNoFeeSchedule = errors.New("no fee schedule valid at this date")
+
+// FeeSchedules is a list of fee schedule versions.
+type FeeSchedules []FeeSchedule
+
+// At returns the version valid at date (the latest one starting on or before it).
+func (s FeeSchedules) At(date time.Time) (*FeeSchedule, error) {
+	day := time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.UTC)
+	var found *FeeSchedule
+	for i := range s {
+		if !s[i].ValidFrom.After(day) && (found == nil || s[i].ValidFrom.After(found.ValidFrom)) {
+			found = &s[i]
+		}
+	}
+	if found == nil {
+		return nil, fmt.Errorf("%w: %s", ErrNoFeeSchedule, day.Format("2006-01-02"))
+	}
+	return found, nil
 }
 
-// FeeTableKrippeSatzung is the fee table for U3 children (regular/Satzung bracket).
-// Income > 55,000 EUR or income >= 20,000.01 when voluntarily choosing highest rate.
-var FeeTableKrippeSatzung = []FeeTableRow{
-	{MinIncome: 20000.01, Rates: [6]float64{55.52, 62.46, 69.40, 76.34, 83.28, 90.22}},
-	{MinIncome: 22000.00, Rates: [6]float64{77.73, 87.44, 97.16, 106.88, 116.59, 126.31}},
-	{MinIncome: 25000.00, Rates: [6]float64{107.25, 120.66, 134.07, 147.48, 160.88, 174.29}},
-	{MinIncome: 28000.00, Rates: [6]float64{141.32, 158.99, 176.65, 194.32, 211.99, 229.65}},
-	{MinIncome: 31000.00, Rates: [6]float64{156.47, 176.02, 195.58, 215.14, 234.70, 254.26}},
-	{MinIncome: 34000.00, Rates: [6]float64{171.61, 193.06, 214.51, 235.96, 257.41, 278.86}},
-	{MinIncome: 37000.00, Rates: [6]float64{186.75, 210.09, 233.44, 256.78, 280.12, 303.47}},
-	{MinIncome: 40000.00, Rates: [6]float64{201.89, 227.13, 252.36, 277.60, 302.84, 328.07}},
-	{MinIncome: 43000.00, Rates: [6]float64{217.03, 244.16, 271.29, 298.42, 325.55, 352.68}},
-	{MinIncome: 46000.00, Rates: [6]float64{232.17, 261.20, 290.22, 319.24, 348.26, 377.28}},
-	{MinIncome: 49000.00, Rates: [6]float64{247.32, 278.23, 309.15, 340.06, 370.97, 401.89}},
-	{MinIncome: 52000.00, Rates: [6]float64{262.46, 295.27, 328.07, 360.88, 393.69, 426.49}},
-	{MinIncome: 55000.01, Rates: [6]float64{277.60, 312.30, 347.00, 381.70, 416.40, 451.10}},
+// Validate checks that the configuration is complete and consistent.
+func (c FeeScheduleConfig) Validate() error {
+	var problems []string
+	if c.FreeIncomeLimit < 0 {
+		problems = append(problems, "Beitragsfrei-Grenze darf nicht negativ sein")
+	}
+	if c.EntlastungIncomeLimit < c.FreeIncomeLimit {
+		problems = append(problems, "Entlastungs-Grenze muss mindestens so hoch wie die Beitragsfrei-Grenze sein")
+	}
+	problems = append(problems, validateFeeTable("Entlastungstabelle", c.EntlastungTable)...)
+	problems = append(problems, validateFeeTable("Satzungstabelle", c.SatzungTable)...)
+	if len(c.SiblingDiscountFactors) == 0 {
+		problems = append(problems, "Geschwisterermäßigung braucht mindestens einen Faktor")
+	}
+	for i, f := range c.SiblingDiscountFactors {
+		if f <= 0 || f > 1 {
+			problems = append(problems, fmt.Sprintf("Geschwisterfaktor für %d Kinder muss zwischen 0 und 1 liegen", i+1))
+		}
+	}
+	if c.SiblingsFreeThreshold < 1 {
+		problems = append(problems, "Beitragsfreiheit ab Kinderzahl muss mindestens 1 sein")
+	}
+	if c.MonthlyFoodFee < 0 || c.AnnualMembershipFee < 0 {
+		problems = append(problems, "Essensgeld und Mitgliedsbeitrag dürfen nicht negativ sein")
+	}
+	if len(problems) > 0 {
+		return errors.New(strings.Join(problems, "; "))
+	}
+	return nil
 }
 
-// FeeTableKrippeEntlastung is the fee table for U3 children (Entlastung bracket).
-// Income between 35,000.01 and 55,000.00 EUR (no sibling discount in this bracket).
-var FeeTableKrippeEntlastung = []FeeTableRow{
-	{MinIncome: 35000.01, Rates: [6]float64{48.00, 54.00, 60.00, 66.00, 72.00, 78.00}},
-	{MinIncome: 40000.01, Rates: [6]float64{80.00, 90.00, 100.00, 110.00, 120.00, 130.00}},
-	{MinIncome: 45000.01, Rates: [6]float64{120.00, 135.00, 150.00, 165.00, 180.00, 195.00}},
-	{MinIncome: 50000.01, Rates: [6]float64{168.00, 189.00, 210.00, 231.00, 252.00, 273.00}},
+func validateFeeTable(name string, table []FeeTableRow) []string {
+	if len(table) == 0 {
+		return []string{name + " braucht mindestens eine Zeile"}
+	}
+	var problems []string
+	for i, row := range table {
+		if i > 0 && row.MinIncome <= table[i-1].MinIncome {
+			problems = append(problems, fmt.Sprintf("%s: Einkommensgrenzen müssen aufsteigend sein (Zeile %d)", name, i+1))
+		}
+		for _, rate := range row.Rates {
+			if rate < 0 {
+				problems = append(problems, fmt.Sprintf("%s: negative Beträge in Zeile %d", name, i+1))
+				break
+			}
+		}
+	}
+	return problems
 }
 
-// SiblingDiscount maps number of children to discount factor.
-// 1 child = 100%, 2 children = 90%, etc.
-var SiblingDiscount = map[int]float64{
-	1: 1.00,
-	2: 0.90,
-	3: 0.80,
-	4: 0.65,
-	5: 0.45,
-	6: 0.25,
+// Normalize sorts the tables by income so lookups work regardless of input order.
+func (c *FeeScheduleConfig) Normalize() {
+	sort.SliceStable(c.EntlastungTable, func(i, j int) bool { return c.EntlastungTable[i].MinIncome < c.EntlastungTable[j].MinIncome })
+	sort.SliceStable(c.SatzungTable, func(i, j int) bool { return c.SatzungTable[i].MinIncome < c.SatzungTable[j].MinIncome })
 }
 
 // ChildAgeType represents whether a child is in Krippe or Kindergarten.
@@ -95,4 +160,188 @@ type ChildcareFeeResult struct {
 	DiscountPercent int      `json:"discountPercent"` // Discount as percentage
 	ShowEntlastung  bool     `json:"showEntlastung"`  // Show link to Entlastung info
 	Notes           []string `json:"notes"`           // Additional explanatory notes
+}
+
+// CalculateChildcareFee calculates the monthly childcare fee (Platzgeld) based on
+// income, care hours, number of siblings and child age type.
+func (c FeeScheduleConfig) CalculateChildcareFee(input ChildcareFeeInput) *ChildcareFeeResult {
+	// Default values
+	if input.SiblingsCount < 1 {
+		input.SiblingsCount = 1
+	}
+	if input.CareHours == 0 {
+		input.CareHours = 30
+	}
+
+	// Kindergarten (>= 3 years) is free in Brandenburg
+	if input.ChildAgeType == ChildAgeTypeKindergarten {
+		return &ChildcareFeeResult{
+			Rule:           "Beitragsfrei (ab 3 Jahren)",
+			DiscountFactor: 1.0,
+			Notes:          []string{"Die Betreuung im Kindergartenalter ist in Brandenburg beitragsfrei."},
+		}
+	}
+
+	// Krippe (< 3 years)
+
+	// Foster family: average of all Satzung rates for the care hours (no sibling discount)
+	if input.FosterFamily {
+		avgFee := c.averageSatzungRate(input.CareHours)
+		return &ChildcareFeeResult{
+			Fee:            roundToTwoDecimals(avgFee),
+			BaseFee:        avgFee,
+			Rule:           "Pflegefamilie (Durchschnittsbeitrag)",
+			DiscountFactor: 1.0,
+			Notes:          []string{"Beitrag ist der Durchschnitt aller Sätze für die entsprechende Betreuungszeit."},
+		}
+	}
+
+	// Many children: free
+	if input.SiblingsCount >= c.SiblingsFreeThreshold {
+		return &ChildcareFeeResult{
+			Rule:           fmt.Sprintf("Beitragsfrei (≥ %d Kinder)", c.SiblingsFreeThreshold),
+			DiscountFactor: 1.0,
+			Notes:          []string{fmt.Sprintf("Bei %d oder mehr unterhaltsberechtigten Kindern entfällt der Elternbeitrag.", c.SiblingsFreeThreshold)},
+		}
+	}
+
+	// Highest rate voluntarily chosen (no income check, but sibling discount applies)
+	if input.HighestRate {
+		lastRow := c.SatzungTable[len(c.SatzungTable)-1]
+		return c.satzungResult(lastRow.Rates[hoursToIndex(input.CareHours)], input.SiblingsCount, "Höchstsatz (Satzung U3)")
+	}
+
+	if input.NetIncome <= c.FreeIncomeLimit {
+		return &ChildcareFeeResult{
+			Rule:           fmt.Sprintf("Beitragsfrei (Einkommen ≤ %s EUR)", formatGermanAmount(c.FreeIncomeLimit)),
+			DiscountFactor: 1.0,
+			ShowEntlastung: true,
+			Notes:          []string{"Gemäß Elternbeitragsentlastungsgesetz."},
+		}
+	}
+
+	// Entlastung bracket (no sibling discount)
+	if input.NetIncome <= c.EntlastungIncomeLimit {
+		baseFee := findRateInTable(c.EntlastungTable, input.NetIncome, input.CareHours)
+		return &ChildcareFeeResult{
+			Fee:            baseFee,
+			BaseFee:        baseFee,
+			Rule:           "Reduzierter Beitrag (Entlastung U3)",
+			DiscountFactor: 1.0,
+			ShowEntlastung: true,
+			Notes: []string{
+				"Kein zusätzlicher Geschwisterrabatt in diesem Einkommensbereich.",
+				"Rechtsgrundlage: Elternbeitragsentlastungsgesetz.",
+			},
+		}
+	}
+
+	// Satzung bracket (sibling discount applies)
+	baseFee := findRateInTable(c.SatzungTable, input.NetIncome, input.CareHours)
+	return c.satzungResult(baseFee, input.SiblingsCount, "Regulärer Beitrag (Satzung U3)")
+}
+
+func (c FeeScheduleConfig) satzungResult(baseFee float64, siblingsCount int, rule string) *ChildcareFeeResult {
+	discountFactor := c.siblingDiscountFactor(siblingsCount)
+	notes := []string{}
+	if siblingsCount > 1 && discountFactor < 1.0 {
+		notes = append(notes, "Geschwisterermäßigung berücksichtigt.")
+	}
+	return &ChildcareFeeResult{
+		Fee:             roundToTwoDecimals(baseFee * discountFactor),
+		BaseFee:         baseFee,
+		Rule:            rule,
+		DiscountFactor:  discountFactor,
+		DiscountPercent: int(math.Round((1 - discountFactor) * 100)),
+		Notes:           notes,
+	}
+}
+
+// siblingDiscountFactor returns the factor for the number of children; counts
+// beyond the configured factors use the last one.
+func (c FeeScheduleConfig) siblingDiscountFactor(siblingsCount int) float64 {
+	if len(c.SiblingDiscountFactors) == 0 || siblingsCount < 1 {
+		return 1.0
+	}
+	if siblingsCount > len(c.SiblingDiscountFactors) {
+		siblingsCount = len(c.SiblingDiscountFactors)
+	}
+	return c.SiblingDiscountFactors[siblingsCount-1]
+}
+
+// averageSatzungRate is the average of all Satzung rates for the care hours
+// (foster family rate).
+func (c FeeScheduleConfig) averageSatzungRate(hours int) float64 {
+	if len(c.SatzungTable) == 0 {
+		return 0
+	}
+	idx := hoursToIndex(hours)
+	var sum float64
+	for _, row := range c.SatzungTable {
+		sum += row.Rates[idx]
+	}
+	return sum / float64(len(c.SatzungTable))
+}
+
+// hoursToIndex maps care hours (30, 35, 40, 45, 50, 55) to a table column (0-5).
+func hoursToIndex(hours int) int {
+	idx := (hours - 30) / 5
+	if idx < 0 {
+		return 0
+	}
+	if idx > 5 {
+		return 5
+	}
+	return idx
+}
+
+// findRateInTable returns the rate of the highest bracket whose MinIncome <= income.
+func findRateInTable(table []FeeTableRow, income float64, hours int) float64 {
+	idx := hoursToIndex(hours)
+	for i := len(table) - 1; i >= 0; i-- {
+		if income >= table[i].MinIncome {
+			return table[i].Rates[idx]
+		}
+	}
+	return 0
+}
+
+func roundToTwoDecimals(val float64) float64 {
+	return float64(int(val*100+0.5)) / 100
+}
+
+// formatGermanAmount formats 35000 as "35.000" and 35000.5 as "35.000,50".
+func formatGermanAmount(v float64) string {
+	cents := int64(math.Round(v * 100))
+	whole := strconv.FormatInt(cents/100, 10)
+	var b strings.Builder
+	for i, r := range whole {
+		if i > 0 && (len(whole)-i)%3 == 0 {
+			b.WriteByte('.')
+		}
+		b.WriteRune(r)
+	}
+	if frac := cents % 100; frac != 0 {
+		fmt.Fprintf(&b, ",%02d", frac)
+	}
+	return b.String()
+}
+
+// Scan implements the sql.Scanner interface for reading JSONB from PostgreSQL.
+func (c *FeeScheduleConfig) Scan(src interface{}) error {
+	var data []byte
+	switch v := src.(type) {
+	case []byte:
+		data = v
+	case string:
+		data = []byte(v)
+	default:
+		return fmt.Errorf("cannot scan %T into FeeScheduleConfig", src)
+	}
+	return json.Unmarshal(data, c)
+}
+
+// Value implements the driver.Valuer interface for writing JSONB to PostgreSQL.
+func (c FeeScheduleConfig) Value() (driver.Value, error) {
+	return json.Marshal(c)
 }

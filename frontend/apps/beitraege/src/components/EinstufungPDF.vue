@@ -472,8 +472,8 @@ defineExpose({ generatePdf });
             <div class="fineprint__heading">Zahlungsbedingungen</div>
             <p>
               Der monatliche Beitrag wird am 5. eines jeden Monats fällig. Beiträge, die in Verzug
-              sind, werden zusätzlich mit einer Mahngebühr von 10,00 € erhoben. Der Vereinsbeitrag
-              (derzeit 30,00 €) ist jährlich zu zahlen: bei Vertragsbeginn sofort, ansonsten bis
+              sind, werden zusätzlich mit einer Mahngebühr von 10,00 € erhoben. Der Vereinsbeitrag<template v-if="membershipFee > 0">
+              (derzeit {{ formatEur(membershipFee) }})</template> ist jährlich zu zahlen: bei Vertragsbeginn sofort, ansonsten bis
               spätestens Ende des ersten Quartals. Nach Fristablauf wird ein Mahngeld von 5,00 €
               erhoben.
             </p>

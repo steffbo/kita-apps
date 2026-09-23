@@ -74,6 +74,8 @@ import type {
   ChildNote,
   CreateChildNoteRequest,
   UpdateChildNoteRequest,
+  FeeScheduleVersion,
+  FeeScheduleRequest,
 } from './types';
 import { ReminderCaseConflictError } from './types';
 
@@ -180,7 +182,8 @@ class ApiClient {
         throw new Error('Unauthorized');
       }
       const error = await response.json().catch(() => ({ error: 'Unknown error' }));
-      throw new Error(error.error || error.message || `HTTP ${response.status}`);
+      // The backend sends {error: <status text>, message: <reason>}; show the reason.
+      throw new Error(error.message || error.error || `HTTP ${response.status}`);
     }
 
     // Handle 204 No Content
@@ -748,7 +751,7 @@ class ApiClient {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: 'Upload failed' }));
-      throw new Error(error.error || 'Upload failed');
+      throw new Error(error.message || error.error || 'Upload failed');
     }
 
     const result: ImportResult = await response.json();
@@ -957,7 +960,7 @@ class ApiClient {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: 'Upload failed' }));
-      throw new Error(error.error || 'Upload failed');
+      throw new Error(error.message || error.error || 'Upload failed');
     }
 
     const result: ChildImportParseResult = await response.json();
@@ -1114,6 +1117,28 @@ class ApiClient {
     return this.normalizePaginated(response);
   }
 
+  // Fee schedules (Beitragsordnung)
+  async getFeeSchedules(): Promise<FeeScheduleVersion[]> {
+    return this.request<FeeScheduleVersion[]>('/fee-schedules');
+  }
+
+  async createFeeSchedule(data: FeeScheduleRequest): Promise<FeeScheduleVersion> {
+    return this.request<FeeScheduleVersion>('/fee-schedules', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateFeeSchedule(id: string, data: FeeScheduleRequest): Promise<FeeScheduleVersion> {
+    return this.request<FeeScheduleVersion>(`/fee-schedules/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteFeeSchedule(id: string): Promise<void> {
+    return this.request<void>(`/fee-schedules/${id}`, { method: 'DELETE' });
+  }
 }
 
 export const api = new ApiClient();

@@ -20,7 +20,7 @@ func TestFeeService_Generate_UsesEnrollmentPeriodForMonthlyFees(t *testing.T) {
 	ctx := context.Background()
 	childRepo := repository.NewPostgresChildRepository(testDB)
 	feeRepo := repository.NewPostgresFeeRepository(testDB)
-	feeService := service.NewFeeService(feeRepo, childRepo, nil, nil, nil)
+	feeService := service.NewFeeService(feeRepo, childRepo, nil, nil, nil, repository.NewPostgresFeeScheduleRepository(testDB))
 
 	createChild := func(suffix string, entryDate time.Time, exitDate *time.Time, active bool) *domain.Child {
 		now := time.Now()
@@ -111,7 +111,7 @@ func TestFeeService_GetByID_PartialMatch(t *testing.T) {
 		t.Fatalf("matchRepo.Create failed: %v", err)
 	}
 
-	feeService := service.NewFeeService(feeRepo, childRepo, householdRepo, matchRepo, txRepo)
+	feeService := service.NewFeeService(feeRepo, childRepo, householdRepo, matchRepo, txRepo, repository.NewPostgresFeeScheduleRepository(testDB))
 	loaded, err := feeService.GetByID(context.Background(), fee.ID)
 	if err != nil {
 		t.Fatalf("GetByID failed: %v", err)
@@ -169,7 +169,7 @@ func TestFeeService_GetByID_FullMatch(t *testing.T) {
 		t.Fatalf("matchRepo.Create failed: %v", err)
 	}
 
-	feeService := service.NewFeeService(feeRepo, childRepo, householdRepo, matchRepo, txRepo)
+	feeService := service.NewFeeService(feeRepo, childRepo, householdRepo, matchRepo, txRepo, repository.NewPostgresFeeScheduleRepository(testDB))
 	loaded, err := feeService.GetByID(context.Background(), fee.ID)
 	if err != nil {
 		t.Fatalf("GetByID failed: %v", err)
@@ -219,7 +219,7 @@ func TestFeeService_SyncChildcareExpectationsFrom_AdjustsPaidIncrease(t *testing
 		t.Fatal(err)
 	}
 
-	feeService := service.NewFeeService(feeRepo, childRepo, householdRepo, matchRepo, txRepo)
+	feeService := service.NewFeeService(feeRepo, childRepo, householdRepo, matchRepo, txRepo, repository.NewPostgresFeeScheduleRepository(testDB))
 	exitDate := time.Date(2026, 6, 30, 0, 0, 0, 0, time.UTC)
 	result, err := feeService.SyncChildcareExpectationsFrom(context.Background(), child.ID, child.HouseholdID, time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC), 150, &exitDate)
 	if err != nil {
@@ -277,7 +277,7 @@ func TestFeeService_SyncChildcareExpectationsFrom_ReportsCreditReviewForDecrease
 		t.Fatal(err)
 	}
 
-	feeService := service.NewFeeService(feeRepo, childRepo, householdRepo, matchRepo, txRepo)
+	feeService := service.NewFeeService(feeRepo, childRepo, householdRepo, matchRepo, txRepo, repository.NewPostgresFeeScheduleRepository(testDB))
 	exitDate := time.Date(2026, 6, 30, 0, 0, 0, 0, time.UTC)
 	result, err := feeService.SyncChildcareExpectationsFrom(context.Background(), child.ID, child.HouseholdID, time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC), 100, &exitDate)
 	if err != nil {

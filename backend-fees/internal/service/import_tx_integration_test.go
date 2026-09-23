@@ -32,7 +32,7 @@ func TestImportService_MatchIsAtomicWithFollowUpActions(t *testing.T) {
 	matchRepo := repository.NewPostgresMatchRepository(testDB)
 	knownIBANRepo := repository.NewPostgresKnownIBANRepository(testDB)
 	warningRepo := failingResolveWarningRepo{repository.NewPostgresWarningRepository(testDB)}
-	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, warningRepo, repository.NewTxManager(testDB))
+	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, warningRepo, repository.NewTxManager(testDB), repository.NewPostgresFeeScheduleRepository(testDB))
 
 	setup := func(t *testing.T) (*domain.FeeExpectation, *domain.BankTransaction) {
 		t.Helper()

@@ -39,12 +39,12 @@ Leitplanke für alle Refactorings: **keine fachliche Verhaltensänderung**, auß
       in `ImportResult.Errors` (statt stumm `Skipped`). Hartes Limit von 1000 Kindern entfernen.
       Frontend (ImportPage, BankingSyncCard, Import-Historie) zeigt Fehler klar an.
       banking-sync meldet Upload-Fehler weiterhin über Exit-Code.
-- [x] **11. Dedupe per Unique-Index** (niedrige Priorität, Import läuft praktisch nur automatisch) –
+- [x] **11. Dedupe per Unique-Index** (`c57e7ac`) (niedrige Priorität, Import läuft praktisch nur automatisch) –
       `dedupe_hash` + `ON CONFLICT DO NOTHING`. Vorher Live-Daten read-only auf echte Duplikate prüfen.
 
 ## Phase 3 – Fachliche Absicherung
 
-- [ ] **12. Konfigurierbare Beitragstabellen** – Tabellen + Einkommensgrenzen aus
+- [x] **12. Konfigurierbare Beitragstabellen** – Tabellen + Einkommensgrenzen aus
       `domain/childcare_fee.go` in die DB (`fees.fee_schedules` mit `valid_from`), Seed = heutige
       Werte. Berechnung wählt die Tabelle nach Stichtag. Eigener Bereich „Beitragsordnung" im
       Frontend (anzeigen, neue Version ab Datum anlegen; alte Versionen read-only).

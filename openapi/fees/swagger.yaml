@@ -761,6 +761,89 @@ definitions:
         example: 5
         type: integer
     type: object
+  FeeScheduleConfig:
+    properties:
+      annualMembershipFee:
+        type: number
+      entlastungIncomeLimit:
+        type: number
+      entlastungTable:
+        items:
+          $ref: '#/definitions/FeeTableRow'
+        type: array
+      freeIncomeLimit:
+        type: number
+      monthlyFoodFee:
+        type: number
+      satzungTable:
+        items:
+          $ref: '#/definitions/FeeTableRow'
+        type: array
+      siblingDiscountFactors:
+        description: SiblingDiscountFactors[i] applies to i+1 children; more children
+          use the last factor.
+        items:
+          type: number
+        type: array
+      siblingsFreeThreshold:
+        description: From this many children on, the childcare fee is waived.
+        type: integer
+    type: object
+  FeeScheduleRequest:
+    description: Planned version of the fee regulation
+    properties:
+      config:
+        $ref: '#/definitions/FeeScheduleConfig'
+      name:
+        example: Elternbeitragsordnung 2027
+        type: string
+      validFrom:
+        description: first of a future month
+        example: "2027-01-01"
+        type: string
+    type: object
+  FeeScheduleVersion:
+    description: Version of the fee regulation (Elternbeitragsordnung)
+    properties:
+      config:
+        $ref: '#/definitions/FeeScheduleConfig'
+      createdAt:
+        type: string
+      editable:
+        description: Editable is true for planned versions only.
+        type: boolean
+      id:
+        type: string
+      name:
+        type: string
+      status:
+        description: Status is past, active or planned.
+        enum:
+        - past
+        - active
+        - planned
+        type: string
+      updatedAt:
+        type: string
+      validFrom:
+        example: "2027-01-01"
+        type: string
+      validUntil:
+        description: ValidUntil is the day before the next version starts; absent
+          for the latest version.
+        example: "2027-07-31"
+        type: string
+    type: object
+  FeeTableRow:
+    properties:
+      minIncome:
+        type: number
+      rates:
+        description: monthly rates for CareHourSteps
+        items:
+          type: number
+        type: array
+    type: object
   GenerateFeeRequest:
     description: Request body for generating fees
     properties:
@@ -3246,6 +3329,11 @@ paths:
         in: query
         name: fosterFamily
         type: boolean
+      - description: Reference date (YYYY-MM-DD) selecting the fee schedule; default
+          today
+        in: query
+        name: date
+        type: string
       produces:
       - application/json
       responses:
@@ -3254,7 +3342,7 @@ paths:
           schema:
             $ref: '#/definitions/domain.ChildcareFeeResult'
         "400":
-          description: Invalid income value
+          description: Invalid income value or date
           schema:
             $ref: '#/definitions/ErrorResponse'
         "401":
@@ -4376,6 +4464,150 @@ paths:
       summary: List Einstufungen for a household
       tags:
       - Einstufungen
+  /fee-schedules:
+    get:
+      description: Returns all versions of the fee regulation, oldest first
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Versions
+          schema:
+            items:
+              $ref: '#/definitions/FeeScheduleVersion'
+            type: array
+        "401":
+          description: Not authenticated
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: List fee schedule versions
+      tags:
+      - FeeSchedules
+    post:
+      consumes:
+      - application/json
+      description: Adds a version that starts on the first of a future month
+      parameters:
+      - description: Version
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/FeeScheduleRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created version
+          schema:
+            $ref: '#/definitions/FeeScheduleVersion'
+        "400":
+          description: Invalid version
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Not authenticated
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "409":
+          description: A version already starts on this date
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Create planned fee schedule version
+      tags:
+      - FeeSchedules
+  /fee-schedules/{id}:
+    delete:
+      parameters:
+      - description: Version ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: Deleted
+        "401":
+          description: Not authenticated
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Version not found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "409":
+          description: Version already in effect
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Delete planned fee schedule version
+      tags:
+      - FeeSchedules
+    put:
+      consumes:
+      - application/json
+      description: Changes a version that has not started yet
+      parameters:
+      - description: Version ID (UUID)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Version
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/FeeScheduleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Updated version
+          schema:
+            $ref: '#/definitions/FeeScheduleVersion'
+        "400":
+          description: Invalid version
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "401":
+          description: Not authenticated
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "404":
+          description: Version not found
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "409":
+          description: Version already in effect or date taken
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Update planned fee schedule version
+      tags:
+      - FeeSchedules
   /fees:
     get:
       description: Get a paginated list of fees with optional filtering
@@ -6859,3 +7091,5 @@ tags:
   name: Calculator
 - description: Notizen zu Kindern
   name: Notes
+- description: Beitragsordnung (versioniert)
+  name: FeeSchedules

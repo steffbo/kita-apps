@@ -89,8 +89,13 @@ func TestIncomeCalculation_FeeResult(t *testing.T) {
 	// FeeTableKrippeEntlastung row 35,000.01: rates [48, 54, 60, 66, 72, 78]
 	// 45h = index 3 → 66.00 EUR ✓ (matches Excel Sheet 1)
 	income := 40637.43
-	assert.True(t, income >= domain.ChildcareFeeLimits.MinIncomeEntlastungU3, "Should be in Entlastung bracket")
-	assert.True(t, income <= domain.ChildcareFeeLimits.MaxIncomeEntlastungU3, "Should be in Entlastung bracket")
+	result := testFeeScheduleConfig().CalculateChildcareFee(domain.ChildcareFeeInput{
+		ChildAgeType:  domain.ChildAgeTypeKrippe,
+		NetIncome:     income,
+		SiblingsCount: 1,
+		CareHours:     45,
+	})
+	assert.Equal(t, "Reduzierter Beitrag (Entlastung U3)", result.Rule, "Should be in Entlastung bracket")
 }
 
 func TestIncomeCalculation_SelfEmployed(t *testing.T) {

@@ -513,6 +513,8 @@ export interface paths {
                     highestRate?: boolean;
                     /** @description Foster family (uses average rate) */
                     fosterFamily?: boolean;
+                    /** @description Reference date (YYYY-MM-DD) selecting the fee schedule; default today */
+                    date?: string;
                 };
                 header?: never;
                 path?: never;
@@ -529,7 +531,7 @@ export interface paths {
                         "application/json": components["schemas"]["domain.ChildcareFeeResult"];
                     };
                 };
-                /** @description Invalid income value */
+                /** @description Invalid income value or date */
                 400: {
                     headers: {
                         [name: string]: unknown;
@@ -2496,6 +2498,266 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/fee-schedules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List fee schedule versions
+         * @description Returns all versions of the fee regulation, oldest first
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Versions */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["FeeScheduleVersion"][];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /**
+         * Create planned fee schedule version
+         * @description Adds a version that starts on the first of a future month
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: components["requestBodies"]["FeeScheduleRequest"];
+            responses: {
+                /** @description Created version */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["FeeScheduleVersion"];
+                    };
+                };
+                /** @description Invalid version */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description A version already starts on this date */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/fee-schedules/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update planned fee schedule version
+         * @description Changes a version that has not started yet
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Version ID (UUID) */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: components["requestBodies"]["FeeScheduleRequest"];
+            responses: {
+                /** @description Updated version */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["FeeScheduleVersion"];
+                    };
+                };
+                /** @description Invalid version */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Version not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Version already in effect or date taken */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        /** Delete planned fee schedule version */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Version ID (UUID) */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Deleted */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Version not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Version already in effect */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
         options?: never;
         head?: never;
         patch?: never;
@@ -7324,6 +7586,56 @@ export interface components {
             /** @example 5 */
             totalPages?: number;
         };
+        FeeScheduleConfig: {
+            annualMembershipFee?: number;
+            entlastungIncomeLimit?: number;
+            entlastungTable?: components["schemas"]["FeeTableRow"][];
+            freeIncomeLimit?: number;
+            monthlyFoodFee?: number;
+            satzungTable?: components["schemas"]["FeeTableRow"][];
+            /** @description SiblingDiscountFactors[i] applies to i+1 children; more children use the last factor. */
+            siblingDiscountFactors?: number[];
+            /** @description From this many children on, the childcare fee is waived. */
+            siblingsFreeThreshold?: number;
+        };
+        /** @description Planned version of the fee regulation */
+        FeeScheduleRequest: {
+            config?: components["schemas"]["FeeScheduleConfig"];
+            /** @example Elternbeitragsordnung 2027 */
+            name?: string;
+            /**
+             * @description first of a future month
+             * @example 2027-01-01
+             */
+            validFrom?: string;
+        };
+        /** @description Version of the fee regulation (Elternbeitragsordnung) */
+        FeeScheduleVersion: {
+            config?: components["schemas"]["FeeScheduleConfig"];
+            createdAt?: string;
+            /** @description Editable is true for planned versions only. */
+            editable?: boolean;
+            id?: string;
+            name?: string;
+            /**
+             * @description Status is past, active or planned.
+             * @enum {string}
+             */
+            status?: "past" | "active" | "planned";
+            updatedAt?: string;
+            /** @example 2027-01-01 */
+            validFrom?: string;
+            /**
+             * @description ValidUntil is the day before the next version starts; absent for the latest version.
+             * @example 2027-07-31
+             */
+            validUntil?: string;
+        };
+        FeeTableRow: {
+            minIncome?: number;
+            /** @description monthly rates for CareHourSteps */
+            rates?: number[];
+        };
         /** @description Request body for generating fees */
         GenerateFeeRequest: {
             /**
@@ -8571,6 +8883,12 @@ export interface components {
     responses: never;
     parameters: never;
     requestBodies: {
+        /** @description Version */
+        FeeScheduleRequest: {
+            content: {
+                "application/json": components["schemas"]["FeeScheduleRequest"];
+            };
+        };
         postChildrenImportParse: {
             content: {
                 "multipart/form-data": {

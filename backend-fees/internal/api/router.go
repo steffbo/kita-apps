@@ -177,6 +177,14 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 				r.Delete("/{id}", handlers.Einstufung.Delete)
 			})
 
+			// Fee regulation versions (Beitragsordnung); only planned versions are writable
+			r.Route("/fee-schedules", func(r chi.Router) {
+				r.Get("/", handlers.FeeSchedule.List)
+				r.With(customMiddleware.RequireRole("ADMIN")).Post("/", handlers.FeeSchedule.Create)
+				r.With(customMiddleware.RequireRole("ADMIN")).Put("/{id}", handlers.FeeSchedule.Update)
+				r.With(customMiddleware.RequireRole("ADMIN")).Delete("/{id}", handlers.FeeSchedule.Delete)
+			})
+
 			// Stichtagsmeldung
 			r.Route("/stichtagsmeldung", func(r chi.Router) {
 				r.Get("/stats", handlers.Stichtagsmeldung.GetStats)
@@ -226,6 +234,7 @@ type Handlers struct {
 	Member           *handler.MemberHandler
 	Fee              *handler.FeeHandler
 	Einstufung       *handler.EinstufungHandler
+	FeeSchedule      *handler.FeeScheduleHandler
 	Import           *handler.ImportHandler
 	BankingSync      *handler.BankingSyncHandler
 	Stichtagsmeldung *handler.StichtagsmeldungHandler

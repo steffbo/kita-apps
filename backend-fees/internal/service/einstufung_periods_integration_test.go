@@ -175,7 +175,7 @@ func TestEinstufungMonthlyTableUsesChildCareHoursHistory(t *testing.T) {
 	childRepo := repository.NewPostgresChildRepository(testDB)
 	householdRepo := repository.NewPostgresHouseholdRepository(testDB)
 	einstufungRepo := repository.NewPostgresEinstufungRepository(testDB)
-	feeService := service.NewFeeService(nil, childRepo, householdRepo, nil, nil)
+	feeService := service.NewFeeService(nil, childRepo, householdRepo, nil, nil, repository.NewPostgresFeeScheduleRepository(testDB))
 	einstufungService := service.NewEinstufungService(einstufungRepo, householdRepo, childRepo, feeService)
 
 	household := &domain.Household{
@@ -251,8 +251,8 @@ func testEinstufung(childID uuid.UUID, householdID uuid.UUID, start time.Time) *
 		CareType:             domain.ChildAgeTypeKrippe,
 		ChildrenCount:        1,
 		MonthlyChildcareFee:  120,
-		MonthlyFoodFee:       domain.FoodFeeAmount,
-		AnnualMembershipFee:  domain.MembershipFeeAmount,
+		MonthlyFoodFee:       45.40,
+		AnnualMembershipFee:  30.00,
 		FeeRule:              "Test",
 		DiscountFactor:       1,
 	}

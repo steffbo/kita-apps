@@ -27,13 +27,11 @@ const (
 	FeeTypeReminder   FeeType = "REMINDER"   // Mahngebühr (10 EUR, manually triggered)
 )
 
-// FeeAmounts defines the standard fee amounts.
+// Reminder fee amounts. Food and membership fees are part of the versioned
+// fee schedule (FeeScheduleConfig).
 const (
-	MembershipFeeAmount         = 30.00
-	FoodFeeAmount               = 45.40
-	DefaultChildcareFee         = 100.00 // Default until income-based calculation is implemented
-	ReminderFeeAmount           = 10.00  // Mahngebühr for Food/Childcare
-	MembershipReminderFeeAmount = 5.00   // Mahngebühr for Membership
+	ReminderFeeAmount           = 10.00 // Mahngebühr for Food/Childcare
+	MembershipReminderFeeAmount = 5.00  // Mahngebühr for Membership
 )
 
 // FeeExpectation represents an expected fee payment.

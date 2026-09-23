@@ -5,7 +5,8 @@ Re-read these sources before relying on a calculation or write contract:
 | Concern | Canonical source |
 | --- | --- |
 | Income fields and household formula | `backend-fees/internal/domain/income_calculation.go` |
-| Fee limits, tables, care hours, and sibling discounts | `backend-fees/internal/domain/childcare_fee.go` |
+| Fee calculation rules (brackets, care-hour columns, sibling discount logic) | `backend-fees/internal/domain/childcare_fee.go` |
+| Fee amounts (limits, tables, sibling factors, food and membership fee) per validity date | `fees.fee_schedules` via `GET /api/fees/v1/fee-schedules` (UI: Beitragsordnung); seed in `backend-fees/migrations/000034_fee_schedules.up.sql` |
 | Child age determination | `backend-fees/internal/domain/child.go` |
 | Einstufung and follow-up business behavior | `backend-fees/internal/service/einstufung_service.go` |
 | Fee expectation synchronization | `backend-fees/internal/service/fee_service.go` |
@@ -21,7 +22,7 @@ Re-read these sources before relying on a calculation or write contract:
 - Employee income adds gross and other income, then subtracts employee social security, private insurance, tax, and advertising costs.
 - Self-employed income and modeled benefits contribute according to the current domain functions; maintenance paid is deducted and maintenance received is added.
 - Household annual income is the rounded sum of both parents' fee-relevant income.
-- Fee selection depends on effective-month child age, household income, child count, care hours, voluntary highest-rate selection, and foster-family status.
+- Fee selection depends on effective-month child age, household income, child count, care hours, voluntary highest-rate selection, and foster-family status, evaluated with the fee schedule version valid in that month (`FeeSchedules.At`). Read the amounts from the API, not from code.
 - Einstufung forms capture the income decision; initial validity comes from the classification year and child entry date, while care hours always come from `child_care_hours_history`. A care-hours change does not create a follow-up Einstufung.
 - The response `monthlyTable` is calculated month by month from the child record, including later care-hours changes, entry-month proration, and the age-based exemption.
 - Foster-family households (`FOSTER_FAMILY`) are exempt from the income-based Entlastung brackets (§§ 50 ff. KitaG): their U3 fee is the average of all Satzung rates for the care hours, income is ignored, no sibling discount. The age-based fee exemption from the month of completing the 3rd year of life (§ 17a KitaG) applies to foster children as well — the age check runs before the foster-family branch.
