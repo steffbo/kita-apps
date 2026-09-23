@@ -28,10 +28,10 @@ Leitplanke für alle Refactorings: **keine fachliche Verhaltensänderung**, auß
 
 ## Phase 2 – Import robust machen
 
-- [x] **8. Transaktions-Infrastruktur** – `repository.TxManager` mit
+- [x] **8. Transaktions-Infrastruktur** (`db93ef5`) – `repository.TxManager` mit
       `WithTx(ctx, func(ctx) error)`; die Tx liegt im Context, Repos holen sich per
       `r.q(ctx)` entweder Tx oder DB (`sqlx.ExtContext`). Bestehende Repos bleiben API-kompatibel.
-- [ ] **9. Transaktionen im Matching** – `AllocateTransaction`, `UnmatchTransaction`,
+- [x] **9. Transaktionen im Matching** – `AllocateTransaction`, `UnmatchTransaction`,
       `ConfirmMatches`, `CreateManualMatch`, `ResolveWarningWithLateFee`, `DismissTransaction`
       jeweils atomar. `ProcessCSV`: pro Buchung eine Tx (Transaktion + Match + Warnung).
 - [ ] **10. Fehler sichtbar machen** – verschluckte Fehler in `import_service.go` beseitigen:

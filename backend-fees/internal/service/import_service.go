@@ -42,6 +42,7 @@ type ImportService struct {
 	matchRepo       repository.MatchRepository
 	knownIBANRepo   repository.KnownIBANRepository
 	warningRepo     repository.WarningRepository
+	txm             *repository.TxManager
 }
 
 // NewImportService creates a new import service.
@@ -52,6 +53,7 @@ func NewImportService(
 	matchRepo repository.MatchRepository,
 	knownIBANRepo repository.KnownIBANRepository,
 	warningRepo repository.WarningRepository,
+	txm *repository.TxManager,
 ) *ImportService {
 	return &ImportService{
 		transactionRepo: transactionRepo,
@@ -60,6 +62,7 @@ func NewImportService(
 		matchRepo:       matchRepo,
 		knownIBANRepo:   knownIBANRepo,
 		warningRepo:     warningRepo,
+		txm:             txm,
 	}
 }
 
@@ -660,35 +663,46 @@ func (s *ImportService) ConfirmMatches(ctx context.Context, matches []MatchConfi
 			MatchedBy:     &userID,
 		}
 
-		if err := s.matchRepo.Create(ctx, match); err != nil {
+		err = s.txm.WithTx(ctx, func(ctx context.Context) error {
+			if err := s.matchRepo.Create(ctx, match); err != nil {
+				return err
+			}
+			return s.postMatchActions(ctx, m.TransactionID, m.ExpectationID, &fee.ChildID, "Auto-resolved: Zahlung wurde zugeordnet")
+		})
+		if err != nil {
+			log.Warn().Err(err).Str("transactionId", m.TransactionID.String()).Str("expectationId", m.ExpectationID.String()).Msg("confirm match failed")
 			result.Failed++
 			continue
 		}
 		result.Confirmed++
-
-		s.postMatchActions(ctx, m.TransactionID, m.ExpectationID, &fee.ChildID, "Auto-resolved: Zahlung wurde zugeordnet")
 	}
 
 	return result, nil
 }
 
 // markIBANAsTrusted marks the IBAN from a transaction as trusted.
-func (s *ImportService) markIBANAsTrusted(ctx context.Context, transactionID uuid.UUID, childID *uuid.UUID) {
+func (s *ImportService) markIBANAsTrusted(ctx context.Context, transactionID uuid.UUID, childID *uuid.UUID) error {
 	tx, err := s.transactionRepo.GetByID(ctx, transactionID)
-	if err != nil || tx.PayerIBAN == nil {
-		return
+	if err != nil {
+		return err
+	}
+	if tx.PayerIBAN == nil {
+		return nil
 	}
 
 	// Check if already known
-	existing, _ := s.knownIBANRepo.GetByIBAN(ctx, *tx.PayerIBAN)
+	existing, err := s.knownIBANRepo.GetByIBAN(ctx, *tx.PayerIBAN)
+	if err != nil {
+		return err
+	}
 	if existing != nil {
 		if existing.Status == domain.KnownIBANStatusBlacklisted {
-			return
+			return nil
 		}
 		if existing.ChildID == nil && childID != nil {
-			_ = s.knownIBANRepo.UpdateChildLink(ctx, existing.IBAN, childID)
+			return s.knownIBANRepo.UpdateChildLink(ctx, existing.IBAN, childID)
 		}
-		return
+		return nil
 	}
 
 	knownIBAN := &domain.KnownIBAN{
@@ -702,7 +716,7 @@ func (s *ImportService) markIBANAsTrusted(ctx context.Context, transactionID uui
 		OriginalAmount:        &tx.Amount,
 	}
 
-	s.knownIBANRepo.Create(ctx, knownIBAN)
+	return s.knownIBANRepo.Create(ctx, knownIBAN)
 }
 
 // GetHistory returns import batch history.
@@ -739,11 +753,15 @@ func (s *ImportService) CreateManualMatch(ctx context.Context, transactionID, ex
 		MatchedBy:     &userID,
 	}
 
-	if err := s.matchRepo.Create(ctx, match); err != nil {
+	err = s.txm.WithTx(ctx, func(ctx context.Context) error {
+		if err := s.matchRepo.Create(ctx, match); err != nil {
+			return err
+		}
+		return s.postMatchActions(ctx, transactionID, expectationID, &fee.ChildID, "Auto-resolved: Zahlung wurde manuell zugeordnet")
+	})
+	if err != nil {
 		return nil, err
 	}
-
-	s.postMatchActions(ctx, transactionID, expectationID, &fee.ChildID, "Auto-resolved: Zahlung wurde manuell zugeordnet")
 
 	return match, nil
 }
@@ -795,28 +813,35 @@ func (s *ImportService) Rescan(ctx context.Context) (*RescanResult, error) {
 
 // autoConfirmMatch automatically confirms a high-confidence match.
 // Returns true if the match was successfully confirmed.
+// All matches and follow-up actions are written atomically.
 func (s *ImportService) autoConfirmMatch(ctx context.Context, suggestion *domain.MatchSuggestion) bool {
 	// Handle combined matches (fee + reminder)
 	if len(suggestion.Expectations) > 0 {
 		expectationIDs := make([]string, 0, len(suggestion.Expectations))
-		for _, fee := range suggestion.Expectations {
-			expectationIDs = append(expectationIDs, fee.ID.String())
-			match := &domain.PaymentMatch{
-				ID:            uuid.New(),
-				TransactionID: suggestion.Transaction.ID,
-				ExpectationID: fee.ID,
-				Amount:        fee.Amount,
-				MatchType:     domain.MatchTypeAuto,
-				Confidence:    &suggestion.Confidence,
-				MatchedAt:     time.Now(),
-				MatchedBy:     nil,
+		err := s.txm.WithTx(ctx, func(ctx context.Context) error {
+			for _, fee := range suggestion.Expectations {
+				expectationIDs = append(expectationIDs, fee.ID.String())
+				match := &domain.PaymentMatch{
+					ID:            uuid.New(),
+					TransactionID: suggestion.Transaction.ID,
+					ExpectationID: fee.ID,
+					Amount:        fee.Amount,
+					MatchType:     domain.MatchTypeAuto,
+					Confidence:    &suggestion.Confidence,
+					MatchedAt:     time.Now(),
+					MatchedBy:     nil,
+				}
+				if err := s.matchRepo.Create(ctx, match); err != nil {
+					return err
+				}
 			}
-			if err := s.matchRepo.Create(ctx, match); err != nil {
-				return false
-			}
+			childID := suggestion.Expectations[0].ChildID
+			return s.postMatchActions(ctx, suggestion.Transaction.ID, uuid.Nil, &childID, "Auto-matched: Hohe Übereinstimmung (95%+)")
+		})
+		if err != nil {
+			log.Warn().Err(err).Str("transactionId", suggestion.Transaction.ID.String()).Msg("auto-match failed, keeping as suggestion")
+			return false
 		}
-		childID := suggestion.Expectations[0].ChildID
-		s.postMatchActions(ctx, suggestion.Transaction.ID, uuid.Nil, &childID, "Auto-matched: Hohe Übereinstimmung (95%+)")
 		log.Info().
 			Str("transactionId", suggestion.Transaction.ID.String()).
 			Float64("confidence", suggestion.Confidence).
@@ -839,11 +864,17 @@ func (s *ImportService) autoConfirmMatch(ctx context.Context, suggestion *domain
 			MatchedAt:     time.Now(),
 			MatchedBy:     nil,
 		}
-		if err := s.matchRepo.Create(ctx, match); err != nil {
+		childID := suggestion.Expectation.ChildID
+		err := s.txm.WithTx(ctx, func(ctx context.Context) error {
+			if err := s.matchRepo.Create(ctx, match); err != nil {
+				return err
+			}
+			return s.postMatchActions(ctx, suggestion.Transaction.ID, suggestion.Expectation.ID, &childID, "Auto-matched: Hohe Übereinstimmung (95%+)")
+		})
+		if err != nil {
+			log.Warn().Err(err).Str("transactionId", suggestion.Transaction.ID.String()).Msg("auto-match failed, keeping as suggestion")
 			return false
 		}
-		childID := suggestion.Expectation.ChildID
-		s.postMatchActions(ctx, suggestion.Transaction.ID, suggestion.Expectation.ID, &childID, "Auto-matched: Hohe Übereinstimmung (95%+)")
 		log.Info().
 			Str("transactionId", suggestion.Transaction.ID.String()).
 			Float64("confidence", suggestion.Confidence).
@@ -858,25 +889,34 @@ func (s *ImportService) autoConfirmMatch(ctx context.Context, suggestion *domain
 }
 
 // postMatchActions performs common actions after a match is created.
-func (s *ImportService) postMatchActions(ctx context.Context, transactionID, feeID uuid.UUID, childID *uuid.UUID, warningResolutionNote string) {
+// Call it inside the same transaction as the match so a failure rolls back the match too.
+func (s *ImportService) postMatchActions(ctx context.Context, transactionID, feeID uuid.UUID, childID *uuid.UUID, warningResolutionNote string) error {
 	resolvedChildID := childID
 	if resolvedChildID == nil && feeID != uuid.Nil {
 		fee, err := s.feeRepo.GetByID(ctx, feeID)
-		if err == nil {
-			id := fee.ChildID
-			resolvedChildID = &id
+		if err != nil {
+			return fmt.Errorf("load fee: %w", err)
+		}
+		id := fee.ChildID
+		resolvedChildID = &id
+	}
+
+	if err := s.markIBANAsTrusted(ctx, transactionID, resolvedChildID); err != nil {
+		return fmt.Errorf("mark IBAN as trusted: %w", err)
+	}
+
+	if s.warningRepo != nil {
+		if err := s.warningRepo.ResolveByTransactionID(ctx, transactionID, domain.ResolutionTypeMatched, warningResolutionNote); err != nil {
+			return fmt.Errorf("resolve warnings: %w", err)
 		}
 	}
 
-	s.markIBANAsTrusted(ctx, transactionID, resolvedChildID)
-
-	if s.warningRepo != nil {
-		s.warningRepo.ResolveByTransactionID(ctx, transactionID, domain.ResolutionTypeMatched, warningResolutionNote)
-	}
-
 	if feeID != uuid.Nil {
-		s.checkLatePaymentAndCreateWarning(ctx, transactionID, feeID)
+		if err := s.checkLatePaymentAndCreateWarning(ctx, transactionID, feeID); err != nil {
+			return fmt.Errorf("check late payment: %w", err)
+		}
 	}
+	return nil
 }
 
 // DismissTransaction dismisses a transaction and blacklists its IBAN.
@@ -904,12 +944,17 @@ func (s *ImportService) DismissTransaction(ctx context.Context, transactionID uu
 		OriginalAmount:        &tx.Amount,
 	}
 
-	if err := s.knownIBANRepo.Create(ctx, knownIBAN); err != nil {
-		return nil, err
-	}
+	var deleted int64
+	err = s.txm.WithTx(ctx, func(ctx context.Context) error {
+		if err := s.knownIBANRepo.Create(ctx, knownIBAN); err != nil {
+			return err
+		}
 
-	// Delete all unmatched transactions from this IBAN
-	deleted, err := s.transactionRepo.DeleteUnmatchedByIBAN(ctx, iban)
+		// Delete all unmatched transactions from this IBAN
+		var err error
+		deleted, err = s.transactionRepo.DeleteUnmatchedByIBAN(ctx, iban)
+		return err
+	})
 	if err != nil {
 		return nil, err
 	}
@@ -941,7 +986,21 @@ func (s *ImportService) HideTransaction(ctx context.Context, transactionID uuid.
 // Allocations may target fees of different children (e.g. a shared sibling payment)
 // and can be repeated incrementally until the full transaction amount is allocated.
 // The unallocated remainder stays visible in the unmatched lists.
+// Validation and all writes run in one transaction.
 func (s *ImportService) AllocateTransaction(ctx context.Context, transactionID, userID uuid.UUID, allocations []AllocationInput) (*AllocateResult, error) {
+	var result *AllocateResult
+	err := s.txm.WithTx(ctx, func(ctx context.Context) error {
+		var err error
+		result, err = s.allocateTransaction(ctx, transactionID, userID, allocations)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (s *ImportService) allocateTransaction(ctx context.Context, transactionID, userID uuid.UUID, allocations []AllocationInput) (*AllocateResult, error) {
 	const epsilon = 0.01
 
 	if len(allocations) == 0 {
@@ -1047,12 +1106,18 @@ func (s *ImportService) AllocateTransaction(ctx context.Context, transactionID, 
 			childID = &id
 		}
 	}
-	s.markIBANAsTrusted(ctx, transactionID, childID)
+	if err := s.markIBANAsTrusted(ctx, transactionID, childID); err != nil {
+		return nil, fmt.Errorf("mark IBAN as trusted: %w", err)
+	}
 	if s.warningRepo != nil {
-		s.warningRepo.ResolveByTransactionID(ctx, transactionID, domain.ResolutionTypeMatched, "Zahlung wurde manuell verteilt")
+		if err := s.warningRepo.ResolveByTransactionID(ctx, transactionID, domain.ResolutionTypeMatched, "Zahlung wurde manuell verteilt"); err != nil {
+			return nil, fmt.Errorf("resolve warnings: %w", err)
+		}
 	}
 	for _, alloc := range allocations {
-		s.checkLatePaymentAndCreateWarning(ctx, transactionID, alloc.ExpectationID)
+		if err := s.checkLatePaymentAndCreateWarning(ctx, transactionID, alloc.ExpectationID); err != nil {
+			return nil, fmt.Errorf("check late payment: %w", err)
+		}
 	}
 
 	// No overpayment warning here: an unallocated remainder keeps the transaction in
@@ -1131,6 +1196,19 @@ func (s *ImportService) GetUnmatchedSuggestionsForChild(ctx context.Context, chi
 
 // UnmatchTransaction removes matches for a transaction and optionally deletes the transaction itself.
 func (s *ImportService) UnmatchTransaction(ctx context.Context, transactionID uuid.UUID, deleteTransaction bool) (*UnmatchResult, error) {
+	var result *UnmatchResult
+	err := s.txm.WithTx(ctx, func(ctx context.Context) error {
+		var err error
+		result, err = s.unmatchTransaction(ctx, transactionID, deleteTransaction)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (s *ImportService) unmatchTransaction(ctx context.Context, transactionID uuid.UUID, deleteTransaction bool) (*UnmatchResult, error) {
 	// Ensure transaction exists
 	if _, err := s.transactionRepo.GetByID(ctx, transactionID); err != nil {
 		return nil, ErrNotFound
@@ -1375,16 +1453,14 @@ func (s *ImportService) checkLatePaymentAndCreateWarning(ctx context.Context, tr
 		return nil
 	}
 
-	// Get the transaction
 	tx, err := s.transactionRepo.GetByID(ctx, transactionID)
 	if err != nil {
-		return nil // Don't fail the match, just skip warning
+		return fmt.Errorf("load transaction: %w", err)
 	}
 
-	// Get the fee
 	fee, err := s.feeRepo.GetByID(ctx, feeID)
 	if err != nil {
-		return nil
+		return fmt.Errorf("load fee: %w", err)
 	}
 
 	// Check if late
@@ -1416,7 +1492,21 @@ type LateFeeResolution struct {
 
 // ResolveWarningWithLateFee resolves a LATE_PAYMENT warning by creating a REMINDER fee.
 // The REMINDER fee is linked to the original fee and is for 10 EUR.
+// Creating the fee and resolving the warning happen atomically.
 func (s *ImportService) ResolveWarningWithLateFee(ctx context.Context, warningID, userID uuid.UUID) (*LateFeeResolution, error) {
+	var result *LateFeeResolution
+	err := s.txm.WithTx(ctx, func(ctx context.Context) error {
+		var err error
+		result, err = s.resolveWarningWithLateFee(ctx, warningID, userID)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
+}
+
+func (s *ImportService) resolveWarningWithLateFee(ctx context.Context, warningID, userID uuid.UUID) (*LateFeeResolution, error) {
 	if s.warningRepo == nil {
 		return nil, ErrNotFound
 	}

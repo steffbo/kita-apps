@@ -60,7 +60,7 @@ func TestLatePayment_OnTime_Within15th(t *testing.T) {
 	}
 
 	// Initialize service
-	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, warningRepo)
+	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, warningRepo, repository.NewTxManager(testDB))
 
 	// Rescan should auto-match (trusted IBAN has highest confidence)
 	result, err := importService.Rescan(context.Background())
@@ -133,7 +133,7 @@ func TestLatePayment_Late_After15th(t *testing.T) {
 	}
 
 	// Initialize service
-	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, warningRepo)
+	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, warningRepo, repository.NewTxManager(testDB))
 
 	// Manually create a match to trigger late payment detection
 	adminUserID := uuid.MustParse("a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11")
@@ -209,7 +209,7 @@ func TestLatePayment_Boundary_Exactly15th(t *testing.T) {
 	}
 
 	// Initialize service
-	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, warningRepo)
+	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, warningRepo, repository.NewTxManager(testDB))
 
 	// Manually create a match
 	adminUserID := uuid.MustParse("a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11")
@@ -272,7 +272,7 @@ func TestLatePayment_PreviousMonthFee(t *testing.T) {
 	}
 
 	// Initialize service
-	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, warningRepo)
+	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, warningRepo, repository.NewTxManager(testDB))
 
 	// Manually create a match
 	adminUserID := uuid.MustParse("a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11")
@@ -340,7 +340,7 @@ func TestLatePayment_OnlyMonthlyFees(t *testing.T) {
 	}
 
 	// Initialize service
-	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, warningRepo)
+	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, warningRepo, repository.NewTxManager(testDB))
 
 	// Manually create a match
 	adminUserID := uuid.MustParse("a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11")
@@ -403,7 +403,7 @@ func TestLatePayment_Childcare_IsMonthly(t *testing.T) {
 	}
 
 	// Initialize service
-	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, warningRepo)
+	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, warningRepo, repository.NewTxManager(testDB))
 
 	// Manually create a match
 	adminUserID := uuid.MustParse("a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11")
@@ -457,7 +457,7 @@ func TestResolveWarning_WithLateFee(t *testing.T) {
 	}
 
 	// Initialize service
-	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, warningRepo)
+	importService := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, warningRepo, repository.NewTxManager(testDB))
 
 	// Create a LATE_PAYMENT warning directly (simulating it was created during matching)
 	warning := &domain.TransactionWarning{
