@@ -23,7 +23,7 @@ func NewPostgresEmailLogRepository(db *sqlx.DB) *PostgresEmailLogRepository {
 
 // Create creates a new email log entry.
 func (r *PostgresEmailLogRepository) Create(ctx context.Context, log *domain.EmailLog) error {
-	_, err := r.db.ExecContext(ctx, `
+	_, err := conn(ctx, r.db).ExecContext(ctx, `
 		INSERT INTO fees.email_logs (id, sent_at, to_email, subject, body, email_type, payload, sent_by, household_id)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 	`, log.ID, log.SentAt, log.ToEmail, log.Subject, log.Body, log.EmailType, log.Payload, log.SentBy, log.HouseholdID)
@@ -41,7 +41,7 @@ func (r *PostgresEmailLogRepository) List(ctx context.Context, offset, limit int
 	search := strings.TrimSpace(filter.Search)
 
 	var total int64
-	if err := r.db.GetContext(ctx, &total, `
+	if err := conn(ctx, r.db).GetContext(ctx, &total, `
 		SELECT COUNT(*)
 		FROM fees.email_logs
 		WHERE ($1::text IS NULL OR email_type = $1::text)
@@ -52,7 +52,7 @@ func (r *PostgresEmailLogRepository) List(ctx context.Context, offset, limit int
 	}
 
 	var logs []domain.EmailLog
-	err := r.db.SelectContext(ctx, &logs, `
+	err := conn(ctx, r.db).SelectContext(ctx, &logs, `
 		SELECT `+emailLogColumns+`
 		FROM fees.email_logs
 		WHERE ($1::text IS NULL OR email_type = $1::text)
@@ -74,7 +74,7 @@ func (r *PostgresEmailLogRepository) List(ctx context.Context, offset, limit int
 // logs.
 func (r *PostgresEmailLogRepository) BackfillHouseholdIDs(ctx context.Context) (int64, error) {
 	var updated int64
-	err := r.db.GetContext(ctx, &updated, `SELECT fees.backfill_email_log_households()`)
+	err := conn(ctx, r.db).GetContext(ctx, &updated, `SELECT fees.backfill_email_log_households()`)
 	return updated, err
 }
 
@@ -82,7 +82,7 @@ func (r *PostgresEmailLogRepository) BackfillHouseholdIDs(ctx context.Context) (
 // newest first. Used for family contact history.
 func (r *PostgresEmailLogRepository) ListByHouseholdAndTypes(ctx context.Context, householdID uuid.UUID, types []domain.EmailLogType) ([]domain.EmailLog, error) {
 	var logs []domain.EmailLog
-	err := r.db.SelectContext(ctx, &logs, `
+	err := conn(ctx, r.db).SelectContext(ctx, &logs, `
 		SELECT `+emailLogColumns+`
 		FROM fees.email_logs
 		WHERE household_id = $1
@@ -99,7 +99,7 @@ func (r *PostgresEmailLogRepository) ListByHouseholdAndTypes(ctx context.Context
 // chronology), regardless of type.
 func (r *PostgresEmailLogRepository) ListByHousehold(ctx context.Context, householdID uuid.UUID, limit int) ([]domain.EmailLog, error) {
 	var logs []domain.EmailLog
-	err := r.db.SelectContext(ctx, &logs, `
+	err := conn(ctx, r.db).SelectContext(ctx, &logs, `
 		SELECT `+emailLogColumns+`
 		FROM fees.email_logs
 		WHERE household_id = $1

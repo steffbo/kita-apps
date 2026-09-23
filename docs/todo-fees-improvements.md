@@ -22,13 +22,13 @@ Leitplanke für alle Refactorings: **keine fachliche Verhaltensänderung**, auß
 - [x] **6. Request-Limits** (`ed28648`) – `http.MaxBytesReader` zentral: 1 MB für JSON-Bodies
       (`request.Decode`), 5 MB für CSV-Uploads (Bank- und Kinder-Import).
       Fehler von `ParseMultipartForm` in `import_handler.go` behandeln.
-- [x] **7. Zeitzone Europe/Berlin** – `TZ=Europe/Berlin` + `tzdata` im Image, zusätzlich im Code
+- [x] **7. Zeitzone Europe/Berlin** (`326112e`) – `TZ=Europe/Berlin` + `tzdata` im Image, zusätzlich im Code
       eine zentrale Location/Clock (`util.Now()`, `util.Berlin`), alle `time.Now()` in
       Service/Domain darauf umstellen. Tests für Monatsgrenzen (31.→1., 23:30 UTC).
 
 ## Phase 2 – Import robust machen
 
-- [ ] **8. Transaktions-Infrastruktur** – `repository.TxManager` mit
+- [x] **8. Transaktions-Infrastruktur** – `repository.TxManager` mit
       `WithTx(ctx, func(ctx) error)`; die Tx liegt im Context, Repos holen sich per
       `r.q(ctx)` entweder Tx oder DB (`sqlx.ExtContext`). Bestehende Repos bleiben API-kompatibel.
 - [ ] **9. Transaktionen im Matching** – `AllocateTransaction`, `UnmatchTransaction`,

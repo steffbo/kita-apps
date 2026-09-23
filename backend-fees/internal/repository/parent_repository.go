@@ -40,7 +40,7 @@ func (r *PostgresParentRepository) List(ctx context.Context, search string, sort
 
 	// Count total
 	countQuery := "SELECT COUNT(*) " + baseQuery
-	err := r.db.GetContext(ctx, &total, countQuery, args...)
+	err := conn(ctx, r.db).GetContext(ctx, &total, countQuery, args...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -59,7 +59,7 @@ func (r *PostgresParentRepository) List(ctx context.Context, search string, sort
 	`, baseQuery, orderClause, argIdx, argIdx+1)
 	args = append(args, limit, offset)
 
-	err = r.db.SelectContext(ctx, &parents, selectQuery, args...)
+	err = conn(ctx, r.db).SelectContext(ctx, &parents, selectQuery, args...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -98,7 +98,7 @@ func getParentSortOrder(sortBy, sortDir string) string {
 // GetByID retrieves a parent by ID.
 func (r *PostgresParentRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Parent, error) {
 	var parent domain.Parent
-	err := r.db.GetContext(ctx, &parent, `
+	err := conn(ctx, r.db).GetContext(ctx, &parent, `
 		SELECT id, household_id, member_id, first_name, last_name, birth_date, email, phone,
 		       street, street_no, postal_code, city,
 		       annual_household_income, income_status, created_at, updated_at
@@ -118,7 +118,7 @@ func (r *PostgresParentRepository) GetByID(ctx context.Context, id uuid.UUID) (*
 // Returns nil if no matching parent is found (not an error).
 func (r *PostgresParentRepository) FindByNameAndEmail(ctx context.Context, firstName, lastName, email string) (*domain.Parent, error) {
 	var parent domain.Parent
-	err := r.db.GetContext(ctx, &parent, `
+	err := conn(ctx, r.db).GetContext(ctx, &parent, `
 		SELECT id, household_id, member_id, first_name, last_name, birth_date, email, phone,
 		       street, street_no, postal_code, city,
 		       annual_household_income, income_status, created_at, updated_at
@@ -138,7 +138,7 @@ func (r *PostgresParentRepository) FindByNameAndEmail(ctx context.Context, first
 
 // Create creates a new parent.
 func (r *PostgresParentRepository) Create(ctx context.Context, parent *domain.Parent) error {
-	_, err := r.db.ExecContext(ctx, `
+	_, err := conn(ctx, r.db).ExecContext(ctx, `
 		INSERT INTO fees.parents (id, household_id, member_id, first_name, last_name, birth_date, email, phone,
 		                          street, street_no, postal_code, city,
 		                          annual_household_income, income_status, created_at, updated_at)
@@ -152,7 +152,7 @@ func (r *PostgresParentRepository) Create(ctx context.Context, parent *domain.Pa
 // Update updates an existing parent.
 func (r *PostgresParentRepository) Update(ctx context.Context, parent *domain.Parent) error {
 	parent.UpdatedAt = time.Now()
-	_, err := r.db.ExecContext(ctx, `
+	_, err := conn(ctx, r.db).ExecContext(ctx, `
 		UPDATE fees.parents
 		SET household_id = $2, member_id = $3, first_name = $4, last_name = $5, birth_date = $6, email = $7, phone = $8,
 		    street = $9, street_no = $10, postal_code = $11, city = $12,
@@ -166,14 +166,14 @@ func (r *PostgresParentRepository) Update(ctx context.Context, parent *domain.Pa
 
 // Delete deletes a parent.
 func (r *PostgresParentRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	_, err := r.db.ExecContext(ctx, `DELETE FROM fees.parents WHERE id = $1`, id)
+	_, err := conn(ctx, r.db).ExecContext(ctx, `DELETE FROM fees.parents WHERE id = $1`, id)
 	return err
 }
 
 // GetChildren retrieves all children linked to a parent.
 func (r *PostgresParentRepository) GetChildren(ctx context.Context, parentID uuid.UUID) ([]domain.Child, error) {
 	var children []domain.Child
-	err := r.db.SelectContext(ctx, &children, `
+	err := conn(ctx, r.db).SelectContext(ctx, &children, `
 		SELECT c.id, c.member_number, c.first_name, c.last_name, c.birth_date, c.entry_date,
 		       c.street, c.street_no, c.postal_code, c.city,
 		       c.is_active, c.created_at, c.updated_at
@@ -218,7 +218,7 @@ func (r *PostgresParentRepository) GetChildrenForParents(ctx context.Context, pa
 	query = r.db.Rebind(query)
 
 	var rows []childWithParentID
-	if err := r.db.SelectContext(ctx, &rows, query, args...); err != nil {
+	if err := conn(ctx, r.db).SelectContext(ctx, &rows, query, args...); err != nil {
 		return nil, err
 	}
 

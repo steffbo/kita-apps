@@ -97,7 +97,7 @@ func (r *PostgresFeeRepository) List(ctx context.Context, filter FeeFilter, offs
 
 	// Count total
 	countQuery := "SELECT COUNT(*) " + baseQuery
-	err := r.db.GetContext(ctx, &total, countQuery, args...)
+	err := conn(ctx, r.db).GetContext(ctx, &total, countQuery, args...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -111,7 +111,7 @@ func (r *PostgresFeeRepository) List(ctx context.Context, filter FeeFilter, offs
 		`, baseQuery, orderClause, argIdx, argIdx+1)
 	args = append(args, limit, offset)
 
-	err = r.db.SelectContext(ctx, &fees, selectQuery, args...)
+	err = conn(ctx, r.db).SelectContext(ctx, &fees, selectQuery, args...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -145,7 +145,7 @@ func getFeeSortOrder(sortBy, sortDir string) (string, bool) {
 // GetByID retrieves a fee expectation by ID.
 func (r *PostgresFeeRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.FeeExpectation, error) {
 	var fee domain.FeeExpectation
-	err := r.db.GetContext(ctx, &fee, `
+	err := conn(ctx, r.db).GetContext(ctx, &fee, `
 		SELECT id, child_id, household_id, fee_type, year, month, amount, due_date, created_at, reminder_for_id, reconciliation_year
 		FROM fees.fee_expectations
 		WHERE id = $1
@@ -162,7 +162,7 @@ func (r *PostgresFeeRepository) GetByID(ctx context.Context, id uuid.UUID) (*dom
 // GetByChildFeePeriod retrieves one monthly fee expectation for a child.
 func (r *PostgresFeeRepository) GetByChildFeePeriod(ctx context.Context, childID uuid.UUID, feeType domain.FeeType, year int, month int) (*domain.FeeExpectation, error) {
 	var fee domain.FeeExpectation
-	err := r.db.GetContext(ctx, &fee, `
+	err := conn(ctx, r.db).GetContext(ctx, &fee, `
 		SELECT id, child_id, household_id, fee_type, year, month, amount, due_date, created_at, reminder_for_id, reconciliation_year
 		FROM fees.fee_expectations
 		WHERE child_id = $1 AND fee_type = $2 AND year = $3 AND month = $4
@@ -200,7 +200,7 @@ func (r *PostgresFeeRepository) GetForChild(ctx context.Context, childID uuid.UU
 		args = []interface{}{childID}
 	}
 
-	err := r.db.SelectContext(ctx, &fees, query, args...)
+	err := conn(ctx, r.db).SelectContext(ctx, &fees, query, args...)
 	return fees, err
 }
 
@@ -225,7 +225,7 @@ func (r *PostgresFeeRepository) ListUnpaidByMonthAndTypes(ctx context.Context, y
 		ORDER BY fe.due_date ASC, fe.created_at ASC
 	`
 
-	err := r.db.SelectContext(ctx, &fees, query, year, month, pq.Array(feeTypes))
+	err := conn(ctx, r.db).SelectContext(ctx, &fees, query, year, month, pq.Array(feeTypes))
 	return fees, err
 }
 
@@ -261,7 +261,7 @@ func (r *PostgresFeeRepository) ListUnpaidUpToMonthAndTypes(ctx context.Context,
 		ORDER BY fe.year ASC, fe.month ASC, fe.due_date ASC, fe.created_at ASC
 	`
 
-	err := r.db.SelectContext(ctx, &fees, query, year, month, pq.Array(feeTypes), domain.FeeTypeReminder, nextMonthStart)
+	err := conn(ctx, r.db).SelectContext(ctx, &fees, query, year, month, pq.Array(feeTypes), domain.FeeTypeReminder, nextMonthStart)
 	return fees, err
 }
 
@@ -291,7 +291,7 @@ func (r *PostgresFeeRepository) ListUnpaidWithoutReminderByMonthAndTypes(ctx con
 		ORDER BY fe.due_date ASC, fe.created_at ASC
 	`
 
-	err := r.db.SelectContext(ctx, &fees, query, year, month, pq.Array(feeTypes))
+	err := conn(ctx, r.db).SelectContext(ctx, &fees, query, year, month, pq.Array(feeTypes))
 	return fees, err
 }
 
@@ -324,7 +324,7 @@ func (r *PostgresFeeRepository) ListUnpaidByTypesDueOnOrBefore(ctx context.Conte
 		ORDER BY fe.due_date ASC, fe.created_at ASC
 	`
 
-	err := r.db.SelectContext(ctx, &fees, query, pq.Array(feeTypes), dueOnOrBefore, domain.FeeTypeReminder)
+	err := conn(ctx, r.db).SelectContext(ctx, &fees, query, pq.Array(feeTypes), dueOnOrBefore, domain.FeeTypeReminder)
 	return fees, err
 }
 
@@ -355,7 +355,7 @@ func (r *PostgresFeeRepository) ListUnpaidWithoutReminderByTypesDueOnOrBefore(ct
 		ORDER BY fe.due_date ASC, fe.created_at ASC
 	`
 
-	err := r.db.SelectContext(ctx, &fees, query, pq.Array(feeTypes), dueOnOrBefore)
+	err := conn(ctx, r.db).SelectContext(ctx, &fees, query, pq.Array(feeTypes), dueOnOrBefore)
 	return fees, err
 }
 
@@ -366,7 +366,7 @@ func (r *PostgresFeeRepository) GetByIDs(ctx context.Context, ids []uuid.UUID) (
 	}
 
 	var fees []domain.FeeExpectation
-	err := r.db.SelectContext(ctx, &fees, `
+	err := conn(ctx, r.db).SelectContext(ctx, &fees, `
 		SELECT id, child_id, household_id, fee_type, year, month, amount, due_date, created_at, reminder_for_id, reconciliation_year
 		FROM fees.fee_expectations
 		WHERE id = ANY($1)
@@ -384,7 +384,7 @@ func (r *PostgresFeeRepository) GetByIDs(ctx context.Context, ids []uuid.UUID) (
 
 // Create creates a new fee expectation.
 func (r *PostgresFeeRepository) Create(ctx context.Context, fee *domain.FeeExpectation) error {
-	_, err := r.db.ExecContext(ctx, `
+	_, err := conn(ctx, r.db).ExecContext(ctx, `
 		INSERT INTO fees.fee_expectations (id, child_id, household_id, fee_type, year, month, amount, due_date, created_at, reminder_for_id, reconciliation_year)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 	`, fee.ID, fee.ChildID, fee.HouseholdID, fee.FeeType, fee.Year, fee.Month, fee.Amount, fee.DueDate, fee.CreatedAt, fee.ReminderForID, fee.ReconciliationYear)
@@ -393,7 +393,7 @@ func (r *PostgresFeeRepository) Create(ctx context.Context, fee *domain.FeeExpec
 
 // Update updates an existing fee expectation.
 func (r *PostgresFeeRepository) Update(ctx context.Context, fee *domain.FeeExpectation) error {
-	_, err := r.db.ExecContext(ctx, `
+	_, err := conn(ctx, r.db).ExecContext(ctx, `
 		UPDATE fees.fee_expectations
 		SET amount = $2, due_date = $3
 		WHERE id = $1
@@ -403,7 +403,7 @@ func (r *PostgresFeeRepository) Update(ctx context.Context, fee *domain.FeeExpec
 
 // Delete deletes a fee expectation.
 func (r *PostgresFeeRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	_, err := r.db.ExecContext(ctx, `DELETE FROM fees.fee_expectations WHERE id = $1`, id)
+	_, err := conn(ctx, r.db).ExecContext(ctx, `DELETE FROM fees.fee_expectations WHERE id = $1`, id)
 	return err
 }
 
@@ -413,13 +413,13 @@ func (r *PostgresFeeRepository) Exists(ctx context.Context, childID uuid.UUID, f
 	var err error
 
 	if month != nil {
-		err = r.db.GetContext(ctx, &count, `
+		err = conn(ctx, r.db).GetContext(ctx, &count, `
 			SELECT COUNT(*)
 			FROM fees.fee_expectations
 			WHERE child_id = $1 AND fee_type = $2 AND year = $3 AND month = $4
 		`, childID, feeType, year, *month)
 	} else {
-		err = r.db.GetContext(ctx, &count, `
+		err = conn(ctx, r.db).GetContext(ctx, &count, `
 			SELECT COUNT(*)
 			FROM fees.fee_expectations
 			WHERE child_id = $1 AND fee_type = $2 AND year = $3 AND month IS NULL
@@ -447,10 +447,10 @@ func (r *PostgresFeeRepository) FindUnpaid(ctx context.Context, childID uuid.UUI
 
 	if month != nil {
 		query += " AND fe.month = $4"
-		err = r.db.GetContext(ctx, &fee, query, childID, feeType, year, *month)
+		err = conn(ctx, r.db).GetContext(ctx, &fee, query, childID, feeType, year, *month)
 	} else {
 		query += " AND fe.month IS NULL"
-		err = r.db.GetContext(ctx, &fee, query, childID, feeType, year)
+		err = conn(ctx, r.db).GetContext(ctx, &fee, query, childID, feeType, year)
 	}
 
 	if err != nil {
@@ -477,7 +477,7 @@ func (r *PostgresFeeRepository) FindOldestUnpaid(ctx context.Context, childID uu
 		LIMIT 1
 	`
 
-	err := r.db.GetContext(ctx, &fee, query, childID, feeType, amount)
+	err := conn(ctx, r.db).GetContext(ctx, &fee, query, childID, feeType, amount)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil
@@ -506,7 +506,7 @@ func (r *PostgresFeeRepository) FindBestUnpaid(ctx context.Context, childID uuid
 		LIMIT 1
 	`
 
-	err := r.db.GetContext(ctx, &fee, queryCurrentMonth, childID, feeType, amount, paymentYear, paymentMonth)
+	err := conn(ctx, r.db).GetContext(ctx, &fee, queryCurrentMonth, childID, feeType, amount, paymentYear, paymentMonth)
 	if err == nil {
 		return &fee, nil
 	}
@@ -531,7 +531,7 @@ func (r *PostgresFeeRepository) CountUnpaidByType(ctx context.Context, childID u
 		  AND pm.id IS NULL
 	`
 
-	err := r.db.GetContext(ctx, &count, query, childID, feeType, amount)
+	err := conn(ctx, r.db).GetContext(ctx, &count, query, childID, feeType, amount)
 	if err != nil {
 		return 0, err
 	}
@@ -563,7 +563,7 @@ func (r *PostgresFeeRepository) FindOldestUnpaidWithReminder(ctx context.Context
 		LIMIT 1
 	`
 
-	rows, err := r.db.QueryContext(ctx, query, childID, feeType, combinedAmount)
+	rows, err := conn(ctx, r.db).QueryContext(ctx, query, childID, feeType, combinedAmount)
 	if err != nil {
 		return nil, err
 	}
@@ -591,7 +591,7 @@ func (r *PostgresFeeRepository) GetOverview(ctx context.Context, year int) (*dom
 	today := util.Today()
 
 	// Get totals (consider partial payments)
-	rows, err := r.db.QueryContext(ctx, `
+	rows, err := conn(ctx, r.db).QueryContext(ctx, `
 		SELECT 
 			fe.id,
 			fe.amount,
@@ -633,7 +633,7 @@ func (r *PostgresFeeRepository) GetOverview(ctx context.Context, year int) (*dom
 	}
 
 	// Get monthly breakdown
-	monthRows, err := r.db.QueryContext(ctx, `
+	monthRows, err := conn(ctx, r.db).QueryContext(ctx, `
 		SELECT 
 			fe.month,
 			COUNT(*) FILTER (WHERE COALESCE(pm_sum.matched_amount, 0) < fe.amount - 0.01) as open_count,
@@ -665,7 +665,7 @@ func (r *PostgresFeeRepository) GetOverview(ctx context.Context, year int) (*dom
 	}
 
 	// Count children with open fees
-	err = r.db.GetContext(ctx, &overview.ChildrenWithOpenFees, `
+	err = conn(ctx, r.db).GetContext(ctx, &overview.ChildrenWithOpenFees, `
 		SELECT COUNT(DISTINCT fe.child_id)
 		FROM fees.fee_expectations fe
 		LEFT JOIN (
@@ -680,7 +680,7 @@ func (r *PostgresFeeRepository) GetOverview(ctx context.Context, year int) (*dom
 	}
 
 	// Count open fees by type (unpaid regardless of overdue)
-	typeRows, err := r.db.QueryContext(ctx, `
+	typeRows, err := conn(ctx, r.db).QueryContext(ctx, `
 		SELECT fe.fee_type, COUNT(*) FILTER (WHERE COALESCE(pm_sum.matched_amount, 0) < fe.amount - 0.01) as open_count
 		FROM fees.fee_expectations fe
 		LEFT JOIN (
@@ -722,7 +722,7 @@ func (r *PostgresFeeRepository) GetOverview(ctx context.Context, year int) (*dom
 // for a household with their matched amounts. Open means matched < amount.
 func (r *PostgresFeeRepository) ListOpenByHousehold(ctx context.Context, householdID uuid.UUID) ([]OpenFeeRow, error) {
 	var rows []OpenFeeRow
-	err := r.db.SelectContext(ctx, &rows, `
+	err := conn(ctx, r.db).SelectContext(ctx, &rows, `
 		SELECT fe.id, fe.child_id, fe.household_id, fe.fee_type, fe.year, fe.month, fe.amount, fe.due_date, fe.created_at, fe.reminder_for_id, fe.reconciliation_year,
 		       COALESCE(pm_sum.matched_amount, 0) AS matched_amount
 		FROM fees.fee_expectations fe
@@ -749,7 +749,7 @@ func (r *PostgresFeeRepository) GetOpenReminderBaseIDs(ctx context.Context, base
 		return result, nil
 	}
 	var ids []uuid.UUID
-	err := r.db.SelectContext(ctx, &ids, `
+	err := conn(ctx, r.db).SelectContext(ctx, &ids, `
 		SELECT DISTINCT rem.reminder_for_id
 		FROM fees.fee_expectations rem
 		WHERE rem.fee_type = $1
@@ -772,7 +772,7 @@ func (r *PostgresFeeRepository) GetReminderBaseIDsCreatedAfter(ctx context.Conte
 		return result, nil
 	}
 	var ids []uuid.UUID
-	err := r.db.SelectContext(ctx, &ids, `
+	err := conn(ctx, r.db).SelectContext(ctx, &ids, `
 		SELECT DISTINCT rem.reminder_for_id
 		FROM fees.fee_expectations rem
 		WHERE rem.fee_type = $1

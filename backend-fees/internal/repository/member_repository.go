@@ -46,7 +46,7 @@ func (r *PostgresMemberRepository) List(ctx context.Context, activeOnly bool, se
 
 	// Count total
 	countQuery := "SELECT COUNT(*) " + baseQuery
-	err := r.db.GetContext(ctx, &total, countQuery, args...)
+	err := conn(ctx, r.db).GetContext(ctx, &total, countQuery, args...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -65,7 +65,7 @@ func (r *PostgresMemberRepository) List(ctx context.Context, activeOnly bool, se
 	`, baseQuery, orderClause, argIdx, argIdx+1)
 	args = append(args, limit, offset)
 
-	err = r.db.SelectContext(ctx, &members, selectQuery, args...)
+	err = conn(ctx, r.db).SelectContext(ctx, &members, selectQuery, args...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -100,7 +100,7 @@ func getMemberSortOrder(sortBy, sortDir string) string {
 // GetByID retrieves a member by ID.
 func (r *PostgresMemberRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Member, error) {
 	var member domain.Member
-	err := r.db.GetContext(ctx, &member, `
+	err := conn(ctx, r.db).GetContext(ctx, &member, `
 		SELECT id, member_number, first_name, last_name, email, phone,
 		       street, street_no, postal_code, city, household_id,
 		       membership_start, membership_end, is_active, created_at, updated_at
@@ -119,7 +119,7 @@ func (r *PostgresMemberRepository) GetByID(ctx context.Context, id uuid.UUID) (*
 // GetByMemberNumber retrieves a member by member number.
 func (r *PostgresMemberRepository) GetByMemberNumber(ctx context.Context, memberNumber string) (*domain.Member, error) {
 	var member domain.Member
-	err := r.db.GetContext(ctx, &member, `
+	err := conn(ctx, r.db).GetContext(ctx, &member, `
 		SELECT id, member_number, first_name, last_name, email, phone,
 		       street, street_no, postal_code, city, household_id,
 		       membership_start, membership_end, is_active, created_at, updated_at
@@ -144,7 +144,7 @@ func (r *PostgresMemberRepository) Create(ctx context.Context, member *domain.Me
 	member.CreatedAt = now
 	member.UpdatedAt = now
 
-	_, err := r.db.ExecContext(ctx, `
+	_, err := conn(ctx, r.db).ExecContext(ctx, `
 		INSERT INTO fees.members (id, member_number, first_name, last_name, email, phone,
 		                          street, street_no, postal_code, city, household_id,
 		                          membership_start, membership_end, is_active, created_at, updated_at)
@@ -158,7 +158,7 @@ func (r *PostgresMemberRepository) Create(ctx context.Context, member *domain.Me
 // Update updates an existing member.
 func (r *PostgresMemberRepository) Update(ctx context.Context, member *domain.Member) error {
 	member.UpdatedAt = time.Now()
-	_, err := r.db.ExecContext(ctx, `
+	_, err := conn(ctx, r.db).ExecContext(ctx, `
 		UPDATE fees.members
 		SET member_number = $2, first_name = $3, last_name = $4, email = $5, phone = $6,
 		    street = $7, street_no = $8, postal_code = $9, city = $10, household_id = $11,
@@ -172,14 +172,14 @@ func (r *PostgresMemberRepository) Update(ctx context.Context, member *domain.Me
 
 // Delete deletes a member.
 func (r *PostgresMemberRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	_, err := r.db.ExecContext(ctx, `DELETE FROM fees.members WHERE id = $1`, id)
+	_, err := conn(ctx, r.db).ExecContext(ctx, `DELETE FROM fees.members WHERE id = $1`, id)
 	return err
 }
 
 // ListActiveAt retrieves all members that are active at a given date.
 func (r *PostgresMemberRepository) ListActiveAt(ctx context.Context, date time.Time) ([]domain.Member, error) {
 	var members []domain.Member
-	err := r.db.SelectContext(ctx, &members, `
+	err := conn(ctx, r.db).SelectContext(ctx, &members, `
 		SELECT id, member_number, first_name, last_name, email, phone,
 		       street, street_no, postal_code, city, household_id,
 		       membership_start, membership_end, is_active, created_at, updated_at
@@ -198,7 +198,7 @@ func (r *PostgresMemberRepository) ListActiveAt(ctx context.Context, date time.T
 // GetNextMemberNumber generates the next available member number.
 func (r *PostgresMemberRepository) GetNextMemberNumber(ctx context.Context) (string, error) {
 	var maxNum sql.NullInt64
-	err := r.db.GetContext(ctx, &maxNum, `
+	err := conn(ctx, r.db).GetContext(ctx, &maxNum, `
 		SELECT MAX(CAST(SUBSTRING(member_number FROM 2) AS INTEGER))
 		FROM fees.members
 		WHERE member_number ~ '^M[0-9]+$'

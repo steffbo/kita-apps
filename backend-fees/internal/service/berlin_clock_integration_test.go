@@ -11,7 +11,7 @@ import (
 )
 
 // A fee due on 1 Oct is overdue once 2 Oct has started in Berlin, even though
-// it is still 1 Oct in UTC.
+// it is still 1 Oct in UTC. Uses 2031 so fees left by other tests don't interfere.
 func TestFeeOverview_OverdueFollowsBerlinCalendar(t *testing.T) {
 	cleanupTestData()
 	defer cleanupTestData()
@@ -24,8 +24,8 @@ func TestFeeOverview_OverdueFollowsBerlinCalendar(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create child: %v", err)
 	}
-	dueDate := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)
-	if _, err := createTestFeeWithDueDate(feeRepo, child.ID, domain.FeeTypeFood, 45.40, 2026, 10, dueDate); err != nil {
+	dueDate := time.Date(2031, 10, 1, 0, 0, 0, 0, time.UTC)
+	if _, err := createTestFeeWithDueDate(feeRepo, child.ID, domain.FeeTypeFood, 45.40, 2031, 10, dueDate); err != nil {
 		t.Fatalf("create fee: %v", err)
 	}
 
@@ -34,15 +34,15 @@ func TestFeeOverview_OverdueFollowsBerlinCalendar(t *testing.T) {
 		instant     time.Time
 		wantOverdue int
 	}{
-		{name: "due day in Berlin", instant: time.Date(2026, 10, 1, 21, 0, 0, 0, time.UTC), wantOverdue: 0},
-		{name: "next day in Berlin, still due day in UTC", instant: time.Date(2026, 10, 1, 22, 30, 0, 0, time.UTC), wantOverdue: 1},
+		{name: "due day in Berlin", instant: time.Date(2031, 10, 1, 21, 0, 0, 0, time.UTC), wantOverdue: 0},
+		{name: "next day in Berlin, still due day in UTC", instant: time.Date(2031, 10, 1, 22, 30, 0, 0, time.UTC), wantOverdue: 1},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			restore := util.SetClock(func() time.Time { return tt.instant })
 			defer restore()
 
-			overview, err := feeRepo.GetOverview(ctx, 2026)
+			overview, err := feeRepo.GetOverview(ctx, 2031)
 			if err != nil {
 				t.Fatalf("GetOverview: %v", err)
 			}

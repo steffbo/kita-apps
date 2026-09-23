@@ -33,7 +33,7 @@ func (r *PostgresTransactionRepository) Create(ctx context.Context, tx *domain.B
 		tx.ImportedAt = time.Now()
 	}
 
-	_, err := r.db.ExecContext(ctx, `
+	_, err := conn(ctx, r.db).ExecContext(ctx, `
 		INSERT INTO fees.bank_transactions (id, booking_date, value_date, payer_name, payer_iban,
 		                                    description, amount, currency, import_batch_id, imported_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
@@ -45,7 +45,7 @@ func (r *PostgresTransactionRepository) Create(ctx context.Context, tx *domain.B
 // GetByID retrieves a bank transaction by ID.
 func (r *PostgresTransactionRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.BankTransaction, error) {
 	var tx domain.BankTransaction
-	err := r.db.GetContext(ctx, &tx, `
+	err := conn(ctx, r.db).GetContext(ctx, &tx, `
 		SELECT id, booking_date, value_date, payer_name, payer_iban,
 		       description, amount, currency, import_batch_id, imported_at,
 		       is_hidden, hidden_at, hidden_by
@@ -68,7 +68,7 @@ func (r *PostgresTransactionRepository) GetByIDs(ctx context.Context, ids []uuid
 	}
 
 	var transactions []domain.BankTransaction
-	err := r.db.SelectContext(ctx, &transactions, `
+	err := conn(ctx, r.db).SelectContext(ctx, &transactions, `
 		SELECT id, booking_date, value_date, payer_name, payer_iban,
 		       description, amount, currency, import_batch_id, imported_at,
 		       is_hidden, hidden_at, hidden_by
@@ -110,7 +110,7 @@ func (r *PostgresTransactionRepository) Exists(ctx context.Context, bookingDate 
 		args = append(args, *description)
 	}
 
-	err := r.db.GetContext(ctx, &count, query, args...)
+	err := conn(ctx, r.db).GetContext(ctx, &count, query, args...)
 	if err != nil {
 		return false, err
 	}
@@ -178,7 +178,7 @@ func (r *PostgresTransactionRepository) ListUnmatched(ctx context.Context, searc
 		FROM fees.bank_transactions bt
 		WHERE %s
 	`, whereClause)
-	err := r.db.GetContext(ctx, &total, countQuery, args...)
+	err := conn(ctx, r.db).GetContext(ctx, &total, countQuery, args...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -198,7 +198,7 @@ func (r *PostgresTransactionRepository) ListUnmatched(ctx context.Context, searc
 	`, listMatchedAmountExpr, whereClause, orderBy, argIdx, argIdx+1)
 	args = append(args, limit, offset)
 
-	err = r.db.SelectContext(ctx, &transactions, selectQuery, args...)
+	err = conn(ctx, r.db).SelectContext(ctx, &transactions, selectQuery, args...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -208,7 +208,7 @@ func (r *PostgresTransactionRepository) ListUnmatched(ctx context.Context, searc
 
 // Hide marks a transaction as hidden.
 func (r *PostgresTransactionRepository) Hide(ctx context.Context, id uuid.UUID, userID uuid.UUID) error {
-	result, err := r.db.ExecContext(ctx, `
+	result, err := conn(ctx, r.db).ExecContext(ctx, `
 		UPDATE fees.bank_transactions
 		SET is_hidden = true, hidden_at = NOW(), hidden_by = $2
 		WHERE id = $1
@@ -232,7 +232,7 @@ func (r *PostgresTransactionRepository) GetBatches(ctx context.Context, offset, 
 	var total int64
 
 	// Count total batches from import_batches table (includes batches with 0 transactions)
-	err := r.db.GetContext(ctx, &total, `
+	err := conn(ctx, r.db).GetContext(ctx, &total, `
 		SELECT COUNT(*)
 		FROM fees.import_batches
 	`)
@@ -242,7 +242,7 @@ func (r *PostgresTransactionRepository) GetBatches(ctx context.Context, offset, 
 
 	// Fetch batch summaries with date range and user info
 	// Start from import_batches to include batches with 0 transactions
-	err = r.db.SelectContext(ctx, &batches, `
+	err = conn(ctx, r.db).SelectContext(ctx, &batches, `
 		SELECT 
 			ib.id as id,
 			ib.imported_at as imported_at,
@@ -272,7 +272,7 @@ func (r *PostgresTransactionRepository) GetBatches(ctx context.Context, offset, 
 
 // Delete deletes a transaction by ID.
 func (r *PostgresTransactionRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	result, err := r.db.ExecContext(ctx, `
+	result, err := conn(ctx, r.db).ExecContext(ctx, `
 		DELETE FROM fees.bank_transactions WHERE id = $1
 	`, id)
 	if err != nil {
@@ -292,7 +292,7 @@ func (r *PostgresTransactionRepository) Delete(ctx context.Context, id uuid.UUID
 
 // DeleteUnmatchedByIBAN deletes all unmatched transactions with a specific IBAN.
 func (r *PostgresTransactionRepository) DeleteUnmatchedByIBAN(ctx context.Context, iban string) (int64, error) {
-	result, err := r.db.ExecContext(ctx, `
+	result, err := conn(ctx, r.db).ExecContext(ctx, `
 		DELETE FROM fees.bank_transactions
 		WHERE payer_iban = $1
 		AND id NOT IN (SELECT transaction_id FROM fees.payment_matches)
@@ -306,7 +306,7 @@ func (r *PostgresTransactionRepository) DeleteUnmatchedByIBAN(ctx context.Contex
 
 // CreateBatch creates a new import batch record.
 func (r *PostgresTransactionRepository) CreateBatch(ctx context.Context, id uuid.UUID, fileName string, importedBy uuid.UUID) error {
-	_, err := r.db.ExecContext(ctx, `
+	_, err := conn(ctx, r.db).ExecContext(ctx, `
 		INSERT INTO fees.import_batches (id, file_name, imported_by, imported_at)
 		VALUES ($1, $2, $3, NOW())
 	`, id, fileName, importedBy)
@@ -327,7 +327,7 @@ func (r *PostgresTransactionRepository) ListMatched(ctx context.Context, search,
 		INNER JOIN fees.payment_matches pm ON bt.id = pm.transaction_id
 		WHERE %s
 	`, whereClause)
-	err := r.db.GetContext(ctx, &total, countQuery, args...)
+	err := conn(ctx, r.db).GetContext(ctx, &total, countQuery, args...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -346,7 +346,7 @@ func (r *PostgresTransactionRepository) ListMatched(ctx context.Context, search,
 	`, whereClause, orderBy, argIdx, argIdx+1)
 	args = append(args, limit, offset)
 
-	err = r.db.SelectContext(ctx, &transactions, selectQuery, args...)
+	err = conn(ctx, r.db).SelectContext(ctx, &transactions, selectQuery, args...)
 	if err != nil {
 		return nil, 0, err
 	}

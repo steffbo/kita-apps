@@ -28,7 +28,7 @@ func (r *PostgresKnownIBANRepository) Create(ctx context.Context, iban *domain.K
 	iban.CreatedAt = now
 	iban.UpdatedAt = now
 
-	_, err := r.db.ExecContext(ctx, `
+	_, err := conn(ctx, r.db).ExecContext(ctx, `
 		INSERT INTO fees.known_ibans (iban, payer_name, status, child_id, reason, 
 		                              original_transaction_id, original_description, original_amount, 
 		                              created_at, updated_at)
@@ -51,7 +51,7 @@ func (r *PostgresKnownIBANRepository) Create(ctx context.Context, iban *domain.K
 // GetByIBAN retrieves a known IBAN entry by IBAN.
 func (r *PostgresKnownIBANRepository) GetByIBAN(ctx context.Context, iban string) (*domain.KnownIBAN, error) {
 	var entry domain.KnownIBAN
-	err := r.db.GetContext(ctx, &entry, `
+	err := conn(ctx, r.db).GetContext(ctx, &entry, `
 		SELECT iban, payer_name, status, child_id, reason, 
 		       original_transaction_id, original_description, original_amount,
 		       created_at, updated_at
@@ -70,7 +70,7 @@ func (r *PostgresKnownIBANRepository) GetByIBAN(ctx context.Context, iban string
 // IsBlacklisted checks if an IBAN is blacklisted.
 func (r *PostgresKnownIBANRepository) IsBlacklisted(ctx context.Context, iban string) (bool, error) {
 	var count int
-	err := r.db.GetContext(ctx, &count, `
+	err := conn(ctx, r.db).GetContext(ctx, &count, `
 		SELECT COUNT(*)
 		FROM fees.known_ibans
 		WHERE iban = $1 AND status = 'blacklisted'
@@ -84,7 +84,7 @@ func (r *PostgresKnownIBANRepository) IsBlacklisted(ctx context.Context, iban st
 // IsTrusted checks if an IBAN is trusted.
 func (r *PostgresKnownIBANRepository) IsTrusted(ctx context.Context, iban string) (bool, error) {
 	var count int
-	err := r.db.GetContext(ctx, &count, `
+	err := conn(ctx, r.db).GetContext(ctx, &count, `
 		SELECT COUNT(*)
 		FROM fees.known_ibans
 		WHERE iban = $1 AND status = 'trusted'
@@ -101,7 +101,7 @@ func (r *PostgresKnownIBANRepository) ListByStatus(ctx context.Context, status d
 	var total int64
 
 	// Count total
-	err := r.db.GetContext(ctx, &total, `
+	err := conn(ctx, r.db).GetContext(ctx, &total, `
 		SELECT COUNT(*)
 		FROM fees.known_ibans
 		WHERE status = $1
@@ -111,7 +111,7 @@ func (r *PostgresKnownIBANRepository) ListByStatus(ctx context.Context, status d
 	}
 
 	// Fetch entries
-	err = r.db.SelectContext(ctx, &entries, `
+	err = conn(ctx, r.db).SelectContext(ctx, &entries, `
 		SELECT iban, payer_name, status, child_id, reason, 
 		       original_transaction_id, original_description, original_amount,
 		       created_at, updated_at
@@ -130,7 +130,7 @@ func (r *PostgresKnownIBANRepository) ListByStatus(ctx context.Context, status d
 // ListTrustedByChildWithCounts returns trusted IBANs for a child with transaction counts.
 func (r *PostgresKnownIBANRepository) ListTrustedByChildWithCounts(ctx context.Context, childID uuid.UUID) ([]domain.KnownIBANSummary, error) {
 	var entries []domain.KnownIBANSummary
-	err := r.db.SelectContext(ctx, &entries, `
+	err := conn(ctx, r.db).SelectContext(ctx, &entries, `
 		SELECT
 			ki.iban,
 			ki.payer_name,
@@ -151,7 +151,7 @@ func (r *PostgresKnownIBANRepository) ListTrustedByChildWithCounts(ctx context.C
 
 // Delete removes a known IBAN entry.
 func (r *PostgresKnownIBANRepository) Delete(ctx context.Context, iban string) error {
-	result, err := r.db.ExecContext(ctx, `
+	result, err := conn(ctx, r.db).ExecContext(ctx, `
 		DELETE FROM fees.known_ibans
 		WHERE iban = $1
 	`, iban)
@@ -172,7 +172,7 @@ func (r *PostgresKnownIBANRepository) Delete(ctx context.Context, iban string) e
 
 // UpdateChildLink updates the child linkage for a known IBAN.
 func (r *PostgresKnownIBANRepository) UpdateChildLink(ctx context.Context, iban string, childID *uuid.UUID) error {
-	result, err := r.db.ExecContext(ctx, `
+	result, err := conn(ctx, r.db).ExecContext(ctx, `
 		UPDATE fees.known_ibans
 		SET child_id = $2, updated_at = NOW()
 		WHERE iban = $1
@@ -195,7 +195,7 @@ func (r *PostgresKnownIBANRepository) UpdateChildLink(ctx context.Context, iban 
 // GetBlacklistedIBANs returns all blacklisted IBANs as a set for efficient lookup.
 func (r *PostgresKnownIBANRepository) GetBlacklistedIBANs(ctx context.Context) (map[string]bool, error) {
 	var ibans []string
-	err := r.db.SelectContext(ctx, &ibans, `
+	err := conn(ctx, r.db).SelectContext(ctx, &ibans, `
 		SELECT iban FROM fees.known_ibans WHERE status = 'blacklisted'
 	`)
 	if err != nil {

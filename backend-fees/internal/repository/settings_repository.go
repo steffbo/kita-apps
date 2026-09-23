@@ -22,7 +22,7 @@ func NewPostgresSettingsRepository(db *sqlx.DB) *PostgresSettingsRepository {
 // Get retrieves a setting by key.
 func (r *PostgresSettingsRepository) Get(ctx context.Context, key string) (*domain.AppSetting, error) {
 	var setting domain.AppSetting
-	err := r.db.GetContext(ctx, &setting, `
+	err := conn(ctx, r.db).GetContext(ctx, &setting, `
 		SELECT key, value, updated_at
 		FROM fees.app_settings
 		WHERE key = $1
@@ -38,7 +38,7 @@ func (r *PostgresSettingsRepository) Get(ctx context.Context, key string) (*doma
 
 // Upsert inserts or updates a setting.
 func (r *PostgresSettingsRepository) Upsert(ctx context.Context, setting *domain.AppSetting) error {
-	_, err := r.db.ExecContext(ctx, `
+	_, err := conn(ctx, r.db).ExecContext(ctx, `
 		INSERT INTO fees.app_settings (key, value, updated_at)
 		VALUES ($1, $2, NOW())
 		ON CONFLICT (key)

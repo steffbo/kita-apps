@@ -167,7 +167,7 @@ func (r *PostgresChildRepository) List(ctx context.Context, activeOnly bool, u3O
 
 	// Count total
 	countQuery := "SELECT COUNT(*) " + baseQuery
-	err := r.db.GetContext(ctx, &total, countQuery, args...)
+	err := conn(ctx, r.db).GetContext(ctx, &total, countQuery, args...)
 	if err != nil {
 		log.Error().Err(err).Str("query", countQuery).Msg("Child count query failed")
 		return nil, 0, err
@@ -185,7 +185,7 @@ func (r *PostgresChildRepository) List(ctx context.Context, activeOnly bool, u3O
 	`, childSelectColumns, baseQuery, orderClause, argIdx, argIdx+1)
 	args = append(args, limit, offset)
 
-	err = r.db.SelectContext(ctx, &children, selectQuery, args...)
+	err = conn(ctx, r.db).SelectContext(ctx, &children, selectQuery, args...)
 	if err != nil {
 		log.Error().Err(err).Str("query", selectQuery).Msg("Child list query failed")
 		return nil, 0, err
@@ -236,7 +236,7 @@ func getChildSortOrder(sortBy, sortDir string) string {
 // GetByID retrieves a child by ID.
 func (r *PostgresChildRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Child, error) {
 	var child domain.Child
-	err := r.db.GetContext(ctx, &child, `
+	err := conn(ctx, r.db).GetContext(ctx, &child, `
 		SELECT `+childSelectColumns+`
 		FROM fees.children c`+childCurrentHoursJoins+`
 		WHERE c.id = $1
@@ -257,7 +257,7 @@ func (r *PostgresChildRepository) GetByIDs(ctx context.Context, ids []uuid.UUID)
 	}
 
 	var children []domain.Child
-	err := r.db.SelectContext(ctx, &children, `
+	err := conn(ctx, r.db).SelectContext(ctx, &children, `
 		SELECT `+childSelectColumns+`
 		FROM fees.children c`+childCurrentHoursJoins+`
 		WHERE c.id = ANY($1)
@@ -276,7 +276,7 @@ func (r *PostgresChildRepository) GetByIDs(ctx context.Context, ids []uuid.UUID)
 // GetByHouseholdID retrieves all children linked to a household.
 func (r *PostgresChildRepository) GetByHouseholdID(ctx context.Context, householdID uuid.UUID) ([]domain.Child, error) {
 	var children []domain.Child
-	err := r.db.SelectContext(ctx, &children, `
+	err := conn(ctx, r.db).SelectContext(ctx, &children, `
 		SELECT `+childSelectColumns+`
 		FROM fees.children c`+childCurrentHoursJoins+`
 		WHERE c.household_id = $1
@@ -291,7 +291,7 @@ func (r *PostgresChildRepository) GetByHouseholdID(ctx context.Context, househol
 // GetByMemberNumber retrieves a child by member number.
 func (r *PostgresChildRepository) GetByMemberNumber(ctx context.Context, memberNumber string) (*domain.Child, error) {
 	var child domain.Child
-	err := r.db.GetContext(ctx, &child, `
+	err := conn(ctx, r.db).GetContext(ctx, &child, `
 		SELECT `+childSelectColumns+`
 		FROM fees.children c`+childCurrentHoursJoins+`
 		WHERE c.member_number = $1
@@ -308,7 +308,7 @@ func (r *PostgresChildRepository) GetByMemberNumber(ctx context.Context, memberN
 // GetNextMemberNumber generates the next available numeric member number.
 func (r *PostgresChildRepository) GetNextMemberNumber(ctx context.Context) (string, error) {
 	var maxNum sql.NullInt64
-	err := r.db.GetContext(ctx, &maxNum, `
+	err := conn(ctx, r.db).GetContext(ctx, &maxNum, `
 		SELECT MAX(CAST(member_number AS INTEGER))
 		FROM fees.children
 		WHERE member_number ~ '^[0-9]+$'
@@ -327,7 +327,7 @@ func (r *PostgresChildRepository) GetNextMemberNumber(ctx context.Context) (stri
 
 // Create creates a new child.
 func (r *PostgresChildRepository) Create(ctx context.Context, child *domain.Child) error {
-	tx, err := r.db.BeginTxx(ctx, nil)
+	tx, err := beginTx(ctx, r.db)
 	if err != nil {
 		return err
 	}
@@ -363,7 +363,7 @@ func (r *PostgresChildRepository) Create(ctx context.Context, child *domain.Chil
 // Update updates an existing child.
 func (r *PostgresChildRepository) Update(ctx context.Context, child *domain.Child) error {
 	child.UpdatedAt = time.Now()
-	tx, err := r.db.BeginTxx(ctx, nil)
+	tx, err := beginTx(ctx, r.db)
 	if err != nil {
 		return err
 	}
@@ -414,14 +414,14 @@ func (r *PostgresChildRepository) Update(ctx context.Context, child *domain.Chil
 
 // Delete deletes a child (hard delete).
 func (r *PostgresChildRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	_, err := r.db.ExecContext(ctx, `DELETE FROM fees.children WHERE id = $1`, id)
+	_, err := conn(ctx, r.db).ExecContext(ctx, `DELETE FROM fees.children WHERE id = $1`, id)
 	return err
 }
 
 // GetParents retrieves all parents linked to a child.
 func (r *PostgresChildRepository) GetParents(ctx context.Context, childID uuid.UUID) ([]domain.Parent, error) {
 	var parents []domain.Parent
-	err := r.db.SelectContext(ctx, &parents, `
+	err := conn(ctx, r.db).SelectContext(ctx, &parents, `
 		SELECT p.id, p.household_id, p.member_id, p.first_name, p.last_name, p.birth_date,
 		       COALESCE(NULLIF(TRIM(p.email), ''), m.email) AS email,
 		       p.phone, p.street, p.street_no, p.postal_code, p.city,
@@ -471,7 +471,7 @@ func (r *PostgresChildRepository) GetParentsForChildren(ctx context.Context, chi
 	}
 
 	var rows []parentWithChildID
-	if err := r.db.SelectContext(ctx, &rows, query, args...); err != nil {
+	if err := conn(ctx, r.db).SelectContext(ctx, &rows, query, args...); err != nil {
 		return nil, err
 	}
 
@@ -486,7 +486,7 @@ func (r *PostgresChildRepository) GetParentsForChildren(ctx context.Context, chi
 
 // LinkParent links a parent to a child.
 func (r *PostgresChildRepository) LinkParent(ctx context.Context, childID, parentID uuid.UUID, isPrimary bool) error {
-	_, err := r.db.ExecContext(ctx, `
+	_, err := conn(ctx, r.db).ExecContext(ctx, `
 		INSERT INTO fees.child_parents (child_id, parent_id, is_primary)
 		VALUES ($1, $2, $3)
 		ON CONFLICT (child_id, parent_id)
@@ -497,7 +497,7 @@ func (r *PostgresChildRepository) LinkParent(ctx context.Context, childID, paren
 
 // UnlinkParent unlinks a parent from a child.
 func (r *PostgresChildRepository) UnlinkParent(ctx context.Context, childID, parentID uuid.UUID) error {
-	_, err := r.db.ExecContext(ctx, `
+	_, err := conn(ctx, r.db).ExecContext(ctx, `
 		DELETE FROM fees.child_parents
 		WHERE child_id = $1 AND parent_id = $2
 	`, childID, parentID)
@@ -591,7 +591,7 @@ func (r *PostgresChildRepository) GetU3ChildrenDetails(ctx context.Context, stic
 		IncomeStatus    *string  `db:"income_status"`
 	}
 
-	err := r.db.SelectContext(ctx, &children, `
+	err := conn(ctx, r.db).SelectContext(ctx, &children, `
 		SELECT
 			c.id::text AS id,
 			c.member_number,
@@ -638,7 +638,7 @@ func (r *PostgresChildRepository) GetU3ChildrenDetails(ctx context.Context, stic
 // ListCareHoursHistory returns the care hours history for a child.
 func (r *PostgresChildRepository) ListCareHoursHistory(ctx context.Context, childID uuid.UUID) ([]domain.ChildCareHoursHistory, error) {
 	var rows []domain.ChildCareHoursHistory
-	err := r.db.SelectContext(ctx, &rows, `
+	err := conn(ctx, r.db).SelectContext(ctx, &rows, `
 		SELECT id, child_id, care_hours, effective_from, effective_until, created_at, updated_at
 		FROM fees.child_care_hours_history
 		WHERE child_id = $1
@@ -652,7 +652,7 @@ func (r *PostgresChildRepository) ListCareHoursHistory(ctx context.Context, chil
 
 // UpsertCareHoursHistory creates or updates a care hours period for a child.
 func (r *PostgresChildRepository) UpsertCareHoursHistory(ctx context.Context, childID uuid.UUID, careHours *int, validFrom time.Time) error {
-	tx, err := r.db.BeginTxx(ctx, nil)
+	tx, err := beginTx(ctx, r.db)
 	if err != nil {
 		return err
 	}
@@ -668,7 +668,7 @@ func (r *PostgresChildRepository) UpsertCareHoursHistory(ctx context.Context, ch
 // ListLegalHoursHistory returns the legal hours history for a child.
 func (r *PostgresChildRepository) ListLegalHoursHistory(ctx context.Context, childID uuid.UUID) ([]domain.ChildLegalHoursHistory, error) {
 	var rows []domain.ChildLegalHoursHistory
-	err := r.db.SelectContext(ctx, &rows, `
+	err := conn(ctx, r.db).SelectContext(ctx, &rows, `
 		SELECT id, child_id, legal_hours, effective_from, effective_until, created_at, updated_at
 		FROM fees.child_legal_hours_history
 		WHERE child_id = $1
@@ -682,7 +682,7 @@ func (r *PostgresChildRepository) ListLegalHoursHistory(ctx context.Context, chi
 
 // UpsertLegalHoursHistory creates or updates a legal hours period for a child.
 func (r *PostgresChildRepository) UpsertLegalHoursHistory(ctx context.Context, childID uuid.UUID, legalHours *int, validFrom time.Time) error {
-	tx, err := r.db.BeginTxx(ctx, nil)
+	tx, err := beginTx(ctx, r.db)
 	if err != nil {
 		return err
 	}
@@ -707,7 +707,7 @@ func (r *PostgresChildRepository) getStichtagSummary(ctx context.Context, sticht
 		Total        int `db:"total"`
 	}
 
-	err := r.db.GetContext(ctx, &breakdown, `
+	err := conn(ctx, r.db).GetContext(ctx, &breakdown, `
 		SELECT
 			COUNT(*) FILTER (WHERE COALESCE(h.income_status, '') NOT IN ('MAX_ACCEPTED', 'FOSTER_FAMILY') AND COALESCE(h.annual_household_income, 0) <= 20000) AS up_to_20k,
 			COUNT(*) FILTER (WHERE COALESCE(h.income_status, '') NOT IN ('MAX_ACCEPTED', 'FOSTER_FAMILY') AND h.annual_household_income > 20000 AND h.annual_household_income <= 35000) AS from_20_to_35k,
@@ -726,7 +726,7 @@ func (r *PostgresChildRepository) getStichtagSummary(ctx context.Context, sticht
 	}
 
 	var totalChildren int
-	err = r.db.GetContext(ctx, &totalChildren, `
+	err = conn(ctx, r.db).GetContext(ctx, &totalChildren, `
 		SELECT COUNT(*)
 		FROM fees.children
 		WHERE entry_date <= $1
@@ -746,7 +746,7 @@ func (r *PostgresChildRepository) getStichtagSummary(ctx context.Context, sticht
 	}, totalChildren, breakdown.Total, nil
 }
 
-func (r *PostgresChildRepository) upsertCareHoursHistoryTx(ctx context.Context, tx *sqlx.Tx, childID uuid.UUID, careHours *int, validFrom time.Time) error {
+func (r *PostgresChildRepository) upsertCareHoursHistoryTx(ctx context.Context, tx querier, childID uuid.UUID, careHours *int, validFrom time.Time) error {
 	var rows []careHoursHistoryRow
 	err := tx.SelectContext(ctx, &rows, `
 		SELECT id, child_id, care_hours, effective_from, effective_until, created_at, updated_at
@@ -844,7 +844,7 @@ func (r *PostgresChildRepository) upsertCareHoursHistoryTx(ctx context.Context, 
 	return nil
 }
 
-func (r *PostgresChildRepository) upsertLegalHoursHistoryTx(ctx context.Context, tx *sqlx.Tx, childID uuid.UUID, legalHours *int, validFrom time.Time, validUntil *time.Time) error {
+func (r *PostgresChildRepository) upsertLegalHoursHistoryTx(ctx context.Context, tx querier, childID uuid.UUID, legalHours *int, validFrom time.Time, validUntil *time.Time) error {
 	var rows []legalHoursHistoryRow
 	err := tx.SelectContext(ctx, &rows, `
 		SELECT id, child_id, legal_hours, effective_from, effective_until, created_at, updated_at
@@ -949,7 +949,7 @@ func (r *PostgresChildRepository) upsertLegalHoursHistoryTx(ctx context.Context,
 	return nil
 }
 
-func currentCareHoursTx(ctx context.Context, tx *sqlx.Tx, childID uuid.UUID, at time.Time) (*int, error) {
+func currentCareHoursTx(ctx context.Context, tx querier, childID uuid.UUID, at time.Time) (*int, error) {
 	var raw sql.NullInt64
 	err := tx.GetContext(ctx, &raw, `
 		SELECT care_hours
@@ -973,7 +973,7 @@ func currentCareHoursTx(ctx context.Context, tx *sqlx.Tx, childID uuid.UUID, at 
 	return &value, nil
 }
 
-func currentLegalHoursTx(ctx context.Context, tx *sqlx.Tx, childID uuid.UUID, at time.Time) (*int, *time.Time, error) {
+func currentLegalHoursTx(ctx context.Context, tx querier, childID uuid.UUID, at time.Time) (*int, *time.Time, error) {
 	type currentLegalRow struct {
 		LegalHours     sql.NullInt64 `db:"legal_hours"`
 		EffectiveUntil *time.Time    `db:"effective_until"`
@@ -1091,7 +1091,7 @@ func (r *PostgresChildRepository) loadHoursBreakdown(ctx context.Context, dest i
 		ORDER BY history_match.value ASC NULLS LAST
 	`, historyColumn, historyColumn, historyTable)
 
-	return r.db.SelectContext(ctx, dest, query, stichtag, u3Threshold)
+	return conn(ctx, r.db).SelectContext(ctx, dest, query, stichtag, u3Threshold)
 }
 
 // truncateDate normalizes a timestamp to the UTC midnight of its calendar date. History

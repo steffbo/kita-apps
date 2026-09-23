@@ -40,7 +40,7 @@ func (r *PostgresHouseholdRepository) List(ctx context.Context, search string, s
 
 	// Count total
 	countQuery := "SELECT COUNT(*) " + baseQuery
-	err := r.db.GetContext(ctx, &total, countQuery, args...)
+	err := conn(ctx, r.db).GetContext(ctx, &total, countQuery, args...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -57,7 +57,7 @@ func (r *PostgresHouseholdRepository) List(ctx context.Context, search string, s
 		`, baseQuery, orderClause, argIdx, argIdx+1)
 	args = append(args, limit, offset)
 
-	err = r.db.SelectContext(ctx, &households, selectQuery, args...)
+	err = conn(ctx, r.db).SelectContext(ctx, &households, selectQuery, args...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -88,7 +88,7 @@ func getHouseholdSortOrder(sortBy, sortDir string) string {
 // GetByID retrieves a household by ID.
 func (r *PostgresHouseholdRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Household, error) {
 	var household domain.Household
-	err := r.db.GetContext(ctx, &household, `
+	err := conn(ctx, r.db).GetContext(ctx, &household, `
 		SELECT id, name, annual_household_income, income_status, membership_parent_id, membership_assignment_status, children_count_for_fees, created_at, updated_at
 		FROM fees.households
 		WHERE id = $1
@@ -119,7 +119,7 @@ func (r *PostgresHouseholdRepository) GetByIDs(ctx context.Context, ids []uuid.U
 	query = r.db.Rebind(query)
 
 	var households []domain.Household
-	if err := r.db.SelectContext(ctx, &households, query, args...); err != nil {
+	if err := conn(ctx, r.db).SelectContext(ctx, &households, query, args...); err != nil {
 		return nil, err
 	}
 
@@ -139,7 +139,7 @@ func (r *PostgresHouseholdRepository) Create(ctx context.Context, household *dom
 	household.CreatedAt = now
 	household.UpdatedAt = now
 
-	_, err := r.db.ExecContext(ctx, `
+	_, err := conn(ctx, r.db).ExecContext(ctx, `
 		INSERT INTO fees.households (id, name, annual_household_income, income_status, membership_parent_id, membership_assignment_status, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 	`, household.ID, household.Name, household.AnnualHouseholdIncome, household.IncomeStatus,
@@ -150,7 +150,7 @@ func (r *PostgresHouseholdRepository) Create(ctx context.Context, household *dom
 // Update updates an existing household.
 func (r *PostgresHouseholdRepository) Update(ctx context.Context, household *domain.Household) error {
 	household.UpdatedAt = time.Now()
-	_, err := r.db.ExecContext(ctx, `
+	_, err := conn(ctx, r.db).ExecContext(ctx, `
 		UPDATE fees.households
 		SET name = $2, annual_household_income = $3, income_status = $4, membership_parent_id = $5, membership_assignment_status = $6, children_count_for_fees = $7, updated_at = $8
 		WHERE id = $1
@@ -161,14 +161,14 @@ func (r *PostgresHouseholdRepository) Update(ctx context.Context, household *dom
 
 // Delete deletes a household.
 func (r *PostgresHouseholdRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	_, err := r.db.ExecContext(ctx, `DELETE FROM fees.households WHERE id = $1`, id)
+	_, err := conn(ctx, r.db).ExecContext(ctx, `DELETE FROM fees.households WHERE id = $1`, id)
 	return err
 }
 
 // GetParents retrieves all parents linked to a household.
 func (r *PostgresHouseholdRepository) GetParents(ctx context.Context, householdID uuid.UUID) ([]domain.Parent, error) {
 	var parents []domain.Parent
-	err := r.db.SelectContext(ctx, &parents, `
+	err := conn(ctx, r.db).SelectContext(ctx, &parents, `
 		SELECT p.id, p.household_id, p.member_id, p.first_name, p.last_name, p.birth_date,
 		       COALESCE(NULLIF(TRIM(p.email), ''), m.email) AS email,
 		       p.phone, p.street, p.street_no, p.postal_code, p.city,
@@ -187,7 +187,7 @@ func (r *PostgresHouseholdRepository) GetParents(ctx context.Context, householdI
 // GetChildren retrieves all children linked to a household.
 func (r *PostgresHouseholdRepository) GetChildren(ctx context.Context, householdID uuid.UUID) ([]domain.Child, error) {
 	var children []domain.Child
-	err := r.db.SelectContext(ctx, &children, `
+	err := conn(ctx, r.db).SelectContext(ctx, &children, `
 		SELECT `+childSelectColumns+`
 		FROM fees.children c`+childCurrentHoursJoins+`
 		WHERE c.household_id = $1
@@ -224,7 +224,7 @@ func (r *PostgresHouseholdRepository) GetWithMembers(ctx context.Context, id uui
 // ListAll returns all households (id and name), unpaginated.
 func (r *PostgresHouseholdRepository) ListAll(ctx context.Context) ([]domain.Household, error) {
 	var households []domain.Household
-	err := r.db.SelectContext(ctx, &households, `
+	err := conn(ctx, r.db).SelectContext(ctx, &households, `
 		SELECT id, name, annual_household_income, income_status, membership_parent_id, membership_assignment_status, children_count_for_fees, created_at, updated_at
 		FROM fees.households
 		ORDER BY name ASC

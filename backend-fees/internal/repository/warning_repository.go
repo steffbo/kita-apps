@@ -24,7 +24,7 @@ func NewPostgresWarningRepository(db *sqlx.DB) *PostgresWarningRepository {
 
 // Create creates a new transaction warning.
 func (r *PostgresWarningRepository) Create(ctx context.Context, warning *domain.TransactionWarning) error {
-	_, err := r.db.ExecContext(ctx, `
+	_, err := conn(ctx, r.db).ExecContext(ctx, `
 		INSERT INTO fees.transaction_warnings (
 			id, transaction_id, warning_type, message, expected_amount, actual_amount, 
 			child_id, matched_fee_id, created_at
@@ -37,7 +37,7 @@ func (r *PostgresWarningRepository) Create(ctx context.Context, warning *domain.
 // GetByID retrieves a warning by its ID.
 func (r *PostgresWarningRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.TransactionWarning, error) {
 	var warning domain.TransactionWarning
-	err := r.db.GetContext(ctx, &warning, `
+	err := conn(ctx, r.db).GetContext(ctx, &warning, `
 		SELECT id, transaction_id, warning_type, message, expected_amount, actual_amount,
 			   child_id, matched_fee_id, resolved_at, resolved_by, resolution_type, resolution_note, created_at
 		FROM fees.transaction_warnings
@@ -55,7 +55,7 @@ func (r *PostgresWarningRepository) GetByID(ctx context.Context, id uuid.UUID) (
 // GetByTransactionID retrieves a warning by its transaction ID.
 func (r *PostgresWarningRepository) GetByTransactionID(ctx context.Context, transactionID uuid.UUID) (*domain.TransactionWarning, error) {
 	var warning domain.TransactionWarning
-	err := r.db.GetContext(ctx, &warning, `
+	err := conn(ctx, r.db).GetContext(ctx, &warning, `
 		SELECT id, transaction_id, warning_type, message, expected_amount, actual_amount,
 			   child_id, matched_fee_id, resolved_at, resolved_by, resolution_type, resolution_note, created_at
 		FROM fees.transaction_warnings
@@ -77,7 +77,7 @@ func (r *PostgresWarningRepository) ListUnresolved(ctx context.Context, offset, 
 	var total int64
 
 	// Count total unresolved (excluding MULTIPLE_OPEN_FEES)
-	err := r.db.GetContext(ctx, &total, `
+	err := conn(ctx, r.db).GetContext(ctx, &total, `
 		SELECT COUNT(*) FROM fees.transaction_warnings 
 		WHERE resolved_at IS NULL 
 		AND warning_type != 'MULTIPLE_OPEN_FEES'
@@ -87,7 +87,7 @@ func (r *PostgresWarningRepository) ListUnresolved(ctx context.Context, offset, 
 	}
 
 	// Fetch with pagination (excluding MULTIPLE_OPEN_FEES)
-	err = r.db.SelectContext(ctx, &warnings, `
+	err = conn(ctx, r.db).SelectContext(ctx, &warnings, `
 		SELECT w.id, w.transaction_id, w.warning_type, w.message, w.expected_amount, w.actual_amount,
 			   w.child_id, w.matched_fee_id, w.resolved_at, w.resolved_by, w.resolution_type, w.resolution_note, w.created_at
 		FROM fees.transaction_warnings w
@@ -105,7 +105,7 @@ func (r *PostgresWarningRepository) ListUnresolved(ctx context.Context, offset, 
 
 // Resolve marks a warning as resolved.
 func (r *PostgresWarningRepository) Resolve(ctx context.Context, id uuid.UUID, resolvedBy uuid.UUID, resolutionType domain.ResolutionType, note string) error {
-	result, err := r.db.ExecContext(ctx, `
+	result, err := conn(ctx, r.db).ExecContext(ctx, `
 		UPDATE fees.transaction_warnings
 		SET resolved_at = $2, resolved_by = $3, resolution_type = $4, resolution_note = $5
 		WHERE id = $1 AND resolved_at IS NULL
@@ -127,7 +127,7 @@ func (r *PostgresWarningRepository) Resolve(ctx context.Context, id uuid.UUID, r
 // ResolveByTransactionID marks a warning as resolved by its transaction ID.
 // This is used when a transaction is manually matched, auto-resolving any associated warning.
 func (r *PostgresWarningRepository) ResolveByTransactionID(ctx context.Context, transactionID uuid.UUID, resolutionType domain.ResolutionType, note string) error {
-	_, err := r.db.ExecContext(ctx, `
+	_, err := conn(ctx, r.db).ExecContext(ctx, `
 		UPDATE fees.transaction_warnings
 		SET resolved_at = $2, resolution_type = $3, resolution_note = $4
 		WHERE transaction_id = $1 AND resolved_at IS NULL
@@ -137,6 +137,6 @@ func (r *PostgresWarningRepository) ResolveByTransactionID(ctx context.Context, 
 
 // Delete deletes a warning.
 func (r *PostgresWarningRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	_, err := r.db.ExecContext(ctx, `DELETE FROM fees.transaction_warnings WHERE id = $1`, id)
+	_, err := conn(ctx, r.db).ExecContext(ctx, `DELETE FROM fees.transaction_warnings WHERE id = $1`, id)
 	return err
 }

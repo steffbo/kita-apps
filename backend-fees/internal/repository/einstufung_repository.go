@@ -43,7 +43,7 @@ func (r *PostgresEinstufungRepository) Create(ctx context.Context, e *domain.Ein
 	e.CreatedAt = now
 	e.UpdatedAt = now
 
-	_, err := r.db.ExecContext(ctx, `
+	_, err := conn(ctx, r.db).ExecContext(ctx, `
 		INSERT INTO fees.einstufungen (
 			id, child_id, household_id, year, valid_from, valid_until,
 			source_einstufung_id, change_date, effective_from_month,
@@ -67,7 +67,7 @@ func (r *PostgresEinstufungRepository) Create(ctx context.Context, e *domain.Ein
 
 // CreateFollowUp creates a follow-up Einstufung and closes the source period atomically.
 func (r *PostgresEinstufungRepository) CreateFollowUp(ctx context.Context, sourceID uuid.UUID, sourceValidUntil time.Time, e *domain.Einstufung) error {
-	tx, err := r.db.BeginTxx(ctx, nil)
+	tx, err := beginTx(ctx, r.db)
 	if err != nil {
 		return err
 	}
@@ -119,7 +119,7 @@ func (r *PostgresEinstufungRepository) CreateFollowUp(ctx context.Context, sourc
 // GetByID retrieves an Einstufung by ID.
 func (r *PostgresEinstufungRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.Einstufung, error) {
 	var e domain.Einstufung
-	err := r.db.GetContext(ctx, &e, fmt.Sprintf(`
+	err := conn(ctx, r.db).GetContext(ctx, &e, fmt.Sprintf(`
 		SELECT %s FROM fees.einstufungen WHERE id = $1
 	`, einstufungColumns), id)
 	if err != nil {
@@ -134,7 +134,7 @@ func (r *PostgresEinstufungRepository) GetByID(ctx context.Context, id uuid.UUID
 // GetByChildAndYear retrieves the Einstufung for a specific child and year.
 func (r *PostgresEinstufungRepository) GetByChildAndYear(ctx context.Context, childID uuid.UUID, year int) (*domain.Einstufung, error) {
 	var e domain.Einstufung
-	err := r.db.GetContext(ctx, &e, fmt.Sprintf(`
+	err := conn(ctx, r.db).GetContext(ctx, &e, fmt.Sprintf(`
 		SELECT %s FROM fees.einstufungen
 		WHERE child_id = $1 AND year = $2
 		ORDER BY effective_from_month DESC, created_at DESC
@@ -152,7 +152,7 @@ func (r *PostgresEinstufungRepository) GetByChildAndYear(ctx context.Context, ch
 // Update updates an existing Einstufung.
 func (r *PostgresEinstufungRepository) Update(ctx context.Context, e *domain.Einstufung) error {
 	e.UpdatedAt = time.Now()
-	tx, err := r.db.BeginTxx(ctx, nil)
+	tx, err := beginTx(ctx, r.db)
 	if err != nil {
 		return err
 	}
@@ -228,7 +228,7 @@ func (r *PostgresEinstufungRepository) Update(ctx context.Context, e *domain.Ein
 
 // Delete deletes an Einstufung.
 func (r *PostgresEinstufungRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	tx, err := r.db.BeginTxx(ctx, nil)
+	tx, err := beginTx(ctx, r.db)
 	if err != nil {
 		return err
 	}
@@ -273,7 +273,7 @@ func (r *PostgresEinstufungRepository) Delete(ctx context.Context, id uuid.UUID)
 // ListByHousehold retrieves all Einstufungen for a household, ordered by year desc.
 func (r *PostgresEinstufungRepository) ListByHousehold(ctx context.Context, householdID uuid.UUID) ([]domain.Einstufung, error) {
 	var results []domain.Einstufung
-	err := r.db.SelectContext(ctx, &results, fmt.Sprintf(`
+	err := conn(ctx, r.db).SelectContext(ctx, &results, fmt.Sprintf(`
 		SELECT %s FROM fees.einstufungen
 		WHERE household_id = $1
 		ORDER BY year DESC, effective_from_month DESC, created_at DESC
@@ -287,7 +287,7 @@ func (r *PostgresEinstufungRepository) ListByHousehold(ctx context.Context, hous
 // ListByYear retrieves all Einstufungen for a given year with pagination.
 func (r *PostgresEinstufungRepository) ListByYear(ctx context.Context, year int, offset, limit int) ([]domain.Einstufung, int64, error) {
 	var total int64
-	err := r.db.GetContext(ctx, &total, `
+	err := conn(ctx, r.db).GetContext(ctx, &total, `
 		SELECT COUNT(*) FROM fees.einstufungen WHERE year = $1
 	`, year)
 	if err != nil {
@@ -295,7 +295,7 @@ func (r *PostgresEinstufungRepository) ListByYear(ctx context.Context, year int,
 	}
 
 	var results []domain.Einstufung
-	err = r.db.SelectContext(ctx, &results, fmt.Sprintf(`
+	err = conn(ctx, r.db).SelectContext(ctx, &results, fmt.Sprintf(`
 		SELECT %s FROM fees.einstufungen
 		WHERE year = $1
 		ORDER BY effective_from_month DESC, created_at DESC
@@ -311,7 +311,7 @@ func (r *PostgresEinstufungRepository) ListByYear(ctx context.Context, year int,
 // GetLatestForChild retrieves the most recent Einstufung for a child.
 func (r *PostgresEinstufungRepository) GetLatestForChild(ctx context.Context, childID uuid.UUID) (*domain.Einstufung, error) {
 	var e domain.Einstufung
-	err := r.db.GetContext(ctx, &e, fmt.Sprintf(`
+	err := conn(ctx, r.db).GetContext(ctx, &e, fmt.Sprintf(`
 		SELECT %s FROM fees.einstufungen
 		WHERE child_id = $1
 		ORDER BY effective_from_month DESC, year DESC, created_at DESC

@@ -21,7 +21,7 @@ func NewPostgresRefreshTokenRepository(db *sqlx.DB) *PostgresRefreshTokenReposit
 
 // Create stores a new refresh token.
 func (r *PostgresRefreshTokenRepository) Create(ctx context.Context, token *domain.RefreshToken) error {
-	_, err := r.db.ExecContext(ctx, `
+	_, err := conn(ctx, r.db).ExecContext(ctx, `
 		INSERT INTO fees.refresh_tokens (id, user_id, token_hash, expires_at, created_at)
 		VALUES ($1, $2, $3, $4, $5)
 	`, token.ID, token.UserID, token.TokenHash, token.ExpiresAt, token.CreatedAt)
@@ -31,7 +31,7 @@ func (r *PostgresRefreshTokenRepository) Create(ctx context.Context, token *doma
 // Exists checks if a refresh token exists and is valid.
 func (r *PostgresRefreshTokenRepository) Exists(ctx context.Context, userID uuid.UUID, tokenHash string) (bool, error) {
 	var count int
-	err := r.db.GetContext(ctx, &count, `
+	err := conn(ctx, r.db).GetContext(ctx, &count, `
 		SELECT COUNT(*)
 		FROM fees.refresh_tokens
 		WHERE user_id = $1 AND token_hash = $2 AND expires_at > NOW()
@@ -44,7 +44,7 @@ func (r *PostgresRefreshTokenRepository) Exists(ctx context.Context, userID uuid
 
 // DeleteByHash deletes a refresh token by its hash.
 func (r *PostgresRefreshTokenRepository) DeleteByHash(ctx context.Context, tokenHash string) error {
-	_, err := r.db.ExecContext(ctx, `
+	_, err := conn(ctx, r.db).ExecContext(ctx, `
 		DELETE FROM fees.refresh_tokens
 		WHERE token_hash = $1
 	`, tokenHash)
@@ -53,7 +53,7 @@ func (r *PostgresRefreshTokenRepository) DeleteByHash(ctx context.Context, token
 
 // DeleteByUserID deletes all refresh tokens for a user.
 func (r *PostgresRefreshTokenRepository) DeleteByUserID(ctx context.Context, userID uuid.UUID) error {
-	_, err := r.db.ExecContext(ctx, `
+	_, err := conn(ctx, r.db).ExecContext(ctx, `
 		DELETE FROM fees.refresh_tokens
 		WHERE user_id = $1
 	`, userID)
@@ -62,7 +62,7 @@ func (r *PostgresRefreshTokenRepository) DeleteByUserID(ctx context.Context, use
 
 // DeleteExpired deletes all expired refresh tokens.
 func (r *PostgresRefreshTokenRepository) DeleteExpired(ctx context.Context) error {
-	_, err := r.db.ExecContext(ctx, `
+	_, err := conn(ctx, r.db).ExecContext(ctx, `
 		DELETE FROM fees.refresh_tokens
 		WHERE expires_at <= NOW()
 	`)

@@ -24,7 +24,7 @@ func NewPostgresMatchRepository(db *sqlx.DB) *PostgresMatchRepository {
 
 // Create creates a new payment match.
 func (r *PostgresMatchRepository) Create(ctx context.Context, match *domain.PaymentMatch) error {
-	_, err := r.db.ExecContext(ctx, `
+	_, err := conn(ctx, r.db).ExecContext(ctx, `
 		INSERT INTO fees.payment_matches (id, transaction_id, expectation_id, amount, match_type, confidence, matched_at, matched_by)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 	`, match.ID, match.TransactionID, match.ExpectationID, match.Amount, match.MatchType, match.Confidence, match.MatchedAt, match.MatchedBy)
@@ -34,7 +34,7 @@ func (r *PostgresMatchRepository) Create(ctx context.Context, match *domain.Paym
 // GetByID retrieves a payment match by ID.
 func (r *PostgresMatchRepository) GetByID(ctx context.Context, id uuid.UUID) (*domain.PaymentMatch, error) {
 	var match domain.PaymentMatch
-	err := r.db.GetContext(ctx, &match, `
+	err := conn(ctx, r.db).GetContext(ctx, &match, `
 		SELECT id, transaction_id, expectation_id, amount, match_type, confidence, matched_at, matched_by
 		FROM fees.payment_matches
 		WHERE id = $1
@@ -51,7 +51,7 @@ func (r *PostgresMatchRepository) GetByID(ctx context.Context, id uuid.UUID) (*d
 // ExistsForExpectation checks if a match exists for a fee expectation.
 func (r *PostgresMatchRepository) ExistsForExpectation(ctx context.Context, expectationID uuid.UUID) (bool, error) {
 	var count int
-	err := r.db.GetContext(ctx, &count, `
+	err := conn(ctx, r.db).GetContext(ctx, &count, `
 		SELECT COUNT(*)
 		FROM fees.payment_matches
 		WHERE expectation_id = $1
@@ -65,7 +65,7 @@ func (r *PostgresMatchRepository) ExistsForExpectation(ctx context.Context, expe
 // ExistsForTransaction checks if a match exists for a transaction.
 func (r *PostgresMatchRepository) ExistsForTransaction(ctx context.Context, transactionID uuid.UUID) (bool, error) {
 	var count int
-	err := r.db.GetContext(ctx, &count, `
+	err := conn(ctx, r.db).GetContext(ctx, &count, `
 		SELECT COUNT(*)
 		FROM fees.payment_matches
 		WHERE transaction_id = $1
@@ -80,7 +80,7 @@ func (r *PostgresMatchRepository) ExistsForTransaction(ctx context.Context, tran
 // Returns the first match only. Use GetAllByExpectation to get all matches.
 func (r *PostgresMatchRepository) GetByExpectation(ctx context.Context, expectationID uuid.UUID) (*domain.PaymentMatch, error) {
 	var match domain.PaymentMatch
-	err := r.db.GetContext(ctx, &match, `
+	err := conn(ctx, r.db).GetContext(ctx, &match, `
 		SELECT id, transaction_id, expectation_id, amount, match_type, confidence, matched_at, matched_by
 		FROM fees.payment_matches
 		WHERE expectation_id = $1
@@ -99,7 +99,7 @@ func (r *PostgresMatchRepository) GetByExpectation(ctx context.Context, expectat
 // GetAllByExpectation retrieves all matches for a fee expectation.
 func (r *PostgresMatchRepository) GetAllByExpectation(ctx context.Context, expectationID uuid.UUID) ([]domain.PaymentMatch, error) {
 	var matches []domain.PaymentMatch
-	err := r.db.SelectContext(ctx, &matches, `
+	err := conn(ctx, r.db).SelectContext(ctx, &matches, `
 		SELECT id, transaction_id, expectation_id, amount, match_type, confidence, matched_at, matched_by
 		FROM fees.payment_matches
 		WHERE expectation_id = $1
@@ -111,7 +111,7 @@ func (r *PostgresMatchRepository) GetAllByExpectation(ctx context.Context, expec
 // GetTotalMatchedAmount calculates the total amount matched to a fee expectation.
 func (r *PostgresMatchRepository) GetTotalMatchedAmount(ctx context.Context, expectationID uuid.UUID) (float64, error) {
 	var total float64
-	err := r.db.GetContext(ctx, &total, `
+	err := conn(ctx, r.db).GetContext(ctx, &total, `
 		SELECT COALESCE(SUM(pm.amount), 0)
 		FROM fees.payment_matches pm
 		WHERE pm.expectation_id = $1
@@ -121,13 +121,13 @@ func (r *PostgresMatchRepository) GetTotalMatchedAmount(ctx context.Context, exp
 
 // Delete deletes a payment match.
 func (r *PostgresMatchRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	_, err := r.db.ExecContext(ctx, `DELETE FROM fees.payment_matches WHERE id = $1`, id)
+	_, err := conn(ctx, r.db).ExecContext(ctx, `DELETE FROM fees.payment_matches WHERE id = $1`, id)
 	return err
 }
 
 // DeleteByTransactionID deletes all matches for a transaction and returns the number removed.
 func (r *PostgresMatchRepository) DeleteByTransactionID(ctx context.Context, transactionID uuid.UUID) (int64, error) {
-	result, err := r.db.ExecContext(ctx, `
+	result, err := conn(ctx, r.db).ExecContext(ctx, `
 		DELETE FROM fees.payment_matches WHERE transaction_id = $1
 	`, transactionID)
 	if err != nil {
@@ -144,7 +144,7 @@ func (r *PostgresMatchRepository) GetByTransactionIDs(ctx context.Context, trans
 	}
 
 	var matches []domain.PaymentMatch
-	err := r.db.SelectContext(ctx, &matches, `
+	err := conn(ctx, r.db).SelectContext(ctx, &matches, `
 		SELECT id, transaction_id, expectation_id, amount, match_type, confidence, matched_at, matched_by
 		FROM fees.payment_matches
 		WHERE transaction_id = ANY($1)
