@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -109,5 +110,26 @@ func TestImportService_ProcessCSV_FailsWhenReferenceDataUnavailable(t *testing.T
 	}
 	if batchesAfter != batchesBefore {
 		t.Fatalf("batch created despite failed import (%d -> %d)", batchesBefore, batchesAfter)
+	}
+}
+
+func TestTransactionRepository_CreateRejectsDuplicateBooking(t *testing.T) {
+	cleanupTestData()
+	defer cleanupTestData()
+
+	txRepo := repository.NewPostgresTransactionRepository(testDB)
+	bookingDate := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+	if _, err := createTestTransaction(txRepo, "TESTDUP000000001", 45.40, bookingDate, "Essen"); err != nil {
+		t.Fatal(err)
+	}
+
+	_, err := createTestTransaction(txRepo, "TESTDUP000000001", 45.40, bookingDate, "Essen")
+	if !errors.Is(err, repository.ErrDuplicate) {
+		t.Fatalf("second insert err = %v, want ErrDuplicate", err)
+	}
+
+	// Same booking with another description is a different transaction.
+	if _, err := createTestTransaction(txRepo, "TESTDUP000000001", 45.40, bookingDate, "Essen Geschwister"); err != nil {
+		t.Fatalf("different description: %v", err)
 	}
 }

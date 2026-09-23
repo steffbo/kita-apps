@@ -33,13 +33,24 @@ func (r *PostgresTransactionRepository) Create(ctx context.Context, tx *domain.B
 		tx.ImportedAt = time.Now()
 	}
 
-	_, err := conn(ctx, r.db).ExecContext(ctx, `
+	result, err := conn(ctx, r.db).ExecContext(ctx, `
 		INSERT INTO fees.bank_transactions (id, booking_date, value_date, payer_name, payer_iban,
 		                                    description, amount, currency, import_batch_id, imported_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		ON CONFLICT DO NOTHING
 	`, tx.ID, tx.BookingDate, tx.ValueDate, tx.PayerName, tx.PayerIBAN,
 		tx.Description, tx.Amount, tx.Currency, tx.ImportBatchID, tx.ImportedAt)
-	return err
+	if err != nil {
+		return err
+	}
+	rows, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if rows == 0 {
+		return ErrDuplicate
+	}
+	return nil
 }
 
 // GetByID retrieves a bank transaction by ID.

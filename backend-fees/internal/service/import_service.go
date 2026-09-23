@@ -202,6 +202,11 @@ func (s *ImportService) ProcessCSV(ctx context.Context, file io.Reader, fileName
 		}
 
 		if err := s.transactionRepo.Create(ctx, &tx); err != nil {
+			if errors.Is(err, repository.ErrDuplicate) {
+				// Inserted concurrently since the Exists check (e.g. parallel import).
+				result.Skipped++
+				continue
+			}
 			result.Errors = append(result.Errors, domain.NewImportError(tx, "Buchung konnte nicht gespeichert werden: "+err.Error()))
 			continue
 		}

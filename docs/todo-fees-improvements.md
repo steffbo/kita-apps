@@ -34,12 +34,12 @@ Leitplanke für alle Refactorings: **keine fachliche Verhaltensänderung**, auß
 - [x] **9. Transaktionen im Matching** (`7f4f931`) – `AllocateTransaction`, `UnmatchTransaction`,
       `ConfirmMatches`, `CreateManualMatch`, `ResolveWarningWithLateFee`, `DismissTransaction`
       jeweils atomar. `ProcessCSV`: pro Buchung eine Tx (Transaktion + Match + Warnung).
-- [x] **10. Fehler sichtbar machen** – verschluckte Fehler in `import_service.go` beseitigen:
+- [x] **10. Fehler sichtbar machen** (`4326420`) – verschluckte Fehler in `import_service.go` beseitigen:
       Kinderliste/Blacklist nicht ladbar → Import bricht mit Fehler ab; Fehler je Buchung landen
       in `ImportResult.Errors` (statt stumm `Skipped`). Hartes Limit von 1000 Kindern entfernen.
       Frontend (ImportPage, BankingSyncCard, Import-Historie) zeigt Fehler klar an.
       banking-sync meldet Upload-Fehler weiterhin über Exit-Code.
-- [ ] **11. Dedupe per Unique-Index** (niedrige Priorität, Import läuft praktisch nur automatisch) –
+- [x] **11. Dedupe per Unique-Index** (niedrige Priorität, Import läuft praktisch nur automatisch) –
       `dedupe_hash` + `ON CONFLICT DO NOTHING`. Vorher Live-Daten read-only auf echte Duplikate prüfen.
 
 ## Phase 3 – Fachliche Absicherung

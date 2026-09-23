@@ -13,6 +13,9 @@ import (
 // Common repository errors
 var (
 	ErrNotFound = errors.New("not found")
+	// ErrDuplicate is returned when an insert hits a unique constraint that
+	// marks the row as already present (e.g. a re-imported bank booking).
+	ErrDuplicate = errors.New("duplicate")
 )
 
 // RefreshTokenRepository handles refresh token persistence.
