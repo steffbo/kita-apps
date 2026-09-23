@@ -19,10 +19,10 @@ Leitplanke für alle Refactorings: **keine fachliche Verhaltensänderung**, auß
       `subtle.ConstantTimeCompare`.
 - [x] **5. Produktions-Defaults absichern** – umgesetzt als `config.Harden()` (zufälliges Secret + Warnung statt Abbruch, siehe status-fees). Ursprünglich: Start abbrechen, wenn `JWT_SECRET` der Dev-Default ist
       oder `CORS_ORIGINS=*` mit Credentials aktiv ist (außer im Dev-Modus).
-- [x] **6. Request-Limits** – `http.MaxBytesReader` zentral: 1 MB für JSON-Bodies
+- [x] **6. Request-Limits** (`ed28648`) – `http.MaxBytesReader` zentral: 1 MB für JSON-Bodies
       (`request.Decode`), 5 MB für CSV-Uploads (Bank- und Kinder-Import).
       Fehler von `ParseMultipartForm` in `import_handler.go` behandeln.
-- [ ] **7. Zeitzone Europe/Berlin** – `TZ=Europe/Berlin` + `tzdata` im Image, zusätzlich im Code
+- [x] **7. Zeitzone Europe/Berlin** – `TZ=Europe/Berlin` + `tzdata` im Image, zusätzlich im Code
       eine zentrale Location/Clock (`util.Now()`, `util.Berlin`), alle `time.Now()` in
       Service/Domain darauf umstellen. Tests für Monatsgrenzen (31.→1., 23:30 UTC).
 

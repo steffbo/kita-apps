@@ -13,6 +13,7 @@ import (
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/api/response"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/service"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/util"
 )
 
 // EinstufungHandler handles Einstufung-related requests.
@@ -371,7 +372,7 @@ func (h *EinstufungHandler) Delete(w http.ResponseWriter, r *http.Request) {
 func (h *EinstufungHandler) List(w http.ResponseWriter, r *http.Request) {
 	yearStr := r.URL.Query().Get("year")
 	if yearStr == "" {
-		yearStr = strconv.Itoa(time.Now().Year())
+		yearStr = strconv.Itoa(util.Now().Year())
 	}
 	year, err := strconv.Atoi(yearStr)
 	if err != nil {

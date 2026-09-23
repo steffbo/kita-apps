@@ -13,6 +13,7 @@ import (
 	"github.com/lib/pq"
 
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/util"
 )
 
 // PostgresFeeRepository is the PostgreSQL implementation of FeeRepository.
@@ -587,7 +588,7 @@ func (r *PostgresFeeRepository) FindOldestUnpaidWithReminder(ctx context.Context
 // GetOverview returns fee statistics for a given year.
 func (r *PostgresFeeRepository) GetOverview(ctx context.Context, year int) (*domain.FeeOverview, error) {
 	overview := &domain.FeeOverview{}
-	now := time.Now()
+	today := util.Today()
 
 	// Get totals (consider partial payments)
 	rows, err := r.db.QueryContext(ctx, `
@@ -622,7 +623,7 @@ func (r *PostgresFeeRepository) GetOverview(ctx context.Context, year int) (*dom
 		if isPaid {
 			overview.TotalPaid++
 			overview.AmountPaid += amount
-		} else if now.After(dueDate) {
+		} else if today.After(dueDate) {
 			overview.TotalOverdue++
 			overview.AmountOverdue += amount
 		} else {

@@ -8,6 +8,7 @@ import (
 
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/repository"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/util"
 )
 
 // ParentService handles parent-related business logic.
@@ -280,7 +281,7 @@ func (s *ParentService) CreateMemberFromParent(ctx context.Context, parentID uui
 // getOldestChildEntryDate returns the oldest entry date among children, or today if no children.
 func (s *ParentService) getOldestChildEntryDate(children []domain.Child) time.Time {
 	if len(children) == 0 {
-		return time.Now()
+		return util.Today()
 	}
 
 	oldest := children[0].EntryDate

@@ -16,6 +16,7 @@ import (
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/repository"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/service"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/util"
 )
 
 // FeeHandler handles fee-related requests.
@@ -738,7 +739,7 @@ func (h *FeeHandler) RunReminders(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	runDate := time.Now()
+	runDate := util.Now()
 	if dateStr := request.GetQueryString(r, "date", ""); dateStr != "" {
 		parsed, err := time.Parse("2006-01-02", dateStr)
 		if err != nil {
@@ -823,7 +824,7 @@ func (h *FeeHandler) RunMembershipReminders(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	runDate := time.Now()
+	runDate := util.Now()
 	if dateStr := request.GetQueryString(r, "date", ""); dateStr != "" {
 		parsed, err := time.Parse("2006-01-02", dateStr)
 		if err != nil {

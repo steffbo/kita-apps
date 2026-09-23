@@ -10,6 +10,7 @@ import (
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/api/request"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/api/response"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/service"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/util"
 )
 
 // MemberHandler handles member-related requests.
@@ -123,7 +124,7 @@ type MemberCountAsOfResponse struct {
 // @Failure 500 {object} response.ErrorBody "Internal server error"
 // @Router /members/count [get]
 func (h *MemberHandler) CountAsOf(w http.ResponseWriter, r *http.Request) {
-	asOf := time.Now()
+	asOf := util.Today()
 	if asOfStr := request.GetQueryString(r, "asOf", ""); asOfStr != "" {
 		parsed, err := time.Parse("2006-01-02", asOfStr)
 		if err != nil {

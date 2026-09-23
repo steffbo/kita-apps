@@ -107,7 +107,7 @@ func (s *FeeService) getIncomeInfo(ctx context.Context, child *domain.Child) inc
 			if household.ChildrenCountForFees != nil && *household.ChildrenCountForFees > 0 {
 				info.SiblingsCount = *household.ChildrenCountForFees
 			} else if len(household.Children) > 0 {
-				now := time.Now()
+				now := util.Today()
 				enrolledCount := 0
 				for _, c := range household.Children {
 					if c.IsEnrolledAt(now) {
@@ -201,7 +201,7 @@ func (s *FeeService) GetByID(ctx context.Context, id uuid.UUID) (*domain.FeeExpe
 
 // GetOverview returns fee overview statistics.
 func (s *FeeService) GetOverview(ctx context.Context, year *int) (*domain.FeeOverview, error) {
-	targetYear := time.Now().Year()
+	targetYear := util.Now().Year()
 	if year != nil {
 		targetYear = *year
 	}
@@ -882,7 +882,7 @@ func (s *FeeService) calculateChildcareFeeForChild(ctx context.Context, child *d
 		}
 	} else {
 		// No month specified, use current date check
-		if !child.IsUnderThree(time.Now()) {
+		if !child.IsUnderThree(util.Today()) {
 			return 0
 		}
 	}
@@ -913,7 +913,7 @@ const DefaultCareHours = 45
 // only reflects the period that is effective today, so it is empty for children that have
 // not started yet and must never be used for a different month.
 func (s *FeeService) ResolveCareHours(ctx context.Context, child *domain.Child, year int, month *int) int {
-	reference := time.Now()
+	reference := util.Today()
 	if month != nil {
 		reference = time.Date(year, time.Month(*month), 1, 0, 0, 0, 0, time.UTC)
 	}
@@ -982,7 +982,7 @@ func (s *FeeService) CreateReminder(ctx context.Context, feeID uuid.UUID) (*doma
 	}
 
 	// Create the reminder fee
-	now := time.Now()
+	now := util.Now()
 	reminder := &domain.FeeExpectation{
 		ID:            uuid.New(),
 		ChildID:       originalFee.ChildID,
@@ -991,7 +991,7 @@ func (s *FeeService) CreateReminder(ctx context.Context, feeID uuid.UUID) (*doma
 		Year:          now.Year(),
 		Month:         nil, // Reminders don't have a specific month
 		Amount:        domain.ReminderFeeAmount,
-		DueDate:       now.AddDate(0, 0, 14), // Due in 14 days
+		DueDate:       util.Today().AddDate(0, 0, 14), // Due in 14 days
 		CreatedAt:     now,
 		ReminderForID: &feeID,
 	}

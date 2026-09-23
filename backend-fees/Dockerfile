@@ -54,6 +54,7 @@ WORKDIR /app
 
 # Install runtime dependencies
 RUN apk add --no-cache ca-certificates tzdata
+ENV TZ=Europe/Berlin
 
 # Copy the binary from builder
 COPY --from=builder /app/server .

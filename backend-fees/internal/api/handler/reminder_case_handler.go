@@ -14,6 +14,7 @@ import (
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/api/response"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/repository"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/service"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/util"
 )
 
 // ReminderCaseConflictResponse is the 409 body for stale preview states.
@@ -49,7 +50,7 @@ type ReminderCaseRequestDTO struct {
 // @Failure 500 {object} response.ErrorBody "Internal server error"
 // @Router /fees/reminder-cases [get]
 func (h *FeeHandler) GetReminderCases(w http.ResponseWriter, r *http.Request) {
-	asOf := time.Now()
+	asOf := util.Now()
 	if asOfStr := request.GetQueryString(r, "asOf", ""); asOfStr != "" {
 		parsed, err := time.Parse("2006-01-02", asOfStr)
 		if err != nil {

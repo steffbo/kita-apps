@@ -6,6 +6,7 @@ import (
 
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/repository"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/util"
 )
 
 // StichtagsmeldungService handles Stichtagsmeldung-related business logic.
@@ -23,7 +24,7 @@ func NewStichtagsmeldungService(childRepo repository.ChildRepository) *Stichtags
 // GetStats returns the Stichtagsmeldung statistics including the next Stichtag date
 // and U3 children income breakdown.
 func (s *StichtagsmeldungService) GetStats(ctx context.Context) (*domain.StichtagsmeldungStats, error) {
-	now := time.Now()
+	now := util.Today()
 	nextStichtag := calculateNextStichtag(now)
 
 	stats, err := s.childRepo.GetStichtagsmeldungStats(ctx, nextStichtag)
@@ -62,7 +63,7 @@ func (s *StichtagsmeldungService) GetU3ChildrenForDate(ctx context.Context, repo
 		return s.childRepo.GetU3ChildrenDetails(ctx, stichtag)
 	}
 
-	now := time.Now()
+	now := util.Today()
 	nextStichtag := calculateNextStichtag(now)
 	return s.childRepo.GetU3ChildrenDetails(ctx, nextStichtag)
 }

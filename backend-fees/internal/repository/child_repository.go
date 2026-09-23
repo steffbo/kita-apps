@@ -13,6 +13,7 @@ import (
 	"github.com/rs/zerolog/log"
 
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/util"
 )
 
 // PostgresChildRepository is the PostgreSQL implementation of ChildRepository.
@@ -374,7 +375,7 @@ func (r *PostgresChildRepository) Update(ctx context.Context, child *domain.Chil
 	if err := tx.GetContext(ctx, &lockedID, `SELECT id FROM fees.children WHERE id = $1 FOR UPDATE`, child.ID); err != nil {
 		return err
 	}
-	now := time.Now()
+	now := util.Today()
 	previousCareHours, err := currentCareHoursTx(ctx, tx, child.ID, now)
 	if err != nil {
 		return err

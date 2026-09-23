@@ -24,6 +24,8 @@ Monorepo for the Kita Knirpsenstadt apps: Go backends, Vue frontends in a Bun wo
 | `scripts/` | helper scripts |
 | `docs/` | deployment, status logs, portal spec set, archive |
 
+In `backend-fees`, business dates follow Europe/Berlin: use `util.Today()` (Berlin date as UTC midnight, like scanned `DATE` columns) for date comparisons and `util.Now()` for year/month and timestamps — never bare `time.Now()`.
+
 Go services all follow: `cmd/server`, `cmd/migrate`, `internal/api` (handlers + router), `internal/service` (business logic), `internal/repository` (SQL), `migrations/`.
 
 ## Services
