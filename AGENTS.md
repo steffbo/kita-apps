@@ -111,6 +111,7 @@ Both are family-data-neutral; re-check their code maps against the implementatio
 | --- | --- |
 | `README.md` | user-facing project overview and quickstart |
 | `docs/status-fees.md` | Beiträge backend + frontend change log and decisions |
+| `docs/todo-fees-improvements.md` | ordered Beiträge improvement backlog (worked top to bottom) |
 | `docs/status-banking-sync.md` | banking-sync behavior and operational notes |
 | `docs/portal/STATUS.md` | **what actually exists in the portal** (verified against code) |
 | `docs/portal/SPEC.md` | portal product/architecture spec (aspirational, largely unimplemented) |
