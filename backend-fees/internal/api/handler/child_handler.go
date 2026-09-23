@@ -40,9 +40,9 @@ func NewChildHandler(childService *service.ChildService, feeService *service.Fee
 type ChildListResponse struct {
 	Data       []domain.Child `json:"data"`
 	Total      int64          `json:"total" example:"100"`
-	Page       int             `json:"page" example:"1"`
-	PerPage    int             `json:"perPage" example:"20"`
-	TotalPages int             `json:"totalPages" example:"5"`
+	Page       int            `json:"page" example:"1"`
+	PerPage    int            `json:"perPage" example:"20"`
+	TotalPages int            `json:"totalPages" example:"5"`
 } //@name ChildList
 
 // NextMemberNumberResponse represents the next available member number.

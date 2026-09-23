@@ -23,7 +23,7 @@ func NewBankingSyncHandler(baseURL, token string, timeout time.Duration) *Bankin
 	return &BankingSyncHandler{
 		baseURL: strings.TrimRight(baseURL, "/"),
 		token:   token,
-		client: &http.Client{Timeout: timeout},
+		client:  &http.Client{Timeout: timeout},
 	}
 }
 

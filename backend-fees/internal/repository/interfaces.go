@@ -140,10 +140,10 @@ type EmailLogRepository interface {
 
 // EmailLogFilter narrows and orders email log listings.
 type EmailLogFilter struct {
-	EmailType   *string // nil = all types
+	EmailType   *string    // nil = all types
 	HouseholdID *uuid.UUID // nil = all households
-	Search      string  // matches to_email or subject (case-insensitive)
-	SortDir     string  // "asc" or "desc" by sent_at; default "desc"
+	Search      string     // matches to_email or subject (case-insensitive)
+	SortDir     string     // "asc" or "desc" by sent_at; default "desc"
 }
 
 // TransactionRepository handles bank transaction persistence.

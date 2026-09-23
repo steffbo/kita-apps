@@ -63,11 +63,11 @@ func ImportAuthMiddleware(jwtService *auth.JWTService) func(http.Handler) http.H
 				return
 			}
 
-	userCtx := &UserContext{
-		UserID: ImportUserID,
-		Email:  "importer@system.local",
-		Role:   "USER",
-	}
+			userCtx := &UserContext{
+				UserID: ImportUserID,
+				Email:  "importer@system.local",
+				Role:   "USER",
+			}
 
 			ctx := context.WithValue(r.Context(), UserContextKey, userCtx)
 			next.ServeHTTP(w, r.WithContext(ctx))

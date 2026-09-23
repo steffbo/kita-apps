@@ -30,10 +30,10 @@ type FeeHandler struct {
 // @Description Paginated list of fee expectations as returned by the fee endpoints
 type FeeListResponse struct {
 	Data       []domain.FeeExpectation `json:"data"`
-	Total      int           `json:"total" example:"100"`
-	Page       int           `json:"page" example:"1"`
-	PerPage    int           `json:"perPage" example:"20"`
-	TotalPages int           `json:"totalPages" example:"5"`
+	Total      int                     `json:"total" example:"100"`
+	Page       int                     `json:"page" example:"1"`
+	PerPage    int                     `json:"perPage" example:"20"`
+	TotalPages int                     `json:"totalPages" example:"5"`
 } //@name FeeList
 
 // ReminderWarningResponse represents a family skipped due to missing emails.
@@ -63,8 +63,8 @@ type ReminderRunOverrideRequest struct {
 // ReminderRunRequestBody is the optional JSON body for reminder run endpoints.
 // @Description Optional run behaviour: disable the QR code attachment and override generated email content per household
 type ReminderRunRequestBody struct {
-	IncludeQR *bool                                                             `json:"includeQR,omitempty" example:"true"`
-	Overrides map[string]ReminderRunOverrideRequest                             `json:"overrides,omitempty"`
+	IncludeQR *bool                                 `json:"includeQR,omitempty" example:"true"`
+	Overrides map[string]ReminderRunOverrideRequest `json:"overrides,omitempty"`
 } //@name ReminderRunRequestBody
 
 type ReminderPaymentSettingsPayload struct {

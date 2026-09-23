@@ -434,8 +434,8 @@ type UnmatchTransactionResponse struct {
 // ChildUnmatchedSuggestionsResponse represents likely unmatched transactions for a child
 // @Description Likely unmatched transactions for a child
 type ChildUnmatchedSuggestionsResponse struct {
-	ChildID     string            `json:"childId" example:"550e8400-e29b-41d4-a716-446655440000"`
-	Scanned     int               `json:"scanned" example:"250"`
+	ChildID     string                   `json:"childId" example:"550e8400-e29b-41d4-a716-446655440000"`
+	Scanned     int                      `json:"scanned" example:"250"`
 	Suggestions []domain.MatchSuggestion `json:"suggestions"`
 } //@name ChildUnmatchedSuggestionsResponse
 

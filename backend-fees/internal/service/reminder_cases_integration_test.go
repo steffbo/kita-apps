@@ -439,9 +439,9 @@ func TestReminderCase_Preview_InitialStagePlansNoFees(t *testing.T) {
 	foodFee := createCaseFee(t, feeRepo, child.ID, household.ID, domain.FeeTypeFood, 45.40, 2026, ptrInt(8), time.Date(2026, 9, 5, 0, 0, 0, 0, time.UTC))
 
 	preview, err := reminderService.PreviewReminderCase(ctx, household.ID, &service.ReminderCaseRequest{
-		Stage:  service.ReminderStageInitial,
+		Stage:   service.ReminderStageInitial,
 		RunDate: time.Date(2026, 9, 15, 0, 0, 0, 0, time.UTC),
-		FeeIDs: []uuid.UUID{foodFee.ID},
+		FeeIDs:  []uuid.UUID{foodFee.ID},
 	})
 	if err != nil {
 		t.Fatalf("PreviewReminderCase failed: %v", err)

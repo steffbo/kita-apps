@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/auth"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/api/response"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/auth"
 )
 
 type contextKey string
