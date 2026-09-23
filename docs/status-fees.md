@@ -3,6 +3,12 @@
 Rolling change log of non-obvious implementation decisions. Newest first.
 Basics (ports, commands, layout) live in `AGENTS.md`.
 
+## Code-Review-Backlog (ab 2026-09-23)
+
+Abarbeitung von `docs/todo-fees-improvements.md`, ein Commit pro Punkt.
+
+- **Typecheck ohne Emit (#3):** `vue-tsc -b` hat `vite.config.js`/`.d.ts` neben `vite.config.ts` erzeugt und eingecheckt; Vite lädt im Dev-Modus `vite.config.js` bevorzugt, die `.ts` war also potenziell wirkungslos. Die Projekt-Referenz ist entfernt, beide tsconfigs sind `noEmit`, die Artefakte gelöscht. Neues Script `bun run typecheck` (App + `vite.config.ts`), `build` ruft es vor `vite build` auf.
+
 ## Eintrittsmonat anteilig berechnen (2026-09-18)
 
 - Die Beitragserzeugung berücksichtigt jetzt § 12 Abs. 3 der Elternbeitragsordnung: Bei Eintritt nach dem 15. werden Platz- und Essensgeld im Eintrittsmonat hälftig angesetzt; bis einschließlich 15. bleibt der volle Monatsbeitrag fällig.

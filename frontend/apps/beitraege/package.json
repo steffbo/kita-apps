@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite --port 5175",
-    "build": "vue-tsc -b && vite build",
+    "build": "bun run typecheck && vite build",
+    "typecheck": "vue-tsc --noEmit -p tsconfig.json && vue-tsc --noEmit -p tsconfig.node.json",
     "preview": "vite preview",
     "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix",
     "generate:api": "openapi-typescript ../../../openapi/fees/openapi3.yaml -o ./src/api/schema.d.ts"

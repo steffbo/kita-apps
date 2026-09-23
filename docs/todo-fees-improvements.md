@@ -13,7 +13,7 @@ Leitplanke für alle Refactorings: **keine fachliche Verhaltensänderung**, auß
       GitHub-Runnern vorhanden) für `backend-fees`, `vue-tsc` für `beitraege`. `build-images.yml`
       hängt davon ab (`needs`). Erwartung: +2–4 min zusätzlich zum heutigen Build (~2–2,5 min).
 - [ ] **2. gofmt** auf die 10 unformatierten Dateien anwenden (reiner Format-Commit).
-- [ ] **3. tsconfig TS6310** – `tsconfig.node.json` so anpassen, dass `vue-tsc -b` ohne Fehler läuft.
+- [x] **3. tsconfig TS6310** – `tsconfig.node.json` so anpassen, dass `vue-tsc -b` ohne Fehler läuft.
 - [ ] **4. Import-Token härten** – `CRON_API_TOKEN` (genutzt vom banking-sync-Container,
       Header `X-Import-Token`) über `config` laden statt `os.Getenv`, Vergleich mit
       `subtle.ConstantTimeCompare`.
