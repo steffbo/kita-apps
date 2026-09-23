@@ -61,6 +61,7 @@ go test ./...            # inside a backend dir
 # Frontend
 cd frontend && bun install
 bun run dev:plan | dev:zeit | dev:beitraege | dev:portal
+bun run --filter @kita/beitraege typecheck
 
 # OpenAPI types
 cd frontend/packages/shared && bun run generate:api   # from openapi/management/openapi3.yaml
@@ -69,7 +70,7 @@ cd frontend/apps/beitraege  && bun run generate:api   # from openapi/fees/openap
 
 ## Deployment
 
-Target: homelab VM `infra-dev`. Flow: commit + push → GitHub Actions builds GHCR images (`.github/workflows/build-images.yml`, on `main`) → deploy from `../homelab`.
+Target: homelab VM `infra-dev`. Flow: commit + push → GitHub Actions runs CI (`.github/workflows/ci.yml`: gofmt/vet/test for `backend-fees` incl. testcontainers integration tests, typecheck for `beitraege`; also on PRs) and only then builds GHCR images (`.github/workflows/build-images.yml`, on `main`) → deploy from `../homelab`. A red CI means no new image.
 
 ```bash
 expected_sha=$(git rev-parse HEAD)

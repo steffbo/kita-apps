@@ -7,6 +7,8 @@ Basics (ports, commands, layout) live in `AGENTS.md`.
 
 Abarbeitung von `docs/todo-fees-improvements.md`, ein Commit pro Punkt.
 
+- **CI vor Image-Build (#1):** Neuer Workflow `ci.yml` (PR, `workflow_call`, manuell) prüft `backend-fees` mit `gofmt -l`, `go vet`, `go test ./...` (Integrationstests via testcontainers) und `beitraege` per `typecheck`. `build-images.yml` ruft ihn als ersten Job auf, die Image-Builds hängen per `needs` daran.
+- **gofmt (#2):** 10 Dateien formatiert, reiner Format-Commit.
 - **Typecheck ohne Emit (#3):** `vue-tsc -b` hat `vite.config.js`/`.d.ts` neben `vite.config.ts` erzeugt und eingecheckt; Vite lädt im Dev-Modus `vite.config.js` bevorzugt, die `.ts` war also potenziell wirkungslos. Die Projekt-Referenz ist entfernt, beide tsconfigs sind `noEmit`, die Artefakte gelöscht. Neues Script `bun run typecheck` (App + `vite.config.ts`), `build` ruft es vor `vite build` auf.
 
 ## Eintrittsmonat anteilig berechnen (2026-09-18)
