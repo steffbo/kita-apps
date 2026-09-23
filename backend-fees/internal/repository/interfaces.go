@@ -156,6 +156,7 @@ type TransactionRepository interface {
 	ListMatched(ctx context.Context, search, sortBy, sortDir string, offset, limit int) ([]domain.BankTransaction, int64, error)
 	GetBatches(ctx context.Context, offset, limit int) ([]domain.ImportBatch, int64, error)
 	CreateBatch(ctx context.Context, id uuid.UUID, fileName string, importedBy uuid.UUID) error
+	SetBatchErrors(ctx context.Context, id uuid.UUID, errs []domain.ImportError) error
 	Hide(ctx context.Context, id uuid.UUID, userID uuid.UUID) error
 	Delete(ctx context.Context, id uuid.UUID) error
 	DeleteUnmatchedByIBAN(ctx context.Context, iban string) (int64, error)

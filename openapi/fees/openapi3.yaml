@@ -5471,6 +5471,17 @@ components:
           example: 1
           type: integer
       type: object
+    ImportError:
+      properties:
+        amount:
+          type: number
+        bookingDate:
+          type: string
+        message:
+          type: string
+        payerName:
+          type: string
+      type: object
     ImportHistoryList:
       description: Paginated import history
       properties:
@@ -6010,6 +6021,12 @@ components:
         autoMatched:
           example: 150
           type: integer
+        errors:
+          description: Errors lists transactions whose warning or automatic match could
+            not be saved.
+          items:
+            $ref: "#/components/schemas/ImportError"
+          type: array
         newMatches:
           example: 5
           type: integer
@@ -6658,6 +6675,15 @@ components:
           type: string
         dateTo:
           type: string
+        errorCount:
+          description: |-
+            ErrorCount is the number of rows that failed; Errors holds at most
+            MaxStoredImportErrors of them.
+          type: integer
+        errors:
+          items:
+            $ref: "#/components/schemas/ImportError"
+          type: array
         fileName:
           type: string
         id:
@@ -7240,6 +7266,15 @@ components:
           type: string
         blacklisted:
           type: integer
+        errors:
+          description: >-
+            Errors lists rows that could not be saved or processed; they are
+            also
+
+            stored on the import batch.
+          items:
+            $ref: "#/components/schemas/ImportError"
+          type: array
         fileName:
           type: string
         imported:

@@ -7408,6 +7408,12 @@ export interface components {
             /** @example 1 */
             totalPages?: number;
         };
+        ImportError: {
+            amount?: number;
+            bookingDate?: string;
+            message?: string;
+            payerName?: string;
+        };
         /** @description Paginated import history */
         ImportHistoryList: {
             data?: components["schemas"]["domain.ImportBatch"][];
@@ -7766,6 +7772,8 @@ export interface components {
         RescanResponse: {
             /** @example 150 */
             autoMatched?: number;
+            /** @description Errors lists transactions whose warning or automatic match could not be saved. */
+            errors?: components["schemas"]["ImportError"][];
             /** @example 5 */
             newMatches?: number;
             /** @example 226 */
@@ -8143,6 +8151,12 @@ export interface components {
         "domain.ImportBatch": {
             dateFrom?: string;
             dateTo?: string;
+            /**
+             * @description ErrorCount is the number of rows that failed; Errors holds at most
+             *     MaxStoredImportErrors of them.
+             */
+            errorCount?: number;
+            errors?: components["schemas"]["ImportError"][];
             fileName?: string;
             id?: string;
             importedAt?: string;
@@ -8418,6 +8432,11 @@ export interface components {
             autoMatched?: number;
             batchId?: string;
             blacklisted?: number;
+            /**
+             * @description Errors lists rows that could not be saved or processed; they are also
+             *     stored on the import batch.
+             */
+            errors?: components["schemas"]["ImportError"][];
             fileName?: string;
             imported?: number;
             skipped?: number;

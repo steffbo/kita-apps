@@ -31,10 +31,10 @@ Leitplanke für alle Refactorings: **keine fachliche Verhaltensänderung**, auß
 - [x] **8. Transaktions-Infrastruktur** (`db93ef5`) – `repository.TxManager` mit
       `WithTx(ctx, func(ctx) error)`; die Tx liegt im Context, Repos holen sich per
       `r.q(ctx)` entweder Tx oder DB (`sqlx.ExtContext`). Bestehende Repos bleiben API-kompatibel.
-- [x] **9. Transaktionen im Matching** – `AllocateTransaction`, `UnmatchTransaction`,
+- [x] **9. Transaktionen im Matching** (`7f4f931`) – `AllocateTransaction`, `UnmatchTransaction`,
       `ConfirmMatches`, `CreateManualMatch`, `ResolveWarningWithLateFee`, `DismissTransaction`
       jeweils atomar. `ProcessCSV`: pro Buchung eine Tx (Transaktion + Match + Warnung).
-- [ ] **10. Fehler sichtbar machen** – verschluckte Fehler in `import_service.go` beseitigen:
+- [x] **10. Fehler sichtbar machen** – verschluckte Fehler in `import_service.go` beseitigen:
       Kinderliste/Blacklist nicht ladbar → Import bricht mit Fehler ab; Fehler je Buchung landen
       in `ImportResult.Errors` (statt stumm `Skipped`). Hartes Limit von 1000 Kindern entfernen.
       Frontend (ImportPage, BankingSyncCard, Import-Historie) zeigt Fehler klar an.

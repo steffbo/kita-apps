@@ -255,11 +255,13 @@ func (r *PostgresTransactionRepository) GetBatches(ctx context.Context, offset, 
 				ELSE 'Manual Upload'
 			END as imported_by_email,
 			MIN(bt.booking_date) as date_from,
-			MAX(bt.booking_date) as date_to
+			MAX(bt.booking_date) as date_to,
+			ib.error_count as error_count,
+			ib.errors as errors
 		FROM fees.import_batches ib
 		LEFT JOIN fees.bank_transactions bt ON bt.import_batch_id = ib.id
 		LEFT JOIN fees.payment_matches pm ON bt.id = pm.transaction_id
-		GROUP BY ib.id, ib.file_name, ib.imported_by, ib.imported_at
+		GROUP BY ib.id, ib.file_name, ib.imported_by, ib.imported_at, ib.error_count, ib.errors
 		ORDER BY ib.imported_at DESC
 		LIMIT $1 OFFSET $2
 	`, limit, offset)
@@ -310,6 +312,19 @@ func (r *PostgresTransactionRepository) CreateBatch(ctx context.Context, id uuid
 		INSERT INTO fees.import_batches (id, file_name, imported_by, imported_at)
 		VALUES ($1, $2, $3, NOW())
 	`, id, fileName, importedBy)
+	return err
+}
+
+// SetBatchErrors stores the row errors of an import batch. Only the first
+// domain.MaxStoredImportErrors details are kept; error_count stays exact.
+func (r *PostgresTransactionRepository) SetBatchErrors(ctx context.Context, id uuid.UUID, errs []domain.ImportError) error {
+	stored := errs
+	if len(stored) > domain.MaxStoredImportErrors {
+		stored = stored[:domain.MaxStoredImportErrors]
+	}
+	_, err := conn(ctx, r.db).ExecContext(ctx, `
+		UPDATE fees.import_batches SET error_count = $2, errors = $3 WHERE id = $1
+	`, id, len(errs), domain.ImportErrors(stored))
 	return err
 }
 

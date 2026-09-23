@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
 import { api } from '@/api';
-import type { BankingSyncStatus } from '@/api/types';
+import type { BankingSyncStatus, ImportError } from '@/api/types';
 import { Loader2, RefreshCw, Square } from 'lucide-vue-next';
+import ImportErrorList from '@/components/ImportErrorList.vue';
 
 const emit = defineEmits<{
   (e: 'status-change', status: BankingSyncStatus): void;
@@ -141,10 +142,18 @@ const bankingSyncStatusHint = computed(() => {
   if (bankingSyncStatus.value?.status === 'error') {
     return bankingSyncStatus.value?.lastError || 'Sync fehlgeschlagen.';
   }
-  if (bankingSyncStatus.value?.status === 'success') {
+  if (bankingSyncStatus.value?.status === 'success' && uploadErrors.value.length === 0) {
     return 'Letzter Lauf erfolgreich abgeschlossen.';
   }
   return null;
+});
+
+// uploadResult is the backend's import response forwarded by banking-sync.
+const uploadErrors = computed<ImportError[]>(() => {
+  const result = bankingSyncStatus.value?.uploadResult;
+  if (!result || typeof result !== 'object' || !('errors' in result)) return [];
+  const errors = (result as { errors?: unknown }).errors;
+  return Array.isArray(errors) ? (errors as ImportError[]) : [];
 });
 
 const bankingSyncShowLastMessage = computed(() => {
@@ -241,5 +250,11 @@ defineExpose({ reload: loadBankingSyncStatus });
     >
       {{ bankingSyncStatusHint }}
     </div>
+    <ImportErrorList
+      v-if="bankingSyncStatus?.status === 'success' && uploadErrors.length > 0"
+      class="mt-3"
+      title="Sync abgeschlossen, aber Fehler beim Import"
+      :errors="uploadErrors"
+    />
   </div>
 </template>

@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router';
 import { api } from '@/api';
 import type { ImportResult, ImportBatch, BankTransaction, MatchConfirmation, KnownIBAN, TransactionWarning, MatchSuggestion, FeeExpectation, RescanResult } from '@/api/types';
 import BankingSyncCard from '@/components/BankingSyncCard.vue';
+import ImportErrorList from '@/components/ImportErrorList.vue';
 import {
   Upload,
   FileSpreadsheet,
@@ -70,6 +71,10 @@ const showHistoryModal = ref(false);
 const importHistory = ref<ImportBatch[]>([]);
 const historyTotal = ref(0);
 const isLoadingHistory = ref(false);
+const historyError = ref<string | null>(null);
+const expandedBatchId = ref<string | null>(null);
+// Most recent import (usually the automated banking sync), to surface its errors.
+const latestImportBatch = ref<ImportBatch | null>(null);
 
 // Transactions state (unified list)
 const unmatchedTransactions = ref<BankTransaction[]>([]);
@@ -310,6 +315,7 @@ async function uploadFile(file: File): Promise<void> {
   try {
     const result = await api.uploadCSV(file);
     importResult.value = result;
+    loadLatestImport();
 
     // Pre-select high-confidence matches
     for (const suggestion of result.suggestions) {
@@ -390,15 +396,38 @@ async function confirmMatches(): Promise<void> {
 
 async function loadHistory(): Promise<void> {
   isLoadingHistory.value = true;
+  historyError.value = null;
   try {
     const response = await api.getImportHistory(1, 50);
     importHistory.value = response.data;
     historyTotal.value = response.total;
+    latestImportBatch.value = response.data[0] ?? null;
   } catch (error) {
-    console.error('Failed to load history:', error);
+    historyError.value = error instanceof Error ? error.message : 'Import-Historie konnte nicht geladen werden';
   } finally {
     isLoadingHistory.value = false;
   }
+}
+
+async function loadLatestImport(): Promise<void> {
+  try {
+    const response = await api.getImportHistory(1, 1);
+    latestImportBatch.value = response.data[0] ?? null;
+  } catch (error) {
+    console.error('Failed to load latest import:', error);
+  }
+}
+
+function toggleBatchErrors(batchId: string): void {
+  expandedBatchId.value = expandedBatchId.value === batchId ? null : batchId;
+}
+
+function openLatestImportErrors(): void {
+  if (latestImportBatch.value) {
+    expandedBatchId.value = latestImportBatch.value.id;
+  }
+  showHistoryModal.value = true;
+  loadHistory();
 }
 
 async function loadBlacklist(): Promise<void> {
@@ -541,6 +570,7 @@ onMounted(() => {
   }
 
   loadTransactions();
+  loadLatestImport();
 });
 
 onUnmounted(() => {
@@ -942,6 +972,32 @@ function getWarningTypeColor(type: string): string {
         class="ml-auto text-blue-500 hover:text-blue-700"
       >
         <XCircle class="h-4 w-4" />
+      </button>
+    </div>
+    <ImportErrorList
+      v-if="rescanResult?.errors?.length"
+      class="mb-4"
+      title="Fehler bei der erneuten Zuordnung"
+      :errors="rescanResult.errors"
+    />
+
+    <!-- Errors of the latest (usually automated) import -->
+    <div
+      v-if="latestImportBatch && latestImportBatch.errorCount > 0"
+      class="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3"
+      role="alert"
+    >
+      <AlertTriangle class="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+      <div class="flex-1">
+        <p class="text-red-700 font-medium">
+          Letzter Import vom {{ formatDateTime(latestImportBatch.importedAt) }}:
+          {{ latestImportBatch.errorCount }}
+          {{ latestImportBatch.errorCount === 1 ? 'Buchung' : 'Buchungen' }} mit Fehlern
+        </p>
+        <p class="text-sm text-red-600">{{ latestImportBatch.importedByEmail }} · {{ latestImportBatch.fileName }}</p>
+      </div>
+      <button @click="openLatestImportErrors" class="text-sm text-red-700 hover:text-red-900 underline">
+        Details
       </button>
     </div>
 
@@ -1595,11 +1651,16 @@ function getWarningTypeColor(type: string): string {
             <div class="rounded-xl border p-6">
               <div class="flex items-center justify-between mb-4">
                 <div class="flex items-center gap-3">
-                  <div class="p-2 bg-green-100 rounded-lg">
+                  <div v-if="importResult.errors?.length" class="p-2 bg-red-100 rounded-lg">
+                    <AlertTriangle class="h-6 w-6 text-red-600" />
+                  </div>
+                  <div v-else class="p-2 bg-green-100 rounded-lg">
                     <CheckCircle class="h-6 w-6 text-green-600" />
                   </div>
                   <div>
-                    <h2 class="text-lg font-semibold">Import erfolgreich</h2>
+                    <h2 class="text-lg font-semibold">
+                      {{ importResult.errors?.length ? 'Import mit Fehlern abgeschlossen' : 'Import erfolgreich' }}
+                    </h2>
                     <p class="text-sm text-gray-600">{{ importResult.fileName }}</p>
                   </div>
                 </div>
@@ -1622,6 +1683,8 @@ function getWarningTypeColor(type: string): string {
                 </div>
               </div>
             </div>
+
+            <ImportErrorList v-if="importResult.errors?.length" :errors="importResult.errors" />
 
             <!-- Confirm Result -->
             <div
@@ -1845,6 +1908,9 @@ function getWarningTypeColor(type: string): string {
         </div>
 
         <div class="overflow-y-auto p-4">
+          <div v-if="historyError" class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+            {{ historyError }}
+          </div>
           <div v-if="isLoadingHistory" class="flex items-center justify-center py-12">
             <Loader2 class="h-8 w-8 animate-spin text-primary" />
           </div>
@@ -1863,16 +1929,14 @@ function getWarningTypeColor(type: string): string {
                     <th class="px-4 py-3 font-medium">Zeitraum</th>
                     <th class="px-4 py-3 font-medium">Transaktionen</th>
                     <th class="px-4 py-3 font-medium">Zugeordnet</th>
+                    <th class="px-4 py-3 font-medium">Fehler</th>
                     <th class="px-4 py-3 font-medium">Importiert am</th>
                     <th class="px-4 py-3 font-medium">Von</th>
                   </tr>
                 </thead>
                 <tbody>
-                  <tr
-                    v-for="batch in importHistory"
-                    :key="batch.id"
-                    class="border-t hover:bg-gray-50"
-                  >
+                  <template v-for="batch in importHistory" :key="batch.id">
+                  <tr class="border-t hover:bg-gray-50">
                     <td class="px-4 py-3">
                       <div class="flex items-center gap-2">
                         <FileSpreadsheet class="h-4 w-4 text-gray-400" />
@@ -1900,6 +1964,16 @@ function getWarningTypeColor(type: string): string {
                         {{ batch.matchedCount }} / {{ batch.transactionCount }}
                       </span>
                     </td>
+                    <td class="px-4 py-3">
+                      <button
+                        v-if="batch.errorCount > 0"
+                        @click="toggleBatchErrors(batch.id)"
+                        class="px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700 hover:bg-red-200"
+                      >
+                        {{ batch.errorCount }} {{ expandedBatchId === batch.id ? '▲' : '▼' }}
+                      </button>
+                      <span v-else class="text-gray-400">–</span>
+                    </td>
                     <td class="px-4 py-3 text-gray-600">
                       {{ formatDateTime(batch.importedAt) }}
                     </td>
@@ -1907,6 +1981,12 @@ function getWarningTypeColor(type: string): string {
                       {{ batch.importedByEmail || batch.importedBy }}
                     </td>
                   </tr>
+                  <tr v-if="expandedBatchId === batch.id && batch.errorCount > 0" class="border-t">
+                    <td colspan="7" class="px-4 py-3">
+                      <ImportErrorList :errors="batch.errors ?? []" :total="batch.errorCount" />
+                    </td>
+                  </tr>
+                  </template>
                 </tbody>
               </table>
             </div>

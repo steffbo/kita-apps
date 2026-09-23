@@ -328,6 +328,8 @@ type RescanResponse struct {
 	AutoMatched int               `json:"autoMatched" example:"150"`
 	NewMatches  int               `json:"newMatches" example:"5"`
 	Suggestions []MatchSuggestion `json:"suggestions,omitempty"`
+	// Errors lists transactions whose warning or automatic match could not be saved.
+	Errors []domain.ImportError `json:"errors"`
 } //@name RescanResponse
 
 // Rescan handles POST /import/rescan
@@ -343,7 +345,7 @@ type RescanResponse struct {
 func (h *ImportHandler) Rescan(w http.ResponseWriter, r *http.Request) {
 	result, err := h.importService.Rescan(r.Context())
 	if err != nil {
-		response.InternalError(w, "failed to rescan transactions")
+		response.InternalError(w, "failed to rescan transactions: "+err.Error())
 		return
 	}
 
@@ -352,6 +354,7 @@ func (h *ImportHandler) Rescan(w http.ResponseWriter, r *http.Request) {
 		AutoMatched: result.AutoMatched,
 		NewMatches:  len(result.Suggestions),
 		Suggestions: make([]MatchSuggestion, 0, len(result.Suggestions)),
+		Errors:      result.Errors,
 	}
 
 	for _, s := range result.Suggestions {

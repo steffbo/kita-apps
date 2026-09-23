@@ -364,18 +364,23 @@ export type MatchSuggestion = Loose<
 > & {
   transaction: BankTransaction;
 };
+/** A bank CSV row that could not be saved or processed during import/rescan. */
+export type ImportError = Loose<DeepStrict<Schema['ImportError']>, 'bookingDate' | 'payerName'>;
 export type ImportResult = Loose<
   DeepStrict<Schema['service.ImportResult']>,
-  'warningList'
+  'warningList' | 'errors'
 > & {
   suggestions: MatchSuggestion[];
+  errors?: ImportError[];
 };
 export interface MatchConfirmation {
   transactionId: string;
   expectationId: string;
 }
 export type ConfirmResult = DeepStrict<Schema['ConfirmMatchResponse']>;
-export type ImportBatch = Loose<DeepStrict<Schema['domain.ImportBatch']>, 'dateFrom' | 'dateTo'>;
+export type ImportBatch = Loose<DeepStrict<Schema['domain.ImportBatch']>, 'dateFrom' | 'dateTo' | 'errors'> & {
+  errors?: ImportError[];
+};
 
 export type BankingSyncStatusType =
   | 'idle'
@@ -428,7 +433,9 @@ export type KnownIBANSummary = Loose<
   DeepStrict<Schema['ChildTrustedIBANsResponse']>,
   'payerName'
 >;
-export type RescanResult = DeepStrict<Schema['RescanResponse']>;
+export type RescanResult = Loose<DeepStrict<Schema['RescanResponse']>, 'errors'> & {
+  errors?: ImportError[];
+};
 export type DismissResult = DeepStrict<Schema['DismissTransactionResponse']>;
 export type HideResult = DeepStrict<Schema['HideTransactionResponse']>;
 export type UnmatchResult = DeepStrict<Schema['UnmatchTransactionResponse']>;

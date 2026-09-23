@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -78,6 +79,9 @@ type ImportResult struct {
 	Warnings    int                         `json:"warnings"`
 	Suggestions []domain.MatchSuggestion    `json:"suggestions"`
 	WarningList []domain.TransactionWarning `json:"warningList,omitempty"`
+	// Errors lists rows that could not be saved or processed; they are also
+	// stored on the import batch.
+	Errors []domain.ImportError `json:"errors"`
 }
 
 // MatchConfirmation represents a match to confirm.
@@ -97,6 +101,7 @@ type RescanResult struct {
 	Scanned     int                      `json:"scanned"`
 	AutoMatched int                      `json:"autoMatched"`
 	Suggestions []domain.MatchSuggestion `json:"suggestions"`
+	Errors      []domain.ImportError     `json:"errors"`
 }
 
 // DismissResult represents the result of dismissing a transaction.
@@ -139,9 +144,22 @@ type AllocateResult struct {
 }
 
 // ProcessCSV processes a CSV file and returns match suggestions.
+// Loading the reference data (blacklist, children) or creating the batch
+// fails the whole import. Failures of single rows are collected in
+// ImportResult.Errors and stored on the batch.
 func (s *ImportService) ProcessCSV(ctx context.Context, file io.Reader, fileName string, userID uuid.UUID) (*ImportResult, error) {
 	// Parse CSV
 	transactions, err := csvparser.ParseBankCSV(file)
+	if err != nil {
+		return nil, err
+	}
+
+	blacklistedIBANs, err := s.knownIBANRepo.GetBlacklistedIBANs(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("load IBAN blacklist: %w", err)
+	}
+
+	children, err := s.loadMatchingChildren(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -151,26 +169,13 @@ func (s *ImportService) ProcessCSV(ctx context.Context, file io.Reader, fileName
 		BatchID:   batchID,
 		FileName:  fileName,
 		TotalRows: len(transactions),
+		Errors:    []domain.ImportError{},
 	}
 
-	// Create batch record first (so we have the metadata stored)
 	if err := s.transactionRepo.CreateBatch(ctx, batchID, fileName, userID); err != nil {
-		// Log but don't fail - we can still process without batch metadata
-		// In production, you might want to handle this differently
+		return nil, fmt.Errorf("create import batch: %w", err)
 	}
 
-	// Get blacklisted IBANs for efficient filtering
-	blacklistedIBANs, err := s.knownIBANRepo.GetBlacklistedIBANs(ctx)
-	if err != nil {
-		// Log but don't fail - continue without blacklist filtering
-		blacklistedIBANs = make(map[string]bool)
-	}
-
-	// Get all children for matching
-	children, _, _ := s.childRepo.List(ctx, true, false, false, false, "", "", "", 0, 1000)
-	s.enrichChildrenWithParents(ctx, children)
-
-	// Process each transaction
 	for _, tx := range transactions {
 		// Only process incoming payments
 		if tx.Amount <= 0 {
@@ -186,16 +191,18 @@ func (s *ImportService) ProcessCSV(ctx context.Context, file io.Reader, fileName
 
 		tx.ImportBatchID = &batchID
 
-		// Check if transaction already exists
-		exists, _ := s.transactionRepo.Exists(ctx, tx.BookingDate, tx.PayerIBAN, tx.Amount, tx.Description)
+		exists, err := s.transactionRepo.Exists(ctx, tx.BookingDate, tx.PayerIBAN, tx.Amount, tx.Description)
+		if err != nil {
+			result.Errors = append(result.Errors, domain.NewImportError(tx, "Duplikatprüfung fehlgeschlagen: "+err.Error()))
+			continue
+		}
 		if exists {
 			result.Skipped++
 			continue
 		}
 
-		// Save transaction
 		if err := s.transactionRepo.Create(ctx, &tx); err != nil {
-			result.Skipped++
+			result.Errors = append(result.Errors, domain.NewImportError(tx, "Buchung konnte nicht gespeichert werden: "+err.Error()))
 			continue
 		}
 		result.Imported++
@@ -205,35 +212,65 @@ func (s *ImportService) ProcessCSV(ctx context.Context, file io.Reader, fileName
 		if suggestion != nil {
 			// High confidence with matching fee expectation(s) -> auto-confirm
 			if suggestion.Confidence >= autoMatchConfidenceThreshold && (suggestion.Expectation != nil || len(suggestion.Expectations) > 0) {
-				if s.autoConfirmMatch(ctx, suggestion) {
+				err := s.autoConfirmMatch(ctx, suggestion)
+				if err == nil {
 					result.AutoMatched++
 					continue
 				}
+				result.Errors = append(result.Errors, domain.NewImportError(tx, "Automatische Zuordnung fehlgeschlagen, bleibt als Vorschlag: "+err.Error()))
 			}
 
 			result.Suggestions = append(result.Suggestions, *suggestion)
 		} else if warning != nil {
-			s.saveWarning(ctx, warning, result)
+			s.saveWarning(ctx, tx, warning, result)
 		} else {
 			// No match - check if trusted IBAN needs a warning
 			if w := s.checkForWarning(ctx, tx); w != nil {
-				s.saveWarning(ctx, w, result)
+				s.saveWarning(ctx, tx, w, result)
 			}
+		}
+	}
+
+	if len(result.Errors) > 0 {
+		if err := s.transactionRepo.SetBatchErrors(ctx, batchID, result.Errors); err != nil {
+			return nil, fmt.Errorf("store import errors: %w", err)
 		}
 	}
 
 	return result, nil
 }
 
-func (s *ImportService) saveWarning(ctx context.Context, warning *domain.TransactionWarning, result *ImportResult) {
+// loadMatchingChildren returns all active children with their parents for matching.
+func (s *ImportService) loadMatchingChildren(ctx context.Context) ([]domain.Child, error) {
+	const pageSize = 500
+	var children []domain.Child
+	for offset := 0; ; offset += pageSize {
+		page, _, err := s.childRepo.List(ctx, true, false, false, false, "", "", "", offset, pageSize)
+		if err != nil {
+			return nil, fmt.Errorf("load children: %w", err)
+		}
+		children = append(children, page...)
+		if len(page) < pageSize {
+			break
+		}
+	}
+	if err := s.enrichChildrenWithParents(ctx, children); err != nil {
+		return nil, fmt.Errorf("load parents: %w", err)
+	}
+	return children, nil
+}
+
+func (s *ImportService) saveWarning(ctx context.Context, tx domain.BankTransaction, warning *domain.TransactionWarning, result *ImportResult) {
 	// Add to result list for frontend display during import
 	result.WarningList = append(result.WarningList, *warning)
 
 	// Persist to database except for MULTIPLE_OPEN_FEES (computed on-the-fly)
 	if s.warningRepo != nil && warning.WarningType != domain.WarningTypeMultipleOpenFees {
-		if err := s.warningRepo.Create(ctx, warning); err == nil {
-			result.Warnings++
+		if err := s.warningRepo.Create(ctx, warning); err != nil {
+			result.Errors = append(result.Errors, domain.NewImportError(tx, "Warnung konnte nicht gespeichert werden: "+err.Error()))
+			return
 		}
+		result.Warnings++
 	}
 }
 
@@ -504,9 +541,9 @@ func (s *ImportService) matchFeeExpectation(ctx context.Context, tx domain.BankT
 	return nil
 }
 
-func (s *ImportService) enrichChildrenWithParents(ctx context.Context, children []domain.Child) {
+func (s *ImportService) enrichChildrenWithParents(ctx context.Context, children []domain.Child) error {
 	if len(children) == 0 {
-		return
+		return nil
 	}
 
 	childIDs := make([]uuid.UUID, len(children))
@@ -516,7 +553,7 @@ func (s *ImportService) enrichChildrenWithParents(ctx context.Context, children 
 
 	parentsMap, err := s.childRepo.GetParentsForChildren(ctx, childIDs)
 	if err != nil {
-		return
+		return err
 	}
 
 	for i := range children {
@@ -524,6 +561,7 @@ func (s *ImportService) enrichChildrenWithParents(ctx context.Context, children 
 			children[i].Parents = parents
 		}
 	}
+	return nil
 }
 
 func buildMatchText(tx domain.BankTransaction) string {
@@ -769,7 +807,7 @@ func (s *ImportService) CreateManualMatch(ctx context.Context, transactionID, ex
 // Rescan re-scans all unmatched transactions for potential matches.
 // High-confidence matches (95%+) are automatically confirmed.
 func (s *ImportService) Rescan(ctx context.Context) (*RescanResult, error) {
-	result := &RescanResult{}
+	result := &RescanResult{Errors: []domain.ImportError{}}
 
 	// Get all unmatched transactions (no search/sort, just get all)
 	transactions, _, err := s.transactionRepo.ListUnmatched(ctx, "", "date", "desc", 0, 10000)
@@ -777,9 +815,10 @@ func (s *ImportService) Rescan(ctx context.Context) (*RescanResult, error) {
 		return nil, err
 	}
 
-	// Get all children for matching
-	children, _, _ := s.childRepo.List(ctx, true, false, false, false, "", "", "", 0, 1000)
-	s.enrichChildrenWithParents(ctx, children)
+	children, err := s.loadMatchingChildren(ctx)
+	if err != nil {
+		return nil, err
+	}
 
 	// Re-scan each transaction
 	for _, tx := range transactions {
@@ -788,7 +827,9 @@ func (s *ImportService) Rescan(ctx context.Context) (*RescanResult, error) {
 
 		if warning != nil {
 			if s.warningRepo != nil {
-				_ = s.warningRepo.Create(ctx, warning)
+				if err := s.warningRepo.Create(ctx, warning); err != nil {
+					result.Errors = append(result.Errors, domain.NewImportError(tx, "Warnung konnte nicht gespeichert werden: "+err.Error()))
+				}
 			}
 			continue
 		}
@@ -799,10 +840,12 @@ func (s *ImportService) Rescan(ctx context.Context) (*RescanResult, error) {
 
 		// High confidence with matching fee expectation(s) -> auto-confirm
 		if suggestion.Confidence >= autoMatchConfidenceThreshold && (suggestion.Expectation != nil || len(suggestion.Expectations) > 0) {
-			if s.autoConfirmMatch(ctx, suggestion) {
+			err := s.autoConfirmMatch(ctx, suggestion)
+			if err == nil {
 				result.AutoMatched++
 				continue
 			}
+			result.Errors = append(result.Errors, domain.NewImportError(tx, "Automatische Zuordnung fehlgeschlagen, bleibt als Vorschlag: "+err.Error()))
 		}
 
 		result.Suggestions = append(result.Suggestions, *suggestion)
@@ -812,9 +855,8 @@ func (s *ImportService) Rescan(ctx context.Context) (*RescanResult, error) {
 }
 
 // autoConfirmMatch automatically confirms a high-confidence match.
-// Returns true if the match was successfully confirmed.
 // All matches and follow-up actions are written atomically.
-func (s *ImportService) autoConfirmMatch(ctx context.Context, suggestion *domain.MatchSuggestion) bool {
+func (s *ImportService) autoConfirmMatch(ctx context.Context, suggestion *domain.MatchSuggestion) error {
 	// Handle combined matches (fee + reminder)
 	if len(suggestion.Expectations) > 0 {
 		expectationIDs := make([]string, 0, len(suggestion.Expectations))
@@ -840,7 +882,7 @@ func (s *ImportService) autoConfirmMatch(ctx context.Context, suggestion *domain
 		})
 		if err != nil {
 			log.Warn().Err(err).Str("transactionId", suggestion.Transaction.ID.String()).Msg("auto-match failed, keeping as suggestion")
-			return false
+			return err
 		}
 		log.Info().
 			Str("transactionId", suggestion.Transaction.ID.String()).
@@ -849,7 +891,7 @@ func (s *ImportService) autoConfirmMatch(ctx context.Context, suggestion *domain
 			Int("expectationCount", len(suggestion.Expectations)).
 			Strs("expectationIds", expectationIDs).
 			Msg("auto-matched transaction (high confidence)")
-		return true
+		return nil
 	}
 
 	// Single fee match
@@ -873,7 +915,7 @@ func (s *ImportService) autoConfirmMatch(ctx context.Context, suggestion *domain
 		})
 		if err != nil {
 			log.Warn().Err(err).Str("transactionId", suggestion.Transaction.ID.String()).Msg("auto-match failed, keeping as suggestion")
-			return false
+			return err
 		}
 		log.Info().
 			Str("transactionId", suggestion.Transaction.ID.String()).
@@ -882,10 +924,10 @@ func (s *ImportService) autoConfirmMatch(ctx context.Context, suggestion *domain
 			Int("expectationCount", 1).
 			Strs("expectationIds", []string{suggestion.Expectation.ID.String()}).
 			Msg("auto-matched transaction (high confidence)")
-		return true
+		return nil
 	}
 
-	return false
+	return errors.New("suggestion has no fee expectation")
 }
 
 // postMatchActions performs common actions after a match is created.
@@ -1144,7 +1186,9 @@ func (s *ImportService) GetUnmatchedSuggestionsForChild(ctx context.Context, chi
 	}
 
 	children := []domain.Child{*child}
-	s.enrichChildrenWithParents(ctx, children)
+	if err := s.enrichChildrenWithParents(ctx, children); err != nil {
+		return nil, err
+	}
 
 	scanLimit := 500
 	if limit > scanLimit {

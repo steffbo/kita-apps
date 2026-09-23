@@ -68,7 +68,14 @@ type ImportBatch struct {
 	ImportedByEmail  string     `json:"importedByEmail" db:"imported_by_email"`
 	DateFrom         *time.Time `json:"dateFrom,omitempty" db:"date_from"`
 	DateTo           *time.Time `json:"dateTo,omitempty" db:"date_to"`
+	// ErrorCount is the number of rows that failed; Errors holds at most
+	// MaxStoredImportErrors of them.
+	ErrorCount int          `json:"errorCount" db:"error_count"`
+	Errors     ImportErrors `json:"errors" db:"errors"`
 }
+
+// MaxStoredImportErrors caps the per-batch error details kept in the database.
+const MaxStoredImportErrors = 100
 
 // MatchSuggestion represents a suggested match between a transaction and a fee.
 type MatchSuggestion struct {
