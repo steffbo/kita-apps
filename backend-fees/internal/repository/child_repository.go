@@ -104,7 +104,7 @@ func (r *PostgresChildRepository) List(ctx context.Context, activeOnly bool, u3O
 	if u3Only {
 		// Filter for children under 3 years old (born less than 3 years ago)
 		baseQuery += fmt.Sprintf(" AND c.birth_date > $%d", argIdx)
-		args = append(args, time.Now().AddDate(-3, 0, 0))
+		args = append(args, util.Today().AddDate(-3, 0, 0))
 		argIdx++
 	}
 
@@ -151,7 +151,7 @@ func (r *PostgresChildRepository) List(ctx context.Context, activeOnly bool, u3O
 				)
 			))
 		)`
-		args = append(args, time.Now().AddDate(-3, 0, 0))
+		args = append(args, util.Today().AddDate(-3, 0, 0))
 		argIdx++
 	}
 

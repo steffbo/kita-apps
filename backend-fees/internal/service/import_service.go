@@ -13,6 +13,7 @@ import (
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/csvparser"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/repository"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/util"
 )
 
 const (
@@ -1456,7 +1457,7 @@ func (s *ImportService) ResolveWarningWithLateFee(ctx context.Context, warningID
 		Year:          originalFee.Year,
 		Month:         originalFee.Month, // Same month as original fee
 		Amount:        domain.ReminderFeeAmount,
-		DueDate:       time.Now().AddDate(0, 0, 14), // Due in 14 days
+		DueDate:       util.Today().AddDate(0, 0, 14), // Due in 14 days
 		CreatedAt:     time.Now(),
 		ReminderForID: &originalFee.ID, // Link to original fee
 	}
