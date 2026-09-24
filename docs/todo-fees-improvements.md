@@ -60,7 +60,7 @@ Leitplanke für alle Refactorings: **keine fachliche Verhaltensänderung**, auß
       verschieben; `fee_handler.go`/`import_handler.go` aufteilen.
 - [x] **15. `import_service.go` aufteilen** (`0bd55f0`) – `matcher`, `iban_registry`, `warning_service`,
       CSV-Import. Reines Verschieben, Tests müssen unverändert grün bleiben.
-- [x] **16. Frontend-Formatierer zentralisieren** (COMMIT16) – `src/utils/format.ts`
+- [x] **16. Frontend-Formatierer zentralisieren** (`9d34340`) – `src/utils/format.ts`
       (`formatDate`, `formatDateTime`, `formatCurrency`, `formatDateForInput`, …), alle Seiten umstellen.
 - [ ] **17. Große Seiten zerlegen** – `ChildDetailPage.vue` (3076 Z.), `ImportPage.vue`,
       `ChildImportPage.vue`, `FeesPage.vue`, `AutomationPage.vue` in Komponenten + Composables.
