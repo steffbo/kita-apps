@@ -273,6 +273,9 @@ func (h *FeeHandler) Generate(w http.ResponseWriter, r *http.Request) {
 
 	result, err := h.feeService.Generate(r.Context(), req.Year, req.Month)
 	if err != nil {
+		if writeNoFeeScheduleError(w, err) {
+			return
+		}
 		response.InternalError(w, "failed to generate fees")
 		return
 	}

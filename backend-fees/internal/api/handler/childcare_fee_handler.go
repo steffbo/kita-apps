@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 	"time"
@@ -97,9 +98,21 @@ func (h *FeeHandler) CalculateChildcareFee(w http.ResponseWriter, r *http.Reques
 	}
 	schedule, err := h.feeService.ScheduleAt(r.Context(), date)
 	if err != nil {
-		response.InternalError(w, "failed to load fee schedule: "+err.Error())
+		if !writeNoFeeScheduleError(w, err) {
+			response.InternalError(w, "failed to load fee schedule: "+err.Error())
+		}
 		return
 	}
 
 	response.Success(w, schedule.Config.CalculateChildcareFee(input))
+}
+
+// writeNoFeeScheduleError answers 400 when no fee regulation covers the requested
+// date (e.g. before the first version) and reports whether it did.
+func writeNoFeeScheduleError(w http.ResponseWriter, err error) bool {
+	if !errors.Is(err, domain.ErrNoFeeSchedule) {
+		return false
+	}
+	response.BadRequest(w, "Für diesen Zeitraum ist keine Beitragsordnung hinterlegt (siehe Beitragsordnung, erste Version gilt ab ihrem Startdatum)")
+	return true
 }

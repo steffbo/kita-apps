@@ -584,6 +584,9 @@ func toChildcareExpectationSyncResponse(result *service.ChildcareExpectationSync
 }
 
 func handleEinstufungError(w http.ResponseWriter, err error) {
+	if writeNoFeeScheduleError(w, err) {
+		return
+	}
 	if errors.Is(err, service.ErrNotFound) {
 		response.NotFound(w, "Kind oder Haushalt nicht gefunden")
 	} else if errors.Is(err, service.ErrInvalidInput) {
