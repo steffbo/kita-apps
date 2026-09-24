@@ -4,7 +4,8 @@
 #   2. Beiträge frontend built with Vite and embedded into backend-fees
 #      (-tags embed_frontend, same origin and cookie paths as production)
 #   3. migrations + backend-fees on $E2E_PORT, admin bootstrapped from
-#      $E2E_ADMIN_EMAIL / $E2E_ADMIN_PASSWORD
+#      $E2E_ADMIN_EMAIL / $E2E_ADMIN_PASSWORD, import token for the
+#      banking-sync upload path from $E2E_IMPORT_TOKEN
 # Playwright starts this as `webServer` and stops it after the run; the
 # database container is removed on exit. Never points at a real database.
 set -euo pipefail
@@ -57,6 +58,7 @@ PORT="$E2E_PORT" \
 JWT_SECRET="e2e-secret-e2e-secret-e2e-secret-e2e" \
 USER_NAME="${E2E_ADMIN_EMAIL:-admin@e2e.test}" \
 USER_PASSWORD="${E2E_ADMIN_PASSWORD:-e2e-admin-password}" \
+CRON_API_TOKEN="${E2E_IMPORT_TOKEN:-e2e-import-token}" \
   "$BUILD_DIR/server" >"$LOG_FILE" 2>&1 &
 SERVER_PID=$!
 wait "$SERVER_PID"

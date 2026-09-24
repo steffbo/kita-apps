@@ -1,21 +1,5 @@
 import { test, expect, uniq } from './fixtures';
-
-// Berlin calendar date, like the backend's util.Today().
-function berlinToday() {
-  const [year, month, day] = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Berlin' })
-    .format(new Date())
-    .split('-')
-    .map(Number);
-  return { year, month, day };
-}
-
-function bankCsv(row: { date: string; payer: string; iban: string; purpose: string; amount: string }): string {
-  return [
-    'Bezeichnung Auftragskonto;IBAN Auftragskonto;BIC Auftragskonto;Bankname Auftragskonto;Buchungstag;Valutadatum;Name Zahlungsbeteiligter;IBAN Zahlungsbeteiligter;BIC (SWIFT-Code) Zahlungsbeteiligter;Buchungstext;Verwendungszweck;Betrag;Waehrung;Saldo nach Buchung',
-    ['Kita', 'DE1234', 'BIC', 'Bank', row.date, row.date, row.payer, row.iban, 'BIC', 'Gutschrift', row.purpose, row.amount, 'EUR', '1000,00'].join(';'),
-    '',
-  ].join('\n');
-}
+import { bankCsv, bankDate, berlinToday, uniqueIban } from './bank';
 
 test('child + parent, generate monthly fees, bank import auto-matches the food fee', async ({ adminPage: page }) => {
   const { year, month, day } = berlinToday();
@@ -58,7 +42,7 @@ test('child + parent, generate monthly fees, bank import auto-matches the food f
   // Upload a bank CSV paying the food fee; the member number in the purpose matches the child.
   await page.goto('/beitraege/import');
   await page.getByRole('button', { name: 'CSV hochladen' }).click();
-  const date = `${String(day).padStart(2, '0')}.${String(month).padStart(2, '0')}.${year}`;
+  const date = bankDate({ year, month, day });
   const uploaded = page.waitForResponse((r) => r.url().includes('/import/upload'));
   await page.setInputFiles('#file-input', {
     name: 'e2e-bank.csv',
@@ -67,7 +51,7 @@ test('child + parent, generate monthly fees, bank import auto-matches the food f
       bankCsv({
         date,
         payer: `Eva ${lastName}`,
-        iban: 'DE50500105175432192422',
+        iban: uniqueIban(),
         purpose: `Essensgeld Test ${lastName} ${memberNumber}`,
         amount: '45,40',
       }),

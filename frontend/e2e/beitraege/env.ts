@@ -7,4 +7,7 @@ export const ADMIN = {
   password: process.env.E2E_ADMIN_PASSWORD ?? 'e2e-admin-password',
 };
 
+/** CRON_API_TOKEN of the stack; banking-sync sends it as X-Import-Token. */
+export const IMPORT_TOKEN = process.env.E2E_IMPORT_TOKEN ?? 'e2e-import-token';
+
 export const API = '/api/fees/v1';
