@@ -172,66 +172,16 @@ See the individual backend READMEs for more details on the `@name` annotation sy
 
 ### E2E Tests mit Playwright
 
-Das Frontend verwendet Playwright für End-to-End Tests.
-
-#### Voraussetzungen
+Die Beiträge-App hat eine Playwright-Suite, die sich ihren Stack selbst startet (Wegwerf-PostgreSQL, Backend mit eingebettetem Frontend) und in CI läuft:
 
 ```bash
 cd frontend
 bun install
 bunx playwright install chromium
+bun run test:e2e        # oder test:e2e:ui für den interaktiven Modus
 ```
 
-#### Tests ausführen
-
-```bash
-# Alle Tests (headless)
-bun run test
-
-# UI-Modus (interaktiv, empfohlen für Entwicklung)
-bun run test:ui
-
-# Mit sichtbarem Browser
-bun run test:headed
-
-# Debug-Modus (Schritt für Schritt)
-bun run test:debug
-
-# Nur Dienstplan-Tests
-bun run test:plan
-
-# Nur Zeiterfassung-Tests
-bun run test:zeit
-
-# Nur Beitraege-Tests
-bun run test --project=beitraege
-
-# Einzelnen Test ausführen
-bunx playwright test -g "successfully logs in" --headed
-
-# Test-Report anzeigen
-bun run test:report
-```
-
-#### Test-Struktur
-
-```
-frontend/e2e/
-├── fixtures/
-│   └── index.ts              # Test-Utilities, Page Objects
-├── tests/
-│   ├── auth.setup.ts         # Authentifizierung (Dienstplan, Zeiterfassung)
-│   ├── beitraege.setup.ts    # Authentifizierung (Beiträge)
-│   ├── dienstplan/
-│   │   ├── navigation.spec.ts    # Login, Navigation
-│   │   ├── employees.spec.ts     # Mitarbeiter-CRUD
-│   │   └── groups.spec.ts        # Gruppen, Besondere Tage
-│   ├── zeiterfassung/
-│   │   └── clock.spec.ts         # Ein-/Ausstempeln, Historie
-│   └── beitraege/
-│       └── children.spec.ts      # Kinder-CRUD, Login
-└── .auth/                    # Gespeicherter Auth-State (gitignored)
-```
+Details und Regeln für neue Tests: [`docs/e2e-beitraege.md`](docs/e2e-beitraege.md). Die alten Tests für Dienstplan/Zeiterfassung liegen unter `frontend/e2e/tests/` (`bun run test:management`, nicht gepflegt).
 
 #### Wichtig für CI/CD
 

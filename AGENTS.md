@@ -64,6 +64,7 @@ go test ./...            # inside a backend dir
 cd frontend && bun install
 bun run dev:plan | dev:zeit | dev:beitraege | dev:portal
 bun run --filter @kita/beitraege typecheck
+bun run test:e2e         # Playwright, Beiträge; starts its own stack (Docker, Go, Bun) — docs/e2e-beitraege.md
 
 # OpenAPI types
 cd frontend/packages/shared && bun run generate:api   # from openapi/management/openapi3.yaml
@@ -72,7 +73,7 @@ cd frontend/apps/beitraege  && bun run generate:api   # from openapi/fees/openap
 
 ## Deployment
 
-Target: homelab VM `infra-dev`. Flow: commit + push → GitHub Actions runs CI (`.github/workflows/ci.yml`: gofmt/vet/test for `backend-fees` incl. testcontainers integration tests, typecheck for `beitraege`; also on PRs) and only then builds GHCR images (`.github/workflows/build-images.yml`, on `main`) → deploy from `../homelab`. A red CI means no new image.
+Target: homelab VM `infra-dev`. Flow: commit + push → GitHub Actions runs CI (`.github/workflows/ci.yml`: gofmt/vet/test for `backend-fees` incl. testcontainers integration tests, typecheck for `beitraege`, Playwright e2e for `beitraege`; also on PRs) and only then builds GHCR images (`.github/workflows/build-images.yml`, on `main`) → deploy from `../homelab`. A red CI means no new image.
 
 ```bash
 expected_sha=$(git rev-parse HEAD)
@@ -122,5 +123,5 @@ Both are family-data-neutral; re-check their code maps against the implementatio
 | `docs/portal/DATENSCHUTZ.md` | portal privacy notice draft, AVV review, role matrix |
 | `docs/deployment-ghcr.md` | generic GHCR/Compose deployment guide |
 | `docs/deployment-homelab.md` | kita.remer.cc / infra-dev deployment workflow |
-| `docs/test-seeding.md` | e2e test DB and seeding setup |
+| `docs/e2e-beitraege.md` | Playwright e2e suite for Beiträge (disposable stack, test rules) |
 | `docs/archive/` | superseded plans, kept for history only — do not treat as current |

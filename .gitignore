@@ -64,3 +64,7 @@ banking-sync/profile
 # Generated API code (optional - könnte auch committed werden)
 # backend/src/main/java/de/knirpsenstadt/api/
 # frontend/packages/shared/src/api/
+
+# E2E: frontend build embedded by frontend/e2e/start-beitraege-stack.sh
+backend-fees/internal/frontend/beitraege/*
+!backend-fees/internal/frontend/beitraege/.gitkeep

@@ -156,6 +156,8 @@ function toggleUserMenu() {
           <div class="relative">
             <button
               @click="toggleUserMenu"
+              aria-label="Benutzermenü"
+              :aria-expanded="showUserMenu"
               class="w-full flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-gray-100 transition-colors"
             >
               <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">

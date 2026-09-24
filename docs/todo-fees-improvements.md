@@ -83,7 +83,8 @@ Leitplanke für alle Refactorings: **keine fachliche Verhaltensänderung**, auß
 - [x] **22. Login-Bremse** (`8e85bb1`, zusammen mit #21) – fehlgeschlagene Anmeldungen pro IP+Konto und pro IP
       begrenzen (429 mit Wartezeit); ebenso falsches aktuelles Passwort bei „Passwort ändern“.
 - [x] **23. GitHub Actions auf Node 24** (`9f5dea1`) – checkout/setup-go/docker-Actions auf aktuelle Major-Versionen.
-- [ ] **24. Playwright-E2E sauber aufsetzen** – Suite im Repo statt Wegwerf-Skripte, eigene Test-DB, in CI.
+- [x] **24. Playwright-E2E sauber aufsetzen** (`COMMIT24`) – Suite im Repo statt Wegwerf-Skripte, eigene Test-DB, in CI
+      (`docs/e2e-beitraege.md`).
 
 Bewusst nicht geplant: Audit-Log (vorerst nicht gewünscht); eigene DB-Backups (abgedeckt durch das
 VM-Backup von infra-dev, 2× täglich nach Backblaze).

@@ -18,15 +18,11 @@
     "build:portal": "bun run --filter @kita/portal build",
     "lint": "bun run --filter '@kita/*' lint",
     "generate:api": "bun run --filter @kita/shared generate:api",
-    "test": "playwright test",
-    "test:ui": "playwright test --ui",
-    "test:headed": "playwright test --headed",
-    "test:plan": "playwright test --project=dienstplan",
-    "test:zeit": "playwright test --project=zeiterfassung",
-    "test:beitraege": "playwright test --project=beitraege",
-    "test:debug": "playwright test --debug",
-    "test:report": "playwright show-report",
-    "test:cleanup": "cd ../docker && docker compose exec -T db psql -U kita -d kita < ../frontend/e2e/cleanup-test-data.sql"
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:headed": "playwright test --headed",
+    "test:e2e:report": "playwright show-report",
+    "test:management": "playwright test -c playwright.management.config.ts"
   },
   "devDependencies": {
     "@playwright/test": "1.57.0",

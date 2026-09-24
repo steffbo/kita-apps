@@ -38,7 +38,7 @@ async function submit() {
 
 <template>
   <div class="fixed inset-0 z-[60] flex items-center justify-center bg-black/50" @click.self="emit('close')">
-    <form class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6" @submit.prevent="submit">
+    <form role="dialog" aria-modal="true" aria-label="Passwort ändern" class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6" @submit.prevent="submit">
       <div class="flex items-center gap-3 mb-6">
         <div class="p-2 bg-primary/10 rounded-lg">
           <KeyRound class="h-6 w-6 text-primary" />
