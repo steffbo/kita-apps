@@ -71,7 +71,7 @@ Leitplanke für alle Refactorings: **keine fachliche Verhaltensänderung**, auß
 
 ## Phase 5 – Mehrbenutzer
 
-- [ ] **20. Benutzerverwaltung** – Tabelle `fees.users` (wieder) einführen, bcrypt-Hashes in der DB,
+- [x] **20. Benutzerverwaltung** (`415c0b5`) – Tabelle `fees.users` (wieder) einführen, bcrypt-Hashes in der DB,
       Bootstrap-Admin aus `USER_NAME`/`USER_PASSWORD` nur beim ersten Start. Passwortänderung
       persistent (behebt heutigen Bug: Änderung geht beim Neustart verloren). Admin-UI zum
       Anlegen/Deaktivieren. Rollen vorerst `ADMIN`/`USER`. Voraussetzung für einen Agent-Service-Account.
