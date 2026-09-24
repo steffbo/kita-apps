@@ -29,26 +29,26 @@ const (
 // Parent represents a parent or guardian of a child.
 type Parent struct {
 	ID          uuid.UUID  `json:"id" db:"id"`
-	HouseholdID *uuid.UUID `json:"householdId,omitempty" db:"household_id"`
-	MemberID    *uuid.UUID `json:"memberId,omitempty" db:"member_id"` // Link to Member if this parent is also a member
+	HouseholdID *uuid.UUID `json:"householdId,omitempty" db:"household_id" binding:"optional"`
+	MemberID    *uuid.UUID `json:"memberId,omitempty" db:"member_id" binding:"optional"` // Link to Member if this parent is also a member
 	FirstName   string     `json:"firstName" db:"first_name"`
 	LastName    string     `json:"lastName" db:"last_name"`
-	BirthDate   *time.Time `json:"birthDate,omitempty" db:"birth_date"`
-	Email       *string    `json:"email,omitempty" db:"email"`
-	Phone       *string    `json:"phone,omitempty" db:"phone"`
-	Street      *string    `json:"street,omitempty" db:"street"`
-	StreetNo    *string    `json:"streetNo,omitempty" db:"street_no"`
-	PostalCode  *string    `json:"postalCode,omitempty" db:"postal_code"`
-	City        *string    `json:"city,omitempty" db:"city"`
+	BirthDate   *time.Time `json:"birthDate,omitempty" db:"birth_date" binding:"optional"`
+	Email       *string    `json:"email,omitempty" db:"email" binding:"optional"`
+	Phone       *string    `json:"phone,omitempty" db:"phone" binding:"optional"`
+	Street      *string    `json:"street,omitempty" db:"street" binding:"optional"`
+	StreetNo    *string    `json:"streetNo,omitempty" db:"street_no" binding:"optional"`
+	PostalCode  *string    `json:"postalCode,omitempty" db:"postal_code" binding:"optional"`
+	City        *string    `json:"city,omitempty" db:"city" binding:"optional"`
 	// DEPRECATED: Income fields moved to Household. Kept for backwards compatibility during migration.
-	AnnualHouseholdIncome *float64     `json:"annualHouseholdIncome,omitempty" db:"annual_household_income"`
+	AnnualHouseholdIncome *float64     `json:"annualHouseholdIncome,omitempty" db:"annual_household_income" binding:"optional"`
 	IncomeStatus          IncomeStatus `json:"incomeStatus" db:"income_status"`
 	CreatedAt             time.Time    `json:"createdAt" db:"created_at"`
 	UpdatedAt             time.Time    `json:"updatedAt" db:"updated_at"`
 	// Loaded relations (not stored in DB)
-	Children  []Child    `json:"children,omitempty" db:"-"`
-	Household *Household `json:"household,omitempty" db:"-"`
-	Member    *Member    `json:"member,omitempty" db:"-"`
+	Children  []Child    `json:"children,omitempty" db:"-" binding:"optional"`
+	Household *Household `json:"household,omitempty" db:"-" binding:"optional"`
+	Member    *Member    `json:"member,omitempty" db:"-" binding:"optional"`
 }
 
 // FullName returns the parent's full name.

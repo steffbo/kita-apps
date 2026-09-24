@@ -7116,25 +7116,25 @@ export interface components {
     schemas: {
         /** @description Allocate a transaction across multiple fees */
         AllocateTransactionRequest: {
-            allocations?: components["schemas"]["AllocationRequest"][];
+            allocations: components["schemas"]["AllocationRequest"][];
         };
         /** @description Allocation result */
         AllocateTransactionResponse: {
             /** @example 2 */
-            allocationsCreated?: number;
+            allocationsCreated: number;
             /** @example 0 */
-            overpayment?: number;
+            overpayment: number;
             /** @example 90.8 */
-            totalAllocated?: number;
+            totalAllocated: number;
             /** @example 550e8400-e29b-41d4-a716-446655440000 */
-            transactionId?: string;
+            transactionId: string;
         };
         /** @description Fee allocation entry */
         AllocationRequest: {
             /** @example 45.4 */
-            amount?: number;
+            amount: number;
             /** @example 550e8400-e29b-41d4-a716-446655440001 */
-            expectationId?: string;
+            expectationId: string;
         };
         /** @description Status of the banking-sync runner (proxied 1:1 from the banking-sync service) */
         BankingSyncStatus: {
@@ -7153,184 +7153,184 @@ export interface components {
              * @example idle
              * @enum {string}
              */
-            status?: "idle" | "running" | "waiting_for_2fa" | "success" | "error" | "cancelled";
+            status: "idle" | "running" | "waiting_for_2fa" | "success" | "error" | "cancelled";
             /** @example 2024-03-15T10:35:00Z */
-            updatedAt?: string;
+            updatedAt: string;
             uploadResult?: unknown;
         };
         /** @description Calculate household income from parent details */
         CalculateIncomeRequest: {
-            parent1?: components["schemas"]["domain.IncomeDetails"];
-            parent2?: components["schemas"]["domain.IncomeDetails"];
+            parent1: components["schemas"]["domain.IncomeDetails"];
+            parent2: components["schemas"]["domain.IncomeDetails"];
         };
         /** @description Computed income breakdown */
         CalculateIncomeResponse: {
-            householdFeeIncome?: number;
-            householdFullIncome?: number;
-            parent1FeeRelevantIncome?: number;
-            parent1NetIncome?: number;
-            parent2FeeRelevantIncome?: number;
-            parent2NetIncome?: number;
+            householdFeeIncome: number;
+            householdFullIncome: number;
+            parent1FeeRelevantIncome: number;
+            parent1NetIncome: number;
+            parent2FeeRelevantIncome: number;
+            parent2NetIncome: number;
         };
         CareHoursBreakdownItem: {
             /** @example 40 */
             careHours?: number;
             /** @example 12 */
-            count?: number;
+            count: number;
             /** @example 4 */
-            u3Count?: number;
+            u3Count: number;
             /** @example 8 */
-            ue3Count?: number;
+            ue3Count: number;
         };
         CareHoursHistoryEntry: {
             /** @example 40 */
             careHours?: number;
             /** @example 550e8400-e29b-41d4-a716-446655440000 */
-            childId?: string;
+            childId: string;
             /** @example 2026-01-01T10:00:00Z */
-            createdAt?: string;
+            createdAt: string;
             /** @example 2026-01-01 */
-            effectiveFrom?: string;
+            effectiveFrom: string;
             /** @example 2026-03-31 */
             effectiveUntil?: string;
             /** @example 550e8400-e29b-41d4-a716-446655440010 */
-            id?: string;
+            id: string;
             /** @example 2026-01-01T10:00:00Z */
-            updatedAt?: string;
+            updatedAt: string;
         };
         ChangePasswordRequest: {
             /** @example oldPassword123 */
-            currentPassword?: string;
+            currentPassword: string;
             /** @example newPassword456 */
-            newPassword?: string;
+            newPassword: string;
         };
         /** @description Request body for generating import preview */
         ChildImportPreviewRequest: {
             /** @description Base64 encoded CSV content */
-            fileContent?: string;
+            fileContent: string;
             /** @description systemField -> csvColumnIndex */
-            mapping?: {
+            mapping: {
                 [key: string]: number;
             };
             /** @example ; */
-            separator?: string;
+            separator: string;
             /** @example true */
-            skipHeader?: boolean;
+            skipHeader: boolean;
         };
         /** @description Payment ledger for a child */
         ChildLedger: {
             child?: unknown;
             /** @example 550e8400-e29b-41d4-a716-446655440000 */
-            childId?: string;
-            entries?: components["schemas"]["LedgerEntry"][];
-            summary?: components["schemas"]["LedgerSummary"];
+            childId: string;
+            entries: components["schemas"]["LedgerEntry"][];
+            summary: components["schemas"]["LedgerSummary"];
         };
         /** @description Paginated list of children as returned by the child endpoints */
         ChildList: {
-            data?: components["schemas"]["domain.Child"][];
+            data: components["schemas"]["domain.Child"][];
             /** @example 1 */
-            page?: number;
+            page: number;
             /** @example 20 */
-            perPage?: number;
+            perPage: number;
             /** @example 100 */
-            total?: number;
+            total: number;
             /** @example 5 */
-            totalPages?: number;
+            totalPages: number;
         };
         ChildNote: {
             /** @example 550e8400-e29b-41d4-a716-446655440000 */
-            childId?: string;
+            childId: string;
             /** @example Emma Müller */
             childName?: string;
             /** @example 2026-09-01T10:00:00Z */
-            createdAt?: string;
+            createdAt: string;
             /** @example 550e8400-e29b-41d4-a716-446655440012 */
-            id?: string;
+            id: string;
             /** @example Muss früher abgeholt werden am 12.09. */
-            text?: string;
+            text: string;
             /** @example 2026-09-01T10:00:00Z */
-            updatedAt?: string;
+            updatedAt: string;
         };
         /** @description Paginated list of child notes as returned by the note endpoints */
         ChildNoteList: {
-            data?: components["schemas"]["ChildNote"][];
+            data: components["schemas"]["ChildNote"][];
             /** @example 1 */
-            page?: number;
+            page: number;
             /** @example 20 */
-            perPage?: number;
+            perPage: number;
             /** @example 100 */
-            total?: number;
+            total: number;
             /** @example 5 */
-            totalPages?: number;
+            totalPages: number;
         };
         /** @description Trusted IBANs with usage counts */
         ChildTrustedIBANsResponse: {
             /** @example DE89370400440532013000 */
-            iban?: string;
+            iban: string;
             /** @example Max Mustermann */
             payerName?: string;
             /** @example 4 */
-            transactionCount?: number;
+            transactionCount: number;
         };
         /** @description Likely unmatched transactions for a child */
         ChildUnmatchedSuggestionsResponse: {
             /** @example 550e8400-e29b-41d4-a716-446655440000 */
-            childId?: string;
+            childId: string;
             /** @example 250 */
-            scanned?: number;
-            suggestions?: components["schemas"]["domain.MatchSuggestion"][];
+            scanned: number;
+            suggestions: components["schemas"]["domain.MatchSuggestion"][];
         };
         /** @description Result of synchronizing CHILDCARE expectations after a follow-up */
         ChildcareExpectationSyncResult: {
-            created?: number;
-            creditReviewRequired?: components["schemas"]["CreditReviewPeriod"][];
-            deltaOpen?: number;
-            skipped?: number;
-            updated?: number;
+            created: number;
+            creditReviewRequired: components["schemas"]["CreditReviewPeriod"][];
+            deltaOpen: number;
+            skipped: number;
+            updated: number;
         };
         /** @description Request body for confirming transaction-fee matches */
         ConfirmMatchRequest: {
-            matches?: components["schemas"]["MatchConfirmation"][];
+            matches: components["schemas"]["MatchConfirmation"][];
         };
         /** @description Result of confirming matches */
         ConfirmMatchResponse: {
             /** @example 5 */
-            confirmed?: number;
+            confirmed: number;
             /** @example 0 */
-            failed?: number;
+            failed: number;
         };
         CreateCareHoursHistoryRequest: {
             careHours?: number;
             /** @example 2026-01-01 */
-            validFrom?: string;
+            validFrom: string;
         };
         /** @description Request body for creating a new child note */
         CreateChildNoteRequest: {
             /** @example Muss früher abgeholt werden am 12.09. */
-            text?: string;
+            text: string;
         };
         /** @description Request body for creating a new child */
         CreateChildRequest: {
             /** @example 2020-06-15 */
-            birthDate?: string;
+            birthDate: string;
             /** @example 40 */
             careHours?: number;
             /** @example Potsdam */
             city?: string;
             /** @example 2023-08-01 */
-            entryDate?: string;
+            entryDate: string;
             /** @example 2026-07-31 */
             exitDate?: string;
             /** @example Emma */
-            firstName?: string;
+            firstName: string;
             /** @example Müller */
-            lastName?: string;
+            lastName: string;
             /** @example 35 */
             legalHours?: number;
             /** @example 2024-12-31 */
             legalHoursUntil?: string;
             /** @example K-2024-001 */
-            memberNumber?: string;
+            memberNumber: string;
             /** @example 14467 */
             postalCode?: string;
             /** @example Hauptstraße */
@@ -7341,51 +7341,51 @@ export interface components {
         /** @description Request body for creating a fee classification */
         CreateEinstufungRequest: {
             /** @description Deprecated: Ignored; resolved from the child's care-hours history. */
-            careHoursPerWeek?: number;
-            childId?: string;
-            childrenCount?: number;
-            highestRateVoluntary?: boolean;
-            incomeCalculation?: components["schemas"]["domain.HouseholdIncomeCalculation"];
-            notes?: string;
+            careHoursPerWeek: number;
+            childId: string;
+            childrenCount: number;
+            highestRateVoluntary: boolean;
+            incomeCalculation: components["schemas"]["domain.HouseholdIncomeCalculation"];
+            notes: string;
             /** @description Deprecated: Ignored for initial classifications; validity is derived from year and child entry date. */
-            validFrom?: string;
-            year?: number;
+            validFrom: string;
+            year: number;
         };
         /** @description Request body for creating a single fee */
         CreateFeeRequest: {
             /** @example 45.4 */
             amount?: number;
             /** @example 550e8400-e29b-41d4-a716-446655440001 */
-            childId?: string;
+            childId: string;
             /** @example 2025-01-05 */
             dueDate?: string;
             /**
              * @example FOOD
              * @enum {string}
              */
-            feeType?: "FOOD" | "MEMBERSHIP" | "CHILDCARE" | "REMINDER";
+            feeType: "FOOD" | "MEMBERSHIP" | "CHILDCARE" | "REMINDER";
             /** @example 1 */
             month?: number;
             /** @example 2024 */
             reconciliationYear?: number;
             /** @example 2025 */
-            year?: number;
+            year: number;
         };
         /** @description Request body for creating a follow-up fee classification */
         CreateFollowUpEinstufungRequest: {
             /** @description Deprecated: Ignored; resolved from the child's care-hours history at the effective month. */
-            careHoursPerWeek?: number;
+            careHoursPerWeek: number;
             /** @description ISO date, cut-off: 1st-14th same month, 15th+ next month */
-            changeDate?: string;
-            childrenCount?: number;
-            highestRateVoluntary?: boolean;
-            incomeCalculation?: components["schemas"]["domain.HouseholdIncomeCalculation"];
-            notes?: string;
+            changeDate: string;
+            childrenCount: number;
+            highestRateVoluntary: boolean;
+            incomeCalculation: components["schemas"]["domain.HouseholdIncomeCalculation"];
+            notes: string;
         };
         /** @description Follow-up Einstufung creation result */
         CreateFollowUpEinstufungResponse: {
-            einstufung?: components["schemas"]["Einstufung"];
-            expectationChanges?: components["schemas"]["ChildcareExpectationSyncResult"];
+            einstufung: components["schemas"]["Einstufung"];
+            expectationChanges: components["schemas"]["ChildcareExpectationSyncResult"];
         };
         /** @description Request body for creating a new household */
         CreateHouseholdRequest: {
@@ -7404,17 +7404,17 @@ export interface components {
             /** @example 550e8400-e29b-41d4-a716-446655440000 */
             membershipParentId?: string;
             /** @example Familie Müller */
-            name?: string;
+            name: string;
         };
         CreateLegalHoursHistoryRequest: {
             legalHours?: number;
             /** @example 2026-01-01 */
-            validFrom?: string;
+            validFrom: string;
         };
         /** @description Request body for creating a member from a parent */
         CreateMemberFromParentRequest: {
             /** @example 2023-08-01 */
-            membershipStart?: string;
+            membershipStart: string;
         };
         /** @description Request body for creating a new member */
         CreateMemberRequest: {
@@ -7423,17 +7423,17 @@ export interface components {
             /** @example hans.mueller@example.com */
             email?: string;
             /** @example Hans */
-            firstName?: string;
+            firstName: string;
             /** @example 550e8400-e29b-41d4-a716-446655440001 */
             householdId?: string;
             /** @example Müller */
-            lastName?: string;
+            lastName: string;
             /** @example M-2024-001 */
             memberNumber?: string;
             /** @example 2024-12-31 */
             membershipEnd?: string;
             /** @example 2024-01-01 */
-            membershipStart?: string;
+            membershipStart: string;
             /** @example +49 123 456789 */
             phone?: string;
             /** @example 12345 */
@@ -7454,14 +7454,14 @@ export interface components {
             /** @example thomas.mueller@example.com */
             email?: string;
             /** @example Thomas */
-            firstName?: string;
+            firstName: string;
             /**
              * @example PROVIDED
              * @enum {string}
              */
             incomeStatus?: "PROVIDED" | "MAX_ACCEPTED" | "PENDING" | "NOT_REQUIRED" | "HISTORIC" | "FOSTER_FAMILY";
             /** @example Müller */
-            lastName?: string;
+            lastName: string;
             /** @example +49 331 12345 */
             phone?: string;
             /** @example 14467 */
@@ -7473,164 +7473,164 @@ export interface components {
         };
         /** @description Paid month that would become overpaid after a childcare fee decrease */
         CreditReviewPeriod: {
-            creditAmount?: number;
-            feeId?: string;
-            matchedAmount?: number;
-            month?: number;
-            newAmount?: number;
-            oldAmount?: number;
-            year?: number;
+            creditAmount: number;
+            feeId: string;
+            matchedAmount: number;
+            month: number;
+            newAmount: number;
+            oldAmount: number;
+            year: number;
         };
         /** @description Dismiss transaction result */
         DismissTransactionResponse: {
             /** @example true */
-            addedToBlacklist?: boolean;
+            addedToBlacklist: boolean;
             /** @example DE89370400440532013000 */
-            iban?: string;
+            iban: string;
             /** @example 550e8400-e29b-41d4-a716-446655440000 */
-            transactionId?: string;
+            transactionId: string;
         };
         /** @description Request body for dismissing a warning */
         DismissWarningRequest: {
             /** @example Differenz wurde bar ausgeglichen */
-            note?: string;
+            note: string;
         };
         /** @description Fee classification for a child */
         Einstufung: {
-            annualMembershipFee?: number;
-            annualNetIncome?: number;
-            baseFee?: number;
-            careHoursPerWeek?: number;
-            careType?: string;
+            annualMembershipFee: number;
+            annualNetIncome: number;
+            baseFee: number;
+            careHoursPerWeek: number;
+            careType: string;
             changeDate?: string;
             child?: unknown;
-            childId?: string;
-            childrenCount?: number;
-            createdAt?: string;
-            discountFactor?: number;
-            discountPercent?: number;
-            effectiveFromMonth?: string;
-            feeRule?: string;
-            highestRateVoluntary?: boolean;
+            childId: string;
+            childrenCount: number;
+            createdAt: string;
+            discountFactor: number;
+            discountPercent: number;
+            effectiveFromMonth: string;
+            feeRule: string;
+            highestRateVoluntary: boolean;
             household?: unknown;
-            householdId?: string;
-            id?: string;
-            incomeCalculation?: components["schemas"]["domain.HouseholdIncomeCalculation"];
-            monthlyChildcareFee?: number;
-            monthlyFoodFee?: number;
+            householdId: string;
+            id: string;
+            incomeCalculation: components["schemas"]["domain.HouseholdIncomeCalculation"];
+            monthlyChildcareFee: number;
+            monthlyFoodFee: number;
             monthlyTable?: components["schemas"]["domain.EinstufungMonthRow"][];
             notes?: string;
             sourceEinstufungId?: string;
-            updatedAt?: string;
-            validFrom?: string;
+            updatedAt: string;
+            validFrom: string;
             validUntil?: string;
-            year?: number;
+            year: number;
         };
         /** @description Paginated list of fee classifications */
         EinstufungList: {
-            data?: components["schemas"]["Einstufung"][];
-            page?: number;
-            perPage?: number;
-            total?: number;
-            totalPages?: number;
+            data: components["schemas"]["Einstufung"][];
+            page: number;
+            perPage: number;
+            total: number;
+            totalPages: number;
         };
         /** @description Paginated list of email logs */
         EmailLogListResponse: {
-            data?: components["schemas"]["EmailLogResponse"][];
+            data: components["schemas"]["EmailLogResponse"][];
             /** @example 1 */
-            page?: number;
+            page: number;
             /** @example 20 */
-            perPage?: number;
+            perPage: number;
             /** @example 100 */
-            total?: number;
+            total: number;
             /** @example 5 */
-            totalPages?: number;
+            totalPages: number;
         };
         /** @description Email log entry */
         EmailLogResponse: {
             /** @example Hallo,... */
             body?: string;
             /** @example REMINDER_INITIAL */
-            emailType?: string;
+            emailType: string;
             /** @example 550e8400-e29b-41d4-a716-446655440002 */
             householdId?: string;
             /** @example 550e8400-e29b-41d4-a716-446655440000 */
-            id?: string;
+            id: string;
             /** @example 2026-02-05T10:15:00Z */
-            sentAt?: string;
+            sentAt: string;
             /** @example 550e8400-e29b-41d4-a716-446655440001 */
             sentBy?: string;
             /** @example Zahlungserinnerung Essens- und Platzgeld Februar 2026 */
-            subject?: string;
+            subject: string;
             /** @example admin@knirpsenstadt.de */
-            toEmail?: string;
+            toEmail: string;
         };
         /** @description Standard error response format */
         ErrorResponse: {
             /** @example 400 */
-            code?: number;
+            code: number;
             /** @example Bad Request */
-            error?: string;
+            error: string;
             /** @example invalid request body */
-            message?: string;
+            message: string;
         };
         /** @description Paginated list of fee expectations as returned by the fee endpoints */
         FeeList: {
-            data?: components["schemas"]["domain.FeeExpectation"][];
+            data: components["schemas"]["domain.FeeExpectation"][];
             /** @example 1 */
-            page?: number;
+            page: number;
             /** @example 20 */
-            perPage?: number;
+            perPage: number;
             /** @example 100 */
-            total?: number;
+            total: number;
             /** @example 5 */
-            totalPages?: number;
+            totalPages: number;
         };
         FeeScheduleConfig: {
-            annualMembershipFee?: number;
-            entlastungIncomeLimit?: number;
-            entlastungTable?: components["schemas"]["FeeTableRow"][];
-            freeIncomeLimit?: number;
+            annualMembershipFee: number;
+            entlastungIncomeLimit: number;
+            entlastungTable: components["schemas"]["FeeTableRow"][];
+            freeIncomeLimit: number;
             /**
              * @description KindergartenTable is the Satzung table for children from their 3rd birthday.
              *     Reference only: kindergarten care is free under the Elternbeitragsentlastungsgesetz,
              *     so the calculation does not use it.
              */
             kindergartenTable?: components["schemas"]["FeeTableRow"][];
-            monthlyFoodFee?: number;
-            satzungTable?: components["schemas"]["FeeTableRow"][];
+            monthlyFoodFee: number;
+            satzungTable: components["schemas"]["FeeTableRow"][];
             /** @description SiblingDiscountFactors[i] applies to i+1 children; more children use the last factor. */
-            siblingDiscountFactors?: number[];
+            siblingDiscountFactors: number[];
             /** @description From this many children on, the childcare fee is waived. */
-            siblingsFreeThreshold?: number;
+            siblingsFreeThreshold: number;
         };
         /** @description Planned version of the fee regulation */
         FeeScheduleRequest: {
-            config?: components["schemas"]["FeeScheduleConfig"];
+            config: components["schemas"]["FeeScheduleConfig"];
             /** @example Elternbeitragsordnung 2027 */
-            name?: string;
+            name: string;
             /**
              * @description first of a future month
              * @example 2027-01-01
              */
-            validFrom?: string;
+            validFrom: string;
         };
         /** @description Version of the fee regulation (Elternbeitragsordnung) */
         FeeScheduleVersion: {
-            config?: components["schemas"]["FeeScheduleConfig"];
-            createdAt?: string;
+            config: components["schemas"]["FeeScheduleConfig"];
+            createdAt: string;
             /** @description Editable is true for planned versions only. */
-            editable?: boolean;
-            id?: string;
-            name?: string;
+            editable: boolean;
+            id: string;
+            name: string;
             /**
              * @description Status is past, active or planned.
              * @enum {string}
              */
-            status?: "past" | "active" | "planned";
-            updatedAt?: string;
+            status: "past" | "active" | "planned";
+            updatedAt: string;
             /** @example 2027-01-01 */
-            validFrom?: string;
+            validFrom: string;
             /**
              * @description ValidUntil is the day before the next version starts; absent for the latest version.
              * @example 2027-07-31
@@ -7638,9 +7638,9 @@ export interface components {
             validUntil?: string;
         };
         FeeTableRow: {
-            minIncome?: number;
+            minIncome: number;
             /** @description monthly rates for CareHourSteps */
-            rates?: number[];
+            rates: number[];
         };
         /** @description Request body for generating fees */
         GenerateFeeRequest: {
@@ -7650,20 +7650,20 @@ export interface components {
              */
             month?: number;
             /** @example 2024 */
-            year?: number;
+            year: number;
         };
         /** @description Result of fee generation */
         GenerateFeeResponse: {
             /** @example 50 */
-            created?: number;
+            created: number;
             /** @example 5 */
-            skipped?: number;
+            skipped: number;
             suggestions?: components["schemas"]["domain.MatchSuggestion"][];
         };
         /** @description Hide transaction result */
         HideTransactionResponse: {
             /** @example 550e8400-e29b-41d4-a716-446655440000 */
-            transactionId?: string;
+            transactionId: string;
         };
         /** @description Household information with relationships */
         Household: {
@@ -7671,9 +7671,9 @@ export interface components {
             annualHouseholdIncome?: number;
             children?: unknown;
             /** @example 2023-01-15T10:00:00Z */
-            createdAt?: string;
+            createdAt: string;
             /** @example 550e8400-e29b-41d4-a716-446655440000 */
-            id?: string;
+            id: string;
             /**
              * @example PROVIDED
              * @enum {string}
@@ -7687,79 +7687,79 @@ export interface components {
             /** @example 550e8400-e29b-41d4-a716-446655440000 */
             membershipParentId?: string;
             /** @example Familie Müller */
-            name?: string;
+            name: string;
             parents?: unknown;
             /** @example 2023-01-15T10:00:00Z */
-            updatedAt?: string;
+            updatedAt: string;
         };
         /** @description Request body for linking a child to a household */
         HouseholdLinkChildRequest: {
             /** @example 550e8400-e29b-41d4-a716-446655440000 */
-            childId?: string;
+            childId: string;
         };
         /** @description Request body for linking a parent to a household */
         HouseholdLinkParentRequest: {
             /** @example 550e8400-e29b-41d4-a716-446655440000 */
-            parentId?: string;
+            parentId: string;
         };
         /** @description Paginated list of households */
         HouseholdList: {
-            data?: components["schemas"]["Household"][];
+            data: components["schemas"]["Household"][];
             /** @example 1 */
-            page?: number;
+            page: number;
             /** @example 20 */
-            perPage?: number;
+            perPage: number;
             /** @example 25 */
-            total?: number;
+            total: number;
             /** @example 2 */
-            totalPages?: number;
+            totalPages: number;
         };
         /** @description Paginated IBAN list as returned by the blacklist/trusted endpoints */
         IBANList: {
-            data?: components["schemas"]["domain.KnownIBAN"][];
+            data: components["schemas"]["domain.KnownIBAN"][];
             /** @example 1 */
-            page?: number;
+            page: number;
             /** @example 20 */
-            perPage?: number;
+            perPage: number;
             /** @example 5 */
-            total?: number;
+            total: number;
             /** @example 1 */
-            totalPages?: number;
+            totalPages: number;
         };
         ImportError: {
-            amount?: number;
+            amount: number;
             bookingDate?: string;
-            message?: string;
+            message: string;
             payerName?: string;
         };
         /** @description Paginated import history */
         ImportHistoryList: {
-            data?: components["schemas"]["domain.ImportBatch"][];
+            data: components["schemas"]["domain.ImportBatch"][];
             /** @example 1 */
-            page?: number;
+            page: number;
             /** @example 20 */
-            perPage?: number;
+            perPage: number;
             /** @example 10 */
-            total?: number;
+            total: number;
             /** @example 1 */
-            totalPages?: number;
+            totalPages: number;
         };
         /** @description Ledger entry for a child */
         LedgerEntry: {
             /** @example 45.4 */
-            balance?: number;
+            balance: number;
             /** @example 0 */
-            credit?: number;
+            credit: number;
             /** @example 2024-01-05 */
-            date?: string;
+            date: string;
             /** @example 45.4 */
-            debit?: number;
+            debit: number;
             /** @example Essensgeld Januar 2024 */
-            description?: string;
+            description: string;
             /** @example FOOD */
             feeType?: string;
             /** @example 550e8400-e29b-41d4-a716-446655440000 */
-            id?: string;
+            id: string;
             /** @example false */
             isPaid?: boolean;
             /** @example 1 */
@@ -7770,117 +7770,117 @@ export interface components {
              * @example fee
              * @enum {string}
              */
-            type?: "fee" | "payment";
+            type: "fee" | "payment";
             /** @example 2024 */
             year?: number;
         };
         /** @description Summary totals for the ledger */
         LedgerSummary: {
             /** @example 2 */
-            openFeesCount?: number;
+            openFeesCount: number;
             /** @example 8 */
-            paidFeesCount?: number;
+            paidFeesCount: number;
             /** @example 500 */
-            totalFees?: number;
+            totalFees: number;
             /** @example 10 */
-            totalFeesCount?: number;
+            totalFeesCount: number;
             /** @example 100 */
-            totalOpen?: number;
+            totalOpen: number;
             /** @example 400 */
-            totalPaid?: number;
+            totalPaid: number;
         };
         LegalHoursBreakdownItem: {
             /** @example 12 */
-            count?: number;
+            count: number;
             /** @example 35 */
             legalHours?: number;
             /** @example 4 */
-            u3Count?: number;
+            u3Count: number;
             /** @example 8 */
-            ue3Count?: number;
+            ue3Count: number;
         };
         LegalHoursHistoryEntry: {
             /** @example 550e8400-e29b-41d4-a716-446655440000 */
-            childId?: string;
+            childId: string;
             /** @example 2026-01-01T10:00:00Z */
-            createdAt?: string;
+            createdAt: string;
             /** @example 2026-01-01 */
-            effectiveFrom?: string;
+            effectiveFrom: string;
             /** @example 2026-03-31 */
             effectiveUntil?: string;
             /** @example 550e8400-e29b-41d4-a716-446655440011 */
-            id?: string;
+            id: string;
             /** @example 35 */
             legalHours?: number;
             /** @example 2026-01-01T10:00:00Z */
-            updatedAt?: string;
+            updatedAt: string;
         };
         /** @description Request body for linking an IBAN to a child */
         LinkIBANRequest: {
             /** @example 550e8400-e29b-41d4-a716-446655440000 */
-            childId?: string;
+            childId: string;
         };
         /** @description Request body for linking a parent to a child */
         LinkParentRequest: {
             /** @example true */
-            isPrimary?: boolean;
+            isPrimary: boolean;
             /** @example 550e8400-e29b-41d4-a716-446655440000 */
-            parentId?: string;
+            parentId: string;
         };
         LoginRequest: {
             /** @example admin@example.com */
-            email?: string;
+            email: string;
             /** @example password123 */
-            password?: string;
+            password: string;
         };
         LoginResponse: {
             /** @example eyJhbGciOiJIUzI1NiIs... */
-            accessToken?: string;
+            accessToken: string;
             /** @example 2024-01-27T15:04:05Z */
-            expiresAt?: string;
+            expiresAt: string;
             /** @example eyJhbGciOiJIUzI1NiIs... */
-            refreshToken?: string;
-            user?: components["schemas"]["User"];
+            refreshToken: string;
+            user: components["schemas"]["User"];
         };
         /** @description Request body for manual matching */
         ManualMatchRequest: {
             /** @example 550e8400-e29b-41d4-a716-446655440001 */
-            expectationId?: string;
+            expectationId: string;
             /** @example 550e8400-e29b-41d4-a716-446655440000 */
-            transactionId?: string;
+            transactionId: string;
         };
         /** @description Manual match result */
         ManualMatchResponse: {
             /** @example 550e8400-e29b-41d4-a716-446655440001 */
-            expectationId?: string;
+            expectationId: string;
             /** @example 2024-03-15T10:30:00Z */
-            matchedAt?: string;
+            matchedAt: string;
             /** @example admin@knirpsenstadt.de */
-            matchedBy?: string;
+            matchedBy: string;
             /** @example 550e8400-e29b-41d4-a716-446655440000 */
-            transactionId?: string;
+            transactionId: string;
         };
         /** @description Single match confirmation */
         MatchConfirmation: {
             /** @example 550e8400-e29b-41d4-a716-446655440001 */
-            expectationId?: string;
+            expectationId: string;
             /** @example 550e8400-e29b-41d4-a716-446655440000 */
-            transactionId?: string;
+            transactionId: string;
         };
         /** @description Suggested match for manual review */
         MatchSuggestion: {
             /** @example 0.85 */
-            confidence?: number;
+            confidence: number;
             /** @example 550e8400-e29b-41d4-a716-446655440001 */
-            expectationId?: string;
+            expectationId: string;
             /** @example Betreuungsgebühr März 2024 - Max Mustermann */
-            expectationInfo?: string;
+            expectationInfo: string;
             /** @example Name match */
-            reason?: string;
+            reason: string;
             /** @example 550e8400-e29b-41d4-a716-446655440000 */
-            transactionId?: string;
+            transactionId: string;
             /** @example SEPA-Überweisung Max Mustermann */
-            transactionInfo?: string;
+            transactionInfo: string;
         };
         /** @description Member information */
         Member: {
@@ -7889,21 +7889,21 @@ export interface components {
             /** @example hans.mueller@example.com */
             email?: string;
             /** @example Hans */
-            firstName?: string;
+            firstName: string;
             /** @example 550e8400-e29b-41d4-a716-446655440001 */
             householdId?: string;
             /** @example 550e8400-e29b-41d4-a716-446655440000 */
-            id?: string;
+            id: string;
             /** @example true */
-            isActive?: boolean;
+            isActive: boolean;
             /** @example Müller */
-            lastName?: string;
+            lastName: string;
             /** @example M-2024-001 */
             memberNumber?: string;
             /** @example 2024-12-31 */
             membershipEnd?: string;
             /** @example 2024-01-01 */
-            membershipStart?: string;
+            membershipStart: string;
             /** @example +49 123 456789 */
             phone?: string;
             /** @example 12345 */
@@ -7916,34 +7916,34 @@ export interface components {
         /** @description Member count at a reference date, including inactive members */
         MemberCountAsOf: {
             /** @example 40 */
-            active?: number;
+            active: number;
             /** @example 2026-09-09 */
-            asOf?: string;
+            asOf: string;
             /** @example 5 */
-            inactive?: number;
+            inactive: number;
             /** @example 45 */
-            total?: number;
+            total: number;
         };
         /** @description Paginated list of members */
         MemberList: {
-            data?: components["schemas"]["Member"][];
+            data: components["schemas"]["Member"][];
             /** @example 1 */
-            page?: number;
+            page: number;
             /** @example 20 */
-            perPage?: number;
+            perPage: number;
             /** @example 42 */
-            total?: number;
+            total: number;
             /** @example 3 */
-            totalPages?: number;
+            totalPages: number;
         };
         MessageResponse: {
             /** @example Operation completed successfully */
-            message?: string;
+            message: string;
         };
         /** @description Next available member number */
         NextMemberNumberResponse: {
             /** @example 12002 */
-            memberNumber?: string;
+            memberNumber: string;
         };
         /** @description Parent information with relationships */
         Parent: {
@@ -7955,23 +7955,23 @@ export interface components {
             /** @example Potsdam */
             city?: string;
             /** @example 2023-01-15T10:00:00Z */
-            createdAt?: string;
+            createdAt: string;
             /** @example thomas.mueller@example.com */
             email?: string;
             /** @example Thomas */
-            firstName?: string;
+            firstName: string;
             household?: unknown;
             /** @example 550e8400-e29b-41d4-a716-446655440001 */
             householdId?: string;
             /** @example 550e8400-e29b-41d4-a716-446655440000 */
-            id?: string;
+            id: string;
             /**
              * @example PROVIDED
              * @enum {string}
              */
             incomeStatus?: "PROVIDED" | "MAX_ACCEPTED" | "PENDING" | "NOT_REQUIRED" | "HISTORIC" | "FOSTER_FAMILY";
             /** @example Müller */
-            lastName?: string;
+            lastName: string;
             member?: unknown;
             /** @example 550e8400-e29b-41d4-a716-446655440002 */
             memberId?: string;
@@ -7984,28 +7984,28 @@ export interface components {
             /** @example 42 */
             streetNo?: string;
             /** @example 2023-01-15T10:00:00Z */
-            updatedAt?: string;
+            updatedAt: string;
         };
         /** @description Paginated list of parents */
         ParentList: {
-            data?: components["schemas"]["Parent"][];
+            data: components["schemas"]["Parent"][];
             /** @example 1 */
-            page?: number;
+            page: number;
             /** @example 20 */
-            perPage?: number;
+            perPage: number;
             /** @example 50 */
-            total?: number;
+            total: number;
             /** @example 3 */
-            totalPages?: number;
+            totalPages: number;
         };
         RefreshTokenRequest: {
             /** @example eyJhbGciOiJIUzI1NiIs... */
-            refreshToken?: string;
+            refreshToken: string;
         };
         /** @description Stage selection, fee IDs and content overrides; the deadline is computed server-side as runDate + 7 days */
         ReminderCaseRequest: {
             body?: string;
-            feeIds?: string[];
+            feeIds: string[];
             /** @example true */
             includeQR?: boolean;
             /** @example 2026-09-15T10:00:00Z */
@@ -8016,16 +8016,16 @@ export interface components {
              * @example initial
              * @enum {string}
              */
-            stage?: "initial" | "final";
+            stage: "initial" | "final";
             subject?: string;
         };
         ReminderPreviewResponse: {
             /** @example Hallo Anna,... */
-            body?: string;
+            body: string;
             /** @example 550e8400-e29b-41d4-a716-446655440000 */
-            householdId?: string;
+            householdId: string;
             /** @example Schmidt */
-            householdName?: string;
+            householdName: string;
             qrImageDataUrl?: string;
             /**
              * @example BCD
@@ -8039,24 +8039,24 @@ export interface components {
              *       "[\"anna@example.com\"]"
              *     ]
              */
-            recipients?: string[];
+            recipients: string[];
             /** @example Kita Zahlungserinnerung April 2026 */
-            subject?: string;
+            subject: string;
         };
         /** @description Ergebnis einer Erinnerungs-/Mahnungsprüfung */
         ReminderRunResponse: {
             /** @example 2026-02-05 */
-            date?: string;
+            date: string;
             /** @example false */
-            dryRun?: boolean;
+            dryRun: boolean;
             /** @example true */
-            emailSent?: boolean;
+            emailSent: boolean;
             /** @example 5 */
-            familiesEmailed?: number;
+            familiesEmailed: number;
             /** @example 6 */
-            familiesProcessed?: number;
+            familiesProcessed: number;
             /** @example 1 */
-            familiesSkippedNoEmail?: number;
+            familiesSkippedNoEmail: number;
             /** @example no unpaid fees for this period */
             message?: string;
             previews?: components["schemas"]["ReminderPreviewResponse"][];
@@ -8064,117 +8064,117 @@ export interface components {
             recipient?: string;
             reminderCreated?: number;
             /** @example 8 */
-            remindersCreated?: number;
+            remindersCreated: number;
             /**
              * @example initial
              * @enum {string}
              */
-            stage?: "auto" | "initial" | "final" | "none";
+            stage: "auto" | "initial" | "final" | "none";
             /** @example 12 */
-            unpaidCount?: number;
+            unpaidCount: number;
             warnings?: components["schemas"]["ReminderWarningResponse"][];
         };
         /** @description Reminder settings */
         ReminderSettingsResponse: {
             /** @example false */
-            autoEnabled?: boolean;
-            payment?: components["schemas"]["handler.ReminderPaymentSettingsPayload"];
+            autoEnabled: boolean;
+            payment: components["schemas"]["handler.ReminderPaymentSettingsPayload"];
         };
         ReminderWarningResponse: {
             /** @example Müller */
-            householdName?: string;
+            householdName: string;
             /** @example keine gültige E-Mail-Adresse */
-            reason?: string;
+            reason: string;
         };
         /** @description Rescan result with new match suggestions */
         RescanResponse: {
             /** @example 150 */
-            autoMatched?: number;
+            autoMatched: number;
             /** @description Errors lists transactions whose warning or automatic match could not be saved. */
-            errors?: components["schemas"]["ImportError"][];
+            errors: components["schemas"]["ImportError"][];
             /** @example 5 */
-            newMatches?: number;
+            newMatches: number;
             /** @example 226 */
-            scanned?: number;
+            scanned: number;
             suggestions?: components["schemas"]["MatchSuggestion"][];
         };
         /** @description Late payment resolution result */
         ResolveLateFeeResponse: {
             /** @example 10 */
-            lateFeeAmount?: number;
+            lateFeeAmount: number;
             /** @example 550e8400-e29b-41d4-a716-446655440001 */
-            lateFeeId?: string;
+            lateFeeId: string;
             /** @example 550e8400-e29b-41d4-a716-446655440000 */
-            warningId?: string;
+            warningId: string;
         };
         StichtagsmeldungReport: {
-            careHoursBreakdown?: components["schemas"]["CareHoursBreakdownItem"][];
-            legalHoursBreakdown?: components["schemas"]["LegalHoursBreakdownItem"][];
+            careHoursBreakdown: components["schemas"]["CareHoursBreakdownItem"][];
+            legalHoursBreakdown: components["schemas"]["LegalHoursBreakdownItem"][];
             /** @example 2026-03-15 */
-            reportDate?: string;
+            reportDate: string;
             /** @example 45 */
-            totalChildrenInKita?: number;
+            totalChildrenInKita: number;
             /** @example 12 */
-            u3ChildrenCount?: number;
-            u3IncomeBreakdown?: components["schemas"]["U3IncomeBreakdown"];
+            u3ChildrenCount: number;
+            u3IncomeBreakdown: components["schemas"]["U3IncomeBreakdown"];
             /** @example 33 */
-            ue3ChildrenCount?: number;
+            ue3ChildrenCount: number;
         };
         /** @description Stichtagsmeldung statistics for quarterly reporting */
         StichtagsmeldungStats: {
             /** @example 37 */
-            daysUntilStichtag?: number;
+            daysUntilStichtag: number;
             /** @example 2026-03-15 */
-            nextStichtag?: string;
+            nextStichtag: string;
             /** @example 45 */
-            totalChildrenInKita?: number;
-            u3IncomeBreakdown?: components["schemas"]["U3IncomeBreakdown"];
+            totalChildrenInKita: number;
+            u3IncomeBreakdown: components["schemas"]["U3IncomeBreakdown"];
         };
         /** @description Paginated list of bank transactions as returned by the import transaction endpoints */
         TransactionList: {
-            data?: components["schemas"]["domain.BankTransaction"][];
+            data: components["schemas"]["domain.BankTransaction"][];
             /** @example 1 */
-            page?: number;
+            page: number;
             /** @example 20 */
-            perPage?: number;
+            perPage: number;
             /** @example 25 */
-            total?: number;
+            total: number;
             /** @example 2 */
-            totalPages?: number;
+            totalPages: number;
         };
         /** @description U3 children income breakdown by 5 brackets */
         U3IncomeBreakdown: {
             /** @example 1 */
-            fosterFamily?: number;
+            fosterFamily: number;
             /** @example 8 */
-            from20To35k?: number;
+            from20To35k: number;
             /** @example 12 */
-            from35To55k?: number;
+            from35To55k: number;
             /** @example 2 */
-            maxAccepted?: number;
+            maxAccepted: number;
             /** @example 28 */
-            total?: number;
+            total: number;
             /** @example 5 */
-            upTo20k?: number;
+            upTo20k: number;
         };
         /** @description Unmatch transaction request */
         UnmatchTransactionRequest: {
             /** @example false */
-            deleteTransaction?: boolean;
+            deleteTransaction: boolean;
         };
         /** @description Unmatch transaction result */
         UnmatchTransactionResponse: {
             /** @example 1 */
-            matchesRemoved?: number;
+            matchesRemoved: number;
             /** @example false */
-            transactionDeleted?: boolean;
+            transactionDeleted: boolean;
             /** @example 550e8400-e29b-41d4-a716-446655440000 */
-            transactionId?: string;
+            transactionId: string;
         };
         /** @description Request body for updating a child note */
         UpdateChildNoteRequest: {
             /** @example Muss früher abgeholt werden am 12.09. */
-            text?: string;
+            text: string;
         };
         /** @description Request body for updating a child */
         UpdateChildRequest: {
@@ -8300,72 +8300,72 @@ export interface components {
         /** @description Reminder settings update */
         UpdateReminderSettingsRequest: {
             /** @example true */
-            autoEnabled?: boolean;
+            autoEnabled: boolean;
             payment?: components["schemas"]["handler.ReminderPaymentSettingsPayload"];
         };
         User: {
             /** @example user@example.com */
-            email?: string;
+            email: string;
             /** @example Max */
             firstName?: string;
             /** @example 550e8400-e29b-41d4-a716-446655440000 */
-            id?: string;
+            id: string;
             /** @example Mustermann */
             lastName?: string;
             /**
              * @example ADMIN
              * @enum {string}
              */
-            role?: "ADMIN" | "USER";
+            role: "ADMIN" | "USER";
         };
         /** @description Paginated warnings list as returned by the warnings endpoint */
         WarningList: {
-            data?: components["schemas"]["domain.TransactionWarning"][];
+            data: components["schemas"]["domain.TransactionWarning"][];
             /** @example 1 */
-            page?: number;
+            page: number;
             /** @example 20 */
-            perPage?: number;
+            perPage: number;
             /** @example 3 */
-            total?: number;
+            total: number;
             /** @example 1 */
-            totalPages?: number;
+            totalPages: number;
         };
         "domain.BankTransaction": {
-            amount?: number;
-            bookingDate?: string;
-            currency?: string;
+            amount: number;
+            bookingDate: string;
+            currency: string;
             description?: string;
             hiddenAt?: string;
             hiddenBy?: string;
-            id?: string;
+            id: string;
             importBatchId?: string;
-            importedAt?: string;
-            isHidden?: boolean;
+            importedAt: string;
+            isHidden: boolean;
             /** @description MatchedAmount is the total amount of this transaction already allocated to fees. */
             matchedAmount?: number;
             /** @description Joined fields */
             matches?: components["schemas"]["domain.PaymentMatch"][];
             payerIban?: string;
             payerName?: string;
-            valueDate?: string;
+            valueDate: string;
         };
         "domain.Child": {
-            birthDate?: string;
+            birthDate: string;
             careHours?: number;
             city?: string;
-            createdAt?: string;
-            entryDate?: string;
+            createdAt: string;
+            entryDate: string;
             exitDate?: string;
-            firstName?: string;
+            firstName: string;
             household?: components["schemas"]["domain.Household"];
             householdId?: string;
-            id?: string;
-            isActive?: boolean;
-            lastName?: string;
+            id: string;
+            isActive: boolean;
+            lastName: string;
             /** @description Derived from the history tables (see type comment), not stored on fees.children. */
             legalHours?: number;
             legalHoursUntil?: string;
-            memberNumber?: string;
+            memberNumber: string;
             /** @description Computed fields (not stored in DB, populated by queries) */
             openFeesCount?: number;
             /** @description Loaded relations (not stored in DB) */
@@ -8373,48 +8373,48 @@ export interface components {
             postalCode?: string;
             street?: string;
             streetNo?: string;
-            updatedAt?: string;
+            updatedAt: string;
         };
         "domain.ChildcareFeeResult": {
             /** @description Base fee before discounts */
-            baseFee?: number;
+            baseFee: number;
             /** @description Sibling discount factor (1.0 = no discount) */
-            discountFactor?: number;
+            discountFactor: number;
             /** @description Discount as percentage */
-            discountPercent?: number;
+            discountPercent: number;
             /** @description Final fee after discounts */
-            fee?: number;
+            fee: number;
             /** @description Additional explanatory notes */
-            notes?: string[];
+            notes: string[];
             /** @description Rule/bracket applied */
-            rule?: string;
+            rule: string;
             /** @description Show link to Entlastung info */
-            showEntlastung?: boolean;
+            showEntlastung: boolean;
         };
         "domain.EinstufungMonthRow": {
-            careHoursPerWeek?: number;
+            careHoursPerWeek: number;
             /** @description "Krippe" or "Kindergarten" */
-            careType?: string;
+            careType: string;
             /** @description Beitrag für Kinderbetreuung */
-            childcareFee?: number;
+            childcareFee: number;
             /** @description Essengeld */
-            foodFee?: number;
+            foodFee: number;
             /** @description Vereinsbeitrag (only in first month) */
-            membershipFee?: number;
-            month?: number;
-            year?: number;
+            membershipFee: number;
+            month: number;
+            year: number;
         };
         "domain.FeeExpectation": {
-            amount?: number;
+            amount: number;
             /** @description Joined fields */
             child?: components["schemas"]["domain.Child"];
-            childId?: string;
-            createdAt?: string;
-            dueDate?: string;
-            feeType?: components["schemas"]["domain.FeeType"];
+            childId: string;
+            createdAt: string;
+            dueDate: string;
+            feeType: components["schemas"]["domain.FeeType"];
             householdId?: string;
-            id?: string;
-            isPaid?: boolean;
+            id: string;
+            isPaid: boolean;
             /** @description Total matched across all transactions */
             matchedAmount?: number;
             matchedBy?: components["schemas"]["domain.PaymentMatch"];
@@ -8429,20 +8429,20 @@ export interface components {
             remaining?: number;
             /** @description For REMINDER type: links to the original fee */
             reminderForId?: string;
-            year?: number;
+            year: number;
         };
         "domain.FeeOverview": {
-            amountOpen?: number;
-            amountOverdue?: number;
-            amountPaid?: number;
-            byMonth?: components["schemas"]["domain.MonthSummary"][];
-            childrenWithOpenFees?: number;
-            openChildcareCount?: number;
-            openFoodCount?: number;
-            openMembershipCount?: number;
-            totalOpen?: number;
-            totalOverdue?: number;
-            totalPaid?: number;
+            amountOpen: number;
+            amountOverdue: number;
+            amountPaid: number;
+            byMonth: components["schemas"]["domain.MonthSummary"][];
+            childrenWithOpenFees: number;
+            openChildcareCount: number;
+            openFoodCount: number;
+            openMembershipCount: number;
+            totalOpen: number;
+            totalOverdue: number;
+            totalPaid: number;
         };
         /** @enum {string} */
         "domain.FeeType": "MEMBERSHIP" | "FOOD" | "CHILDCARE" | "REMINDER";
@@ -8451,20 +8451,20 @@ export interface components {
             children?: components["schemas"]["domain.Child"][];
             /** @description Override for sibling discount calculation */
             childrenCountForFees?: number;
-            createdAt?: string;
-            id?: string;
-            incomeStatus?: components["schemas"]["domain.IncomeStatus"];
-            membershipAssignmentStatus?: components["schemas"]["domain.MembershipAssignmentStatus"];
+            createdAt: string;
+            id: string;
+            incomeStatus: components["schemas"]["domain.IncomeStatus"];
+            membershipAssignmentStatus: components["schemas"]["domain.MembershipAssignmentStatus"];
             membershipParentId?: string;
             /** @description e.g. "Familie Müller" - auto-generated or manual */
-            name?: string;
+            name: string;
             /** @description Loaded relations (not stored in DB) */
             parents?: components["schemas"]["domain.Parent"][];
-            updatedAt?: string;
+            updatedAt: string;
         };
         "domain.HouseholdIncomeCalculation": {
-            parent1?: components["schemas"]["domain.IncomeDetails"];
-            parent2?: components["schemas"]["domain.IncomeDetails"];
+            parent1: components["schemas"]["domain.IncomeDetails"];
+            parent2: components["schemas"]["domain.IncomeDetails"];
         };
         "domain.ImportBatch": {
             dateFrom?: string;
@@ -8473,55 +8473,55 @@ export interface components {
              * @description ErrorCount is the number of rows that failed; Errors holds at most
              *     MaxStoredImportErrors of them.
              */
-            errorCount?: number;
-            errors?: components["schemas"]["ImportError"][];
-            fileName?: string;
-            id?: string;
-            importedAt?: string;
-            importedBy?: string;
-            importedByEmail?: string;
-            matchedCount?: number;
-            transactionCount?: number;
+            errorCount: number;
+            errors: components["schemas"]["ImportError"][];
+            fileName: string;
+            id: string;
+            importedAt: string;
+            importedBy: string;
+            importedByEmail: string;
+            matchedCount: number;
+            transactionCount: number;
         };
         "domain.IncomeDetails": {
             /** @description - WK-Pauschale */
-            advertisingCosts?: number;
+            advertisingCosts: number;
             /** @description Kapitalerträge. */
-            capitalIncome?: number;
+            capitalIncome: number;
             /** @description Employee Income (bei AN) */
-            grossIncome?: number;
+            grossIncome: number;
             /** @description - Versicherungen. */
-            insurances?: number;
+            insurances: number;
             /** @description + Unterhalt (erhalten) */
-            maintenanceReceived?: number;
+            maintenanceReceived: number;
             /** @description Maintenance (Unterhalt) */
-            maintenanceToPay?: number;
+            maintenanceToPay: number;
             /** @description Mutterschaftsgeld. */
-            maternityBenefit?: number;
+            maternityBenefit: number;
             /** @description Minijob income. */
-            minijobIncome?: number;
+            minijobIncome: number;
             /** @description Other remaining income not covered by the dedicated fields. */
-            otherIncome?: number;
+            otherIncome: number;
             /** @description Basiselterngeld. */
-            parentalBenefit?: number;
+            parentalBenefit: number;
             /** @description Elterngeld Plus. */
-            parentalBenefitPlus?: number;
+            parentalBenefitPlus: number;
             /** @description - private KV/PV */
-            privateInsurance?: number;
+            privateInsurance: number;
             /** @description Self-Employed Income (bei Gewerbetreibenden / Selbständigen) */
-            profit?: number;
+            profit: number;
             /** @description Income from Vermietung / Verpachtung. */
-            rentalIncome?: number;
+            rentalIncome: number;
             /** @description - Steuern (Est, KiSt, SolZu) */
-            selfEmployedTax?: number;
+            selfEmployedTax: number;
             /** @description - AN-Anteile SV */
-            socialSecurityShare?: number;
+            socialSecurityShare: number;
             /** @description - Lst bzw Est, KiSt, SolZu */
-            tax?: number;
+            tax: number;
             /** @description Arbeitslosengeld. */
-            unemploymentBenefit?: number;
+            unemploymentBenefit: number;
             /** @description - Abgabe für persönliche Daseinsfürsorge */
-            welfareExpense?: number;
+            welfareExpense: number;
         };
         /** @enum {string} */
         "domain.IncomeStatus": "" | "PROVIDED" | "MAX_ACCEPTED" | "PENDING" | "NOT_REQUIRED" | "HISTORIC" | "FOSTER_FAMILY";
@@ -8529,60 +8529,60 @@ export interface components {
             /** @description Joined fields */
             child?: components["schemas"]["domain.Child"];
             childId?: string;
-            createdAt?: string;
-            iban?: string;
+            createdAt: string;
+            iban: string;
             originalAmount?: number;
             originalDescription?: string;
             originalTransactionId?: string;
             payerName?: string;
             reason?: string;
-            status?: components["schemas"]["domain.KnownIBANStatus"];
-            updatedAt?: string;
+            status: components["schemas"]["domain.KnownIBANStatus"];
+            updatedAt: string;
         };
         /** @enum {string} */
         "domain.KnownIBANStatus": "trusted" | "blacklisted";
         "domain.MatchSuggestion": {
             child?: components["schemas"]["domain.Child"];
-            confidence?: number;
+            confidence: number;
             detectedType?: components["schemas"]["domain.FeeType"];
             expectation?: components["schemas"]["domain.FeeExpectation"];
             /** @description For combined matches (e.g., fee + reminder) */
             expectations?: components["schemas"]["domain.FeeExpectation"][];
             /** @description "member_number", "name", "amount", "combined" */
-            matchedBy?: string;
-            transaction?: components["schemas"]["domain.BankTransaction"];
+            matchedBy: string;
+            transaction: components["schemas"]["domain.BankTransaction"];
         };
         /** @enum {string} */
         "domain.MatchType": "AUTO" | "MANUAL";
         "domain.Member": {
             city?: string;
-            createdAt?: string;
+            createdAt: string;
             email?: string;
-            firstName?: string;
+            firstName: string;
             /** @description Loaded relations (not stored in DB) */
             household?: components["schemas"]["domain.Household"];
             householdId?: string;
-            id?: string;
-            isActive?: boolean;
-            lastName?: string;
-            memberNumber?: string;
+            id: string;
+            isActive: boolean;
+            lastName: string;
+            memberNumber: string;
             membershipEnd?: string;
-            membershipStart?: string;
+            membershipStart: string;
             phone?: string;
             postalCode?: string;
             street?: string;
             streetNo?: string;
-            updatedAt?: string;
+            updatedAt: string;
         };
         /** @enum {string} */
         "domain.MembershipAssignmentStatus": "ASSUMED" | "CONFIRMED";
         "domain.MonthSummary": {
-            month?: number;
-            openAmount?: number;
-            openCount?: number;
-            paidAmount?: number;
-            paidCount?: number;
-            year?: number;
+            month: number;
+            openAmount: number;
+            openCount: number;
+            paidAmount: number;
+            paidCount: number;
+            year: number;
         };
         "domain.Parent": {
             /** @description DEPRECATED: Income fields moved to Household. Kept for backwards compatibility during migration. */
@@ -8591,14 +8591,14 @@ export interface components {
             /** @description Loaded relations (not stored in DB) */
             children?: components["schemas"]["domain.Child"][];
             city?: string;
-            createdAt?: string;
+            createdAt: string;
             email?: string;
-            firstName?: string;
+            firstName: string;
             household?: components["schemas"]["domain.Household"];
             householdId?: string;
-            id?: string;
-            incomeStatus?: components["schemas"]["domain.IncomeStatus"];
-            lastName?: string;
+            id: string;
+            incomeStatus: components["schemas"]["domain.IncomeStatus"];
+            lastName: string;
             member?: components["schemas"]["domain.Member"];
             /** @description Link to Member if this parent is also a member */
             memberId?: string;
@@ -8606,20 +8606,20 @@ export interface components {
             postalCode?: string;
             street?: string;
             streetNo?: string;
-            updatedAt?: string;
+            updatedAt: string;
         };
         "domain.PaymentMatch": {
-            amount?: number;
+            amount: number;
             confidence?: number;
             expectation?: components["schemas"]["domain.FeeExpectation"];
-            expectationId?: string;
-            id?: string;
-            matchType?: components["schemas"]["domain.MatchType"];
-            matchedAt?: string;
+            expectationId: string;
+            id: string;
+            matchType: components["schemas"]["domain.MatchType"];
+            matchedAt: string;
             matchedBy?: string;
             /** @description Joined fields */
             transaction?: components["schemas"]["domain.BankTransaction"];
-            transactionId?: string;
+            transactionId: string;
         };
         /** @enum {string} */
         "domain.ResolutionType": "dismissed" | "matched" | "auto_resolved";
@@ -8627,109 +8627,109 @@ export interface components {
             actualAmount?: number;
             child?: components["schemas"]["domain.Child"];
             childId?: string;
-            createdAt?: string;
+            createdAt: string;
             expectedAmount?: number;
-            id?: string;
+            id: string;
             /** @description For LATE_PAYMENT: the fee that was matched */
             matchedFee?: components["schemas"]["domain.FeeExpectation"];
             /** @description For LATE_PAYMENT: the fee that was matched */
             matchedFeeId?: string;
-            message?: string;
+            message: string;
             resolutionNote?: string;
             resolutionType?: components["schemas"]["domain.ResolutionType"];
             resolvedAt?: string;
             resolvedBy?: string;
             /** @description Joined fields */
             transaction?: components["schemas"]["domain.BankTransaction"];
-            transactionId?: string;
-            warningType?: components["schemas"]["domain.WarningType"];
+            transactionId: string;
+            warningType: components["schemas"]["domain.WarningType"];
         };
         /** @enum {string} */
         "domain.WarningType": "NO_MATCHING_FEE" | "UNEXPECTED_AMOUNT" | "PARTIAL_PAYMENT" | "OVERPAYMENT" | "POSSIBLE_BULK" | "DUPLICATE_PAYMENT" | "LATE_PAYMENT" | "MULTIPLE_OPEN_FEES";
         "handler.CoveredTransactionResponse": {
             /** @example 66 */
-            amount?: number;
+            amount: number;
             /** @example 2024-03-05 */
-            bookingDate?: string;
+            bookingDate: string;
             /** @example Platzgeld März */
             description?: string;
             /** @example true */
-            isForThisMonth?: boolean;
+            isForThisMonth: boolean;
             /** @example 550e8400-e29b-41d4-a716-446655440000 */
-            transactionId?: string;
+            transactionId: string;
         };
         /** @description Monthly fee coverage with transaction details */
         "handler.FeeCoverageResponse": {
             /** @example 0 */
-            balance?: number;
+            balance: number;
             /** @example 110 */
-            expectedTotal?: number;
+            expectedTotal: number;
             /** @example 3 */
-            month?: number;
+            month: number;
             /** @example 110 */
-            receivedTotal?: number;
+            receivedTotal: number;
             /**
              * @example COVERED
              * @enum {string}
              */
-            status?: "UNPAID" | "PARTIAL" | "COVERED" | "OVERPAID";
-            transactions?: components["schemas"]["handler.CoveredTransactionResponse"][];
+            status: "UNPAID" | "PARTIAL" | "COVERED" | "OVERPAID";
+            transactions: components["schemas"]["handler.CoveredTransactionResponse"][];
             /** @example 2024 */
-            year?: number;
+            year: number;
         };
         /** @description Selected fees are no longer open, are foreign to the household, or received reminder fees after the preview */
         "handler.ReminderCaseConflictResponse": {
             feeIds?: string[];
             /** @example selected fees are no longer open */
-            message?: string;
+            message: string;
         };
         "handler.ReminderPaymentSettingsPayload": {
             /** @example BFSWDE33XXX */
             bic?: string;
             /** @example DE33370205000003321400 */
-            iban?: string;
+            iban: string;
             /** @example Knirpsenstadt e.V. */
-            recipientName?: string;
+            recipientName: string;
         };
         "handler.U3ChildDetailResponse": {
-            birthDate?: string;
-            firstName?: string;
+            birthDate: string;
+            firstName: string;
             householdIncome?: number;
-            id?: string;
+            id: string;
             incomeStatus?: string;
-            isFosterFamily?: boolean;
-            lastName?: string;
-            memberNumber?: string;
+            isFosterFamily: boolean;
+            lastName: string;
+            memberNumber: string;
         };
         "service.ChildImportParseResult": {
-            detectedSeparator?: string;
-            headers?: string[];
-            sampleRows?: string[][];
-            totalRows?: number;
+            detectedSeparator: string;
+            headers: string[];
+            sampleRows: string[][];
+            totalRows: number;
         };
         "service.ChildPreview": {
-            birthDate?: string;
+            birthDate: string;
             careHours?: number;
             city?: string;
-            entryDate?: string;
-            firstName?: string;
-            lastName?: string;
+            entryDate: string;
+            firstName: string;
+            lastName: string;
             legalHours?: number;
-            memberNumber?: string;
+            memberNumber: string;
             postalCode?: string;
             street?: string;
             streetNo?: string;
         };
         "service.ExecuteRequest": {
-            parentDecisions?: components["schemas"]["service.ParentDecision"][];
-            rows?: components["schemas"]["service.ImportRow"][];
+            parentDecisions: components["schemas"]["service.ParentDecision"][];
+            rows: components["schemas"]["service.ImportRow"][];
         };
         "service.ExecuteResult": {
-            childrenCreated?: number;
-            childrenUpdated?: number;
-            errors?: components["schemas"]["service.ImportError"][];
-            parentsCreated?: number;
-            parentsLinked?: number;
+            childrenCreated: number;
+            childrenUpdated: number;
+            errors: components["schemas"]["service.ImportError"][];
+            parentsCreated: number;
+            parentsLinked: number;
         };
         "service.FeeContact": {
             lastContactAt?: string;
@@ -8737,41 +8737,41 @@ export interface components {
             stage?: components["schemas"]["service.ReminderStage"];
         };
         "service.FieldConflict": {
-            existingValue?: string;
-            field?: string;
-            fieldLabel?: string;
-            newValue?: string;
+            existingValue: string;
+            field: string;
+            fieldLabel: string;
+            newValue: string;
         };
         "service.ImportError": {
-            error?: string;
-            rowIndex?: number;
+            error: string;
+            rowIndex: number;
         };
         "service.ImportResult": {
-            autoMatched?: number;
-            batchId?: string;
-            blacklisted?: number;
+            autoMatched: number;
+            batchId: string;
+            blacklisted: number;
             /**
              * @description Errors lists rows that could not be saved or processed; they are also
              *     stored on the import batch.
              */
-            errors?: components["schemas"]["ImportError"][];
-            fileName?: string;
-            imported?: number;
-            skipped?: number;
-            suggestions?: components["schemas"]["domain.MatchSuggestion"][];
-            totalRows?: number;
+            errors: components["schemas"]["ImportError"][];
+            fileName: string;
+            imported: number;
+            skipped: number;
+            suggestions: components["schemas"]["domain.MatchSuggestion"][];
+            totalRows: number;
             warningList?: components["schemas"]["domain.TransactionWarning"][];
-            warnings?: number;
+            warnings: number;
         };
         "service.ImportRow": {
-            child?: components["schemas"]["service.ChildPreview"];
+            child: components["schemas"]["service.ChildPreview"];
             /** @description Set when merging/updating existing child */
             existingChildId?: string;
             /** @description Field -> value for updates (from conflict resolution) */
             fieldUpdates?: {
                 [key: string]: string;
             };
-            index?: number;
+            index: number;
             /** @description True if only adding parents to existing child */
             mergeParents?: boolean;
             parent1?: components["schemas"]["service.ParentPreview"];
@@ -8779,109 +8779,109 @@ export interface components {
         };
         "service.ParentDecision": {
             /** @description "create" or "link" */
-            action?: string;
+            action: string;
             existingParentId?: string;
             /** @description 1 or 2 */
-            parentIndex?: number;
-            rowIndex?: number;
+            parentIndex: number;
+            rowIndex: number;
         };
         "service.ParentMatch": {
             email?: string;
-            firstName?: string;
-            id?: string;
-            lastName?: string;
+            firstName: string;
+            id: string;
+            lastName: string;
         };
         "service.ParentPreview": {
             /** @description True if already linked to the existing child */
             alreadyLinked?: boolean;
             email?: string;
             existingMatches?: components["schemas"]["service.ParentMatch"][];
-            firstName?: string;
-            lastName?: string;
+            firstName: string;
+            lastName: string;
             /** @description ID of the already linked parent */
             linkedParentId?: string;
             phone?: string;
         };
         "service.PreviewResult": {
-            errorCount?: number;
-            rows?: components["schemas"]["service.PreviewRow"][];
-            validCount?: number;
+            errorCount: number;
+            rows: components["schemas"]["service.PreviewRow"][];
+            validCount: number;
         };
         "service.PreviewRow": {
             /** @description "create", "update", "no_change" */
-            action?: string;
-            child?: components["schemas"]["service.ChildPreview"];
+            action: string;
+            child: components["schemas"]["service.ChildPreview"];
             existingChild?: components["schemas"]["service.ChildPreview"];
             existingChildId?: string;
             fieldConflicts?: components["schemas"]["service.FieldConflict"][];
-            index?: number;
-            isDuplicate?: boolean;
-            isValid?: boolean;
+            index: number;
+            isDuplicate: boolean;
+            isValid: boolean;
             parent1?: components["schemas"]["service.ParentPreview"];
             parent2?: components["schemas"]["service.ParentPreview"];
-            warnings?: string[];
+            warnings: string[];
         };
         "service.ReminderCase": {
-            fees?: components["schemas"]["service.ReminderCaseFee"][];
-            householdId?: string;
-            householdName?: string;
-            nextActionAt?: string;
-            recipients?: string[];
-            totalRemaining?: number;
+            fees: components["schemas"]["service.ReminderCaseFee"][];
+            householdId: string;
+            householdName: string;
+            nextActionAt: string;
+            recipients: string[];
+            totalRemaining: number;
         };
         "service.ReminderCaseFee": {
-            actionableAt?: string;
-            amount?: number;
-            childId?: string;
-            childName?: string;
-            dueDate?: string;
-            feeId?: string;
-            feeType?: components["schemas"]["domain.FeeType"];
-            hasReminder?: boolean;
+            actionableAt: string;
+            amount: number;
+            childId: string;
+            childName: string;
+            dueDate: string;
+            feeId: string;
+            feeType: components["schemas"]["domain.FeeType"];
+            hasReminder: boolean;
             lastContact?: components["schemas"]["service.FeeContact"];
             memberNumber?: string;
-            month?: number;
-            remaining?: number;
-            status?: components["schemas"]["service.ReminderCaseFeeStatus"];
-            year?: number;
+            month: number;
+            remaining: number;
+            status: components["schemas"]["service.ReminderCaseFeeStatus"];
+            year: number;
         };
         /** @enum {string} */
         "service.ReminderCaseFeeStatus": "never_contacted" | "waiting" | "actionable_initial" | "actionable_final" | "history_unknown";
         "service.ReminderCasePlannedFee": {
-            amount?: number;
-            baseFeeId?: string;
-            baseFeeType?: components["schemas"]["domain.FeeType"];
-            baseLabel?: string;
-            dueDate?: string;
+            amount: number;
+            baseFeeId: string;
+            baseFeeType: components["schemas"]["domain.FeeType"];
+            baseLabel: string;
+            dueDate: string;
         };
         "service.ReminderCasePreview": {
-            body?: string;
-            deadline?: string;
-            householdId?: string;
-            householdName?: string;
-            includeQR?: boolean;
-            plannedReminderFees?: components["schemas"]["service.ReminderCasePlannedFee"][];
+            body: string;
+            deadline: string;
+            householdId: string;
+            householdName: string;
+            includeQR: boolean;
+            plannedReminderFees: components["schemas"]["service.ReminderCasePlannedFee"][];
             qrImageDataUrl?: string;
             qrPayload?: string;
-            recipients?: string[];
-            recommendedStage?: components["schemas"]["service.ReminderStage"];
-            selectedFees?: components["schemas"]["service.ReminderCaseFee"][];
-            subject?: string;
-            totalAmount?: number;
+            recipients: string[];
+            recommendedStage: components["schemas"]["service.ReminderStage"];
+            selectedFees: components["schemas"]["service.ReminderCaseFee"][];
+            subject: string;
+            totalAmount: number;
             warnings?: string[];
         };
         "service.ReminderCaseSendResult": {
-            createdReminderFees?: components["schemas"]["service.ReminderCasePlannedFee"][];
-            deadline?: string;
-            householdId?: string;
-            sentTo?: string[];
-            stage?: components["schemas"]["service.ReminderStage"];
-            subject?: string;
+            createdReminderFees: components["schemas"]["service.ReminderCasePlannedFee"][];
+            deadline: string;
+            householdId: string;
+            sentTo: string[];
+            stage: components["schemas"]["service.ReminderStage"];
+            subject: string;
         };
         "service.ReminderCasesResult": {
-            asOf?: string;
-            cases?: components["schemas"]["service.ReminderCase"][];
-            scope?: string;
+            asOf: string;
+            cases: components["schemas"]["service.ReminderCase"][];
+            scope: string;
         };
         /** @enum {string} */
         "service.ReminderStage": "auto" | "initial" | "final" | "none";

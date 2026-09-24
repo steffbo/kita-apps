@@ -31,14 +31,14 @@ func NewBankingSyncHandler(baseURL, token string, timeout time.Duration) *Bankin
 // @Description Status of the banking-sync runner (proxied 1:1 from the banking-sync service)
 type BankingSyncStatusResponse struct {
 	Status       string      `json:"status" example:"idle" enums:"idle,running,waiting_for_2fa,success,error,cancelled"`
-	RunID        *string     `json:"runId,omitempty" example:"550e8400-e29b-41d4-a716-446655440000"`
-	StartedAt    *string     `json:"startedAt,omitempty" example:"2024-03-15T10:30:00Z"`
-	FinishedAt   *string     `json:"finishedAt,omitempty" example:"2024-03-15T10:35:00Z"`
-	LastError    *string     `json:"lastError,omitempty"`
-	LastMessage  *string     `json:"lastMessage,omitempty" example:"Sync abgeschlossen"`
-	DownloadPath *string     `json:"downloadPath,omitempty"`
-	UploadResult interface{} `json:"uploadResult,omitempty"`
-	Logs         []string    `json:"logs,omitempty"`
+	RunID        *string     `json:"runId,omitempty" example:"550e8400-e29b-41d4-a716-446655440000" binding:"optional"`
+	StartedAt    *string     `json:"startedAt,omitempty" example:"2024-03-15T10:30:00Z" binding:"optional"`
+	FinishedAt   *string     `json:"finishedAt,omitempty" example:"2024-03-15T10:35:00Z" binding:"optional"`
+	LastError    *string     `json:"lastError,omitempty" binding:"optional"`
+	LastMessage  *string     `json:"lastMessage,omitempty" example:"Sync abgeschlossen" binding:"optional"`
+	DownloadPath *string     `json:"downloadPath,omitempty" binding:"optional"`
+	UploadResult interface{} `json:"uploadResult,omitempty" binding:"optional"`
+	Logs         []string    `json:"logs,omitempty" binding:"optional"`
 	UpdatedAt    string      `json:"updatedAt" example:"2024-03-15T10:35:00Z"`
 } //@name BankingSyncStatus
 

@@ -23,7 +23,7 @@ type StichtagsmeldungReport struct {
 
 // CareHoursBreakdown groups children by their contracted care hours at a given date.
 type CareHoursBreakdown struct {
-	CareHours *int `json:"careHours"`
+	CareHours *int `json:"careHours" binding:"optional"`
 	Count     int  `json:"count"`
 	U3Count   int  `json:"u3Count"`
 	Ue3Count  int  `json:"ue3Count"`
@@ -31,7 +31,7 @@ type CareHoursBreakdown struct {
 
 // LegalHoursBreakdown groups children by their legal entitlement hours at a given date.
 type LegalHoursBreakdown struct {
-	LegalHours *int `json:"legalHours"`
+	LegalHours *int `json:"legalHours" binding:"optional"`
 	Count      int  `json:"count"`
 	U3Count    int  `json:"u3Count"`
 	Ue3Count   int  `json:"ue3Count"`
@@ -54,7 +54,7 @@ type U3ChildDetail struct {
 	FirstName       string  `json:"firstName"`
 	LastName        string  `json:"lastName"`
 	BirthDate       string  `json:"birthDate"`
-	HouseholdIncome *int    `json:"householdIncome"`
-	IncomeStatus    *string `json:"incomeStatus"`
+	HouseholdIncome *int    `json:"householdIncome" binding:"optional"`
+	IncomeStatus    *string `json:"incomeStatus" binding:"optional"`
 	IsFosterFamily  bool    `json:"isFosterFamily"`
 }

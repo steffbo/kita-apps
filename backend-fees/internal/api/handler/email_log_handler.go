@@ -19,10 +19,10 @@ type EmailLogResponse struct {
 	SentAt      string  `json:"sentAt" example:"2026-02-05T10:15:00Z"`
 	ToEmail     string  `json:"toEmail" example:"admin@knirpsenstadt.de"`
 	Subject     string  `json:"subject" example:"Zahlungserinnerung Essens- und Platzgeld Februar 2026"`
-	Body        *string `json:"body,omitempty" example:"Hallo,..."`
+	Body        *string `json:"body,omitempty" example:"Hallo,..." binding:"optional"`
 	EmailType   string  `json:"emailType" example:"REMINDER_INITIAL"`
-	SentBy      *string `json:"sentBy,omitempty" example:"550e8400-e29b-41d4-a716-446655440001"`
-	HouseholdID *string `json:"householdId,omitempty" example:"550e8400-e29b-41d4-a716-446655440002"`
+	SentBy      *string `json:"sentBy,omitempty" example:"550e8400-e29b-41d4-a716-446655440001" binding:"optional"`
+	HouseholdID *string `json:"householdId,omitempty" example:"550e8400-e29b-41d4-a716-446655440002" binding:"optional"`
 } //@name EmailLogResponse
 
 // EmailLogListResponse represents a paginated list of email logs.

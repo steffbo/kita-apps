@@ -39,7 +39,7 @@ type ReminderCaseFee struct {
 	FeeID        uuid.UUID             `json:"feeId"`
 	ChildID      uuid.UUID             `json:"childId"`
 	ChildName    string                `json:"childName"`
-	MemberNumber string                `json:"memberNumber,omitempty"`
+	MemberNumber string                `json:"memberNumber,omitempty" binding:"optional"`
 	FeeType      domain.FeeType        `json:"feeType"`
 	Year         int                   `json:"year"`
 	Month        int                   `json:"month"`
@@ -48,7 +48,7 @@ type ReminderCaseFee struct {
 	Remaining    float64               `json:"remaining"`
 	Status       ReminderCaseFeeStatus `json:"status"`
 	ActionableAt time.Time             `json:"actionableAt"`
-	LastContact  *FeeContact           `json:"lastContact,omitempty"`
+	LastContact  *FeeContact           `json:"lastContact,omitempty" binding:"optional"`
 	HasReminder  bool                  `json:"hasReminder"`
 }
 
@@ -74,10 +74,10 @@ type ReminderCaseRequest struct {
 	Stage       ReminderStage `json:"stage"`
 	RunDate     time.Time     `json:"runDate"`
 	FeeIDs      []uuid.UUID   `json:"feeIds"`
-	IncludeQR   *bool         `json:"includeQR,omitempty"`
-	Subject     string        `json:"subject,omitempty"`
-	Body        string        `json:"body,omitempty"`
-	PreviewedAt *time.Time    `json:"previewedAt,omitempty"`
+	IncludeQR   *bool         `json:"includeQR,omitempty" binding:"optional"`
+	Subject     string        `json:"subject,omitempty" binding:"optional"`
+	Body        string        `json:"body,omitempty" binding:"optional"`
+	PreviewedAt *time.Time    `json:"previewedAt,omitempty" binding:"optional"`
 }
 
 // ReminderCasePlannedFee is a reminder fee that would be created on send.
@@ -99,12 +99,12 @@ type ReminderCasePreview struct {
 	Deadline            time.Time                `json:"deadline"`
 	TotalAmount         float64                  `json:"totalAmount"`
 	IncludeQR           bool                     `json:"includeQR"`
-	QRImageDataURL      *string                  `json:"qrImageDataUrl,omitempty"`
-	QRPayload           string                   `json:"qrPayload,omitempty"`
+	QRImageDataURL      *string                  `json:"qrImageDataUrl,omitempty" binding:"optional"`
+	QRPayload           string                   `json:"qrPayload,omitempty" binding:"optional"`
 	SelectedFees        []ReminderCaseFee        `json:"selectedFees"`
 	PlannedReminderFees []ReminderCasePlannedFee `json:"plannedReminderFees"`
 	RecommendedStage    ReminderStage            `json:"recommendedStage"`
-	Warnings            []string                 `json:"warnings,omitempty"`
+	Warnings            []string                 `json:"warnings,omitempty" binding:"optional"`
 }
 
 // ReminderCaseSendResult reports a successful send.

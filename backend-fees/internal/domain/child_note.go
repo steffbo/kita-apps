@@ -15,5 +15,5 @@ type ChildNote struct {
 	UpdatedAt time.Time `json:"updatedAt" db:"updated_at"`
 
 	// ChildName is only populated for the global notes list.
-	ChildName *string `json:"childName,omitempty" db:"-"`
+	ChildName *string `json:"childName,omitempty" db:"-" binding:"optional"`
 }

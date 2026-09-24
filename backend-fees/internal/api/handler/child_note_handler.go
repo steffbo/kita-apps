@@ -24,7 +24,7 @@ func NewChildNoteHandler(noteService *service.ChildNoteService) *ChildNoteHandle
 type ChildNoteResponse struct {
 	ID        string  `json:"id" example:"550e8400-e29b-41d4-a716-446655440012"`
 	ChildID   string  `json:"childId" example:"550e8400-e29b-41d4-a716-446655440000"`
-	ChildName *string `json:"childName,omitempty" example:"Emma Müller"`
+	ChildName *string `json:"childName,omitempty" example:"Emma Müller" binding:"optional"`
 	Text      string  `json:"text" example:"Muss früher abgeholt werden am 12.09."`
 	CreatedAt string  `json:"createdAt" example:"2026-09-01T10:00:00Z"`
 	UpdatedAt string  `json:"updatedAt" example:"2026-09-01T10:00:00Z"`

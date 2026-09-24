@@ -24,11 +24,11 @@ type EmailLog struct {
 	SentAt      time.Time        `json:"sentAt" db:"sent_at"`
 	ToEmail     string           `json:"toEmail" db:"to_email"`
 	Subject     string           `json:"subject" db:"subject"`
-	Body        *string          `json:"body,omitempty" db:"body"`
+	Body        *string          `json:"body,omitempty" db:"body" binding:"optional"`
 	EmailType   EmailLogType     `json:"emailType" db:"email_type"`
-	Payload     *json.RawMessage `json:"payload,omitempty" db:"payload"`
-	SentBy      *uuid.UUID       `json:"sentBy,omitempty" db:"sent_by"`
-	HouseholdID *uuid.UUID       `json:"householdId,omitempty" db:"household_id"`
+	Payload     *json.RawMessage `json:"payload,omitempty" db:"payload" binding:"optional"`
+	SentBy      *uuid.UUID       `json:"sentBy,omitempty" db:"sent_by" binding:"optional"`
+	HouseholdID *uuid.UUID       `json:"householdId,omitempty" db:"household_id" binding:"optional"`
 }
 
 // FeeIDsFromPayload extracts the feeIds array from a reminder email log

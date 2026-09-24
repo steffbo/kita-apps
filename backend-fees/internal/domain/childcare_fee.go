@@ -40,7 +40,7 @@ type FeeScheduleConfig struct {
 	// KindergartenTable is the Satzung table for children from their 3rd birthday.
 	// Reference only: kindergarten care is free under the Elternbeitragsentlastungsgesetz,
 	// so the calculation does not use it.
-	KindergartenTable []FeeTableRow `json:"kindergartenTable,omitempty"`
+	KindergartenTable []FeeTableRow `json:"kindergartenTable,omitempty" binding:"optional"`
 	// SiblingDiscountFactors[i] applies to i+1 children; more children use the last factor.
 	SiblingDiscountFactors []float64 `json:"siblingDiscountFactors"`
 	// From this many children on, the childcare fee is waived.

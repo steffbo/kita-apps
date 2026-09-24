@@ -58,8 +58,8 @@ type CreateFollowUpEinstufungInput struct {
 
 // CreateFollowUpEinstufungResult includes the created Einstufung and automatic fee changes.
 type CreateFollowUpEinstufungResult struct {
-	Einstufung         *domain.Einstufung              `json:"einstufung"`
-	ExpectationChanges *ChildcareExpectationSyncResult `json:"expectationChanges"`
+	Einstufung         *domain.Einstufung              `json:"einstufung" binding:"optional"`
+	ExpectationChanges *ChildcareExpectationSyncResult `json:"expectationChanges" binding:"optional"`
 }
 
 // Create creates a new Einstufung, computing the fee from the income calculation.
@@ -301,12 +301,12 @@ func (s *EinstufungService) CreateFollowUp(ctx context.Context, sourceID uuid.UU
 
 // UpdateInput defines input for updating an Einstufung.
 type UpdateEinstufungInput struct {
-	IncomeCalculation    *domain.HouseholdIncomeCalculation `json:"incomeCalculation,omitempty"`
-	HighestRateVoluntary *bool                              `json:"highestRateVoluntary,omitempty"`
-	CareHoursPerWeek     *int                               `json:"careHoursPerWeek,omitempty"`
-	ChildrenCount        *int                               `json:"childrenCount,omitempty"`
-	ValidFrom            *time.Time                         `json:"validFrom,omitempty"`
-	Notes                *string                            `json:"notes,omitempty"`
+	IncomeCalculation    *domain.HouseholdIncomeCalculation `json:"incomeCalculation,omitempty" binding:"optional"`
+	HighestRateVoluntary *bool                              `json:"highestRateVoluntary,omitempty" binding:"optional"`
+	CareHoursPerWeek     *int                               `json:"careHoursPerWeek,omitempty" binding:"optional"`
+	ChildrenCount        *int                               `json:"childrenCount,omitempty" binding:"optional"`
+	ValidFrom            *time.Time                         `json:"validFrom,omitempty" binding:"optional"`
+	Notes                *string                            `json:"notes,omitempty" binding:"optional"`
 }
 
 // Update recalculates and updates an existing Einstufung.

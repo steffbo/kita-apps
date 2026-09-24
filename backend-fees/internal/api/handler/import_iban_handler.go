@@ -27,7 +27,7 @@ type IBANListResponse struct {
 // @Description Trusted IBANs with usage counts
 type ChildTrustedIBANsResponse struct {
 	IBAN             string  `json:"iban" example:"DE89370400440532013000"`
-	PayerName        *string `json:"payerName,omitempty" example:"Max Mustermann"`
+	PayerName        *string `json:"payerName,omitempty" example:"Max Mustermann" binding:"optional"`
 	TransactionCount int64   `json:"transactionCount" example:"4"`
 } //@name ChildTrustedIBANsResponse
 

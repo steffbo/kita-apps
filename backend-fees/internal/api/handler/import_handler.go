@@ -194,7 +194,7 @@ type RescanResponse struct {
 	Scanned     int               `json:"scanned" example:"226"`
 	AutoMatched int               `json:"autoMatched" example:"150"`
 	NewMatches  int               `json:"newMatches" example:"5"`
-	Suggestions []MatchSuggestion `json:"suggestions,omitempty"`
+	Suggestions []MatchSuggestion `json:"suggestions,omitempty" binding:"optional"`
 	// Errors lists transactions whose warning or automatic match could not be saved.
 	Errors []domain.ImportError `json:"errors"`
 } //@name RescanResponse

@@ -838,18 +838,18 @@ type LedgerEntry struct {
 	Date        time.Time  `json:"date"`        // Due date for fees, booking date for payments
 	Type        string     `json:"type"`        // "fee" or "payment"
 	Description string     `json:"description"` // e.g., "Essensgeld Januar 2024" or "Zahlung DE89..."
-	FeeType     string     `json:"feeType,omitempty"`
-	Year        int        `json:"year,omitempty"`
-	Month       *int       `json:"month,omitempty"`
+	FeeType     string     `json:"feeType,omitempty" binding:"optional"`
+	Year        int        `json:"year,omitempty" binding:"optional"`
+	Month       *int       `json:"month,omitempty" binding:"optional"`
 	Debit       float64    `json:"debit"`   // Amount owed (fees)
 	Credit      float64    `json:"credit"`  // Amount paid (payments)
 	Balance     float64    `json:"balance"` // Running balance
-	IsPaid      bool       `json:"isPaid,omitempty"`
-	PaidAt      *time.Time `json:"paidAt,omitempty"`
+	IsPaid      bool       `json:"isPaid,omitempty" binding:"optional"`
+	PaidAt      *time.Time `json:"paidAt,omitempty" binding:"optional"`
 
 	// Related objects
-	Fee         *domain.FeeExpectation  `json:"fee,omitempty"`
-	Transaction *domain.BankTransaction `json:"transaction,omitempty"`
+	Fee         *domain.FeeExpectation  `json:"fee,omitempty" binding:"optional"`
+	Transaction *domain.BankTransaction `json:"transaction,omitempty" binding:"optional"`
 }
 
 // LedgerSummary provides totals for the ledger.
@@ -865,7 +865,7 @@ type LedgerSummary struct {
 // ChildLedger represents the complete payment ledger for a child.
 type ChildLedger struct {
 	ChildID uuid.UUID     `json:"childId"`
-	Child   *domain.Child `json:"child,omitempty"`
+	Child   *domain.Child `json:"child,omitempty" binding:"optional"`
 	Entries []LedgerEntry `json:"entries"`
 	Summary LedgerSummary `json:"summary"`
 }

@@ -10,8 +10,8 @@ import (
 // ImportError describes a bank CSV row that could not be imported or fully
 // processed (e.g. saving failed or the automatic match could not be written).
 type ImportError struct {
-	BookingDate *time.Time `json:"bookingDate,omitempty"`
-	PayerName   *string    `json:"payerName,omitempty"`
+	BookingDate *time.Time `json:"bookingDate,omitempty" binding:"optional"`
+	PayerName   *string    `json:"payerName,omitempty" binding:"optional"`
 	Amount      float64    `json:"amount"`
 	Message     string     `json:"message"`
 } //@name ImportError

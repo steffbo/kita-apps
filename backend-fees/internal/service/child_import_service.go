@@ -63,14 +63,14 @@ type PreviewRequest struct {
 type PreviewRow struct {
 	Index           int             `json:"index"`
 	Child           ChildPreview    `json:"child"`
-	Parent1         *ParentPreview  `json:"parent1,omitempty"`
-	Parent2         *ParentPreview  `json:"parent2,omitempty"`
+	Parent1         *ParentPreview  `json:"parent1,omitempty" binding:"optional"`
+	Parent2         *ParentPreview  `json:"parent2,omitempty" binding:"optional"`
 	Warnings        []string        `json:"warnings"`
 	IsDuplicate     bool            `json:"isDuplicate"`
-	ExistingChildID *string         `json:"existingChildId,omitempty"`
-	ExistingChild   *ChildPreview   `json:"existingChild,omitempty"`
+	ExistingChildID *string         `json:"existingChildId,omitempty" binding:"optional"`
+	ExistingChild   *ChildPreview   `json:"existingChild,omitempty" binding:"optional"`
 	Action          string          `json:"action"` // "create", "update", "no_change"
-	FieldConflicts  []FieldConflict `json:"fieldConflicts,omitempty"`
+	FieldConflicts  []FieldConflict `json:"fieldConflicts,omitempty" binding:"optional"`
 	IsValid         bool            `json:"isValid"`
 }
 
@@ -89,23 +89,23 @@ type ChildPreview struct {
 	LastName     string `json:"lastName"`
 	BirthDate    string `json:"birthDate"`
 	EntryDate    string `json:"entryDate"`
-	Street       string `json:"street,omitempty"`
-	StreetNo     string `json:"streetNo,omitempty"`
-	PostalCode   string `json:"postalCode,omitempty"`
-	City         string `json:"city,omitempty"`
-	LegalHours   *int   `json:"legalHours,omitempty"`
-	CareHours    *int   `json:"careHours,omitempty"`
+	Street       string `json:"street,omitempty" binding:"optional"`
+	StreetNo     string `json:"streetNo,omitempty" binding:"optional"`
+	PostalCode   string `json:"postalCode,omitempty" binding:"optional"`
+	City         string `json:"city,omitempty" binding:"optional"`
+	LegalHours   *int   `json:"legalHours,omitempty" binding:"optional"`
+	CareHours    *int   `json:"careHours,omitempty" binding:"optional"`
 }
 
 // ParentPreview contains parent data for preview
 type ParentPreview struct {
 	FirstName       string        `json:"firstName"`
 	LastName        string        `json:"lastName"`
-	Email           string        `json:"email,omitempty"`
-	Phone           string        `json:"phone,omitempty"`
-	ExistingMatches []ParentMatch `json:"existingMatches,omitempty"`
-	AlreadyLinked   bool          `json:"alreadyLinked,omitempty"`  // True if already linked to the existing child
-	LinkedParentID  *string       `json:"linkedParentId,omitempty"` // ID of the already linked parent
+	Email           string        `json:"email,omitempty" binding:"optional"`
+	Phone           string        `json:"phone,omitempty" binding:"optional"`
+	ExistingMatches []ParentMatch `json:"existingMatches,omitempty" binding:"optional"`
+	AlreadyLinked   bool          `json:"alreadyLinked,omitempty" binding:"optional"`  // True if already linked to the existing child
+	LinkedParentID  *string       `json:"linkedParentId,omitempty" binding:"optional"` // ID of the already linked parent
 }
 
 // ParentMatch represents a potential existing parent match
@@ -113,7 +113,7 @@ type ParentMatch struct {
 	ID        string `json:"id"`
 	FirstName string `json:"firstName"`
 	LastName  string `json:"lastName"`
-	Email     string `json:"email,omitempty"`
+	Email     string `json:"email,omitempty" binding:"optional"`
 }
 
 // PreviewResult contains all preview rows
@@ -482,11 +482,11 @@ type ExecuteRequest struct {
 type ImportRow struct {
 	Index           int               `json:"index"`
 	Child           ChildPreview      `json:"child"`
-	Parent1         *ParentPreview    `json:"parent1,omitempty"`
-	Parent2         *ParentPreview    `json:"parent2,omitempty"`
-	ExistingChildID *string           `json:"existingChildId,omitempty"` // Set when merging/updating existing child
-	MergeParents    bool              `json:"mergeParents,omitempty"`    // True if only adding parents to existing child
-	FieldUpdates    map[string]string `json:"fieldUpdates,omitempty"`    // Field -> value for updates (from conflict resolution)
+	Parent1         *ParentPreview    `json:"parent1,omitempty" binding:"optional"`
+	Parent2         *ParentPreview    `json:"parent2,omitempty" binding:"optional"`
+	ExistingChildID *string           `json:"existingChildId,omitempty" binding:"optional"` // Set when merging/updating existing child
+	MergeParents    bool              `json:"mergeParents,omitempty" binding:"optional"`    // True if only adding parents to existing child
+	FieldUpdates    map[string]string `json:"fieldUpdates,omitempty" binding:"optional"`    // Field -> value for updates (from conflict resolution)
 }
 
 // ParentDecision indicates how to handle a parent
@@ -494,7 +494,7 @@ type ParentDecision struct {
 	RowIndex         int    `json:"rowIndex"`
 	ParentIndex      int    `json:"parentIndex"` // 1 or 2
 	Action           string `json:"action"`      // "create" or "link"
-	ExistingParentID string `json:"existingParentId,omitempty"`
+	ExistingParentID string `json:"existingParentId,omitempty" binding:"optional"`
 }
 
 // ExecuteResult contains the import results

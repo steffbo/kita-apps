@@ -4768,6 +4768,8 @@ components:
           items:
             $ref: "#/components/schemas/AllocationRequest"
           type: array
+      required:
+        - allocations
       type: object
     AllocateTransactionResponse:
       description: Allocation result
@@ -4784,6 +4786,11 @@ components:
         transactionId:
           example: 550e8400-e29b-41d4-a716-446655440000
           type: string
+      required:
+        - allocationsCreated
+        - overpayment
+        - totalAllocated
+        - transactionId
       type: object
     AllocationRequest:
       description: Fee allocation entry
@@ -4794,6 +4801,9 @@ components:
         expectationId:
           example: 550e8400-e29b-41d4-a716-446655440001
           type: string
+      required:
+        - amount
+        - expectationId
       type: object
     BankingSyncStatus:
       description: Status of the banking-sync runner (proxied 1:1 from the
@@ -4833,6 +4843,9 @@ components:
           example: 2024-03-15T10:35:00Z
           type: string
         uploadResult: {}
+      required:
+        - status
+        - updatedAt
       type: object
     CalculateIncomeRequest:
       description: Calculate household income from parent details
@@ -4841,6 +4854,9 @@ components:
           $ref: "#/components/schemas/domain.IncomeDetails"
         parent2:
           $ref: "#/components/schemas/domain.IncomeDetails"
+      required:
+        - parent1
+        - parent2
       type: object
     CalculateIncomeResponse:
       description: Computed income breakdown
@@ -4857,6 +4873,13 @@ components:
           type: number
         parent2NetIncome:
           type: number
+      required:
+        - householdFeeIncome
+        - householdFullIncome
+        - parent1FeeRelevantIncome
+        - parent1NetIncome
+        - parent2FeeRelevantIncome
+        - parent2NetIncome
       type: object
     CareHoursBreakdownItem:
       properties:
@@ -4872,6 +4895,10 @@ components:
         ue3Count:
           example: 8
           type: integer
+      required:
+        - count
+        - u3Count
+        - ue3Count
       type: object
     CareHoursHistoryEntry:
       properties:
@@ -4896,6 +4923,12 @@ components:
         updatedAt:
           example: 2026-01-01T10:00:00Z
           type: string
+      required:
+        - childId
+        - createdAt
+        - effectiveFrom
+        - id
+        - updatedAt
       type: object
     ChangePasswordRequest:
       properties:
@@ -4906,6 +4939,9 @@ components:
           example: newPassword456
           minLength: 8
           type: string
+      required:
+        - currentPassword
+        - newPassword
       type: object
     ChildImportPreviewRequest:
       description: Request body for generating import preview
@@ -4924,6 +4960,11 @@ components:
         skipHeader:
           example: true
           type: boolean
+      required:
+        - fileContent
+        - mapping
+        - separator
+        - skipHeader
       type: object
     ChildLedger:
       description: Payment ledger for a child
@@ -4938,6 +4979,10 @@ components:
           type: array
         summary:
           $ref: "#/components/schemas/LedgerSummary"
+      required:
+        - childId
+        - entries
+        - summary
       type: object
     ChildList:
       description: Paginated list of children as returned by the child endpoints
@@ -4958,6 +5003,12 @@ components:
         totalPages:
           example: 5
           type: integer
+      required:
+        - data
+        - page
+        - perPage
+        - total
+        - totalPages
       type: object
     ChildNote:
       properties:
@@ -4979,6 +5030,12 @@ components:
         updatedAt:
           example: 2026-09-01T10:00:00Z
           type: string
+      required:
+        - childId
+        - createdAt
+        - id
+        - text
+        - updatedAt
       type: object
     ChildNoteList:
       description: Paginated list of child notes as returned by the note endpoints
@@ -4999,6 +5056,12 @@ components:
         totalPages:
           example: 5
           type: integer
+      required:
+        - data
+        - page
+        - perPage
+        - total
+        - totalPages
       type: object
     ChildTrustedIBANsResponse:
       description: Trusted IBANs with usage counts
@@ -5012,6 +5075,9 @@ components:
         transactionCount:
           example: 4
           type: integer
+      required:
+        - iban
+        - transactionCount
       type: object
     ChildUnmatchedSuggestionsResponse:
       description: Likely unmatched transactions for a child
@@ -5026,6 +5092,10 @@ components:
           items:
             $ref: "#/components/schemas/domain.MatchSuggestion"
           type: array
+      required:
+        - childId
+        - scanned
+        - suggestions
       type: object
     ChildcareExpectationSyncResult:
       description: Result of synchronizing CHILDCARE expectations after a follow-up
@@ -5042,6 +5112,12 @@ components:
           type: integer
         updated:
           type: integer
+      required:
+        - created
+        - creditReviewRequired
+        - deltaOpen
+        - skipped
+        - updated
       type: object
     ConfirmMatchRequest:
       description: Request body for confirming transaction-fee matches
@@ -5050,6 +5126,8 @@ components:
           items:
             $ref: "#/components/schemas/MatchConfirmation"
           type: array
+      required:
+        - matches
       type: object
     ConfirmMatchResponse:
       description: Result of confirming matches
@@ -5060,6 +5138,9 @@ components:
         failed:
           example: 0
           type: integer
+      required:
+        - confirmed
+        - failed
       type: object
     CreateCareHoursHistoryRequest:
       properties:
@@ -5068,6 +5149,8 @@ components:
         validFrom:
           example: 2026-01-01
           type: string
+      required:
+        - validFrom
       type: object
     CreateChildNoteRequest:
       description: Request body for creating a new child note
@@ -5075,6 +5158,8 @@ components:
         text:
           example: Muss früher abgeholt werden am 12.09.
           type: string
+      required:
+        - text
       type: object
     CreateChildRequest:
       description: Request body for creating a new child
@@ -5118,6 +5203,12 @@ components:
         streetNo:
           example: "42"
           type: string
+      required:
+        - birthDate
+        - entryDate
+        - firstName
+        - lastName
+        - memberNumber
       type: object
     CreateEinstufungRequest:
       description: Request body for creating a fee classification
@@ -5141,6 +5232,15 @@ components:
           type: string
         year:
           type: integer
+      required:
+        - careHoursPerWeek
+        - childId
+        - childrenCount
+        - highestRateVoluntary
+        - incomeCalculation
+        - notes
+        - validFrom
+        - year
       type: object
     CreateFeeRequest:
       description: Request body for creating a single fee
@@ -5171,6 +5271,10 @@ components:
         year:
           example: 2025
           type: integer
+      required:
+        - childId
+        - feeType
+        - year
       type: object
     CreateFollowUpEinstufungRequest:
       description: Request body for creating a follow-up fee classification
@@ -5190,6 +5294,13 @@ components:
           $ref: "#/components/schemas/domain.HouseholdIncomeCalculation"
         notes:
           type: string
+      required:
+        - careHoursPerWeek
+        - changeDate
+        - childrenCount
+        - highestRateVoluntary
+        - incomeCalculation
+        - notes
       type: object
     CreateFollowUpEinstufungResponse:
       description: Follow-up Einstufung creation result
@@ -5198,6 +5309,9 @@ components:
           $ref: "#/components/schemas/Einstufung"
         expectationChanges:
           $ref: "#/components/schemas/ChildcareExpectationSyncResult"
+      required:
+        - einstufung
+        - expectationChanges
       type: object
     CreateHouseholdRequest:
       description: Request body for creating a new household
@@ -5227,6 +5341,8 @@ components:
         name:
           example: Familie Müller
           type: string
+      required:
+        - name
       type: object
     CreateLegalHoursHistoryRequest:
       properties:
@@ -5235,6 +5351,8 @@ components:
         validFrom:
           example: 2026-01-01
           type: string
+      required:
+        - validFrom
       type: object
     CreateMemberFromParentRequest:
       description: Request body for creating a member from a parent
@@ -5242,6 +5360,8 @@ components:
         membershipStart:
           example: 2023-08-01
           type: string
+      required:
+        - membershipStart
       type: object
     CreateMemberRequest:
       description: Request body for creating a new member
@@ -5282,6 +5402,10 @@ components:
         streetNo:
           example: "42"
           type: string
+      required:
+        - firstName
+        - lastName
+        - membershipStart
       type: object
     CreateParentRequest:
       description: Request body for creating a new parent
@@ -5326,6 +5450,9 @@ components:
         streetNo:
           example: "42"
           type: string
+      required:
+        - firstName
+        - lastName
       type: object
     CreditReviewPeriod:
       description: Paid month that would become overpaid after a childcare fee decrease
@@ -5344,6 +5471,14 @@ components:
           type: number
         year:
           type: integer
+      required:
+        - creditAmount
+        - feeId
+        - matchedAmount
+        - month
+        - newAmount
+        - oldAmount
+        - year
       type: object
     DismissTransactionResponse:
       description: Dismiss transaction result
@@ -5357,6 +5492,10 @@ components:
         transactionId:
           example: 550e8400-e29b-41d4-a716-446655440000
           type: string
+      required:
+        - addedToBlacklist
+        - iban
+        - transactionId
       type: object
     DismissWarningRequest:
       description: Request body for dismissing a warning
@@ -5364,6 +5503,8 @@ components:
         note:
           example: Differenz wurde bar ausgeglichen
           type: string
+      required:
+        - note
       type: object
     Einstufung:
       description: Fee classification for a child
@@ -5424,6 +5565,28 @@ components:
           type: string
         year:
           type: integer
+      required:
+        - annualMembershipFee
+        - annualNetIncome
+        - baseFee
+        - careHoursPerWeek
+        - careType
+        - childId
+        - childrenCount
+        - createdAt
+        - discountFactor
+        - discountPercent
+        - effectiveFromMonth
+        - feeRule
+        - highestRateVoluntary
+        - householdId
+        - id
+        - incomeCalculation
+        - monthlyChildcareFee
+        - monthlyFoodFee
+        - updatedAt
+        - validFrom
+        - year
       type: object
     EinstufungList:
       description: Paginated list of fee classifications
@@ -5440,6 +5603,12 @@ components:
           type: integer
         totalPages:
           type: integer
+      required:
+        - data
+        - page
+        - perPage
+        - total
+        - totalPages
       type: object
     EmailLogListResponse:
       description: Paginated list of email logs
@@ -5460,6 +5629,12 @@ components:
         totalPages:
           example: 5
           type: integer
+      required:
+        - data
+        - page
+        - perPage
+        - total
+        - totalPages
       type: object
     EmailLogResponse:
       description: Email log entry
@@ -5488,6 +5663,12 @@ components:
         toEmail:
           example: admin@knirpsenstadt.de
           type: string
+      required:
+        - emailType
+        - id
+        - sentAt
+        - subject
+        - toEmail
       type: object
     ErrorResponse:
       description: Standard error response format
@@ -5501,6 +5682,10 @@ components:
         message:
           example: invalid request body
           type: string
+      required:
+        - code
+        - error
+        - message
       type: object
     FeeList:
       description: Paginated list of fee expectations as returned by the fee endpoints
@@ -5521,6 +5706,12 @@ components:
         totalPages:
           example: 5
           type: integer
+      required:
+        - data
+        - page
+        - perPage
+        - total
+        - totalPages
       type: object
     FeeScheduleConfig:
       properties:
@@ -5560,6 +5751,15 @@ components:
         siblingsFreeThreshold:
           description: From this many children on, the childcare fee is waived.
           type: integer
+      required:
+        - annualMembershipFee
+        - entlastungIncomeLimit
+        - entlastungTable
+        - freeIncomeLimit
+        - monthlyFoodFee
+        - satzungTable
+        - siblingDiscountFactors
+        - siblingsFreeThreshold
       type: object
     FeeScheduleRequest:
       description: Planned version of the fee regulation
@@ -5573,6 +5773,10 @@ components:
           description: first of a future month
           example: 2027-01-01
           type: string
+      required:
+        - config
+        - name
+        - validFrom
       type: object
     FeeScheduleVersion:
       description: Version of the fee regulation (Elternbeitragsordnung)
@@ -5605,6 +5809,15 @@ components:
             the latest version.
           example: 2027-07-31
           type: string
+      required:
+        - config
+        - createdAt
+        - editable
+        - id
+        - name
+        - status
+        - updatedAt
+        - validFrom
       type: object
     FeeTableRow:
       properties:
@@ -5615,6 +5828,9 @@ components:
           items:
             type: number
           type: array
+      required:
+        - minIncome
+        - rates
       type: object
     GenerateFeeRequest:
       description: Request body for generating fees
@@ -5626,6 +5842,8 @@ components:
         year:
           example: 2024
           type: integer
+      required:
+        - year
       type: object
     GenerateFeeResponse:
       description: Result of fee generation
@@ -5640,6 +5858,9 @@ components:
           items:
             $ref: "#/components/schemas/domain.MatchSuggestion"
           type: array
+      required:
+        - created
+        - skipped
       type: object
     HideTransactionResponse:
       description: Hide transaction result
@@ -5647,6 +5868,8 @@ components:
         transactionId:
           example: 550e8400-e29b-41d4-a716-446655440000
           type: string
+      required:
+        - transactionId
       type: object
     Household:
       description: Household information with relationships
@@ -5687,6 +5910,11 @@ components:
         updatedAt:
           example: 2023-01-15T10:00:00Z
           type: string
+      required:
+        - createdAt
+        - id
+        - name
+        - updatedAt
       type: object
     HouseholdLinkChildRequest:
       description: Request body for linking a child to a household
@@ -5694,6 +5922,8 @@ components:
         childId:
           example: 550e8400-e29b-41d4-a716-446655440000
           type: string
+      required:
+        - childId
       type: object
     HouseholdLinkParentRequest:
       description: Request body for linking a parent to a household
@@ -5701,6 +5931,8 @@ components:
         parentId:
           example: 550e8400-e29b-41d4-a716-446655440000
           type: string
+      required:
+        - parentId
       type: object
     HouseholdList:
       description: Paginated list of households
@@ -5721,6 +5953,12 @@ components:
         totalPages:
           example: 2
           type: integer
+      required:
+        - data
+        - page
+        - perPage
+        - total
+        - totalPages
       type: object
     IBANList:
       description: Paginated IBAN list as returned by the blacklist/trusted endpoints
@@ -5741,6 +5979,12 @@ components:
         totalPages:
           example: 1
           type: integer
+      required:
+        - data
+        - page
+        - perPage
+        - total
+        - totalPages
       type: object
     ImportError:
       properties:
@@ -5752,6 +5996,9 @@ components:
           type: string
         payerName:
           type: string
+      required:
+        - amount
+        - message
       type: object
     ImportHistoryList:
       description: Paginated import history
@@ -5772,6 +6019,12 @@ components:
         totalPages:
           example: 1
           type: integer
+      required:
+        - data
+        - page
+        - perPage
+        - total
+        - totalPages
       type: object
     LedgerEntry:
       description: Ledger entry for a child
@@ -5815,6 +6068,14 @@ components:
         year:
           example: 2024
           type: integer
+      required:
+        - balance
+        - credit
+        - date
+        - debit
+        - description
+        - id
+        - type
       type: object
     LedgerSummary:
       description: Summary totals for the ledger
@@ -5837,6 +6098,13 @@ components:
         totalPaid:
           example: 400
           type: number
+      required:
+        - openFeesCount
+        - paidFeesCount
+        - totalFees
+        - totalFeesCount
+        - totalOpen
+        - totalPaid
       type: object
     LegalHoursBreakdownItem:
       properties:
@@ -5852,6 +6120,10 @@ components:
         ue3Count:
           example: 8
           type: integer
+      required:
+        - count
+        - u3Count
+        - ue3Count
       type: object
     LegalHoursHistoryEntry:
       properties:
@@ -5876,6 +6148,12 @@ components:
         updatedAt:
           example: 2026-01-01T10:00:00Z
           type: string
+      required:
+        - childId
+        - createdAt
+        - effectiveFrom
+        - id
+        - updatedAt
       type: object
     LinkIBANRequest:
       description: Request body for linking an IBAN to a child
@@ -5883,6 +6161,8 @@ components:
         childId:
           example: 550e8400-e29b-41d4-a716-446655440000
           type: string
+      required:
+        - childId
       type: object
     LinkParentRequest:
       description: Request body for linking a parent to a child
@@ -5893,6 +6173,9 @@ components:
         parentId:
           example: 550e8400-e29b-41d4-a716-446655440000
           type: string
+      required:
+        - isPrimary
+        - parentId
       type: object
     LoginRequest:
       properties:
@@ -5902,6 +6185,9 @@ components:
         password:
           example: password123
           type: string
+      required:
+        - email
+        - password
       type: object
     LoginResponse:
       properties:
@@ -5916,6 +6202,11 @@ components:
           type: string
         user:
           $ref: "#/components/schemas/User"
+      required:
+        - accessToken
+        - expiresAt
+        - refreshToken
+        - user
       type: object
     ManualMatchRequest:
       description: Request body for manual matching
@@ -5926,6 +6217,9 @@ components:
         transactionId:
           example: 550e8400-e29b-41d4-a716-446655440000
           type: string
+      required:
+        - expectationId
+        - transactionId
       type: object
     ManualMatchResponse:
       description: Manual match result
@@ -5942,6 +6236,11 @@ components:
         transactionId:
           example: 550e8400-e29b-41d4-a716-446655440000
           type: string
+      required:
+        - expectationId
+        - matchedAt
+        - matchedBy
+        - transactionId
       type: object
     MatchConfirmation:
       description: Single match confirmation
@@ -5952,6 +6251,9 @@ components:
         transactionId:
           example: 550e8400-e29b-41d4-a716-446655440000
           type: string
+      required:
+        - expectationId
+        - transactionId
       type: object
     MatchSuggestion:
       description: Suggested match for manual review
@@ -5974,6 +6276,13 @@ components:
         transactionInfo:
           example: SEPA-Überweisung Max Mustermann
           type: string
+      required:
+        - confidence
+        - expectationId
+        - expectationInfo
+        - reason
+        - transactionId
+        - transactionInfo
       type: object
     Member:
       description: Member information
@@ -6020,6 +6329,12 @@ components:
         streetNo:
           example: "42"
           type: string
+      required:
+        - firstName
+        - id
+        - isActive
+        - lastName
+        - membershipStart
       type: object
     MemberCountAsOf:
       description: Member count at a reference date, including inactive members
@@ -6036,6 +6351,11 @@ components:
         total:
           example: 45
           type: integer
+      required:
+        - active
+        - asOf
+        - inactive
+        - total
       type: object
     MemberList:
       description: Paginated list of members
@@ -6056,12 +6376,20 @@ components:
         totalPages:
           example: 3
           type: integer
+      required:
+        - data
+        - page
+        - perPage
+        - total
+        - totalPages
       type: object
     MessageResponse:
       properties:
         message:
           example: Operation completed successfully
           type: string
+      required:
+        - message
       type: object
     NextMemberNumberResponse:
       description: Next available member number
@@ -6069,6 +6397,8 @@ components:
         memberNumber:
           example: "12002"
           type: string
+      required:
+        - memberNumber
       type: object
     Parent:
       description: Parent information with relationships
@@ -6131,6 +6461,12 @@ components:
         updatedAt:
           example: 2023-01-15T10:00:00Z
           type: string
+      required:
+        - createdAt
+        - firstName
+        - id
+        - lastName
+        - updatedAt
       type: object
     ParentList:
       description: Paginated list of parents
@@ -6151,12 +6487,20 @@ components:
         totalPages:
           example: 3
           type: integer
+      required:
+        - data
+        - page
+        - perPage
+        - total
+        - totalPages
       type: object
     RefreshTokenRequest:
       properties:
         refreshToken:
           example: eyJhbGciOiJIUzI1NiIs...
           type: string
+      required:
+        - refreshToken
       type: object
     ReminderCaseRequest:
       description: Stage selection, fee IDs and content overrides; the deadline is
@@ -6185,6 +6529,9 @@ components:
           type: string
         subject:
           type: string
+      required:
+        - feeIds
+        - stage
       type: object
     ReminderPreviewResponse:
       properties:
@@ -6215,6 +6562,12 @@ components:
         subject:
           example: Kita Zahlungserinnerung April 2026
           type: string
+      required:
+        - body
+        - householdId
+        - householdName
+        - recipients
+        - subject
       type: object
     ReminderRunResponse:
       description: Ergebnis einer Erinnerungs-/Mahnungsprüfung
@@ -6267,6 +6620,16 @@ components:
           items:
             $ref: "#/components/schemas/ReminderWarningResponse"
           type: array
+      required:
+        - date
+        - dryRun
+        - emailSent
+        - familiesEmailed
+        - familiesProcessed
+        - familiesSkippedNoEmail
+        - remindersCreated
+        - stage
+        - unpaidCount
       type: object
     ReminderSettingsResponse:
       description: Reminder settings
@@ -6276,6 +6639,9 @@ components:
           type: boolean
         payment:
           $ref: "#/components/schemas/handler.ReminderPaymentSettingsPayload"
+      required:
+        - autoEnabled
+        - payment
       type: object
     ReminderWarningResponse:
       properties:
@@ -6285,6 +6651,9 @@ components:
         reason:
           example: keine gültige E-Mail-Adresse
           type: string
+      required:
+        - householdName
+        - reason
       type: object
     RescanResponse:
       description: Rescan result with new match suggestions
@@ -6308,6 +6677,11 @@ components:
           items:
             $ref: "#/components/schemas/MatchSuggestion"
           type: array
+      required:
+        - autoMatched
+        - errors
+        - newMatches
+        - scanned
       type: object
     ResolveLateFeeResponse:
       description: Late payment resolution result
@@ -6321,6 +6695,10 @@ components:
         warningId:
           example: 550e8400-e29b-41d4-a716-446655440000
           type: string
+      required:
+        - lateFeeAmount
+        - lateFeeId
+        - warningId
       type: object
     StichtagsmeldungReport:
       properties:
@@ -6346,6 +6724,14 @@ components:
         ue3ChildrenCount:
           example: 33
           type: integer
+      required:
+        - careHoursBreakdown
+        - legalHoursBreakdown
+        - reportDate
+        - totalChildrenInKita
+        - u3ChildrenCount
+        - u3IncomeBreakdown
+        - ue3ChildrenCount
       type: object
     StichtagsmeldungStats:
       description: Stichtagsmeldung statistics for quarterly reporting
@@ -6361,6 +6747,11 @@ components:
           type: integer
         u3IncomeBreakdown:
           $ref: "#/components/schemas/U3IncomeBreakdown"
+      required:
+        - daysUntilStichtag
+        - nextStichtag
+        - totalChildrenInKita
+        - u3IncomeBreakdown
       type: object
     TransactionList:
       description: Paginated list of bank transactions as returned by the import
@@ -6382,6 +6773,12 @@ components:
         totalPages:
           example: 2
           type: integer
+      required:
+        - data
+        - page
+        - perPage
+        - total
+        - totalPages
       type: object
     U3IncomeBreakdown:
       description: U3 children income breakdown by 5 brackets
@@ -6404,6 +6801,13 @@ components:
         upTo20k:
           example: 5
           type: integer
+      required:
+        - fosterFamily
+        - from20To35k
+        - from35To55k
+        - maxAccepted
+        - total
+        - upTo20k
       type: object
     UnmatchTransactionRequest:
       description: Unmatch transaction request
@@ -6411,6 +6815,8 @@ components:
         deleteTransaction:
           example: false
           type: boolean
+      required:
+        - deleteTransaction
       type: object
     UnmatchTransactionResponse:
       description: Unmatch transaction result
@@ -6424,6 +6830,10 @@ components:
         transactionId:
           example: 550e8400-e29b-41d4-a716-446655440000
           type: string
+      required:
+        - matchesRemoved
+        - transactionDeleted
+        - transactionId
       type: object
     UpdateChildNoteRequest:
       description: Request body for updating a child note
@@ -6431,6 +6841,8 @@ components:
         text:
           example: Muss früher abgeholt werden am 12.09.
           type: string
+      required:
+        - text
       type: object
     UpdateChildRequest:
       description: Request body for updating a child
@@ -6625,6 +7037,8 @@ components:
           type: boolean
         payment:
           $ref: "#/components/schemas/handler.ReminderPaymentSettingsPayload"
+      required:
+        - autoEnabled
       type: object
     User:
       properties:
@@ -6646,6 +7060,10 @@ components:
             - USER
           example: ADMIN
           type: string
+      required:
+        - email
+        - id
+        - role
       type: object
     WarningList:
       description: Paginated warnings list as returned by the warnings endpoint
@@ -6666,6 +7084,12 @@ components:
         totalPages:
           example: 1
           type: integer
+      required:
+        - data
+        - page
+        - perPage
+        - total
+        - totalPages
       type: object
     domain.BankTransaction:
       properties:
@@ -6704,6 +7128,14 @@ components:
           type: string
         valueDate:
           type: string
+      required:
+        - amount
+        - bookingDate
+        - currency
+        - id
+        - importedAt
+        - isHidden
+        - valueDate
       type: object
     domain.Child:
       properties:
@@ -6755,6 +7187,16 @@ components:
           type: string
         updatedAt:
           type: string
+      required:
+        - birthDate
+        - createdAt
+        - entryDate
+        - firstName
+        - id
+        - isActive
+        - lastName
+        - memberNumber
+        - updatedAt
       type: object
     domain.ChildcareFeeResult:
       properties:
@@ -6781,6 +7223,14 @@ components:
         showEntlastung:
           description: Show link to Entlastung info
           type: boolean
+      required:
+        - baseFee
+        - discountFactor
+        - discountPercent
+        - fee
+        - notes
+        - rule
+        - showEntlastung
       type: object
     domain.EinstufungMonthRow:
       properties:
@@ -6802,6 +7252,14 @@ components:
           type: integer
         year:
           type: integer
+      required:
+        - careHoursPerWeek
+        - careType
+        - childcareFee
+        - foodFee
+        - membershipFee
+        - month
+        - year
       type: object
     domain.FeeExpectation:
       properties:
@@ -6851,6 +7309,15 @@ components:
           type: string
         year:
           type: integer
+      required:
+        - amount
+        - childId
+        - createdAt
+        - dueDate
+        - feeType
+        - id
+        - isPaid
+        - year
       type: object
     domain.FeeOverview:
       properties:
@@ -6878,6 +7345,18 @@ components:
           type: integer
         totalPaid:
           type: integer
+      required:
+        - amountOpen
+        - amountOverdue
+        - amountPaid
+        - byMonth
+        - childrenWithOpenFees
+        - openChildcareCount
+        - openFoodCount
+        - openMembershipCount
+        - totalOpen
+        - totalOverdue
+        - totalPaid
       type: object
     domain.FeeType:
       enum:
@@ -6932,6 +7411,13 @@ components:
           type: array
         updatedAt:
           type: string
+      required:
+        - createdAt
+        - id
+        - incomeStatus
+        - membershipAssignmentStatus
+        - name
+        - updatedAt
       type: object
     domain.HouseholdIncomeCalculation:
       properties:
@@ -6939,6 +7425,9 @@ components:
           $ref: "#/components/schemas/domain.IncomeDetails"
         parent2:
           $ref: "#/components/schemas/domain.IncomeDetails"
+      required:
+        - parent1
+        - parent2
       type: object
     domain.ImportBatch:
       properties:
@@ -6969,6 +7458,16 @@ components:
           type: integer
         transactionCount:
           type: integer
+      required:
+        - errorCount
+        - errors
+        - fileName
+        - id
+        - importedAt
+        - importedBy
+        - importedByEmail
+        - matchedCount
+        - transactionCount
       type: object
     domain.IncomeDetails:
       properties:
@@ -7029,6 +7528,26 @@ components:
         welfareExpense:
           description: "- Abgabe für persönliche Daseinsfürsorge"
           type: number
+      required:
+        - advertisingCosts
+        - capitalIncome
+        - grossIncome
+        - insurances
+        - maintenanceReceived
+        - maintenanceToPay
+        - maternityBenefit
+        - minijobIncome
+        - otherIncome
+        - parentalBenefit
+        - parentalBenefitPlus
+        - privateInsurance
+        - profit
+        - rentalIncome
+        - selfEmployedTax
+        - socialSecurityShare
+        - tax
+        - unemploymentBenefit
+        - welfareExpense
       type: object
     domain.IncomeStatus:
       enum:
@@ -7074,6 +7593,11 @@ components:
           $ref: "#/components/schemas/domain.KnownIBANStatus"
         updatedAt:
           type: string
+      required:
+        - createdAt
+        - iban
+        - status
+        - updatedAt
       type: object
     domain.KnownIBANStatus:
       enum:
@@ -7103,6 +7627,10 @@ components:
           type: string
         transaction:
           $ref: "#/components/schemas/domain.BankTransaction"
+      required:
+        - confidence
+        - matchedBy
+        - transaction
       type: object
     domain.MatchType:
       enum:
@@ -7150,6 +7678,15 @@ components:
           type: string
         updatedAt:
           type: string
+      required:
+        - createdAt
+        - firstName
+        - id
+        - isActive
+        - lastName
+        - memberNumber
+        - membershipStart
+        - updatedAt
       type: object
     domain.MembershipAssignmentStatus:
       enum:
@@ -7173,6 +7710,13 @@ components:
           type: integer
         year:
           type: integer
+      required:
+        - month
+        - openAmount
+        - openCount
+        - paidAmount
+        - paidCount
+        - year
       type: object
     domain.Parent:
       properties:
@@ -7220,6 +7764,13 @@ components:
           type: string
         updatedAt:
           type: string
+      required:
+        - createdAt
+        - firstName
+        - id
+        - incomeStatus
+        - lastName
+        - updatedAt
       type: object
     domain.PaymentMatch:
       properties:
@@ -7245,6 +7796,13 @@ components:
           description: Joined fields
         transactionId:
           type: string
+      required:
+        - amount
+        - expectationId
+        - id
+        - matchType
+        - matchedAt
+        - transactionId
       type: object
     domain.ResolutionType:
       enum:
@@ -7303,6 +7861,12 @@ components:
           type: string
         warningType:
           $ref: "#/components/schemas/domain.WarningType"
+      required:
+        - createdAt
+        - id
+        - message
+        - transactionId
+        - warningType
       type: object
     domain.WarningType:
       enum:
@@ -7359,6 +7923,11 @@ components:
         transactionId:
           example: 550e8400-e29b-41d4-a716-446655440000
           type: string
+      required:
+        - amount
+        - bookingDate
+        - isForThisMonth
+        - transactionId
       type: object
     handler.FeeCoverageResponse:
       description: Monthly fee coverage with transaction details
@@ -7390,6 +7959,14 @@ components:
         year:
           example: 2024
           type: integer
+      required:
+        - balance
+        - expectedTotal
+        - month
+        - receivedTotal
+        - status
+        - transactions
+        - year
       type: object
     handler.ReminderCaseConflictResponse:
       description: Selected fees are no longer open, are foreign to the household, or
@@ -7402,6 +7979,8 @@ components:
         message:
           example: selected fees are no longer open
           type: string
+      required:
+        - message
       type: object
     handler.ReminderPaymentSettingsPayload:
       properties:
@@ -7414,6 +7993,9 @@ components:
         recipientName:
           example: Knirpsenstadt e.V.
           type: string
+      required:
+        - iban
+        - recipientName
       type: object
     handler.U3ChildDetailResponse:
       properties:
@@ -7433,6 +8015,13 @@ components:
           type: string
         memberNumber:
           type: string
+      required:
+        - birthDate
+        - firstName
+        - id
+        - isFosterFamily
+        - lastName
+        - memberNumber
       type: object
     service.ChildImportParseResult:
       properties:
@@ -7450,6 +8039,11 @@ components:
           type: array
         totalRows:
           type: integer
+      required:
+        - detectedSeparator
+        - headers
+        - sampleRows
+        - totalRows
       type: object
     service.ChildPreview:
       properties:
@@ -7475,6 +8069,12 @@ components:
           type: string
         streetNo:
           type: string
+      required:
+        - birthDate
+        - entryDate
+        - firstName
+        - lastName
+        - memberNumber
       type: object
     service.ExecuteRequest:
       properties:
@@ -7486,6 +8086,9 @@ components:
           items:
             $ref: "#/components/schemas/service.ImportRow"
           type: array
+      required:
+        - parentDecisions
+        - rows
       type: object
     service.ExecuteResult:
       properties:
@@ -7501,6 +8104,12 @@ components:
           type: integer
         parentsLinked:
           type: integer
+      required:
+        - childrenCreated
+        - childrenUpdated
+        - errors
+        - parentsCreated
+        - parentsLinked
       type: object
     service.FeeContact:
       properties:
@@ -7521,6 +8130,11 @@ components:
           type: string
         newValue:
           type: string
+      required:
+        - existingValue
+        - field
+        - fieldLabel
+        - newValue
       type: object
     service.ImportError:
       properties:
@@ -7528,6 +8142,9 @@ components:
           type: string
         rowIndex:
           type: integer
+      required:
+        - error
+        - rowIndex
       type: object
     service.ImportResult:
       properties:
@@ -7564,6 +8181,17 @@ components:
           type: array
         warnings:
           type: integer
+      required:
+        - autoMatched
+        - batchId
+        - blacklisted
+        - errors
+        - fileName
+        - imported
+        - skipped
+        - suggestions
+        - totalRows
+        - warnings
       type: object
     service.ImportRow:
       properties:
@@ -7586,6 +8214,9 @@ components:
           $ref: "#/components/schemas/service.ParentPreview"
         parent2:
           $ref: "#/components/schemas/service.ParentPreview"
+      required:
+        - child
+        - index
       type: object
     service.ParentDecision:
       properties:
@@ -7599,6 +8230,10 @@ components:
           type: integer
         rowIndex:
           type: integer
+      required:
+        - action
+        - parentIndex
+        - rowIndex
       type: object
     service.ParentMatch:
       properties:
@@ -7610,6 +8245,10 @@ components:
           type: string
         lastName:
           type: string
+      required:
+        - firstName
+        - id
+        - lastName
       type: object
     service.ParentPreview:
       properties:
@@ -7631,6 +8270,9 @@ components:
           type: string
         phone:
           type: string
+      required:
+        - firstName
+        - lastName
       type: object
     service.PreviewResult:
       properties:
@@ -7642,6 +8284,10 @@ components:
           type: array
         validCount:
           type: integer
+      required:
+        - errorCount
+        - rows
+        - validCount
       type: object
     service.PreviewRow:
       properties:
@@ -7672,6 +8318,13 @@ components:
           items:
             type: string
           type: array
+      required:
+        - action
+        - child
+        - index
+        - isDuplicate
+        - isValid
+        - warnings
       type: object
     service.ReminderCase:
       properties:
@@ -7691,6 +8344,13 @@ components:
           type: array
         totalRemaining:
           type: number
+      required:
+        - fees
+        - householdId
+        - householdName
+        - nextActionAt
+        - recipients
+        - totalRemaining
       type: object
     service.ReminderCaseFee:
       properties:
@@ -7722,6 +8382,19 @@ components:
           $ref: "#/components/schemas/service.ReminderCaseFeeStatus"
         year:
           type: integer
+      required:
+        - actionableAt
+        - amount
+        - childId
+        - childName
+        - dueDate
+        - feeId
+        - feeType
+        - hasReminder
+        - month
+        - remaining
+        - status
+        - year
       type: object
     service.ReminderCaseFeeStatus:
       enum:
@@ -7749,6 +8422,12 @@ components:
           type: string
         dueDate:
           type: string
+      required:
+        - amount
+        - baseFeeId
+        - baseFeeType
+        - baseLabel
+        - dueDate
       type: object
     service.ReminderCasePreview:
       properties:
@@ -7788,6 +8467,18 @@ components:
           items:
             type: string
           type: array
+      required:
+        - body
+        - deadline
+        - householdId
+        - householdName
+        - includeQR
+        - plannedReminderFees
+        - recipients
+        - recommendedStage
+        - selectedFees
+        - subject
+        - totalAmount
       type: object
     service.ReminderCaseSendResult:
       properties:
@@ -7807,6 +8498,13 @@ components:
           $ref: "#/components/schemas/service.ReminderStage"
         subject:
           type: string
+      required:
+        - createdReminderFees
+        - deadline
+        - householdId
+        - sentTo
+        - stage
+        - subject
       type: object
     service.ReminderCasesResult:
       properties:
@@ -7818,6 +8516,10 @@ components:
           type: array
         scope:
           type: string
+      required:
+        - asOf
+        - cases
+        - scope
       type: object
     service.ReminderStage:
       enum:

@@ -10,9 +10,9 @@ import (
 type ChildCareHoursHistory struct {
 	ID             uuid.UUID  `json:"id" db:"id"`
 	ChildID        uuid.UUID  `json:"childId" db:"child_id"`
-	CareHours      *int       `json:"careHours" db:"care_hours"`
+	CareHours      *int       `json:"careHours" db:"care_hours" binding:"optional"`
 	EffectiveFrom  time.Time  `json:"effectiveFrom" db:"effective_from"`
-	EffectiveUntil *time.Time `json:"effectiveUntil,omitempty" db:"effective_until"`
+	EffectiveUntil *time.Time `json:"effectiveUntil,omitempty" db:"effective_until" binding:"optional"`
 	CreatedAt      time.Time  `json:"createdAt" db:"created_at"`
 	UpdatedAt      time.Time  `json:"updatedAt" db:"updated_at"`
 }
@@ -21,9 +21,9 @@ type ChildCareHoursHistory struct {
 type ChildLegalHoursHistory struct {
 	ID             uuid.UUID  `json:"id" db:"id"`
 	ChildID        uuid.UUID  `json:"childId" db:"child_id"`
-	LegalHours     *int       `json:"legalHours" db:"legal_hours"`
+	LegalHours     *int       `json:"legalHours" db:"legal_hours" binding:"optional"`
 	EffectiveFrom  time.Time  `json:"effectiveFrom" db:"effective_from"`
-	EffectiveUntil *time.Time `json:"effectiveUntil,omitempty" db:"effective_until"`
+	EffectiveUntil *time.Time `json:"effectiveUntil,omitempty" db:"effective_until" binding:"optional"`
 	CreatedAt      time.Time  `json:"createdAt" db:"created_at"`
 	UpdatedAt      time.Time  `json:"updatedAt" db:"updated_at"`
 }

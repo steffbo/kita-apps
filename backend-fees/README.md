@@ -404,11 +404,13 @@ npm install -g swagger2openapi
 
 ### Generate OpenAPI Spec
 
+Preferred: `scripts/generate-api.sh` from the repo root runs all three steps (swag → swagger2openapi → `schema.d.ts`).
+
 ```bash
 cd backend-fees
 
 # Generate Swagger 2.0 spec
-~/go/bin/swag init -g cmd/server/main.go -o ../openapi/fees --outputTypes yaml
+~/go/bin/swag init -g cmd/server/main.go -o ../openapi/fees --outputTypes yaml --requiredByDefault
 
 # Convert to OpenAPI 3.0
 npx swagger2openapi ../openapi/fees/swagger.yaml -o ../openapi/fees/openapi3.yaml
@@ -423,6 +425,19 @@ node ~/.npm/_npx/<cache-id>/node_modules/swagger2openapi/swagger2openapi.js ../o
 Generated files:
 - `openapi/fees/swagger.yaml` - Swagger 2.0 spec
 - `openapi/fees/openapi3.yaml` - OpenAPI 3.0 spec (used by frontend)
+
+### Required vs. optional fields
+
+swag runs with `--requiredByDefault`, so every JSON field is `required` in the spec (and non-optional in the generated TypeScript types) unless its struct tag contains `binding:"optional"`. Put that tag on every field with `omitempty` or a pointer type — anything the API may leave out or send as `null`:
+
+```go
+type Child struct {
+    ID       uuid.UUID  `json:"id"`                                        // required
+    ExitDate *time.Time `json:"exitDate,omitempty" binding:"optional"`     // optional
+}
+```
+
+The tag is documentation only (no validator runs on it). `internal/api/openapi_tags_test.go` fails when an `omitempty`/pointer field lacks it.
 
 ### Adding `@name` Annotations
 

@@ -29,28 +29,28 @@ type ReminderPreviewResponse struct {
 	Recipients     []string `json:"recipients" example:"[\"anna@example.com\"]"`
 	Subject        string   `json:"subject" example:"Kita Zahlungserinnerung April 2026"`
 	Body           string   `json:"body" example:"Hallo Anna,..."`
-	QRImageDataURL *string  `json:"qrImageDataUrl,omitempty"`
-	QRPayload      string   `json:"qrPayload,omitempty" example:"BCD\n002\n1\nSCT..."`
+	QRImageDataURL *string  `json:"qrImageDataUrl,omitempty" binding:"optional"`
+	QRPayload      string   `json:"qrPayload,omitempty" example:"BCD\n002\n1\nSCT..." binding:"optional"`
 } //@name ReminderPreviewResponse
 
 // ReminderRunOverrideRequest replaces the generated subject and/or body for one household.
 // @Description Per-household override for generated reminder emails; empty fields keep the generated value
 type ReminderRunOverrideRequest struct {
-	Subject string `json:"subject,omitempty" example:"Kita Zahlungserinnerung"`
-	Body    string `json:"body,omitempty" example:"Hallo Anna,..."`
+	Subject string `json:"subject,omitempty" example:"Kita Zahlungserinnerung" binding:"optional"`
+	Body    string `json:"body,omitempty" example:"Hallo Anna,..." binding:"optional"`
 } //@name ReminderRunOverrideRequest
 
 // ReminderRunRequestBody is the optional JSON body for reminder run endpoints.
 // @Description Optional run behaviour: disable the QR code attachment and override generated email content per household
 type ReminderRunRequestBody struct {
-	IncludeQR *bool                                 `json:"includeQR,omitempty" example:"true"`
-	Overrides map[string]ReminderRunOverrideRequest `json:"overrides,omitempty"`
+	IncludeQR *bool                                 `json:"includeQR,omitempty" example:"true" binding:"optional"`
+	Overrides map[string]ReminderRunOverrideRequest `json:"overrides,omitempty" binding:"optional"`
 } //@name ReminderRunRequestBody
 
 type ReminderPaymentSettingsPayload struct {
 	RecipientName string `json:"recipientName" example:"Knirpsenstadt e.V."`
 	IBAN          string `json:"iban" example:"DE33370205000003321400"`
-	BIC           string `json:"bic,omitempty" example:"BFSWDE33XXX"`
+	BIC           string `json:"bic,omitempty" example:"BFSWDE33XXX" binding:"optional"`
 }
 
 // ReminderRunResponse represents the result of a reminder run.
@@ -65,13 +65,13 @@ type ReminderRunResponse struct {
 	FamiliesSkippedNoEmail int                       `json:"familiesSkippedNoEmail" example:"1"`
 	RemindersCreated       int                       `json:"remindersCreated" example:"8"`
 	EmailSent              bool                      `json:"emailSent" example:"true"`
-	Warnings               []ReminderWarningResponse `json:"warnings,omitempty"`
-	Previews               []ReminderPreviewResponse `json:"previews,omitempty"`
-	Message                string                    `json:"message,omitempty" example:"no unpaid fees for this period"`
+	Warnings               []ReminderWarningResponse `json:"warnings,omitempty" binding:"optional"`
+	Previews               []ReminderPreviewResponse `json:"previews,omitempty" binding:"optional"`
+	Message                string                    `json:"message,omitempty" example:"no unpaid fees for this period" binding:"optional"`
 
 	// Deprecated: kept for backward compat
-	Recipient       string `json:"recipient,omitempty"`
-	ReminderCreated int    `json:"reminderCreated,omitempty"`
+	Recipient       string `json:"recipient,omitempty" binding:"optional"`
+	ReminderCreated int    `json:"reminderCreated,omitempty" binding:"optional"`
 } //@name ReminderRunResponse
 
 // ReminderSettingsResponse represents reminder settings.
@@ -85,7 +85,7 @@ type ReminderSettingsResponse struct {
 // @Description Reminder settings update
 type UpdateReminderSettingsRequest struct {
 	AutoEnabled bool                            `json:"autoEnabled" example:"true"`
-	Payment     *ReminderPaymentSettingsPayload `json:"payment,omitempty"`
+	Payment     *ReminderPaymentSettingsPayload `json:"payment,omitempty" binding:"optional"`
 } //@name UpdateReminderSettingsRequest
 
 func parseSelectedHouseholdIDs(w http.ResponseWriter, r *http.Request) ([]uuid.UUID, bool) {

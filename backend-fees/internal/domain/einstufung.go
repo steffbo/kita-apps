@@ -15,12 +15,12 @@ type Einstufung struct {
 	HouseholdID uuid.UUID  `json:"householdId" db:"household_id"`
 	Year        int        `json:"year" db:"year"`            // Classification year (e.g. 2026)
 	ValidFrom   time.Time  `json:"validFrom" db:"valid_from"` // Start date of this classification
-	ValidUntil  *time.Time `json:"validUntil,omitempty" db:"valid_until"`
+	ValidUntil  *time.Time `json:"validUntil,omitempty" db:"valid_until" binding:"optional"`
 
 	// Follow-up metadata
-	SourceEinstufungID *uuid.UUID `json:"sourceEinstufungId,omitempty" db:"source_einstufung_id"`
-	ChangeDate         *time.Time `json:"changeDate,omitempty" db:"change_date"`        // Entered change date
-	EffectiveFromMonth time.Time  `json:"effectiveFromMonth" db:"effective_from_month"` // First billing month after cut-off rule
+	SourceEinstufungID *uuid.UUID `json:"sourceEinstufungId,omitempty" db:"source_einstufung_id" binding:"optional"`
+	ChangeDate         *time.Time `json:"changeDate,omitempty" db:"change_date" binding:"optional"` // Entered change date
+	EffectiveFromMonth time.Time  `json:"effectiveFromMonth" db:"effective_from_month"`             // First billing month after cut-off rule
 
 	// Income calculation details (stored as JSONB for audit trail)
 	IncomeCalculation HouseholdIncomeCalculation `json:"incomeCalculation" db:"income_calculation"`
@@ -45,14 +45,14 @@ type Einstufung struct {
 	DiscountFactor  float64 `json:"discountFactor" db:"discount_factor"`   // Sibling discount factor (1.0 = no discount)
 	BaseFee         float64 `json:"baseFee" db:"base_fee"`                 // Fee before sibling discount
 
-	Notes     string    `json:"notes,omitempty" db:"notes"`
+	Notes     string    `json:"notes,omitempty" db:"notes" binding:"optional"`
 	CreatedAt time.Time `json:"createdAt" db:"created_at"`
 	UpdatedAt time.Time `json:"updatedAt" db:"updated_at"`
 
 	// Loaded relations
-	Child        *Child               `json:"child,omitempty" db:"-"`
-	Household    *Household           `json:"household,omitempty" db:"-"`
-	MonthlyTable []EinstufungMonthRow `json:"monthlyTable,omitempty" db:"-"`
+	Child        *Child               `json:"child,omitempty" db:"-" binding:"optional"`
+	Household    *Household           `json:"household,omitempty" db:"-" binding:"optional"`
+	MonthlyTable []EinstufungMonthRow `json:"monthlyTable,omitempty" db:"-" binding:"optional"`
 }
 
 // EinstufungMonthRow represents one month in the Einstufung letter table.

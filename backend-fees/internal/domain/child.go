@@ -16,29 +16,29 @@ import (
 // ChildRepository.ListCareHoursHistory / ListLegalHoursHistory.
 type Child struct {
 	ID           uuid.UUID  `json:"id" db:"id"`
-	HouseholdID  *uuid.UUID `json:"householdId,omitempty" db:"household_id"`
+	HouseholdID  *uuid.UUID `json:"householdId,omitempty" db:"household_id" binding:"optional"`
 	MemberNumber string     `json:"memberNumber" db:"member_number"`
 	FirstName    string     `json:"firstName" db:"first_name"`
 	LastName     string     `json:"lastName" db:"last_name"`
 	BirthDate    time.Time  `json:"birthDate" db:"birth_date"`
 	EntryDate    time.Time  `json:"entryDate" db:"entry_date"`
-	ExitDate     *time.Time `json:"exitDate,omitempty" db:"exit_date"`
-	Street       *string    `json:"street,omitempty" db:"street"`
-	StreetNo     *string    `json:"streetNo,omitempty" db:"street_no"`
-	PostalCode   *string    `json:"postalCode,omitempty" db:"postal_code"`
-	City         *string    `json:"city,omitempty" db:"city"`
+	ExitDate     *time.Time `json:"exitDate,omitempty" db:"exit_date" binding:"optional"`
+	Street       *string    `json:"street,omitempty" db:"street" binding:"optional"`
+	StreetNo     *string    `json:"streetNo,omitempty" db:"street_no" binding:"optional"`
+	PostalCode   *string    `json:"postalCode,omitempty" db:"postal_code" binding:"optional"`
+	City         *string    `json:"city,omitempty" db:"city" binding:"optional"`
 	// Derived from the history tables (see type comment), not stored on fees.children.
-	LegalHours      *int       `json:"legalHours,omitempty" db:"legal_hours"`
-	LegalHoursUntil *time.Time `json:"legalHoursUntil,omitempty" db:"legal_hours_until"`
-	CareHours       *int       `json:"careHours,omitempty" db:"care_hours"`
+	LegalHours      *int       `json:"legalHours,omitempty" db:"legal_hours" binding:"optional"`
+	LegalHoursUntil *time.Time `json:"legalHoursUntil,omitempty" db:"legal_hours_until" binding:"optional"`
+	CareHours       *int       `json:"careHours,omitempty" db:"care_hours" binding:"optional"`
 	IsActive        bool       `json:"isActive" db:"is_active"`
 	CreatedAt       time.Time  `json:"createdAt" db:"created_at"`
 	UpdatedAt       time.Time  `json:"updatedAt" db:"updated_at"`
 	// Computed fields (not stored in DB, populated by queries)
-	OpenFeesCount *int64 `json:"openFeesCount,omitempty" db:"open_fees_count"`
+	OpenFeesCount *int64 `json:"openFeesCount,omitempty" db:"open_fees_count" binding:"optional"`
 	// Loaded relations (not stored in DB)
-	Parents   []Parent   `json:"parents,omitempty" db:"-"`
-	Household *Household `json:"household,omitempty" db:"-"`
+	Parents   []Parent   `json:"parents,omitempty" db:"-" binding:"optional"`
+	Household *Household `json:"household,omitempty" db:"-" binding:"optional"`
 }
 
 // IsEnrolledAt checks if the child is enrolled at the given date based on entry/exit dates.

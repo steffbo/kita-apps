@@ -21,19 +21,19 @@ import (
 // @Description Selected fees are no longer open, are foreign to the household, or received reminder fees after the preview
 type ReminderCaseConflictResponse struct {
 	Message string   `json:"message" example:"selected fees are no longer open"`
-	FeeIDs  []string `json:"feeIds,omitempty"`
+	FeeIDs  []string `json:"feeIds,omitempty" binding:"optional"`
 }
 
 // ReminderCaseRequestDTO is the shared request body for preview and send.
 // @Description Stage selection, fee IDs and content overrides; the deadline is computed server-side as runDate + 7 days
 type ReminderCaseRequestDTO struct {
 	Stage       string   `json:"stage" example:"initial" enums:"initial,final"`
-	RunDate     string   `json:"runDate,omitempty" example:"2026-09-15"`
+	RunDate     string   `json:"runDate,omitempty" example:"2026-09-15" binding:"optional"`
 	FeeIDs      []string `json:"feeIds"`
-	IncludeQR   *bool    `json:"includeQR,omitempty" example:"true"`
-	Subject     string   `json:"subject,omitempty"`
-	Body        string   `json:"body,omitempty"`
-	PreviewedAt string   `json:"previewedAt,omitempty" example:"2026-09-15T10:00:00Z"`
+	IncludeQR   *bool    `json:"includeQR,omitempty" example:"true" binding:"optional"`
+	Subject     string   `json:"subject,omitempty" binding:"optional"`
+	Body        string   `json:"body,omitempty" binding:"optional"`
+	PreviewedAt string   `json:"previewedAt,omitempty" example:"2026-09-15T10:00:00Z" binding:"optional"`
 } //@name ReminderCaseRequest
 
 // GetReminderCases handles GET /fees/reminder-cases

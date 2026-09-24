@@ -35,7 +35,7 @@ run_s2o() {
 }
 
 echo "1/3  swag init (backend-fees annotations → swagger.yaml)"
-(cd "$ROOT_DIR/backend-fees" && "$SWAG" init -g cmd/server/main.go -o ../openapi/fees --outputTypes yaml)
+(cd "$ROOT_DIR/backend-fees" && "$SWAG" init -g cmd/server/main.go -o ../openapi/fees --outputTypes yaml --requiredByDefault)
 
 echo "2/3  swagger2openapi (swagger.yaml → openapi3.yaml)"
 run_s2o "$ROOT_DIR/openapi/fees/swagger.yaml" -o "$ROOT_DIR/openapi/fees/openapi3.yaml"

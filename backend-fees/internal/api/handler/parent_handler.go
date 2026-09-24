@@ -26,24 +26,24 @@ func NewParentHandler(parentService *service.ParentService) *ParentHandler {
 // @Description Parent information with relationships
 type ParentDetailResponse struct {
 	ID                    string      `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
-	HouseholdID           *string     `json:"householdId,omitempty" example:"550e8400-e29b-41d4-a716-446655440001"`
-	MemberID              *string     `json:"memberId,omitempty" example:"550e8400-e29b-41d4-a716-446655440002"`
+	HouseholdID           *string     `json:"householdId,omitempty" example:"550e8400-e29b-41d4-a716-446655440001" binding:"optional"`
+	MemberID              *string     `json:"memberId,omitempty" example:"550e8400-e29b-41d4-a716-446655440002" binding:"optional"`
 	FirstName             string      `json:"firstName" example:"Thomas"`
 	LastName              string      `json:"lastName" example:"Müller"`
-	BirthDate             *string     `json:"birthDate,omitempty" example:"1985-03-15"`
-	Email                 *string     `json:"email,omitempty" example:"thomas.mueller@example.com"`
-	Phone                 *string     `json:"phone,omitempty" example:"+49 331 12345"`
-	Street                *string     `json:"street,omitempty" example:"Hauptstraße"`
-	StreetNo              *string     `json:"streetNo,omitempty" example:"42"`
-	PostalCode            *string     `json:"postalCode,omitempty" example:"14467"`
-	City                  *string     `json:"city,omitempty" example:"Potsdam"`
-	AnnualHouseholdIncome *float64    `json:"annualHouseholdIncome,omitempty" example:"65000.00"`
-	IncomeStatus          *string     `json:"incomeStatus,omitempty" example:"PROVIDED" enums:"PROVIDED,MAX_ACCEPTED,PENDING,NOT_REQUIRED,HISTORIC,FOSTER_FAMILY"`
+	BirthDate             *string     `json:"birthDate,omitempty" example:"1985-03-15" binding:"optional"`
+	Email                 *string     `json:"email,omitempty" example:"thomas.mueller@example.com" binding:"optional"`
+	Phone                 *string     `json:"phone,omitempty" example:"+49 331 12345" binding:"optional"`
+	Street                *string     `json:"street,omitempty" example:"Hauptstraße" binding:"optional"`
+	StreetNo              *string     `json:"streetNo,omitempty" example:"42" binding:"optional"`
+	PostalCode            *string     `json:"postalCode,omitempty" example:"14467" binding:"optional"`
+	City                  *string     `json:"city,omitempty" example:"Potsdam" binding:"optional"`
+	AnnualHouseholdIncome *float64    `json:"annualHouseholdIncome,omitempty" example:"65000.00" binding:"optional"`
+	IncomeStatus          *string     `json:"incomeStatus,omitempty" example:"PROVIDED" enums:"PROVIDED,MAX_ACCEPTED,PENDING,NOT_REQUIRED,HISTORIC,FOSTER_FAMILY" binding:"optional"`
 	CreatedAt             string      `json:"createdAt" example:"2023-01-15T10:00:00Z"`
 	UpdatedAt             string      `json:"updatedAt" example:"2023-01-15T10:00:00Z"`
-	Children              interface{} `json:"children,omitempty"`
-	Household             interface{} `json:"household,omitempty"`
-	Member                interface{} `json:"member,omitempty"`
+	Children              interface{} `json:"children,omitempty" binding:"optional"`
+	Household             interface{} `json:"household,omitempty" binding:"optional"`
+	Member                interface{} `json:"member,omitempty" binding:"optional"`
 } //@name Parent
 
 // ParentListResponse represents a paginated list of parents.
@@ -61,15 +61,15 @@ type ParentListResponse struct {
 type CreateParentRequest struct {
 	FirstName             string   `json:"firstName" example:"Thomas"`
 	LastName              string   `json:"lastName" example:"Müller"`
-	BirthDate             *string  `json:"birthDate,omitempty" example:"1985-03-15"`
-	Email                 *string  `json:"email,omitempty" example:"thomas.mueller@example.com"`
-	Phone                 *string  `json:"phone,omitempty" example:"+49 331 12345"`
-	Street                *string  `json:"street,omitempty" example:"Hauptstraße"`
-	StreetNo              *string  `json:"streetNo,omitempty" example:"42"`
-	PostalCode            *string  `json:"postalCode,omitempty" example:"14467"`
-	City                  *string  `json:"city,omitempty" example:"Potsdam"`
-	AnnualHouseholdIncome *float64 `json:"annualHouseholdIncome,omitempty" example:"65000.00"`
-	IncomeStatus          *string  `json:"incomeStatus,omitempty" example:"PROVIDED" enums:"PROVIDED,MAX_ACCEPTED,PENDING,NOT_REQUIRED,HISTORIC,FOSTER_FAMILY"`
+	BirthDate             *string  `json:"birthDate,omitempty" example:"1985-03-15" binding:"optional"`
+	Email                 *string  `json:"email,omitempty" example:"thomas.mueller@example.com" binding:"optional"`
+	Phone                 *string  `json:"phone,omitempty" example:"+49 331 12345" binding:"optional"`
+	Street                *string  `json:"street,omitempty" example:"Hauptstraße" binding:"optional"`
+	StreetNo              *string  `json:"streetNo,omitempty" example:"42" binding:"optional"`
+	PostalCode            *string  `json:"postalCode,omitempty" example:"14467" binding:"optional"`
+	City                  *string  `json:"city,omitempty" example:"Potsdam" binding:"optional"`
+	AnnualHouseholdIncome *float64 `json:"annualHouseholdIncome,omitempty" example:"65000.00" binding:"optional"`
+	IncomeStatus          *string  `json:"incomeStatus,omitempty" example:"PROVIDED" enums:"PROVIDED,MAX_ACCEPTED,PENDING,NOT_REQUIRED,HISTORIC,FOSTER_FAMILY" binding:"optional"`
 } //@name CreateParentRequest
 
 // List returns all parents with pagination
@@ -184,17 +184,17 @@ func (h *ParentHandler) Get(w http.ResponseWriter, r *http.Request) {
 // UpdateParentRequest represents a request to update a parent.
 // @Description Request body for updating a parent
 type UpdateParentRequest struct {
-	FirstName             *string  `json:"firstName,omitempty" example:"Thomas"`
-	LastName              *string  `json:"lastName,omitempty" example:"Müller"`
-	BirthDate             *string  `json:"birthDate,omitempty" example:"1985-03-15"`
-	Email                 *string  `json:"email,omitempty" example:"thomas.mueller@example.com"`
-	Phone                 *string  `json:"phone,omitempty" example:"+49 331 12345"`
-	Street                *string  `json:"street,omitempty" example:"Hauptstraße"`
-	StreetNo              *string  `json:"streetNo,omitempty" example:"42"`
-	PostalCode            *string  `json:"postalCode,omitempty" example:"14467"`
-	City                  *string  `json:"city,omitempty" example:"Potsdam"`
-	AnnualHouseholdIncome *float64 `json:"annualHouseholdIncome,omitempty" example:"65000.00"`
-	IncomeStatus          *string  `json:"incomeStatus,omitempty" example:"PROVIDED" enums:"PROVIDED,MAX_ACCEPTED,PENDING,NOT_REQUIRED,HISTORIC,FOSTER_FAMILY"`
+	FirstName             *string  `json:"firstName,omitempty" example:"Thomas" binding:"optional"`
+	LastName              *string  `json:"lastName,omitempty" example:"Müller" binding:"optional"`
+	BirthDate             *string  `json:"birthDate,omitempty" example:"1985-03-15" binding:"optional"`
+	Email                 *string  `json:"email,omitempty" example:"thomas.mueller@example.com" binding:"optional"`
+	Phone                 *string  `json:"phone,omitempty" example:"+49 331 12345" binding:"optional"`
+	Street                *string  `json:"street,omitempty" example:"Hauptstraße" binding:"optional"`
+	StreetNo              *string  `json:"streetNo,omitempty" example:"42" binding:"optional"`
+	PostalCode            *string  `json:"postalCode,omitempty" example:"14467" binding:"optional"`
+	City                  *string  `json:"city,omitempty" example:"Potsdam" binding:"optional"`
+	AnnualHouseholdIncome *float64 `json:"annualHouseholdIncome,omitempty" example:"65000.00" binding:"optional"`
+	IncomeStatus          *string  `json:"incomeStatus,omitempty" example:"PROVIDED" enums:"PROVIDED,MAX_ACCEPTED,PENDING,NOT_REQUIRED,HISTORIC,FOSTER_FAMILY" binding:"optional"`
 } //@name UpdateParentRequest
 
 // Update updates a parent

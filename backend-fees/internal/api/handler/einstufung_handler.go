@@ -34,9 +34,9 @@ type EinstufungResponse struct {
 	HouseholdID          string                            `json:"householdId"`
 	Year                 int                               `json:"year"`
 	ValidFrom            string                            `json:"validFrom"`
-	ValidUntil           *string                           `json:"validUntil,omitempty"`
-	SourceEinstufungID   *string                           `json:"sourceEinstufungId,omitempty"`
-	ChangeDate           *string                           `json:"changeDate,omitempty"`
+	ValidUntil           *string                           `json:"validUntil,omitempty" binding:"optional"`
+	SourceEinstufungID   *string                           `json:"sourceEinstufungId,omitempty" binding:"optional"`
+	ChangeDate           *string                           `json:"changeDate,omitempty" binding:"optional"`
 	EffectiveFromMonth   string                            `json:"effectiveFromMonth"`
 	IncomeCalculation    domain.HouseholdIncomeCalculation `json:"incomeCalculation"`
 	AnnualNetIncome      float64                           `json:"annualNetIncome"`
@@ -51,12 +51,12 @@ type EinstufungResponse struct {
 	DiscountPercent      int                               `json:"discountPercent"`
 	DiscountFactor       float64                           `json:"discountFactor"`
 	BaseFee              float64                           `json:"baseFee"`
-	Notes                string                            `json:"notes,omitempty"`
-	MonthlyTable         []domain.EinstufungMonthRow       `json:"monthlyTable,omitempty"`
+	Notes                string                            `json:"notes,omitempty" binding:"optional"`
+	MonthlyTable         []domain.EinstufungMonthRow       `json:"monthlyTable,omitempty" binding:"optional"`
 	CreatedAt            string                            `json:"createdAt"`
 	UpdatedAt            string                            `json:"updatedAt"`
-	Child                interface{}                       `json:"child,omitempty"`
-	Household            interface{}                       `json:"household,omitempty"`
+	Child                interface{}                       `json:"child,omitempty" binding:"optional"`
+	Household            interface{}                       `json:"household,omitempty" binding:"optional"`
 } //@name Einstufung
 
 // EinstufungListResponse represents a paginated list of Einstufungen.
@@ -85,12 +85,12 @@ type CreateEinstufungRequest struct {
 // UpdateEinstufungRequest represents a request to update an Einstufung.
 // @Description Request body for updating a fee classification
 type UpdateEinstufungRequest struct {
-	IncomeCalculation    *domain.HouseholdIncomeCalculation `json:"incomeCalculation,omitempty"`
-	HighestRateVoluntary *bool                              `json:"highestRateVoluntary,omitempty"`
-	CareHoursPerWeek     *int                               `json:"careHoursPerWeek,omitempty"` // Deprecated: Ignored; resolved from the child's care-hours history.
-	ChildrenCount        *int                               `json:"childrenCount,omitempty"`
-	ValidFrom            *string                            `json:"validFrom,omitempty"` // Only used for follow-up income classifications; ignored for initial classifications.
-	Notes                *string                            `json:"notes,omitempty"`
+	IncomeCalculation    *domain.HouseholdIncomeCalculation `json:"incomeCalculation,omitempty" binding:"optional"`
+	HighestRateVoluntary *bool                              `json:"highestRateVoluntary,omitempty" binding:"optional"`
+	CareHoursPerWeek     *int                               `json:"careHoursPerWeek,omitempty" binding:"optional"` // Deprecated: Ignored; resolved from the child's care-hours history.
+	ChildrenCount        *int                               `json:"childrenCount,omitempty" binding:"optional"`
+	ValidFrom            *string                            `json:"validFrom,omitempty" binding:"optional"` // Only used for follow-up income classifications; ignored for initial classifications.
+	Notes                *string                            `json:"notes,omitempty" binding:"optional"`
 } //@name UpdateEinstufungRequest
 
 // CreateFollowUpEinstufungRequest represents a request to create a follow-up Einstufung.

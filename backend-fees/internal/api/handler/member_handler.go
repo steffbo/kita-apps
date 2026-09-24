@@ -22,18 +22,18 @@ type MemberHandler struct {
 // @Description Member information
 type MemberResponse struct {
 	ID              string  `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
-	MemberNumber    *string `json:"memberNumber,omitempty" example:"M-2024-001"`
+	MemberNumber    *string `json:"memberNumber,omitempty" example:"M-2024-001" binding:"optional"`
 	FirstName       string  `json:"firstName" example:"Hans"`
 	LastName        string  `json:"lastName" example:"Müller"`
-	Email           *string `json:"email,omitempty" example:"hans.mueller@example.com"`
-	Phone           *string `json:"phone,omitempty" example:"+49 123 456789"`
-	Street          *string `json:"street,omitempty" example:"Hauptstraße"`
-	StreetNo        *string `json:"streetNo,omitempty" example:"42"`
-	PostalCode      *string `json:"postalCode,omitempty" example:"12345"`
-	City            *string `json:"city,omitempty" example:"Berlin"`
-	HouseholdID     *string `json:"householdId,omitempty" example:"550e8400-e29b-41d4-a716-446655440001"`
+	Email           *string `json:"email,omitempty" example:"hans.mueller@example.com" binding:"optional"`
+	Phone           *string `json:"phone,omitempty" example:"+49 123 456789" binding:"optional"`
+	Street          *string `json:"street,omitempty" example:"Hauptstraße" binding:"optional"`
+	StreetNo        *string `json:"streetNo,omitempty" example:"42" binding:"optional"`
+	PostalCode      *string `json:"postalCode,omitempty" example:"12345" binding:"optional"`
+	City            *string `json:"city,omitempty" example:"Berlin" binding:"optional"`
+	HouseholdID     *string `json:"householdId,omitempty" example:"550e8400-e29b-41d4-a716-446655440001" binding:"optional"`
 	MembershipStart string  `json:"membershipStart" example:"2024-01-01"`
-	MembershipEnd   *string `json:"membershipEnd,omitempty" example:"2024-12-31"`
+	MembershipEnd   *string `json:"membershipEnd,omitempty" example:"2024-12-31" binding:"optional"`
 	IsActive        bool    `json:"isActive" example:"true"`
 } //@name Member
 
@@ -55,18 +55,18 @@ func NewMemberHandler(memberService *service.MemberService) *MemberHandler {
 // CreateMemberRequest represents a request to create a member.
 // @Description Request body for creating a new member
 type CreateMemberRequest struct {
-	MemberNumber    *string `json:"memberNumber,omitempty" example:"M-2024-001"`
+	MemberNumber    *string `json:"memberNumber,omitempty" example:"M-2024-001" binding:"optional"`
 	FirstName       string  `json:"firstName" example:"Hans"`
 	LastName        string  `json:"lastName" example:"Müller"`
-	Email           *string `json:"email,omitempty" example:"hans.mueller@example.com"`
-	Phone           *string `json:"phone,omitempty" example:"+49 123 456789"`
-	Street          *string `json:"street,omitempty" example:"Hauptstraße"`
-	StreetNo        *string `json:"streetNo,omitempty" example:"42"`
-	PostalCode      *string `json:"postalCode,omitempty" example:"12345"`
-	City            *string `json:"city,omitempty" example:"Berlin"`
-	HouseholdID     *string `json:"householdId,omitempty" example:"550e8400-e29b-41d4-a716-446655440001"`
+	Email           *string `json:"email,omitempty" example:"hans.mueller@example.com" binding:"optional"`
+	Phone           *string `json:"phone,omitempty" example:"+49 123 456789" binding:"optional"`
+	Street          *string `json:"street,omitempty" example:"Hauptstraße" binding:"optional"`
+	StreetNo        *string `json:"streetNo,omitempty" example:"42" binding:"optional"`
+	PostalCode      *string `json:"postalCode,omitempty" example:"12345" binding:"optional"`
+	City            *string `json:"city,omitempty" example:"Berlin" binding:"optional"`
+	HouseholdID     *string `json:"householdId,omitempty" example:"550e8400-e29b-41d4-a716-446655440001" binding:"optional"`
 	MembershipStart string  `json:"membershipStart" example:"2024-01-01"`
-	MembershipEnd   *string `json:"membershipEnd,omitempty" example:"2024-12-31"`
+	MembershipEnd   *string `json:"membershipEnd,omitempty" example:"2024-12-31" binding:"optional"`
 } //@name CreateMemberRequest
 
 // List handles GET /members
@@ -266,18 +266,18 @@ func (h *MemberHandler) Get(w http.ResponseWriter, r *http.Request) {
 // UpdateMemberRequest represents a request to update a member.
 // @Description Request body for updating a member
 type UpdateMemberRequest struct {
-	FirstName       *string `json:"firstName,omitempty" example:"Hans"`
-	LastName        *string `json:"lastName,omitempty" example:"Müller"`
-	Email           *string `json:"email,omitempty" example:"hans.mueller@example.com"`
-	Phone           *string `json:"phone,omitempty" example:"+49 123 456789"`
-	Street          *string `json:"street,omitempty" example:"Hauptstraße"`
-	StreetNo        *string `json:"streetNo,omitempty" example:"42"`
-	PostalCode      *string `json:"postalCode,omitempty" example:"12345"`
-	City            *string `json:"city,omitempty" example:"Berlin"`
-	HouseholdID     *string `json:"householdId,omitempty" example:"550e8400-e29b-41d4-a716-446655440001"`
-	MembershipStart *string `json:"membershipStart,omitempty" example:"2024-01-01"`
-	MembershipEnd   *string `json:"membershipEnd,omitempty" example:"2024-12-31"`
-	IsActive        *bool   `json:"isActive,omitempty" example:"true"`
+	FirstName       *string `json:"firstName,omitempty" example:"Hans" binding:"optional"`
+	LastName        *string `json:"lastName,omitempty" example:"Müller" binding:"optional"`
+	Email           *string `json:"email,omitempty" example:"hans.mueller@example.com" binding:"optional"`
+	Phone           *string `json:"phone,omitempty" example:"+49 123 456789" binding:"optional"`
+	Street          *string `json:"street,omitempty" example:"Hauptstraße" binding:"optional"`
+	StreetNo        *string `json:"streetNo,omitempty" example:"42" binding:"optional"`
+	PostalCode      *string `json:"postalCode,omitempty" example:"12345" binding:"optional"`
+	City            *string `json:"city,omitempty" example:"Berlin" binding:"optional"`
+	HouseholdID     *string `json:"householdId,omitempty" example:"550e8400-e29b-41d4-a716-446655440001" binding:"optional"`
+	MembershipStart *string `json:"membershipStart,omitempty" example:"2024-01-01" binding:"optional"`
+	MembershipEnd   *string `json:"membershipEnd,omitempty" example:"2024-12-31" binding:"optional"`
+	IsActive        *bool   `json:"isActive,omitempty" example:"true" binding:"optional"`
 } //@name UpdateMemberRequest
 
 // Update handles PUT /members/{id}

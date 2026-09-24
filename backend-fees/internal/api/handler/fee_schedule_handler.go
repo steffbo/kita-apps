@@ -36,7 +36,7 @@ type FeeScheduleResponse struct {
 	ID        string `json:"id"`
 	ValidFrom string `json:"validFrom" example:"2027-01-01"`
 	// ValidUntil is the day before the next version starts; absent for the latest version.
-	ValidUntil *string                  `json:"validUntil,omitempty" example:"2027-07-31"`
+	ValidUntil *string                  `json:"validUntil,omitempty" example:"2027-07-31" binding:"optional"`
 	Name       string                   `json:"name"`
 	Config     domain.FeeScheduleConfig `json:"config"`
 	// Status is past, active or planned.

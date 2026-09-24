@@ -11,8 +11,8 @@ type User struct {
 	ID           uuid.UUID `json:"id" db:"id"`
 	Email        string    `json:"email" db:"email"`
 	PasswordHash string    `json:"-" db:"password_hash"`
-	FirstName    *string   `json:"firstName,omitempty" db:"first_name"`
-	LastName     *string   `json:"lastName,omitempty" db:"last_name"`
+	FirstName    *string   `json:"firstName,omitempty" db:"first_name" binding:"optional"`
+	LastName     *string   `json:"lastName,omitempty" db:"last_name" binding:"optional"`
 	Role         UserRole  `json:"role" db:"role"`
 	IsActive     bool      `json:"isActive" db:"is_active"`
 	CreatedAt    time.Time `json:"createdAt" db:"created_at"`

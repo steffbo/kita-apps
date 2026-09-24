@@ -27,14 +27,14 @@ func NewHouseholdHandler(householdService *service.HouseholdService) *HouseholdH
 type HouseholdResponse struct {
 	ID                    string      `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
 	Name                  string      `json:"name" example:"Familie Müller"`
-	AnnualHouseholdIncome *float64    `json:"annualHouseholdIncome,omitempty" example:"65000.00"`
-	IncomeStatus          *string     `json:"incomeStatus,omitempty" example:"PROVIDED" enums:"PROVIDED,MAX_ACCEPTED,PENDING,NOT_REQUIRED,HISTORIC,FOSTER_FAMILY"`
-	MembershipParentID    *string     `json:"membershipParentId,omitempty" example:"550e8400-e29b-41d4-a716-446655440000"`
-	MembershipStatus      *string     `json:"membershipAssignmentStatus,omitempty" example:"ASSUMED" enums:"ASSUMED,CONFIRMED"`
+	AnnualHouseholdIncome *float64    `json:"annualHouseholdIncome,omitempty" example:"65000.00" binding:"optional"`
+	IncomeStatus          *string     `json:"incomeStatus,omitempty" example:"PROVIDED" enums:"PROVIDED,MAX_ACCEPTED,PENDING,NOT_REQUIRED,HISTORIC,FOSTER_FAMILY" binding:"optional"`
+	MembershipParentID    *string     `json:"membershipParentId,omitempty" example:"550e8400-e29b-41d4-a716-446655440000" binding:"optional"`
+	MembershipStatus      *string     `json:"membershipAssignmentStatus,omitempty" example:"ASSUMED" enums:"ASSUMED,CONFIRMED" binding:"optional"`
 	CreatedAt             string      `json:"createdAt" example:"2023-01-15T10:00:00Z"`
 	UpdatedAt             string      `json:"updatedAt" example:"2023-01-15T10:00:00Z"`
-	Parents               interface{} `json:"parents,omitempty"`
-	Children              interface{} `json:"children,omitempty"`
+	Parents               interface{} `json:"parents,omitempty" binding:"optional"`
+	Children              interface{} `json:"children,omitempty" binding:"optional"`
 } //@name Household
 
 // HouseholdListResponse represents a paginated list of households.
@@ -51,10 +51,10 @@ type HouseholdListResponse struct {
 // @Description Request body for creating a new household
 type CreateHouseholdRequest struct {
 	Name                  string   `json:"name" example:"Familie Müller"`
-	AnnualHouseholdIncome *float64 `json:"annualHouseholdIncome,omitempty" example:"65000.00"`
-	IncomeStatus          *string  `json:"incomeStatus,omitempty" example:"PROVIDED" enums:"PROVIDED,MAX_ACCEPTED,PENDING,NOT_REQUIRED,HISTORIC,FOSTER_FAMILY"`
-	MembershipParentID    *string  `json:"membershipParentId,omitempty" example:"550e8400-e29b-41d4-a716-446655440000"`
-	MembershipStatus      *string  `json:"membershipAssignmentStatus,omitempty" example:"ASSUMED" enums:"ASSUMED,CONFIRMED"`
+	AnnualHouseholdIncome *float64 `json:"annualHouseholdIncome,omitempty" example:"65000.00" binding:"optional"`
+	IncomeStatus          *string  `json:"incomeStatus,omitempty" example:"PROVIDED" enums:"PROVIDED,MAX_ACCEPTED,PENDING,NOT_REQUIRED,HISTORIC,FOSTER_FAMILY" binding:"optional"`
+	MembershipParentID    *string  `json:"membershipParentId,omitempty" example:"550e8400-e29b-41d4-a716-446655440000" binding:"optional"`
+	MembershipStatus      *string  `json:"membershipAssignmentStatus,omitempty" example:"ASSUMED" enums:"ASSUMED,CONFIRMED" binding:"optional"`
 } //@name CreateHouseholdRequest
 
 // List returns all households with pagination
@@ -186,12 +186,12 @@ func (h *HouseholdHandler) Get(w http.ResponseWriter, r *http.Request) {
 // UpdateHouseholdRequest represents a request to update a household.
 // @Description Request body for updating a household
 type UpdateHouseholdRequest struct {
-	Name                  *string  `json:"name,omitempty" example:"Familie Müller"`
-	AnnualHouseholdIncome *float64 `json:"annualHouseholdIncome,omitempty" example:"65000.00"`
-	IncomeStatus          *string  `json:"incomeStatus,omitempty" example:"PROVIDED" enums:"PROVIDED,MAX_ACCEPTED,PENDING,NOT_REQUIRED,HISTORIC,FOSTER_FAMILY"`
-	MembershipParentID    *string  `json:"membershipParentId,omitempty" example:"550e8400-e29b-41d4-a716-446655440000"`
-	MembershipStatus      *string  `json:"membershipAssignmentStatus,omitempty" example:"ASSUMED" enums:"ASSUMED,CONFIRMED"`
-	ChildrenCountForFees  *int     `json:"childrenCountForFees,omitempty" example:"2"`
+	Name                  *string  `json:"name,omitempty" example:"Familie Müller" binding:"optional"`
+	AnnualHouseholdIncome *float64 `json:"annualHouseholdIncome,omitempty" example:"65000.00" binding:"optional"`
+	IncomeStatus          *string  `json:"incomeStatus,omitempty" example:"PROVIDED" enums:"PROVIDED,MAX_ACCEPTED,PENDING,NOT_REQUIRED,HISTORIC,FOSTER_FAMILY" binding:"optional"`
+	MembershipParentID    *string  `json:"membershipParentId,omitempty" example:"550e8400-e29b-41d4-a716-446655440000" binding:"optional"`
+	MembershipStatus      *string  `json:"membershipAssignmentStatus,omitempty" example:"ASSUMED" enums:"ASSUMED,CONFIRMED" binding:"optional"`
+	ChildrenCountForFees  *int     `json:"childrenCountForFees,omitempty" example:"2" binding:"optional"`
 } //@name UpdateHouseholdRequest
 
 // Update updates a household

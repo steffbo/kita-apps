@@ -35,10 +35,10 @@ type CreateFeeRequest struct {
 	ChildID            string   `json:"childId" example:"550e8400-e29b-41d4-a716-446655440001"`
 	FeeType            string   `json:"feeType" example:"FOOD" enums:"FOOD,MEMBERSHIP,CHILDCARE,REMINDER"`
 	Year               int      `json:"year" example:"2025"`
-	Month              *int     `json:"month,omitempty" example:"1"`
-	Amount             *float64 `json:"amount,omitempty" example:"45.40"`
-	DueDate            *string  `json:"dueDate,omitempty" example:"2025-01-05"`
-	ReconciliationYear *int     `json:"reconciliationYear,omitempty" example:"2024"`
+	Month              *int     `json:"month,omitempty" example:"1" binding:"optional"`
+	Amount             *float64 `json:"amount,omitempty" example:"45.40" binding:"optional"`
+	DueDate            *string  `json:"dueDate,omitempty" example:"2025-01-05" binding:"optional"`
+	ReconciliationYear *int     `json:"reconciliationYear,omitempty" example:"2024" binding:"optional"`
 } //@name CreateFeeRequest
 
 // NewFeeHandler creates a new fee handler.
@@ -230,7 +230,7 @@ func (h *FeeHandler) Overview(w http.ResponseWriter, r *http.Request) {
 // @Description Request body for generating fees
 type GenerateFeeRequest struct {
 	Year  int  `json:"year" example:"2024"`
-	Month *int `json:"month,omitempty" example:"3"` // nil for yearly fees (membership)
+	Month *int `json:"month,omitempty" example:"3" binding:"optional"` // nil for yearly fees (membership)
 } //@name GenerateFeeRequest
 
 // GenerateFeeResponse represents a response from generating fees.
@@ -238,7 +238,7 @@ type GenerateFeeRequest struct {
 type GenerateFeeResponse struct {
 	Created     int                      `json:"created" example:"50"`
 	Skipped     int                      `json:"skipped" example:"5"`
-	Suggestions []domain.MatchSuggestion `json:"suggestions,omitempty"`
+	Suggestions []domain.MatchSuggestion `json:"suggestions,omitempty" binding:"optional"`
 } //@name GenerateFeeResponse
 
 // Generate handles POST /fees/generate
@@ -331,7 +331,7 @@ func (h *FeeHandler) Get(w http.ResponseWriter, r *http.Request) {
 // UpdateFeeRequest represents a request to update a fee.
 // @Description Request body for updating a fee
 type UpdateFeeRequest struct {
-	Amount *float64 `json:"amount,omitempty" example:"275.50"`
+	Amount *float64 `json:"amount,omitempty" example:"275.50" binding:"optional"`
 } //@name UpdateFeeRequest
 
 // Update handles PUT /fees/{id}

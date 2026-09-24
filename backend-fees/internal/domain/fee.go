@@ -38,24 +38,24 @@ const (
 type FeeExpectation struct {
 	ID                 uuid.UUID  `json:"id" db:"id"`
 	ChildID            uuid.UUID  `json:"childId" db:"child_id"`
-	HouseholdID        *uuid.UUID `json:"householdId,omitempty" db:"household_id"`
+	HouseholdID        *uuid.UUID `json:"householdId,omitempty" db:"household_id" binding:"optional"`
 	FeeType            FeeType    `json:"feeType" db:"fee_type"`
 	Year               int        `json:"year" db:"year"`
-	Month              *int       `json:"month,omitempty" db:"month"` // nil for yearly fees
+	Month              *int       `json:"month,omitempty" db:"month" binding:"optional"` // nil for yearly fees
 	Amount             float64    `json:"amount" db:"amount"`
 	DueDate            time.Time  `json:"dueDate" db:"due_date"`
 	CreatedAt          time.Time  `json:"createdAt" db:"created_at"`
-	ReminderForID      *uuid.UUID `json:"reminderForId,omitempty" db:"reminder_for_id"`          // For REMINDER type: links to the original fee
-	ReconciliationYear *int       `json:"reconciliationYear,omitempty" db:"reconciliation_year"` // For Kalendarjahresabrechnung: the year this Nachzahlung is for
+	ReminderForID      *uuid.UUID `json:"reminderForId,omitempty" db:"reminder_for_id" binding:"optional"`          // For REMINDER type: links to the original fee
+	ReconciliationYear *int       `json:"reconciliationYear,omitempty" db:"reconciliation_year" binding:"optional"` // For Kalendarjahresabrechnung: the year this Nachzahlung is for
 
 	// Joined fields
-	Child          *Child         `json:"child,omitempty" db:"-"`
+	Child          *Child         `json:"child,omitempty" db:"-" binding:"optional"`
 	IsPaid         bool           `json:"isPaid" db:"-"`
-	PaidAt         *time.Time     `json:"paidAt,omitempty" db:"-"`
-	MatchedBy      *PaymentMatch  `json:"matchedBy,omitempty" db:"-"`
-	MatchedAmount  float64        `json:"matchedAmount,omitempty" db:"-"`  // Total matched across all transactions
-	Remaining      float64        `json:"remaining,omitempty" db:"-"`      // Amount still needed
-	PartialMatches []PaymentMatch `json:"partialMatches,omitempty" db:"-"` // All transactions covering this fee
+	PaidAt         *time.Time     `json:"paidAt,omitempty" db:"-" binding:"optional"`
+	MatchedBy      *PaymentMatch  `json:"matchedBy,omitempty" db:"-" binding:"optional"`
+	MatchedAmount  float64        `json:"matchedAmount,omitempty" db:"-" binding:"optional"`  // Total matched across all transactions
+	Remaining      float64        `json:"remaining,omitempty" db:"-" binding:"optional"`      // Amount still needed
+	PartialMatches []PaymentMatch `json:"partialMatches,omitempty" db:"-" binding:"optional"` // All transactions covering this fee
 }
 
 // FeeCoverage represents the coverage status of fees by transactions.
@@ -85,7 +85,7 @@ type CoveredTransaction struct {
 	TransactionID  uuid.UUID `json:"transactionId"`
 	Amount         float64   `json:"amount"`
 	BookingDate    time.Time `json:"bookingDate"`
-	Description    *string   `json:"description,omitempty"`
+	Description    *string   `json:"description,omitempty" binding:"optional"`
 	IsForThisMonth bool      `json:"isForThisMonth"` // true if transaction date matches fee month
 }
 

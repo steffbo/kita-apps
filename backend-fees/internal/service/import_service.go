@@ -73,7 +73,7 @@ type ImportResult struct {
 	Blacklisted int                         `json:"blacklisted"`
 	Warnings    int                         `json:"warnings"`
 	Suggestions []domain.MatchSuggestion    `json:"suggestions"`
-	WarningList []domain.TransactionWarning `json:"warningList,omitempty"`
+	WarningList []domain.TransactionWarning `json:"warningList,omitempty" binding:"optional"`
 	// Errors lists rows that could not be saved or processed; they are also
 	// stored on the import batch.
 	Errors []domain.ImportError `json:"errors"`

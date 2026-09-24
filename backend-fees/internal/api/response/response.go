@@ -8,7 +8,7 @@ import (
 // ErrorResponse represents an API error response.
 type ErrorResponse struct {
 	Error   string `json:"error"`
-	Message string `json:"message,omitempty"`
+	Message string `json:"message,omitempty" binding:"optional"`
 	Code    int    `json:"code"`
 }
 
@@ -23,7 +23,7 @@ type ErrorBody struct {
 // SuccessResponse represents a generic success response.
 type SuccessResponse struct {
 	Success bool        `json:"success"`
-	Data    interface{} `json:"data,omitempty"`
+	Data    interface{} `json:"data,omitempty" binding:"optional"`
 }
 
 // PaginatedResponse represents a paginated list response.

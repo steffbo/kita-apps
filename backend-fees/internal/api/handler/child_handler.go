@@ -52,14 +52,14 @@ type CreateChildRequest struct {
 	LastName        string  `json:"lastName" example:"Müller"`
 	BirthDate       string  `json:"birthDate" example:"2020-06-15"`
 	EntryDate       string  `json:"entryDate" example:"2023-08-01"`
-	ExitDate        *string `json:"exitDate,omitempty" example:"2026-07-31"`
-	Street          *string `json:"street,omitempty" example:"Hauptstraße"`
-	StreetNo        *string `json:"streetNo,omitempty" example:"42"`
-	PostalCode      *string `json:"postalCode,omitempty" example:"14467"`
-	City            *string `json:"city,omitempty" example:"Potsdam"`
-	LegalHours      *int    `json:"legalHours,omitempty" example:"35"`
-	LegalHoursUntil *string `json:"legalHoursUntil,omitempty" example:"2024-12-31"`
-	CareHours       *int    `json:"careHours,omitempty" example:"40"`
+	ExitDate        *string `json:"exitDate,omitempty" example:"2026-07-31" binding:"optional"`
+	Street          *string `json:"street,omitempty" example:"Hauptstraße" binding:"optional"`
+	StreetNo        *string `json:"streetNo,omitempty" example:"42" binding:"optional"`
+	PostalCode      *string `json:"postalCode,omitempty" example:"14467" binding:"optional"`
+	City            *string `json:"city,omitempty" example:"Potsdam" binding:"optional"`
+	LegalHours      *int    `json:"legalHours,omitempty" example:"35" binding:"optional"`
+	LegalHoursUntil *string `json:"legalHoursUntil,omitempty" example:"2024-12-31" binding:"optional"`
+	CareHours       *int    `json:"careHours,omitempty" example:"40" binding:"optional"`
 } //@name CreateChildRequest
 
 // List returns all children with pagination and filtering
@@ -222,28 +222,28 @@ func (h *ChildHandler) Get(w http.ResponseWriter, r *http.Request) {
 // UpdateChildRequest represents a request to update a child.
 // @Description Request body for updating a child
 type UpdateChildRequest struct {
-	FirstName       *string `json:"firstName,omitempty" example:"Emma"`
-	LastName        *string `json:"lastName,omitempty" example:"Müller"`
-	BirthDate       *string `json:"birthDate,omitempty" example:"2020-06-15"`
-	EntryDate       *string `json:"entryDate,omitempty" example:"2023-08-01"`
-	ExitDate        *string `json:"exitDate,omitempty" example:"2026-07-31"`
-	Street          *string `json:"street,omitempty" example:"Hauptstraße"`
-	StreetNo        *string `json:"streetNo,omitempty" example:"42"`
-	PostalCode      *string `json:"postalCode,omitempty" example:"14467"`
-	City            *string `json:"city,omitempty" example:"Potsdam"`
-	LegalHours      *int    `json:"legalHours,omitempty" example:"35"`
-	LegalHoursUntil *string `json:"legalHoursUntil,omitempty" example:"2024-12-31"`
-	CareHours       *int    `json:"careHours,omitempty" example:"40"`
-	IsActive        *bool   `json:"isActive,omitempty" example:"true"`
+	FirstName       *string `json:"firstName,omitempty" example:"Emma" binding:"optional"`
+	LastName        *string `json:"lastName,omitempty" example:"Müller" binding:"optional"`
+	BirthDate       *string `json:"birthDate,omitempty" example:"2020-06-15" binding:"optional"`
+	EntryDate       *string `json:"entryDate,omitempty" example:"2023-08-01" binding:"optional"`
+	ExitDate        *string `json:"exitDate,omitempty" example:"2026-07-31" binding:"optional"`
+	Street          *string `json:"street,omitempty" example:"Hauptstraße" binding:"optional"`
+	StreetNo        *string `json:"streetNo,omitempty" example:"42" binding:"optional"`
+	PostalCode      *string `json:"postalCode,omitempty" example:"14467" binding:"optional"`
+	City            *string `json:"city,omitempty" example:"Potsdam" binding:"optional"`
+	LegalHours      *int    `json:"legalHours,omitempty" example:"35" binding:"optional"`
+	LegalHoursUntil *string `json:"legalHoursUntil,omitempty" example:"2024-12-31" binding:"optional"`
+	CareHours       *int    `json:"careHours,omitempty" example:"40" binding:"optional"`
+	IsActive        *bool   `json:"isActive,omitempty" example:"true" binding:"optional"`
 } //@name UpdateChildRequest
 
 // CareHoursHistoryResponse represents one care hours history period.
 type CareHoursHistoryResponse struct {
 	ID             string  `json:"id" example:"550e8400-e29b-41d4-a716-446655440010"`
 	ChildID        string  `json:"childId" example:"550e8400-e29b-41d4-a716-446655440000"`
-	CareHours      *int    `json:"careHours,omitempty" example:"40"`
+	CareHours      *int    `json:"careHours,omitempty" example:"40" binding:"optional"`
 	EffectiveFrom  string  `json:"effectiveFrom" example:"2026-01-01"`
-	EffectiveUntil *string `json:"effectiveUntil,omitempty" example:"2026-03-31"`
+	EffectiveUntil *string `json:"effectiveUntil,omitempty" example:"2026-03-31" binding:"optional"`
 	CreatedAt      string  `json:"createdAt" example:"2026-01-01T10:00:00Z"`
 	UpdatedAt      string  `json:"updatedAt" example:"2026-01-01T10:00:00Z"`
 } //@name CareHoursHistoryEntry
@@ -252,22 +252,22 @@ type CareHoursHistoryResponse struct {
 type LegalHoursHistoryResponse struct {
 	ID             string  `json:"id" example:"550e8400-e29b-41d4-a716-446655440011"`
 	ChildID        string  `json:"childId" example:"550e8400-e29b-41d4-a716-446655440000"`
-	LegalHours     *int    `json:"legalHours,omitempty" example:"35"`
+	LegalHours     *int    `json:"legalHours,omitempty" example:"35" binding:"optional"`
 	EffectiveFrom  string  `json:"effectiveFrom" example:"2026-01-01"`
-	EffectiveUntil *string `json:"effectiveUntil,omitempty" example:"2026-03-31"`
+	EffectiveUntil *string `json:"effectiveUntil,omitempty" example:"2026-03-31" binding:"optional"`
 	CreatedAt      string  `json:"createdAt" example:"2026-01-01T10:00:00Z"`
 	UpdatedAt      string  `json:"updatedAt" example:"2026-01-01T10:00:00Z"`
 } //@name LegalHoursHistoryEntry
 
 // CreateCareHoursHistoryRequest represents a new care hours history entry.
 type CreateCareHoursHistoryRequest struct {
-	CareHours *int   `json:"careHours"`
+	CareHours *int   `json:"careHours" binding:"optional"`
 	ValidFrom string `json:"validFrom" example:"2026-01-01"`
 } //@name CreateCareHoursHistoryRequest
 
 // CreateLegalHoursHistoryRequest represents a new legal hours history entry.
 type CreateLegalHoursHistoryRequest struct {
-	LegalHours *int   `json:"legalHours"`
+	LegalHours *int   `json:"legalHours" binding:"optional"`
 	ValidFrom  string `json:"validFrom" example:"2026-01-01"`
 } //@name CreateLegalHoursHistoryRequest
 
@@ -654,14 +654,14 @@ type LedgerEntryResponse struct {
 	Date        string  `json:"date" example:"2024-01-05"`
 	Type        string  `json:"type" example:"fee" enums:"fee,payment"`
 	Description string  `json:"description" example:"Essensgeld Januar 2024"`
-	FeeType     string  `json:"feeType,omitempty" example:"FOOD"`
-	Year        int     `json:"year,omitempty" example:"2024"`
-	Month       *int    `json:"month,omitempty" example:"1"`
+	FeeType     string  `json:"feeType,omitempty" example:"FOOD" binding:"optional"`
+	Year        int     `json:"year,omitempty" example:"2024" binding:"optional"`
+	Month       *int    `json:"month,omitempty" example:"1" binding:"optional"`
 	Debit       float64 `json:"debit" example:"45.40"`
 	Credit      float64 `json:"credit" example:"0"`
 	Balance     float64 `json:"balance" example:"45.40"`
-	IsPaid      bool    `json:"isPaid,omitempty" example:"false"`
-	PaidAt      *string `json:"paidAt,omitempty" example:"2024-01-10"`
+	IsPaid      bool    `json:"isPaid,omitempty" example:"false" binding:"optional"`
+	PaidAt      *string `json:"paidAt,omitempty" example:"2024-01-10" binding:"optional"`
 } //@name LedgerEntry
 
 // LedgerSummaryResponse provides totals for the ledger.
@@ -679,7 +679,7 @@ type LedgerSummaryResponse struct {
 // @Description Payment ledger for a child
 type ChildLedgerResponse struct {
 	ChildID string                `json:"childId" example:"550e8400-e29b-41d4-a716-446655440000"`
-	Child   interface{}           `json:"child,omitempty"`
+	Child   interface{}           `json:"child,omitempty" binding:"optional"`
 	Entries []LedgerEntryResponse `json:"entries"`
 	Summary LedgerSummaryResponse `json:"summary"`
 } //@name ChildLedger
@@ -736,7 +736,7 @@ type CoveredTransactionResponse struct {
 	TransactionID  string  `json:"transactionId" example:"550e8400-e29b-41d4-a716-446655440000"`
 	Amount         float64 `json:"amount" example:"66.00"`
 	BookingDate    string  `json:"bookingDate" example:"2024-03-05"`
-	Description    *string `json:"description,omitempty" example:"Platzgeld März"`
+	Description    *string `json:"description,omitempty" example:"Platzgeld März" binding:"optional"`
 	IsForThisMonth bool    `json:"isForThisMonth" example:"true"`
 }
 

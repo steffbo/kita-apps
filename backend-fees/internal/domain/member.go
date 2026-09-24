@@ -14,20 +14,20 @@ type Member struct {
 	MemberNumber    string     `json:"memberNumber" db:"member_number"`
 	FirstName       string     `json:"firstName" db:"first_name"`
 	LastName        string     `json:"lastName" db:"last_name"`
-	Email           *string    `json:"email,omitempty" db:"email"`
-	Phone           *string    `json:"phone,omitempty" db:"phone"`
-	Street          *string    `json:"street,omitempty" db:"street"`
-	StreetNo        *string    `json:"streetNo,omitempty" db:"street_no"`
-	PostalCode      *string    `json:"postalCode,omitempty" db:"postal_code"`
-	City            *string    `json:"city,omitempty" db:"city"`
-	HouseholdID     *uuid.UUID `json:"householdId,omitempty" db:"household_id"`
+	Email           *string    `json:"email,omitempty" db:"email" binding:"optional"`
+	Phone           *string    `json:"phone,omitempty" db:"phone" binding:"optional"`
+	Street          *string    `json:"street,omitempty" db:"street" binding:"optional"`
+	StreetNo        *string    `json:"streetNo,omitempty" db:"street_no" binding:"optional"`
+	PostalCode      *string    `json:"postalCode,omitempty" db:"postal_code" binding:"optional"`
+	City            *string    `json:"city,omitempty" db:"city" binding:"optional"`
+	HouseholdID     *uuid.UUID `json:"householdId,omitempty" db:"household_id" binding:"optional"`
 	MembershipStart time.Time  `json:"membershipStart" db:"membership_start"`
-	MembershipEnd   *time.Time `json:"membershipEnd,omitempty" db:"membership_end"`
+	MembershipEnd   *time.Time `json:"membershipEnd,omitempty" db:"membership_end" binding:"optional"`
 	IsActive        bool       `json:"isActive" db:"is_active"`
 	CreatedAt       time.Time  `json:"createdAt" db:"created_at"`
 	UpdatedAt       time.Time  `json:"updatedAt" db:"updated_at"`
 	// Loaded relations (not stored in DB)
-	Household *Household `json:"household,omitempty" db:"-"`
+	Household *Household `json:"household,omitempty" db:"-" binding:"optional"`
 }
 
 // FullName returns the member's full name.
