@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -152,20 +153,26 @@ func (h *AuthHandler) Refresh(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Revoke old refresh token
-	if err := h.authService.RevokeRefreshToken(r.Context(), req.RefreshToken); err != nil {
-		// Log but continue
+	// Email and role come from the account, so changes apply with the next refresh.
+	user, err := h.authService.GetUserByID(r.Context(), claims.UserID)
+	if err != nil || !user.IsActive {
+		_ = h.authService.RevokeRefreshToken(r.Context(), req.RefreshToken)
+		response.Unauthorized(w, "account is not active")
+		return
 	}
 
+	// Revoke old refresh token (best effort; a new pair is issued anyway)
+	_ = h.authService.RevokeRefreshToken(r.Context(), req.RefreshToken)
+
 	// Generate new token pair
-	tokenPair, err := h.jwtService.GenerateTokenPair(claims.UserID, claims.Email, claims.Role)
+	tokenPair, err := h.jwtService.GenerateTokenPair(user.ID, user.Email, string(user.Role))
 	if err != nil {
 		response.InternalError(w, "failed to generate tokens")
 		return
 	}
 
 	// Store new refresh token
-	if err := h.authService.StoreRefreshToken(r.Context(), claims.UserID, tokenPair.RefreshToken); err != nil {
+	if err := h.authService.StoreRefreshToken(r.Context(), user.ID, tokenPair.RefreshToken); err != nil {
 		response.InternalError(w, "failed to store refresh token")
 		return
 	}
@@ -270,8 +277,8 @@ func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if len(req.NewPassword) < 8 {
-		response.BadRequest(w, "new password must be at least 8 characters")
+	if len(req.NewPassword) < service.MinPasswordLength {
+		response.BadRequest(w, "Das neue Passwort muss mindestens 8 Zeichen haben")
 		return
 	}
 
@@ -283,10 +290,10 @@ func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 
 	err = h.authService.ChangePassword(r.Context(), userID, req.CurrentPassword, req.NewPassword)
 	if err != nil {
-		switch err {
-		case service.ErrUnauthorized:
-			response.BadRequest(w, "current password is incorrect")
-		case service.ErrNotFound:
+		switch {
+		case errors.Is(err, service.ErrUnauthorized):
+			response.BadRequest(w, "Das aktuelle Passwort ist falsch")
+		case errors.Is(err, service.ErrNotFound):
 			response.NotFound(w, "user not found")
 		default:
 			response.InternalError(w, "failed to change password")

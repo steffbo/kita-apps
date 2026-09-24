@@ -23,6 +23,13 @@ export interface TokenPair {
   expiresAt: string;
 }
 export type User = Schema['User'];
+export type ChangePasswordRequest = Schema['ChangePasswordRequest'];
+
+// ── User management (admin) ──────────────────────────────────────────────────
+export type UserAccount = Schema['UserAccount'];
+export type UserRole = UserAccount['role'];
+export type UserAccountRequest = Schema['UserAccountRequest'];
+export type CreateUserAccountRequest = Schema['CreateUserAccountRequest'];
 
 // ── Reminder settings and runs ───────────────────────────────────────────────
 export type ReminderPaymentSettings = Schema['handler.ReminderPaymentSettingsPayload'];

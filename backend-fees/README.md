@@ -67,6 +67,7 @@ Alle Einstellungen können über Umgebungsvariablen konfiguriert werden:
 | `JWT_SECRET` | `dev-secret-change-in-production` | Secret für JWT Signierung |
 | `JWT_ACCESS_EXPIRY` | `15m` | Access Token Gültigkeit |
 | `JWT_REFRESH_EXPIRY` | `168h` | Refresh Token Gültigkeit (7 Tage) |
+| `USER_NAME` / `USER_PASSWORD` | – | Bootstrap-Admin: wird beim Start in `fees.users` angelegt, wenn es noch kein Konto mit dieser E-Mail gibt. Ein bestehendes Konto wird nie überschrieben (in der App geänderte Passwörter bleiben). Notfall-Reset: Zeile in `fees.users` löschen und neu starten. |
 | `READ_TIMEOUT` | `15s` | HTTP Read Timeout |
 | `WRITE_TIMEOUT` | `15s` | HTTP Write Timeout |
 | `DB_MAX_OPEN_CONNS` | `25` | Max offene DB-Verbindungen |
@@ -85,6 +86,9 @@ Base URL: `http://localhost:8081/api/fees/v1`
 | `POST` | `/auth/refresh` | Access Token erneuern |
 | `POST` | `/auth/logout` | Logout (Token invalidieren) |
 | `GET` | `/auth/me` | Aktueller Benutzer |
+| `POST` | `/auth/change-password` | Eigenes Passwort ändern (beendet alle Sitzungen des Kontos) |
+
+Benutzerverwaltung (nur `ADMIN`): `GET/POST /users`, `PUT /users/{id}` (E-Mail, Name, Rolle `ADMIN`/`USER`, aktiv; das eigene Konto kann nicht deaktiviert oder herabgestuft werden), `POST /users/{id}/password` (Passwort neu setzen). Deaktivieren und Passwort-Reset widerrufen die Refresh-Tokens; ein laufendes Access-Token gilt noch bis zu seinem Ablauf (15 min). E-Mail und Rolle im Token kommen beim Refresh aus der DB.
 
 **Login Request:**
 ```json

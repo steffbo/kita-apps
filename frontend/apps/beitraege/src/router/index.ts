@@ -82,6 +82,12 @@ const router = createRouter({
           component: () => import('@/pages/FeeSchedulesPage.vue'),
         },
         {
+          path: 'benutzer',
+          name: 'users',
+          component: () => import('@/pages/UsersPage.vue'),
+          meta: { requiresAdmin: true },
+        },
+        {
           path: 'einstufungen',
           name: 'einstufungen',
           component: () => import('@/pages/EinstufungenPage.vue'),
@@ -106,6 +112,11 @@ router.beforeEach(async (to, _from, next) => {
 
   if (to.meta.requiresAuth && !authStore.isAuthenticated) {
     next({ name: 'login', query: { redirect: to.fullPath } });
+    return;
+  }
+
+  if (to.meta.requiresAdmin && !authStore.isAdmin) {
+    next({ name: 'dashboard' });
     return;
   }
 

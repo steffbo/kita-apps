@@ -76,6 +76,10 @@ import type {
   UpdateChildNoteRequest,
   FeeScheduleVersion,
   FeeScheduleRequest,
+  ChangePasswordRequest,
+  UserAccount,
+  UserAccountRequest,
+  CreateUserAccountRequest,
 } from './types';
 import { ReminderCaseConflictError } from './types';
 import { todayISO } from '@/utils/format';
@@ -216,6 +220,39 @@ class ApiClient {
 
   async me(): Promise<User> {
     return this.request<User>('/auth/me');
+  }
+
+  async changePassword(data: ChangePasswordRequest): Promise<void> {
+    await this.request<unknown>('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // User management (admin)
+  async getUsers(): Promise<UserAccount[]> {
+    return (await this.request<UserAccount[] | null>('/users')) ?? [];
+  }
+
+  async createUser(data: CreateUserAccountRequest): Promise<UserAccount> {
+    return this.request<UserAccount>('/users', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateUser(id: string, data: UserAccountRequest): Promise<UserAccount> {
+    return this.request<UserAccount>(`/users/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async setUserPassword(id: string, password: string): Promise<void> {
+    return this.request<void>(`/users/${id}/password`, {
+      method: 'POST',
+      body: JSON.stringify({ password }),
+    });
   }
 
   // Helper to normalize paginated responses (Go returns null for empty slices)

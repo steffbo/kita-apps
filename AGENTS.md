@@ -97,7 +97,7 @@ ssh vm-infra-dev \
   "sudo docker exec kita-db psql -U kita -d kita -c 'SELECT COUNT(*) FROM fees.children;'"
 ```
 
-Qualify schemas explicitly (`public.*`, `fees.*`, `portal.*`). `backend-fees` auth is still the single static admin identity from `USER_NAME` / `USER_PASSWORD`; there is no agent service account (`fees.users` was dropped in migration `000020`).
+Qualify schemas explicitly (`public.*`, `fees.*`, `portal.*`). `backend-fees` users live in `fees.users` (migration `000036`, bcrypt hashes, roles `ADMIN`/`USER`, managed on the "Benutzer" page). `USER_NAME` / `USER_PASSWORD` only bootstrap the admin when no account with that email exists (same ID as the former static admin, `a0eebc99-…`); they never overwrite it. There is no agent service account yet.
 
 Note on the kita stack `.env` (`/srv/homelab/stacks/infra-dev/apps/kita/.env` on infra-dev): values with special characters (e.g. `USER_PASSWORD`) are wrapped in single quotes. Docker Compose strips the quotes when passing them into containers, so login works — but when reading the file manually (scripts, shell parsing), strip surrounding `'` yourself or authentication will fail.
 

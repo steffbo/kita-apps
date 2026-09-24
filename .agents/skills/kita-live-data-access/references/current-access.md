@@ -23,23 +23,23 @@ Resolve the live contract from:
 - `backend-fees/internal/api/handler/auth_handler.go`
 - `backend-fees/internal/service/auth_service.go`
 - `backend-fees/internal/config/config.go`
-- `backend-fees/migrations/000020_drop_users.up.sql`
+- `backend-fees/migrations/000036_users.up.sql`
+- `backend-fees/internal/service/auth_service.go`, `user_service.go`
 - `openapi/fees/openapi3.yaml`
 
 Current behavior:
 
 - login is `POST /api/fees/v1/auth/login`
 - protected routes use a JWT bearer access token
-- credentials come from `USER_NAME` and `USER_PASSWORD`
-- the authenticated identity is a static admin returned by `AuthService`
-- `fees.users` was dropped; do not query it to discover login users
-- refresh-token persistence does not imply that multiple application users exist
+- accounts live in `fees.users` (bcrypt hash, role `ADMIN`/`USER`, `is_active`); never read `password_hash`
+- `USER_NAME` / `USER_PASSWORD` only bootstrap the admin account on first start; its password may since have been changed in the app, so the env value is not guaranteed to work
+- role and email in tokens are taken from the DB on login and refresh; inactive accounts cannot log in or refresh
 
 Prefer an already authenticated browser, an injected short-lived token, or a future dedicated service account. If current runtime credentials must be used, keep acquisition, login, and API invocation inside a non-echoing process and never expose the values.
 
 ## Dedicated agent identity target
 
-A separate agent identity would improve revocation, rotation, and auditability, but it is not supported by the current single-user fees auth implementation. Implementing it requires an application change, not merely adding another environment variable.
+A separate agent identity would improve revocation, rotation, and auditability, and is now possible: an admin can create a `USER` account for it on the "Benutzer" page. That is an explicit, user-authorized step; do not create it yourself.
 
 Prefer these properties when that work is authorized:
 

@@ -18,6 +18,19 @@ var (
 	ErrDuplicate = errors.New("duplicate")
 )
 
+// UserRepository handles user account persistence.
+type UserRepository interface {
+	List(ctx context.Context) ([]domain.User, error)
+	GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error)
+	// GetByEmail matches case-insensitively.
+	GetByEmail(ctx context.Context, email string) (*domain.User, error)
+	// Create returns ErrDuplicate when the email is taken.
+	Create(ctx context.Context, user *domain.User) error
+	// Update writes email, names, role and active flag (not the password).
+	Update(ctx context.Context, user *domain.User) error
+	UpdatePassword(ctx context.Context, id uuid.UUID, passwordHash string) error
+}
+
 // RefreshTokenRepository handles refresh token persistence.
 type RefreshTokenRepository interface {
 	Create(ctx context.Context, token *domain.RefreshToken) error

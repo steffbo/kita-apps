@@ -17,17 +17,22 @@ import {
   ClipboardList,
   NotebookPen,
   Scale,
+  KeyRound,
+  ShieldCheck,
 } from 'lucide-vue-next';
+import ChangePasswordDialog from '@/components/ChangePasswordDialog.vue';
 
 const authStore = useAuthStore();
 const route = useRoute();
 const router = useRouter();
 const mobileMenuOpen = ref(false);
 const showUserMenu = ref(false);
+const showChangePassword = ref(false);
+const passwordChanged = ref(false);
 
 const currentPath = computed(() => route.path);
 
-const navGroups = [
+const baseNavGroups = [
   {
     label: 'Täglich',
     items: [
@@ -55,6 +60,12 @@ const navGroups = [
   },
 ];
 
+const navGroups = computed(() =>
+  authStore.isAdmin
+    ? [...baseNavGroups, { label: 'System', items: [{ name: 'Benutzer', to: '/benutzer', icon: ShieldCheck }] }]
+    : baseNavGroups
+);
+
 function isActive(path: string) {
   if (path === '/') {
     return currentPath.value === '/';
@@ -65,6 +76,17 @@ function isActive(path: string) {
 async function handleLogout() {
   await authStore.logout();
   router.push('/login');
+}
+
+function openChangePassword() {
+  showUserMenu.value = false;
+  showChangePassword.value = true;
+}
+
+function onPasswordChanged() {
+  showChangePassword.value = false;
+  passwordChanged.value = true;
+  setTimeout(() => (passwordChanged.value = false), 5000);
 }
 
 function toggleUserMenu() {
@@ -167,6 +189,13 @@ function toggleUserMenu() {
                 class="absolute bottom-full left-0 right-0 mb-1 bg-white rounded-lg shadow-lg border py-1"
               >
                 <button
+                  @click="openChangePassword"
+                  class="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
+                >
+                  <KeyRound class="h-4 w-4" />
+                  Passwort ändern
+                </button>
+                <button
                   @click="handleLogout"
                   class="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
                 >
@@ -193,6 +222,19 @@ function toggleUserMenu() {
         <RouterView />
       </div>
     </main>
+
+    <ChangePasswordDialog
+      v-if="showChangePassword"
+      @close="showChangePassword = false"
+      @changed="onPasswordChanged"
+    />
+    <div
+      v-if="passwordChanged"
+      class="fixed bottom-4 right-4 z-[60] rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 shadow"
+      role="status"
+    >
+      Passwort geändert.
+    </div>
 
   </div>
 </template>

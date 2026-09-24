@@ -86,6 +86,7 @@ func main() {
 
 	// Initialize repositories
 	refreshTokenRepo := repository.NewPostgresRefreshTokenRepository(db)
+	userRepo := repository.NewPostgresUserRepository(db)
 	childRepo := repository.NewPostgresChildRepository(db)
 	parentRepo := repository.NewPostgresParentRepository(db)
 	householdRepo := repository.NewPostgresHouseholdRepository(db)
@@ -111,7 +112,15 @@ func main() {
 		Password: cfg.SMTP.Password,
 		UseTLS:   cfg.SMTP.UseTLS,
 	})
-	authService := service.NewAuthService(cfg.User.Username, cfg.User.Password, cfg.JWT.RefreshExpiry, refreshTokenRepo)
+	authService := service.NewAuthService(userRepo, cfg.JWT.RefreshExpiry, refreshTokenRepo)
+	created, err := authService.BootstrapAdmin(context.Background(), cfg.User.Username, cfg.User.Password)
+	if err != nil {
+		log.Fatal().Err(err).Msg("Failed to bootstrap admin user")
+	}
+	if created {
+		log.Info().Str("email", cfg.User.Username).Msg("Created admin user from USER_NAME/USER_PASSWORD")
+	}
+	userService := service.NewUserService(userRepo, refreshTokenRepo)
 
 	childService := service.NewChildService(childRepo, parentRepo, householdRepo)
 	parentService := service.NewParentService(parentRepo, childRepo, memberRepo, householdRepo)
@@ -131,6 +140,7 @@ func main() {
 	// Initialize handlers
 	handlers := &api.Handlers{
 		Auth:             handler.NewAuthHandler(authService, jwtService),
+		User:             handler.NewUserHandler(userService),
 		Child:            handler.NewChildHandler(childService, feeService, coverageService),
 		ChildImport:      handler.NewChildImportHandler(childImportService),
 		ChildNote:        handler.NewChildNoteHandler(childNoteService),

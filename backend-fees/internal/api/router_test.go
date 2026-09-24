@@ -43,6 +43,10 @@ var adminRoutes = []string{
 	"POST /fee-schedules/",
 	"PUT /fee-schedules/{id}",
 	"DELETE /fee-schedules/{id}",
+	"GET /users/",
+	"POST /users/",
+	"PUT /users/{id}",
+	"POST /users/{id}/password",
 }
 
 // testRouter wires the real router with nil handlers: every request asserted

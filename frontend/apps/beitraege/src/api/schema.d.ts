@@ -7110,6 +7110,330 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List user accounts */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Accounts */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["UserAccount"][];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Admin role required */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Create user account */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Account */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["CreateUserAccountRequest"];
+                };
+            };
+            responses: {
+                /** @description Created account */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["UserAccount"];
+                    };
+                };
+                /** @description Invalid account */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Admin role required */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Email already in use */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Update user account
+         * @description Admins cannot deactivate or demote themselves. Deactivating ends the account's sessions.
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description User ID (UUID) */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Account */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["UserAccountRequest"];
+                };
+            };
+            responses: {
+                /** @description Updated account */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["UserAccount"];
+                    };
+                };
+                /** @description Invalid account */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Admin role required */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description User not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Email already in use */
+                409: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/{id}/password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set user password
+         * @description Sets a new password (admin reset) and ends the account's sessions.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description User ID (UUID) */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description New password */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SetUserPasswordRequest"];
+                };
+            };
+            responses: {
+                /** @description Password set */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Password too short */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Admin role required */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description User not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -7470,6 +7794,21 @@ export interface components {
             street?: string;
             /** @example 42 */
             streetNo?: string;
+        };
+        CreateUserAccountRequest: {
+            /** @example user@example.com */
+            email: string;
+            /** @example Max */
+            firstName?: string;
+            isActive: boolean;
+            /** @example Mustermann */
+            lastName?: string;
+            password: string;
+            /**
+             * @example USER
+             * @enum {string}
+             */
+            role: "ADMIN" | "USER";
         };
         /** @description Paid month that would become overpaid after a childcare fee decrease */
         CreditReviewPeriod: {
@@ -8107,6 +8446,9 @@ export interface components {
             /** @example 550e8400-e29b-41d4-a716-446655440000 */
             warningId: string;
         };
+        SetUserPasswordRequest: {
+            password: string;
+        };
         StichtagsmeldungReport: {
             careHoursBreakdown: components["schemas"]["CareHoursBreakdownItem"][];
             legalHoursBreakdown: components["schemas"]["LegalHoursBreakdownItem"][];
@@ -8314,6 +8656,37 @@ export interface components {
             lastName?: string;
             /**
              * @example ADMIN
+             * @enum {string}
+             */
+            role: "ADMIN" | "USER";
+        };
+        UserAccount: {
+            createdAt: string;
+            /** @example user@example.com */
+            email: string;
+            /** @example Max */
+            firstName?: string;
+            id: string;
+            isActive: boolean;
+            /** @example Mustermann */
+            lastName?: string;
+            /**
+             * @example USER
+             * @enum {string}
+             */
+            role: "ADMIN" | "USER";
+            updatedAt: string;
+        };
+        UserAccountRequest: {
+            /** @example user@example.com */
+            email: string;
+            /** @example Max */
+            firstName?: string;
+            isActive: boolean;
+            /** @example Mustermann */
+            lastName?: string;
+            /**
+             * @example USER
              * @enum {string}
              */
             role: "ADMIN" | "USER";

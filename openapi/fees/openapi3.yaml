@@ -4708,6 +4708,211 @@ paths:
       summary: Get Stichtagsmeldung statistics
       tags:
         - Stichtagsmeldung
+  /users:
+    get:
+      responses:
+        "200":
+          description: Accounts
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/UserAccount"
+                type: array
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Admin role required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: List user accounts
+      tags:
+        - Users
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateUserAccountRequest"
+        description: Account
+        required: true
+      responses:
+        "201":
+          description: Created account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserAccount"
+        "400":
+          description: Invalid account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Admin role required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Email already in use
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Create user account
+      tags:
+        - Users
+  "/users/{id}":
+    put:
+      description: Admins cannot deactivate or demote themselves. Deactivating ends
+        the account's sessions.
+      parameters:
+        - description: User ID (UUID)
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserAccountRequest"
+        description: Account
+        required: true
+      responses:
+        "200":
+          description: Updated account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserAccount"
+        "400":
+          description: Invalid account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Admin role required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Email already in use
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Update user account
+      tags:
+        - Users
+  "/users/{id}/password":
+    post:
+      description: Sets a new password (admin reset) and ends the account's sessions.
+      parameters:
+        - description: User ID (UUID)
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SetUserPasswordRequest"
+        description: New password
+        required: true
+      responses:
+        "204":
+          description: Password set
+        "400":
+          description: Password too short
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Admin role required
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: User not found
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Set user password
+      tags:
+        - Users
 tags:
   - description: Authentifizierung und Autorisierung
     name: Auth
@@ -5453,6 +5658,34 @@ components:
       required:
         - firstName
         - lastName
+      type: object
+    CreateUserAccountRequest:
+      properties:
+        email:
+          example: user@example.com
+          type: string
+        firstName:
+          example: Max
+          type: string
+        isActive:
+          type: boolean
+        lastName:
+          example: Mustermann
+          type: string
+        password:
+          minLength: 8
+          type: string
+        role:
+          enum:
+            - ADMIN
+            - USER
+          example: USER
+          type: string
+      required:
+        - email
+        - isActive
+        - password
+        - role
       type: object
     CreditReviewPeriod:
       description: Paid month that would become overpaid after a childcare fee decrease
@@ -6700,6 +6933,14 @@ components:
         - lateFeeId
         - warningId
       type: object
+    SetUserPasswordRequest:
+      properties:
+        password:
+          minLength: 8
+          type: string
+      required:
+        - password
+      type: object
     StichtagsmeldungReport:
       properties:
         careHoursBreakdown:
@@ -7063,6 +7304,63 @@ components:
       required:
         - email
         - id
+        - role
+      type: object
+    UserAccount:
+      properties:
+        createdAt:
+          type: string
+        email:
+          example: user@example.com
+          type: string
+        firstName:
+          example: Max
+          type: string
+        id:
+          type: string
+        isActive:
+          type: boolean
+        lastName:
+          example: Mustermann
+          type: string
+        role:
+          enum:
+            - ADMIN
+            - USER
+          example: USER
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - createdAt
+        - email
+        - id
+        - isActive
+        - role
+        - updatedAt
+      type: object
+    UserAccountRequest:
+      properties:
+        email:
+          example: user@example.com
+          type: string
+        firstName:
+          example: Max
+          type: string
+        isActive:
+          type: boolean
+        lastName:
+          example: Mustermann
+          type: string
+        role:
+          enum:
+            - ADMIN
+            - USER
+          example: USER
+          type: string
+      required:
+        - email
+        - isActive
         - role
       type: object
     WarningList:

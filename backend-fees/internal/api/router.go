@@ -71,6 +71,15 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 			r.Get("/auth/me", handlers.Auth.Me)
 			r.Post("/auth/change-password", handlers.Auth.ChangePassword)
 
+			// User management (admin only)
+			r.Route("/users", func(r chi.Router) {
+				r.Use(customMiddleware.RequireRole("ADMIN"))
+				r.Get("/", handlers.User.List)
+				r.Post("/", handlers.User.Create)
+				r.Put("/{id}", handlers.User.Update)
+				r.Post("/{id}/password", handlers.User.SetPassword)
+			})
+
 			// Children
 			r.Route("/children", func(r chi.Router) {
 				r.Get("/", handlers.Child.List)
@@ -226,6 +235,7 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 // Handlers holds all HTTP handlers.
 type Handlers struct {
 	Auth             *handler.AuthHandler
+	User             *handler.UserHandler
 	Child            *handler.ChildHandler
 	ChildImport      *handler.ChildImportHandler
 	ChildNote        *handler.ChildNoteHandler

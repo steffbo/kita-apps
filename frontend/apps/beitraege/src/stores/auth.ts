@@ -113,6 +113,15 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  // Changing the password ends all sessions server-side, so log in again with the new one.
+  async function changePassword(currentPassword: string, newPassword: string) {
+    const email = user.value?.email;
+    await api.changePassword({ currentPassword, newPassword });
+    if (email) {
+      setTokens(await api.login({ email, password: newPassword }));
+    }
+  }
+
   async function initialize() {
     if (accessToken.value) {
       await fetchUser();
@@ -129,6 +138,7 @@ export const useAuthStore = defineStore('auth', () => {
     logout,
     fetchUser,
     tryRefresh,
+    changePassword,
     initialize,
   };
 });
