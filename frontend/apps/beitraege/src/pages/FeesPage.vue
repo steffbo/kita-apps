@@ -22,6 +22,7 @@ import {
   ChevronRight,
 } from 'lucide-vue-next';
 import { formatCurrency, formatDate, formatMonthName } from '@/utils/format';
+import { getFeeTypeColor, getFeeTypeName } from '@/utils/fees';
 
 const router = useRouter();
 const route = useRoute();
@@ -288,36 +289,6 @@ watch([sortBy, sortDir], () => {
   currentPage.value = 1;
   loadFees();
 });
-
-function getFeeTypeName(type: string): string {
-  switch (type) {
-    case 'MEMBERSHIP':
-      return 'Vereinsbeitrag';
-    case 'FOOD':
-      return 'Essensgeld';
-    case 'CHILDCARE':
-      return 'Platzgeld';
-    case 'REMINDER':
-      return 'Mahngebühr';
-    default:
-      return type;
-  }
-}
-
-function getFeeTypeColor(type: string): string {
-  switch (type) {
-    case 'MEMBERSHIP':
-      return 'bg-purple-100 text-purple-700';
-    case 'FOOD':
-      return 'bg-orange-100 text-orange-700';
-    case 'CHILDCARE':
-      return 'bg-blue-100 text-blue-700';
-    case 'REMINDER':
-      return 'bg-red-100 text-red-700';
-    default:
-      return 'bg-gray-100 text-gray-700';
-  }
-}
 
 function getStatusInfo(fee: FeeExpectation) {
   if (fee.isPaid) {

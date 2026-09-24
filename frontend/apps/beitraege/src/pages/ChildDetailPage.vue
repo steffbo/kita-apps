@@ -3,22 +3,15 @@ import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api';
 import type {
-  BankTransaction,
   CareHoursHistoryEntry,
   Child,
-  ChildNote,
   ChildcareFeeResult,
-  CreateParentRequest,
   FeeExpectation,
-  IncomeStatus,
   KnownIBANSummary,
   LegalHoursHistoryEntry,
   MatchSuggestion,
   Parent,
-  PaymentMatch,
-  UpdateChildRequest,
   UpdateHouseholdRequest,
-  UpdateParentRequest,
 } from '@/api/types';
 import {
   ArrowLeft,
@@ -33,22 +26,38 @@ import {
   Clock,
   AlertTriangle,
   AlertCircle,
-  X,
   Check,
   Users,
   Plus,
   Link,
-  Search,
   Unlink,
-  Copy,
   CreditCard,
   Home,
   Euro,
-  NotebookPen,
-  ChevronLeft,
-  ChevronRight,
 } from 'lucide-vue-next';
-import { formatCurrency, formatCurrencyWhole, formatDate, formatDateForInput, formatDateTime, formatMonthName } from '@/utils/format';
+import ChildNotesCard from '@/components/child/ChildNotesCard.vue';
+import ChildEditDialog from '@/components/child/ChildEditDialog.vue';
+import ParentFormDialog from '@/components/child/ParentFormDialog.vue';
+import TransactionDetailModal from '@/components/child/TransactionDetailModal.vue';
+import AllocationModal from '@/components/child/AllocationModal.vue';
+import ParentDetailModal from '@/components/child/ParentDetailModal.vue';
+import { formatCurrency, formatCurrencyWhole, formatDate, formatMonthName } from '@/utils/format';
+import {
+  formatConfidence,
+  formatMatchedBy,
+  getFeeMatches,
+  getFeeRemainingAmount,
+  getFeeTypeName,
+  getTxRemainingAmount,
+  maskIban,
+} from '@/utils/fees';
+import {
+  calculateAge,
+  formatCareHours,
+  getIncomeStatusLabel,
+  incomeStatusOptions,
+  isUnderThree,
+} from '@/utils/child';
 
 const route = useRoute();
 const router = useRouter();
@@ -58,22 +67,19 @@ const fees = ref<FeeExpectation[]>([]);
 const isLoading = ref(true);
 const error = ref<string | null>(null);
 
-type UpdateChildForm = UpdateChildRequest & {
-  legalHoursValidFrom?: string;
-  careHoursValidFrom?: string;
-};
-
 type EffectiveCareHours = {
   hours: number;
   effectiveFrom: string | null;
   isUpcoming: boolean;
 };
 
-// Edit dialog state
+// Dialogs rendered as sub-components (each resets its own state on open)
 const showEditDialog = ref(false);
-const editForm = ref<UpdateChildForm>({});
-const isEditing = ref(false);
-const editError = ref<string | null>(null);
+const showParentDialog = ref(false);
+const parentDialogMode = ref<'create' | 'link'>('create');
+const selectedFee = ref<FeeExpectation | null>(null);
+const allocationSuggestion = ref<MatchSuggestion | null>(null);
+const selectedParentForDetail = ref<Parent | null>(null);
 
 // Care hours history
 const careHoursHistory = ref<CareHoursHistoryEntry[]>([]);
@@ -83,46 +89,10 @@ const legalHoursHistory = ref<LegalHoursHistoryEntry[]>([]);
 const showDeleteDialog = ref(false);
 const isDeleting = ref(false);
 
-// Parent dialog state
-const showParentDialog = ref(false);
-const parentDialogMode = ref<'create' | 'link'>('create');
-const parentForm = ref<CreateParentRequest>({
-  firstName: '',
-  lastName: '',
-});
-const isCreatingParent = ref(false);
-const parentError = ref<string | null>(null);
-
-// Link parent state
-const searchQuery = ref('');
-const searchResults = ref<Parent[]>([]);
-const isSearching = ref(false);
-const selectedParent = ref<Parent | null>(null);
-const isLinking = ref(false);
-
 // Unlink parent state
 const parentToUnlink = ref<Parent | null>(null);
 const showUnlinkDialog = ref(false);
 const isUnlinking = ref(false);
-
-// Transaction detail modal state
-const selectedFee = ref<FeeExpectation | null>(null);
-const selectedTransaction = ref<BankTransaction | null>(null);
-const showTransactionModal = ref(false);
-const transactionAction = ref<'unmatch' | 'delete' | null>(null);
-const isUnmatchingTransaction = ref(false);
-const isDeletingTransaction = ref(false);
-const transactionActionError = ref<string | null>(null);
-
-// Parent detail modal state
-const showParentDetailModal = ref(false);
-const selectedParentForDetail = ref<Parent | null>(null);
-const isEditingParent = ref(false);
-const parentEditForm = ref<UpdateParentRequest>({});
-const isSavingParent = ref(false);
-const parentDetailError = ref<string | null>(null);
-const isParentEmailCopied = ref(false);
-let parentEmailCopyResetTimer: ReturnType<typeof setTimeout> | null = null;
 
 // Household editing state
 const isEditingHousehold = ref(false);
@@ -151,35 +121,6 @@ const isLoadingLikelyTransactions = ref(false);
 const likelyTransactionsError = ref<string | null>(null);
 const likelyTransactionsScanned = ref(0);
 
-// Notes state
-const notes = ref<ChildNote[]>([]);
-const notesTotal = ref(0);
-const notesIsLoading = ref(false);
-const notesError = ref<string | null>(null);
-const notesPage = ref(1);
-const notesPageSize = 5;
-const notesTotalPages = computed(() => Math.max(1, Math.ceil(notesTotal.value / notesPageSize)));
-
-// Note dialog state
-const showNoteDialog = ref(false);
-const noteDialogMode = ref<'create' | 'edit'>('create');
-const editingNote = ref<ChildNote | null>(null);
-const noteForm = ref({ text: '' });
-const isSavingNote = ref(false);
-const noteError = ref<string | null>(null);
-
-// Note delete dialog state
-const showNoteDeleteDialog = ref(false);
-const noteToDelete = ref<ChildNote | null>(null);
-const isDeletingNote = ref(false);
-
-// Allocation modal state
-const showAllocationModal = ref(false);
-const allocationSuggestion = ref<MatchSuggestion | null>(null);
-const allocationRows = ref<{ fee: FeeExpectation; amount: number }[]>([]);
-const allocationError = ref<string | null>(null);
-const isAllocating = ref(false);
-
 const childId = computed(() => route.params.id as string);
 
 async function loadChild() {
@@ -195,7 +136,6 @@ async function loadChild() {
     await loadChildcareFee();
     await loadTrustedIbans();
     await loadLikelyTransactions();
-    await loadNotes();
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Fehler beim Laden';
   } finally {
@@ -336,114 +276,20 @@ onMounted(loadChild);
 
 // Reload when navigating between children (e.g., clicking sibling links)
 watch(childId, () => {
-  notesPage.value = 1;
   loadChild();
 });
 
-// Notes pagination
-watch(notesPage, () => {
-  loadNotes();
-});
-
-let loadNotesSeq = 0;
-async function loadNotes() {
-  const seq = ++loadNotesSeq;
-  notesIsLoading.value = true;
-  notesError.value = null;
-  try {
-    const response = await api.getChildNotes(childId.value, {
-      page: notesPage.value,
-      perPage: notesPageSize,
-    });
-    if (seq !== loadNotesSeq) return;
-    notes.value = response.data;
-    notesTotal.value = response.total;
-
-    // If the page ran empty (e.g. after deleting the last note of a page),
-    // fall back to the last valid page
-    if (response.data.length === 0 && notesPage.value > 1 && response.total > 0) {
-      notesPage.value = Math.max(1, Math.ceil(response.total / notesPageSize));
-      return;
-    }
-  } catch (e) {
-    if (seq !== loadNotesSeq) return;
-    notesError.value = e instanceof Error ? e.message : 'Fehler beim Laden der Notizen';
-  } finally {
-    if (seq === loadNotesSeq) notesIsLoading.value = false;
-  }
-}
-
-function openNoteCreateDialog() {
-  noteDialogMode.value = 'create';
-  editingNote.value = null;
-  noteForm.value = { text: '' };
-  noteError.value = null;
-  showNoteDialog.value = true;
-}
-
-function openNoteEditDialog(note: ChildNote) {
-  noteDialogMode.value = 'edit';
-  editingNote.value = note;
-  noteForm.value = { text: note.text };
-  noteError.value = null;
-  showNoteDialog.value = true;
-}
-
-async function handleSaveNote() {
-  isSavingNote.value = true;
-  noteError.value = null;
-  try {
-    if (noteDialogMode.value === 'create') {
-      await api.createChildNote(childId.value, { text: noteForm.value.text });
-    } else if (editingNote.value) {
-      await api.updateChildNote(childId.value, editingNote.value.id, { text: noteForm.value.text });
-    }
-    showNoteDialog.value = false;
-    editingNote.value = null;
-    await loadNotes();
-  } catch (e) {
-    noteError.value = e instanceof Error ? e.message : 'Fehler beim Speichern';
-  } finally {
-    isSavingNote.value = false;
-  }
-}
-
-async function handleDeleteNote() {
-  if (!noteToDelete.value) return;
-  isDeletingNote.value = true;
-  try {
-    await api.deleteChildNote(childId.value, noteToDelete.value.id);
-    showNoteDeleteDialog.value = false;
-    noteToDelete.value = null;
-    await loadNotes();
-  } catch (e) {
-    notesError.value = e instanceof Error ? e.message : 'Fehler beim Löschen';
-    showNoteDeleteDialog.value = false;
-  } finally {
-    isDeletingNote.value = false;
-  }
-}
-
-// Shows a "Bearbeitet" marker when the update timestamp drifted from creation.
-function isNoteEdited(note: ChildNote): boolean {
-  return new Date(note.updatedAt).getTime() - new Date(note.createdAt).getTime() > 1000;
-}
-
-// ESC key handler to close all modals
+// ESC key handler to close all modals (note dialogs close themselves)
 function handleKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape') {
-    if (showNoteDeleteDialog.value) {
-      showNoteDeleteDialog.value = false;
-    } else if (showNoteDialog.value) {
-      showNoteDialog.value = false;
-    } else if (showReminderDialog.value) {
+    if (showReminderDialog.value) {
       showReminderDialog.value = false;
-    } else if (showAllocationModal.value) {
-      closeAllocationModal();
-    } else if (showTransactionModal.value) {
-      closeTransactionModal();
-    } else if (showParentDetailModal.value) {
-      closeParentDetailModal();
+    } else if (allocationSuggestion.value) {
+      allocationSuggestion.value = null;
+    } else if (selectedFee.value) {
+      selectedFee.value = null;
+    } else if (selectedParentForDetail.value) {
+      selectedParentForDetail.value = null;
     } else if (showUnlinkDialog.value) {
       showUnlinkDialog.value = false;
     } else if (showParentDialog.value) {
@@ -462,82 +308,12 @@ onMounted(() => {
 
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeydown);
-  if (parentEmailCopyResetTimer) {
-    clearTimeout(parentEmailCopyResetTimer);
-  }
 });
 
-function formatCareHours(careHours?: number | null): string {
-  if (careHours === undefined || careHours === null) return 'Unbekannt';
-  return `${careHours} Std./Woche`;
-}
-
-function formatCareHoursRange(entry: CareHoursHistoryEntry): string {
+function formatHistoryRange(entry: { effectiveFrom: string; effectiveUntil?: string | null }): string {
   const from = formatDate(entry.effectiveFrom);
   if (!entry.effectiveUntil) return `ab ${from}`;
   return `${from} bis ${formatDate(entry.effectiveUntil)}`;
-}
-
-function formatLegalHoursRange(entry: LegalHoursHistoryEntry): string {
-  const from = formatDate(entry.effectiveFrom);
-  if (!entry.effectiveUntil) return `ab ${from}`;
-  return `${from} bis ${formatDate(entry.effectiveUntil)}`;
-}
-
-function getLatestEffectiveFrom(
-  history: Array<{ effectiveFrom: string }>,
-  fallbackDate: string,
-): string {
-  const latestEntry = history[0];
-  if (latestEntry?.effectiveFrom) {
-    return formatDateForInput(latestEntry.effectiveFrom);
-  }
-  return formatDateForInput(fallbackDate);
-}
-
-function normalizeCareHoursValue(value: unknown): number | null {
-  if (value === '' || value === undefined || value === null) return null;
-  if (typeof value === 'number') {
-    return Number.isNaN(value) ? null : value;
-  }
-  const parsed = Number(value);
-  return Number.isNaN(parsed) ? null : parsed;
-}
-
-function getFeeTypeName(type: string): string {
-  switch (type) {
-    case 'MEMBERSHIP':
-      return 'Vereinsbeitrag';
-    case 'FOOD':
-      return 'Essensgeld';
-    case 'CHILDCARE':
-      return 'Platzgeld';
-    case 'REMINDER':
-      return 'Mahngebühr';
-    default:
-      return type;
-  }
-}
-
-function formatConfidence(confidence: number): string {
-  return `${Math.round(confidence * 100)}%`;
-}
-
-function formatMatchedBy(reason?: string): string {
-  switch (reason) {
-    case 'trusted_iban':
-      return 'IBAN (bekannt)';
-    case 'member_number':
-      return 'Mitgliedsnummer';
-    case 'name':
-      return 'Name';
-    case 'parent_name':
-      return 'Elternname';
-    case 'combined':
-      return 'Sammelzahlung';
-    default:
-      return 'Unbekannt';
-  }
 }
 
 function formatSuggestionExpectation(suggestion: MatchSuggestion): string {
@@ -547,89 +323,9 @@ function formatSuggestionExpectation(suggestion: MatchSuggestion): string {
   return `${getFeeTypeName(expectation.feeType)} ${monthLabel}${expectation.year}`;
 }
 
-function calculateAge(birthDate: string): number {
-  const birth = new Date(birthDate);
-  const today = new Date();
-  let age = today.getFullYear() - birth.getFullYear();
-  const m = today.getMonth() - birth.getMonth();
-  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
-    age--;
-  }
-  return age;
-}
-
-function isUnderThree(birthDate: string): boolean {
-  return calculateAge(birthDate) < 3;
-}
-
-function openEditDialog() {
-  if (!child.value) return;
-  editForm.value = {
-    firstName: child.value.firstName,
-    lastName: child.value.lastName,
-    birthDate: formatDateForInput(child.value.birthDate),
-    entryDate: formatDateForInput(child.value.entryDate),
-    exitDate: child.value.exitDate ? formatDateForInput(child.value.exitDate) : undefined,
-    street: child.value.street,
-    streetNo: child.value.streetNo,
-    postalCode: child.value.postalCode,
-    city: child.value.city,
-    legalHours: child.value.legalHours,
-    legalHoursValidFrom: getLatestEffectiveFrom(legalHoursHistory.value, child.value.entryDate),
-    careHours: child.value.careHours,
-    careHoursValidFrom: getLatestEffectiveFrom(careHoursHistory.value, child.value.entryDate),
-    isActive: child.value.isActive,
-  };
-  editError.value = null;
-  showEditDialog.value = true;
-}
-
-async function handleEdit() {
-  if (!child.value) return;
-  isEditing.value = true;
-  editError.value = null;
-  try {
-    const originalCareHours = normalizeCareHoursValue(child.value.careHours);
-    const nextCareHours = normalizeCareHoursValue(editForm.value.careHours);
-    const careHoursChanged = originalCareHours !== nextCareHours;
-    const originalLegalHours = normalizeCareHoursValue(child.value.legalHours);
-    const nextLegalHours = normalizeCareHoursValue(editForm.value.legalHours);
-    const legalHoursChanged = originalLegalHours !== nextLegalHours;
-    const {
-      legalHoursValidFrom,
-      careHoursValidFrom,
-      legalHours: _legalHours,
-      legalHoursUntil: _legalHoursUntil,
-      careHours: _careHours,
-      ...childUpdate
-    } = editForm.value;
-
-    await api.updateChild(childId.value, childUpdate);
-    if (legalHoursChanged) {
-      if (!legalHoursValidFrom) {
-        throw new Error('Bitte ein Gültig-ab-Datum für den Rechtsanspruch angeben.');
-      }
-      await api.addLegalHoursHistory(childId.value, {
-        legalHours: nextLegalHours,
-        validFrom: legalHoursValidFrom,
-      });
-    }
-    if (careHoursChanged) {
-      if (!careHoursValidFrom) {
-        throw new Error('Bitte ein Gültig-ab-Datum für die Betreuungszeit angeben.');
-      }
-      await api.addCareHoursHistory(childId.value, {
-        careHours: nextCareHours,
-        validFrom: careHoursValidFrom,
-      });
-    }
-    await loadChild();
-    showEditDialog.value = false;
-  } catch (e) {
-    editError.value = e instanceof Error ? e.message : 'Fehler beim Speichern';
-  } finally {
-    isEditing.value = false;
-  }
+async function onChildSaved() {
+  showEditDialog.value = false;
+  await loadChild();
 }
 
 async function handleDelete() {
@@ -645,90 +341,19 @@ async function handleDelete() {
   }
 }
 
-// Parent dialog functions
 function openCreateParentDialog() {
   parentDialogMode.value = 'create';
-  parentForm.value = {
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    street: '',
-    streetNo: '',
-    postalCode: '',
-    city: '',
-  };
-  parentError.value = null;
   showParentDialog.value = true;
 }
 
 function openLinkParentDialog() {
   parentDialogMode.value = 'link';
-  searchQuery.value = '';
-  searchResults.value = [];
-  selectedParent.value = null;
-  parentError.value = null;
   showParentDialog.value = true;
 }
 
-async function handleCreateParent() {
-  if (!child.value) return;
-  isCreatingParent.value = true;
-  parentError.value = null;
-  try {
-    const newParent = await api.createParent(parentForm.value);
-    await api.linkParent(childId.value, newParent.id, child.value.parents?.length === 0);
-    await loadChild();
-    showParentDialog.value = false;
-  } catch (e) {
-    parentError.value = e instanceof Error ? e.message : 'Fehler beim Erstellen';
-  } finally {
-    isCreatingParent.value = false;
-  }
-}
-
-async function searchParents() {
-  if (!searchQuery.value || searchQuery.value.length < 2) {
-    searchResults.value = [];
-    return;
-  }
-  isSearching.value = true;
-  try {
-    const response = await api.getParents({ search: searchQuery.value, perPage: 10 });
-    // Filter out parents already linked to this child
-    const linkedIds = new Set(child.value?.parents?.map(p => p.id) || []);
-    searchResults.value = response.data.filter(p => !linkedIds.has(p.id));
-  } catch (e) {
-    parentError.value = e instanceof Error ? e.message : 'Fehler bei der Suche';
-  } finally {
-    isSearching.value = false;
-  }
-}
-
-// Debounce search
-let searchTimeout: ReturnType<typeof setTimeout> | null = null;
-watch(searchQuery, () => {
-  if (searchTimeout) clearTimeout(searchTimeout);
-  searchTimeout = setTimeout(searchParents, 300);
-});
-
-function selectParent(parent: Parent) {
-  selectedParent.value = parent;
-}
-
-async function handleLinkParent() {
-  if (!selectedParent.value || !child.value) return;
-  isLinking.value = true;
-  parentError.value = null;
-  try {
-    await api.linkParent(childId.value, selectedParent.value.id, child.value.parents?.length === 0);
-    await loadChild();
-    showParentDialog.value = false;
-  } catch (e) {
-    parentError.value = e instanceof Error ? e.message : 'Fehler beim Verknüpfen';
-  } finally {
-    isLinking.value = false;
-  }
+async function onParentLinked() {
+  showParentDialog.value = false;
+  await loadChild();
 }
 
 function confirmUnlinkParent(parent: Parent) {
@@ -801,28 +426,25 @@ const paidFeeGroups = computed(() =>
   })
 );
 
-function getFeeMatches(fee: FeeExpectation): PaymentMatch[] {
-  if (fee.partialMatches && fee.partialMatches.length > 0) return fee.partialMatches;
-  if (fee.matchedBy) return [fee.matchedBy];
-  return [];
-}
-
 function openTransactionModal(fee: FeeExpectation) {
-  const matches = getFeeMatches(fee);
-  if (matches.length === 0) return;
+  if (getFeeMatches(fee).length === 0) return;
   selectedFee.value = fee;
-  selectedTransaction.value = matches[0].transaction ?? null;
-  transactionAction.value = null;
-  transactionActionError.value = null;
-  showTransactionModal.value = true;
 }
 
-function closeTransactionModal() {
-  showTransactionModal.value = false;
+function openAllocationModal(suggestion: MatchSuggestion): void {
+  allocationSuggestion.value = suggestion;
+}
+
+// After unmatching, deleting or allocating a transaction
+async function onTransactionChanged() {
   selectedFee.value = null;
-  selectedTransaction.value = null;
-  transactionAction.value = null;
-  transactionActionError.value = null;
+  allocationSuggestion.value = null;
+  await loadChild();
+  await loadLikelyTransactions();
+}
+
+function openParentDetailModal(parent: Parent) {
+  selectedParentForDetail.value = parent;
 }
 
 function getPaymentSummary(fee: FeeExpectation): string {
@@ -841,16 +463,6 @@ function getPaymentSummary(fee: FeeExpectation): string {
   return `Bezahlt mit ${matches.length} Zahlungen`;
 }
 
-function getFeeRemainingAmount(fee: FeeExpectation): number {
-  const matched = fee.matchedAmount ?? 0;
-  const remaining = fee.amount - matched;
-  return remaining > 0 ? remaining : 0;
-}
-
-function getTxRemainingAmount(tx: BankTransaction): number {
-  const remaining = tx.amount - (tx.matchedAmount ?? 0);
-  return remaining > 0.005 ? remaining : 0;
-}
 
 function getReminderCounts(reminders: FeeExpectation[]) {
   const total = reminders.length;
@@ -867,254 +479,6 @@ function getReminderSummary(reminders: FeeExpectation[]): string {
   return `${paid} bezahlt · ${open} offen`;
 }
 
-function maskIban(iban?: string): string {
-  if (!iban) return '';
-  const trimmed = iban.replace(/\s+/g, '');
-  if (trimmed.length <= 8) return trimmed;
-  return `${trimmed.slice(0, 4)}…${trimmed.slice(-4)}`;
-}
-
-const allocationTotal = computed(() =>
-  allocationRows.value.reduce((sum, row) => sum + (row.amount || 0), 0)
-);
-
-const allocationRemaining = computed(() => {
-  const total = allocationSuggestion.value?.transaction.amount ?? 0;
-  return total - allocationTotal.value;
-});
-
-function clampAllocationAmount(amount: number, fee: FeeExpectation): number {
-  const maxFee = getFeeRemainingAmount(fee);
-  const maxTx = allocationSuggestion.value
-    ? getTxRemainingAmount(allocationSuggestion.value.transaction)
-    : 0;
-  if (amount <= 0) return 0;
-  return Math.min(amount, maxFee, maxTx);
-}
-
-function assignOnlyToFee(feeId: string): void {
-  const row = allocationRows.value.find(item => item.fee.id === feeId);
-  if (!row) return;
-  const amount = clampAllocationAmount(getFeeRemainingAmount(row.fee), row.fee);
-  allocationRows.value = allocationRows.value.map(item => ({
-    ...item,
-    amount: item.fee.id === feeId ? amount : 0,
-  }));
-}
-
-function assignRemainingToFee(feeId: string): void {
-  const row = allocationRows.value.find(item => item.fee.id === feeId);
-  if (!row) return;
-  const remaining = allocationRemaining.value + (row.amount || 0);
-  row.amount = clampAllocationAmount(remaining, row.fee);
-}
-
-function openAllocationModal(suggestion: MatchSuggestion): void {
-  allocationSuggestion.value = suggestion;
-  const rows = openFees.value.map(fee => ({ fee, amount: 0 }));
-  let remaining = getTxRemainingAmount(suggestion.transaction);
-
-  const applyAllocation = (feeId: string, desiredAmount: number) => {
-    const row = rows.find(item => item.fee.id === feeId);
-    if (!row || remaining <= 0) {
-      return;
-    }
-    const maxAmount = getFeeRemainingAmount(row.fee);
-    const amount = Math.min(desiredAmount, maxAmount, remaining);
-    if (amount > 0) {
-      row.amount = amount;
-      remaining -= amount;
-    }
-  };
-
-  if (suggestion.expectations && suggestion.expectations.length > 0) {
-    for (const expectation of suggestion.expectations) {
-      applyAllocation(expectation.id, expectation.amount);
-    }
-  } else if (suggestion.expectation) {
-    applyAllocation(suggestion.expectation.id, suggestion.expectation.amount);
-  }
-
-  allocationRows.value = rows;
-  allocationError.value = null;
-  showAllocationModal.value = true;
-}
-
-function closeAllocationModal(): void {
-  showAllocationModal.value = false;
-  allocationSuggestion.value = null;
-  allocationRows.value = [];
-  allocationError.value = null;
-}
-
-async function confirmAllocation(): Promise<void> {
-  if (!allocationSuggestion.value) return;
-  const allocations = allocationRows.value
-    .filter(row => row.amount > 0)
-    .map(row => ({
-      expectationId: row.fee.id,
-      amount: row.amount,
-    }));
-
-  if (allocations.length === 0) {
-    allocationError.value = 'Bitte mindestens einen Betrag zuordnen.';
-    return;
-  }
-
-  if (allocationRemaining.value < -0.01) {
-    allocationError.value = 'Die Summe übersteigt den Transaktionsbetrag.';
-    return;
-  }
-
-  isAllocating.value = true;
-  allocationError.value = null;
-  try {
-    await api.allocateTransaction(allocationSuggestion.value.transaction.id, allocations);
-    await loadChild();
-    await loadLikelyTransactions();
-    closeAllocationModal();
-  } catch (e) {
-    allocationError.value = e instanceof Error ? e.message : 'Zuordnung fehlgeschlagen';
-  } finally {
-    isAllocating.value = false;
-  }
-}
-
-function requestTransactionAction(action: 'unmatch' | 'delete'): void {
-  transactionAction.value = action;
-  transactionActionError.value = null;
-}
-
-function cancelTransactionAction(): void {
-  transactionAction.value = null;
-  transactionActionError.value = null;
-}
-
-async function confirmTransactionAction(): Promise<void> {
-  if (!selectedTransaction.value || !transactionAction.value) return;
-  const deleteTransaction = transactionAction.value === 'delete';
-  if (deleteTransaction) {
-    isDeletingTransaction.value = true;
-  } else {
-    isUnmatchingTransaction.value = true;
-  }
-  transactionActionError.value = null;
-  try {
-    await api.unmatchTransaction(selectedTransaction.value.id, { deleteTransaction });
-    await loadChild();
-    await loadLikelyTransactions();
-    closeTransactionModal();
-  } catch (e) {
-    transactionActionError.value = e instanceof Error ? e.message : 'Aktion fehlgeschlagen';
-  } finally {
-    if (deleteTransaction) {
-      isDeletingTransaction.value = false;
-    } else {
-      isUnmatchingTransaction.value = false;
-    }
-  }
-}
-
-// Parent detail modal functions
-function openParentDetailModal(parent: Parent) {
-  selectedParentForDetail.value = parent;
-  isEditingParent.value = false;
-  parentDetailError.value = null;
-  isParentEmailCopied.value = false;
-  showParentDetailModal.value = true;
-}
-
-function closeParentDetailModal() {
-  showParentDetailModal.value = false;
-  selectedParentForDetail.value = null;
-  isEditingParent.value = false;
-  parentEditForm.value = {};
-  parentDetailError.value = null;
-  isParentEmailCopied.value = false;
-  if (parentEmailCopyResetTimer) {
-    clearTimeout(parentEmailCopyResetTimer);
-    parentEmailCopyResetTimer = null;
-  }
-}
-
-async function copyParentEmailToClipboard() {
-  const email = selectedParentForDetail.value?.email;
-  if (!email || typeof navigator === 'undefined' || !navigator.clipboard) return;
-
-  try {
-    await navigator.clipboard.writeText(email);
-    isParentEmailCopied.value = true;
-
-    if (parentEmailCopyResetTimer) {
-      clearTimeout(parentEmailCopyResetTimer);
-    }
-
-    parentEmailCopyResetTimer = setTimeout(() => {
-      isParentEmailCopied.value = false;
-      parentEmailCopyResetTimer = null;
-    }, 2000);
-  } catch {
-    isParentEmailCopied.value = false;
-  }
-}
-
-function startEditingParent() {
-  if (!selectedParentForDetail.value) return;
-  parentEditForm.value = {
-    firstName: selectedParentForDetail.value.firstName,
-    lastName: selectedParentForDetail.value.lastName,
-    birthDate: selectedParentForDetail.value.birthDate ? formatDateForInput(selectedParentForDetail.value.birthDate) : undefined,
-    email: selectedParentForDetail.value.email,
-    phone: selectedParentForDetail.value.phone,
-    street: selectedParentForDetail.value.street,
-    streetNo: selectedParentForDetail.value.streetNo,
-    postalCode: selectedParentForDetail.value.postalCode,
-    city: selectedParentForDetail.value.city,
-  };
-  isEditingParent.value = true;
-}
-
-function cancelEditingParent() {
-  isEditingParent.value = false;
-  parentEditForm.value = {};
-  parentDetailError.value = null;
-}
-
-async function saveParentEdit() {
-  if (!selectedParentForDetail.value) return;
-  isSavingParent.value = true;
-  parentDetailError.value = null;
-  try {
-    const updated = await api.updateParent(selectedParentForDetail.value.id, parentEditForm.value);
-    selectedParentForDetail.value = updated;
-    isEditingParent.value = false;
-    // Reload child to update the parent list
-    await loadChild();
-  } catch (e) {
-    parentDetailError.value = e instanceof Error ? e.message : 'Fehler beim Speichern';
-  } finally {
-    isSavingParent.value = false;
-  }
-}
-
-function getIncomeStatusLabel(status?: IncomeStatus): string {
-  switch (status) {
-    case 'PROVIDED':
-      return 'Einkommen angegeben';
-    case 'MAX_ACCEPTED':
-      return 'Höchstsatz akzeptiert';
-    case 'PENDING':
-      return 'Dokumente ausstehend';
-    case 'NOT_REQUIRED':
-      return 'Nicht erforderlich (Kind >3J bei Eintritt)';
-    case 'HISTORIC':
-      return 'Historisch (Kind jetzt >3J)';
-    case 'FOSTER_FAMILY':
-      return 'Pflegefamilie (Durchschnittsbeitrag)';
-    default:
-      return 'Nicht festgelegt';
-  }
-}
 
 // Siblings computed property (other children in the same household)
 const siblings = computed(() => {
@@ -1162,15 +526,6 @@ async function saveHouseholdEdit() {
   }
 }
 
-const incomeStatusOptions: { value: IncomeStatus; label: string }[] = [
-  { value: '', label: 'Nicht festgelegt' },
-  { value: 'PROVIDED', label: 'Einkommen angegeben' },
-  { value: 'MAX_ACCEPTED', label: 'Höchstsatz akzeptiert' },
-  { value: 'PENDING', label: 'Dokumente ausstehend' },
-  { value: 'NOT_REQUIRED', label: 'Nicht erforderlich (Kind >3J bei Eintritt)' },
-  { value: 'HISTORIC', label: 'Historisch (Kind jetzt >3J)' },
-  { value: 'FOSTER_FAMILY', label: 'Pflegefamilie (Durchschnittsbeitrag)' },
-];
 
 // Reminder functions
 function canCreateReminder(fee: FeeExpectation): boolean {
@@ -1263,7 +618,7 @@ async function createReminder() {
           </div>
           <div class="flex items-center gap-2">
             <button
-              @click="openEditDialog"
+              @click="showEditDialog = true"
               class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
               title="Bearbeiten"
             >
@@ -1341,7 +696,7 @@ async function createReminder() {
                   :key="entry.id"
                   class="flex items-center justify-between text-sm text-gray-600"
                 >
-                  <span>{{ formatLegalHoursRange(entry) }}</span>
+                  <span>{{ formatHistoryRange(entry) }}</span>
                   <span class="font-medium text-gray-700">{{ formatCareHours(entry.legalHours) }}</span>
                 </div>
               </div>
@@ -1352,7 +707,7 @@ async function createReminder() {
                   :key="entry.id"
                   class="flex items-center justify-between text-sm text-gray-600"
                 >
-                  <span>{{ formatCareHoursRange(entry) }}</span>
+                  <span>{{ formatHistoryRange(entry) }}</span>
                   <span class="font-medium text-gray-700">{{ formatCareHours(entry.careHours) }}</span>
                 </div>
               </div>
@@ -1644,87 +999,7 @@ async function createReminder() {
         </div>
       </div>
 
-      <!-- Notes section -->
-      <div class="bg-white rounded-xl border p-6 mb-6">
-        <div class="flex items-center justify-between mb-4">
-          <div class="flex items-center gap-2">
-            <NotebookPen class="h-5 w-5 text-primary" />
-            <h2 class="text-lg font-semibold">Notizen</h2>
-          </div>
-          <button
-            @click="openNoteCreateDialog"
-            class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-primary text-white hover:bg-primary/90 rounded-md transition-colors"
-          >
-            <Plus class="h-3 w-3" />
-            Notiz
-          </button>
-        </div>
-
-        <div v-if="notesIsLoading" class="flex items-center gap-2 text-sm text-gray-500 py-4">
-          <Loader2 class="h-4 w-4 animate-spin" />
-          Lade Notizen...
-        </div>
-
-        <div v-else-if="notesError" class="p-3 bg-red-50 border border-red-200 rounded-lg">
-          <p class="text-sm text-red-600">{{ notesError }}</p>
-        </div>
-
-        <div v-else-if="notes.length === 0" class="text-center py-6 text-gray-500 text-sm">
-          Keine Notizen vorhanden
-        </div>
-
-        <div v-else class="space-y-2">
-          <div
-            v-for="note in notes"
-            :key="note.id"
-            class="p-3 bg-gray-50 border border-gray-200 rounded-lg"
-          >
-            <div class="flex items-start justify-between gap-3">
-              <div class="min-w-0">
-                <p class="text-sm text-gray-700 whitespace-pre-wrap break-words">{{ note.text }}</p>
-                <p class="text-xs text-gray-400 mt-1">
-                  {{ formatDateTime(note.createdAt) }}
-                  <span v-if="isNoteEdited(note)"> · Bearbeitet: {{ formatDateTime(note.updatedAt) }}</span>
-                </p>
-              </div>
-              <div class="flex items-center gap-1 flex-shrink-0">
-                <button
-                  @click="openNoteEditDialog(note)"
-                  class="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Bearbeiten"
-                >
-                  <Edit class="h-4 w-4" />
-                </button>
-                <button
-                  @click="noteToDelete = note; showNoteDeleteDialog = true"
-                  class="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
-                  title="Löschen"
-                >
-                  <Trash2 class="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <div v-if="notesTotalPages > 1" class="flex items-center justify-end gap-2 pt-2">
-            <span class="text-xs text-gray-500">Seite {{ notesPage }} von {{ notesTotalPages }}</span>
-            <button
-              @click="notesPage--"
-              :disabled="notesPage <= 1"
-              class="p-1 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <ChevronLeft class="h-4 w-4" />
-            </button>
-            <button
-              @click="notesPage++"
-              :disabled="notesPage >= notesTotalPages"
-              class="p-1 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              <ChevronRight class="h-4 w-4" />
-            </button>
-          </div>
-        </div>
-      </div>
+      <ChildNotesCard :child-id="childId" />
 
       <!-- Fees section -->
       <div class="bg-white rounded-xl border p-6">
@@ -1916,200 +1191,14 @@ async function createReminder() {
       </div>
     </div>
 
-    <!-- Edit Dialog -->
-    <div
-      v-if="showEditDialog"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      @click.self="showEditDialog = false"
-    >
-      <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6 max-h-[90vh] overflow-y-auto">
-        <div class="flex items-center justify-between mb-6">
-          <h2 class="text-xl font-semibold">Kind bearbeiten</h2>
-          <button @click="showEditDialog = false" class="p-1 hover:bg-gray-100 rounded">
-            <X class="h-5 w-5" />
-          </button>
-        </div>
-
-        <form @submit.prevent="handleEdit" class="space-y-4">
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <label for="edit-firstName" class="block text-sm font-medium text-gray-700 mb-1">Vorname</label>
-              <input
-                id="edit-firstName"
-                v-model="editForm.firstName"
-                type="text"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-              />
-            </div>
-            <div>
-              <label for="edit-lastName" class="block text-sm font-medium text-gray-700 mb-1">Nachname</label>
-              <input
-                id="edit-lastName"
-                v-model="editForm.lastName"
-                type="text"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-              />
-            </div>
-          </div>
-
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <label for="edit-birthDate" class="block text-sm font-medium text-gray-700 mb-1">Geburtsdatum</label>
-              <input
-                id="edit-birthDate"
-                v-model="editForm.birthDate"
-                type="date"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-              />
-            </div>
-            <div>
-              <label for="edit-entryDate" class="block text-sm font-medium text-gray-700 mb-1">Eintrittsdatum</label>
-              <input
-                id="edit-entryDate"
-                v-model="editForm.entryDate"
-                type="date"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label for="edit-exitDate" class="block text-sm font-medium text-gray-700 mb-1">Austrittsdatum</label>
-            <input
-              id="edit-exitDate"
-              v-model="editForm.exitDate"
-              type="date"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-            />
-            <p class="text-xs text-gray-500 mt-1">Optional: Datum, an dem das Kind die Kita verlässt</p>
-          </div>
-
-          <div class="grid grid-cols-4 gap-4">
-            <div class="col-span-3">
-              <label for="edit-street" class="block text-sm font-medium text-gray-700 mb-1">Straße</label>
-              <input
-                id="edit-street"
-                v-model="editForm.street"
-                type="text"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-              />
-            </div>
-            <div>
-              <label for="edit-streetNo" class="block text-sm font-medium text-gray-700 mb-1">Hausnr.</label>
-              <input
-                id="edit-streetNo"
-                v-model="editForm.streetNo"
-                type="text"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-              />
-            </div>
-          </div>
-
-          <div class="grid grid-cols-3 gap-4">
-            <div>
-              <label for="edit-postalCode" class="block text-sm font-medium text-gray-700 mb-1">PLZ</label>
-              <input
-                id="edit-postalCode"
-                v-model="editForm.postalCode"
-                type="text"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-              />
-            </div>
-            <div class="col-span-2">
-              <label for="edit-city" class="block text-sm font-medium text-gray-700 mb-1">Ort</label>
-              <input
-                id="edit-city"
-                v-model="editForm.city"
-                type="text"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-              />
-            </div>
-          </div>
-
-          <!-- Care Hours Section -->
-          <div class="pt-4 border-t">
-            <h3 class="text-sm font-medium text-gray-700 mb-3">Betreuungszeiten</h3>
-            <div class="grid grid-cols-2 gap-4">
-              <div>
-                <label for="edit-legalHours" class="block text-sm font-medium text-gray-700 mb-1">Rechtsanspruch (Std./Woche)</label>
-                <input
-                  id="edit-legalHours"
-                  v-model.number="editForm.legalHours"
-                  type="number"
-                  min="0"
-                  max="50"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-                />
-              </div>
-              <div>
-                <label for="edit-legalHoursValidFrom" class="block text-sm font-medium text-gray-700 mb-1">Rechtsanspruch gültig ab</label>
-                <input
-                  id="edit-legalHoursValidFrom"
-                  v-model="editForm.legalHoursValidFrom"
-                  type="date"
-                  class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-                />
-              </div>
-            </div>
-            <div class="mt-4">
-              <label for="edit-careHours" class="block text-sm font-medium text-gray-700 mb-1">Betreuungszeit (Std./Woche)</label>
-              <input
-                id="edit-careHours"
-                v-model.number="editForm.careHours"
-                type="number"
-                min="0"
-                max="50"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-              />
-              <p class="text-xs text-gray-500 mt-1">Änderungen werden als Historieneintrag gespeichert und gelten ab dem gewählten Datum.</p>
-            </div>
-            <div class="mt-4">
-              <label for="edit-careHoursValidFrom" class="block text-sm font-medium text-gray-700 mb-1">Betreuungszeit gültig ab</label>
-              <input
-                id="edit-careHoursValidFrom"
-                v-model="editForm.careHoursValidFrom"
-                type="date"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label class="flex items-center gap-2 cursor-pointer">
-              <input
-                v-model="editForm.isActive"
-                type="checkbox"
-                class="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary"
-              />
-              <span class="text-sm text-gray-700">Kind ist aktiv</span>
-            </label>
-          </div>
-
-          <div v-if="editError" class="p-3 bg-red-50 border border-red-200 rounded-lg">
-            <p class="text-sm text-red-600">{{ editError }}</p>
-          </div>
-
-          <div class="flex justify-end gap-3 pt-4">
-            <button
-              type="button"
-              @click="showEditDialog = false"
-              class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              Abbrechen
-            </button>
-            <button
-              type="submit"
-              :disabled="isEditing"
-              class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
-            >
-              <Loader2 v-if="isEditing" class="h-4 w-4 animate-spin" />
-              <Check v-else class="h-4 w-4" />
-              Speichern
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+    <ChildEditDialog
+      v-if="showEditDialog && child"
+      :child="child"
+      :care-hours-history="careHoursHistory"
+      :legal-hours-history="legalHoursHistory"
+      @close="showEditDialog = false"
+      @saved="onChildSaved"
+    />
 
     <!-- Delete Confirmation Dialog -->
     <div
@@ -2150,232 +1239,13 @@ async function createReminder() {
       </div>
     </div>
 
-    <!-- Parent Dialog (Create or Link) -->
-    <div
-      v-if="showParentDialog"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      @click.self="showParentDialog = false"
-    >
-      <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6 max-h-[90vh] overflow-y-auto">
-        <div class="flex items-center justify-between mb-6">
-          <h2 class="text-xl font-semibold">
-            {{ parentDialogMode === 'create' ? 'Elternteil anlegen' : 'Elternteil verknüpfen' }}
-          </h2>
-          <button @click="showParentDialog = false" class="p-1 hover:bg-gray-100 rounded">
-            <X class="h-5 w-5" />
-          </button>
-        </div>
-
-        <!-- Mode Tabs -->
-        <div class="flex gap-2 mb-6 p-1 bg-gray-100 rounded-lg">
-          <button
-            @click="parentDialogMode = 'create'"
-            :class="[
-              'flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors',
-              parentDialogMode === 'create'
-                ? 'bg-white text-primary shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
-            ]"
-          >
-            Neu anlegen
-          </button>
-          <button
-            @click="parentDialogMode = 'link'"
-            :class="[
-              'flex-1 py-2 px-3 text-sm font-medium rounded-md transition-colors',
-              parentDialogMode === 'link'
-                ? 'bg-white text-primary shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
-            ]"
-          >
-            Vorhandenen verknüpfen
-          </button>
-        </div>
-
-        <!-- Create Form -->
-        <form v-if="parentDialogMode === 'create'" @submit.prevent="handleCreateParent" class="space-y-4">
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <label for="parent-firstName" class="block text-sm font-medium text-gray-700 mb-1">Vorname *</label>
-              <input
-                id="parent-firstName"
-                v-model="parentForm.firstName"
-                type="text"
-                required
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-              />
-            </div>
-            <div>
-              <label for="parent-lastName" class="block text-sm font-medium text-gray-700 mb-1">Nachname *</label>
-              <input
-                id="parent-lastName"
-                v-model="parentForm.lastName"
-                type="text"
-                required
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label for="parent-email" class="block text-sm font-medium text-gray-700 mb-1">E-Mail</label>
-            <input
-              id="parent-email"
-              v-model="parentForm.email"
-              type="email"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-            />
-          </div>
-
-          <div>
-            <label for="parent-phone" class="block text-sm font-medium text-gray-700 mb-1">Telefon</label>
-            <input
-              id="parent-phone"
-              v-model="parentForm.phone"
-              type="tel"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-            />
-          </div>
-
-          <div class="grid grid-cols-4 gap-4">
-            <div class="col-span-3">
-              <label for="parent-street" class="block text-sm font-medium text-gray-700 mb-1">Straße</label>
-              <input
-                id="parent-street"
-                v-model="parentForm.street"
-                type="text"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-              />
-            </div>
-            <div>
-              <label for="parent-streetNo" class="block text-sm font-medium text-gray-700 mb-1">Hausnr.</label>
-              <input
-                id="parent-streetNo"
-                v-model="parentForm.streetNo"
-                type="text"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-              />
-            </div>
-          </div>
-
-          <div class="grid grid-cols-3 gap-4">
-            <div>
-              <label for="parent-postalCode" class="block text-sm font-medium text-gray-700 mb-1">PLZ</label>
-              <input
-                id="parent-postalCode"
-                v-model="parentForm.postalCode"
-                type="text"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-              />
-            </div>
-            <div class="col-span-2">
-              <label for="parent-city" class="block text-sm font-medium text-gray-700 mb-1">Ort</label>
-              <input
-                id="parent-city"
-                v-model="parentForm.city"
-                type="text"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-              />
-            </div>
-          </div>
-
-          <div v-if="parentError" class="p-3 bg-red-50 border border-red-200 rounded-lg">
-            <p class="text-sm text-red-600">{{ parentError }}</p>
-          </div>
-
-          <div class="flex justify-end gap-3 pt-4">
-            <button
-              type="button"
-              @click="showParentDialog = false"
-              class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              Abbrechen
-            </button>
-            <button
-              type="submit"
-              :disabled="isCreatingParent"
-              class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
-            >
-              <Loader2 v-if="isCreatingParent" class="h-4 w-4 animate-spin" />
-              <Plus v-else class="h-4 w-4" />
-              Anlegen & Verknüpfen
-            </button>
-          </div>
-        </form>
-
-        <!-- Link Form -->
-        <div v-else class="space-y-4">
-          <div>
-            <label for="parent-search" class="block text-sm font-medium text-gray-700 mb-1">Elternteil suchen</label>
-            <div class="relative">
-              <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-              <input
-                id="parent-search"
-                v-model="searchQuery"
-                type="text"
-                placeholder="Name eingeben..."
-                class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-              />
-              <Loader2 v-if="isSearching" class="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-gray-400" />
-            </div>
-          </div>
-
-          <!-- Search Results -->
-          <div v-if="searchResults.length > 0" class="border rounded-lg divide-y max-h-60 overflow-y-auto">
-            <button
-              v-for="parent in searchResults"
-              :key="parent.id"
-              @click="selectParent(parent)"
-              :class="[
-                'w-full p-3 text-left hover:bg-gray-50 transition-colors',
-                selectedParent?.id === parent.id ? 'bg-primary/5 border-l-2 border-l-primary' : ''
-              ]"
-            >
-              <p class="font-medium">{{ parent.firstName }} {{ parent.lastName }}</p>
-              <p v-if="parent.email" class="text-sm text-gray-500">{{ parent.email }}</p>
-            </button>
-          </div>
-
-          <div v-else-if="searchQuery.length >= 2 && !isSearching" class="text-center py-6 text-gray-500 text-sm">
-            Keine Eltern gefunden
-          </div>
-
-          <div v-else-if="searchQuery.length < 2" class="text-center py-6 text-gray-500 text-sm">
-            Mindestens 2 Zeichen eingeben
-          </div>
-
-          <!-- Selected Parent Preview -->
-          <div v-if="selectedParent" class="p-4 bg-primary/5 border border-primary/20 rounded-lg">
-            <p class="text-sm text-gray-500 mb-1">Ausgewählt:</p>
-            <p class="font-medium">{{ selectedParent.firstName }} {{ selectedParent.lastName }}</p>
-            <p v-if="selectedParent.email" class="text-sm text-gray-600">{{ selectedParent.email }}</p>
-          </div>
-
-          <div v-if="parentError" class="p-3 bg-red-50 border border-red-200 rounded-lg">
-            <p class="text-sm text-red-600">{{ parentError }}</p>
-          </div>
-
-          <div class="flex justify-end gap-3 pt-4">
-            <button
-              type="button"
-              @click="showParentDialog = false"
-              class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              Abbrechen
-            </button>
-            <button
-              @click="handleLinkParent"
-              :disabled="!selectedParent || isLinking"
-              class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
-            >
-              <Loader2 v-if="isLinking" class="h-4 w-4 animate-spin" />
-              <Link v-else class="h-4 w-4" />
-              Verknüpfen
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+    <ParentFormDialog
+      v-if="showParentDialog && child"
+      :child="child"
+      :initial-mode="parentDialogMode"
+      @close="showParentDialog = false"
+      @saved="onParentLinked"
+    />
 
     <!-- Unlink Parent Confirmation Dialog -->
     <div
@@ -2416,480 +1286,27 @@ async function createReminder() {
       </div>
     </div>
 
-    <!-- Transaction Detail Modal -->
-    <div
-      v-if="showTransactionModal && selectedFee"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      @click.self="closeTransactionModal"
-    >
-      <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
-        <div class="flex items-center justify-between mb-6">
-          <div class="flex items-center gap-3">
-            <div class="p-2 bg-green-100 rounded-lg">
-              <CreditCard class="h-6 w-6 text-green-600" />
-            </div>
-            <h2 class="text-xl font-semibold">Transaktionsdetails</h2>
-          </div>
-          <button @click="closeTransactionModal" class="p-1 hover:bg-gray-100 rounded">
-            <X class="h-5 w-5" />
-          </button>
-        </div>
+    <TransactionDetailModal
+      v-if="selectedFee"
+      :fee="selectedFee"
+      @close="selectedFee = null"
+      @changed="onTransactionChanged"
+    />
 
-        <div v-if="selectedFee && getFeeMatches(selectedFee).length > 1" class="mb-6">
-          <p class="text-sm font-medium text-gray-600 mb-2">Zahlungen ({{ getFeeMatches(selectedFee).length }})</p>
-          <div class="space-y-2">
-            <button
-              v-for="match in getFeeMatches(selectedFee)"
-              :key="match.id"
-              @click="selectedTransaction = match.transaction ?? null"
-              class="w-full flex items-center justify-between p-2 border rounded-lg text-left hover:bg-gray-50"
-            >
-              <div>
-                <p class="text-sm font-medium">{{ match.transaction?.payerName || 'Unbekannt' }}</p>
-                <p class="text-xs text-gray-500">
-                  {{ match.transaction?.bookingDate ? formatDate(match.transaction.bookingDate) : 'Kein Datum' }}
-                </p>
-              </div>
-              <div class="text-sm font-semibold text-green-600">
-                {{ formatCurrency(match.amount) }}
-              </div>
-            </button>
-          </div>
-          <p v-if="!selectedTransaction" class="text-xs text-gray-500 mt-2">
-            Wähle eine Zahlung, um die Details anzuzeigen.
-          </p>
-        </div>
+    <AllocationModal
+      v-if="allocationSuggestion"
+      :suggestion="allocationSuggestion"
+      :open-fees="openFees"
+      @close="allocationSuggestion = null"
+      @allocated="onTransactionChanged"
+    />
 
-        <div v-if="selectedTransaction" class="space-y-4">
-          <div>
-            <p class="text-sm text-gray-500">Zahler</p>
-            <p class="font-medium">{{ selectedTransaction.payerName || 'Unbekannt' }}</p>
-          </div>
-
-          <div>
-            <p class="text-sm text-gray-500">Buchungsdatum</p>
-            <p class="font-medium">{{ formatDate(selectedTransaction.bookingDate) }}</p>
-          </div>
-
-          <div v-if="selectedTransaction.payerIban">
-            <p class="text-sm text-gray-500">IBAN</p>
-            <p class="font-mono text-sm">{{ selectedTransaction.payerIban }}</p>
-          </div>
-
-          <div v-if="selectedTransaction.description">
-            <p class="text-sm text-gray-500">Verwendungszweck</p>
-            <p class="text-sm text-gray-700 break-words">{{ selectedTransaction.description }}</p>
-          </div>
-
-          <div>
-            <p class="text-sm text-gray-500">Betrag</p>
-            <p class="font-semibold text-green-600 text-lg">{{ formatCurrency(selectedTransaction.amount) }}</p>
-          </div>
-
-          <div>
-            <p class="text-sm text-gray-500">Importiert am</p>
-            <p class="text-sm text-gray-600">{{ formatDate(selectedTransaction.importedAt) }}</p>
-          </div>
-        </div>
-
-        <div class="mt-6 space-y-3">
-          <div
-            v-if="transactionAction"
-            :class="[
-              'p-3 rounded-lg text-sm',
-              transactionAction === 'delete' ? 'bg-red-50 text-red-800' : 'bg-amber-50 text-amber-800'
-            ]"
-          >
-            <p class="font-medium">
-              {{ transactionAction === 'delete'
-                ? 'Transaktion wirklich löschen?'
-                : 'Zuordnung wirklich aufheben?' }}
-            </p>
-            <p class="text-xs mt-1">
-              {{ transactionAction === 'delete'
-                ? 'Die Transaktion wird gelöscht (inklusive aller Zuordnungen).'
-                : 'Der Beitrag wird wieder als offen geführt. Falls mehrere Beiträge mit der Transaktion verknüpft sind, werden alle Zuordnungen aufgehoben.' }}
-            </p>
-            <div class="flex justify-end gap-2 mt-3">
-              <button
-                @click="confirmTransactionAction"
-                :disabled="isUnmatchingTransaction || isDeletingTransaction"
-                :class="[
-                  'px-3 py-1.5 text-xs text-white rounded transition-colors disabled:opacity-50',
-                  transactionAction === 'delete' ? 'bg-red-600 hover:bg-red-700' : 'bg-amber-600 hover:bg-amber-700'
-                ]"
-              >
-                <Loader2 v-if="isUnmatchingTransaction || isDeletingTransaction" class="h-3 w-3 animate-spin" />
-                <span v-else>Ja</span>
-              </button>
-              <button
-                @click="cancelTransactionAction"
-                class="px-3 py-1.5 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
-              >
-                Nein
-              </button>
-            </div>
-          </div>
-
-          <p v-if="transactionActionError" class="text-sm text-red-600">
-            {{ transactionActionError }}
-          </p>
-
-          <div v-if="!transactionAction && selectedTransaction" class="flex flex-col gap-2">
-            <button
-              @click="requestTransactionAction('unmatch')"
-              :disabled="isUnmatchingTransaction || isDeletingTransaction"
-              class="inline-flex items-center gap-2 px-3 py-2 text-sm text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors disabled:opacity-50"
-            >
-              <Unlink class="h-4 w-4" />
-              Zuordnung aufheben
-            </button>
-            <button
-              @click="requestTransactionAction('delete')"
-              :disabled="isUnmatchingTransaction || isDeletingTransaction"
-              class="inline-flex items-center gap-2 px-3 py-2 text-sm text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-colors disabled:opacity-50"
-            >
-              <Trash2 class="h-4 w-4" />
-              Transaktion löschen
-            </button>
-          </div>
-
-          <div class="flex justify-end">
-            <button
-              @click="closeTransactionModal"
-              class="px-4 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
-            >
-              Schließen
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- Allocation Modal -->
-    <div
-      v-if="showAllocationModal && allocationSuggestion"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      @click.self="closeAllocationModal"
-    >
-      <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl mx-4 p-6 max-h-[90vh] overflow-y-auto">
-        <div class="flex items-center justify-between mb-6">
-          <h2 class="text-xl font-semibold">Transaktion zuordnen</h2>
-          <button @click="closeAllocationModal" class="p-1 hover:bg-gray-100 rounded">
-            <X class="h-5 w-5" />
-          </button>
-        </div>
-
-        <div class="p-4 bg-blue-50 rounded-lg mb-6">
-          <div class="flex justify-between text-sm">
-            <span class="text-gray-500">Zahler</span>
-            <span class="font-medium">{{ allocationSuggestion.transaction.payerName || 'Unbekannt' }}</span>
-          </div>
-          <div class="flex justify-between text-sm">
-            <span class="text-gray-500">Datum</span>
-            <span class="font-medium">{{ formatDate(allocationSuggestion.transaction.bookingDate) }}</span>
-          </div>
-          <div class="flex justify-between text-sm">
-            <span class="text-gray-500">Betrag</span>
-            <span class="font-semibold text-blue-700">{{ formatCurrency(allocationSuggestion.transaction.amount) }}</span>
-          </div>
-          <div v-if="(allocationSuggestion.transaction.matchedAmount ?? 0) > 0" class="flex justify-between text-sm">
-            <span class="text-gray-500">Bereits zugeordnet</span>
-            <span>{{ formatCurrency(allocationSuggestion.transaction.matchedAmount ?? 0) }}</span>
-          </div>
-          <div v-if="allocationSuggestion.transaction.description" class="text-xs text-gray-600 mt-2 break-words">
-            {{ allocationSuggestion.transaction.description }}
-          </div>
-        </div>
-
-        <div class="space-y-3">
-          <h3 class="text-sm font-medium text-gray-600">Offene Beiträge</h3>
-          <div v-if="allocationRows.length === 0" class="text-sm text-gray-500">
-            Keine offenen Beiträge vorhanden.
-          </div>
-          <div v-else class="space-y-2">
-            <div
-              v-for="row in allocationRows"
-              :key="row.fee.id"
-              class="flex items-center justify-between gap-4 p-3 border rounded-lg"
-            >
-              <div>
-                <p class="font-medium">{{ getFeeTypeName(row.fee.feeType) }}</p>
-                <p class="text-xs text-gray-500">
-                  {{ row.fee.month ? formatMonthName(row.fee.month) + ' ' : '' }}{{ row.fee.year }}
-                </p>
-                <p class="text-xs text-gray-500">
-                  Rest: {{ formatCurrency(getFeeRemainingAmount(row.fee)) }}
-                </p>
-              </div>
-              <div class="w-40">
-                <input
-                  v-model.number="row.amount"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  :max="getFeeRemainingAmount(row.fee)"
-                  class="w-full px-2 py-1 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-                  placeholder="0,00"
-                />
-                <div class="flex items-center justify-end gap-2 mt-2">
-                  <button
-                    type="button"
-                    @click="assignRemainingToFee(row.fee.id)"
-                    class="text-xs text-gray-500 hover:text-gray-700"
-                  >
-                    Restbetrag
-                  </button>
-                  <button
-                    type="button"
-                    @click="assignOnlyToFee(row.fee.id)"
-                    class="text-xs text-primary hover:text-primary/80 font-medium"
-                  >
-                    Nur diesen Beitrag
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="mt-6 space-y-2">
-          <div class="flex justify-between text-sm">
-            <span class="text-gray-500">Zugeteilt</span>
-            <span class="font-medium">{{ formatCurrency(allocationTotal) }}</span>
-          </div>
-          <div class="flex justify-between text-sm">
-            <span class="text-gray-500">Restbetrag</span>
-            <span :class="allocationRemaining < -0.01 ? 'text-red-600 font-medium' : 'font-medium'">
-              {{ formatCurrency(allocationRemaining) }}
-            </span>
-          </div>
-          <p v-if="allocationRemaining > 0.01" class="text-xs text-gray-500">
-            Der Restbetrag bleibt offen und kann später einem anderen Beitrag oder Kind zugeordnet werden.
-          </p>
-          <p v-if="allocationError" class="text-sm text-red-600">
-            {{ allocationError }}
-          </p>
-        </div>
-
-        <div class="flex justify-end gap-3 mt-6">
-          <button
-            @click="closeAllocationModal"
-            class="px-4 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
-          >
-            Abbrechen
-          </button>
-          <button
-            @click="confirmAllocation"
-            :disabled="isAllocating || allocationTotal <= 0 || allocationRemaining < -0.01"
-            class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
-          >
-            <Loader2 v-if="isAllocating" class="h-4 w-4 animate-spin" />
-            Zuordnen
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Parent Detail Modal -->
-    <div
-      v-if="showParentDetailModal && selectedParentForDetail"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      @click.self="closeParentDetailModal"
-    >
-      <div class="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 p-6 max-h-[90vh] overflow-y-auto">
-        <div class="flex items-center justify-between mb-6">
-          <div class="flex items-center gap-3">
-            <div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
-              <User class="h-6 w-6 text-primary" />
-            </div>
-            <div>
-              <h2 class="text-xl font-semibold">
-                {{ selectedParentForDetail.firstName }} {{ selectedParentForDetail.lastName }}
-              </h2>
-              <p class="text-sm text-gray-500">Elternteil</p>
-            </div>
-          </div>
-          <div class="flex items-center gap-2">
-            <button
-              v-if="!isEditingParent"
-              @click="startEditingParent"
-              class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-              title="Bearbeiten"
-            >
-              <Edit class="h-5 w-5" />
-            </button>
-              <button @click="closeParentDetailModal" class="p-1 hover:bg-gray-100 rounded" aria-label="Schließen">
-                <X class="h-5 w-5" />
-              </button>
-          </div>
-        </div>
-
-        <!-- View Mode -->
-        <div v-if="!isEditingParent" class="space-y-4">
-          <div v-if="selectedParentForDetail.birthDate">
-            <p class="text-sm text-gray-500">Geburtsdatum</p>
-            <p class="font-medium">{{ formatDate(selectedParentForDetail.birthDate) }}</p>
-          </div>
-
-          <div v-if="selectedParentForDetail.email">
-            <p class="text-sm text-gray-500">E-Mail</p>
-            <div class="mt-1 flex items-center gap-2">
-              <a :href="`mailto:${selectedParentForDetail.email}`" class="font-medium text-primary hover:underline break-all">
-                {{ selectedParentForDetail.email }}
-              </a>
-              <button
-                type="button"
-                @click="copyParentEmailToClipboard"
-                class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
-                :title="isParentEmailCopied ? 'E-Mail kopiert' : 'E-Mail kopieren'"
-              >
-                <Check v-if="isParentEmailCopied" class="h-3.5 w-3.5" />
-                <Copy v-else class="h-3.5 w-3.5" />
-                {{ isParentEmailCopied ? 'Kopiert' : 'Kopieren' }}
-              </button>
-            </div>
-          </div>
-
-          <div v-if="selectedParentForDetail.phone">
-            <p class="text-sm text-gray-500">Telefon</p>
-            <a :href="`tel:${selectedParentForDetail.phone}`" class="font-medium text-primary hover:underline">
-              {{ selectedParentForDetail.phone }}
-            </a>
-          </div>
-
-          <div v-if="selectedParentForDetail.street">
-            <p class="text-sm text-gray-500">Adresse</p>
-            <p class="font-medium">{{ selectedParentForDetail.street }} {{ selectedParentForDetail.streetNo }}</p>
-            <p class="text-gray-600">{{ selectedParentForDetail.postalCode }} {{ selectedParentForDetail.city }}</p>
-          </div>
-
-          <div class="pt-4 border-t text-sm text-gray-500">
-            <p>Erstellt: {{ formatDate(selectedParentForDetail.createdAt) }}</p>
-            <p>Aktualisiert: {{ formatDate(selectedParentForDetail.updatedAt) }}</p>
-          </div>
-        </div>
-
-        <!-- Edit Mode -->
-        <form v-else @submit.prevent="saveParentEdit" class="space-y-4">
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <label for="parent-edit-firstName" class="block text-sm font-medium text-gray-700 mb-1">Vorname</label>
-              <input
-                id="parent-edit-firstName"
-                v-model="parentEditForm.firstName"
-                type="text"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-              />
-            </div>
-            <div>
-              <label for="parent-edit-lastName" class="block text-sm font-medium text-gray-700 mb-1">Nachname</label>
-              <input
-                id="parent-edit-lastName"
-                v-model="parentEditForm.lastName"
-                type="text"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label for="parent-edit-birthDate" class="block text-sm font-medium text-gray-700 mb-1">Geburtsdatum</label>
-            <input
-              id="parent-edit-birthDate"
-              v-model="parentEditForm.birthDate"
-              type="date"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-            />
-          </div>
-
-          <div>
-            <label for="parent-edit-email" class="block text-sm font-medium text-gray-700 mb-1">E-Mail</label>
-            <input
-              id="parent-edit-email"
-              v-model="parentEditForm.email"
-              type="email"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-            />
-          </div>
-
-          <div>
-            <label for="parent-edit-phone" class="block text-sm font-medium text-gray-700 mb-1">Telefon</label>
-            <input
-              id="parent-edit-phone"
-              v-model="parentEditForm.phone"
-              type="tel"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-            />
-          </div>
-
-          <div class="grid grid-cols-4 gap-4">
-            <div class="col-span-3">
-              <label for="parent-edit-street" class="block text-sm font-medium text-gray-700 mb-1">Straße</label>
-              <input
-                id="parent-edit-street"
-                v-model="parentEditForm.street"
-                type="text"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-              />
-            </div>
-            <div>
-              <label for="parent-edit-streetNo" class="block text-sm font-medium text-gray-700 mb-1">Hausnr.</label>
-              <input
-                id="parent-edit-streetNo"
-                v-model="parentEditForm.streetNo"
-                type="text"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-              />
-            </div>
-          </div>
-
-          <div class="grid grid-cols-3 gap-4">
-            <div>
-              <label for="parent-edit-postalCode" class="block text-sm font-medium text-gray-700 mb-1">PLZ</label>
-              <input
-                id="parent-edit-postalCode"
-                v-model="parentEditForm.postalCode"
-                type="text"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-              />
-            </div>
-            <div class="col-span-2">
-              <label for="parent-edit-city" class="block text-sm font-medium text-gray-700 mb-1">Ort</label>
-              <input
-                id="parent-edit-city"
-                v-model="parentEditForm.city"
-                type="text"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-              />
-            </div>
-          </div>
-
-          <div v-if="parentDetailError" class="p-3 bg-red-50 border border-red-200 rounded-lg">
-            <p class="text-sm text-red-600">{{ parentDetailError }}</p>
-          </div>
-
-          <div class="flex justify-end gap-3 pt-4">
-            <button
-              type="button"
-              @click="cancelEditingParent"
-              class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              Abbrechen
-            </button>
-            <button
-              type="submit"
-              :disabled="isSavingParent"
-              class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
-            >
-              <Loader2 v-if="isSavingParent" class="h-4 w-4 animate-spin" />
-              <Check v-else class="h-4 w-4" />
-              Speichern
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+    <ParentDetailModal
+      v-if="selectedParentForDetail"
+      :parent="selectedParentForDetail"
+      @close="selectedParentForDetail = null"
+      @saved="loadChild"
+    />
 
     <!-- Reminder Confirmation Dialog -->
     <div
@@ -2943,100 +1360,6 @@ async function createReminder() {
             <Loader2 v-if="isCreatingReminder" class="h-4 w-4 animate-spin" />
             <AlertCircle v-else class="h-4 w-4" />
             Mahngebühr erstellen
-          </button>
-        </div>
-      </div>
-    </div>
-
-    <!-- Note Create/Edit Dialog -->
-    <div
-      v-if="showNoteDialog"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      @click.self="showNoteDialog = false"
-    >
-      <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
-        <div class="flex items-center justify-between mb-6">
-          <h2 class="text-xl font-semibold">
-            {{ noteDialogMode === 'create' ? 'Notiz erstellen' : 'Notiz bearbeiten' }}
-          </h2>
-          <button @click="showNoteDialog = false" class="p-1 hover:bg-gray-100 rounded">
-            <X class="h-5 w-5" />
-          </button>
-        </div>
-
-        <form @submit.prevent="handleSaveNote" class="space-y-4">
-          <div>
-            <label for="note-text" class="block text-sm font-medium text-gray-700 mb-1">Text *</label>
-            <textarea
-              id="note-text"
-              v-model="noteForm.text"
-              required
-              rows="4"
-              placeholder="Notiz eingeben..."
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none resize-y"
-            ></textarea>
-          </div>
-
-          <div v-if="noteError" class="p-3 bg-red-50 border border-red-200 rounded-lg">
-            <p class="text-sm text-red-600">{{ noteError }}</p>
-          </div>
-
-          <div class="flex justify-end gap-3 pt-4">
-            <button
-              type="button"
-              @click="showNoteDialog = false"
-              class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              Abbrechen
-            </button>
-            <button
-              type="submit"
-              :disabled="isSavingNote || !noteForm.text.trim()"
-              class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
-            >
-              <Loader2 v-if="isSavingNote" class="h-4 w-4 animate-spin" />
-              <Check v-else class="h-4 w-4" />
-              Speichern
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- Note Delete Confirmation Dialog -->
-    <div
-      v-if="showNoteDeleteDialog && noteToDelete"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      @click.self="showNoteDeleteDialog = false"
-    >
-      <div class="bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
-        <div class="flex items-center gap-3 mb-4">
-          <div class="p-2 bg-red-100 rounded-lg">
-            <Trash2 class="h-6 w-6 text-red-600" />
-          </div>
-          <h2 class="text-xl font-semibold">Notiz löschen?</h2>
-        </div>
-
-        <p class="text-gray-600 mb-6">
-          Möchtest du diese Notiz wirklich löschen?
-          Diese Aktion kann nicht rückgängig gemacht werden.
-        </p>
-
-        <div class="flex justify-end gap-3">
-          <button
-            @click="showNoteDeleteDialog = false"
-            class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            Abbrechen
-          </button>
-          <button
-            @click="handleDeleteNote"
-            :disabled="isDeletingNote"
-            class="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
-          >
-            <Loader2 v-if="isDeletingNote" class="h-4 w-4 animate-spin" />
-            <Trash2 v-else class="h-4 w-4" />
-            Löschen
           </button>
         </div>
       </div>

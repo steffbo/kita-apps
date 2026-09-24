@@ -25,6 +25,7 @@ import {
   UserX,
 } from 'lucide-vue-next';
 import { formatDate } from '@/utils/format';
+import { calculateAge, isUnderThree } from '@/utils/child';
 
 const router = useRouter();
 const route = useRoute();
@@ -202,21 +203,6 @@ onUnmounted(() => {
 });
 
 // Helpers
-
-function calculateAge(birthDate: string): number {
-  const birth = new Date(birthDate);
-  const today = new Date();
-  let age = today.getFullYear() - birth.getFullYear();
-  const m = today.getMonth() - birth.getMonth();
-  if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) {
-    age--;
-  }
-  return age;
-}
-
-function isUnderThree(birthDate: string): boolean {
-  return calculateAge(birthDate) < 3;
-}
 
 // Warning checks
 function getChildWarnings(child: Child): string[] {
