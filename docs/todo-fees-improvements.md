@@ -64,7 +64,7 @@ Leitplanke für alle Refactorings: **keine fachliche Verhaltensänderung**, auß
       (`formatDate`, `formatDateTime`, `formatCurrency`, `formatDateForInput`, …), alle Seiten umstellen.
 - [x] **17. Große Seiten zerlegen** (`a3d65a2`, `d9529f3`, `bed8442`) – `ChildDetailPage.vue` (3076 Z.), `ImportPage.vue`,
       `ChildImportPage.vue`, `FeesPage.vue`, `AutomationPage.vue` in Komponenten + Composables.
-- [ ] **18. OpenAPI `required`** – Pflichtfelder in swag-DTOs markieren, Spec + `schema.d.ts`
+- [x] **18. OpenAPI `required`** (`61b7675`) – Pflichtfelder in swag-DTOs markieren, Spec + `schema.d.ts`
       neu generieren, `DeepStrict`/`Loose` in `types.ts` abbauen.
 - [ ] **19. Handler-/Middleware-Tests** – `httptest` für Auth, `RequireRole`, Import-Token,
       Body-Limits, zentrale Fehlerpfade.
