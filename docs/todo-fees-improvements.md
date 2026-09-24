@@ -62,7 +62,7 @@ Leitplanke für alle Refactorings: **keine fachliche Verhaltensänderung**, auß
       CSV-Import. Reines Verschieben, Tests müssen unverändert grün bleiben.
 - [x] **16. Frontend-Formatierer zentralisieren** (`9d34340`) – `src/utils/format.ts`
       (`formatDate`, `formatDateTime`, `formatCurrency`, `formatDateForInput`, …), alle Seiten umstellen.
-- [ ] **17. Große Seiten zerlegen** – `ChildDetailPage.vue` (3076 Z.), `ImportPage.vue`,
+- [x] **17. Große Seiten zerlegen** (`a3d65a2`, `d9529f3`, `bed8442`) – `ChildDetailPage.vue` (3076 Z.), `ImportPage.vue`,
       `ChildImportPage.vue`, `FeesPage.vue`, `AutomationPage.vue` in Komponenten + Composables.
 - [ ] **18. OpenAPI `required`** – Pflichtfelder in swag-DTOs markieren, Spec + `schema.d.ts`
       neu generieren, `DeepStrict`/`Loose` in `types.ts` abbauen.
