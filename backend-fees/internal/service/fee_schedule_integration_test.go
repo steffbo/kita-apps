@@ -19,7 +19,7 @@ func TestFeeScheduleService_Rules(t *testing.T) {
 
 	repo := repository.NewPostgresFeeScheduleRepository(testDB)
 	svc := service.NewFeeScheduleService(repo)
-	defer testDB.Exec(`DELETE FROM fees.fee_schedules WHERE valid_from > '2000-01-01'`)
+	defer testDB.Exec(`DELETE FROM fees.fee_schedules WHERE valid_from > '2025-01-01'`)
 
 	seeded, err := repo.GetAt(ctx, time.Date(2031, 5, 1, 0, 0, 0, 0, time.UTC))
 	if err != nil {
@@ -72,7 +72,7 @@ func TestFeeSchedule_NewVersionAppliesFromValidFrom(t *testing.T) {
 	defer restore()
 
 	scheduleRepo := repository.NewPostgresFeeScheduleRepository(testDB)
-	defer testDB.Exec(`DELETE FROM fees.fee_schedules WHERE valid_from > '2000-01-01'`)
+	defer testDB.Exec(`DELETE FROM fees.fee_schedules WHERE valid_from > '2025-01-01'`)
 	seeded, err := scheduleRepo.GetAt(ctx, time.Date(2031, 5, 1, 0, 0, 0, 0, time.UTC))
 	if err != nil {
 		t.Fatal(err)

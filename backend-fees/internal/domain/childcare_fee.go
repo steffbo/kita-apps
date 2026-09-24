@@ -37,6 +37,10 @@ type FeeScheduleConfig struct {
 	EntlastungIncomeLimit float64       `json:"entlastungIncomeLimit"`
 	EntlastungTable       []FeeTableRow `json:"entlastungTable"`
 	SatzungTable          []FeeTableRow `json:"satzungTable"`
+	// KindergartenTable is the Satzung table for children from their 3rd birthday.
+	// Reference only: kindergarten care is free under the Elternbeitragsentlastungsgesetz,
+	// so the calculation does not use it.
+	KindergartenTable []FeeTableRow `json:"kindergartenTable,omitempty"`
 	// SiblingDiscountFactors[i] applies to i+1 children; more children use the last factor.
 	SiblingDiscountFactors []float64 `json:"siblingDiscountFactors"`
 	// From this many children on, the childcare fee is waived.
@@ -88,6 +92,9 @@ func (c FeeScheduleConfig) Validate() error {
 	}
 	problems = append(problems, validateFeeTable("Entlastungstabelle", c.EntlastungTable)...)
 	problems = append(problems, validateFeeTable("Satzungstabelle", c.SatzungTable)...)
+	if len(c.KindergartenTable) > 0 {
+		problems = append(problems, validateFeeTable("Kindergartentabelle", c.KindergartenTable)...)
+	}
 	if len(c.SiblingDiscountFactors) == 0 {
 		problems = append(problems, "Geschwisterermäßigung braucht mindestens einen Faktor")
 	}
@@ -131,6 +138,9 @@ func validateFeeTable(name string, table []FeeTableRow) []string {
 func (c *FeeScheduleConfig) Normalize() {
 	sort.SliceStable(c.EntlastungTable, func(i, j int) bool { return c.EntlastungTable[i].MinIncome < c.EntlastungTable[j].MinIncome })
 	sort.SliceStable(c.SatzungTable, func(i, j int) bool { return c.SatzungTable[i].MinIncome < c.SatzungTable[j].MinIncome })
+	sort.SliceStable(c.KindergartenTable, func(i, j int) bool {
+		return c.KindergartenTable[i].MinIncome < c.KindergartenTable[j].MinIncome
+	})
 }
 
 // ChildAgeType represents whether a child is in Krippe or Kindergarten.

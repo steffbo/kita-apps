@@ -6,7 +6,7 @@ Re-read these sources before relying on a calculation or write contract:
 | --- | --- |
 | Income fields and household formula | `backend-fees/internal/domain/income_calculation.go` |
 | Fee calculation rules (brackets, care-hour columns, sibling discount logic) | `backend-fees/internal/domain/childcare_fee.go` |
-| Fee amounts (limits, tables, sibling factors, food and membership fee) per validity date | `fees.fee_schedules` via `GET /api/fees/v1/fee-schedules` (UI: Beitragsordnung); seed in `backend-fees/migrations/000034_fee_schedules.up.sql` |
+| Fee amounts (limits, tables, sibling factors, food and membership fee) per validity date | `fees.fee_schedules` via `GET /api/fees/v1/fee-schedules` (UI: Beitragsordnung); seed in `backend-fees/migrations/000034_fee_schedules.up.sql`, valid from 2025-01-01 since `000035` (also adds the reference-only Ü3 `kindergartenTable`; Ü3 stays free) |
 | Child age determination | `backend-fees/internal/domain/child.go` |
 | Einstufung and follow-up business behavior | `backend-fees/internal/service/einstufung_service.go` |
 | Fee expectation synchronization | `backend-fees/internal/service/fee_service.go` |

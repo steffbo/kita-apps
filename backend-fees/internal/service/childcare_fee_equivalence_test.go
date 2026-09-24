@@ -2,6 +2,7 @@ package service_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -64,12 +65,16 @@ func assertSameChildcareFee(t *testing.T, calc func(domain.ChildcareFeeInput) *d
 	}
 }
 
-// The fee schedule seeded by migration 000034 must reproduce the formerly
-// hard-coded calculation exactly, for every date before any new version.
+// The fee schedule seeded by migration 000034 (valid from 2025-01-01 since
+// 000035) must reproduce the formerly hard-coded calculation exactly, for every
+// date before any new version.
 func TestSeededFeeSchedule_MatchesLegacyCalculation(t *testing.T) {
 	repo := repository.NewPostgresFeeScheduleRepository(testDB)
+	if _, err := repo.GetAt(context.Background(), time.Date(2024, 12, 31, 0, 0, 0, 0, time.UTC)); !errors.Is(err, domain.ErrNoFeeSchedule) {
+		t.Fatalf("GetAt(2024-12-31) = %v, want ErrNoFeeSchedule", err)
+	}
 	for _, date := range []time.Time{
-		time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
+		time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC),
 		time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC),
 	} {
 		schedule, err := repo.GetAt(context.Background(), date)
@@ -81,6 +86,14 @@ func TestSeededFeeSchedule_MatchesLegacyCalculation(t *testing.T) {
 		}
 		if schedule.Config.MonthlyFoodFee != 45.40 || schedule.Config.AnnualMembershipFee != 30.00 {
 			t.Fatalf("food/membership = %v/%v, want 45.40/30.00", schedule.Config.MonthlyFoodFee, schedule.Config.AnnualMembershipFee)
+		}
+		if schedule.Name != "Elternbeitragsordnung ab 01.01.2025" {
+			t.Fatalf("name = %q", schedule.Name)
+		}
+		// Ü3 table is stored for reference (13 brackets, Höchstsatz 308,00 € at 40 h).
+		kg := schedule.Config.KindergartenTable
+		if len(kg) != 13 || kg[0].Rates[2] != 61.60 || kg[12].MinIncome != 55000 || kg[12].Rates[2] != 308.00 {
+			t.Fatalf("kindergarten table = %+v", kg)
 		}
 		assertSameChildcareFee(t, schedule.Config.CalculateChildcareFee)
 	}

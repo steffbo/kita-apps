@@ -5534,6 +5534,17 @@ components:
           type: array
         freeIncomeLimit:
           type: number
+        kindergartenTable:
+          description: >-
+            KindergartenTable is the Satzung table for children from their 3rd
+            birthday.
+
+            Reference only: kindergarten care is free under the Elternbeitragsentlastungsgesetz,
+
+            so the calculation does not use it.
+          items:
+            $ref: "#/components/schemas/FeeTableRow"
+          type: array
         monthlyFoodFee:
           type: number
         satzungTable:

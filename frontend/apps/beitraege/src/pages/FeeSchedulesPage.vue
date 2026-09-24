@@ -28,6 +28,25 @@ const isEditing = computed(() => draft.value !== null);
 // The config shown: the draft while editing, otherwise the selected version.
 const shownConfig = computed<FeeScheduleConfig | null>(() => draft.value?.config ?? selected.value?.config ?? null);
 
+// Fee tables of the shown config; the Ü3 table is optional and reference only.
+const feeTables = computed(() => {
+  const config = shownConfig.value;
+  if (!config) return [];
+  const tables: { key: string; title: string; hint?: string; rows: FeeTableRow[] }[] = [
+    { key: 'entlastungTable', title: 'Entlastungstabelle (U3, ohne Geschwisterermäßigung)', rows: config.entlastungTable },
+    { key: 'satzungTable', title: 'Satzungstabelle (U3; letzte Zeile = Höchstsatz, Durchschnitt = Pflegefamilie)', rows: config.satzungTable },
+  ];
+  if (config.kindergartenTable?.length) {
+    tables.push({
+      key: 'kindergartenTable',
+      title: 'Kindergartentabelle (Ü3, ab dem vollendeten 3. Lebensjahr)',
+      hint: 'Nur zur Information: Kindergartenkinder sind nach dem Elternbeitragsentlastungsgesetz beitragsfrei, die Berechnung verwendet diese Tabelle nicht.',
+      rows: config.kindergartenTable,
+    });
+  }
+  return tables;
+});
+
 async function loadVersions(selectId?: string): Promise<void> {
   isLoading.value = true;
   loadError.value = null;
@@ -293,14 +312,12 @@ onMounted(() => loadVersions());
 
         <!-- Tables -->
         <div
-          v-for="table in ([
-            { key: 'entlastungTable', title: 'Entlastungstabelle (U3, ohne Geschwisterermäßigung)' },
-            { key: 'satzungTable', title: 'Satzungstabelle (U3; letzte Zeile = Höchstsatz, Durchschnitt = Pflegefamilie)' },
-          ] as const)"
+          v-for="table in feeTables"
           :key="table.key"
           class="bg-white rounded-xl border overflow-hidden"
         >
           <h3 class="font-semibold text-gray-900 px-6 pt-5 pb-3">{{ table.title }}</h3>
+          <p v-if="table.hint" class="px-6 pb-3 -mt-1 text-sm text-gray-500">{{ table.hint }}</p>
           <div class="overflow-x-auto">
             <table class="w-full text-sm">
               <thead class="bg-gray-50">
@@ -311,7 +328,7 @@ onMounted(() => loadVersions());
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="(row, rowIndex) in shownConfig[table.key]" :key="rowIndex" class="border-t">
+                <tr v-for="(row, rowIndex) in table.rows" :key="rowIndex" class="border-t">
                   <td class="px-4 py-2">
                     <input v-if="draft" v-model.number="row.minIncome" type="number" step="0.01" min="0" class="w-32 rounded border px-2 py-1" />
                     <span v-else>{{ formatCurrency(row.minIncome) }}</span>
@@ -321,7 +338,7 @@ onMounted(() => loadVersions());
                     <span v-else>{{ formatCurrency(row.rates[rateIndex] ?? 0) }}</span>
                   </td>
                   <td v-if="draft" class="px-2 py-2">
-                    <button @click="removeRow(shownConfig[table.key], rowIndex)" :disabled="shownConfig[table.key].length <= 1"
+                    <button @click="removeRow(table.rows, rowIndex)" :disabled="table.rows.length <= 1"
                       class="text-gray-400 hover:text-red-600 disabled:opacity-30" title="Zeile entfernen">
                       <Trash2 class="h-4 w-4" />
                     </button>
@@ -331,7 +348,7 @@ onMounted(() => loadVersions());
             </table>
           </div>
           <div v-if="draft" class="px-6 py-3 border-t">
-            <button @click="addRow(shownConfig[table.key])" class="text-sm text-primary hover:underline">
+            <button @click="addRow(table.rows)" class="text-sm text-primary hover:underline">
               <Plus class="h-4 w-4 inline" /> Zeile hinzufügen
             </button>
           </div>

@@ -723,7 +723,8 @@ export type CalculateIncomeResponse = DeepStrict<Schema['CalculateIncomeResponse
 
 // ── Fee schedules (Beitragsordnung) ──────────────────────────────────────────
 export type FeeTableRow = DeepStrict<Schema['FeeTableRow']>;
-export type FeeScheduleConfig = DeepStrict<Schema['FeeScheduleConfig']>;
+/** `kindergartenTable` (Ü3) is reference only and may be missing. */
+export type FeeScheduleConfig = Loose<DeepStrict<Schema['FeeScheduleConfig']>, 'kindergartenTable'>;
 export type FeeScheduleStatus = NonNullable<Schema['FeeScheduleVersion']['status']>;
 /** One version of the fee regulation; only `planned` versions are editable. */
 export type FeeScheduleVersion = Loose<DeepStrict<Schema['FeeScheduleVersion']>, 'validUntil'>;

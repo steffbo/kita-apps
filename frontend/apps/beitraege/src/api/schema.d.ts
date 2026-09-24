@@ -7591,6 +7591,12 @@ export interface components {
             entlastungIncomeLimit?: number;
             entlastungTable?: components["schemas"]["FeeTableRow"][];
             freeIncomeLimit?: number;
+            /**
+             * @description KindergartenTable is the Satzung table for children from their 3rd birthday.
+             *     Reference only: kindergarten care is free under the Elternbeitragsentlastungsgesetz,
+             *     so the calculation does not use it.
+             */
+            kindergartenTable?: components["schemas"]["FeeTableRow"][];
             monthlyFoodFee?: number;
             satzungTable?: components["schemas"]["FeeTableRow"][];
             /** @description SiblingDiscountFactors[i] applies to i+1 children; more children use the last factor. */
