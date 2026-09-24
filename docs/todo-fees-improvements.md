@@ -8,7 +8,7 @@ Leitplanke für alle Refactorings: **keine fachliche Verhaltensänderung**, auß
 
 ## Phase 1 – Quick Wins & Absicherung
 
-- [x] **1. CI: Tests vor Image-Build** – eigener Workflow `ci.yml` (auf PR + `main`):
+- [x] **1. CI: Tests vor Image-Build** (`a725ddc`) – eigener Workflow `ci.yml` (auf PR + `main`):
       `gofmt -l`, `go vet`, `go test ./...` (Integrationstests nutzen testcontainers, Docker ist auf
       GitHub-Runnern vorhanden) für `backend-fees`, `vue-tsc` für `beitraege`. `build-images.yml`
       hängt davon ab (`needs`). Erwartung: +2–4 min zusätzlich zum heutigen Build (~2–2,5 min).
@@ -49,14 +49,14 @@ Leitplanke für alle Refactorings: **keine fachliche Verhaltensänderung**, auß
       Werte. Berechnung wählt die Tabelle nach Stichtag. Eigener Bereich „Beitragsordnung" im
       Frontend (anzeigen, neue Version ab Datum anlegen; alte Versionen read-only).
       Tests: Ergebnisse vor/nach Migration identisch.
-- [x] **13. Geldbeträge als Cent** – umgesetzt als Cent-Arithmetik in Go bei unveränderten Structs/API (siehe status-fees). Ursprünglich: DB bleibt `NUMERIC(…,2)` (ist bereits exakt, **keine
+- [x] **13. Geldbeträge als Cent** (`b5f71aa`) – umgesetzt als Cent-Arithmetik in Go bei unveränderten Structs/API (siehe status-fees). Ursprünglich: DB bleibt `NUMERIC(…,2)` (ist bereits exakt, **keine
       Datenmigration nötig**). In Go ein Typ `Cents int64` mit `Scan`/`Value`
       (NUMERIC ↔ Cent) und JSON-Ausgabe weiterhin als Euro-Zahl, damit die API unverändert bleibt.
       Epsilon-Vergleiche (`0.01`) entfallen. Schrittweise: zuerst Matching/Allocation, dann Rest.
 
 ## Phase 4 – Struktur (ohne Logikänderung)
 
-- [ ] **14. Handler entschlacken** – Repo-Zugriffe aus `ChildHandler`/`FeeHandler` in Services
+- [x] **14. Handler entschlacken** (`e22ac6f`, `6649ecc`) – Repo-Zugriffe aus `ChildHandler`/`FeeHandler` in Services
       verschieben; `fee_handler.go`/`import_handler.go` aufteilen.
 - [ ] **15. `import_service.go` aufteilen** – `matcher`, `iban_registry`, `warning_service`,
       CSV-Import. Reines Verschieben, Tests müssen unverändert grün bleiben.
