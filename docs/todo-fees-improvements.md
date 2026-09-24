@@ -66,7 +66,7 @@ Leitplanke für alle Refactorings: **keine fachliche Verhaltensänderung**, auß
       `ChildImportPage.vue`, `FeesPage.vue`, `AutomationPage.vue` in Komponenten + Composables.
 - [x] **18. OpenAPI `required`** (`61b7675`) – Pflichtfelder in swag-DTOs markieren, Spec + `schema.d.ts`
       neu generieren, `DeepStrict`/`Loose` in `types.ts` abbauen.
-- [ ] **19. Handler-/Middleware-Tests** – `httptest` für Auth, `RequireRole`, Import-Token,
+- [x] **19. Handler-/Middleware-Tests** (`fb42eef`) – `httptest` für Auth, `RequireRole`, Import-Token,
       Body-Limits, zentrale Fehlerpfade.
 
 ## Phase 5 – Mehrbenutzer
