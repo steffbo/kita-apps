@@ -1,6 +1,7 @@
 import type {
   LoginRequest,
-  TokenPair,
+  LoginResponse,
+  RefreshResponse,
   User,
   Child,
   CreateChildRequest,
@@ -86,23 +87,22 @@ import { todayISO } from '@/utils/format';
 
 const API_BASE = '/api/fees/v1';
 
+// Auth endpoints that must not trigger a refresh-and-retry on 401.
+const NO_REFRESH_PATHS = ['/auth/login', '/auth/refresh', '/auth/logout'];
+
 class ApiClient {
+  // Access token in memory only; the refresh token is an httpOnly cookie.
   private accessToken: string | null = null;
-  private refreshToken: string | null = null;
   private refreshPromise: Promise<boolean> | null = null;
-  private onTokenRefreshed: ((tokens: { accessToken: string; refreshToken: string }) => void) | null = null;
+  private onTokenRefreshed: ((accessToken: string) => void) | null = null;
   private onAuthFailed: (() => void) | null = null;
 
   setAccessToken(token: string | null) {
     this.accessToken = token;
   }
 
-  setRefreshToken(token: string | null) {
-    this.refreshToken = token;
-  }
-
-  // Callback when tokens are refreshed - auth store should use this to update its state
-  setOnTokenRefreshed(callback: (tokens: { accessToken: string; refreshToken: string }) => void) {
+  // Callback when the access token is refreshed - auth store should use this to update its state
+  setOnTokenRefreshed(callback: (accessToken: string) => void) {
     this.onTokenRefreshed = callback;
   }
 
@@ -111,37 +111,21 @@ class ApiClient {
     this.onAuthFailed = callback;
   }
 
-  private async tryRefreshToken(): Promise<boolean> {
-    // If already refreshing, wait for that to complete
+  /** Gets a new access token via the refresh cookie. Concurrent callers share one request. */
+  tryRefreshToken(): Promise<boolean> {
     if (this.refreshPromise) {
       return this.refreshPromise;
     }
 
-    if (!this.refreshToken) {
-      return false;
-    }
-
     this.refreshPromise = (async () => {
       try {
-        const response = await fetch(`${API_BASE}/auth/refresh`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ refreshToken: this.refreshToken }),
-        });
-
+        const response = await fetch(`${API_BASE}/auth/refresh`, { method: 'POST' });
         if (!response.ok) {
           return false;
         }
-
-        const tokens = await response.json();
+        const tokens: RefreshResponse = await response.json();
         this.accessToken = tokens.accessToken;
-        this.refreshToken = tokens.refreshToken;
-
-        // Notify auth store to update its state
-        if (this.onTokenRefreshed) {
-          this.onTokenRefreshed(tokens);
-        }
-
+        this.onTokenRefreshed?.(tokens.accessToken);
         return true;
       } catch {
         return false;
@@ -158,8 +142,9 @@ class ApiClient {
     options: RequestInit = {},
     isRetry = false
   ): Promise<T> {
+    // FormData bodies (uploads) need the browser-generated multipart header.
     const headers: HeadersInit = {
-      'Content-Type': 'application/json',
+      ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
       ...options.headers,
     };
 
@@ -173,7 +158,7 @@ class ApiClient {
     });
 
     if (!response.ok) {
-      if (response.status === 401 && !isRetry) {
+      if (response.status === 401 && !isRetry && !NO_REFRESH_PATHS.includes(path)) {
         // Token expired - try to refresh
         const refreshed = await this.tryRefreshToken();
         if (refreshed) {
@@ -200,17 +185,10 @@ class ApiClient {
   }
 
   // Auth endpoints
-  async login(credentials: LoginRequest): Promise<TokenPair> {
-    return this.request<TokenPair>('/auth/login', {
+  async login(credentials: LoginRequest): Promise<LoginResponse> {
+    return this.request<LoginResponse>('/auth/login', {
       method: 'POST',
       body: JSON.stringify(credentials),
-    });
-  }
-
-  async refresh(refreshToken: string): Promise<TokenPair> {
-    return this.request<TokenPair>('/auth/refresh', {
-      method: 'POST',
-      body: JSON.stringify({ refreshToken }),
     });
   }
 
@@ -222,8 +200,9 @@ class ApiClient {
     return this.request<User>('/auth/me');
   }
 
-  async changePassword(data: ChangePasswordRequest): Promise<void> {
-    await this.request<unknown>('/auth/change-password', {
+  /** Ends all other sessions; the response carries this browser's new access token. */
+  async changePassword(data: ChangePasswordRequest): Promise<RefreshResponse> {
+    return this.request<RefreshResponse>('/auth/change-password', {
       method: 'POST',
       body: JSON.stringify(data),
     });
@@ -776,23 +755,7 @@ class ApiClient {
     const formData = new FormData();
     formData.append('file', file);
 
-    const headers: HeadersInit = {};
-    if (this.accessToken) {
-      headers['Authorization'] = `Bearer ${this.accessToken}`;
-    }
-
-    const response = await fetch(`${API_BASE}/import/upload`, {
-      method: 'POST',
-      headers,
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Upload failed' }));
-      throw new Error(error.message || error.error || 'Upload failed');
-    }
-
-    const result: ImportResult = await response.json();
+    const result = await this.request<ImportResult>('/import/upload', { method: 'POST', body: formData });
     return {
       ...result,
       suggestions: result.suggestions ?? [],
@@ -985,23 +948,10 @@ class ApiClient {
     const formData = new FormData();
     formData.append('file', file);
 
-    const headers: HeadersInit = {};
-    if (this.accessToken) {
-      headers['Authorization'] = `Bearer ${this.accessToken}`;
-    }
-
-    const response = await fetch(`${API_BASE}/children/import/parse`, {
+    const result = await this.request<ChildImportParseResult>('/children/import/parse', {
       method: 'POST',
-      headers,
       body: formData,
     });
-
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({ error: 'Upload failed' }));
-      throw new Error(error.message || error.error || 'Upload failed');
-    }
-
-    const result: ChildImportParseResult = await response.json();
     return {
       ...result,
       sampleRows: result.sampleRows ?? [],

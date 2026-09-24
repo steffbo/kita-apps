@@ -17,11 +17,10 @@ type Schema = components['schemas'];
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
 export type LoginRequest = Schema['LoginRequest'];
-export interface TokenPair {
-  accessToken: string;
-  refreshToken: string;
-  expiresAt: string;
-}
+// The refresh token is never visible to scripts: the backend keeps it in the
+// httpOnly cookie `fees_refresh`. Responses only carry the access token.
+export type LoginResponse = Schema['LoginResponse'];
+export type RefreshResponse = Schema['RefreshResponse'];
 export type User = Schema['User'];
 export type ChangePasswordRequest = Schema['ChangePasswordRequest'];
 

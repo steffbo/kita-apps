@@ -82,11 +82,13 @@ Base URL: `http://localhost:8081/api/fees/v1`
 
 | Methode | Endpoint | Beschreibung |
 |---------|----------|--------------|
-| `POST` | `/auth/login` | Login (Email + Passwort) |
-| `POST` | `/auth/refresh` | Access Token erneuern |
-| `POST` | `/auth/logout` | Logout (Token invalidieren) |
+| `POST` | `/auth/login` | Login (Email + Passwort); setzt Refresh-Cookie |
+| `POST` | `/auth/refresh` | Access Token erneuern (per Refresh-Cookie, rotiert es) |
+| `POST` | `/auth/logout` | Logout (widerruft und löscht das Refresh-Cookie, braucht kein Access Token) |
 | `GET` | `/auth/me` | Aktueller Benutzer |
-| `POST` | `/auth/change-password` | Eigenes Passwort ändern (beendet alle Sitzungen des Kontos) |
+| `POST` | `/auth/change-password` | Eigenes Passwort ändern (beendet alle anderen Sitzungen, liefert neues Access Token + Cookie) |
+
+Das Refresh-Token steht nie im Response-Body, sondern nur im httpOnly-Cookie `fees_refresh` (`SameSite=Strict`, `Path=/api/fees/v1/auth`, `Secure` bei HTTPS bzw. `X-Forwarded-Proto: https`). Das Frontend hält das Access Token nur im Speicher und holt es nach einem Reload über `/auth/refresh`. Fehlgeschlagene Logins werden gebremst: 5 pro IP und Konto bzw. 20 pro IP in 15 Minuten, danach `429` mit `Retry-After` (Zustand im Speicher, Neustart setzt zurück). Gleiches gilt für ein falsches aktuelles Passwort bei `change-password`.
 
 Benutzerverwaltung (nur `ADMIN`): `GET/POST /users`, `PUT /users/{id}` (E-Mail, Name, Rolle `ADMIN`/`USER`, aktiv; das eigene Konto kann nicht deaktiviert oder herabgestuft werden), `POST /users/{id}/password` (Passwort neu setzen). Deaktivieren und Passwort-Reset widerrufen die Refresh-Tokens; ein laufendes Access-Token gilt noch bis zu seinem Ablauf (15 min). E-Mail und Rolle im Token kommen beim Refresh aus der DB.
 
@@ -102,7 +104,6 @@ Benutzerverwaltung (nur `ADMIN`): `GET/POST /users`, `PUT /users/{id}` (E-Mail, 
 ```json
 {
   "accessToken": "eyJhbG...",
-  "refreshToken": "eyJhbG...",
   "expiresAt": "2026-01-21T19:00:00+01:00",
   "user": {
     "id": "uuid",

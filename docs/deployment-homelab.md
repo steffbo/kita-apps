@@ -113,6 +113,10 @@ There is intentionally no quick deploy that bypasses the commit-pinned CI gate o
 | Management health | https://kita.remer.cc/healthz |
 | Fees API (public prefix) | https://kita.remer.cc/api-fees/v1/ |
 
+## Backups
+
+There is no app-level DB dump. The whole `infra-dev` VM (including the `kita-db` volume) is backed up twice daily to Backblaze by the homelab VM backup. Restoring means restoring the VM (or its disk) from that backup, not a `pg_restore`.
+
 ## Troubleshooting
 
 ### Build failed

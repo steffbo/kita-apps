@@ -76,6 +76,14 @@ Leitplanke für alle Refactorings: **keine fachliche Verhaltensänderung**, auß
       persistent (behebt heutigen Bug: Änderung geht beim Neustart verloren). Admin-UI zum
       Anlegen/Deaktivieren. Rollen vorerst `ADMIN`/`USER`. Voraussetzung für einen Agent-Service-Account.
 
-## Später
+## Phase 6 – Nach dem Review (2026-09-24)
 
-- [ ] **21. Tokens aus `localStorage`** – Refresh-Token als httpOnly-Cookie.
+- [x] **21. Tokens aus `localStorage`** (`COMMIT21`) – Refresh-Token als httpOnly-Cookie `fees_refresh`
+      (SameSite=Strict, Pfad `/api/fees/v1/auth`), Access-Token nur im Speicher.
+- [x] **22. Login-Bremse** (`COMMIT21`, zusammen mit #21) – fehlgeschlagene Anmeldungen pro IP+Konto und pro IP
+      begrenzen (429 mit Wartezeit); ebenso falsches aktuelles Passwort bei „Passwort ändern“.
+- [x] **23. GitHub Actions auf Node 24** (`9f5dea1`) – checkout/setup-go/docker-Actions auf aktuelle Major-Versionen.
+- [ ] **24. Playwright-E2E sauber aufsetzen** – Suite im Repo statt Wegwerf-Skripte, eigene Test-DB, in CI.
+
+Bewusst nicht geplant: Audit-Log (vorerst nicht gewünscht); eigene DB-Backups (abgedeckt durch das
+VM-Backup von infra-dev, 2× täglich nach Backblaze).

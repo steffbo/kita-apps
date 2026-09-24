@@ -1,59 +1,41 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
 import { api } from '@/api';
-import type { User, TokenPair } from '@/api/types';
+import type { User } from '@/api/types';
 
-const ACCESS_TOKEN_KEY = 'fees_access_token';
-const REFRESH_TOKEN_KEY = 'fees_refresh_token';
+// Tokens used to live in localStorage; remove leftovers from older versions.
+localStorage.removeItem('fees_access_token');
+localStorage.removeItem('fees_refresh_token');
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null);
-  const accessToken = ref<string | null>(localStorage.getItem(ACCESS_TOKEN_KEY));
-  const refreshToken = ref<string | null>(localStorage.getItem(REFRESH_TOKEN_KEY));
+  // Access token in memory only. The session itself is the httpOnly refresh
+  // cookie, so a reload restores it via initialize().
+  const accessToken = ref<string | null>(null);
+  const initialized = ref(false);
   const isLoading = ref(false);
   const error = ref<string | null>(null);
 
   const isAuthenticated = computed(() => !!accessToken.value);
   const isAdmin = computed(() => user.value?.role === 'ADMIN');
 
-  // Initialize API client with stored tokens and callbacks
-  if (accessToken.value) {
-    api.setAccessToken(accessToken.value);
-  }
-  if (refreshToken.value) {
-    api.setRefreshToken(refreshToken.value);
-  }
-
-  // Set up callback for when API client refreshes tokens
-  api.setOnTokenRefreshed((tokens) => {
-    accessToken.value = tokens.accessToken;
-    refreshToken.value = tokens.refreshToken;
-    localStorage.setItem(ACCESS_TOKEN_KEY, tokens.accessToken);
-    localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
+  api.setOnTokenRefreshed((token) => {
+    accessToken.value = token;
   });
 
-  // Set up callback for when auth completely fails
   api.setOnAuthFailed(() => {
-    clearTokens();
+    clearSession();
   });
 
-  function setTokens(tokens: TokenPair) {
-    accessToken.value = tokens.accessToken;
-    refreshToken.value = tokens.refreshToken;
-    localStorage.setItem(ACCESS_TOKEN_KEY, tokens.accessToken);
-    localStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
-    api.setAccessToken(tokens.accessToken);
-    api.setRefreshToken(tokens.refreshToken);
+  function setAccessToken(token: string) {
+    accessToken.value = token;
+    api.setAccessToken(token);
   }
 
-  function clearTokens() {
+  function clearSession() {
     accessToken.value = null;
-    refreshToken.value = null;
     user.value = null;
-    localStorage.removeItem(ACCESS_TOKEN_KEY);
-    localStorage.removeItem(REFRESH_TOKEN_KEY);
     api.setAccessToken(null);
-    api.setRefreshToken(null);
   }
 
   async function login(email: string, password: string) {
@@ -61,13 +43,13 @@ export const useAuthStore = defineStore('auth', () => {
     error.value = null;
 
     try {
-      const tokens = await api.login({ email, password });
-      setTokens(tokens);
-      await fetchUser();
+      const result = await api.login({ email, password });
+      setAccessToken(result.accessToken);
+      user.value = result.user;
       return true;
     } catch (e) {
       error.value = e instanceof Error ? e.message : 'Login fehlgeschlagen';
-      clearTokens();
+      clearSession();
       return false;
     } finally {
       isLoading.value = false;
@@ -80,50 +62,30 @@ export const useAuthStore = defineStore('auth', () => {
     } catch {
       // Ignore logout errors
     } finally {
-      clearTokens();
+      clearSession();
     }
   }
 
   async function fetchUser() {
     if (!accessToken.value) return;
-
     try {
       user.value = await api.me();
-    } catch (e) {
-      if (e instanceof Error && e.message === 'Unauthorized') {
-        await tryRefresh();
-      }
-    }
-  }
-
-  async function tryRefresh(): Promise<boolean> {
-    if (!refreshToken.value) {
-      clearTokens();
-      return false;
-    }
-
-    try {
-      const tokens = await api.refresh(refreshToken.value);
-      setTokens(tokens);
-      await fetchUser();
-      return true;
     } catch {
-      clearTokens();
-      return false;
+      // A failed refresh already cleared the session via onAuthFailed.
     }
   }
 
-  // Changing the password ends all sessions server-side, so log in again with the new one.
+  // Changing the password ends all other sessions; the response carries ours.
   async function changePassword(currentPassword: string, newPassword: string) {
-    const email = user.value?.email;
-    await api.changePassword({ currentPassword, newPassword });
-    if (email) {
-      setTokens(await api.login({ email, password: newPassword }));
-    }
+    const result = await api.changePassword({ currentPassword, newPassword });
+    setAccessToken(result.accessToken);
   }
 
+  /** Restores the session from the refresh cookie once per page load. */
   async function initialize() {
-    if (accessToken.value) {
+    if (initialized.value) return;
+    initialized.value = true;
+    if (await api.tryRefreshToken()) {
       await fetchUser();
     }
   }
@@ -137,7 +99,6 @@ export const useAuthStore = defineStore('auth', () => {
     login,
     logout,
     fetchUser,
-    tryRefresh,
     changePassword,
     initialize,
   };

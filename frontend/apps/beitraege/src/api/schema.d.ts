@@ -15,7 +15,7 @@ export interface paths {
         put?: never;
         /**
          * Change own password
-         * @description Change the password for the currently authenticated user
+         * @description Change the password for the currently authenticated user. Ends all other sessions and returns a fresh access token (new refresh cookie). Wrong current passwords are throttled.
          */
         post: {
             parameters: {
@@ -31,13 +31,13 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description Password changed successfully */
+                /** @description Password changed; new session */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["MessageResponse"];
+                        "application/json": components["schemas"]["RefreshResponse"];
                     };
                 };
                 /** @description Invalid request or current password incorrect */
@@ -67,6 +67,15 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorResponse"];
                     };
                 };
+                /** @description Too many failed attempts */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
             };
         };
         delete?: never;
@@ -86,7 +95,7 @@ export interface paths {
         put?: never;
         /**
          * User login
-         * @description Authenticate a user with email and password, returns JWT tokens
+         * @description Authenticate with email and password. Returns the access token and sets the refresh token as httpOnly cookie. Repeated failures are throttled per IP and account.
          */
         post: {
             parameters: {
@@ -129,6 +138,15 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorResponse"];
                     };
                 };
+                /** @description Too many failed attempts */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
             };
         };
         delete?: never;
@@ -148,7 +166,7 @@ export interface paths {
         put?: never;
         /**
          * Logout
-         * @description Invalidate the refresh token, ending the session
+         * @description Revoke the refresh token cookie and clear it, ending the session. Works without a valid access token.
          */
         post: {
             parameters: {
@@ -157,12 +175,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            /** @description Refresh token to revoke */
-            requestBody?: {
-                content: {
-                    "application/json": components["schemas"]["RefreshTokenRequest"];
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description Logged out successfully */
                 204: {
@@ -247,7 +260,7 @@ export interface paths {
         put?: never;
         /**
          * Refresh access token
-         * @description Exchange a refresh token for a new access token and refresh token pair
+         * @description Exchange the refresh token cookie for a new access token; the refresh token is rotated
          */
         post: {
             parameters: {
@@ -256,12 +269,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            /** @description Refresh token */
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["RefreshTokenRequest"];
-                };
-            };
+            requestBody?: never;
             responses: {
                 /** @description Token refreshed */
                 200: {
@@ -269,19 +277,10 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["LoginResponse"];
+                        "application/json": components["schemas"]["RefreshResponse"];
                     };
                 };
-                /** @description Invalid request body */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ErrorResponse"];
-                    };
-                };
-                /** @description Invalid or revoked refresh token */
+                /** @description Missing, invalid or revoked refresh token */
                 401: {
                     headers: {
                         [name: string]: unknown;
@@ -8177,8 +8176,6 @@ export interface components {
             accessToken: string;
             /** @example 2024-01-27T15:04:05Z */
             expiresAt: string;
-            /** @example eyJhbGciOiJIUzI1NiIs... */
-            refreshToken: string;
             user: components["schemas"]["User"];
         };
         /** @description Request body for manual matching */
@@ -8275,10 +8272,6 @@ export interface components {
             /** @example 3 */
             totalPages: number;
         };
-        MessageResponse: {
-            /** @example Operation completed successfully */
-            message: string;
-        };
         /** @description Next available member number */
         NextMemberNumberResponse: {
             /** @example 12002 */
@@ -8337,9 +8330,11 @@ export interface components {
             /** @example 3 */
             totalPages: number;
         };
-        RefreshTokenRequest: {
+        RefreshResponse: {
             /** @example eyJhbGciOiJIUzI1NiIs... */
-            refreshToken: string;
+            accessToken: string;
+            /** @example 2024-01-27T15:04:05Z */
+            expiresAt: string;
         };
         /** @description Stage selection, fee IDs and content overrides; the deadline is computed server-side as runDate + 7 days */
         ReminderCaseRequest: {

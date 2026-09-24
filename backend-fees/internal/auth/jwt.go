@@ -57,6 +57,8 @@ type TokenPair struct {
 	AccessToken  string    `json:"accessToken"`
 	RefreshToken string    `json:"refreshToken"`
 	ExpiresAt    time.Time `json:"expiresAt"`
+	// RefreshExpiresAt is when the refresh token (and its cookie) expires.
+	RefreshExpiresAt time.Time `json:"-"`
 }
 
 // GenerateTokenPair creates a new access and refresh token pair.
@@ -107,9 +109,10 @@ func (s *JWTService) GenerateTokenPair(userID uuid.UUID, email, role string) (*T
 	}
 
 	return &TokenPair{
-		AccessToken:  accessTokenString,
-		RefreshToken: refreshTokenString,
-		ExpiresAt:    accessExpiresAt,
+		AccessToken:      accessTokenString,
+		RefreshToken:     refreshTokenString,
+		ExpiresAt:        accessExpiresAt,
+		RefreshExpiresAt: now.Add(s.refreshExpiry),
 	}, nil
 }
 

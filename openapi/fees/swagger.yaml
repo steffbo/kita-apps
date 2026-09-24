@@ -1461,15 +1461,11 @@ definitions:
       expiresAt:
         example: "2024-01-27T15:04:05Z"
         type: string
-      refreshToken:
-        example: eyJhbGciOiJIUzI1NiIs...
-        type: string
       user:
         $ref: '#/definitions/User'
     required:
     - accessToken
     - expiresAt
-    - refreshToken
     - user
     type: object
   ManualMatchRequest:
@@ -1647,14 +1643,6 @@ definitions:
     - total
     - totalPages
     type: object
-  MessageResponse:
-    properties:
-      message:
-        example: Operation completed successfully
-        type: string
-    required:
-    - message
-    type: object
   NextMemberNumberResponse:
     description: Next available member number
     properties:
@@ -1758,13 +1746,17 @@ definitions:
     - total
     - totalPages
     type: object
-  RefreshTokenRequest:
+  RefreshResponse:
     properties:
-      refreshToken:
+      accessToken:
         example: eyJhbGciOiJIUzI1NiIs...
         type: string
+      expiresAt:
+        example: "2024-01-27T15:04:05Z"
+        type: string
     required:
-    - refreshToken
+    - accessToken
+    - expiresAt
     type: object
   ReminderCaseRequest:
     description: Stage selection, fee IDs and content overrides; the deadline is computed
@@ -3872,7 +3864,9 @@ paths:
     post:
       consumes:
       - application/json
-      description: Change the password for the currently authenticated user
+      description: Change the password for the currently authenticated user. Ends
+        all other sessions and returns a fresh access token (new refresh cookie).
+        Wrong current passwords are throttled.
       parameters:
       - description: Current and new password
         in: body
@@ -3884,9 +3878,9 @@ paths:
       - application/json
       responses:
         "200":
-          description: Password changed successfully
+          description: Password changed; new session
           schema:
-            $ref: '#/definitions/MessageResponse'
+            $ref: '#/definitions/RefreshResponse'
         "400":
           description: Invalid request or current password incorrect
           schema:
@@ -3899,6 +3893,10 @@ paths:
           description: User not found
           schema:
             $ref: '#/definitions/ErrorResponse'
+        "429":
+          description: Too many failed attempts
+          schema:
+            $ref: '#/definitions/ErrorResponse'
       security:
       - BearerAuth: []
       summary: Change own password
@@ -3908,7 +3906,9 @@ paths:
     post:
       consumes:
       - application/json
-      description: Authenticate a user with email and password, returns JWT tokens
+      description: Authenticate with email and password. Returns the access token
+        and sets the refresh token as httpOnly cookie. Repeated failures are throttled
+        per IP and account.
       parameters:
       - description: Login credentials
         in: body
@@ -3931,27 +3931,20 @@ paths:
           description: Invalid credentials
           schema:
             $ref: '#/definitions/ErrorResponse'
+        "429":
+          description: Too many failed attempts
+          schema:
+            $ref: '#/definitions/ErrorResponse'
       summary: User login
       tags:
       - Auth
   /auth/logout:
     post:
-      consumes:
-      - application/json
-      description: Invalidate the refresh token, ending the session
-      parameters:
-      - description: Refresh token to revoke
-        in: body
-        name: request
-        schema:
-          $ref: '#/definitions/RefreshTokenRequest'
-      produces:
-      - application/json
+      description: Revoke the refresh token cookie and clear it, ending the session.
+        Works without a valid access token.
       responses:
         "204":
           description: Logged out successfully
-      security:
-      - BearerAuth: []
       summary: Logout
       tags:
       - Auth
@@ -3980,30 +3973,17 @@ paths:
       - Auth
   /auth/refresh:
     post:
-      consumes:
-      - application/json
-      description: Exchange a refresh token for a new access token and refresh token
-        pair
-      parameters:
-      - description: Refresh token
-        in: body
-        name: request
-        required: true
-        schema:
-          $ref: '#/definitions/RefreshTokenRequest'
+      description: Exchange the refresh token cookie for a new access token; the refresh
+        token is rotated
       produces:
       - application/json
       responses:
         "200":
           description: Token refreshed
           schema:
-            $ref: '#/definitions/LoginResponse'
-        "400":
-          description: Invalid request body
-          schema:
-            $ref: '#/definitions/ErrorResponse'
+            $ref: '#/definitions/RefreshResponse'
         "401":
-          description: Invalid or revoked refresh token
+          description: Missing, invalid or revoked refresh token
           schema:
             $ref: '#/definitions/ErrorResponse'
       summary: Refresh access token

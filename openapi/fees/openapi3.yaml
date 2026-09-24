@@ -8,7 +8,9 @@ info:
 paths:
   /auth/change-password:
     post:
-      description: Change the password for the currently authenticated user
+      description: Change the password for the currently authenticated user. Ends all
+        other sessions and returns a fresh access token (new refresh cookie).
+        Wrong current passwords are throttled.
       requestBody:
         content:
           application/json:
@@ -18,11 +20,11 @@ paths:
         required: true
       responses:
         "200":
-          description: Password changed successfully
+          description: Password changed; new session
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MessageResponse"
+                $ref: "#/components/schemas/RefreshResponse"
         "400":
           description: Invalid request or current password incorrect
           content:
@@ -41,6 +43,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Too many failed attempts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
       security:
         - BearerAuth: []
       summary: Change own password
@@ -48,7 +56,9 @@ paths:
         - Auth
   /auth/login:
     post:
-      description: Authenticate a user with email and password, returns JWT tokens
+      description: Authenticate with email and password. Returns the access token and
+        sets the refresh token as httpOnly cookie. Repeated failures are
+        throttled per IP and account.
       requestBody:
         content:
           application/json:
@@ -75,23 +85,22 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Too many failed attempts
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
       summary: User login
       tags:
         - Auth
   /auth/logout:
     post:
-      description: Invalidate the refresh token, ending the session
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/RefreshTokenRequest"
-        description: Refresh token to revoke
+      description: Revoke the refresh token cookie and clear it, ending the session.
+        Works without a valid access token.
       responses:
         "204":
           description: Logged out successfully
-      security:
-        - BearerAuth: []
       summary: Logout
       tags:
         - Auth
@@ -124,29 +133,17 @@ paths:
         - Auth
   /auth/refresh:
     post:
-      description: Exchange a refresh token for a new access token and refresh token pair
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/RefreshTokenRequest"
-        description: Refresh token
-        required: true
+      description: Exchange the refresh token cookie for a new access token; the
+        refresh token is rotated
       responses:
         "200":
           description: Token refreshed
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/LoginResponse"
-        "400":
-          description: Invalid request body
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
+                $ref: "#/components/schemas/RefreshResponse"
         "401":
-          description: Invalid or revoked refresh token
+          description: Missing, invalid or revoked refresh token
           content:
             application/json:
               schema:
@@ -6430,15 +6427,11 @@ components:
         expiresAt:
           example: 2024-01-27T15:04:05Z
           type: string
-        refreshToken:
-          example: eyJhbGciOiJIUzI1NiIs...
-          type: string
         user:
           $ref: "#/components/schemas/User"
       required:
         - accessToken
         - expiresAt
-        - refreshToken
         - user
       type: object
     ManualMatchRequest:
@@ -6616,14 +6609,6 @@ components:
         - total
         - totalPages
       type: object
-    MessageResponse:
-      properties:
-        message:
-          example: Operation completed successfully
-          type: string
-      required:
-        - message
-      type: object
     NextMemberNumberResponse:
       description: Next available member number
       properties:
@@ -6727,13 +6712,17 @@ components:
         - total
         - totalPages
       type: object
-    RefreshTokenRequest:
+    RefreshResponse:
       properties:
-        refreshToken:
+        accessToken:
           example: eyJhbGciOiJIUzI1NiIs...
           type: string
+        expiresAt:
+          example: 2024-01-27T15:04:05Z
+          type: string
       required:
-        - refreshToken
+        - accessToken
+        - expiresAt
       type: object
     ReminderCaseRequest:
       description: Stage selection, fee IDs and content overrides; the deadline is

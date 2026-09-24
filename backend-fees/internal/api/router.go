@@ -52,7 +52,9 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 		// Public routes
 		r.Route("/auth", func(r chi.Router) {
 			r.Post("/login", handlers.Auth.Login)
+			// Refresh and logout authenticate via the httpOnly refresh cookie.
 			r.Post("/refresh", handlers.Auth.Refresh)
+			r.Post("/logout", handlers.Auth.Logout)
 		})
 
 		// Public childcare fee calculator
@@ -67,7 +69,6 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 			r.Use(customMiddleware.AuthMiddleware(handlers.JWTService))
 
 			// Auth
-			r.Post("/auth/logout", handlers.Auth.Logout)
 			r.Get("/auth/me", handlers.Auth.Me)
 			r.Post("/auth/change-password", handlers.Auth.ChangePassword)
 

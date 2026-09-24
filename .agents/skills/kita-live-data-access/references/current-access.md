@@ -29,7 +29,8 @@ Resolve the live contract from:
 
 Current behavior:
 
-- login is `POST /api/fees/v1/auth/login`
+- login is `POST /api/fees/v1/auth/login`; the body returns only the access token (15 min), the refresh token is an httpOnly cookie `fees_refresh` — script clients simply log in again instead of refreshing
+- failed logins are throttled (5 per IP+account, 20 per IP per 15 min → `429`); do not retry credentials in a loop
 - protected routes use a JWT bearer access token
 - accounts live in `fees.users` (bcrypt hash, role `ADMIN`/`USER`, `is_active`); never read `password_hash`
 - `USER_NAME` / `USER_PASSWORD` only bootstrap the admin account on first start; its password may since have been changed in the app, so the env value is not guaranteed to work

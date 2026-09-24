@@ -139,7 +139,8 @@ func main() {
 
 	// Initialize handlers
 	handlers := &api.Handlers{
-		Auth:             handler.NewAuthHandler(authService, jwtService),
+		Auth: handler.NewAuthHandler(authService, jwtService,
+			auth.NewLoginLimiter(auth.DefaultLoginMaxPerAccount, auth.DefaultLoginMaxPerIP, auth.DefaultLoginWindow)),
 		User:             handler.NewUserHandler(userService),
 		Child:            handler.NewChildHandler(childService, feeService, coverageService),
 		ChildImport:      handler.NewChildImportHandler(childImportService),

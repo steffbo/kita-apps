@@ -24,6 +24,7 @@ const apiPrefix = "/api/fees/v1"
 var publicRoutes = map[string]bool{
 	"POST " + apiPrefix + "/auth/login":             true,
 	"POST " + apiPrefix + "/auth/refresh":           true,
+	"POST " + apiPrefix + "/auth/logout":            true,
 	"GET " + apiPrefix + "/childcare-fee/calculate": true,
 }
 
