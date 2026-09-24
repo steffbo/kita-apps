@@ -85,9 +85,8 @@ func TestIncomeCalculation_MatchesExcel(t *testing.T) {
 
 func TestIncomeCalculation_FeeResult(t *testing.T) {
 	// With household income 40,637.43 EUR, 1 child, Krippe, 45h/week:
-	// Falls in Entlastung bracket (35,000.01 - 55,000.00)
-	// FeeTableKrippeEntlastung row 35,000.01: rates [48, 54, 60, 66, 72, 78]
-	// 45h = index 3 → 66.00 EUR ✓ (matches Excel Sheet 1)
+	// Falls in Entlastung bracket (35,000.01 - 55,000.00), row from 40,000.01 → 110.00 EUR
+	// (confirmed by the Kita; an older comment claiming 66.00 EUR was wrong).
 	income := 40637.43
 	result := testFeeScheduleConfig().CalculateChildcareFee(domain.ChildcareFeeInput{
 		ChildAgeType:  domain.ChildAgeTypeKrippe,
@@ -96,6 +95,7 @@ func TestIncomeCalculation_FeeResult(t *testing.T) {
 		CareHours:     45,
 	})
 	assert.Equal(t, "Reduzierter Beitrag (Entlastung U3)", result.Rule, "Should be in Entlastung bracket")
+	assert.InDelta(t, 110.00, result.Fee, 0.001)
 }
 
 func TestIncomeCalculation_SelfEmployed(t *testing.T) {
