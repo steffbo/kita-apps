@@ -250,12 +250,12 @@ func writeReminderCaseError(w http.ResponseWriter, err error) {
 		})
 		return
 	}
-	switch err {
-	case service.ErrInvalidInput:
+	switch {
+	case errors.Is(err, service.ErrInvalidInput):
 		response.BadRequest(w, "invalid request")
-	case service.ErrEmailDisabled:
+	case errors.Is(err, service.ErrEmailDisabled):
 		response.Error(w, http.StatusServiceUnavailable, "email service disabled")
-	case repository.ErrNotFound:
+	case errors.Is(err, repository.ErrNotFound):
 		response.NotFound(w, "household not found")
 	default:
 		response.InternalError(w, "failed to process reminder case")
