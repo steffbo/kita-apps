@@ -33,6 +33,16 @@ Abarbeitung von `docs/todo-fees-improvements.md`, ein Commit pro Punkt.
 - **gofmt (#2):** 10 Dateien formatiert, reiner Format-Commit.
 - **Typecheck ohne Emit (#3):** `vue-tsc -b` hat `vite.config.js`/`.d.ts` neben `vite.config.ts` erzeugt und eingecheckt; Vite lädt im Dev-Modus `vite.config.js` bevorzugt, die `.ts` war also potenziell wirkungslos. Die Projekt-Referenz ist entfernt, beide tsconfigs sind `noEmit`, die Artefakte gelöscht. Neues Script `bun run typecheck` (App + `vite.config.ts`), `build` ruft es vor `vite build` auf.
 
+## Vereinsbeitrag pro Mitglied (2026-09-24)
+
+- Entscheidung: Der Verwendungszweck bleibt bei der Kindernummer, die Mitgliedsnummern (M…) werden nicht kommuniziert und im Import nicht ausgewertet. Die Mitglieder in der App dienen weiter vor allem der Information. Geändert wurde nur, dass ein Haushalt mit mehreren Mitgliedern auch mehrere Vereinsbeiträge schuldet.
+- Migration `000037`: `fee_expectations.member_id` (FK auf `fees.members`, `ON DELETE SET NULL`). Rückwirkend gesetzt nur, wo der Haushalt genau ein Mitglied hat (live: 43 von 58 Beiträgen 2026). Eindeutigkeit: ein `MEMBERSHIP`-Beitrag pro Mitglied und Jahr; die alte Regel „einer pro Haushalt und Jahr“ gilt nur noch für Beiträge ohne Mitglied. Die Down-Migration schlägt fehl, solange ein Haushalt mehrere Beiträge pro Jahr hat.
+- Jahresgenerierung (`generateHouseholdMembershipFees`): Mitglieder zählen, wenn sie aktiv sind, am Haushalt hängen (`members.household_id`) und ihre Mitgliedschaft das Jahr überschneidet. Haushalte ohne solche Mitglieder bekommen wie bisher einen Beitrag ohne Mitglied. Sonst gilt: Vorhandene Beiträge ohne Mitglied übernimmt das erste Mitglied ohne Beitrag (Reihenfolge Mitgliedsnummer), für die übrigen wird je ein neuer Beitrag angelegt, jeweils am ältesten Kind des Haushalts, das in dem Jahr noch keinen Vereinsbeitrag hat. So passt die übliche Überweisung „mit der Nummer des eigenen Kindes“. Hat der Haushalt weniger Kinder als Mitglieder, landen weitere Beiträge am ältesten Kind. Mitglieder ohne Haushalt bekommen weiterhin keinen Beitrag.
+- Import: Hat ein Haushalt mehrere offene Vereinsbeiträge, wird die Zahlung dem Beitrag des erkannten Kindes zugeordnet, wenn dort genau einer offen ist; sonst bleibt die Warnung „mehrere offene Vereinsbeiträge“.
+- Familie Fink (M0037 Pierre, M0039 Anika, Kinder 12007/12008): Der bezahlte Beitrag 2026 liegt an 12007 und hat noch kein Mitglied. Eine erneute Jahresgenerierung 2026 ordnet ihn M0037 zu und legt für M0039 einen neuen offenen Beitrag an 12008 an. Andere Haushalte ändern sich dabei nicht (live read-only geprüft: kein Haushalt mit Mitglied 2026 ohne Beitrag).
+- `FeeExpectation.memberId` steht im JSON, in der OpenAPI-Spec und in `schema.d.ts`; die UI zeigt das Mitglied noch nicht an.
+- Tests: `membership_generation_integration_test.go` (ein Beitrag pro Mitglied, Übernahme des Altbeitrags, beendete Mitgliedschaft, Haushalt ohne Mitglied, Wiederholbarkeit; Import-Zuordnung über das Kind).
+
 ## Eintrittsmonat anteilig berechnen (2026-09-18)
 
 - Die Beitragserzeugung berücksichtigt jetzt § 12 Abs. 3 der Elternbeitragsordnung: Bei Eintritt nach dem 15. werden Platz- und Essensgeld im Eintrittsmonat hälftig angesetzt; bis einschließlich 15. bleibt der volle Monatsbeitrag fällig.

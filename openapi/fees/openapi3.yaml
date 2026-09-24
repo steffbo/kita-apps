@@ -7575,6 +7575,9 @@ components:
           type: number
         matchedBy:
           $ref: "#/components/schemas/domain.PaymentMatch"
+        memberId:
+          description: "For MEMBERSHIP type: the club member who owes the fee"
+          type: string
         month:
           description: nil for yearly fees
           type: integer

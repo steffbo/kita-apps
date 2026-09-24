@@ -47,6 +47,7 @@ type FeeExpectation struct {
 	CreatedAt          time.Time  `json:"createdAt" db:"created_at"`
 	ReminderForID      *uuid.UUID `json:"reminderForId,omitempty" db:"reminder_for_id" binding:"optional"`          // For REMINDER type: links to the original fee
 	ReconciliationYear *int       `json:"reconciliationYear,omitempty" db:"reconciliation_year" binding:"optional"` // For Kalendarjahresabrechnung: the year this Nachzahlung is for
+	MemberID           *uuid.UUID `json:"memberId,omitempty" db:"member_id" binding:"optional"`                     // For MEMBERSHIP type: the club member who owes the fee
 
 	// Joined fields
 	Child          *Child         `json:"child,omitempty" db:"-" binding:"optional"`

@@ -236,7 +236,7 @@ func (s *FeeService) Generate(ctx context.Context, year int, month *int) (*Gener
 
 	result := &GenerateResult{}
 
-	// Membership fees are tracked once per household/year.
+	// Membership fees are tracked once per club member (or household without members) and year.
 	if month == nil {
 		return s.generateYearlyMembershipFees(ctx, year, children)
 	}
@@ -441,45 +441,12 @@ func (s *FeeService) generateYearlyMembershipFees(ctx context.Context, year int,
 	}
 
 	for householdID, householdChildren := range groupedByHousehold {
-		// Use all children in household for existence check, even if not active right now.
-		allHouseholdChildren, err := s.childRepo.GetByHouseholdID(ctx, householdID)
+		created, skipped, err := s.generateHouseholdMembershipFees(ctx, householdID, householdChildren, year, membershipFee, dueDate)
 		if err != nil {
 			return nil, err
 		}
-		if len(allHouseholdChildren) == 0 {
-			allHouseholdChildren = householdChildren
-		}
-
-		exists := false
-		for _, child := range allHouseholdChildren {
-			hasMembershipFee, err := s.feeRepo.Exists(ctx, child.ID, domain.FeeTypeMembership, year, nil)
-			if err != nil {
-				return nil, err
-			}
-			if hasMembershipFee {
-				exists = true
-				break
-			}
-		}
-
-		if exists {
-			result.Skipped++
-			if err := s.ensureHouseholdMembershipAssignment(ctx, householdID); err != nil {
-				return nil, err
-			}
-			continue
-		}
-
-		representativeChild := pickRepresentativeChildForMembership(householdChildren)
-		created, err := s.createFeeIfNotExists(ctx, representativeChild.ID, &householdID, domain.FeeTypeMembership, year, nil, membershipFee, dueDate)
-		if err != nil {
-			return nil, err
-		}
-		if created {
-			result.Created++
-		} else {
-			result.Skipped++
-		}
+		result.Created += created
+		result.Skipped += skipped
 
 		if err := s.ensureHouseholdMembershipAssignment(ctx, householdID); err != nil {
 			return nil, err
@@ -502,19 +469,106 @@ func (s *FeeService) generateYearlyMembershipFees(ctx context.Context, year int,
 	return result, nil
 }
 
-func pickRepresentativeChildForMembership(children []domain.Child) domain.Child {
-	if len(children) == 1 {
-		return children[0]
+// generateHouseholdMembershipFees ensures one MEMBERSHIP fee per club member of
+// the household for the year. Households without known members keep a single
+// household-level fee. Existing fees without a member are adopted by members in
+// member-number order before new ones are created; each new fee goes to the
+// oldest household child that has no membership fee for the year yet, so each
+// member's fee matches payments made with "their" child's number.
+func (s *FeeService) generateHouseholdMembershipFees(ctx context.Context, householdID uuid.UUID, householdChildren []domain.Child, year int, amount float64, dueDate time.Time) (created, skipped int, err error) {
+	existing, err := s.feeRepo.ListMembershipForHousehold(ctx, householdID, year)
+	if err != nil {
+		return 0, 0, err
+	}
+	members, err := s.householdRepo.GetMembersForYear(ctx, householdID, year)
+	if err != nil {
+		return 0, 0, err
 	}
 
-	sort.Slice(children, func(i, j int) bool {
-		if children[i].EntryDate.Equal(children[j].EntryDate) {
-			return children[i].ID.String() < children[j].ID.String()
+	if len(members) == 0 {
+		if len(existing) > 0 {
+			return 0, 1, nil
 		}
-		return children[i].EntryDate.Before(children[j].EntryDate)
-	})
+		child := pickRepresentativeChildForMembership(householdChildren)
+		if err := s.createMembershipFee(ctx, child.ID, householdID, nil, year, amount, dueDate); err != nil {
+			return 0, 0, err
+		}
+		return 1, 0, nil
+	}
 
-	return children[0]
+	assigned := make(map[uuid.UUID]bool, len(existing))
+	usedChildren := make(map[uuid.UUID]bool, len(existing))
+	unassigned := make([]domain.FeeExpectation, 0, len(existing))
+	for _, fee := range existing {
+		usedChildren[fee.ChildID] = true
+		if fee.MemberID != nil {
+			assigned[*fee.MemberID] = true
+		} else {
+			unassigned = append(unassigned, fee)
+		}
+	}
+
+	candidates := sortChildrenByEntry(householdChildren)
+	for _, member := range members {
+		if assigned[member.ID] {
+			skipped++
+			continue
+		}
+		if len(unassigned) > 0 {
+			if err := s.feeRepo.AssignMember(ctx, unassigned[0].ID, member.ID); err != nil {
+				return 0, 0, err
+			}
+			unassigned = unassigned[1:]
+			skipped++
+			continue
+		}
+
+		child := candidates[0]
+		for _, candidate := range candidates {
+			if !usedChildren[candidate.ID] {
+				child = candidate
+				break
+			}
+		}
+		memberID := member.ID
+		if err := s.createMembershipFee(ctx, child.ID, householdID, &memberID, year, amount, dueDate); err != nil {
+			return 0, 0, err
+		}
+		usedChildren[child.ID] = true
+		created++
+	}
+
+	return created, skipped, nil
+}
+
+func (s *FeeService) createMembershipFee(ctx context.Context, childID, householdID uuid.UUID, memberID *uuid.UUID, year int, amount float64, dueDate time.Time) error {
+	return s.feeRepo.Create(ctx, &domain.FeeExpectation{
+		ID:          uuid.New(),
+		ChildID:     childID,
+		HouseholdID: &householdID,
+		MemberID:    memberID,
+		FeeType:     domain.FeeTypeMembership,
+		Year:        year,
+		Amount:      amount,
+		DueDate:     dueDate,
+		CreatedAt:   time.Now(),
+	})
+}
+
+// sortChildrenByEntry returns a copy ordered by entry date (oldest first).
+func sortChildrenByEntry(children []domain.Child) []domain.Child {
+	sorted := append([]domain.Child(nil), children...)
+	sort.Slice(sorted, func(i, j int) bool {
+		if sorted[i].EntryDate.Equal(sorted[j].EntryDate) {
+			return sorted[i].ID.String() < sorted[j].ID.String()
+		}
+		return sorted[i].EntryDate.Before(sorted[j].EntryDate)
+	})
+	return sorted
+}
+
+func pickRepresentativeChildForMembership(children []domain.Child) domain.Child {
+	return sortChildrenByEntry(children)[0]
 }
 
 func (s *FeeService) ensureHouseholdMembershipAssignment(ctx context.Context, householdID uuid.UUID) error {

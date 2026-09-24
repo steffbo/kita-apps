@@ -131,6 +131,7 @@ func cleanupTestData() {
 	testDB.Exec("DELETE FROM fees.child_notes WHERE child_id IN (SELECT id FROM fees.children WHERE member_number LIKE 'T%')")
 	testDB.Exec("DELETE FROM fees.children WHERE member_number LIKE 'T%'")
 	testDB.Exec("DELETE FROM fees.parents WHERE email LIKE '%@example.test'")
+	testDB.Exec("DELETE FROM fees.members WHERE member_number LIKE 'TM%'")
 	testDB.Exec("DELETE FROM fees.households WHERE name LIKE 'TEST%'")
 }
 

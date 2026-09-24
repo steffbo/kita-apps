@@ -107,6 +107,11 @@ type FeeRepository interface {
 	// CountUnpaidByType counts all unpaid fees of a specific type for a child.
 	// Used to determine if auto-matching should occur (only when count == 1).
 	CountUnpaidByType(ctx context.Context, childID uuid.UUID, feeType domain.FeeType, amount float64) (int, error)
+	// ListMembershipForHousehold returns the yearly MEMBERSHIP fees of a household,
+	// including legacy rows linked only through one of its children.
+	ListMembershipForHousehold(ctx context.Context, householdID uuid.UUID, year int) ([]domain.FeeExpectation, error)
+	// AssignMember links an existing fee to the member who owes it.
+	AssignMember(ctx context.Context, feeID uuid.UUID, memberID uuid.UUID) error
 	GetOverview(ctx context.Context, year int) (*domain.FeeOverview, error)
 	// GetForChild retrieves all fee expectations for a child, optionally filtered by year.
 	GetForChild(ctx context.Context, childID uuid.UUID, year *int) ([]domain.FeeExpectation, error)
@@ -217,6 +222,9 @@ type HouseholdRepository interface {
 	GetParents(ctx context.Context, householdID uuid.UUID) ([]domain.Parent, error)
 	GetChildren(ctx context.Context, householdID uuid.UUID) ([]domain.Child, error)
 	GetWithMembers(ctx context.Context, id uuid.UUID) (*domain.Household, error)
+	// GetMembersForYear returns the active members of a household whose
+	// membership overlaps the given year, ordered by member number.
+	GetMembersForYear(ctx context.Context, householdID uuid.UUID, year int) ([]domain.Member, error)
 }
 
 // MemberRepository handles member persistence.

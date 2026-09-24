@@ -184,6 +184,27 @@ func (r *PostgresHouseholdRepository) GetParents(ctx context.Context, householdI
 	return parents, nil
 }
 
+// GetMembersForYear returns the active members of a household whose
+// membership overlaps the given year, ordered by member number.
+func (r *PostgresHouseholdRepository) GetMembersForYear(ctx context.Context, householdID uuid.UUID, year int) ([]domain.Member, error) {
+	var members []domain.Member
+	err := conn(ctx, r.db).SelectContext(ctx, &members, `
+		SELECT id, member_number, first_name, last_name, email, phone,
+		       street, street_no, postal_code, city, household_id,
+		       membership_start, membership_end, is_active, created_at, updated_at
+		FROM fees.members
+		WHERE household_id = $1
+		  AND is_active = true
+		  AND membership_start <= make_date($2, 12, 31)
+		  AND (membership_end IS NULL OR membership_end >= make_date($2, 1, 1))
+		ORDER BY member_number ASC, id ASC
+	`, householdID, year)
+	if err != nil {
+		return nil, err
+	}
+	return members, nil
+}
+
 // GetChildren retrieves all children linked to a household.
 func (r *PostgresHouseholdRepository) GetChildren(ctx context.Context, householdID uuid.UUID) ([]domain.Child, error) {
 	var children []domain.Child

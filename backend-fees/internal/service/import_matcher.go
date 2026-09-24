@@ -215,6 +215,15 @@ func (s *ImportService) matchFeeExpectation(ctx context.Context, tx domain.BankT
 			}
 
 			if count > 1 {
+				// Households with several members owe one fee per member, each
+				// linked to a different child. A payment naming that child
+				// settles that member's fee.
+				if own, err := s.feeRepo.CountUnpaidByType(ctx, childID, feeType, tx.Amount); err == nil && own == 1 {
+					if fee, err := s.feeRepo.FindBestUnpaid(ctx, childID, feeType, tx.Amount, tx.BookingDate); err == nil && fee != nil {
+						suggestion.Expectation = fee
+						return nil
+					}
+				}
 				return &domain.TransactionWarning{
 					ID:            uuid.New(),
 					TransactionID: tx.ID,

@@ -8786,6 +8786,8 @@ export interface components {
             /** @description Total matched across all transactions */
             matchedAmount?: number;
             matchedBy?: components["schemas"]["domain.PaymentMatch"];
+            /** @description For MEMBERSHIP type: the club member who owes the fee */
+            memberId?: string;
             /** @description nil for yearly fees */
             month?: number;
             paidAt?: string;
