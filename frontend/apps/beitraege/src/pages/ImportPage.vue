@@ -32,6 +32,7 @@ import {
   ArrowDown,
   ArrowUpDown,
 } from 'lucide-vue-next';
+import { formatCurrency, formatDate, formatDateTime, formatMonthName } from '@/utils/format';
 
 type StatusFilter = 'offen' | 'warnungen' | 'zugeordnet' | 'alle';
 type SortField = 'date' | 'payer' | 'description' | 'amount';
@@ -838,26 +839,6 @@ async function refreshAfterSync(): Promise<void> {
   await loadTransactions();
 }
 
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('de-DE');
-}
-
-function formatDateTime(dateStr: string): string {
-  return new Date(dateStr).toLocaleString('de-DE');
-}
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('de-DE', {
-    style: 'currency',
-    currency: 'EUR',
-  }).format(amount);
-}
-
-function getMonthName(month?: number): string {
-  if (!month) return '';
-  return new Date(2000, month - 1).toLocaleString('de-DE', { month: 'long' });
-}
-
 function getConfidenceColor(confidence: number): string {
   if (confidence >= 0.8) return 'text-green-600 bg-green-100';
   if (confidence >= 0.5) return 'text-amber-600 bg-amber-100';
@@ -1492,7 +1473,7 @@ function getWarningTypeColor(type: string): string {
                             </div>
                             <div class="flex justify-between">
                               <span class="text-gray-500">Zeitraum:</span>
-                              <span>{{ getMonthName(warning.matchedFee.month) }} {{ warning.matchedFee.year }}</span>
+                              <span>{{ formatMonthName(warning.matchedFee.month) }} {{ warning.matchedFee.year }}</span>
                             </div>
                             <div class="flex justify-between">
                               <span class="text-gray-500">Betrag:</span>

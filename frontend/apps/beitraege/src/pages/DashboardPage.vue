@@ -19,6 +19,7 @@ import {
   RefreshCw,
 } from 'lucide-vue-next';
 import { useRouter } from 'vue-router';
+import { formatCurrency, formatCurrencyWhole, formatDate, formatDateTime, formatMonthName, todayISO } from '@/utils/format';
 
 const router = useRouter();
 const overview = ref<FeeOverview | null>(null);
@@ -86,7 +87,7 @@ const bankingSyncTone = computed(() => {
 const bankingSyncDate = computed(() => {
   const date = bankingSyncStatus.value?.finishedAt || bankingSyncStatus.value?.startedAt;
   if (!date) return null;
-  return new Date(date).toLocaleString('de-DE');
+  return formatDateTime(date);
 });
 
 // Group U3 children by income bracket
@@ -210,34 +211,6 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeydown);
 });
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('de-DE', {
-    style: 'currency',
-    currency: 'EUR',
-  }).format(amount);
-}
-
-function formatIncome(income: number | null): string {
-  if (income === null) return '—';
-  return new Intl.NumberFormat('de-DE', {
-    style: 'currency',
-    currency: 'EUR',
-    maximumFractionDigits: 0,
-  }).format(income);
-}
-
-function getMonthName(month: number): string {
-  return new Date(2000, month - 1).toLocaleString('de-DE', { month: 'short' });
-}
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('de-DE', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-  });
-}
 
 function formatAge(birthDateStr: string): string {
   const birth = new Date(birthDateStr);
@@ -564,7 +537,7 @@ function formatHoursLabel(hours: number | null | undefined): string {
                 :key="month.month"
                 class="border-b last:border-0 hover:bg-gray-50"
               >
-                <td class="py-3 font-medium">{{ getMonthName(month.month) }} {{ month.year }}</td>
+                <td class="py-3 font-medium">{{ formatMonthName(month.month, 'short') }} {{ month.year }}</td>
                 <td class="py-3 text-right">
                   <span
                     v-if="month.openCount > 0"
@@ -643,7 +616,7 @@ function formatHoursLabel(hours: number | null | undefined): string {
                   @change="loadStichtagReport"
                 />
                 <button
-                  @click="selectedReportDate = new Date().toISOString().slice(0, 10); loadStichtagReport()"
+                  @click="selectedReportDate = todayISO(); loadStichtagReport()"
                   class="px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors whitespace-nowrap"
                 >
                   Heute
@@ -801,7 +774,7 @@ function formatHoursLabel(hours: number | null | undefined): string {
                               child.householdIncome === null ? 'text-red-600' : 'text-gray-700'
                             ]"
                           >
-                            {{ formatIncome(child.householdIncome) }}
+                            {{ formatCurrencyWhole(child.householdIncome) }}
                           </span>
                           <span v-else class="text-sm text-gray-400 w-20 text-right">—</span>
                         </div>

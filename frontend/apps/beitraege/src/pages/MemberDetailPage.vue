@@ -18,6 +18,7 @@ import {
   Phone,
   Hash,
 } from 'lucide-vue-next';
+import { formatDate, formatDateForInput } from '@/utils/format';
 
 const route = useRoute();
 const router = useRouter();
@@ -71,14 +72,6 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeydown);
 });
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('de-DE');
-}
-
-function formatDateForInput(dateStr: string): string {
-  return dateStr.split('T')[0];
-}
 
 function openEditDialog() {
   if (!member.value) return;

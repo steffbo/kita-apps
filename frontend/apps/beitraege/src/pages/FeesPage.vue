@@ -21,6 +21,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-vue-next';
+import { formatCurrency, formatDate, formatMonthName } from '@/utils/format';
 
 const router = useRouter();
 const route = useRoute();
@@ -288,17 +289,6 @@ watch([sortBy, sortDir], () => {
   loadFees();
 });
 
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('de-DE');
-}
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('de-DE', {
-    style: 'currency',
-    currency: 'EUR',
-  }).format(amount);
-}
-
 function getFeeTypeName(type: string): string {
   switch (type) {
     case 'MEMBERSHIP':
@@ -327,10 +317,6 @@ function getFeeTypeColor(type: string): string {
     default:
       return 'bg-gray-100 text-gray-700';
   }
-}
-
-function getMonthName(month: number): string {
-  return months.find(m => m.value === month)?.label || '';
 }
 
 function getStatusInfo(fee: FeeExpectation) {
@@ -847,7 +833,7 @@ async function handleCreateFee() {
                 </span>
               </td>
               <td class="px-4 py-3 text-gray-600">
-                {{ fee.month ? getMonthName(fee.month) + ' ' : '' }}{{ fee.year }}
+                {{ fee.month ? formatMonthName(fee.month) + ' ' : '' }}{{ fee.year }}
               </td>
               <td class="px-4 py-3 text-right font-medium">
                 {{ formatCurrency(fee.amount) }}

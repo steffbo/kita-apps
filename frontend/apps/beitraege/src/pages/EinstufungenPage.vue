@@ -14,6 +14,7 @@ import {
   User,
   Home,
 } from 'lucide-vue-next';
+import { formatCurrency, formatDate } from '@/utils/format';
 
 const router = useRouter();
 
@@ -59,14 +60,6 @@ async function loadEinstufungen() {
   } finally {
     isLoading.value = false;
   }
-}
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('de-DE');
-}
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(amount);
 }
 
 function formatCareType(type: string): string {

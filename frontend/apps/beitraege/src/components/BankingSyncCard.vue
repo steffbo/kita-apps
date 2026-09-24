@@ -4,6 +4,7 @@ import { api } from '@/api';
 import type { BankingSyncStatus, ImportError } from '@/api/types';
 import { Loader2, RefreshCw, Square } from 'lucide-vue-next';
 import ImportErrorList from '@/components/ImportErrorList.vue';
+import { formatDateTime } from '@/utils/format';
 
 const emit = defineEmits<{
   (e: 'status-change', status: BankingSyncStatus): void;
@@ -168,10 +169,6 @@ const bankingSyncIsBusy = computed(() => {
     shouldPollBankingSync(bankingSyncStatus.value)
   );
 });
-
-function formatDateTime(date: string): string {
-  return new Date(date).toLocaleString('de-DE');
-}
 
 onMounted(() => {
   loadBankingSyncStatus();

@@ -24,6 +24,7 @@ import {
   Trash2,
   UserX,
 } from 'lucide-vue-next';
+import { formatDate } from '@/utils/format';
 
 const router = useRouter();
 const route = useRoute();
@@ -201,9 +202,6 @@ onUnmounted(() => {
 });
 
 // Helpers
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('de-DE');
-}
 
 function calculateAge(birthDate: string): number {
   const birth = new Date(birthDate);

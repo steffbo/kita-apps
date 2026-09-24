@@ -48,6 +48,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-vue-next';
+import { formatCurrency, formatCurrencyWhole, formatDate, formatDateForInput, formatDateTime, formatMonthName } from '@/utils/format';
 
 const route = useRoute();
 const router = useRouter();
@@ -423,10 +424,6 @@ async function handleDeleteNote() {
   }
 }
 
-function formatDateTime(dateStr: string): string {
-  return new Date(dateStr).toLocaleString('de-DE');
-}
-
 // Shows a "Bearbeitet" marker when the update timestamp drifted from creation.
 function isNoteEdited(note: ChildNote): boolean {
   return new Date(note.updatedAt).getTime() - new Date(note.createdAt).getTime() > 1000;
@@ -470,14 +467,6 @@ onUnmounted(() => {
   }
 });
 
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('de-DE');
-}
-
-function formatDateForInput(dateStr: string): string {
-  return dateStr.split('T')[0];
-}
-
 function formatCareHours(careHours?: number | null): string {
   if (careHours === undefined || careHours === null) return 'Unbekannt';
   return `${careHours} Std./Woche`;
@@ -515,13 +504,6 @@ function normalizeCareHoursValue(value: unknown): number | null {
   return Number.isNaN(parsed) ? null : parsed;
 }
 
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('de-DE', {
-    style: 'currency',
-    currency: 'EUR',
-  }).format(amount);
-}
-
 function getFeeTypeName(type: string): string {
   switch (type) {
     case 'MEMBERSHIP':
@@ -535,10 +517,6 @@ function getFeeTypeName(type: string): string {
     default:
       return type;
   }
-}
-
-function getMonthName(month: number): string {
-  return new Date(2000, month - 1).toLocaleString('de-DE', { month: 'long' });
 }
 
 function formatConfidence(confidence: number): string {
@@ -565,7 +543,7 @@ function formatMatchedBy(reason?: string): string {
 function formatSuggestionExpectation(suggestion: MatchSuggestion): string {
   const expectation = suggestion.expectation;
   if (!expectation) return '';
-  const monthLabel = expectation.month ? `${getMonthName(expectation.month)} ` : '';
+  const monthLabel = expectation.month ? `${formatMonthName(expectation.month)} ` : '';
   return `${getFeeTypeName(expectation.feeType)} ${monthLabel}${expectation.year}`;
 }
 
@@ -1119,15 +1097,6 @@ async function saveParentEdit() {
   }
 }
 
-function formatIncome(income?: number): string {
-  if (income === undefined || income === null) return '-';
-  return new Intl.NumberFormat('de-DE', {
-    style: 'currency',
-    currency: 'EUR',
-    maximumFractionDigits: 0,
-  }).format(income);
-}
-
 function getIncomeStatusLabel(status?: IncomeStatus): string {
   switch (status) {
     case 'PROVIDED':
@@ -1459,7 +1428,7 @@ async function createReminder() {
               </div>
               <div v-if="child.household.incomeStatus === 'PROVIDED' || child.household.incomeStatus === 'HISTORIC'">
                 <p class="text-sm text-gray-500">Jahreshaushaltseinkommen</p>
-                <p class="font-medium">{{ formatIncome(child.household.annualHouseholdIncome) }}</p>
+                <p class="font-medium">{{ formatCurrencyWhole(child.household.annualHouseholdIncome) }}</p>
               </div>
               <div v-if="child.household.childrenCountForFees">
                 <p class="text-sm text-gray-500">Kinder (Beitragsberechnung)</p>
@@ -1856,7 +1825,7 @@ async function createReminder() {
                   <div>
                     <p :class="['font-medium', group.fee.feeType === 'REMINDER' ? 'text-red-700' : '']">{{ getFeeTypeName(group.fee.feeType) }}</p>
                     <p class="text-sm text-gray-600">
-                      {{ group.fee.month ? getMonthName(group.fee.month) + ' ' : '' }}{{ group.fee.year }}
+                      {{ group.fee.month ? formatMonthName(group.fee.month) + ' ' : '' }}{{ group.fee.year }}
                       · Fällig: {{ formatDate(group.fee.dueDate) }}
                     </p>
                     <p v-if="group.fee.matchedAmount && group.fee.matchedAmount > 0" class="text-xs text-amber-700">
@@ -1916,7 +1885,7 @@ async function createReminder() {
                   <div>
                     <p class="font-medium">{{ getFeeTypeName(group.fee.feeType) }}</p>
                     <p class="text-sm text-gray-600">
-                      {{ group.fee.month ? getMonthName(group.fee.month) + ' ' : '' }}{{ group.fee.year }}
+                      {{ group.fee.month ? formatMonthName(group.fee.month) + ' ' : '' }}{{ group.fee.year }}
                       <span v-if="getPaymentSummary(group.fee)" class="text-green-600">
                         · {{ getPaymentSummary(group.fee) }}
                       </span>
@@ -2647,7 +2616,7 @@ async function createReminder() {
               <div>
                 <p class="font-medium">{{ getFeeTypeName(row.fee.feeType) }}</p>
                 <p class="text-xs text-gray-500">
-                  {{ row.fee.month ? getMonthName(row.fee.month) + ' ' : '' }}{{ row.fee.year }}
+                  {{ row.fee.month ? formatMonthName(row.fee.month) + ' ' : '' }}{{ row.fee.year }}
                 </p>
                 <p class="text-xs text-gray-500">
                   Rest: {{ formatCurrency(getFeeRemainingAmount(row.fee)) }}
@@ -2943,7 +2912,7 @@ async function createReminder() {
           <div class="p-3 bg-amber-50 border border-amber-200 rounded-lg">
             <p class="font-medium">{{ getFeeTypeName(reminderFee.feeType) }}</p>
             <p class="text-sm text-gray-600">
-              {{ reminderFee.month ? getMonthName(reminderFee.month) + ' ' : '' }}{{ reminderFee.year }}
+              {{ reminderFee.month ? formatMonthName(reminderFee.month) + ' ' : '' }}{{ reminderFee.year }}
               · {{ formatCurrency(reminderFee.amount) }}
             </p>
             <p class="text-sm text-red-600 mt-1">

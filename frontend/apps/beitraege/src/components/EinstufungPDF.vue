@@ -4,6 +4,7 @@ import type { Einstufung, Child } from '@/api/types';
 import { FileDown, Loader2 } from 'lucide-vue-next';
 import printStyles from './EinstufungPDF.css?raw';
 import logoUrl from '@/assets/knirpsenstadt-logo.png';
+import { formatDate } from '@/utils/format';
 
 const props = defineProps<{
   einstufung: Einstufung;
@@ -144,12 +145,12 @@ const membershipDueMonth = computed(() => {
 
 const entryDateFormatted = computed(() => {
   if (!child.value?.entryDate) return '—';
-  return new Date(child.value.entryDate).toLocaleDateString('de-DE');
+  return formatDate(child.value.entryDate);
 });
 
 const birthDateFormatted = computed(() => {
   if (!child.value?.birthDate) return '—';
-  return new Date(child.value.birthDate).toLocaleDateString('de-DE');
+  return formatDate(child.value.birthDate);
 });
 
 const documentDateFormatted = computed(() => {

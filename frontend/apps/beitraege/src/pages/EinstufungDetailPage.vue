@@ -27,6 +27,7 @@ import {
 } from 'lucide-vue-next';
 import IncomeForm from '@/components/IncomeForm.vue';
 import EinstufungPDF from '@/components/EinstufungPDF.vue';
+import { formatCurrency, formatMonthYear, todayISO } from '@/utils/format';
 
 const route = useRoute();
 const router = useRouter();
@@ -143,10 +144,6 @@ const emailRecipients = computed(() => {
   }
   return recipients;
 });
-
-function todayIso(): string {
-  return new Date().toISOString().slice(0, 10);
-}
 
 function calculateEffectiveFromMonth(changeDate: string): string {
   const [year, month, day] = changeDate.split('-').map(Number);
@@ -327,8 +324,8 @@ async function loadData() {
       }
       sourceEinstufung.value = source;
       selectedChildId.value = source.childId;
-      selectedYear.value = new Date(calculateEffectiveFromMonth(todayIso())).getUTCFullYear();
-      validFrom.value = todayIso();
+      selectedYear.value = new Date(calculateEffectiveFromMonth(todayISO())).getUTCFullYear();
+      validFrom.value = todayISO();
       childrenCount.value = source.childrenCount;
       highestRateVoluntary.value = source.highestRateVoluntary;
       notes.value = source.notes || '';
@@ -354,8 +351,6 @@ async function loadData() {
     isLoading.value = false;
   }
 }
-
-
 
 async function handleSubmit() {
   if (!selectedChildId.value) {
@@ -422,14 +417,6 @@ async function handleSubmit() {
   } finally {
     isSaving.value = false;
   }
-}
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(amount);
-}
-
-function formatMonth(year: number, month: number): string {
-  return new Date(year, month - 1).toLocaleString('de-DE', { month: 'long', year: 'numeric' });
 }
 
 watch(
@@ -729,7 +716,7 @@ watch(defaultEmailBody, (next) => {
             <tbody class="divide-y divide-gray-100">
               <tr v-for="row in einstufung.monthlyTable" :key="`${row.year}-${row.month}`">
                 <td class="px-3 py-2 text-gray-700">
-                  {{ new Date(row.year, row.month - 1).toLocaleString('de-DE', { month: 'long', year: 'numeric' }) }}
+                  {{ formatMonthYear(row.year, row.month) }}
                 </td>
                 <td class="px-3 py-2 text-gray-600">{{ row.careType }} · {{ row.careHoursPerWeek }}h</td>
                 <td class="px-3 py-2 text-right font-medium">{{ formatCurrency(row.childcareFee) }}</td>
@@ -782,7 +769,7 @@ watch(defaultEmailBody, (next) => {
             </thead>
             <tbody class="divide-y divide-gray-100">
               <tr v-for="item in expectationChanges.creditReviewRequired" :key="item.feeId">
-                <td class="px-3 py-2 text-gray-700">{{ formatMonth(item.year, item.month) }}</td>
+                <td class="px-3 py-2 text-gray-700">{{ formatMonthYear(item.year, item.month) }}</td>
                 <td class="px-3 py-2 text-right">{{ formatCurrency(item.oldAmount) }}</td>
                 <td class="px-3 py-2 text-right">{{ formatCurrency(item.newAmount) }}</td>
                 <td class="px-3 py-2 text-right">{{ formatCurrency(item.matchedAmount) }}</td>

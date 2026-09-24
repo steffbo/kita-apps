@@ -20,6 +20,7 @@ import {
   UserPlus,
   ExternalLink,
 } from 'lucide-vue-next';
+import { formatDate, formatDateForInput, todayISO } from '@/utils/format';
 
 const route = useRoute();
 const router = useRouter();
@@ -41,7 +42,7 @@ const isDeleting = ref(false);
 
 // Member dialog state
 const showMemberDialog = ref(false);
-const membershipStart = ref(new Date().toISOString().split('T')[0]);
+const membershipStart = ref(todayISO());
 const isCreatingMember = ref(false);
 const memberError = ref<string | null>(null);
 
@@ -81,14 +82,6 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeydown);
 });
-
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('de-DE');
-}
-
-function formatDateForInput(dateStr: string): string {
-  return dateStr.split('T')[0];
-}
 
 function openEditDialog() {
   if (!parent.value) return;
@@ -146,7 +139,7 @@ function goToMember(memberId: string) {
 // Get the oldest child's entry date for suggested membership start
 function getOldestChildEntryDate(): string {
   if (!parent.value?.children || parent.value.children.length === 0) {
-    return new Date().toISOString().split('T')[0];
+    return todayISO();
   }
   
   let oldest = parent.value.children[0].entryDate;

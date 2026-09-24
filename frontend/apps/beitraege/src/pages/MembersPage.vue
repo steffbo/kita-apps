@@ -25,6 +25,7 @@ import {
   Trash2,
   UserX,
 } from 'lucide-vue-next';
+import { formatDate, todayISO } from '@/utils/format';
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -72,7 +73,7 @@ const bulkActionError = ref<string | null>(null);
 
 // Stichtagsreport (member count at reference date)
 const showStichtagModal = ref(false);
-const stichtagDate = ref(new Date().toISOString().slice(0, 10));
+const stichtagDate = ref(todayISO());
 const stichtagData = ref<MemberCountAsOf | null>(null);
 const isLoadingStichtag = ref(false);
 const stichtagError = ref<string | null>(null);
@@ -83,7 +84,7 @@ const createForm = ref<CreateMemberRequest>({
   lastName: '',
   email: '',
   phone: '',
-  membershipStart: new Date().toISOString().split('T')[0],
+  membershipStart: todayISO(),
 });
 const isCreating = ref(false);
 const createError = ref<string | null>(null);
@@ -183,9 +184,6 @@ onUnmounted(() => {
 });
 
 // Helpers
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('de-DE');
-}
 
 async function loadChildrenNames(memberList: Member[]) {
   const ids = [
@@ -270,7 +268,7 @@ async function handleCreate() {
       lastName: '',
       email: '',
       phone: '',
-      membershipStart: new Date().toISOString().split('T')[0],
+      membershipStart: todayISO(),
     };
     loadMembers();
   } catch (e) {
@@ -324,7 +322,7 @@ async function handleBulkDelete() {
 // Stichtagsreport
 async function openStichtagModal() {
   showStichtagModal.value = true;
-  stichtagDate.value = new Date().toISOString().slice(0, 10);
+  stichtagDate.value = todayISO();
   await loadStichtagCount();
 }
 
@@ -341,7 +339,7 @@ async function loadStichtagCount() {
 }
 
 function resetStichtagToToday() {
-  stichtagDate.value = new Date().toISOString().slice(0, 10);
+  stichtagDate.value = todayISO();
   loadStichtagCount();
 }
 

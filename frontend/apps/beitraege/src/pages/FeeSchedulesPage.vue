@@ -9,6 +9,7 @@ import type {
   FeeTableRow,
 } from '@/api/types';
 import { Loader2, Plus, Trash2, Save, X, Pencil } from 'lucide-vue-next';
+import { formatCurrency, formatDate } from '@/utils/format';
 
 const CARE_HOURS = [30, 35, 40, 45, 50, 55];
 
@@ -140,14 +141,6 @@ function setDiscountPercent(index: number, value: string): void {
   if (!draft.value) return;
   const percent = Number(value);
   draft.value.config.siblingDiscountFactors[index] = Math.round((1 - percent / 100) * 10000) / 10000;
-}
-
-function formatDate(date: string): string {
-  return new Date(date).toLocaleDateString('de-DE');
-}
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(amount);
 }
 
 const statusLabel: Record<FeeScheduleStatus, string> = {

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { AlertTriangle } from 'lucide-vue-next';
 import type { ImportError } from '@/api/types';
+import { formatCurrency, formatDate } from '@/utils/format';
 
 withDefaults(
   defineProps<{
@@ -12,13 +13,6 @@ withDefaults(
   { title: 'Fehler beim Import' },
 );
 
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('de-DE');
-}
-
-function formatCurrency(amount: number): string {
-  return new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(amount);
-}
 </script>
 
 <template>

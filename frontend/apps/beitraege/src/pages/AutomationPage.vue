@@ -12,6 +12,7 @@ import type {
 import { ReminderCaseConflictError } from '@/api/types';
 import { Eye, X, Search, ArrowUp, ArrowDown, ArrowLeft, Settings, Mail, Clock } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/auth';
+import { formatCurrency, formatDate, formatDateTime, todayISO } from '@/utils/format';
 
 const authStore = useAuthStore();
 
@@ -458,23 +459,6 @@ function toggleEmailLogsSort(): void {
 }
 
 // ── Formatting helpers ───────────────────────────────────────────────────────
-function todayISO(): string {
-  return new Date().toLocaleDateString('en-CA');
-}
-
-function formatCurrency(value: number): string {
-  return value.toLocaleString('de-DE', { style: 'currency', currency: 'EUR' });
-}
-
-function formatDate(value: string | undefined): string {
-  if (!value) return '—';
-  return new Date(value).toLocaleDateString('de-DE');
-}
-
-function formatDateTime(value: string): string {
-  return new Date(value).toLocaleString('de-DE');
-}
-
 function formatPeriod(fee: ReminderCaseFee): string {
   if (fee.month > 0) return `${fee.month}/${fee.year}`;
   return String(fee.year);

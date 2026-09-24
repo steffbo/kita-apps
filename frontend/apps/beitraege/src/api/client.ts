@@ -78,6 +78,7 @@ import type {
   FeeScheduleRequest,
 } from './types';
 import { ReminderCaseConflictError } from './types';
+import { todayISO } from '@/utils/format';
 
 const API_BASE = '/api/fees/v1';
 
@@ -372,7 +373,7 @@ class ApiClient {
   async createMemberFromParent(parentId: string, membershipStart?: string): Promise<Parent> {
     return this.request<Parent>(`/parents/${parentId}/member`, {
       method: 'POST',
-      body: JSON.stringify({ membershipStart: membershipStart || new Date().toISOString().split('T')[0] }),
+      body: JSON.stringify({ membershipStart: membershipStart || todayISO() }),
     });
   }
 

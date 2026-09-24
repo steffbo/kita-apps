@@ -8,6 +8,7 @@ import {
   ChevronRight,
   User,
 } from 'lucide-vue-next';
+import { formatDateTime } from '@/utils/format';
 
 // Data
 const notes = ref<ChildNote[]>([]);
@@ -72,9 +73,6 @@ onMounted(() => {
 });
 
 // Helpers
-function formatDateTime(dateStr: string): string {
-  return new Date(dateStr).toLocaleString('de-DE');
-}
 
 function truncateText(text: string, length = 120): string {
   if (text.length <= length) return text;
