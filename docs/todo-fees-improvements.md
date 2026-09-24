@@ -56,9 +56,9 @@ Leitplanke für alle Refactorings: **keine fachliche Verhaltensänderung**, auß
 
 ## Phase 4 – Struktur (ohne Logikänderung)
 
-- [x] **14. Handler entschlacken** (`e22ac6f`, `6649ecc`) – Repo-Zugriffe aus `ChildHandler`/`FeeHandler` in Services
+- [x] **14. Handler entschlacken** (`e22ac6f`, `9a3725c`) – Repo-Zugriffe aus `ChildHandler`/`FeeHandler` in Services
       verschieben; `fee_handler.go`/`import_handler.go` aufteilen.
-- [ ] **15. `import_service.go` aufteilen** – `matcher`, `iban_registry`, `warning_service`,
+- [x] **15. `import_service.go` aufteilen** – `matcher`, `iban_registry`, `warning_service`,
       CSV-Import. Reines Verschieben, Tests müssen unverändert grün bleiben.
 - [ ] **16. Frontend-Formatierer zentralisieren** – `src/utils/format.ts`
       (`formatDate`, `formatDateTime`, `formatCurrency`, `formatDateForInput`, …), alle Seiten umstellen.
