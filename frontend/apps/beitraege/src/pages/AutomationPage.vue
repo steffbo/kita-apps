@@ -10,9 +10,21 @@ import type {
   ReminderCaseStage,
 } from '@/api/types';
 import { ReminderCaseConflictError } from '@/api/types';
-import { Eye, X, Search, ArrowUp, ArrowDown, ArrowLeft, Settings, Mail, Clock } from 'lucide-vue-next';
+import { Eye, X, Search, ArrowLeft, Settings, Mail, Clock } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/auth';
 import { formatCurrency, formatDate, formatDateTime, todayISO } from '@/utils/format';
+import {
+  feeChipClass,
+  feeTypeLabel,
+  feeTypesIn,
+  formatEmailType,
+  formatPeriod,
+  statusBadgeClass,
+  statusLabel,
+} from '@/utils/reminders';
+import EmailLogTab from '@/components/automation/EmailLogTab.vue';
+import EmailLogModal from '@/components/automation/EmailLogModal.vue';
+import ReminderSettingsDialog from '@/components/automation/ReminderSettingsDialog.vue';
 
 const authStore = useAuthStore();
 
@@ -335,220 +347,18 @@ async function loadChronology(): Promise<void> {
   }
 }
 
-// ── Settings (payment data) ──────────────────────────────────────────────────
-const reminderAutoEnabled = ref(false);
-const reminderPaymentRecipientName = ref('');
-const reminderPaymentIBAN = ref('');
-const reminderPaymentBIC = ref('');
-const isReminderSettingsLoading = ref(false);
-const reminderSettingsError = ref<string | null>(null);
-
-async function loadReminderSettings(): Promise<void> {
-  if (!authStore.isAdmin) return;
-  isReminderSettingsLoading.value = true;
-  reminderSettingsError.value = null;
-  try {
-    const settings = await api.getReminderSettings();
-    reminderAutoEnabled.value = settings.autoEnabled;
-    reminderPaymentRecipientName.value = settings.payment?.recipientName ?? '';
-    reminderPaymentIBAN.value = settings.payment?.iban ?? '';
-    reminderPaymentBIC.value = settings.payment?.bic ?? '';
-  } catch (e) {
-    reminderSettingsError.value = e instanceof Error ? e.message : 'Einstellungen konnten nicht geladen werden';
-  } finally {
-    isReminderSettingsLoading.value = false;
-  }
-}
-
-function normalizeIBAN(value: string): string {
-  return value.toUpperCase().replace(/\s+/g, '');
-}
-
-function normalizeBIC(value: string): string {
-  return value.trim().toUpperCase();
-}
-
-async function savePaymentSettings(): Promise<void> {
-  if (!authStore.isAdmin) return;
-  isReminderSettingsLoading.value = true;
-  reminderSettingsError.value = null;
-  try {
-    await api.updateReminderSettings({
-      autoEnabled: reminderAutoEnabled.value,
-      payment: {
-        recipientName: reminderPaymentRecipientName.value.trim(),
-        iban: normalizeIBAN(reminderPaymentIBAN.value),
-        bic: normalizeBIC(reminderPaymentBIC.value),
-      },
-    });
-    showSettingsDialog.value = false;
-  } catch (e) {
-    reminderSettingsError.value = e instanceof Error ? e.message : 'Einstellungen konnten nicht gespeichert werden';
-  } finally {
-    isReminderSettingsLoading.value = false;
-  }
-}
-
-// ── Global log (Versandverlauf) ──────────────────────────────────────────────
-const emailLogs = ref<EmailLog[]>([]);
-const emailLogsTotal = ref(0);
-const emailLogsPage = ref(1);
-const emailLogsPerPage = 20;
-const emailLogsSearch = ref('');
-const emailLogsTypeFilter = ref('');
-const emailLogsSortDir = ref<'asc' | 'desc'>('desc');
-const isEmailLogsLoading = ref(false);
-const emailLogsError = ref<string | null>(null);
-const selectedEmailLog = ref<EmailLog | null>(null);
-
-async function loadEmailLogs(reset = false): Promise<void> {
-  if (!authStore.isAdmin) return;
-  if (isEmailLogsLoading.value) return;
-  isEmailLogsLoading.value = true;
-  emailLogsError.value = null;
-  try {
-    if (reset) emailLogsPage.value = 1;
-    const result = await api.getEmailLogs({
-      page: emailLogsPage.value,
-      perPage: emailLogsPerPage,
-      emailType: emailLogsTypeFilter.value || undefined,
-      search: emailLogsSearch.value.trim() || undefined,
-      sortDir: emailLogsSortDir.value,
-    });
-    emailLogs.value = result.data;
-    emailLogsTotal.value = result.total;
-  } catch (e) {
-    emailLogsError.value = e instanceof Error ? e.message : 'Versandverlauf konnte nicht geladen werden';
-  } finally {
-    isEmailLogsLoading.value = false;
-  }
-}
-
-const emailLogsTotalPages = computed(() => Math.max(1, Math.ceil(emailLogsTotal.value / emailLogsPerPage)));
-
-function goToEmailLogsPage(target: number): void {
-  const page = Math.min(Math.max(1, target), emailLogsTotalPages.value);
-  if (page === emailLogsPage.value) return;
-  emailLogsPage.value = page;
-  loadEmailLogs();
-}
-
-let emailLogsSearchTimeout: ReturnType<typeof setTimeout> | null = null;
-
 watch(scope, () => {
   void loadCases();
 });
-
-watch(emailLogsSearch, () => {
-  if (emailLogsSearchTimeout) clearTimeout(emailLogsSearchTimeout);
-  emailLogsSearchTimeout = setTimeout(() => {
-    loadEmailLogs(true);
-  }, 300);
-});
-
-watch([emailLogsTypeFilter, emailLogsSortDir], () => {
-  loadEmailLogs(true);
-});
-
-watch(activeTab, (tab) => {
-  if (tab === 'log') loadEmailLogs(true);
-});
-
-function toggleEmailLogsSort(): void {
-  emailLogsSortDir.value = emailLogsSortDir.value === 'desc' ? 'asc' : 'desc';
-}
-
-// ── Formatting helpers ───────────────────────────────────────────────────────
-function formatPeriod(fee: ReminderCaseFee): string {
-  if (fee.month > 0) return `${fee.month}/${fee.year}`;
-  return String(fee.year);
-}
-
-const feeTypeLabels: Record<string, string> = {
-  MEMBERSHIP: 'Vereinsbeitrag',
-  FOOD: 'Essensgeld',
-  CHILDCARE: 'Platzgeld',
-  REMINDER: 'Mahngebühr',
-};
-
-function feeTypeLabel(feeType: string): string {
-  return feeTypeLabels[feeType] ?? feeType;
-}
-
-function feeChipClass(feeType: string): string {
-  switch (feeType) {
-    case 'MEMBERSHIP':
-      return 'bg-purple-100 text-purple-700';
-    case 'FOOD':
-      return 'bg-orange-100 text-orange-700';
-    case 'CHILDCARE':
-      return 'bg-blue-100 text-blue-700';
-    case 'REMINDER':
-      return 'bg-red-100 text-red-700';
-    default:
-      return 'bg-gray-100 text-gray-700';
-  }
-}
-
-function feeTypesIn(item: ReminderCase): string[] {
-  const types = new Set(item.fees.map((fee) => fee.feeType));
-  return Array.from(types);
-}
-
-const statusLabels: Record<string, string> = {
-  actionable_initial: 'Erinnerung fällig',
-  actionable_final: 'Mahnung fällig',
-  waiting: 'In Frist',
-  never_contacted: 'Nicht fällig',
-  history_unknown: 'Historie unbekannt',
-};
-
-function statusLabel(status: string): string {
-  return statusLabels[status] ?? status;
-}
-
-function statusBadgeClass(status: string): string {
-  switch (status) {
-    case 'actionable_initial':
-      return 'bg-amber-100 text-amber-700';
-    case 'actionable_final':
-      return 'bg-red-100 text-red-700';
-    case 'waiting':
-      return 'bg-blue-100 text-blue-700';
-    case 'history_unknown':
-      return 'bg-gray-200 text-gray-700';
-    default:
-      return 'bg-gray-100 text-gray-600';
-  }
-}
-
-function formatEmailType(type: string): string {
-  switch (type) {
-    case 'REMINDER_INITIAL':
-      return 'Zahlungserinnerung';
-    case 'REMINDER_FINAL':
-      return 'Mahnung';
-    case 'MEMBERSHIP_REMINDER_INITIAL':
-      return 'Vereinsbeitrag Erinnerung';
-    case 'MEMBERSHIP_REMINDER_FINAL':
-      return 'Vereinsbeitrag Mahnung';
-    case 'PASSWORD_RESET':
-      return 'Passwort-Reset';
-    default:
-      return type;
-  }
-}
 
 // ── Lifecycle ────────────────────────────────────────────────────────────────
 onMounted(() => {
   if (authStore.isAdmin) {
     loadCases();
-    loadReminderSettings();
   }
 });
 
 onUnmounted(() => {
-  if (emailLogsSearchTimeout) clearTimeout(emailLogsSearchTimeout);
   if (previewTimer) clearTimeout(previewTimer);
 });
 
@@ -557,7 +367,6 @@ watch(
   (isAdmin) => {
     if (isAdmin) {
       loadCases();
-      loadReminderSettings();
     }
   }
 );
@@ -928,116 +737,9 @@ watch(
     </div>
 
     <!-- ════════════════════ Versandverlauf ════════════════════ -->
-    <div v-if="activeTab === 'log'" v-show="authStore.isAdmin">
-      <div class="flex items-center justify-between mb-4">
-        <p class="text-sm text-gray-600">Alle versendeten E-Mails inklusive Inhalt.</p>
-        <button class="text-sm text-primary hover:underline" :disabled="isEmailLogsLoading" @click="loadEmailLogs(true)">
-          Neu laden
-        </button>
-      </div>
-
-      <div v-if="emailLogsError" class="text-sm text-red-600 mb-3">{{ emailLogsError }}</div>
-
-      <div class="flex flex-col sm:flex-row sm:items-center gap-2 mb-4">
-        <select
-          v-model="emailLogsTypeFilter"
-          class="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-        >
-          <option value="">Alle Typen</option>
-          <option value="REMINDER_INITIAL">Zahlungserinnerung</option>
-          <option value="REMINDER_FINAL">Mahnung</option>
-          <option value="MEMBERSHIP_REMINDER_INITIAL">Vereinsbeitrag Erinnerung</option>
-          <option value="MEMBERSHIP_REMINDER_FINAL">Vereinsbeitrag Mahnung</option>
-          <option value="PASSWORD_RESET">Passwort-Reset</option>
-        </select>
-
-        <div class="relative flex-1 min-w-[200px]">
-          <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-          <input
-            v-model="emailLogsSearch"
-            type="text"
-            placeholder="Suche nach Empfänger oder Betreff..."
-            class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-          />
-        </div>
-
-        <button
-          type="button"
-          class="inline-flex items-center gap-1.5 px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-          @click="toggleEmailLogsSort"
-          :title="emailLogsSortDir === 'desc' ? 'Älteste zuerst' : 'Neueste zuerst'"
-        >
-          {{ emailLogsSortDir === 'desc' ? 'Neueste zuerst' : 'Älteste zuerst' }}
-          <ArrowDown v-if="emailLogsSortDir === 'desc'" class="h-4 w-4" />
-          <ArrowUp v-else class="h-4 w-4" />
-        </button>
-      </div>
-
-      <div v-if="emailLogs.length === 0 && !isEmailLogsLoading" class="text-sm text-gray-500">
-        Keine E-Mails für diese Filter gefunden.
-      </div>
-
-      <div v-else class="overflow-x-auto">
-        <table class="w-full table-fixed text-sm">
-          <thead>
-            <tr class="text-left text-gray-500 border-b">
-              <th class="w-36 pb-3 font-medium">Zeitpunkt</th>
-              <th class="w-44 pb-3 font-medium">Typ</th>
-              <th class="pb-3 font-medium">Empfänger</th>
-              <th class="pb-3 font-medium">Betreff</th>
-              <th class="w-32 pb-3 font-medium">Inhalt</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="log in emailLogs" :key="log.id" class="border-b last:border-0 align-top">
-              <td class="py-3 whitespace-nowrap">{{ formatDateTime(log.sentAt) }}</td>
-              <td class="py-3 whitespace-nowrap">{{ formatEmailType(log.emailType) }}</td>
-              <td class="py-3 pr-4 truncate" :title="log.toEmail">{{ log.toEmail }}</td>
-              <td class="py-3 pr-4 truncate" :title="log.subject">{{ log.subject }}</td>
-              <td class="py-3">
-                <button
-                  type="button"
-                  class="inline-flex items-center gap-1.5 text-primary hover:underline"
-                  @click="selectedEmailLog = log"
-                >
-                  <Eye class="h-4 w-4" />
-                  Anzeigen
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <div v-if="isEmailLogsLoading" class="mt-3 text-sm text-gray-500">Versandverlauf wird geladen...</div>
-
-      <div
-        v-if="emailLogsTotalPages > 1 || emailLogsPage > 1"
-        class="flex items-center justify-between mt-4 pt-4 border-t"
-      >
-        <p class="text-sm text-gray-600">
-          Seite {{ emailLogsPage }} von {{ emailLogsTotalPages }} ({{ emailLogsTotal }} Einträge)
-        </p>
-        <div class="flex items-center gap-2">
-          <button
-            type="button"
-            class="px-3 py-1.5 text-sm border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            :disabled="emailLogsPage <= 1 || isEmailLogsLoading"
-            @click="goToEmailLogsPage(emailLogsPage - 1)"
-          >
-            Zurück
-          </button>
-          <button
-            type="button"
-            class="px-3 py-1.5 text-sm border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
-            :disabled="emailLogsPage >= emailLogsTotalPages || isEmailLogsLoading"
-            @click="goToEmailLogsPage(emailLogsPage + 1)"
-          >
-            Weiter
-          </button>
-        </div>
-      </div>
-    </div>
+    <KeepAlive>
+      <EmailLogTab v-if="activeTab === 'log' && authStore.isAdmin" />
+    </KeepAlive>
 
     <!-- ════════════════════ Modals ════════════════════ -->
 
@@ -1112,122 +814,8 @@ watch(
       </div>
     </div>
 
-    <!-- Settings dialog -->
-    <div
-      v-if="showSettingsDialog"
-      class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
-      @click.self="showSettingsDialog = false"
-    >
-      <div class="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col">
-        <div class="flex items-start justify-between gap-4 p-5 border-b">
-          <h3 class="text-lg font-semibold text-gray-900">Zahlungsdaten für QR-Code</h3>
-          <button type="button" class="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-900" @click="showSettingsDialog = false">
-            <X class="h-5 w-5" />
-          </button>
-        </div>
-        <div class="overflow-y-auto p-5 space-y-3">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Empfänger</label>
-            <input
-              type="text"
-              v-model="reminderPaymentRecipientName"
-              placeholder="Knirpsenstadt e.V."
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-            />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">IBAN</label>
-            <input
-              type="text"
-              v-model="reminderPaymentIBAN"
-              placeholder="DE33370205000003321400"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-            />
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">
-              BIC <span class="font-normal text-gray-400">(optional)</span>
-            </label>
-            <input
-              type="text"
-              v-model="reminderPaymentBIC"
-              placeholder="BFSWDE33XXX"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-            />
-          </div>
-          <p class="text-xs text-gray-500">Wenn Felder leer bleiben, werden die Standard-Zahlungsdaten der Kita verwendet.</p>
-          <div v-if="reminderSettingsError" class="text-sm text-red-600">{{ reminderSettingsError }}</div>
-        </div>
-        <div class="flex justify-end gap-3 p-5 border-t">
-          <button class="px-4 py-2 rounded-lg border text-sm font-medium hover:bg-gray-50" @click="showSettingsDialog = false">
-            Abbrechen
-          </button>
-          <button
-            class="px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary/90 disabled:opacity-50"
-            :disabled="isReminderSettingsLoading"
-            @click="savePaymentSettings"
-          >
-            Speichern
-          </button>
-        </div>
-      </div>
-    </div>
+    <ReminderSettingsDialog v-if="showSettingsDialog" @close="showSettingsDialog = false" />
 
-    <!-- Email detail modal (shared by chronology + global log) -->
-    <div
-      v-if="selectedEmailLog || selectedChronologyLog"
-      class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
-      @click.self="selectedEmailLog = null; selectedChronologyLog = null"
-    >
-      <div class="bg-white rounded-xl shadow-xl w-full max-w-4xl max-h-[90vh] flex flex-col">
-        <div class="flex items-start justify-between gap-4 p-5 border-b">
-          <div class="min-w-0">
-            <h3 class="text-lg font-semibold text-gray-900">Gesendete E-Mail</h3>
-            <p class="text-sm text-gray-500 truncate">{{ (selectedChronologyLog ?? selectedEmailLog)?.subject }}</p>
-          </div>
-          <button
-            type="button"
-            class="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-900"
-            aria-label="Modal schließen"
-            @click="selectedEmailLog = null; selectedChronologyLog = null"
-          >
-            <X class="h-5 w-5" />
-          </button>
-        </div>
-
-        <div class="overflow-y-auto p-5">
-          <dl class="grid gap-4 text-sm sm:grid-cols-2">
-            <div>
-              <dt class="font-medium text-gray-500">Zeitpunkt</dt>
-              <dd class="mt-1 text-gray-900">{{ formatDateTime((selectedChronologyLog ?? selectedEmailLog)?.sentAt ?? '') }}</dd>
-            </div>
-            <div>
-              <dt class="font-medium text-gray-500">Typ</dt>
-              <dd class="mt-1 text-gray-900">{{ formatEmailType((selectedChronologyLog ?? selectedEmailLog)?.emailType ?? '') }}</dd>
-            </div>
-            <div class="sm:col-span-2">
-              <dt class="font-medium text-gray-500">Empfänger</dt>
-              <dd class="mt-1 break-all text-gray-900">{{ (selectedChronologyLog ?? selectedEmailLog)?.toEmail }}</dd>
-            </div>
-            <div class="sm:col-span-2">
-              <dt class="font-medium text-gray-500">Betreff</dt>
-              <dd class="mt-1 text-gray-900">{{ (selectedChronologyLog ?? selectedEmailLog)?.subject }}</dd>
-            </div>
-          </dl>
-
-          <pre class="mt-5 max-h-[55vh] overflow-auto whitespace-pre-wrap rounded-lg border bg-gray-50 p-4 text-sm leading-6 text-gray-700">{{ (selectedChronologyLog ?? selectedEmailLog)?.body || '-' }}</pre>
-        </div>
-
-        <div class="flex justify-end p-5 border-t">
-          <button
-            type="button"
-            class="px-4 py-2 rounded-lg border text-sm font-medium hover:bg-gray-50"
-            @click="selectedEmailLog = null; selectedChronologyLog = null"
-          >
-            Schließen
-          </button>
-        </div>
-      </div>
-    </div>
+    <EmailLogModal v-if="selectedChronologyLog" :log="selectedChronologyLog" @close="selectedChronologyLog = null" />
   </div>
 </template>

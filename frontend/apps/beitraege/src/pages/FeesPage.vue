@@ -2,7 +2,7 @@
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { api } from '@/api';
-import type { FeeExpectation, GenerateFeeRequest, Child, CreateFeeRequest } from '@/api/types';
+import type { FeeExpectation } from '@/api/types';
 import {
   Filter,
   Loader2,
@@ -14,7 +14,6 @@ import {
   Trash2,
   Search,
   AlertCircle,
-  User,
   ChevronUp,
   ChevronDown,
   ChevronsUpDown,
@@ -23,6 +22,8 @@ import {
 } from 'lucide-vue-next';
 import { formatCurrency, formatDate, formatMonthName } from '@/utils/format';
 import { getFeeTypeColor, getFeeTypeName } from '@/utils/fees';
+import GenerateFeesDialog from '@/components/fees/GenerateFeesDialog.vue';
+import CreateFeeDialog from '@/components/fees/CreateFeeDialog.vue';
 
 const router = useRouter();
 const route = useRoute();
@@ -49,12 +50,6 @@ const defaultSortDir: Record<FeeSortKey, 'asc' | 'desc'> = {
 };
 
 const showGenerateDialog = ref(false);
-const generateForm = ref<GenerateFeeRequest>({
-  year: new Date().getFullYear(),
-  month: new Date().getMonth() + 1,
-});
-const isGenerating = ref(false);
-const generateResult = ref<{ created: number; skipped: number } | null>(null);
 
 // Pagination
 const currentPage = ref(1);
@@ -73,38 +68,6 @@ const isCreatingReminder = ref(false);
 
 // Single fee creation state
 const showCreateFeeDialog = ref(false);
-const createFeeForm = ref<CreateFeeRequest>({
-  childId: '',
-  feeType: 'FOOD',
-  year: new Date().getFullYear(),
-  month: new Date().getMonth() + 1,
-});
-const isCreatingFee = ref(false);
-const createFeeError = ref<string | null>(null);
-const childSearchQuery = ref('');
-const childSearchResults = ref<Child[]>([]);
-const selectedChild = ref<Child | null>(null);
-const isSearchingChildren = ref(false);
-
-const years = computed(() => {
-  const currentYear = new Date().getFullYear();
-  return [currentYear - 1, currentYear, currentYear + 1];
-});
-
-const months = [
-  { value: 1, label: 'Januar' },
-  { value: 2, label: 'Februar' },
-  { value: 3, label: 'März' },
-  { value: 4, label: 'April' },
-  { value: 5, label: 'Mai' },
-  { value: 6, label: 'Juni' },
-  { value: 7, label: 'Juli' },
-  { value: 8, label: 'August' },
-  { value: 9, label: 'September' },
-  { value: 10, label: 'Oktober' },
-  { value: 11, label: 'November' },
-  { value: 12, label: 'Dezember' },
-];
 
 const feeTypes = [
   { value: '', label: 'Alle' },
@@ -301,20 +264,6 @@ function getStatusInfo(fee: FeeExpectation) {
   return { icon: Clock, color: 'text-amber-500', label: 'Offen', bg: 'bg-amber-50' };
 }
 
-async function handleGenerate() {
-  isGenerating.value = true;
-  generateResult.value = null;
-  try {
-    const result = await api.generateFees(generateForm.value);
-    generateResult.value = result;
-    await loadFees();
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : 'Fehler beim Generieren';
-  } finally {
-    isGenerating.value = false;
-  }
-}
-
 // Selection functions
 function toggleSelectAll() {
   if (allSelected.value) {
@@ -426,105 +375,9 @@ async function createReminder() {
   }
 }
 
-// Single fee creation functions
-let childSearchTimeout: ReturnType<typeof setTimeout>;
-
-function openCreateFeeDialog() {
-  showCreateFeeDialog.value = true;
-  createFeeForm.value = {
-    childId: '',
-    feeType: 'FOOD',
-    year: new Date().getFullYear(),
-    month: new Date().getMonth() + 1,
-  };
-  createFeeError.value = null;
-  childSearchQuery.value = '';
-  childSearchResults.value = [];
-  selectedChild.value = null;
-}
-
-function closeCreateFeeDialog() {
+async function onFeeCreated() {
   showCreateFeeDialog.value = false;
-  selectedChild.value = null;
-  childSearchQuery.value = '';
-  childSearchResults.value = [];
-}
-
-let childSearchSeq = 0;
-watch(childSearchQuery, (newVal) => {
-  clearTimeout(childSearchTimeout);
-  if (newVal.length < 2) {
-    childSearchResults.value = [];
-    return;
-  }
-  const seq = ++childSearchSeq;
-  childSearchTimeout = setTimeout(async () => {
-    isSearchingChildren.value = true;
-    try {
-      const response = await api.getChildren({ search: newVal, activeOnly: true, perPage: 10 });
-      if (seq !== childSearchSeq) return; // a newer keystroke superseded this request
-      childSearchResults.value = response.data;
-    } catch {
-      if (seq === childSearchSeq) childSearchResults.value = [];
-    } finally {
-      if (seq === childSearchSeq) isSearchingChildren.value = false;
-    }
-  }, 300);
-});
-
-function selectChild(child: Child) {
-  selectedChild.value = child;
-  createFeeForm.value.childId = child.id;
-  childSearchQuery.value = '';
-  childSearchResults.value = [];
-}
-
-function clearSelectedChild() {
-  selectedChild.value = null;
-  createFeeForm.value.childId = '';
-}
-
-const feeTypeRequiresMonth = computed(() => {
-  return createFeeForm.value.feeType !== 'MEMBERSHIP';
-});
-
-async function handleCreateFee() {
-  if (!selectedChild.value) {
-    createFeeError.value = 'Bitte wählen Sie ein Kind aus';
-    return;
-  }
-  
-  isCreatingFee.value = true;
-  createFeeError.value = null;
-  
-  try {
-    const requestData: CreateFeeRequest = {
-      childId: createFeeForm.value.childId,
-      feeType: createFeeForm.value.feeType,
-      year: createFeeForm.value.year,
-    };
-    
-    // Only include month for non-membership fees
-    if (feeTypeRequiresMonth.value && createFeeForm.value.month) {
-      requestData.month = createFeeForm.value.month;
-    }
-    
-    // Include optional fields if provided
-    if (createFeeForm.value.amount) {
-      requestData.amount = createFeeForm.value.amount;
-    }
-    if (createFeeForm.value.dueDate) {
-      requestData.dueDate = createFeeForm.value.dueDate;
-    }
-    
-    await api.createFee(requestData);
-    closeCreateFeeDialog();
-    await loadFees();
-  } catch (e) {
-    createFeeError.value = e instanceof Error ? e.message : 'Fehler beim Erstellen des Beitrags';
-  } finally {
-    isCreatingFee.value = false;
-  }
+  await loadFees();
 }
 
 </script>
@@ -539,7 +392,7 @@ async function handleCreateFee() {
       </div>
       <div class="flex gap-2">
         <button
-          @click="openCreateFeeDialog"
+          @click="showCreateFeeDialog = true"
           class="inline-flex items-center gap-2 px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary/5 transition-colors"
         >
           <Plus class="h-4 w-4" />
@@ -900,76 +753,7 @@ async function handleCreateFee() {
       </div>
     </div>
 
-    <!-- Generate Dialog -->
-    <div
-      v-if="showGenerateDialog"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      @click.self="showGenerateDialog = false"
-    >
-      <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
-        <div class="flex items-center gap-3 mb-6">
-          <div class="p-2 bg-primary/10 rounded-lg">
-            <Calendar class="h-6 w-6 text-primary" />
-          </div>
-          <div>
-            <h2 class="text-xl font-semibold">Beiträge generieren</h2>
-            <p class="text-sm text-gray-600">Erstellt fehlende Beiträge für alle aktiven Kinder</p>
-          </div>
-        </div>
-
-        <div class="space-y-4">
-          <div>
-            <label for="generate-year" class="block text-sm font-medium text-gray-700 mb-1">Jahr</label>
-            <select
-              id="generate-year"
-              v-model="generateForm.year"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-            >
-              <option v-for="year in years" :key="year" :value="year">{{ year }}</option>
-            </select>
-          </div>
-
-          <div>
-            <label for="generate-month" class="block text-sm font-medium text-gray-700 mb-1">Monat</label>
-            <select
-              id="generate-month"
-              v-model="generateForm.month"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-            >
-              <option :value="undefined">Nur Jahresbeitrag (Vereinsbeitrag)</option>
-              <option v-for="month in months" :key="month.value" :value="month.value">
-                {{ month.label }} (Essensgeld + ggf. Platzgeld)
-              </option>
-            </select>
-          </div>
-
-          <div v-if="generateResult" class="p-4 bg-green-50 border border-green-200 rounded-lg">
-            <p class="text-green-700 font-medium">Erfolgreich generiert!</p>
-            <p class="text-sm text-green-600 mt-1">
-              {{ generateResult.created }} Beiträge erstellt, {{ generateResult.skipped }} übersprungen
-            </p>
-          </div>
-
-          <div class="flex justify-end gap-3 pt-4">
-            <button
-              @click="showGenerateDialog = false"
-              class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              Schließen
-            </button>
-            <button
-              @click="handleGenerate"
-              :disabled="isGenerating"
-              class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
-            >
-              <Loader2 v-if="isGenerating" class="h-4 w-4 animate-spin" />
-              <Plus v-else class="h-4 w-4" />
-              Generieren
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+    <GenerateFeesDialog v-if="showGenerateDialog" @close="showGenerateDialog = false" @generated="loadFees" />
 
     <!-- Delete Confirmation Dialog -->
     <div
@@ -1062,180 +846,6 @@ async function handleCreateFee() {
       </div>
     </div>
 
-    <!-- Create Single Fee Dialog -->
-    <div
-      v-if="showCreateFeeDialog"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      @click.self="closeCreateFeeDialog"
-    >
-      <div class="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 p-6">
-        <div class="flex items-center gap-3 mb-6">
-          <div class="p-2 bg-primary/10 rounded-lg">
-            <Plus class="h-6 w-6 text-primary" />
-          </div>
-          <div>
-            <h2 class="text-xl font-semibold">Einzelnen Beitrag erstellen</h2>
-            <p class="text-sm text-gray-600">Erstellt einen Beitrag für ein bestimmtes Kind</p>
-          </div>
-        </div>
-
-        <div class="space-y-4">
-          <!-- Child Selection -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Kind *</label>
-            
-            <!-- Selected Child Display -->
-            <div v-if="selectedChild" class="flex items-center justify-between p-3 bg-gray-50 border border-gray-200 rounded-lg">
-              <div class="flex items-center gap-3">
-                <div class="p-2 bg-primary/10 rounded-full">
-                  <User class="h-4 w-4 text-primary" />
-                </div>
-                <div>
-                  <p class="font-medium">{{ selectedChild.firstName }} {{ selectedChild.lastName }}</p>
-                  <p class="text-sm text-gray-500">Mitgl.-Nr.: {{ selectedChild.memberNumber }}</p>
-                </div>
-              </div>
-              <button
-                @click="clearSelectedChild"
-                class="text-gray-400 hover:text-gray-600"
-              >
-                <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            
-            <!-- Child Search -->
-            <div v-else class="relative">
-              <div class="relative">
-                <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
-                <input
-                  v-model="childSearchQuery"
-                  type="text"
-                  placeholder="Name oder Mitgliedsnummer eingeben..."
-                  class="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-                />
-                <Loader2 v-if="isSearchingChildren" class="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-gray-400" />
-              </div>
-              
-              <!-- Search Results Dropdown -->
-              <div
-                v-if="childSearchResults.length > 0"
-                class="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-auto"
-              >
-                <button
-                  v-for="child in childSearchResults"
-                  :key="child.id"
-                  @click="selectChild(child)"
-                  class="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 text-left border-b last:border-b-0"
-                >
-                  <div class="p-1.5 bg-gray-100 rounded-full">
-                    <User class="h-4 w-4 text-gray-600" />
-                  </div>
-                  <div>
-                    <p class="font-medium">{{ child.firstName }} {{ child.lastName }}</p>
-                    <p class="text-sm text-gray-500">{{ child.memberNumber }}</p>
-                  </div>
-                </button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Fee Type -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Beitragsart *</label>
-            <select
-              v-model="createFeeForm.feeType"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-            >
-              <option value="FOOD">Essensgeld</option>
-              <option value="CHILDCARE">Platzgeld</option>
-              <option value="MEMBERSHIP">Vereinsbeitrag</option>
-              <option value="REMINDER">Mahngebühr</option>
-            </select>
-          </div>
-
-          <!-- Year -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Jahr *</label>
-            <select
-              v-model="createFeeForm.year"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-            >
-              <option v-for="year in years" :key="year" :value="year">{{ year }}</option>
-            </select>
-          </div>
-
-          <!-- Month (conditional) -->
-          <div v-if="feeTypeRequiresMonth">
-            <label class="block text-sm font-medium text-gray-700 mb-1">Monat *</label>
-            <select
-              v-model="createFeeForm.month"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-            >
-              <option v-for="month in months" :key="month.value" :value="month.value">
-                {{ month.label }}
-              </option>
-            </select>
-          </div>
-
-          <!-- Amount (optional) -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">
-              Betrag (optional)
-              <span class="font-normal text-gray-500">- wird automatisch berechnet wenn leer</span>
-            </label>
-            <div class="relative">
-              <input
-                v-model.number="createFeeForm.amount"
-                type="number"
-                step="0.01"
-                min="0"
-                placeholder="z.B. 45.40"
-                class="w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-              />
-              <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400">EUR</span>
-            </div>
-          </div>
-
-          <!-- Due Date (optional) -->
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">
-              Fälligkeitsdatum (optional)
-              <span class="font-normal text-gray-500">- wird automatisch gesetzt wenn leer</span>
-            </label>
-            <input
-              v-model="createFeeForm.dueDate"
-              type="date"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-            />
-          </div>
-
-          <!-- Error Display -->
-          <div v-if="createFeeError" class="p-3 bg-red-50 border border-red-200 rounded-lg">
-            <p class="text-sm text-red-600">{{ createFeeError }}</p>
-          </div>
-
-          <!-- Actions -->
-          <div class="flex justify-end gap-3 pt-4">
-            <button
-              @click="closeCreateFeeDialog"
-              class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
-            >
-              Abbrechen
-            </button>
-            <button
-              @click="handleCreateFee"
-              :disabled="isCreatingFee || !selectedChild"
-              class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
-            >
-              <Loader2 v-if="isCreatingFee" class="h-4 w-4 animate-spin" />
-              <Plus v-else class="h-4 w-4" />
-              Beitrag erstellen
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+    <CreateFeeDialog v-if="showCreateFeeDialog" @close="showCreateFeeDialog = false" @created="onFeeCreated" />
   </div>
 </template>

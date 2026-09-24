@@ -75,3 +75,6 @@ const isoDateFormat = new Intl.DateTimeFormat('en-CA', { timeZone: TIME_ZONE });
 export function todayISO(): string {
   return isoDateFormat.format(new Date());
 }
+
+/** Options for month pickers: `{ value: 1, label: 'Januar' }` … */
+export const MONTH_OPTIONS = Array.from({ length: 12 }, (_, i) => ({ value: i + 1, label: formatMonthName(i + 1) }));
