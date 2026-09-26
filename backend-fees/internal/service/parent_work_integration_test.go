@@ -129,3 +129,90 @@ func TestParentWorkAccountIntegration(t *testing.T) {
 		t.Fatalf("detail: %+v, %v", detail, err)
 	}
 }
+
+func TestParentWorkImportIntegration(t *testing.T) {
+	ctx := context.Background()
+	repo := repository.NewPostgresParentWorkRepository(testDB)
+	svc := service.NewParentWorkService(repo, repository.NewTxManager(testDB))
+	h1, h2 := uuid.New(), uuid.New()
+	must := func(query string, args ...interface{}) {
+		t.Helper()
+		if _, err := testDB.Exec(query, args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	for id, name := range map[uuid.UUID]string{h1: "Import Familie 1", h2: "Import Familie 2"} {
+		must(`INSERT INTO fees.households (id,name) VALUES ($1,$2)`, id, name)
+		t.Cleanup(func() { must(`DELETE FROM fees.households WHERE id=$1`, id) })
+	}
+	addChild := func(h uuid.UUID, first, last string) {
+		id := uuid.New()
+		must(`INSERT INTO fees.children
+		    (id,household_id,member_number,first_name,last_name,birth_date,entry_date)
+		    VALUES ($1,$2,$3,$4,$5,'2020-01-01','2025-08-01')`, id, h,
+			"IMP"+uuid.NewString()[:6], first, last)
+		t.Cleanup(func() { must(`DELETE FROM fees.children WHERE id=$1`, id) })
+	}
+	addChild(h1, "Anna", "Einzig")
+	addChild(h1, "Doppel", "Kind")
+	addChild(h2, "Doppel", "Kind")
+	member := uuid.New()
+	must(`INSERT INTO fees.members (id,member_number,first_name,last_name,membership_start,household_id)
+        VALUES ($1,$2,'Mira','Mitglied','2025-01-01',$3)`, member, "IMP"+uuid.NewString()[:6], h2)
+	t.Cleanup(func() { must(`DELETE FROM fees.members WHERE id=$1`, member) })
+	user := uuid.New()
+	must(`INSERT INTO fees.users (id,email,password_hash,role)
+	    VALUES ($1,$2,'test','ADMIN')`, user, user.String()+"@example.org")
+	t.Cleanup(func() { must(`DELETE FROM fees.users WHERE id=$1`, user) })
+	date, _ := time.Parse("2006-01-02", "2026-09-10")
+	duplicate := domain.ParentWorkEntry{
+		HouseholdID: h1, WorkDate: date, DurationMinutes: 90,
+		Occasion: "Helfen", Status: "APPROVED", Source: "MANUAL", CreatedBy: &user,
+	}
+	if err := repo.SaveEntry(ctx, &duplicate); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { must(`DELETE FROM fees.parent_work_entries WHERE id=$1`, duplicate.ID) })
+	rows := [][]string{
+		{"Anna Einzig", "", "2026-09-10", "Aufbau", "1,5"},
+		{"", "Mira Mitglied", "2026-09-11", "Aufbau", "1"},
+		{"Doppel Kind", "", "2026-09-12", "Aufbau", "1"},
+		{"Anna Einzig", "", "2026-09-10", "Helfen", "1,5"},
+	}
+	preview, err := svc.PreviewImport(ctx, service.ParentWorkImportPreviewRequest{
+		Headers: []string{"Kind", "Mitglied", "Datum", "Anlass", "Stunden"}, Rows: rows,
+		Mapping: service.ParentWorkImportMapping{
+			"childName": 0, "memberName": 1, "workDate": 2, "occasion": 3, "hours": 4,
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if preview[0].HouseholdID == nil || *preview[0].HouseholdID != h1 ||
+		preview[0].MatchedBy == nil || *preview[0].MatchedBy != "child" ||
+		preview[1].HouseholdID == nil || *preview[1].HouseholdID != h2 ||
+		preview[1].MatchedBy == nil || *preview[1].MatchedBy != "member" ||
+		len(preview[2].Errors) == 0 || !preview[3].Duplicate {
+		t.Fatalf("unexpected preview: %+v", preview)
+	}
+	bad := service.ParentWorkImportExecuteRequest{Rows: []service.ParentWorkImportExecuteRow{
+		{HouseholdID: h1, WorkDate: "2026-09-13", DurationMinutes: 60, Occasion: "Anlegen"},
+		{HouseholdID: uuid.New(), WorkDate: "2026-09-14", DurationMinutes: 60, Occasion: "Fehler"},
+	}}
+	if _, err := svc.ExecuteImport(ctx, bad, user); err == nil {
+		t.Fatal("expected invalid row to abort import")
+	}
+	var count int
+	if err := testDB.Get(&count, `SELECT count(*) FROM fees.parent_work_entries
+	    WHERE household_id=$1 AND work_date='2026-09-13'`, h1); err != nil || count != 0 {
+		t.Fatalf("failed import was not atomic: count=%d err=%v", count, err)
+	}
+	result, err := svc.ExecuteImport(ctx, service.ParentWorkImportExecuteRequest{
+		Rows: []service.ParentWorkImportExecuteRow{{HouseholdID: h1, WorkDate: "2026-09-13",
+			DurationMinutes: 60, Occasion: "Anlegen"}},
+	}, user)
+	if err != nil || result.Created != 1 {
+		t.Fatalf("execute result=%+v err=%v", result, err)
+	}
+	must(`DELETE FROM fees.parent_work_entries WHERE household_id=$1 AND work_date='2026-09-13'`, h1)
+}

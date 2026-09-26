@@ -139,7 +139,7 @@ func main() {
 	einstufungService := service.NewEinstufungService(einstufungRepo, householdRepo, childRepo, feeService)
 	childNoteService := service.NewChildNoteService(childNoteRepo, childService)
 	feeScheduleService := service.NewFeeScheduleService(feeScheduleRepo)
-	parentWorkService := service.NewParentWorkService(parentWorkRepo)
+	parentWorkService := service.NewParentWorkService(parentWorkRepo, txManager)
 
 	// Initialize handlers
 	handlers := &api.Handlers{

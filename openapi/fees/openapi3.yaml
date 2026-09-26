@@ -4503,6 +4503,95 @@ paths:
       summary: Manuelles Soll setzen
       tags:
         - parent-work
+  /parent-work/import/execute:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/service.ParentWorkImportExecuteRequest"
+        description: Zu importierende Zeilen
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/service.ParentWorkImportExecuteResult"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Elternstunden-Import ausführen
+      tags:
+        - parent-work
+  /parent-work/import/parse:
+    post:
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  description: CSV-Datei
+                  type: string
+                  format: binary
+              required:
+                - file
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/service.ParentWorkImportParseResult"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Elternstunden-CSV einlesen
+      tags:
+        - parent-work
+  /parent-work/import/preview:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/service.ParentWorkImportPreviewRequest"
+        description: Spaltenzuordnung und CSV-Zeilen
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/service.ParentWorkImportRow"
+                type: array
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Elternstunden-Import vorschauen
+      tags:
+        - parent-work
   /parent-work/overview:
     get:
       parameters:
@@ -9280,6 +9369,112 @@ components:
         - members
         - name
         - parents
+      type: object
+    service.ParentWorkImportExecuteRequest:
+      properties:
+        rows:
+          items:
+            $ref: "#/components/schemas/service.ParentWorkImportExecuteRow"
+          type: array
+      required:
+        - rows
+      type: object
+    service.ParentWorkImportExecuteResult:
+      properties:
+        created:
+          type: integer
+      required:
+        - created
+      type: object
+    service.ParentWorkImportExecuteRow:
+      properties:
+        childName:
+          type: string
+        durationMinutes:
+          type: integer
+        householdId:
+          type: string
+        memberName:
+          type: string
+        occasion:
+          type: string
+        workDate:
+          type: string
+      required:
+        - durationMinutes
+        - householdId
+        - occasion
+        - workDate
+      type: object
+    service.ParentWorkImportMapping:
+      additionalProperties:
+        type: integer
+      type: object
+    service.ParentWorkImportParseResult:
+      properties:
+        headers:
+          items:
+            type: string
+          type: array
+        rows:
+          items:
+            items:
+              type: string
+            type: array
+          type: array
+      required:
+        - headers
+        - rows
+      type: object
+    service.ParentWorkImportPreviewRequest:
+      properties:
+        headers:
+          items:
+            type: string
+          type: array
+        mapping:
+          $ref: "#/components/schemas/service.ParentWorkImportMapping"
+        rows:
+          items:
+            items:
+              type: string
+            type: array
+          type: array
+      required:
+        - headers
+        - mapping
+        - rows
+      type: object
+    service.ParentWorkImportRow:
+      properties:
+        childName:
+          type: string
+        duplicate:
+          type: boolean
+        durationMinutes:
+          type: integer
+        errors:
+          items:
+            type: string
+          type: array
+        householdId:
+          type: string
+        householdName:
+          type: string
+        index:
+          type: integer
+        matchedBy:
+          type: string
+        memberName:
+          type: string
+        occasion:
+          type: string
+        workDate:
+          type: string
+      required:
+        - duplicate
+        - errors
+        - index
       type: object
     service.ParentWorkOverview:
       properties:

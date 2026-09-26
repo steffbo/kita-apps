@@ -22,6 +22,7 @@ import {
   Clock,
   Scale as RulesIcon,
   UserCheck,
+  Upload,
 } from 'lucide-vue-next';
 import { userRoleLabel } from '@/utils/userRole';
 import ChangePasswordDialog from '@/components/ChangePasswordDialog.vue';
@@ -71,7 +72,7 @@ const navGroups = computed(() => [
         { name: 'Übersicht', to: '/elternstunden', icon: Clock },
         { name: 'Vorstand', to: '/elternstunden/vorstand', icon: UserCheck },
         { name: 'Regeln', to: '/elternstunden/regeln', icon: RulesIcon },
-        // Import folgt in Etappe 4.
+        { name: 'Import', to: '/elternstunden/import', icon: Upload },
       ] }]
     : []),
   ...(authStore.isAdmin

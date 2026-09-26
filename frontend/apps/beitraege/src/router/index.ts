@@ -121,6 +121,7 @@ const router = createRouter({
         { path: 'elternstunden/familien/:id', name: 'parent-work-detail', component: () => import('@/pages/ParentWorkDetailPage.vue'), meta: { requiresParentWork: true } },
         { path: 'elternstunden/vorstand', name: 'parent-work-board', component: () => import('@/pages/ParentWorkBoardPage.vue'), meta: { requiresParentWork: true } },
         { path: 'elternstunden/regeln', name: 'parent-work-rules', component: () => import('@/pages/ParentWorkRulesPage.vue'), meta: { requiresParentWork: true } },
+        { path: 'elternstunden/import', name: 'parent-work-import', component: () => import('@/pages/ParentWorkImportPage.vue'), meta: { requiresParentWork: true } },
       ],
     },
   ],

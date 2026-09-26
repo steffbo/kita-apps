@@ -99,6 +99,9 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 				r.Put("/board-terms/{id}", handlers.ParentWork.UpdateTerm)
 				r.Delete("/board-terms/{id}", handlers.ParentWork.DeleteTerm)
 				r.Get("/rules", handlers.ParentWork.Rules)
+				r.Post("/import/parse", handlers.ParentWork.ParseImport)
+				r.Post("/import/preview", handlers.ParentWork.PreviewImport)
+				r.Post("/import/execute", handlers.ParentWork.ExecuteImport)
 				r.With(customMiddleware.RequireRole(string(domain.UserRoleAdmin))).
 					Post("/rules", handlers.ParentWork.CreateRule)
 				r.With(customMiddleware.RequireRole(string(domain.UserRoleAdmin))).

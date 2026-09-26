@@ -198,6 +198,9 @@ func normalizeMatchText(text string) string {
 	return normalized
 }
 
+// NormalizeMatchText exposes the parser's German-insensitive text normalization for other import flows.
+func NormalizeMatchText(text string) string { return normalizeMatchText(text) }
+
 // ExtractMemberNumber extracts a 5-digit member number from a string.
 func ExtractMemberNumber(text string) string {
 	normalized := normalizeMatchText(text)

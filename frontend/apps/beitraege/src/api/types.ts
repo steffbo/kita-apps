@@ -27,6 +27,17 @@ export type BoardTermRequest = Schema['handler.boardTermRequest'];
 export type ParentWorkRule = Schema['domain.ParentWorkRule'];
 export type ParentWorkRuleRequest = Schema['handler.parentWorkRuleRequest'];
 export type ParentWorkOverrideRequest = Schema['handler.parentWorkOverrideRequest'];
+export interface ParentWorkImportParseResult { headers: string[]; rows: string[][] }
+export interface ParentWorkImportPreviewRow {
+  index: number; workDate?: string; durationMinutes?: number; occasion?: string;
+  memberName?: string; childName?: string; householdId?: string; householdName?: string;
+  matchedBy?: 'child' | 'member'; errors: string[]; duplicate: boolean;
+}
+export interface ParentWorkImportExecuteRow {
+  householdId: string; workDate: string; durationMinutes: number; occasion: string;
+  memberName?: string; childName?: string;
+}
+export interface ParentWorkImportExecuteResult { created: number }
 
 // ── Auth ─────────────────────────────────────────────────────────────────────
 export type LoginRequest = Schema['LoginRequest'];

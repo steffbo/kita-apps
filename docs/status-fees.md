@@ -353,3 +353,14 @@ Benutzerverwaltung (ADMIN) und `/parent-work` (ADMIN/PARENT_WORK).
 `GET /parent-work/ping` und die Frontend-Seite `/elternstunden` sind nur Gerüste;
 Erfassung, Berechnung und Datenmodell folgen in späteren Etappen. JWT-Uploads
 unter `/import/upload` erlauben nur ADMIN/USER; der Import-Token bleibt gültig.
+
+## Elternstunden Etappe 4: CSV-Import (2026-09-26)
+
+`POST /parent-work/import/parse` liest Excel-Exporte als CSV über den gemeinsamen
+CSV-Parser. `preview` akzeptiert Header, Zeilen und Feldindizes für Mitglied, Kind,
+Datum, Anlass und Stunden, löst eindeutige Treffer gegen Kinder, Vereinsmitglieder
+und Eltern auf und markiert Fehler sowie Dubletten. Stunden werden als positive
+Viertelstunden in Minuten behandelt. `execute` legt ausgewählte Zeilen atomar als
+genehmigte Einträge mit `source=IMPORT` und dem angemeldeten Benutzer an.
+Die Beiträge-App hat dafür die geschützte Route `/elternstunden/import` mit
+Spaltenzuordnung, Vorschau, Familienauswahl und Dubletten-Auswahl.

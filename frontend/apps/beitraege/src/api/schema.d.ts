@@ -6828,6 +6828,161 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/parent-work/import/execute": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Elternstunden-Import ausführen */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Zu importierende Zeilen */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["service.ParentWorkImportExecuteRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["service.ParentWorkImportExecuteResult"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/parent-work/import/parse": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Elternstunden-CSV einlesen */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "multipart/form-data": {
+                        /**
+                         * Format: binary
+                         * @description CSV-Datei
+                         */
+                        file: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["service.ParentWorkImportParseResult"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/parent-work/import/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Elternstunden-Import vorschauen */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Spaltenzuordnung und CSV-Zeilen */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["service.ParentWorkImportPreviewRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["service.ParentWorkImportRow"][];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/parent-work/overview": {
         parameters: {
             query?: never;
@@ -9837,6 +9992,45 @@ export interface components {
             members: components["schemas"]["domain.ParentWorkMember"][];
             name: string;
             parents: components["schemas"]["domain.ParentWorkParent"][];
+        };
+        "service.ParentWorkImportExecuteRequest": {
+            rows: components["schemas"]["service.ParentWorkImportExecuteRow"][];
+        };
+        "service.ParentWorkImportExecuteResult": {
+            created: number;
+        };
+        "service.ParentWorkImportExecuteRow": {
+            childName?: string;
+            durationMinutes: number;
+            householdId: string;
+            memberName?: string;
+            occasion: string;
+            workDate: string;
+        };
+        "service.ParentWorkImportMapping": {
+            [key: string]: number;
+        };
+        "service.ParentWorkImportParseResult": {
+            headers: string[];
+            rows: string[][];
+        };
+        "service.ParentWorkImportPreviewRequest": {
+            headers: string[];
+            mapping: components["schemas"]["service.ParentWorkImportMapping"];
+            rows: string[][];
+        };
+        "service.ParentWorkImportRow": {
+            childName?: string;
+            duplicate: boolean;
+            durationMinutes?: number;
+            errors: string[];
+            householdId?: string;
+            householdName?: string;
+            index: number;
+            matchedBy?: string;
+            memberName?: string;
+            occasion?: string;
+            workDate?: string;
         };
         "service.ParentWorkOverview": {
             doneMinutes: number;

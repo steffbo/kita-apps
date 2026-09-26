@@ -1,7 +1,9 @@
 package handler
 
 import (
+	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -402,6 +404,82 @@ func (h *ParentWorkHandler) DeleteTerm(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	response.NoContent(w)
+}
+
+// ParseImport parses an uploaded CSV file for the parent-work import.
+// @Summary Elternstunden-CSV einlesen
+// @Tags parent-work
+// @Accept multipart/form-data
+// @Produce json
+// @Security BearerAuth
+// @Param file formData file true "CSV-Datei"
+// @Success 200 {object} service.ParentWorkImportParseResult
+// @Failure 400 {object} response.ErrorBody
+// @Router /parent-work/import/parse [post]
+func (h *ParentWorkHandler) ParseImport(w http.ResponseWriter, r *http.Request) {
+	if !parseUpload(w, r) {
+		return
+	}
+	file, _, err := r.FormFile("file")
+	if err != nil {
+		response.BadRequest(w, "Keine Datei hochgeladen")
+		return
+	}
+	defer file.Close()
+	v, err := h.svc.ParseImport(file)
+	if err != nil {
+		response.BadRequest(w, "CSV-Datei konnte nicht gelesen werden")
+		return
+	}
+	response.Success(w, v)
+}
+
+// PreviewImport returns parsed values, household matches, and validation errors.
+// @Summary Elternstunden-Import vorschauen
+// @Tags parent-work
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param preview body service.ParentWorkImportPreviewRequest true "Spaltenzuordnung und CSV-Zeilen"
+// @Success 200 {array} service.ParentWorkImportRow
+// @Failure 400 {object} response.ErrorBody
+// @Router /parent-work/import/preview [post]
+func (h *ParentWorkHandler) PreviewImport(w http.ResponseWriter, r *http.Request) {
+	var req service.ParentWorkImportPreviewRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.BadRequest(w, "Ungültige Anfrage")
+		return
+	}
+	v, err := h.svc.PreviewImport(r.Context(), req)
+	if err != nil {
+		parentWorkError(w, err)
+		return
+	}
+	response.Success(w, v)
+}
+
+// ExecuteImport atomically creates approved entries from selected import rows.
+// @Summary Elternstunden-Import ausführen
+// @Tags parent-work
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param execute body service.ParentWorkImportExecuteRequest true "Zu importierende Zeilen"
+// @Success 200 {object} service.ParentWorkImportExecuteResult
+// @Failure 400 {object} response.ErrorBody
+// @Router /parent-work/import/execute [post]
+func (h *ParentWorkHandler) ExecuteImport(w http.ResponseWriter, r *http.Request) {
+	var req service.ParentWorkImportExecuteRequest
+	if err := json.NewDecoder(io.LimitReader(r.Body, 2<<20)).Decode(&req); err != nil {
+		response.BadRequest(w, "Ungültige Anfrage")
+		return
+	}
+	v, err := h.svc.ExecuteImport(r.Context(), req, parentWorkUser(r))
+	if err != nil {
+		parentWorkError(w, err)
+		return
+	}
+	response.Success(w, v)
 }
 
 // Rules handles GET /parent-work/rules.

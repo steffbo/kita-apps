@@ -84,6 +84,8 @@ import type {
   ParentWorkOverview, ParentWorkDetail, ParentWorkHouseholdOption,
   ParentWorkEntry, ParentWorkEntryRequest, ParentWorkOverrideRequest,
   BoardTerm, BoardTermRequest, ParentWorkRule, ParentWorkRuleRequest,
+  ParentWorkImportParseResult, ParentWorkImportPreviewRow, ParentWorkImportExecuteRow,
+  ParentWorkImportExecuteResult,
 } from './types';
 import { ReminderCaseConflictError } from './types';
 import { todayISO } from '@/utils/format';
@@ -1167,6 +1169,16 @@ class ApiClient {
     return this.request(`/parent-work/board-terms/${encodeURIComponent(id)}`, { method: 'DELETE' });
   }
   getParentWorkRules(): Promise<ParentWorkRule[]> { return this.request('/parent-work/rules'); }
+  parseParentWorkImport(file: File): Promise<ParentWorkImportParseResult> {
+    const form = new FormData(); form.append('file', file);
+    return this.request('/parent-work/import/parse', { method: 'POST', body: form });
+  }
+  previewParentWorkImport(headers: string[], rows: string[][], mapping: Record<string, number>): Promise<ParentWorkImportPreviewRow[]> {
+    return this.request('/parent-work/import/preview', { method: 'POST', body: JSON.stringify({ headers, rows, mapping }) });
+  }
+  executeParentWorkImport(rows: ParentWorkImportExecuteRow[]): Promise<ParentWorkImportExecuteResult> {
+    return this.request('/parent-work/import/execute', { method: 'POST', body: JSON.stringify({ rows }) });
+  }
   createParentWorkRule(data: ParentWorkRuleRequest): Promise<ParentWorkRule> {
     return this.request('/parent-work/rules', { method: 'POST', body: JSON.stringify(data) });
   }
