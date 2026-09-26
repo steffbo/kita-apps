@@ -6,15 +6,14 @@ This document describes the container images produced by the current GitHub Acti
 
 | Image | Contents | Runtime port |
 | --- | --- | --- |
-| `ghcr.io/steffbo/kita-backend-management` | Management API plus embedded Dienstplan and Zeiterfassung frontends | 8080 |
 | `ghcr.io/steffbo/kita-backend-fees` | Fees API plus embedded Beiträge frontend | 8081 |
 | `ghcr.io/steffbo/kita-banking-sync` | Banking-sync runner used by the scheduled Homelab service | 3333 |
 
-There are no separately published frontend images. The portal backend and frontend are not part of the image pipeline or production deployment.
+There are no separately published frontend images. `kita-backend-management` is no longer built (service removed 2026-09); its old tags remain in GHCR but are not deployed.
 
 ## Build pipeline
 
-`.github/workflows/build-images.yml` runs on every push to `main` and through manual dispatch. Its matrix builds all three images and publishes:
+`.github/workflows/build-images.yml` runs on every push to `main` and through manual dispatch. Its matrix builds both images and publishes:
 
 - `latest` on the default branch;
 - a Git-SHA tag such as `sha-abc1234`;
@@ -49,12 +48,6 @@ test "$actual_sha" = "$expected_sha"
 ```
 
 A successful pull, a running container, or a passing healthcheck does not by itself prove that the intended release is active.
-
-## Legacy standalone Compose file
-
-`docker/docker-compose.ghcr.yml` is a legacy standalone configuration. It still models the former split-frontend architecture and references frontend images that the current workflow no longer builds. It is retained for historical reference but is not wired to the current image set and must not be used for a new deployment without migration and testing.
-
-The former domain, backup, and Caddy examples belonged to that legacy stack and are not the source of truth for the Homelab. Current routing, encrypted environment handling, persistent storage, migration startup, and backup behavior live in the Homelab repository.
 
 ## Security and recovery
 

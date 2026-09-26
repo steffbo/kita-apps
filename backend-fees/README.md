@@ -411,25 +411,10 @@ npm install -g swagger2openapi
 
 Preferred: `scripts/generate-api.sh` from the repo root runs all three steps (swag → swagger2openapi → `schema.d.ts`).
 
-```bash
-cd backend-fees
+The script writes the intermediate Swagger 2.0 file (`swag init`) to a temp dir and converts it with `swagger2openapi`. If the configured npm registry blocks `swagger2openapi`, point the script at a local binary via `S2O=...`.
 
-# Generate Swagger 2.0 spec
-~/go/bin/swag init -g cmd/server/main.go -o ../openapi/fees --outputTypes yaml --requiredByDefault
-
-# Convert to OpenAPI 3.0
-npx swagger2openapi ../openapi/fees/swagger.yaml -o ../openapi/fees/openapi3.yaml
-```
-
-If `npx` is blocked by the configured registry but a cached package exists, use the cached CLI directly, for example:
-
-```bash
-node ~/.npm/_npx/<cache-id>/node_modules/swagger2openapi/swagger2openapi.js ../openapi/fees/swagger.yaml -o ../openapi/fees/openapi3.yaml
-```
-
-Generated files:
-- `openapi/fees/swagger.yaml` - Swagger 2.0 spec
-- `openapi/fees/openapi3.yaml` - OpenAPI 3.0 spec (used by frontend)
+Committed output:
+- `openapi/fees/openapi3.yaml` - OpenAPI 3.0 spec (source for `frontend/apps/beitraege/src/api/schema.d.ts`)
 
 ### Required vs. optional fields
 

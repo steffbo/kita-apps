@@ -69,7 +69,7 @@ ansible-playbook playbooks/deploy-stacks.yml --tags <edge|infra-core|infra-apps|
 files when applicable, and runs Docker Compose. Read its `app_config` mapping
 before using an unfamiliar app name. For Kita, use `app=kita`; it targets
 `vm-infra-dev`, deploys `infra-dev/apps/kita`, and controls the database,
-management/fees backends, and banking-sync services.
+fees backend, and banking-sync services.
 
 For a normal code deployment: confirm the relevant CI image build is successful,
 run the one-app playbook with the key override, then verify affected containers

@@ -3,6 +3,14 @@
 Rolling change log of non-obvious implementation decisions. Newest first.
 Basics (ports, commands, layout) live in `AGENTS.md`.
 
+## Aufräumen: nur noch Beiträge (2026-09-26)
+
+- **Entfernt:** `backend-management` + Dienstplan-/Zeiterfassung-Apps (seit Monaten ungenutzt, live nur Testdaten), Portal-Grundgerüst `backend-portal` + `apps/portal` + `docs/portal` (nie deployt, Stand 2026-05-25), `frontend/packages/shared` (nur von den beiden Management-Apps genutzt), deren e2e-Tests, `openapi/management`, die handgeschriebenen `openapi/*-api.yaml`, der Java/Maven-Rest in `docker/` (Caddyfile, Dockerfiles, `compose.prod`/`compose.ghcr`, Backup-Skript), `docs/archive/` und der abgeschlossene Plan `docs/plan-bankabgleich-ui.md`. Letzter Stand im Tag `archive/pre-cleanup-2026-09`. Grund: Altlasten haben Coding-Agents in die Irre geführt; die Doku markierte sie nur als „pausiert“ oder „Archiv“.
+- **Richtung:** Elternstunden und ein Eltern-Zugang kommen als Modul in `backend-fees`/Beiträge-App, nicht als eigener Portal-Dienst: `backend-fees` ist ohnehin Quelle für Kinder/Eltern/Haushalte, hat Benutzer, Mailversand und CI; eine Sync-Schicht mit Quarantäne und zweiter Identität entfällt.
+- **OpenAPI:** `openapi/fees/swagger.yaml` ist nicht mehr eingecheckt; `scripts/generate-api.sh` erzeugt es in einem Temp-Verzeichnis und schreibt nur `openapi3.yaml`.
+- **Image:** `backend-fees/Dockerfile` kopiert weder `openapi/` noch `frontend/packages` und generiert keine Typen mehr (`schema.d.ts` ist eingecheckt). `build-images.yml` baut nur noch `backend-fees` und `banking-sync`.
+- **Homelab (Repo `homelab`):** `backend-management` aus der kita-Compose entfernt. Edge-Caddy leitet `/beitraege/*`, `/api/fees/*`, `/health` an `backend-fees`, alles andere per 302 auf `/beitraege/` (302, weil `/` später ein Eltern-Einstieg werden kann). Dabei behoben: `redir /plan/ permanent` wurde von Caddy als Matcher `/plan/` mit Ziel `permanent` gelesen, `/`, `/health` und `/healthz` lieferten öffentlich eine leere 200 – die Health-Checks in `docs/deployment-homelab.md` prüften also nichts.
+
 ## Code-Review-Backlog (ab 2026-09-23)
 
 Abarbeitung von `docs/todo-fees-improvements.md`, ein Commit pro Punkt.

@@ -3,19 +3,12 @@ FROM oven/bun:1 AS frontend-builder
 
 WORKDIR /frontend
 
-# Copy openapi specs (needed for type generation)
-COPY openapi /openapi
-
 # Copy frontend workspace
 COPY frontend/package.json frontend/bun.lock* ./
 COPY frontend/apps ./apps
-COPY frontend/packages ./packages
 
 # Install dependencies
 RUN bun install --frozen-lockfile
-
-# Generate API types
-RUN bun run --filter @kita/shared generate:api || true
 
 # Build beitraege frontend
 ENV VITE_API_URL=/api-fees

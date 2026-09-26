@@ -7,9 +7,7 @@ The repository's current operational documentation identifies:
 - runtime VM: `infra-dev`
 - PostgreSQL container: `kita-db`
 - database: `kita`
-- fees schema: `fees`
-- portal schema: `portal`
-- management tables: primarily `public`
+- fees schema: `fees` (the only application schema)
 
 Use the current SSH host, identity file, and `docker exec ... psql` commands from the repository `AGENTS.md`; do not duplicate them here because infrastructure details can change.
 

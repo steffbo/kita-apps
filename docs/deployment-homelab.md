@@ -4,9 +4,9 @@ This document describes the verified deployment workflow from the Ubuntu develop
 
 ## Architecture
 
-- **Frontend**: Vue.js apps embedded in Go backends
-- **Backend**: Go services with embedded frontends
-- **Database**: PostgreSQL (shared `kita` database, `fees` schema for backend-fees)
+- **Backend**: `backend-fees` (Go) with the embedded Beiträge frontend
+- **Database**: PostgreSQL (`kita` database, `fees` schema)
+- **Routing**: edge Caddy in the homelab repo (`stacks/edge/caddy/Caddyfile`) sends `/beitraege/*`, `/api/fees/*` and `/health` to `backend-fees`; every other path redirects to `/beitraege/`
 - **Container Registry**: GitHub Container Registry (ghcr.io)
 - **Hosting**: Docker Compose on infra-dev VM
 
@@ -40,11 +40,10 @@ gh run watch "$run_id" -R steffbo/kita-apps --exit-status
 
 The workflow builds and publishes these images:
 
-- `ghcr.io/steffbo/kita-backend-management`
 - `ghcr.io/steffbo/kita-backend-fees`
 - `ghcr.io/steffbo/kita-banking-sync`
 
-The Vue frontends are embedded in the Go backend images; there are no separate frontend images in the current pipeline.
+The Beiträge frontend is embedded in the `backend-fees` image; there are no separate frontend images in the current pipeline.
 
 ### 3. Deploy to Server
 
@@ -56,16 +55,13 @@ ansible-playbook playbooks/deploy-app.yml -e "app=kita" \
   -e "ansible_ssh_private_key_file=/home/stefan/.ssh/homelab_from_ubuntu"
 ```
 
-The inventory still references a legacy key that is absent on this workstation. Use the one-run override above; do not create a replacement at the legacy path. The playbook deploys the database, both backends, and both banking-sync containers.
+The inventory still references a legacy key that is absent on this workstation. Use the one-run override above; do not create a replacement at the legacy path. The playbook deploys the database, `backend-fees`, and both banking-sync containers.
 
 If the command is interrupted or its result is otherwise unclear, treat the deployment state as unknown. Inspect the containers and deployed revisions before deciding whether a retry is needed.
 
 ### 4. Database migrations
 
-Both backends run migrations automatically on container start:
-
-- `backend-management`: `/app/migrate -direction up && /app/server`
-- `backend-fees`: `/app/migrate -direction up && /app/server`
+`backend-fees` runs its migrations automatically on container start (`/app/migrate -direction up && /app/server`).
 
 Do not run a manual migration as a routine release step. When investigating migration state, inspect the service logs and the applicable schema migration table first.
 
@@ -79,7 +75,7 @@ expected_sha=$(git rev-parse HEAD)
 
 ssh vm-infra-dev 'sudo docker ps --filter name=kita --format "table {{.Names}}\t{{.Status}}\t{{.Image}}"'
 
-for container in kita-backend-management kita-backend-fees kita-banking-sync-runner; do
+for container in kita-backend-fees kita-banking-sync-runner; do
   actual_sha=$(ssh vm-infra-dev \
     "sudo docker inspect $container --format '{{index .Config.Labels \"org.opencontainers.image.revision\"}}'")
   test "$actual_sha" = "$expected_sha" || {
@@ -88,8 +84,7 @@ for container in kita-backend-management kita-backend-fees kita-banking-sync-run
   }
 done
 
-curl -fsS https://kita.remer.cc/health
-curl -fsS https://kita.remer.cc/healthz
+curl -fsS https://kita.remer.cc/health   # expects {"status":"ok"}, not an empty body
 curl -fsS -o /dev/null https://kita.remer.cc/beitraege/
 ```
 
@@ -97,7 +92,6 @@ Also inspect recent logs when migrations ran or the change is operationally sens
 
 ```bash
 ssh vm-infra-dev 'sudo docker logs kita-backend-fees --tail 50'
-ssh vm-infra-dev 'sudo docker logs kita-backend-management --tail 50'
 ```
 
 There is intentionally no quick deploy that bypasses the commit-pinned CI gate or the Ansible playbook.
@@ -107,11 +101,8 @@ There is intentionally no quick deploy that bypasses the commit-pinned CI gate o
 | Service | URL |
 |---------|-----|
 | Beitraege (Fees) | https://kita.remer.cc/beitraege |
-| Plan (Schedule) | https://kita.remer.cc/plan |
-| Zeit (Time Tracking) | https://kita.remer.cc/zeit |
 | Fees health | https://kita.remer.cc/health |
-| Management health | https://kita.remer.cc/healthz |
-| Fees API (public prefix) | https://kita.remer.cc/api-fees/v1/ |
+| Fees API | https://kita.remer.cc/api/fees/v1/ |
 
 ## Backups
 
@@ -138,12 +129,11 @@ ssh vm-infra-dev 'sudo docker ps -a --filter publish=8081'
 ```bash
 # Inspect without changing state
 ssh vm-infra-dev 'sudo docker logs kita-backend-fees --tail 100'
-ssh vm-infra-dev 'sudo docker logs kita-backend-management --tail 100'
 ssh vm-infra-dev \
   'sudo docker exec kita-db psql -U kita -d kita -c "SELECT * FROM fees.schema_migrations;"'
 ```
 
-Do not blindly run `down`, force a migration version, or retry a partially applied migration. Determine which backend and schema are affected, inspect the migration, confirm backup/recovery options, and obtain explicit authorization before any corrective write.
+Do not blindly run `down`, force a migration version, or retry a partially applied migration. Inspect the migration, confirm backup/recovery options, and obtain explicit authorization before any corrective write.
 
 ### Database connection issues
 ```bash

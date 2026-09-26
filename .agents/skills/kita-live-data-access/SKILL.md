@@ -1,6 +1,6 @@
 ---
 name: kita-live-data-access
-description: Inspect, verify, or mutate live kita-apps data through the repository's approved API and database access paths. Use when Codex must query the infra-dev PostgreSQL database, inspect fees, management, or portal records, authenticate to a live Kita API, perform an explicitly authorized application write, or verify the database and downstream effects after a live operation.
+description: Inspect, verify, or mutate live kita-apps data through the repository's approved API and database access paths. Use when Codex must query the infra-dev PostgreSQL database, inspect fees records, authenticate to a live Kita API, perform an explicitly authorized application write, or verify the database and downstream effects after a live operation.
 ---
 
 # Kita Live Data Access
@@ -32,7 +32,7 @@ Never print, return, commit, log, or persist passwords, access tokens, refresh t
 ## Read live data
 
 1. Re-read the current access instructions in `AGENTS.md` and the schema/repository code relevant to the query.
-2. Qualify database objects with `fees`, `portal`, or `public` as appropriate.
+2. Qualify database objects with the `fees` schema.
 3. Use `SELECT` by default. Do not use SQL writes as an implementation shortcut.
 4. Select only the columns and rows required for the task, especially when personal data is involved.
 5. Avoid returning unnecessary personal or secret data in tool output or the final response.

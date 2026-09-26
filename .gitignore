@@ -1,22 +1,9 @@
-# Java / Maven
-backend/target/
-*.class
-*.jar
-*.war
-*.ear
-*.log
-.mvn/timing.properties
-.mvn/wrapper/maven-wrapper.jar
-
 # IDE
 .idea/
 *.iml
 .vscode/
 *.swp
 *.swo
-.project
-.classpath
-.settings/
 
 # Node / Bun
 node_modules/
@@ -50,7 +37,6 @@ logs/
 coverage/
 .nyc_output/
 backend-fees/coverage.out
-backend-management/coverage.out
 
 # Playwright test artifacts
 frontend/e2e/fixtures/test-*.csv
@@ -60,10 +46,6 @@ test-results/
 # Automated CSV Export with playwright
 banking-sync/output
 banking-sync/profile
-
-# Generated API code (optional - könnte auch committed werden)
-# backend/src/main/java/de/knirpsenstadt/api/
-# frontend/packages/shared/src/api/
 
 # E2E: frontend build embedded by frontend/e2e/start-beitraege-stack.sh
 backend-fees/internal/frontend/beitraege/*

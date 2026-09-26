@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Monorepo for the Kita Knirpsenstadt apps: Go backends, Vue frontends in a Bun workspace, a Bun banking-sync service, Docker/GHCR builds, homelab deployment.
+Monorepo for the Kita Knirpsenstadt fee management (Beiträge): Go backend, Vue frontend in a Bun workspace, a Bun banking-sync service, GHCR builds, homelab deployment. Next planned step: parent-work hours (Elternstunden) and a parent-facing API inside `backend-fees` — no separate portal service.
 
 ## Working Rules
 
@@ -14,15 +14,15 @@ Monorepo for the Kita Knirpsenstadt apps: Go backends, Vue frontends in a Bun wo
 
 | Path | What |
 | --- | --- |
-| `backend-management/` | schedule + time tracking API |
-| `backend-fees/` | fees API (Beiträge) |
-| `backend-portal/` | portal API skeleton — see `docs/portal/STATUS.md` |
-| `frontend/` | Bun workspace: `apps/*` + `packages/shared` |
+| `backend-fees/` | fees API (Beiträge), Dockerfile for the production image |
+| `frontend/` | Bun workspace: `apps/beitraege`, Playwright e2e in `e2e/` |
 | `banking-sync/` | bank CSV download/import service |
-| `openapi/` | generated specs (`management`, `fees`) |
-| `docker/` | compose files, Caddyfile, Dockerfiles |
+| `openapi/fees/openapi3.yaml` | generated spec (only committed artifact of `scripts/generate-api.sh`) |
+| `docker/docker-compose.yml` | local dev database only |
 | `scripts/` | helper scripts |
-| `docs/` | deployment, status logs, portal spec set, archive |
+| `docs/` | deployment, status logs, backlog |
+
+Removed in 2026-09 (Dienstplan/Zeiterfassung `backend-management` + apps, portal skeleton `backend-portal` + app, `packages/shared`, legacy Docker/Caddy/OpenAPI files, `docs/portal`, `docs/archive`, finished plan docs): last state in git tag `archive/pre-cleanup-2026-09`. Do not restore pieces from there without a decision.
 
 In `backend-fees`, fee amounts (brackets, tables, sibling factors, food/membership fee) are versioned data in `fees.fee_schedules` (UI: Beitragsordnung), not code; pick the version valid at the relevant date. Business dates follow Europe/Berlin: use `util.Today()` (Berlin date as UTC midnight, like scanned `DATE` columns) for date comparisons and `util.Now()` for year/month and timestamps — never bare `time.Now()`.
 
@@ -32,19 +32,14 @@ Go services all follow: `cmd/server`, `cmd/migrate`, `internal/api` (handlers + 
 
 | Service | Port | DB schema | Health | Status |
 | --- | --- | --- | --- | --- |
-| `backend-management` | 8080 | `kita.public` | `GET /healthz` | in production, paused development |
 | `backend-fees` | 8081 | `kita.fees` | `GET /health` | in production, actively developed |
-| `backend-portal` | 8082 | `kita.portal` | `GET /health`, `GET /api/portal/v1/health` | skeleton, not deployed |
 | `banking-sync` | — | — | — | in production (GHCR image, Ofelia-scheduled) |
 
 | Frontend app | Package | Dev port | Status |
 | --- | --- | --- | --- |
-| `frontend/apps/dienstplan` | `@kita/dienstplan` | 5173 | paused |
-| `frontend/apps/zeiterfassung` | `@kita/zeiterfassung` | 5174 | paused |
-| `frontend/apps/beitraege` | `@kita/beitraege` | 5175 | actively developed |
-| `frontend/apps/portal` | `@kita/portal` | 5176 | shell only, not deployed |
+| `frontend/apps/beitraege` | `@kita/beitraege` | 5175 | in production at `kita.remer.cc/beitraege/`, embedded into the `backend-fees` image |
 
-Boundaries: `backend-fees` is the source of truth for children/parents/households. `backend-portal` must not write to the `fees` schema; it reads snapshots into `portal.synced_*` (sync not implemented yet).
+`backend-fees` is the source of truth for children, parents and households. The `kita` database has no other application schema; `public` is empty.
 
 ## Commands
 
@@ -52,23 +47,18 @@ Boundaries: `backend-fees` is the source of truth for children/parents/household
 # DB
 cd docker && docker compose up db -d
 
-# Backends (per service)
-cd backend-management && go run cmd/migrate/main.go up && go run cmd/server/main.go
-cd backend-fees       && go run cmd/migrate/main.go up && go run cmd/server/main.go
-cd backend-portal     && go run cmd/migrate/main.go -direction up && go run cmd/server/main.go
-
-# Tests
-go test ./...            # inside a backend dir
+# Backend
+cd backend-fees && go run cmd/migrate/main.go && go run cmd/server/main.go
+cd backend-fees && go test ./...    # integration tests use testcontainers (Docker)
 
 # Frontend
 cd frontend && bun install
-bun run dev:plan | dev:zeit | dev:beitraege | dev:portal
+bun run dev:beitraege
 bun run --filter @kita/beitraege typecheck
 bun run test:e2e         # Playwright, Beiträge; starts its own stack (Docker, Go, Bun) — docs/e2e-beitraege.md
 
-# OpenAPI types
-cd frontend/packages/shared && bun run generate:api   # from openapi/management/openapi3.yaml
-cd frontend/apps/beitraege  && bun run generate:api   # from openapi/fees/openapi3.yaml
+# OpenAPI spec + frontend types (swag → swagger2openapi → schema.d.ts)
+scripts/generate-api.sh
 ```
 
 ## Deployment
@@ -87,9 +77,9 @@ ansible-playbook playbooks/deploy-app.yml -e "app=kita" \
   -e "ansible_ssh_private_key_file=/home/stefan/.ssh/homelab_from_ubuntu"
 ```
 
-Do not deploy after a fixed sleep or merely watch the newest workflow run: pin the run to the pushed commit and require success. After deployment, verify the container OCI revision, both health endpoints, and the affected public page. An interrupted deploy has unknown state until inspected; verify before retrying.
+Do not deploy after a fixed sleep or merely watch the newest workflow run: pin the run to the pushed commit and require success. After deployment, verify the container OCI revision, `https://kita.remer.cc/health`, and the affected public page. An interrupted deploy has unknown state until inspected; verify before retrying.
 
-Portal backend/frontend are intentionally not in Docker/GHCR/Caddy/Compose yet. Details: `docs/deployment-ghcr.md`, `docs/deployment-homelab.md`.
+Routing lives in the homelab repo (`stacks/edge/caddy/Caddyfile`): `/beitraege/*`, `/api/fees/*`, `/health` → `backend-fees`; everything else redirects to `/beitraege/`. Details: `docs/deployment-ghcr.md`, `docs/deployment-homelab.md`.
 
 ## Live Data on infra-dev
 
@@ -98,7 +88,7 @@ ssh vm-infra-dev \
   "sudo docker exec kita-db psql -U kita -d kita -c 'SELECT COUNT(*) FROM fees.children;'"
 ```
 
-Qualify schemas explicitly (`public.*`, `fees.*`, `portal.*`). `backend-fees` users live in `fees.users` (migration `000036`, bcrypt hashes, roles `ADMIN`/`USER`, managed on the "Benutzer" page). `USER_NAME` / `USER_PASSWORD` only bootstrap the admin when no account with that email exists (same ID as the former static admin, `a0eebc99-…`); they never overwrite it. There is no agent service account yet.
+Qualify schemas explicitly (`fees.*`). `backend-fees` users live in `fees.users` (migration `000036`, bcrypt hashes, roles `ADMIN`/`USER`, managed on the "Benutzer" page). `USER_NAME` / `USER_PASSWORD` only bootstrap the admin when no account with that email exists (same ID as the former static admin, `a0eebc99-…`); they never overwrite it. There is no agent service account yet.
 
 Note on the kita stack `.env` (`/srv/homelab/stacks/infra-dev/apps/kita/.env` on infra-dev): values with special characters (e.g. `USER_PASSWORD`) are wrapped in single quotes. Docker Compose strips the quotes when passing them into containers, so login works — but when reading the file manually (scripts, shell parsing), strip surrounding `'` yourself or authentication will fail.
 
@@ -117,11 +107,6 @@ Both are family-data-neutral; re-check their code maps against the implementatio
 | `docs/status-fees.md` | Beiträge backend + frontend change log and decisions |
 | `docs/todo-fees-improvements.md` | ordered Beiträge improvement backlog (worked top to bottom) |
 | `docs/status-banking-sync.md` | banking-sync behavior and operational notes |
-| `docs/portal/STATUS.md` | **what actually exists in the portal** (verified against code) |
-| `docs/portal/SPEC.md` | portal product/architecture spec (aspirational, largely unimplemented) |
-| `docs/portal/DATA_MODEL.md` | portal Phase 0 data model sketch |
-| `docs/portal/DATENSCHUTZ.md` | portal privacy notice draft, AVV review, role matrix |
 | `docs/deployment-ghcr.md` | generic GHCR/Compose deployment guide |
 | `docs/deployment-homelab.md` | kita.remer.cc / infra-dev deployment workflow |
 | `docs/e2e-beitraege.md` | Playwright e2e suite for Beiträge (disposable stack, test rules) |
-| `docs/archive/` | superseded plans, kept for history only — do not treat as current |

@@ -8,8 +8,6 @@ import { E2E_PORT } from './e2e/beitraege/env';
  * production build (frontend embedded into backend-fees) and a bootstrapped
  * admin. Every run starts with an empty database; tests create their own data
  * with unique names, so they can run in parallel.
- *
- * Legacy Dienstplan/Zeiterfassung tests: playwright.management.config.ts.
  */
 export default defineConfig({
   testDir: './e2e/beitraege',

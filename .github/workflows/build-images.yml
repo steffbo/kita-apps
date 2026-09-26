@@ -24,9 +24,6 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: backend-management
-            context: .
-            dockerfile: backend-management/Dockerfile
           - name: backend-fees
             context: .
             dockerfile: backend-fees/Dockerfile

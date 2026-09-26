@@ -38,7 +38,3 @@ Nach dem Lauf beendet Playwright das Skript per SIGTERM, das Skript entfernt den
 - `users.spec.ts`: Benutzer anlegen, Nicht-Admin ohne Zugriff auf „Benutzer“, eigenes Passwort ändern (andere Sitzungen enden), Deaktivieren, Selbstschutz.
 - `fees-flow.spec.ts`: Kind und Elternteil anlegen, Monatsbeiträge generieren, Bank-CSV hochladen, automatische Zuordnung, Beitrag erscheint als bezahlt.
 - `banking-sync-import.spec.ts`: der tägliche Upload von banking-sync, ohne Login, nur `X-Import-Token` und Multipart-Feld `file` wie `banking-sync/upload.js`/`sync.js`: falsches Token → 401, Zahlung wird automatisch zugeordnet, erneuter Upload derselben Datei wird übersprungen.
-
-## Legacy
-
-`playwright.management.config.ts` (`bun run test:management`) enthält die alten Tests für die pausierten Apps Dienstplan/Zeiterfassung. Nicht gepflegt, nicht in CI, erwartet ein manuell vorbereitetes `backend-management`. Die frühere Beiträge-Suite gegen eine vorbefüllte DB ist entfernt (Beschreibung: `docs/archive/test-seeding.md`).
