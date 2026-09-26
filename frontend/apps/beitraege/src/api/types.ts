@@ -15,6 +15,19 @@ import type { components } from './schema';
 
 type Schema = components['schemas'];
 
+// ── Elternstunden ────────────────────────────────────────────────────────────
+export type ParentWorkOverview = Schema['service.ParentWorkOverview'];
+export type ParentWorkAccount = Schema['domain.ParentWorkAccount'];
+export type ParentWorkDetail = Schema['service.ParentWorkDetail'];
+export type ParentWorkHouseholdOption = Schema['service.ParentWorkHouseholdOption'];
+export type ParentWorkEntry = Schema['domain.ParentWorkEntry'];
+export type ParentWorkEntryRequest = Schema['handler.parentWorkEntryRequest'];
+export type BoardTerm = Schema['domain.BoardTerm'];
+export type BoardTermRequest = Schema['handler.boardTermRequest'];
+export type ParentWorkRule = Schema['domain.ParentWorkRule'];
+export type ParentWorkRuleRequest = Schema['handler.parentWorkRuleRequest'];
+export type ParentWorkOverrideRequest = Schema['handler.parentWorkOverrideRequest'];
+
 // ── Auth ─────────────────────────────────────────────────────────────────────
 export type LoginRequest = Schema['LoginRequest'];
 // The refresh token is never visible to scripts: the backend keeps it in the

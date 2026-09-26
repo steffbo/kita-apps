@@ -81,6 +81,9 @@ import type {
   UserAccount,
   UserAccountRequest,
   CreateUserAccountRequest,
+  ParentWorkOverview, ParentWorkDetail, ParentWorkHouseholdOption,
+  ParentWorkEntry, ParentWorkEntryRequest, ParentWorkOverrideRequest,
+  BoardTerm, BoardTermRequest, ParentWorkRule, ParentWorkRuleRequest,
 } from './types';
 import { ReminderCaseConflictError } from './types';
 import { todayISO } from '@/utils/format';
@@ -1126,6 +1129,49 @@ class ApiClient {
 
   async deleteFeeSchedule(id: string): Promise<void> {
     return this.request<void>(`/fee-schedules/${id}`, { method: 'DELETE' });
+  }
+
+  // Elternstunden: ausschließlich /parent-work/**, auch für PARENT_WORK nutzbar.
+  getParentWorkOverview(kitaYear?: number): Promise<ParentWorkOverview> {
+    return this.request(`/parent-work/overview${kitaYear === undefined ? '' : `?kitaYear=${kitaYear}`}`);
+  }
+  getParentWorkHouseholds(search?: string): Promise<ParentWorkHouseholdOption[]> {
+    return this.request(`/parent-work/households${search ? `?search=${encodeURIComponent(search)}` : ''}`);
+  }
+  getParentWorkDetail(id: string, kitaYear: number): Promise<ParentWorkDetail> {
+    return this.request(`/parent-work/households/${encodeURIComponent(id)}?kitaYear=${kitaYear}`);
+  }
+  createParentWorkEntry(data: ParentWorkEntryRequest): Promise<ParentWorkEntry> {
+    return this.request('/parent-work/entries', { method: 'POST', body: JSON.stringify(data) });
+  }
+  updateParentWorkEntry(id: string, data: ParentWorkEntryRequest): Promise<ParentWorkEntry> {
+    return this.request(`/parent-work/entries/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(data) });
+  }
+  voidParentWorkEntry(id: string, reason: string): Promise<ParentWorkEntry> {
+    return this.request(`/parent-work/entries/${encodeURIComponent(id)}/void`, { method: 'POST', body: JSON.stringify({ reason }) });
+  }
+  setParentWorkOverride(id: string, data: ParentWorkOverrideRequest): Promise<void> {
+    return this.request(`/parent-work/households/${encodeURIComponent(id)}/override`, { method: 'PUT', body: JSON.stringify(data) });
+  }
+  removeParentWorkOverride(id: string, kitaYear: number): Promise<void> {
+    return this.request(`/parent-work/households/${encodeURIComponent(id)}/override?kitaYear=${kitaYear}`, { method: 'DELETE' });
+  }
+  getBoardTerms(): Promise<BoardTerm[]> { return this.request('/parent-work/board-terms'); }
+  createBoardTerm(data: BoardTermRequest): Promise<BoardTerm> {
+    return this.request('/parent-work/board-terms', { method: 'POST', body: JSON.stringify(data) });
+  }
+  updateBoardTerm(id: string, data: BoardTermRequest): Promise<BoardTerm> {
+    return this.request(`/parent-work/board-terms/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(data) });
+  }
+  deleteBoardTerm(id: string): Promise<void> {
+    return this.request(`/parent-work/board-terms/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  }
+  getParentWorkRules(): Promise<ParentWorkRule[]> { return this.request('/parent-work/rules'); }
+  createParentWorkRule(data: ParentWorkRuleRequest): Promise<ParentWorkRule> {
+    return this.request('/parent-work/rules', { method: 'POST', body: JSON.stringify(data) });
+  }
+  updateParentWorkRule(id: string, data: ParentWorkRuleRequest): Promise<ParentWorkRule> {
+    return this.request(`/parent-work/rules/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(data) });
   }
 }
 

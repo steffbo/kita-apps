@@ -20,6 +20,8 @@ import {
   KeyRound,
   ShieldCheck,
   Clock,
+  Scale as RulesIcon,
+  UserCheck,
 } from 'lucide-vue-next';
 import { userRoleLabel } from '@/utils/userRole';
 import ChangePasswordDialog from '@/components/ChangePasswordDialog.vue';
@@ -65,7 +67,12 @@ const baseNavGroups = [
 const navGroups = computed(() => [
   ...(authStore.canAccessFees ? baseNavGroups : []),
   ...(authStore.canAccessParentWork
-    ? [{ label: 'Elternstunden', items: [{ name: 'Übersicht', to: '/elternstunden', icon: Clock }] }]
+    ? [{ label: 'Elternstunden', items: [
+        { name: 'Übersicht', to: '/elternstunden', icon: Clock },
+        { name: 'Vorstand', to: '/elternstunden/vorstand', icon: UserCheck },
+        { name: 'Regeln', to: '/elternstunden/regeln', icon: RulesIcon },
+        // Import folgt in Etappe 4.
+      ] }]
     : []),
   ...(authStore.isAdmin
     ? [{ label: 'System', items: [{ name: 'Benutzer', to: '/benutzer', icon: ShieldCheck }] }]
@@ -76,6 +83,7 @@ function isActive(path: string) {
   if (path === '/') {
     return currentPath.value === '/';
   }
+  if (path === '/elternstunden') return currentPath.value === path || currentPath.value.startsWith('/elternstunden/familien/');
   return currentPath.value.startsWith(path);
 }
 

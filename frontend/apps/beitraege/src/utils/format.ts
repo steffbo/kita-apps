@@ -52,6 +52,11 @@ export function formatCurrency(amount: number): string {
   return currencyFormat.format(amount);
 }
 
+/** Whole minutes as decimal hours, with a German comma. */
+export function formatHours(minutes: number): string {
+  return `${new Intl.NumberFormat('de-DE', { maximumFractionDigits: 2 }).format(minutes / 60)} h`;
+}
+
 /** Formats an amount in whole euros (incomes); empty values yield the fallback. */
 export function formatCurrencyWhole(amount: number | null | undefined, fallback = '—'): string {
   if (amount === null || amount === undefined) return fallback;
