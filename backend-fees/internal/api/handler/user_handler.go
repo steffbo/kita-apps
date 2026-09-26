@@ -30,7 +30,7 @@ type UserAccountResponse struct {
 	Email     string  `json:"email" example:"user@example.com"`
 	FirstName *string `json:"firstName,omitempty" example:"Max" binding:"optional"`
 	LastName  *string `json:"lastName,omitempty" example:"Mustermann" binding:"optional"`
-	Role      string  `json:"role" example:"USER" enums:"ADMIN,USER"`
+	Role      string  `json:"role" example:"USER" enums:"ADMIN,USER,PARENT_WORK"`
 	IsActive  bool    `json:"isActive"`
 	CreatedAt string  `json:"createdAt"`
 	UpdatedAt string  `json:"updatedAt"`
@@ -41,7 +41,7 @@ type UserAccountRequest struct {
 	Email     string  `json:"email" example:"user@example.com"`
 	FirstName *string `json:"firstName,omitempty" example:"Max" binding:"optional"`
 	LastName  *string `json:"lastName,omitempty" example:"Mustermann" binding:"optional"`
-	Role      string  `json:"role" example:"USER" enums:"ADMIN,USER"`
+	Role      string  `json:"role" example:"USER" enums:"ADMIN,USER,PARENT_WORK"`
 	IsActive  bool    `json:"isActive"`
 } //@name UserAccountRequest
 

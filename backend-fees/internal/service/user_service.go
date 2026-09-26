@@ -38,8 +38,8 @@ func (in *UserInput) normalize() error {
 	if !strings.Contains(in.Email, "@") || strings.ContainsAny(in.Email, " \t") {
 		return fmt.Errorf("%w: ungültige E-Mail-Adresse", ErrInvalidInput)
 	}
-	if in.Role != domain.UserRoleAdmin && in.Role != domain.UserRoleUser {
-		return fmt.Errorf("%w: Rolle muss ADMIN oder USER sein", ErrInvalidInput)
+	if in.Role != domain.UserRoleAdmin && in.Role != domain.UserRoleUser && in.Role != domain.UserRoleParentWork {
+		return fmt.Errorf("%w: Rolle muss ADMIN, USER oder PARENT_WORK sein", ErrInvalidInput)
 	}
 	in.FirstName = trimmedOrNil(in.FirstName)
 	in.LastName = trimmedOrNil(in.LastName)

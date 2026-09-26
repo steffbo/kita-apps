@@ -15,7 +15,7 @@ async function handleSubmit() {
   const success = await authStore.login(email.value, password.value);
   if (success) {
     const redirect = route.query.redirect as string;
-    router.push(redirect || '/');
+    router.push(redirect || (authStore.isParentWork ? '/elternstunden' : '/'));
   }
 }
 </script>

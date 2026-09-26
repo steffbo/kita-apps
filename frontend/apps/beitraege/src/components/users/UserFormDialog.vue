@@ -84,6 +84,7 @@ async function submit() {
           <select v-model="role" :disabled="isSelf" class="mt-1 w-full rounded-lg border px-3 py-2 disabled:bg-gray-100">
             <option value="USER">Benutzer</option>
             <option value="ADMIN">Administrator</option>
+            <option value="PARENT_WORK">Elternstunden</option>
           </select>
           <span class="mt-1 block text-xs text-gray-500">
             Administratoren dürfen zusätzlich Benutzer, Beitragsordnung, Erinnerungen und Bankabruf verwalten.

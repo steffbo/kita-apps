@@ -19,83 +19,104 @@ const router = createRouter({
           path: '',
           name: 'dashboard',
           component: () => import('@/pages/DashboardPage.vue'),
+          meta: { requiresFees: true },
         },
         {
           path: 'kinder',
           name: 'children',
           component: () => import('@/pages/ChildrenPage.vue'),
+          meta: { requiresFees: true },
         },
         {
           path: 'kinder/import',
           name: 'children-import',
           component: () => import('@/pages/ChildImportPage.vue'),
+          meta: { requiresFees: true },
         },
         {
           path: 'kinder/:id',
           name: 'child-detail',
           component: () => import('@/pages/ChildDetailPage.vue'),
+          meta: { requiresFees: true },
         },
         {
           path: 'notizen',
           name: 'notes',
           component: () => import('@/pages/NotesPage.vue'),
+          meta: { requiresFees: true },
         },
         {
           path: 'eltern',
           name: 'parents',
           component: () => import('@/pages/ParentsPage.vue'),
+          meta: { requiresFees: true },
         },
         {
           path: 'eltern/:id',
           name: 'parent-detail',
           component: () => import('@/pages/ParentDetailPage.vue'),
+          meta: { requiresFees: true },
         },
         {
           path: 'mitglieder',
           name: 'members',
           component: () => import('@/pages/MembersPage.vue'),
+          meta: { requiresFees: true },
         },
         {
           path: 'mitglieder/:id',
           name: 'member-detail',
           component: () => import('@/pages/MemberDetailPage.vue'),
+          meta: { requiresFees: true },
         },
         {
           path: 'beitraege',
           name: 'fees',
           component: () => import('@/pages/FeesPage.vue'),
+          meta: { requiresFees: true },
         },
         {
           path: 'bankabgleich',
           name: 'bankabgleich',
           alias: 'import',
           component: () => import('@/pages/ImportPage.vue'),
+          meta: { requiresFees: true },
         },
         {
           path: 'automatisierung',
           name: 'automation',
           component: () => import('@/pages/AutomationPage.vue'),
+          meta: { requiresFees: true },
         },
         {
           path: 'beitragsordnung',
           name: 'fee-schedules',
           component: () => import('@/pages/FeeSchedulesPage.vue'),
+          meta: { requiresFees: true },
         },
         {
           path: 'benutzer',
           name: 'users',
           component: () => import('@/pages/UsersPage.vue'),
-          meta: { requiresAdmin: true },
+          meta: { requiresFees: true, requiresAdmin: true },
         },
         {
           path: 'einstufungen',
           name: 'einstufungen',
           component: () => import('@/pages/EinstufungenPage.vue'),
+          meta: { requiresFees: true },
         },
         {
           path: 'einstufungen/:id',
           name: 'einstufung-detail',
           component: () => import('@/pages/EinstufungDetailPage.vue'),
+          meta: { requiresFees: true },
+        },
+        {
+          path: 'elternstunden',
+          name: 'parent-work',
+          component: () => import('@/pages/ParentWorkOverviewPage.vue'),
+          meta: { requiresParentWork: true },
         },
       ],
     },
@@ -113,13 +134,23 @@ router.beforeEach(async (to, _from, next) => {
     return;
   }
 
+  if (to.meta.requiresFees && !authStore.canAccessFees) {
+    next({ name: 'parent-work' });
+    return;
+  }
+
   if (to.meta.requiresAdmin && !authStore.isAdmin) {
     next({ name: 'dashboard' });
     return;
   }
 
-  if (to.name === 'login' && authStore.isAuthenticated) {
+  if (to.meta.requiresParentWork && !authStore.canAccessParentWork) {
     next({ name: 'dashboard' });
+    return;
+  }
+
+  if (to.name === 'login' && authStore.isAuthenticated) {
+    next({ name: authStore.isParentWork ? 'parent-work' : 'dashboard' });
     return;
   }
 

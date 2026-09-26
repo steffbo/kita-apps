@@ -345,3 +345,11 @@ WHERE c.household_id IS NOT NULL
 - `src/layouts/MainLayout.vue` prevents root horizontal overflow, uses tighter mobile padding, and opens the nav drawer from the right.
 - `src/assets/main.css` constrains app-wide horizontal overflow and adds touch-friendly internal scrolling for wide tables.
 - `src/pages/ImportPage.vue` wraps import-history, unmatched, blacklist and matched tables in horizontal scroll containers; the tab bar scrolls internally. If another page shifts the viewport sideways, look for raw `<table>` markup or unbounded tab/filter rows missing an `overflow-x-auto` container.
+
+## Elternstunden Etappe 1: Rolle und Zugriff (2026-09-26)
+
+`PARENT_WORK` ist als Benutzerrolle angelegt. Der Router trennt Beiträge (ADMIN/USER),
+Benutzerverwaltung (ADMIN) und `/parent-work` (ADMIN/PARENT_WORK).
+`GET /parent-work/ping` und die Frontend-Seite `/elternstunden` sind nur Gerüste;
+Erfassung, Berechnung und Datenmodell folgen in späteren Etappen. JWT-Uploads
+unter `/import/upload` erlauben nur ADMIN/USER; der Import-Token bleibt gültig.

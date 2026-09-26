@@ -5,6 +5,7 @@ import { api } from '@/api';
 import type { UserAccount } from '@/api/types';
 import { useAuthStore } from '@/stores/auth';
 import { formatDate } from '@/utils/format';
+import { userRoleLabel } from '@/utils/userRole';
 import UserFormDialog from '@/components/users/UserFormDialog.vue';
 import SetUserPasswordDialog from '@/components/users/SetUserPasswordDialog.vue';
 
@@ -127,7 +128,7 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown));
               <span v-if="isSelf(user)" class="ml-1 text-xs text-gray-500">(angemeldet)</span>
             </td>
             <td class="px-4 py-3">{{ user.email }}</td>
-            <td class="px-4 py-3">{{ user.role === 'ADMIN' ? 'Administrator' : 'Benutzer' }}</td>
+            <td class="px-4 py-3">{{ userRoleLabel(user.role) }}</td>
             <td class="px-4 py-3">
               <span
                 class="px-2 py-0.5 rounded-full text-xs font-medium"

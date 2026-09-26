@@ -11,6 +11,7 @@ import (
 	customMiddleware "github.com/knirpsenstadt/kita-apps/backend-fees/internal/api/middleware"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/auth"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/config"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/frontend"
 )
 
@@ -74,157 +75,170 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 
 			// User management (admin only)
 			r.Route("/users", func(r chi.Router) {
-				r.Use(customMiddleware.RequireRole("ADMIN"))
+				r.Use(customMiddleware.RequireRole(string(domain.UserRoleAdmin)))
 				r.Get("/", handlers.User.List)
 				r.Post("/", handlers.User.Create)
 				r.Put("/{id}", handlers.User.Update)
 				r.Post("/{id}/password", handlers.User.SetPassword)
 			})
 
-			// Children
-			r.Route("/children", func(r chi.Router) {
-				r.Get("/", handlers.Child.List)
-				r.Get("/next-member-number", handlers.Child.NextMemberNumber)
-				r.Post("/", handlers.Child.Create)
-				r.Get("/{id}", handlers.Child.Get)
-				r.Put("/{id}", handlers.Child.Update)
-				r.Delete("/{id}", handlers.Child.Delete)
-				r.Get("/{id}/care-hours-history", handlers.Child.GetCareHoursHistory)
-				r.Post("/{id}/care-hours-history", handlers.Child.AddCareHoursHistory)
-				r.Get("/{id}/legal-hours-history", handlers.Child.GetLegalHoursHistory)
-				r.Post("/{id}/legal-hours-history", handlers.Child.AddLegalHoursHistory)
-				r.Get("/{id}/ledger", handlers.Child.GetLedger)
-				r.Get("/{id}/timeline", handlers.Child.GetTimeline)
-				r.Post("/{id}/parents", handlers.Child.LinkParent)
-				r.Delete("/{id}/parents/{parentId}", handlers.Child.UnlinkParent)
+			// Parent-work routes are scaffolded for the next stage.
+			r.Route("/parent-work", func(r chi.Router) {
+				r.Use(customMiddleware.RequireRole(
+					string(domain.UserRoleAdmin), string(domain.UserRoleParentWork)))
+				r.Get("/ping", handler.ParentWorkPing)
+			})
 
-				// Child notes
-				r.Get("/{id}/notes", handlers.ChildNote.ListByChild)
-				r.Post("/{id}/notes", handlers.ChildNote.Create)
-				r.Put("/{id}/notes/{noteId}", handlers.ChildNote.Update)
-				r.Delete("/{id}/notes/{noteId}", handlers.ChildNote.Delete)
+			r.Group(func(r chi.Router) {
+				r.Use(customMiddleware.RequireRole(
+					string(domain.UserRoleAdmin), string(domain.UserRoleUser)))
 
-				// Child import routes
-				r.Route("/import", func(r chi.Router) {
-					r.Post("/parse", handlers.ChildImport.Parse)
-					r.Post("/preview", handlers.ChildImport.Preview)
-					r.Post("/execute", handlers.ChildImport.Execute)
+				// Children
+				r.Route("/children", func(r chi.Router) {
+					r.Get("/", handlers.Child.List)
+					r.Get("/next-member-number", handlers.Child.NextMemberNumber)
+					r.Post("/", handlers.Child.Create)
+					r.Get("/{id}", handlers.Child.Get)
+					r.Put("/{id}", handlers.Child.Update)
+					r.Delete("/{id}", handlers.Child.Delete)
+					r.Get("/{id}/care-hours-history", handlers.Child.GetCareHoursHistory)
+					r.Post("/{id}/care-hours-history", handlers.Child.AddCareHoursHistory)
+					r.Get("/{id}/legal-hours-history", handlers.Child.GetLegalHoursHistory)
+					r.Post("/{id}/legal-hours-history", handlers.Child.AddLegalHoursHistory)
+					r.Get("/{id}/ledger", handlers.Child.GetLedger)
+					r.Get("/{id}/timeline", handlers.Child.GetTimeline)
+					r.Post("/{id}/parents", handlers.Child.LinkParent)
+					r.Delete("/{id}/parents/{parentId}", handlers.Child.UnlinkParent)
+
+					// Child notes
+					r.Get("/{id}/notes", handlers.ChildNote.ListByChild)
+					r.Post("/{id}/notes", handlers.ChildNote.Create)
+					r.Put("/{id}/notes/{noteId}", handlers.ChildNote.Update)
+					r.Delete("/{id}/notes/{noteId}", handlers.ChildNote.Delete)
+
+					// Child import routes
+					r.Route("/import", func(r chi.Router) {
+						r.Post("/parse", handlers.ChildImport.Parse)
+						r.Post("/preview", handlers.ChildImport.Preview)
+						r.Post("/execute", handlers.ChildImport.Execute)
+					})
 				})
-			})
 
-			// Notes (global list across children)
-			r.Get("/notes", handlers.ChildNote.ListAll)
+				// Notes (global list across children)
+				r.Get("/notes", handlers.ChildNote.ListAll)
 
-			// Parents
-			r.Route("/parents", func(r chi.Router) {
-				r.Get("/", handlers.Parent.List)
-				r.Post("/", handlers.Parent.Create)
-				r.Get("/{id}", handlers.Parent.Get)
-				r.Put("/{id}", handlers.Parent.Update)
-				r.Delete("/{id}", handlers.Parent.Delete)
-				r.Post("/{id}/member", handlers.Parent.CreateMember)
-				r.Delete("/{id}/member", handlers.Parent.UnlinkMember)
-			})
+				// Parents
+				r.Route("/parents", func(r chi.Router) {
+					r.Get("/", handlers.Parent.List)
+					r.Post("/", handlers.Parent.Create)
+					r.Get("/{id}", handlers.Parent.Get)
+					r.Put("/{id}", handlers.Parent.Update)
+					r.Delete("/{id}", handlers.Parent.Delete)
+					r.Post("/{id}/member", handlers.Parent.CreateMember)
+					r.Delete("/{id}/member", handlers.Parent.UnlinkMember)
+				})
 
-			// Households
-			r.Route("/households", func(r chi.Router) {
-				r.Get("/", handlers.Household.List)
-				r.Post("/", handlers.Household.Create)
-				r.Get("/{id}", handlers.Household.Get)
-				r.Put("/{id}", handlers.Household.Update)
-				r.Delete("/{id}", handlers.Household.Delete)
-				r.Post("/{id}/parents", handlers.Household.LinkParent)
-				r.Post("/{id}/children", handlers.Household.LinkChild)
-			})
+				// Households
+				r.Route("/households", func(r chi.Router) {
+					r.Get("/", handlers.Household.List)
+					r.Post("/", handlers.Household.Create)
+					r.Get("/{id}", handlers.Household.Get)
+					r.Put("/{id}", handlers.Household.Update)
+					r.Delete("/{id}", handlers.Household.Delete)
+					r.Post("/{id}/parents", handlers.Household.LinkParent)
+					r.Post("/{id}/children", handlers.Household.LinkChild)
+				})
 
-			// Members (Vereinsmitglieder)
-			r.Route("/members", func(r chi.Router) {
-				r.Get("/", handlers.Member.List)
-				r.Post("/", handlers.Member.Create)
-				r.Get("/count", handlers.Member.CountAsOf)
-				r.Get("/{id}", handlers.Member.Get)
-				r.Put("/{id}", handlers.Member.Update)
-				r.Delete("/{id}", handlers.Member.Delete)
-			})
+				// Members (Vereinsmitglieder)
+				r.Route("/members", func(r chi.Router) {
+					r.Get("/", handlers.Member.List)
+					r.Post("/", handlers.Member.Create)
+					r.Get("/count", handlers.Member.CountAsOf)
+					r.Get("/{id}", handlers.Member.Get)
+					r.Put("/{id}", handlers.Member.Update)
+					r.Delete("/{id}", handlers.Member.Delete)
+				})
 
-			// Banking sync (admin only)
-			r.Route("/banking-sync", func(r chi.Router) {
-				r.With(customMiddleware.RequireRole("ADMIN")).Post("/run", handlers.BankingSync.Run)
-				r.With(customMiddleware.RequireRole("ADMIN")).Get("/status", handlers.BankingSync.Status)
-				r.With(customMiddleware.RequireRole("ADMIN")).Post("/cancel", handlers.BankingSync.Cancel)
-			})
+				// Banking sync (admin only)
+				r.Route("/banking-sync", func(r chi.Router) {
+					r.With(customMiddleware.RequireRole(string(domain.UserRoleAdmin))).Post("/run", handlers.BankingSync.Run)
+					r.With(customMiddleware.RequireRole(string(domain.UserRoleAdmin))).Get("/status", handlers.BankingSync.Status)
+					r.With(customMiddleware.RequireRole(string(domain.UserRoleAdmin))).Post("/cancel", handlers.BankingSync.Cancel)
+				})
 
-			// Fees
-			r.Route("/fees", func(r chi.Router) {
-				r.Get("/", handlers.Fee.List)
-				r.Post("/", handlers.Fee.Create)
-				r.Get("/overview", handlers.Fee.Overview)
-				r.Post("/generate", handlers.Fee.Generate)
-				r.With(customMiddleware.RequireRole("ADMIN")).Post("/reminders/run", handlers.Fee.RunReminders)
-				r.With(customMiddleware.RequireRole("ADMIN")).Post("/membership-reminders/run", handlers.Fee.RunMembershipReminders)
-				r.With(customMiddleware.RequireRole("ADMIN")).Get("/reminders/settings", handlers.Fee.GetReminderSettings)
-				r.With(customMiddleware.RequireRole("ADMIN")).Put("/reminders/settings", handlers.Fee.UpdateReminderSettings)
-				r.With(customMiddleware.RequireRole("ADMIN")).Get("/email-logs", handlers.Fee.GetEmailLogs)
-				r.With(customMiddleware.RequireRole("ADMIN")).Get("/reminder-cases", handlers.Fee.GetReminderCases)
-				r.With(customMiddleware.RequireRole("ADMIN")).Post("/reminder-cases/{householdId}/preview", handlers.Fee.PreviewReminderCase)
-				r.With(customMiddleware.RequireRole("ADMIN")).Post("/reminder-cases/{householdId}/send", handlers.Fee.SendReminderCase)
-				r.Get("/{id}", handlers.Fee.Get)
-				r.Put("/{id}", handlers.Fee.Update)
-				r.Delete("/{id}", handlers.Fee.Delete)
-				r.Post("/{id}/reminder", handlers.Fee.CreateReminder)
-			})
+				// Fees
+				r.Route("/fees", func(r chi.Router) {
+					r.Get("/", handlers.Fee.List)
+					r.Post("/", handlers.Fee.Create)
+					r.Get("/overview", handlers.Fee.Overview)
+					r.Post("/generate", handlers.Fee.Generate)
+					r.With(customMiddleware.RequireRole(string(domain.UserRoleAdmin))).Post("/reminders/run", handlers.Fee.RunReminders)
+					r.With(customMiddleware.RequireRole(string(domain.UserRoleAdmin))).Post("/membership-reminders/run", handlers.Fee.RunMembershipReminders)
+					r.With(customMiddleware.RequireRole(string(domain.UserRoleAdmin))).Get("/reminders/settings", handlers.Fee.GetReminderSettings)
+					r.With(customMiddleware.RequireRole(string(domain.UserRoleAdmin))).Put("/reminders/settings", handlers.Fee.UpdateReminderSettings)
+					r.With(customMiddleware.RequireRole(string(domain.UserRoleAdmin))).Get("/email-logs", handlers.Fee.GetEmailLogs)
+					r.With(customMiddleware.RequireRole(string(domain.UserRoleAdmin))).Get("/reminder-cases", handlers.Fee.GetReminderCases)
+					r.With(customMiddleware.RequireRole(string(domain.UserRoleAdmin))).Post("/reminder-cases/{householdId}/preview", handlers.Fee.PreviewReminderCase)
+					r.With(customMiddleware.RequireRole(string(domain.UserRoleAdmin))).Post("/reminder-cases/{householdId}/send", handlers.Fee.SendReminderCase)
+					r.Get("/{id}", handlers.Fee.Get)
+					r.Put("/{id}", handlers.Fee.Update)
+					r.Delete("/{id}", handlers.Fee.Delete)
+					r.Post("/{id}/reminder", handlers.Fee.CreateReminder)
+				})
 
-			// Einstufungen (fee classifications)
-			r.Route("/einstufungen", func(r chi.Router) {
-				r.Get("/", handlers.Einstufung.List)
-				r.Post("/", handlers.Einstufung.Create)
-				r.Post("/calculate-income", handlers.Einstufung.CalculateIncome)
-				r.Get("/child/{childId}", handlers.Einstufung.GetForChild)
-				r.Get("/household/{householdId}", handlers.Einstufung.ListForHousehold)
-				r.Get("/{id}", handlers.Einstufung.Get)
-				r.Put("/{id}", handlers.Einstufung.Update)
-				r.Post("/{id}/follow-ups", handlers.Einstufung.CreateFollowUp)
-				r.Delete("/{id}", handlers.Einstufung.Delete)
-			})
+				// Einstufungen (fee classifications)
+				r.Route("/einstufungen", func(r chi.Router) {
+					r.Get("/", handlers.Einstufung.List)
+					r.Post("/", handlers.Einstufung.Create)
+					r.Post("/calculate-income", handlers.Einstufung.CalculateIncome)
+					r.Get("/child/{childId}", handlers.Einstufung.GetForChild)
+					r.Get("/household/{householdId}", handlers.Einstufung.ListForHousehold)
+					r.Get("/{id}", handlers.Einstufung.Get)
+					r.Put("/{id}", handlers.Einstufung.Update)
+					r.Post("/{id}/follow-ups", handlers.Einstufung.CreateFollowUp)
+					r.Delete("/{id}", handlers.Einstufung.Delete)
+				})
 
-			// Fee regulation versions (Beitragsordnung); only planned versions are writable
-			r.Route("/fee-schedules", func(r chi.Router) {
-				r.Get("/", handlers.FeeSchedule.List)
-				r.With(customMiddleware.RequireRole("ADMIN")).Post("/", handlers.FeeSchedule.Create)
-				r.With(customMiddleware.RequireRole("ADMIN")).Put("/{id}", handlers.FeeSchedule.Update)
-				r.With(customMiddleware.RequireRole("ADMIN")).Delete("/{id}", handlers.FeeSchedule.Delete)
-			})
+				// Fee regulation versions (Beitragsordnung); only planned versions are writable
+				r.Route("/fee-schedules", func(r chi.Router) {
+					r.Get("/", handlers.FeeSchedule.List)
+					r.With(customMiddleware.RequireRole(string(domain.UserRoleAdmin))).Post("/", handlers.FeeSchedule.Create)
+					r.With(customMiddleware.RequireRole(string(domain.UserRoleAdmin))).Put("/{id}", handlers.FeeSchedule.Update)
+					r.With(customMiddleware.RequireRole(string(domain.UserRoleAdmin))).Delete("/{id}", handlers.FeeSchedule.Delete)
+				})
 
-			// Stichtagsmeldung
-			r.Route("/stichtagsmeldung", func(r chi.Router) {
-				r.Get("/stats", handlers.Stichtagsmeldung.GetStats)
-				r.Get("/report", handlers.Stichtagsmeldung.GetReport)
-				r.Get("/children", handlers.Stichtagsmeldung.GetU3Children)
-			})
+				// Stichtagsmeldung
+				r.Route("/stichtagsmeldung", func(r chi.Router) {
+					r.Get("/stats", handlers.Stichtagsmeldung.GetStats)
+					r.Get("/report", handlers.Stichtagsmeldung.GetReport)
+					r.Get("/children", handlers.Stichtagsmeldung.GetU3Children)
+				})
 
-			// Import
-			r.Route("/import", func(r chi.Router) {
-				r.Post("/confirm", handlers.Import.Confirm)
-				r.Get("/history", handlers.Import.History)
-				r.Get("/transactions", handlers.Import.UnmatchedTransactions)
-				r.Get("/transactions/matched", handlers.Import.MatchedTransactions)
-				r.Get("/transactions/{id}/suggestions", handlers.Import.TransactionSuggestions)
-				r.Get("/transactions/unmatched/child/{id}", handlers.Import.ChildUnmatchedSuggestions)
-				r.Post("/transactions/{id}/dismiss", handlers.Import.DismissTransaction)
-				r.Post("/transactions/{id}/hide", handlers.Import.HideTransaction)
-				r.Post("/transactions/{id}/unmatch", handlers.Import.UnmatchTransaction)
-				r.Post("/transactions/{id}/allocate", handlers.Import.AllocateTransaction)
-				r.Post("/match", handlers.Import.ManualMatch)
-				r.Post("/rescan", handlers.Import.Rescan)
-				r.Get("/blacklist", handlers.Import.GetBlacklist)
-				r.Delete("/blacklist/{iban}", handlers.Import.RemoveFromBlacklist)
-				r.Get("/trusted", handlers.Import.GetTrustedIBANs)
-				r.Get("/trusted/child/{id}", handlers.Import.ChildTrustedIBANs)
-				r.Post("/trusted/{iban}/link", handlers.Import.LinkIBANToChild)
-				r.Delete("/trusted/{iban}/link", handlers.Import.UnlinkIBANFromChild)
-				r.Get("/warnings", handlers.Import.GetWarnings)
-				r.Post("/warnings/{id}/dismiss", handlers.Import.DismissWarning)
-				r.Post("/warnings/{id}/resolve-late-fee", handlers.Import.ResolveLateFee)
+				// Import
+				r.Route("/import", func(r chi.Router) {
+					r.Post("/confirm", handlers.Import.Confirm)
+					r.Get("/history", handlers.Import.History)
+					r.Get("/transactions", handlers.Import.UnmatchedTransactions)
+					r.Get("/transactions/matched", handlers.Import.MatchedTransactions)
+					r.Get("/transactions/{id}/suggestions", handlers.Import.TransactionSuggestions)
+					r.Get("/transactions/unmatched/child/{id}", handlers.Import.ChildUnmatchedSuggestions)
+					r.Post("/transactions/{id}/dismiss", handlers.Import.DismissTransaction)
+					r.Post("/transactions/{id}/hide", handlers.Import.HideTransaction)
+					r.Post("/transactions/{id}/unmatch", handlers.Import.UnmatchTransaction)
+					r.Post("/transactions/{id}/allocate", handlers.Import.AllocateTransaction)
+					r.Post("/match", handlers.Import.ManualMatch)
+					r.Post("/rescan", handlers.Import.Rescan)
+					r.Get("/blacklist", handlers.Import.GetBlacklist)
+					r.Delete("/blacklist/{iban}", handlers.Import.RemoveFromBlacklist)
+					r.Get("/trusted", handlers.Import.GetTrustedIBANs)
+					r.Get("/trusted/child/{id}", handlers.Import.ChildTrustedIBANs)
+					r.Post("/trusted/{iban}/link", handlers.Import.LinkIBANToChild)
+					r.Delete("/trusted/{iban}/link", handlers.Import.UnlinkIBANFromChild)
+					r.Get("/warnings", handlers.Import.GetWarnings)
+					r.Post("/warnings/{id}/dismiss", handlers.Import.DismissWarning)
+					r.Post("/warnings/{id}/resolve-late-fee", handlers.Import.ResolveLateFee)
+				})
+
 			})
 
 		})

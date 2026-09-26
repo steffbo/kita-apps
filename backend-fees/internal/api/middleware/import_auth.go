@@ -6,6 +6,7 @@ import (
 
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/api/response"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/auth"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
 )
 
 const (
@@ -22,6 +23,10 @@ func ImportAuthMiddleware(jwtService *auth.JWTService, importToken string) func(
 			if authHeader := r.Header.Get("Authorization"); authHeader != "" {
 				userCtx, ok := authenticateBearer(w, jwtService, authHeader)
 				if !ok {
+					return
+				}
+				if userCtx.Role != string(domain.UserRoleAdmin) && userCtx.Role != string(domain.UserRoleUser) {
+					response.Error(w, http.StatusForbidden, "Keine Berechtigung")
 					return
 				}
 				next.ServeHTTP(w, r.WithContext(withUser(r.Context(), userCtx)))
@@ -42,7 +47,7 @@ func ImportAuthMiddleware(jwtService *auth.JWTService, importToken string) func(
 			userCtx := &UserContext{
 				UserID: ImportUserID,
 				Email:  "importer@system.local",
-				Role:   "USER",
+				Role:   string(domain.UserRoleUser),
 			}
 			next.ServeHTTP(w, r.WithContext(withUser(r.Context(), userCtx)))
 		})

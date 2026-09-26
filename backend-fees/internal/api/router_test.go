@@ -168,3 +168,43 @@ func TestRouter_UploadBodyLimit(t *testing.T) {
 		})
 	}
 }
+
+func TestRouter_RoleAreas(t *testing.T) {
+	router, jwtService := testRouter(t, "")
+	routes := []struct {
+		path    string
+		allowed map[string]bool
+	}{
+		{"/auth/me", map[string]bool{"ADMIN": true, "USER": true, "PARENT_WORK": true}},
+		{"/users/", map[string]bool{"ADMIN": true}},
+		{"/children/", map[string]bool{"ADMIN": true, "USER": true}},
+		{"/fees/", map[string]bool{"ADMIN": true, "USER": true}},
+		{"/fee-schedules/", map[string]bool{"ADMIN": true, "USER": true}},
+		{"/fees/reminders/settings", map[string]bool{"ADMIN": true}},
+		{"/parent-work/ping", map[string]bool{"ADMIN": true, "PARENT_WORK": true}},
+	}
+	for _, role := range []string{"ADMIN", "USER", "PARENT_WORK"} {
+		tokens, err := jwtService.GenerateTokenPair(uuid.New(), role+"@example.org", role)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, route := range routes {
+			t.Run(role+route.path, func(t *testing.T) {
+				req := httptest.NewRequest(http.MethodGet, apiPrefix+route.path, nil)
+				req.Header.Set("Authorization", "Bearer "+tokens.AccessToken)
+				rec := httptest.NewRecorder()
+				router.ServeHTTP(rec, req)
+				if !route.allowed[role] && rec.Code != http.StatusForbidden {
+					t.Fatalf("status %d, want 403", rec.Code)
+				}
+				if route.allowed[role] && (rec.Code == http.StatusUnauthorized || rec.Code == http.StatusForbidden) {
+					t.Fatalf("status %d, role should reach handler", rec.Code)
+				}
+				if route.path == "/parent-work/ping" && route.allowed[role] &&
+					(rec.Code != http.StatusOK || strings.TrimSpace(rec.Body.String()) != `{"status":"ok"}`) {
+					t.Fatalf("ping: status %d, body %s", rec.Code, rec.Body.String())
+				}
+			})
+		}
+	}
+}

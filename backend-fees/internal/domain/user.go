@@ -23,8 +23,9 @@ type User struct {
 type UserRole string
 
 const (
-	UserRoleAdmin UserRole = "ADMIN"
-	UserRoleUser  UserRole = "USER"
+	UserRoleAdmin      UserRole = "ADMIN"
+	UserRoleUser       UserRole = "USER"
+	UserRoleParentWork UserRole = "PARENT_WORK"
 )
 
 // RefreshToken represents a stored refresh token.

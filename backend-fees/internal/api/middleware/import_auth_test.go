@@ -18,6 +18,15 @@ func TestImportAuthMiddleware(t *testing.T) {
 		t.Fatalf("generate token: %v", err)
 	}
 
+	userTokens, err := jwtService.GenerateTokenPair(uuid.New(), "user@example.org", "USER")
+	if err != nil {
+		t.Fatal(err)
+	}
+	parentWorkTokens, err := jwtService.GenerateTokenPair(uuid.New(), "parent@example.org", "PARENT_WORK")
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	tests := []struct {
 		name          string
 		configured    string
@@ -30,7 +39,9 @@ func TestImportAuthMiddleware(t *testing.T) {
 		{name: "wrong import token", configured: "s3cret", importToken: "wrong", wantStatus: http.StatusUnauthorized},
 		{name: "token auth disabled", configured: "", importToken: "anything", wantStatus: http.StatusUnauthorized},
 		{name: "no credentials", configured: "s3cret", wantStatus: http.StatusUnauthorized},
-		{name: "valid bearer", configured: "s3cret", authorization: "Bearer " + tokens.AccessToken, wantStatus: http.StatusOK},
+		{name: "admin bearer", configured: "s3cret", authorization: "Bearer " + tokens.AccessToken, wantStatus: http.StatusOK},
+		{name: "user bearer", configured: "s3cret", authorization: "Bearer " + userTokens.AccessToken, wantStatus: http.StatusOK},
+		{name: "parent-work bearer", configured: "s3cret", authorization: "Bearer " + parentWorkTokens.AccessToken, wantStatus: http.StatusForbidden},
 		{name: "invalid bearer wins over valid import token", configured: "s3cret", authorization: "Bearer nope", importToken: "s3cret", wantStatus: http.StatusUnauthorized},
 	}
 

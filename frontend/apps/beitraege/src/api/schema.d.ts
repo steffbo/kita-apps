@@ -6444,6 +6444,62 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/parent-work/ping": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Check parent-work route access */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Route available */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            [key: string]: string;
+                        };
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Insufficient permissions */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/parents": {
         parameters: {
             query?: never;
@@ -7807,7 +7863,7 @@ export interface components {
              * @example USER
              * @enum {string}
              */
-            role: "ADMIN" | "USER";
+            role: "ADMIN" | "USER" | "PARENT_WORK";
         };
         /** @description Paid month that would become overpaid after a childcare fee decrease */
         CreditReviewPeriod: {
@@ -8653,7 +8709,7 @@ export interface components {
              * @example ADMIN
              * @enum {string}
              */
-            role: "ADMIN" | "USER";
+            role: "ADMIN" | "USER" | "PARENT_WORK";
         };
         UserAccount: {
             createdAt: string;
@@ -8669,7 +8725,7 @@ export interface components {
              * @example USER
              * @enum {string}
              */
-            role: "ADMIN" | "USER";
+            role: "ADMIN" | "USER" | "PARENT_WORK";
             updatedAt: string;
         };
         UserAccountRequest: {
@@ -8684,7 +8740,7 @@ export interface components {
              * @example USER
              * @enum {string}
              */
-            role: "ADMIN" | "USER";
+            role: "ADMIN" | "USER" | "PARENT_WORK";
         };
         /** @description Paginated warnings list as returned by the warnings endpoint */
         WarningList: {

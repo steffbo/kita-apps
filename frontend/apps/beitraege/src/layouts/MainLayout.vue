@@ -19,7 +19,9 @@ import {
   Scale,
   KeyRound,
   ShieldCheck,
+  Clock,
 } from 'lucide-vue-next';
+import { userRoleLabel } from '@/utils/userRole';
 import ChangePasswordDialog from '@/components/ChangePasswordDialog.vue';
 
 const authStore = useAuthStore();
@@ -60,11 +62,15 @@ const baseNavGroups = [
   },
 ];
 
-const navGroups = computed(() =>
-  authStore.isAdmin
-    ? [...baseNavGroups, { label: 'System', items: [{ name: 'Benutzer', to: '/benutzer', icon: ShieldCheck }] }]
-    : baseNavGroups
-);
+const navGroups = computed(() => [
+  ...(authStore.canAccessFees ? baseNavGroups : []),
+  ...(authStore.canAccessParentWork
+    ? [{ label: 'Elternstunden', items: [{ name: 'Übersicht', to: '/elternstunden', icon: Clock }] }]
+    : []),
+  ...(authStore.isAdmin
+    ? [{ label: 'System', items: [{ name: 'Benutzer', to: '/benutzer', icon: ShieldCheck }] }]
+    : []),
+]);
 
 function isActive(path: string) {
   if (path === '/') {
@@ -168,7 +174,7 @@ function toggleUserMenu() {
                   {{ authStore.user?.firstName || authStore.user?.email }}
                 </p>
                 <p class="text-xs text-gray-500 truncate">
-                  {{ authStore.user?.role === 'ADMIN' ? 'Administrator' : 'Benutzer' }}
+                  {{ authStore.user ? userRoleLabel(authStore.user.role) : '' }}
                 </p>
               </div>
               <ChevronDown 

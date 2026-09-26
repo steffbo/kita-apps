@@ -18,6 +18,9 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isAuthenticated = computed(() => !!accessToken.value);
   const isAdmin = computed(() => user.value?.role === 'ADMIN');
+  const isParentWork = computed(() => user.value?.role === 'PARENT_WORK');
+  const canAccessFees = computed(() => isAdmin.value || user.value?.role === 'USER');
+  const canAccessParentWork = computed(() => isAdmin.value || isParentWork.value);
 
   api.setOnTokenRefreshed((token) => {
     accessToken.value = token;
@@ -94,6 +97,9 @@ export const useAuthStore = defineStore('auth', () => {
     user,
     isAuthenticated,
     isAdmin,
+    isParentWork,
+    canAccessFees,
+    canAccessParentWork,
     isLoading,
     error,
     login,

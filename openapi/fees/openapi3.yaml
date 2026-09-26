@@ -4268,6 +4268,34 @@ paths:
       summary: List all notes
       tags:
         - Notes
+  /parent-work/ping:
+    get:
+      responses:
+        "200":
+          description: Route available
+          content:
+            application/json:
+              schema:
+                additionalProperties:
+                  type: string
+                type: object
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Insufficient permissions
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Check parent-work route access
+      tags:
+        - Parent Work
   /parents:
     get:
       description: Get a paginated list of parents with optional search and sorting
@@ -5676,6 +5704,7 @@ components:
           enum:
             - ADMIN
             - USER
+            - PARENT_WORK
           example: USER
           type: string
       required:
@@ -7288,6 +7317,7 @@ components:
           enum:
             - ADMIN
             - USER
+            - PARENT_WORK
           example: ADMIN
           type: string
       required:
@@ -7316,6 +7346,7 @@ components:
           enum:
             - ADMIN
             - USER
+            - PARENT_WORK
           example: USER
           type: string
         updatedAt:
@@ -7345,6 +7376,7 @@ components:
           enum:
             - ADMIN
             - USER
+            - PARENT_WORK
           example: USER
           type: string
       required:
