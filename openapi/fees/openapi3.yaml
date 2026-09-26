@@ -4268,34 +4268,321 @@ paths:
       summary: List all notes
       tags:
         - Notes
-  /parent-work/ping:
+  /parent-work/board-terms:
     get:
       responses:
         "200":
-          description: Route available
+          description: OK
           content:
             application/json:
               schema:
-                additionalProperties:
-                  type: string
-                type: object
-        "401":
-          description: Not authenticated
+                items:
+                  $ref: "#/components/schemas/domain.BoardTerm"
+                type: array
+      security:
+        - BearerAuth: []
+      summary: Vorstandsämter auflisten
+      tags:
+        - parent-work
+    post:
+      requestBody:
+        $ref: "#/components/requestBodies/handler.boardTermRequest"
+      responses:
+        "201":
+          description: Created
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "403":
-          description: Insufficient permissions
+                $ref: "#/components/schemas/domain.BoardTerm"
+      security:
+        - BearerAuth: []
+      summary: Vorstandsamt anlegen
+      tags:
+        - parent-work
+  "/parent-work/board-terms/{id}":
+    delete:
+      parameters:
+        - description: Amt
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No Content
+      security:
+        - BearerAuth: []
+      summary: Vorstandsamt löschen
+      tags:
+        - parent-work
+    put:
+      parameters:
+        - description: Amt
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        $ref: "#/components/requestBodies/handler.boardTermRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/domain.BoardTerm"
+      security:
+        - BearerAuth: []
+      summary: Vorstandsamt bearbeiten
+      tags:
+        - parent-work
+  /parent-work/entries:
+    post:
+      requestBody:
+        $ref: "#/components/requestBodies/handler.parentWorkEntryRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/domain.ParentWorkEntry"
+      security:
+        - BearerAuth: []
+      summary: Elternstunden erfassen
+      tags:
+        - parent-work
+  "/parent-work/entries/{id}":
+    put:
+      parameters:
+        - description: Eintrag
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        $ref: "#/components/requestBodies/handler.parentWorkEntryRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/domain.ParentWorkEntry"
+      security:
+        - BearerAuth: []
+      summary: Elternstunden bearbeiten
+      tags:
+        - parent-work
+  "/parent-work/entries/{id}/void":
+    post:
+      parameters:
+        - description: Eintrag
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/handler.parentWorkVoidRequest"
+        description: Stornogrund
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/domain.ParentWorkEntry"
+      security:
+        - BearerAuth: []
+      summary: Elternstunden stornieren
+      tags:
+        - parent-work
+  /parent-work/households:
+    get:
+      parameters:
+        - description: Suche
+          in: query
+          name: search
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/service.ParentWorkHouseholdOption"
+                type: array
+      security:
+        - BearerAuth: []
+      summary: Familienauswahl für Elternstunden
+      tags:
+        - parent-work
+  "/parent-work/households/{id}":
+    get:
+      parameters:
+        - description: Familie
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - description: Kita-Jahr
+          in: query
+          name: kitaYear
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/service.ParentWorkDetail"
+      security:
+        - BearerAuth: []
+      summary: Elternstunden einer Familie
+      tags:
+        - parent-work
+  "/parent-work/households/{id}/override":
+    delete:
+      parameters:
+        - description: Familie
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - description: Kita-Jahr
+          in: query
+          name: kitaYear
+          required: true
+          schema:
+            type: integer
+      responses:
+        "204":
+          description: No Content
+      security:
+        - BearerAuth: []
+      summary: Manuelles Soll entfernen
+      tags:
+        - parent-work
+    put:
+      parameters:
+        - description: Familie
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/handler.parentWorkOverrideRequest"
+        description: Soll
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/domain.ParentWorkOverride"
+      security:
+        - BearerAuth: []
+      summary: Manuelles Soll setzen
+      tags:
+        - parent-work
+  /parent-work/overview:
+    get:
+      parameters:
+        - description: Kita-Jahr
+          in: query
+          name: kitaYear
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/service.ParentWorkOverview"
+        "400":
+          description: Bad Request
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
       security:
         - BearerAuth: []
-      summary: Check parent-work route access
+      summary: Elternstundenübersicht
       tags:
-        - Parent Work
+        - parent-work
+  /parent-work/rules:
+    get:
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/domain.ParentWorkRule"
+                type: array
+      security:
+        - BearerAuth: []
+      summary: Elternstundenregelwerke auflisten
+      tags:
+        - parent-work
+    post:
+      requestBody:
+        $ref: "#/components/requestBodies/handler.parentWorkRuleRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/domain.ParentWorkRule"
+      security:
+        - BearerAuth: []
+      summary: Elternstundenregelwerk anlegen
+      tags:
+        - parent-work
+  "/parent-work/rules/{id}":
+    put:
+      parameters:
+        - description: Regelwerk
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        $ref: "#/components/requestBodies/handler.parentWorkRuleRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/domain.ParentWorkRule"
+      security:
+        - BearerAuth: []
+      summary: Elternstundenregelwerk bearbeiten
+      tags:
+        - parent-work
   /parents:
     get:
       description: Get a paginated list of parents with optional search and sorting
@@ -4959,6 +5246,8 @@ tags:
     name: Notes
   - description: Beitragsordnung (versioniert)
     name: FeeSchedules
+  - description: Elternstunden und Vorstandsämter
+    name: parent-work
 servers:
   - url: http://localhost:8081/api/fees/v1
   - url: https://localhost:8081/api/fees/v1
@@ -4983,6 +5272,27 @@ components:
                 format: binary
             required:
               - file
+      required: true
+    handler.boardTermRequest:
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/handler.boardTermRequest"
+      description: Amt
+      required: true
+    handler.parentWorkEntryRequest:
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/handler.parentWorkEntryRequest"
+      description: Eintrag
+      required: true
+    handler.parentWorkRuleRequest:
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/handler.parentWorkRuleRequest"
+      description: Regelwerk
       required: true
   securitySchemes:
     BearerAuth:
@@ -7456,6 +7766,39 @@ components:
         - isHidden
         - valueDate
       type: object
+    domain.BoardTerm:
+      properties:
+        createdAt:
+          type: string
+        endDate:
+          type: string
+        householdId:
+          type: string
+        householdName:
+          type: string
+        id:
+          type: string
+        memberId:
+          type: string
+        memberName:
+          type: string
+        note:
+          type: string
+        office:
+          type: string
+        startDate:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - createdAt
+        - id
+        - memberId
+        - memberName
+        - office
+        - startDate
+        - updatedAt
+      type: object
     domain.Child:
       properties:
         birthDate:
@@ -8094,6 +8437,185 @@ components:
         - lastName
         - updatedAt
       type: object
+    domain.ParentWorkAccount:
+      properties:
+        calculatedMinutes:
+          type: integer
+        carryInMinutes:
+          type: integer
+        carryOutMinutes:
+          type: integer
+        children:
+          items:
+            $ref: "#/components/schemas/domain.ParentWorkChild"
+          type: array
+        doneMinutes:
+          type: integer
+        entryCount:
+          type: integer
+        exemptReason:
+          type: string
+        householdId:
+          type: string
+        householdName:
+          type: string
+        missingAmountCents:
+          type: integer
+        openMinutes:
+          type: integer
+        overrideMinutes:
+          type: integer
+        overrideReason:
+          type: string
+        requiredMinutes:
+          type: integer
+      required:
+        - calculatedMinutes
+        - carryInMinutes
+        - carryOutMinutes
+        - children
+        - doneMinutes
+        - entryCount
+        - householdId
+        - householdName
+        - missingAmountCents
+        - openMinutes
+        - requiredMinutes
+      type: object
+    domain.ParentWorkChild:
+      properties:
+        entryDate:
+          type: string
+        exitDate:
+          type: string
+        firstName:
+          type: string
+        id:
+          type: string
+        lastName:
+          type: string
+        name:
+          type: string
+        tertials:
+          type: integer
+      required:
+        - entryDate
+        - firstName
+        - id
+        - lastName
+        - name
+        - tertials
+      type: object
+    domain.ParentWorkEntry:
+      properties:
+        childName:
+          type: string
+        createdAt:
+          type: string
+        createdBy:
+          type: string
+        durationMinutes:
+          type: integer
+        householdId:
+          type: string
+        id:
+          type: string
+        memberName:
+          type: string
+        occasion:
+          type: string
+        source:
+          type: string
+        status:
+          type: string
+        updatedAt:
+          type: string
+        updatedBy:
+          type: string
+        voidReason:
+          type: string
+        workDate:
+          type: string
+      required:
+        - createdAt
+        - durationMinutes
+        - householdId
+        - id
+        - occasion
+        - source
+        - status
+        - updatedAt
+        - workDate
+      type: object
+    domain.ParentWorkMember:
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+      required:
+        - id
+        - name
+      type: object
+    domain.ParentWorkOverride:
+      properties:
+        createdAt:
+          type: string
+        createdBy:
+          type: string
+        householdId:
+          type: string
+        id:
+          type: string
+        kitaYear:
+          type: integer
+        reason:
+          type: string
+        requiredMinutes:
+          type: integer
+        updatedAt:
+          type: string
+      required:
+        - createdAt
+        - householdId
+        - id
+        - kitaYear
+        - reason
+        - requiredMinutes
+        - updatedAt
+      type: object
+    domain.ParentWorkParent:
+      properties:
+        name:
+          type: string
+      required:
+        - name
+      type: object
+    domain.ParentWorkRule:
+      properties:
+        createdAt:
+          type: string
+        hoursPerChildMinutes:
+          type: integer
+        id:
+          type: string
+        maxCarryOverMinutes:
+          type: integer
+        missingHourRateCents:
+          type: integer
+        updatedAt:
+          type: string
+        validFrom:
+          type: string
+      required:
+        - createdAt
+        - hoursPerChildMinutes
+        - id
+        - maxCarryOverMinutes
+        - missingHourRateCents
+        - updatedAt
+        - validFrom
+      type: object
     domain.PaymentMatch:
       properties:
         amount:
@@ -8345,6 +8867,89 @@ components:
         - lastName
         - memberNumber
       type: object
+    handler.boardTermRequest:
+      properties:
+        endDate:
+          type: string
+        memberId:
+          type: string
+        note:
+          type: string
+        office:
+          type: string
+        startDate:
+          example: 2026-08-01
+          type: string
+      required:
+        - memberId
+        - office
+        - startDate
+      type: object
+    handler.parentWorkEntryRequest:
+      properties:
+        childName:
+          type: string
+        durationMinutes:
+          type: integer
+        householdId:
+          type: string
+        memberName:
+          type: string
+        occasion:
+          type: string
+        status:
+          enum:
+            - SUBMITTED
+            - APPROVED
+            - REJECTED
+          type: string
+        workDate:
+          example: 2026-09-01
+          type: string
+      required:
+        - durationMinutes
+        - householdId
+        - occasion
+        - status
+        - workDate
+      type: object
+    handler.parentWorkOverrideRequest:
+      properties:
+        kitaYear:
+          type: integer
+        reason:
+          type: string
+        requiredMinutes:
+          type: integer
+      required:
+        - kitaYear
+        - reason
+        - requiredMinutes
+      type: object
+    handler.parentWorkRuleRequest:
+      properties:
+        hoursPerChildMinutes:
+          type: integer
+        maxCarryOverMinutes:
+          type: integer
+        missingHourRateCents:
+          type: integer
+        validFrom:
+          example: 2027-08-01
+          type: string
+      required:
+        - hoursPerChildMinutes
+        - maxCarryOverMinutes
+        - missingHourRateCents
+        - validFrom
+      type: object
+    handler.parentWorkVoidRequest:
+      properties:
+        reason:
+          type: string
+      required:
+        - reason
+      type: object
     service.ChildImportParseResult:
       properties:
         detectedSeparator:
@@ -8595,6 +9200,114 @@ components:
       required:
         - firstName
         - lastName
+      type: object
+    service.ParentWorkDetail:
+      properties:
+        boardTerms:
+          items:
+            $ref: "#/components/schemas/domain.BoardTerm"
+          type: array
+        calculatedMinutes:
+          type: integer
+        carryInMinutes:
+          type: integer
+        carryOutMinutes:
+          type: integer
+        children:
+          items:
+            $ref: "#/components/schemas/domain.ParentWorkChild"
+          type: array
+        doneMinutes:
+          type: integer
+        entries:
+          items:
+            $ref: "#/components/schemas/domain.ParentWorkEntry"
+          type: array
+        entryCount:
+          type: integer
+        exemptReason:
+          type: string
+        householdId:
+          type: string
+        householdName:
+          type: string
+        missingAmountCents:
+          type: integer
+        openMinutes:
+          type: integer
+        overrideMinutes:
+          type: integer
+        overrideReason:
+          type: string
+        requiredMinutes:
+          type: integer
+      required:
+        - boardTerms
+        - calculatedMinutes
+        - carryInMinutes
+        - carryOutMinutes
+        - children
+        - doneMinutes
+        - entries
+        - entryCount
+        - householdId
+        - householdName
+        - missingAmountCents
+        - openMinutes
+        - requiredMinutes
+      type: object
+    service.ParentWorkHouseholdOption:
+      properties:
+        children:
+          items:
+            $ref: "#/components/schemas/domain.ParentWorkChild"
+          type: array
+        id:
+          type: string
+        members:
+          items:
+            $ref: "#/components/schemas/domain.ParentWorkMember"
+          type: array
+        name:
+          type: string
+        parents:
+          items:
+            $ref: "#/components/schemas/domain.ParentWorkParent"
+          type: array
+      required:
+        - children
+        - id
+        - members
+        - name
+        - parents
+      type: object
+    service.ParentWorkOverview:
+      properties:
+        doneMinutes:
+          type: integer
+        households:
+          items:
+            $ref: "#/components/schemas/domain.ParentWorkAccount"
+          type: array
+        kitaYear:
+          type: integer
+        missingAmountCents:
+          type: integer
+        notice:
+          type: string
+        openMinutes:
+          type: integer
+        requiredMinutes:
+          type: integer
+        rule:
+          $ref: "#/components/schemas/domain.ParentWorkRule"
+      required:
+        - doneMinutes
+        - households
+        - kitaYear
+        - missingAmountCents
+        - openMinutes
+        - requiredMinutes
       type: object
     service.PreviewResult:
       properties:

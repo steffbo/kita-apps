@@ -57,6 +57,8 @@ import (
 // @tag.description Notizen zu Kindern
 // @tag.name FeeSchedules
 // @tag.description Beitragsordnung (versioniert)
+// @tag.name parent-work
+// @tag.description Elternstunden und Vorstandsämter
 
 func main() {
 	// Load .env file if it exists (for local development)
@@ -101,6 +103,7 @@ func main() {
 	einstufungRepo := repository.NewPostgresEinstufungRepository(db)
 	childNoteRepo := repository.NewPostgresChildNoteRepository(db)
 	feeScheduleRepo := repository.NewPostgresFeeScheduleRepository(db)
+	parentWorkRepo := repository.NewPostgresParentWorkRepository(db)
 
 	// Initialize services
 	jwtService := auth.NewJWTService(cfg.JWT.Secret, cfg.JWT.AccessExpiry, cfg.JWT.RefreshExpiry, cfg.JWT.Issuer)
@@ -136,6 +139,7 @@ func main() {
 	einstufungService := service.NewEinstufungService(einstufungRepo, householdRepo, childRepo, feeService)
 	childNoteService := service.NewChildNoteService(childNoteRepo, childService)
 	feeScheduleService := service.NewFeeScheduleService(feeScheduleRepo)
+	parentWorkService := service.NewParentWorkService(parentWorkRepo)
 
 	// Initialize handlers
 	handlers := &api.Handlers{
@@ -153,6 +157,7 @@ func main() {
 		BankingSync:      handler.NewBankingSyncHandler(cfg.BankingSync.BaseURL, cfg.BankingSync.Token, cfg.BankingSync.Timeout),
 		Einstufung:       handler.NewEinstufungHandler(einstufungService),
 		FeeSchedule:      handler.NewFeeScheduleHandler(feeScheduleService),
+		ParentWork:       handler.NewParentWorkHandler(parentWorkService),
 		Stichtagsmeldung: handler.NewStichtagsmeldungHandler(stichtagService),
 		JWTService:       jwtService,
 	}

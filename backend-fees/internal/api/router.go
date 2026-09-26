@@ -82,11 +82,27 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 				r.Post("/{id}/password", handlers.User.SetPassword)
 			})
 
-			// Parent-work routes are scaffolded for the next stage.
+			// Parent-work account routes.
 			r.Route("/parent-work", func(r chi.Router) {
 				r.Use(customMiddleware.RequireRole(
 					string(domain.UserRoleAdmin), string(domain.UserRoleParentWork)))
-				r.Get("/ping", handler.ParentWorkPing)
+				r.Get("/overview", handlers.ParentWork.Overview)
+				r.Get("/households", handlers.ParentWork.Households)
+				r.Get("/households/{id}", handlers.ParentWork.Household)
+				r.Put("/households/{id}/override", handlers.ParentWork.SaveOverride)
+				r.Delete("/households/{id}/override", handlers.ParentWork.DeleteOverride)
+				r.Post("/entries", handlers.ParentWork.CreateEntry)
+				r.Put("/entries/{id}", handlers.ParentWork.UpdateEntry)
+				r.Post("/entries/{id}/void", handlers.ParentWork.VoidEntry)
+				r.Get("/board-terms", handlers.ParentWork.Terms)
+				r.Post("/board-terms", handlers.ParentWork.CreateTerm)
+				r.Put("/board-terms/{id}", handlers.ParentWork.UpdateTerm)
+				r.Delete("/board-terms/{id}", handlers.ParentWork.DeleteTerm)
+				r.Get("/rules", handlers.ParentWork.Rules)
+				r.With(customMiddleware.RequireRole(string(domain.UserRoleAdmin))).
+					Post("/rules", handlers.ParentWork.CreateRule)
+				r.With(customMiddleware.RequireRole(string(domain.UserRoleAdmin))).
+					Put("/rules/{id}", handlers.ParentWork.UpdateRule)
 			})
 
 			r.Group(func(r chi.Router) {
@@ -260,6 +276,7 @@ type Handlers struct {
 	Fee              *handler.FeeHandler
 	Einstufung       *handler.EinstufungHandler
 	FeeSchedule      *handler.FeeScheduleHandler
+	ParentWork       *handler.ParentWorkHandler
 	Import           *handler.ImportHandler
 	BankingSync      *handler.BankingSyncHandler
 	Stichtagsmeldung *handler.StichtagsmeldungHandler

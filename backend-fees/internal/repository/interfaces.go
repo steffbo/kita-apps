@@ -12,7 +12,8 @@ import (
 
 // Common repository errors
 var (
-	ErrNotFound = errors.New("not found")
+	ErrNotFound               = errors.New("not found")
+	ErrHouseholdHasParentWork = errors.New("household has parent work")
 	// ErrDuplicate is returned when an insert hits a unique constraint that
 	// marks the row as already present (e.g. a re-imported bank booking).
 	ErrDuplicate = errors.New("duplicate")
@@ -281,4 +282,22 @@ type FeeScheduleRepository interface {
 	Create(ctx context.Context, schedule *domain.FeeSchedule) error
 	Update(ctx context.Context, schedule *domain.FeeSchedule) error
 	Delete(ctx context.Context, id uuid.UUID) error
+}
+
+// ParentWorkRepository stores parent-work accounts and source records.
+type ParentWorkRepository interface {
+	Snapshot(context.Context, time.Time, time.Time) (*ParentWorkSnapshot, error)
+	ListRules(context.Context) ([]domain.ParentWorkRule, error)
+	GetRule(context.Context, uuid.UUID) (*domain.ParentWorkRule, error)
+	SaveRule(context.Context, *domain.ParentWorkRule) error
+	GetEntry(context.Context, uuid.UUID) (*domain.ParentWorkEntry, error)
+	SaveEntry(context.Context, *domain.ParentWorkEntry) error
+	GetTerm(context.Context, uuid.UUID) (*domain.BoardTerm, error)
+	ListTerms(context.Context) ([]domain.BoardTerm, error)
+	SaveTerm(context.Context, *domain.BoardTerm) error
+	DeleteTerm(context.Context, uuid.UUID) error
+	MemberExists(context.Context, uuid.UUID) (bool, error)
+	HouseholdExists(context.Context, uuid.UUID) (bool, error)
+	SaveOverride(context.Context, *domain.ParentWorkOverride) error
+	DeleteOverride(context.Context, uuid.UUID, int) error
 }

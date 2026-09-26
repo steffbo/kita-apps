@@ -2,6 +2,7 @@ package api
 
 import (
 	"bytes"
+	"context"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -12,9 +13,13 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/api/handler"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/api/middleware"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/auth"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/config"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/repository"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/service"
 )
 
 const apiPrefix = "/api/fees/v1"
@@ -57,7 +62,17 @@ func testRouter(t *testing.T, importToken string) (http.Handler, *auth.JWTServic
 	jwtService := auth.NewJWTService("router-test-secret", time.Minute, time.Hour, "test")
 	cfg := &config.Config{}
 	cfg.Import.Token = importToken
-	return NewRouter(cfg, &Handlers{JWTService: jwtService}), jwtService
+	workRepo := routerParentWorkRepo{}
+	workHandler := handler.NewParentWorkHandler(service.NewParentWorkService(workRepo))
+	return NewRouter(cfg, &Handlers{JWTService: jwtService, ParentWork: workHandler}), jwtService
+}
+
+type routerParentWorkRepo struct {
+	repository.ParentWorkRepository
+}
+
+func (routerParentWorkRepo) ListRules(context.Context) ([]domain.ParentWorkRule, error) {
+	return []domain.ParentWorkRule{}, nil
 }
 
 func concretePath(pattern string) string {
@@ -151,7 +166,8 @@ func TestRouter_UploadBodyLimit(t *testing.T) {
 		wantStatus int
 	}{
 		{name: "without import token", wantStatus: http.StatusUnauthorized},
-		{name: "oversized upload with import token", token: "import-secret", wantStatus: http.StatusRequestEntityTooLarge},
+		{name: "oversized upload with import token", token: "import-secret",
+			wantStatus: http.StatusRequestEntityTooLarge},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -169,6 +185,29 @@ func TestRouter_UploadBodyLimit(t *testing.T) {
 	}
 }
 
+func TestRouter_ParentWorkRuleWriteRoles(t *testing.T) {
+	router, jwtService := testRouter(t, "")
+	for _, role := range []string{"ADMIN", "USER", "PARENT_WORK"} {
+		t.Run(role, func(t *testing.T) {
+			tokens, err := jwtService.GenerateTokenPair(uuid.New(), role+"@example.org", role)
+			if err != nil {
+				t.Fatal(err)
+			}
+			req := httptest.NewRequest(http.MethodPost, apiPrefix+"/parent-work/rules",
+				strings.NewReader(`{}`))
+			req.Header.Set("Authorization", "Bearer "+tokens.AccessToken)
+			rec := httptest.NewRecorder()
+			router.ServeHTTP(rec, req)
+			if role == "ADMIN" && rec.Code != http.StatusBadRequest {
+				t.Fatalf("status %d, want handler validation", rec.Code)
+			}
+			if role != "ADMIN" && rec.Code != http.StatusForbidden {
+				t.Fatalf("status %d, want 403", rec.Code)
+			}
+		})
+	}
+}
+
 func TestRouter_RoleAreas(t *testing.T) {
 	router, jwtService := testRouter(t, "")
 	routes := []struct {
@@ -181,7 +220,7 @@ func TestRouter_RoleAreas(t *testing.T) {
 		{"/fees/", map[string]bool{"ADMIN": true, "USER": true}},
 		{"/fee-schedules/", map[string]bool{"ADMIN": true, "USER": true}},
 		{"/fees/reminders/settings", map[string]bool{"ADMIN": true}},
-		{"/parent-work/ping", map[string]bool{"ADMIN": true, "PARENT_WORK": true}},
+		{"/parent-work/rules", map[string]bool{"ADMIN": true, "PARENT_WORK": true}},
 	}
 	for _, role := range []string{"ADMIN", "USER", "PARENT_WORK"} {
 		tokens, err := jwtService.GenerateTokenPair(uuid.New(), role+"@example.org", role)
@@ -200,9 +239,8 @@ func TestRouter_RoleAreas(t *testing.T) {
 				if route.allowed[role] && (rec.Code == http.StatusUnauthorized || rec.Code == http.StatusForbidden) {
 					t.Fatalf("status %d, role should reach handler", rec.Code)
 				}
-				if route.path == "/parent-work/ping" && route.allowed[role] &&
-					(rec.Code != http.StatusOK || strings.TrimSpace(rec.Body.String()) != `{"status":"ok"}`) {
-					t.Fatalf("ping: status %d, body %s", rec.Code, rec.Body.String())
+				if route.path == "/parent-work/rules" && route.allowed[role] && rec.Code != http.StatusOK {
+					t.Fatalf("rules: status %d, body %s", rec.Code, rec.Body.String())
 				}
 			})
 		}

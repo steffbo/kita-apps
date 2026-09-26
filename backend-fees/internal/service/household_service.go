@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -142,7 +144,11 @@ func (s *HouseholdService) Delete(ctx context.Context, id uuid.UUID) error {
 		return ErrNotFound
 	}
 
-	return s.householdRepo.Delete(ctx, id)
+	err = s.householdRepo.Delete(ctx, id)
+	if errors.Is(err, repository.ErrHouseholdHasParentWork) {
+		return fmt.Errorf("%w: Familie mit Elternstunden kann nicht gelöscht werden", ErrConflict)
+	}
+	return err
 }
 
 // LinkParent links a parent to a household.

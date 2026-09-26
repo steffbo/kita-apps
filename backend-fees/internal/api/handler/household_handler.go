@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -283,6 +284,10 @@ func (h *HouseholdHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	if err := h.householdService.Delete(r.Context(), id); err != nil {
 		if err == service.ErrNotFound {
 			response.NotFound(w, "household not found")
+			return
+		}
+		if errors.Is(err, service.ErrConflict) {
+			response.Conflict(w, "Familie mit Elternstunden kann nicht gelöscht werden")
 			return
 		}
 		response.InternalError(w, "failed to delete household")

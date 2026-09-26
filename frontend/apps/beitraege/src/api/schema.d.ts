@@ -6444,14 +6444,14 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/parent-work/ping": {
+    "/parent-work/board-terms": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /** Check parent-work route access */
+        /** Vorstandsämter auflisten */
         get: {
             parameters: {
                 query?: never;
@@ -6461,28 +6461,404 @@ export interface paths {
             };
             requestBody?: never;
             responses: {
-                /** @description Route available */
+                /** @description OK */
                 200: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": {
-                            [key: string]: string;
-                        };
+                        "application/json": components["schemas"]["domain.BoardTerm"][];
                     };
                 };
-                /** @description Not authenticated */
-                401: {
+            };
+        };
+        put?: never;
+        /** Vorstandsamt anlegen */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: components["requestBodies"]["handler.boardTermRequest"];
+            responses: {
+                /** @description Created */
+                201: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["ErrorResponse"];
+                        "application/json": components["schemas"]["domain.BoardTerm"];
                     };
                 };
-                /** @description Insufficient permissions */
-                403: {
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/parent-work/board-terms/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Vorstandsamt bearbeiten */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Amt */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: components["requestBodies"]["handler.boardTermRequest"];
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["domain.BoardTerm"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        /** Vorstandsamt löschen */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Amt */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/parent-work/entries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Elternstunden erfassen */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: components["requestBodies"]["handler.parentWorkEntryRequest"];
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["domain.ParentWorkEntry"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/parent-work/entries/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Elternstunden bearbeiten */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Eintrag */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: components["requestBodies"]["handler.parentWorkEntryRequest"];
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["domain.ParentWorkEntry"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/parent-work/entries/{id}/void": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Elternstunden stornieren */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Eintrag */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Stornogrund */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["handler.parentWorkVoidRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["domain.ParentWorkEntry"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/parent-work/households": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Familienauswahl für Elternstunden */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Suche */
+                    search?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["service.ParentWorkHouseholdOption"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/parent-work/households/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Elternstunden einer Familie */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Kita-Jahr */
+                    kitaYear?: number;
+                };
+                header?: never;
+                path: {
+                    /** @description Familie */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["service.ParentWorkDetail"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/parent-work/households/{id}/override": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Manuelles Soll setzen */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Familie */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Soll */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["handler.parentWorkOverrideRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["domain.ParentWorkOverride"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        /** Manuelles Soll entfernen */
+        delete: {
+            parameters: {
+                query: {
+                    /** @description Kita-Jahr */
+                    kitaYear: number;
+                };
+                header?: never;
+                path: {
+                    /** @description Familie */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description No Content */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/parent-work/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Elternstundenübersicht */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Kita-Jahr */
+                    kitaYear?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["service.ParentWorkOverview"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -6493,6 +6869,101 @@ export interface paths {
             };
         };
         put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/parent-work/rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Elternstundenregelwerke auflisten */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["domain.ParentWorkRule"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Elternstundenregelwerk anlegen */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: components["requestBodies"]["handler.parentWorkRuleRequest"];
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["domain.ParentWorkRule"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/parent-work/rules/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Elternstundenregelwerk bearbeiten */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Regelwerk */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: components["requestBodies"]["handler.parentWorkRuleRequest"];
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["domain.ParentWorkRule"];
+                    };
+                };
+            };
+        };
         post?: never;
         delete?: never;
         options?: never;
@@ -8773,6 +9244,19 @@ export interface components {
             payerName?: string;
             valueDate: string;
         };
+        "domain.BoardTerm": {
+            createdAt: string;
+            endDate?: string;
+            householdId?: string;
+            householdName?: string;
+            id: string;
+            memberId: string;
+            memberName: string;
+            note?: string;
+            office: string;
+            startDate: string;
+            updatedAt: string;
+        };
         "domain.Child": {
             birthDate: string;
             careHours?: number;
@@ -9034,6 +9518,73 @@ export interface components {
             streetNo?: string;
             updatedAt: string;
         };
+        "domain.ParentWorkAccount": {
+            calculatedMinutes: number;
+            carryInMinutes: number;
+            carryOutMinutes: number;
+            children: components["schemas"]["domain.ParentWorkChild"][];
+            doneMinutes: number;
+            entryCount: number;
+            exemptReason?: string;
+            householdId: string;
+            householdName: string;
+            missingAmountCents: number;
+            openMinutes: number;
+            overrideMinutes?: number;
+            overrideReason?: string;
+            requiredMinutes: number;
+        };
+        "domain.ParentWorkChild": {
+            entryDate: string;
+            exitDate?: string;
+            firstName: string;
+            id: string;
+            lastName: string;
+            name: string;
+            tertials: number;
+        };
+        "domain.ParentWorkEntry": {
+            childName?: string;
+            createdAt: string;
+            createdBy?: string;
+            durationMinutes: number;
+            householdId: string;
+            id: string;
+            memberName?: string;
+            occasion: string;
+            source: string;
+            status: string;
+            updatedAt: string;
+            updatedBy?: string;
+            voidReason?: string;
+            workDate: string;
+        };
+        "domain.ParentWorkMember": {
+            id: string;
+            name: string;
+        };
+        "domain.ParentWorkOverride": {
+            createdAt: string;
+            createdBy?: string;
+            householdId: string;
+            id: string;
+            kitaYear: number;
+            reason: string;
+            requiredMinutes: number;
+            updatedAt: string;
+        };
+        "domain.ParentWorkParent": {
+            name: string;
+        };
+        "domain.ParentWorkRule": {
+            createdAt: string;
+            hoursPerChildMinutes: number;
+            id: string;
+            maxCarryOverMinutes: number;
+            missingHourRateCents: number;
+            updatedAt: string;
+            validFrom: string;
+        };
         "domain.PaymentMatch": {
             amount: number;
             confidence?: number;
@@ -9126,6 +9677,40 @@ export interface components {
             isFosterFamily: boolean;
             lastName: string;
             memberNumber: string;
+        };
+        "handler.boardTermRequest": {
+            endDate?: string;
+            memberId: string;
+            note?: string;
+            office: string;
+            /** @example 2026-08-01 */
+            startDate: string;
+        };
+        "handler.parentWorkEntryRequest": {
+            childName?: string;
+            durationMinutes: number;
+            householdId: string;
+            memberName?: string;
+            occasion: string;
+            /** @enum {string} */
+            status: "SUBMITTED" | "APPROVED" | "REJECTED";
+            /** @example 2026-09-01 */
+            workDate: string;
+        };
+        "handler.parentWorkOverrideRequest": {
+            kitaYear: number;
+            reason: string;
+            requiredMinutes: number;
+        };
+        "handler.parentWorkRuleRequest": {
+            hoursPerChildMinutes: number;
+            maxCarryOverMinutes: number;
+            missingHourRateCents: number;
+            /** @example 2027-08-01 */
+            validFrom: string;
+        };
+        "handler.parentWorkVoidRequest": {
+            reason: string;
         };
         "service.ChildImportParseResult": {
             detectedSeparator: string;
@@ -9227,6 +9812,41 @@ export interface components {
             /** @description ID of the already linked parent */
             linkedParentId?: string;
             phone?: string;
+        };
+        "service.ParentWorkDetail": {
+            boardTerms: components["schemas"]["domain.BoardTerm"][];
+            calculatedMinutes: number;
+            carryInMinutes: number;
+            carryOutMinutes: number;
+            children: components["schemas"]["domain.ParentWorkChild"][];
+            doneMinutes: number;
+            entries: components["schemas"]["domain.ParentWorkEntry"][];
+            entryCount: number;
+            exemptReason?: string;
+            householdId: string;
+            householdName: string;
+            missingAmountCents: number;
+            openMinutes: number;
+            overrideMinutes?: number;
+            overrideReason?: string;
+            requiredMinutes: number;
+        };
+        "service.ParentWorkHouseholdOption": {
+            children: components["schemas"]["domain.ParentWorkChild"][];
+            id: string;
+            members: components["schemas"]["domain.ParentWorkMember"][];
+            name: string;
+            parents: components["schemas"]["domain.ParentWorkParent"][];
+        };
+        "service.ParentWorkOverview": {
+            doneMinutes: number;
+            households: components["schemas"]["domain.ParentWorkAccount"][];
+            kitaYear: number;
+            missingAmountCents: number;
+            notice?: string;
+            openMinutes: number;
+            requiredMinutes: number;
+            rule?: components["schemas"]["domain.ParentWorkRule"];
         };
         "service.PreviewResult": {
             errorCount: number;
@@ -9330,6 +9950,24 @@ export interface components {
                      */
                     file: string;
                 };
+            };
+        };
+        /** @description Amt */
+        "handler.boardTermRequest": {
+            content: {
+                "application/json": components["schemas"]["handler.boardTermRequest"];
+            };
+        };
+        /** @description Eintrag */
+        "handler.parentWorkEntryRequest": {
+            content: {
+                "application/json": components["schemas"]["handler.parentWorkEntryRequest"];
+            };
+        };
+        /** @description Regelwerk */
+        "handler.parentWorkRuleRequest": {
+            content: {
+                "application/json": components["schemas"]["handler.parentWorkRuleRequest"];
             };
         };
     };

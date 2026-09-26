@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
 )
@@ -162,6 +163,12 @@ func (r *PostgresHouseholdRepository) Update(ctx context.Context, household *dom
 // Delete deletes a household.
 func (r *PostgresHouseholdRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	_, err := conn(ctx, r.db).ExecContext(ctx, `DELETE FROM fees.households WHERE id = $1`, id)
+	var pqErr *pq.Error
+	if errors.As(err, &pqErr) && pqErr.Code == "23503" &&
+		(pqErr.Constraint == "parent_work_entries_household_id_fkey" ||
+			pqErr.Constraint == "parent_work_overrides_household_id_fkey") {
+		return ErrHouseholdHasParentWork
+	}
 	return err
 }
 
