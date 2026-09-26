@@ -3,6 +3,19 @@
 Rolling change log of non-obvious implementation decisions. Newest first.
 Basics (ports, commands, layout) live in `AGENTS.md`.
 
+## Elternstunden: fachliche Regeln (Stand 2026-09-26, noch nicht umgesetzt)
+
+Noch kein Code. Ausgangspunkt war die nie deployte Portal-Spec (Tag `archive/pre-cleanup-2026-09`, `docs/portal/SPEC.md`, `backend-portal/internal/service/parent_work_rules.go`); mit Stefan abgeglichen:
+
+- **Rechtsgrundlage:** Satzung 2025 § 5: Mitglieder leisten je Kita-Jahr Arbeitsstunden, für nicht geleistete ist ein Entgelt zu zahlen; Stundenzahl, Höhe und Fälligkeit beschließt die Mitgliederversammlung (2/3). Die Elternbeitragsordnung 2025 regelt dazu nichts; Zahlen stehen im Betreuungsvertrag.
+- **Soll:** 9 h je Kind und Kita-Jahr (01.08.–31.07.). Bei Ein- oder Austritt im Jahr 3 h je angefangenem Tertial (01.08.–30.11., 01.12.–31.03., 01.04.–31.07.). Vorstandsarbeit befreit. Manuelles Überschreiben mit Begründung bleibt möglich.
+- **Konto je Familie, nicht je Kind:** Das Soll ist die Summe über die Kinder des Haushalts; geleistete Stunden werden dem Haushalt gutgeschrieben, nicht einem Kind (anders als in der Portal-Spec).
+- **Kein Übertrag** ins nächste Kita-Jahr.
+- **Fehlstunden kosten Geld**, werden aber fast immer nachgeholt oder anders gelöst. Daher zunächst nur Fehlstunden anzeigen, keine automatische Forderung. Stundensatz aus dem Vertrag steht noch aus; er gehört dann versioniert in die Daten (wie `fees.fee_schedules`), nicht in den Code.
+- **Genauigkeit:** mindestens halbe Stunden; ob Viertelstunden gebraucht werden, ist offen. Speichern in Minuten hält beides offen.
+- **Ablauf heute:** Eltern erledigen Aufgaben (Räume reinigen, Küchendienst, Betreuung während Dienstbesprechungen, Garten …), eine Erzieherin unterschreibt den Zettel, Tim Hall führt die Übersicht (vermutlich Excel). Geplante Stufen: (1) Tim erfasst und sieht die Übersicht mit einer eigenen Rolle nur für Elternstunden, (2) Erzieherinnen nehmen digital ab, (3) Eltern reichen selbst ein und bekommen Erinnerungen; danach entfällt Tims Buchführung.
+- **Rollen-Hinweis:** Heute sperrt der Router nur einzelne Routen auf `ADMIN`; jeder andere angemeldete Benutzer sieht alle Beiträge. Eine Elternstunden-Rolle erfordert, die Beitrags-Routen ausdrücklich auf `ADMIN`/`USER` zu beschränken.
+
 ## OpenAPI-Drift-Check in CI (2026-09-26)
 
 - Die Quelle für den API-Vertrag ist der Go-Code (swag-Annotationen und Structs), nicht die Spec. `openapi3.yaml` und `schema.d.ts` sind eingecheckte Generate. Bisher prüfte nichts, ob sie nach Änderungen am Backend neu erzeugt wurden: Der Typecheck lief dann gegen den alten Stand.
