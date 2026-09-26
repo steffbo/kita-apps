@@ -3,6 +3,13 @@
 Rolling change log of non-obvious implementation decisions. Newest first.
 Basics (ports, commands, layout) live in `AGENTS.md`.
 
+## OpenAPI-Drift-Check in CI (2026-09-26)
+
+- Die Quelle für den API-Vertrag ist der Go-Code (swag-Annotationen und Structs), nicht die Spec. `openapi3.yaml` und `schema.d.ts` sind eingecheckte Generate. Bisher prüfte nichts, ob sie nach Änderungen am Backend neu erzeugt wurden: Der Typecheck lief dann gegen den alten Stand.
+- Neuer CI-Job `openapi-drift`: führt `scripts/generate-api.sh` aus und bricht bei `git diff` auf beide Dateien ab. `build-images` hängt über `needs: ci` auch an ihm.
+- Damit CI und lokale Läufe byte-gleich erzeugen, pinnt das Skript swag (`v1.16.4`, prüft `swag --version`) und swagger2openapi (`7.0.8`); der Fallback auf ein global installiertes, ungepinntes `swagger2openapi` ist entfernt. openapi-typescript ist über das Lockfile gepinnt. Beim Anheben der swag-Version Skript und `ci.yml` gemeinsam ändern.
+- Spec-first (z. B. `oapi-codegen`) wurde erwogen und für den Bestand verworfen; für eine künftige Eltern-API wieder offen.
+
 ## Aufräumen: nur noch Beiträge (2026-09-26)
 
 - **Entfernt:** `backend-management` + Dienstplan-/Zeiterfassung-Apps (seit Monaten ungenutzt, live nur Testdaten), Portal-Grundgerüst `backend-portal` + `apps/portal` + `docs/portal` (nie deployt, Stand 2026-05-25), `frontend/packages/shared` (nur von den beiden Management-Apps genutzt), deren e2e-Tests, `openapi/management`, die handgeschriebenen `openapi/*-api.yaml`, der Java/Maven-Rest in `docker/` (Caddyfile, Dockerfiles, `compose.prod`/`compose.ghcr`, Backup-Skript), `docs/archive/` und der abgeschlossene Plan `docs/plan-bankabgleich-ui.md`. Letzter Stand im Tag `archive/pre-cleanup-2026-09`. Grund: Altlasten haben Coding-Agents in die Irre geführt; die Doku markierte sie nur als „pausiert“ oder „Archiv“.

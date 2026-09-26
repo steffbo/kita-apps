@@ -57,13 +57,15 @@ bun run dev:beitraege
 bun run --filter @kita/beitraege typecheck
 bun run test:e2e         # Playwright, Beiträge; starts its own stack (Docker, Go, Bun) — docs/e2e-beitraege.md
 
-# OpenAPI spec + frontend types (swag → swagger2openapi → schema.d.ts)
+# OpenAPI spec + frontend types (swag → swagger2openapi → schema.d.ts).
+# Go annotations are the source of truth; rerun after API changes and commit
+# both outputs — CI job `openapi-drift` fails on stale files.
 scripts/generate-api.sh
 ```
 
 ## Deployment
 
-Target: homelab VM `infra-dev`. Flow: commit + push → GitHub Actions runs CI (`.github/workflows/ci.yml`: gofmt/vet/test for `backend-fees` incl. testcontainers integration tests, typecheck for `beitraege`, Playwright e2e for `beitraege`; also on PRs) and only then builds GHCR images (`.github/workflows/build-images.yml`, on `main`) → deploy from `../homelab`. A red CI means no new image.
+Target: homelab VM `infra-dev`. Flow: commit + push → GitHub Actions runs CI (`.github/workflows/ci.yml`: gofmt/vet/test for `backend-fees` incl. testcontainers integration tests, typecheck for `beitraege`, OpenAPI drift check, Playwright e2e for `beitraege`; also on PRs) and only then builds GHCR images (`.github/workflows/build-images.yml`, on `main`) → deploy from `../homelab`. A red CI means no new image.
 
 ```bash
 expected_sha=$(git rev-parse HEAD)

@@ -6,13 +6,16 @@
 #   2. swagger2openapi      → openapi/fees/openapi3.yaml     (OpenAPI 3, committed)
 #   3. openapi-typescript   → frontend/apps/beitraege/src/api/schema.d.ts
 #
-# Requirements:
-#   - swag CLI:  go install github.com/swaggo/swag/cmd/swag@latest
+# Requirements (versions pinned below as SWAG_VERSION / S2O_VERSION, so CI job
+# `openapi-drift` in ci.yml and local runs produce byte-identical output;
+# bump them here and in ci.yml together):
+#   - swag CLI:  go install github.com/swaggo/swag/cmd/swag@v1.16.4
 #     (expected at ~/go/bin/swag, override with SWAG=...)
-#   - swagger2openapi: npx/bunx reachable, or a local binary via S2O=...
-#     NOTE: the Artifactory npm mirror blocks this package — fetch it from
-#     registry.npmjs.org directly, e.g.:
-#       bun add swagger2openapi --registry https://registry.npmjs.org/
+#   - swagger2openapi: fetched via bunx/npx, or a local binary via S2O=...
+#     NOTE: the Artifactory npm mirror blocks this package, so it is fetched
+#     from registry.npmjs.org directly.
+#   - openapi-typescript: pinned in frontend/apps/beitraege/package.json
+#     (needs `bun install` in frontend/).
 #
 # Usage: scripts/generate-api.sh
 
@@ -20,18 +23,24 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 SWAG="${SWAG:-$HOME/go/bin/swag}"
+SWAG_VERSION="v1.16.4"
+S2O_VERSION="7.0.8"
 
 command -v "$SWAG" >/dev/null 2>&1 || {
   echo "error: swag CLI not found at '$SWAG'" >&2
-  echo "       install with: go install github.com/swaggo/swag/cmd/swag@latest" >&2
+  echo "       install with: go install github.com/swaggo/swag/cmd/swag@$SWAG_VERSION" >&2
+  exit 1
+}
+"$SWAG" --version | grep -q "$SWAG_VERSION" || {
+  echo "error: expected swag $SWAG_VERSION, got: $("$SWAG" --version)" >&2
+  echo "       install with: go install github.com/swaggo/swag/cmd/swag@$SWAG_VERSION" >&2
   exit 1
 }
 
 run_s2o() {
   if [ -n "${S2O:-}" ]; then "$S2O" "$@"; return; fi
-  if command -v swagger2openapi >/dev/null 2>&1; then swagger2openapi "$@"; return; fi
-  if command -v bunx >/dev/null 2>&1; then BUN_CONFIG_REGISTRY=https://registry.npmjs.org/ bunx swagger2openapi "$@"; return; fi
-  npx --registry=https://registry.npmjs.org/ swagger2openapi "$@"
+  if command -v bunx >/dev/null 2>&1; then BUN_CONFIG_REGISTRY=https://registry.npmjs.org/ bunx "swagger2openapi@$S2O_VERSION" "$@"; return; fi
+  npx --registry=https://registry.npmjs.org/ "swagger2openapi@$S2O_VERSION" "$@"
 }
 
 SWAGGER_DIR="$(mktemp -d)"

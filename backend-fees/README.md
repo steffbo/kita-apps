@@ -395,17 +395,16 @@ Nach den Migrationen existiert ein Admin-Benutzer:
 
 ## OpenAPI Spec Generation
 
-The backend uses [swag](https://github.com/swaggo/swag) to generate OpenAPI specs from Go annotations. The generated specs are used by the frontend to generate TypeScript types.
+The Go code is the source of truth: handler annotations and structs → [swag](https://github.com/swaggo/swag) → OpenAPI spec → frontend TypeScript types. The spec is a generated artifact; never edit it by hand. Nothing in the backend is generated from it.
 
 ### Prerequisites
 
 ```bash
-# Install swag CLI (once)
-go install github.com/swaggo/swag/cmd/swag@latest
-
-# Install swagger2openapi for OpenAPI 3 conversion
-npm install -g swagger2openapi
+# Install swag CLI (once); the version is pinned in scripts/generate-api.sh
+go install github.com/swaggo/swag/cmd/swag@v1.16.4
 ```
+
+`swagger2openapi` (pinned to 7.0.8) is fetched by the script via `bunx`.
 
 ### Generate OpenAPI Spec
 
@@ -415,6 +414,8 @@ The script writes the intermediate Swagger 2.0 file (`swag init`) to a temp dir 
 
 Committed output:
 - `openapi/fees/openapi3.yaml` - OpenAPI 3.0 spec (source for `frontend/apps/beitraege/src/api/schema.d.ts`)
+
+Run the script after changing handlers, annotations or API structs and commit both files. CI job `openapi-drift` reruns it and fails if either file differs from what is committed.
 
 ### Required vs. optional fields
 

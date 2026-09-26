@@ -51,6 +51,45 @@ jobs:
       - name: Typecheck
         run: bun run --filter @kita/beitraege typecheck
 
+  # The spec and the frontend types are generated from backend-fees Go
+  # annotations (scripts/generate-api.sh). Fails if the committed
+  # openapi/fees/openapi3.yaml or schema.d.ts are stale.
+  openapi-drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: backend-fees/go.mod
+          cache-dependency-path: backend-fees/go.sum
+
+      - uses: oven-sh/setup-bun@v2
+
+      # Keep in sync with SWAG_VERSION in scripts/generate-api.sh.
+      - name: Install swag
+        run: go install github.com/swaggo/swag/cmd/swag@v1.16.4
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: bun install --frozen-lockfile
+
+      - name: Regenerate spec and types
+        run: scripts/generate-api.sh
+
+      - name: Check for drift
+        run: |
+          if ! git diff --exit-code -- openapi/fees/openapi3.yaml frontend/apps/beitraege/src/api/schema.d.ts; then
+            echo "::error::OpenAPI spec or schema.d.ts is out of date. Run scripts/generate-api.sh and commit the result."
+            exit 1
+          fi
+          untracked=$(git status --porcelain --untracked-files=all -- openapi frontend/apps/beitraege/src/api)
+          if [ -n "$untracked" ]; then
+            echo "::error::Generator produced unexpected files:"
+            echo "$untracked"
+            exit 1
+          fi
+
   # Playwright suite against a production-like stack (disposable PostgreSQL,
   # frontend embedded into backend-fees); see frontend/playwright.config.ts.
   e2e-beitraege:
