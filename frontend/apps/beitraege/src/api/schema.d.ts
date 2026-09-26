@@ -9740,6 +9740,10 @@ export interface components {
             updatedAt: string;
             validFrom: string;
         };
+        "domain.ParentWorkUnassignedChild": {
+            id: string;
+            name: string;
+        };
         "domain.PaymentMatch": {
             amount: number;
             confidence?: number;
@@ -10041,6 +10045,7 @@ export interface components {
             openMinutes: number;
             requiredMinutes: number;
             rule?: components["schemas"]["domain.ParentWorkRule"];
+            unassignedChildren: components["schemas"]["domain.ParentWorkUnassignedChild"][];
         };
         "service.PreviewResult": {
             errorCount: number;

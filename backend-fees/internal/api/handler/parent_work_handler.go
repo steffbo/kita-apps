@@ -19,8 +19,10 @@ import (
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/util"
 )
 
+// ParentWorkHandler exposes parent work operations over HTTP.
 type ParentWorkHandler struct{ svc *service.ParentWorkService }
 
+// NewParentWorkHandler creates the HTTP handler.
 func NewParentWorkHandler(svc *service.ParentWorkService) *ParentWorkHandler {
 	return &ParentWorkHandler{svc: svc}
 }
@@ -31,6 +33,7 @@ type parentWorkRuleRequest struct {
 	MissingHourRateCents int    `json:"missingHourRateCents"`
 	MaxCarryOverMinutes  int    `json:"maxCarryOverMinutes"`
 }
+
 type parentWorkEntryRequest struct {
 	HouseholdID     uuid.UUID `json:"householdId"`
 	WorkDate        string    `json:"workDate" example:"2026-09-01"`
@@ -40,14 +43,17 @@ type parentWorkEntryRequest struct {
 	ChildName       *string   `json:"childName,omitempty" binding:"optional"`
 	Status          string    `json:"status" enums:"SUBMITTED,APPROVED,REJECTED"`
 }
+
 type parentWorkVoidRequest struct {
 	Reason string `json:"reason"`
 }
+
 type parentWorkOverrideRequest struct {
 	KitaYear        int    `json:"kitaYear"`
 	RequiredMinutes int    `json:"requiredMinutes"`
 	Reason          string `json:"reason"`
 }
+
 type boardTermRequest struct {
 	MemberID  uuid.UUID `json:"memberId"`
 	Office    string    `json:"office"`
@@ -68,6 +74,7 @@ func parentWorkYear(w http.ResponseWriter, r *http.Request) (int, bool) {
 	}
 	return year, true
 }
+
 func parentWorkID(w http.ResponseWriter, r *http.Request, key string) (uuid.UUID, bool) {
 	id, err := uuid.Parse(chi.URLParam(r, key))
 	if err != nil {
@@ -76,7 +83,9 @@ func parentWorkID(w http.ResponseWriter, r *http.Request, key string) (uuid.UUID
 	}
 	return id, true
 }
+
 func parentWorkDate(raw string) (time.Time, error) { return time.Parse("2006-01-02", raw) }
+
 func parentWorkUser(r *http.Request) uuid.UUID {
 	user := middleware.GetUserFromContext(r)
 	if user == nil {
@@ -85,6 +94,7 @@ func parentWorkUser(r *http.Request) uuid.UUID {
 	id, _ := uuid.Parse(user.UserID)
 	return id
 }
+
 func parentWorkError(w http.ResponseWriter, err error) {
 	msg := err.Error()
 	switch {
@@ -98,6 +108,7 @@ func parentWorkError(w http.ResponseWriter, err error) {
 		response.InternalError(w, "Elternstunden konnten nicht verarbeitet werden")
 	}
 }
+
 func decodeParentWork(w http.ResponseWriter, r *http.Request, v interface{}) bool {
 	if err := request.DecodeJSON(r, v); err != nil {
 		response.BadRequest(w, "Ungültige Anfrage")
@@ -200,9 +211,14 @@ func (h *ParentWorkHandler) UpdateEntry(w http.ResponseWriter, r *http.Request) 
 		h.saveEntry(w, r, id)
 	}
 }
+
 func (h *ParentWorkHandler) saveEntry(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
 	var req parentWorkEntryRequest
 	if !decodeParentWork(w, r, &req) {
+		return
+	}
+	if req.WorkDate == "" {
+		response.BadRequest(w, "Datum fehlt")
 		return
 	}
 	date, err := parentWorkDate(req.WorkDate)
@@ -211,8 +227,8 @@ func (h *ParentWorkHandler) saveEntry(w http.ResponseWriter, r *http.Request, id
 		return
 	}
 	status := req.Status
-	if status == "" {
-		status = "APPROVED"
+	if status == "" && id == uuid.Nil {
+		status = domain.ParentWorkStatusApproved
 	}
 	v, err := h.svc.SaveEntry(r.Context(), id, domain.ParentWorkEntry{
 		HouseholdID: req.HouseholdID, WorkDate: date, DurationMinutes: req.DurationMinutes,
@@ -355,6 +371,7 @@ func (h *ParentWorkHandler) UpdateTerm(w http.ResponseWriter, r *http.Request) {
 		h.saveTerm(w, r, id)
 	}
 }
+
 func (h *ParentWorkHandler) saveTerm(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
 	var req boardTermRequest
 	if !decodeParentWork(w, r, &req) {
@@ -527,6 +544,7 @@ func (h *ParentWorkHandler) UpdateRule(w http.ResponseWriter, r *http.Request) {
 		h.saveRule(w, r, id)
 	}
 }
+
 func (h *ParentWorkHandler) saveRule(w http.ResponseWriter, r *http.Request, id uuid.UUID) {
 	var req parentWorkRuleRequest
 	if !decodeParentWork(w, r, &req) {

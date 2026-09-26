@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Monorepo for the Kita Knirpsenstadt fee management (Beiträge): Go backend, Vue frontend in a Bun workspace, a Bun banking-sync service, GHCR builds, homelab deployment. Next planned step: parent-work hours (Elternstunden) and a parent-facing API inside `backend-fees` — no separate portal service.
+Monorepo for the Kita Knirpsenstadt fee management (Beiträge): Go backend, Vue frontend in a Bun workspace, a Bun banking-sync service, GHCR builds, homelab deployment. Elternstunden (parent-work hours) stage 1 is built into `backend-fees` and the Beiträge app; next stages (parent access, approval by staff, reminders) stay inside `backend-fees` — no separate portal service.
 
 ## Working Rules
 
@@ -27,6 +27,14 @@ Removed in 2026-09 (Dienstplan/Zeiterfassung `backend-management` + apps, portal
 In `backend-fees`, fee amounts (brackets, tables, sibling factors, food/membership fee) are versioned data in `fees.fee_schedules` (UI: Beitragsordnung), not code; pick the version valid at the relevant date. Business dates follow Europe/Berlin: use `util.Today()` (Berlin date as UTC midnight, like scanned `DATE` columns) for date comparisons and `util.Now()` for year/month and timestamps — never bare `time.Now()`.
 
 Go services all follow: `cmd/server`, `cmd/migrate`, `internal/api` (handlers + router), `internal/service` (business logic), `internal/repository` (SQL), `migrations/`.
+
+## Roles and Elternstunden
+
+Router groups by role: fee routes `ADMIN`/`USER`, `/users` `ADMIN`, `/parent-work/**` `ADMIN`/`PARENT_WORK`
+(rules write `ADMIN`). `PARENT_WORK` sees only `/beitraege/elternstunden/**`. Parent work is booked per household
+(`fees.households`), stored in minutes (multiples of 15); rules (hours per child, rate per missing hour, carry-over cap)
+are versioned data in `fees.parent_work_rules`, board terms in `fees.board_terms`. Calculation:
+`domain.CalculateParentWork`. Business rules and history: `docs/status-fees.md`.
 
 ## Services
 
@@ -90,8 +98,7 @@ ssh vm-infra-dev \
   "sudo docker exec kita-db psql -U kita -d kita -c 'SELECT COUNT(*) FROM fees.children;'"
 ```
 
-Qualify schemas explicitly (`fees.*`). `backend-fees` users live in `fees.users` (migration `000036`, bcrypt hashes, roles `ADMIN`/`USER`/`PARENT_WORK`, managed on the "Benutzer" page). `USER_NAME` / `USER_PASSWORD` only bootstrap the admin when no account with that email exists (same ID as the former static admin, `a0eebc99-…`); they never overwrite it. There is no agent service account yet. With its JWT, `PARENT_WORK` is authorized for `/auth/me`, `/auth/change-password`, and
-the scaffolded `GET /api/fees/v1/parent-work/ping`; the Elternstunden frontend page is a placeholder.
+Qualify schemas explicitly (`fees.*`). `backend-fees` users live in `fees.users` (migration `000036`, bcrypt hashes, roles `ADMIN`/`USER`/`PARENT_WORK`, managed on the "Benutzer" page). `USER_NAME` / `USER_PASSWORD` only bootstrap the admin when no account with that email exists (same ID as the former static admin, `a0eebc99-…`); they never overwrite it. There is no agent service account yet.
 
 Note on the kita stack `.env` (`/srv/homelab/stacks/infra-dev/apps/kita/.env` on infra-dev): values with special characters (e.g. `USER_PASSWORD`) are wrapped in single quotes. Docker Compose strips the quotes when passing them into containers, so login works — but when reading the file manually (scripts, shell parsing), strip surrounding `'` yourself or authentication will fail.
 

@@ -56,6 +56,13 @@ async function saved() { showEntry.value = false; await load(); }
     </label>
     <p v-if="error" role="alert" class="rounded-lg bg-red-50 p-3 text-red-700">{{ error }}</p>
     <p v-if="overview?.notice" class="rounded-lg border border-amber-200 bg-amber-50 p-3 text-amber-900">{{ overview.notice }}</p>
+    <div v-if="overview?.unassignedChildren?.length" role="status"
+      class="rounded-lg border border-amber-300 bg-amber-50 p-3 text-amber-900">
+      <p>Diese Kinder zählen nicht zum Soll. Bitte in den Beiträgen einer Familie zuordnen:</p>
+      <ul class="mt-1 list-inside list-disc">
+        <li v-for="child in overview.unassignedChildren" :key="child.id">{{ child.name }}</li>
+      </ul>
+    </div>
     <div v-if="overview" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
       <div v-for="card in [
         { label: 'Familien', value: String(overview.households?.length ?? 0) },

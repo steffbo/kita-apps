@@ -1,6 +1,6 @@
 # Kita-Apps Knirpsenstadt
 
-Beitragsverwaltung für die Kita Knirpsenstadt, läuft unter https://kita.remer.cc/beitraege. Geplant ist, sie um Elternstunden und einen Eltern-Zugang zu erweitern.
+Beitragsverwaltung für die Kita Knirpsenstadt, läuft unter https://kita.remer.cc/beitraege. Enthält außerdem die Elternstunden (Erfassung und Übersicht je Familie); ein Eltern-Zugang ist geplant.
 
 ## Bestandteile
 

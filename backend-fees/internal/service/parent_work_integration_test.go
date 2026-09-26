@@ -39,6 +39,16 @@ func TestParentWorkAccountIntegration(t *testing.T) {
 			id, h, "TPW"+uuid.NewString()[:6])
 		t.Cleanup(func() { must(`DELETE FROM fees.children WHERE id=$1`, id) })
 	}
+	unassigned := uuid.New()
+	must(`INSERT INTO fees.children (id,member_number,first_name,last_name,birth_date,entry_date)
+        VALUES ($1,$2,'Ohne','Familie','2020-01-01','2026-08-01')`,
+		unassigned, "TPW"+uuid.NewString()[:6])
+	t.Cleanup(func() { must(`DELETE FROM fees.children WHERE id=$1`, unassigned) })
+	former := uuid.New()
+	must(`INSERT INTO fees.children (id,member_number,first_name,last_name,birth_date,entry_date,exit_date)
+        VALUES ($1,$2,'Früher','Kind','2020-01-01','2025-08-01','2026-07-31')`,
+		former, "TPW"+uuid.NewString()[:6])
+	t.Cleanup(func() { must(`DELETE FROM fees.children WHERE id=$1`, former) })
 	must(`INSERT INTO fees.members (id,member_number,first_name,last_name,membership_start,household_id)
         VALUES ($1,$2,'Direkt','Mitglied','2025-01-01',$3)`, m1, "TPW"+uuid.NewString()[:6], h1)
 	t.Cleanup(func() { must(`DELETE FROM fees.members WHERE id=$1`, m1) })
@@ -97,6 +107,16 @@ func TestParentWorkAccountIntegration(t *testing.T) {
 	overview, err := svc.Overview(ctx, 2026)
 	if err != nil {
 		t.Fatal(err)
+	}
+	// Other tests share the database and may leave children without household behind.
+	foundUnassigned := false
+	for _, child := range overview.UnassignedChildren {
+		if child.ID == unassigned && child.Name == "Ohne Familie" {
+			foundUnassigned = true
+		}
+	}
+	if !foundUnassigned {
+		t.Fatalf("unassigned children: %+v", overview.UnassignedChildren)
 	}
 	rows := map[uuid.UUID]domain.ParentWorkAccount{}
 	for _, row := range overview.Households {

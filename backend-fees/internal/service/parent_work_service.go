@@ -17,11 +17,13 @@ import (
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/util"
 )
 
+// ParentWorkService manages work accounts, entries, rules, and imports.
 type ParentWorkService struct {
 	repo repository.ParentWorkRepository
 	txm  *repository.TxManager
 }
 
+// NewParentWorkService creates a service backed by a parent work repository.
 func NewParentWorkService(
 	repo repository.ParentWorkRepository, txm ...*repository.TxManager,
 ) *ParentWorkService {
@@ -32,16 +34,23 @@ func NewParentWorkService(
 	return s
 }
 
+// ParentWorkImportParseResult contains the parsed CSV header and rows.
 type ParentWorkImportParseResult struct {
 	Headers []string   `json:"headers"`
 	Rows    [][]string `json:"rows"`
 }
+
+// ParentWorkImportMapping maps field names to CSV column indexes.
 type ParentWorkImportMapping map[string]int
+
+// ParentWorkImportPreviewRequest describes a CSV mapping to preview.
 type ParentWorkImportPreviewRequest struct {
 	Headers []string                `json:"headers"`
 	Rows    [][]string              `json:"rows"`
 	Mapping ParentWorkImportMapping `json:"mapping"`
 }
+
+// ParentWorkImportRow is a parsed CSV row with matching and validation results.
 type ParentWorkImportRow struct {
 	Index           int        `json:"index"`
 	WorkDate        string     `json:"workDate,omitempty" binding:"optional"`
@@ -55,6 +64,8 @@ type ParentWorkImportRow struct {
 	Errors          []string   `json:"errors"`
 	Duplicate       bool       `json:"duplicate"`
 }
+
+// ParentWorkImportExecuteRow is a confirmed row ready to import.
 type ParentWorkImportExecuteRow struct {
 	HouseholdID     uuid.UUID `json:"householdId"`
 	WorkDate        string    `json:"workDate"`
@@ -63,13 +74,18 @@ type ParentWorkImportExecuteRow struct {
 	MemberName      *string   `json:"memberName,omitempty" binding:"optional"`
 	ChildName       *string   `json:"childName,omitempty" binding:"optional"`
 }
+
+// ParentWorkImportExecuteRequest contains confirmed rows for import.
 type ParentWorkImportExecuteRequest struct {
 	Rows []ParentWorkImportExecuteRow `json:"rows"`
 }
+
+// ParentWorkImportExecuteResult reports the number of imported entries.
 type ParentWorkImportExecuteResult struct {
 	Created int `json:"created"`
 }
 
+// ParseParentWorkHours converts decimal hours to positive quarter-hour minutes.
 func ParseParentWorkHours(raw string) (int, error) {
 	v := strings.TrimSpace(strings.ToLower(raw))
 	v = strings.TrimSuffix(v, "std")
@@ -86,6 +102,7 @@ func ParseParentWorkHours(raw string) (int, error) {
 	return int(math.Round(minutes)), nil
 }
 
+// ParseImport parses a parent work CSV file.
 func (s *ParentWorkService) ParseImport(reader io.Reader) (*ParentWorkImportParseResult, error) {
 	v, err := csvparser.ParseCSV(reader)
 	if err != nil {
@@ -94,6 +111,7 @@ func (s *ParentWorkService) ParseImport(reader io.Reader) (*ParentWorkImportPars
 	return &ParentWorkImportParseResult{Headers: v.Headers, Rows: v.AllRows}, nil
 }
 
+// PreviewImport validates CSV rows and suggests households.
 func (s *ParentWorkService) PreviewImport(
 	ctx context.Context, req ParentWorkImportPreviewRequest,
 ) ([]ParentWorkImportRow, error) {
@@ -117,7 +135,7 @@ func (s *ParentWorkService) PreviewImport(
 	}
 	seen := map[string]bool{}
 	for _, e := range snap.Entries {
-		if e.Status != "VOIDED" {
+		if e.Status != domain.ParentWorkStatusVoided {
 			key := importDuplicateKey(e.HouseholdID, e.WorkDate.Format("2006-01-02"),
 				e.DurationMinutes, e.Occasion)
 			seen[key] = true
@@ -195,6 +213,7 @@ func importDuplicateKey(h uuid.UUID, date string, minutes int, occasion string) 
 	return h.String() + "|" + date + "|" + strconv.Itoa(minutes) + "|" +
 		strings.ToLower(strings.TrimSpace(occasion))
 }
+
 func normalizeParentWorkName(s string) string {
 	return csvparser.NormalizeMatchText(s)
 }
@@ -208,6 +227,7 @@ func parentWorkNameMatches(name, normalizedTarget string) bool {
 	return len(parts) == 2 && parts[1]+" "+parts[0] == normalizedTarget
 }
 
+// ExecuteImport saves confirmed CSV rows in one transaction.
 func (s *ParentWorkService) ExecuteImport(
 	ctx context.Context, req ParentWorkImportExecuteRequest, userID uuid.UUID,
 ) (*ParentWorkImportExecuteResult, error) {
@@ -224,7 +244,7 @@ func (s *ParentWorkService) ExecuteImport(
 			v := domain.ParentWorkEntry{
 				HouseholdID: row.HouseholdID, WorkDate: d, DurationMinutes: row.DurationMinutes,
 				Occasion: strings.TrimSpace(row.Occasion), MemberName: row.MemberName,
-				ChildName: row.ChildName, Status: "APPROVED", Source: "IMPORT",
+				ChildName: row.ChildName, Status: domain.ParentWorkStatusApproved, Source: "IMPORT",
 				CreatedBy: &userID, UpdatedBy: &userID,
 			}
 			if v.HouseholdID == uuid.Nil || v.DurationMinutes <= 0 || v.DurationMinutes%15 != 0 || v.Occasion == "" {
@@ -251,17 +271,20 @@ func (s *ParentWorkService) ExecuteImport(
 	return &ParentWorkImportExecuteResult{Created: created}, nil
 }
 
+// ParentWorkOverview summarizes all household accounts in a Kita year.
 type ParentWorkOverview struct {
-	KitaYear           int                        `json:"kitaYear"`
-	Rule               *domain.ParentWorkRule     `json:"rule,omitempty" binding:"optional"`
-	Notice             *string                    `json:"notice,omitempty" binding:"optional"`
-	Households         []domain.ParentWorkAccount `json:"households"`
-	RequiredMinutes    int                        `json:"requiredMinutes"`
-	DoneMinutes        int                        `json:"doneMinutes"`
-	OpenMinutes        int                        `json:"openMinutes"`
-	MissingAmountCents int                        `json:"missingAmountCents"`
+	KitaYear           int                                `json:"kitaYear"`
+	Rule               *domain.ParentWorkRule             `json:"rule,omitempty" binding:"optional"`
+	Notice             *string                            `json:"notice,omitempty" binding:"optional"`
+	Households         []domain.ParentWorkAccount         `json:"households"`
+	UnassignedChildren []domain.ParentWorkUnassignedChild `json:"unassignedChildren"`
+	RequiredMinutes    int                                `json:"requiredMinutes"`
+	DoneMinutes        int                                `json:"doneMinutes"`
+	OpenMinutes        int                                `json:"openMinutes"`
+	MissingAmountCents int                                `json:"missingAmountCents"`
 }
 
+// ParentWorkHouseholdOption supplies names for household selection.
 type ParentWorkHouseholdOption struct {
 	ID       uuid.UUID                 `json:"id"`
 	Name     string                    `json:"name"`
@@ -270,12 +293,14 @@ type ParentWorkHouseholdOption struct {
 	Parents  []domain.ParentWorkParent `json:"parents"`
 }
 
+// ParentWorkDetail contains one account with its entries and board terms.
 type ParentWorkDetail struct {
 	domain.ParentWorkAccount
 	Entries    []domain.ParentWorkEntry `json:"entries"`
 	BoardTerms []domain.BoardTerm       `json:"boardTerms"`
 }
 
+// Overview calculates household accounts for a Kita year.
 func (s *ParentWorkService) Overview(ctx context.Context, year int) (*ParentWorkOverview, error) {
 	if year < 1900 || year > 9998 {
 		return nil, fmt.Errorf("%w: ungültiges Kita-Jahr", ErrInvalidInput)
@@ -284,7 +309,8 @@ func (s *ParentWorkService) Overview(ctx context.Context, year int) (*ParentWork
 	if err != nil {
 		return nil, err
 	}
-	result := &ParentWorkOverview{KitaYear: year, Households: []domain.ParentWorkAccount{}}
+	result := &ParentWorkOverview{KitaYear: year, Households: []domain.ParentWorkAccount{},
+		UnassignedChildren: []domain.ParentWorkUnassignedChild{}}
 	if len(rules) == 0 || rules[0].ValidFrom.After(domain.ParentWorkYearStart(year)) {
 		notice := "Für dieses Kita-Jahr gibt es kein Regelwerk; es ist nicht abrechenbar."
 		result.Notice = &notice
@@ -293,6 +319,7 @@ func (s *ParentWorkService) Overview(ctx context.Context, year int) (*ParentWork
 		if err != nil {
 			return nil, err
 		}
+		result.UnassignedChildren = unassignedParentWorkChildren(snap.UnassignedChildren, year)
 		zeroRule := &domain.ParentWorkRule{}
 		for _, h := range snap.Households {
 			var children []domain.ParentWorkChild
@@ -341,6 +368,7 @@ func (s *ParentWorkService) Overview(ctx context.Context, year int) (*ParentWork
 	if err != nil {
 		return nil, err
 	}
+	result.UnassignedChildren = unassignedParentWorkChildren(snap.UnassignedChildren, year)
 	children := map[uuid.UUID][]domain.ParentWorkChild{}
 	members := map[uuid.UUID][]domain.ParentWorkMember{}
 	termsByMember := map[uuid.UUID][]domain.BoardTerm{}
@@ -403,6 +431,20 @@ func (s *ParentWorkService) Overview(ctx context.Context, year int) (*ParentWork
 	return result, nil
 }
 
+func unassignedParentWorkChildren(children []domain.ParentWorkUnassignedChild,
+	year int) []domain.ParentWorkUnassignedChild {
+	result := []domain.ParentWorkUnassignedChild{}
+	from := domain.ParentWorkYearStart(year)
+	until := domain.ParentWorkYearStart(year+1).AddDate(0, 0, -1)
+	for _, child := range children {
+		if !child.EntryDate.After(until) && (child.ExitDate == nil || !child.ExitDate.Before(from)) {
+			result = append(result, child)
+		}
+	}
+	return result
+}
+
+// Households lists household choices with children and members.
 func (s *ParentWorkService) Households(
 	ctx context.Context, search string,
 ) ([]ParentWorkHouseholdOption, error) {
@@ -443,6 +485,7 @@ func (s *ParentWorkService) Households(
 	return result, nil
 }
 
+// Detail returns one household account and its entries.
 func (s *ParentWorkService) Detail(ctx context.Context, id uuid.UUID, year int) (*ParentWorkDetail, error) {
 	exists, err := s.repo.HouseholdExists(ctx, id)
 	if err != nil {
@@ -504,6 +547,7 @@ func (s *ParentWorkService) Detail(ctx context.Context, id uuid.UUID, year int) 
 	return detail, nil
 }
 
+// SaveRule creates or updates a rule version.
 func (s *ParentWorkService) SaveRule(
 	ctx context.Context, id uuid.UUID, v domain.ParentWorkRule,
 ) (*domain.ParentWorkRule, error) {
@@ -535,9 +579,13 @@ func (s *ParentWorkService) SaveRule(
 	}
 	return &v, nil
 }
+
+// Rules lists rule versions.
 func (s *ParentWorkService) Rules(ctx context.Context) ([]domain.ParentWorkRule, error) {
 	return s.repo.ListRules(ctx)
 }
+
+// SaveEntry creates or updates a work entry.
 func (s *ParentWorkService) SaveEntry(ctx context.Context, id uuid.UUID, v domain.ParentWorkEntry,
 	userID uuid.UUID) (*domain.ParentWorkEntry, error) {
 	if id != uuid.Nil {
@@ -548,23 +596,38 @@ func (s *ParentWorkService) SaveEntry(ctx context.Context, id uuid.UUID, v domai
 		if err != nil {
 			return nil, err
 		}
-		if existing.Status == "VOIDED" {
+		if existing.Status == domain.ParentWorkStatusVoided {
 			return nil, fmt.Errorf("%w: stornierte Einträge können nicht bearbeitet werden", ErrConflict)
 		}
 		v.ID = id
 		v.CreatedAt = existing.CreatedAt
 		v.CreatedBy = existing.CreatedBy
 		v.Source = existing.Source
+		if v.Status == "" {
+			v.Status = existing.Status
+		}
 	} else {
 		v.Source = "MANUAL"
 		v.CreatedBy = &userID
+		if v.Status == "" {
+			v.Status = domain.ParentWorkStatusApproved
+		}
 	}
 	v.UpdatedBy = &userID
-	if v.HouseholdID == uuid.Nil || v.WorkDate.IsZero() || v.DurationMinutes <= 0 ||
-		v.DurationMinutes%15 != 0 || strings.TrimSpace(v.Occasion) == "" ||
-		!validEntryStatus(v.Status) {
-		return nil, fmt.Errorf("%w: Familie, Datum, Anlass, Status und positive "+
-			"Viertelstunden sind erforderlich", ErrInvalidInput)
+	if v.HouseholdID == uuid.Nil {
+		return nil, fmt.Errorf("%w: Familie fehlt", ErrInvalidInput)
+	}
+	if v.WorkDate.IsZero() {
+		return nil, fmt.Errorf("%w: Datum fehlt", ErrInvalidInput)
+	}
+	if strings.TrimSpace(v.Occasion) == "" {
+		return nil, fmt.Errorf("%w: Anlass fehlt", ErrInvalidInput)
+	}
+	if v.DurationMinutes <= 0 || v.DurationMinutes%15 != 0 {
+		return nil, fmt.Errorf("%w: Stunden müssen positiv und in Viertelstunden sein", ErrInvalidInput)
+	}
+	if !validEntryStatus(v.Status) {
+		return nil, fmt.Errorf("%w: Ungültiger Status", ErrInvalidInput)
 	}
 	exists, err := s.repo.HouseholdExists(ctx, v.HouseholdID)
 	if err != nil {
@@ -579,9 +642,13 @@ func (s *ParentWorkService) SaveEntry(ctx context.Context, id uuid.UUID, v domai
 	}
 	return &v, nil
 }
+
 func validEntryStatus(s string) bool {
-	return s == "SUBMITTED" || s == "APPROVED" || s == "REJECTED"
+	return s == domain.ParentWorkStatusSubmitted || s == domain.ParentWorkStatusApproved ||
+		s == domain.ParentWorkStatusRejected
 }
+
+// VoidEntry cancels a work entry with a reason.
 func (s *ParentWorkService) VoidEntry(ctx context.Context, id uuid.UUID, reason string,
 	userID uuid.UUID) (*domain.ParentWorkEntry, error) {
 	v, err := s.repo.GetEntry(ctx, id)
@@ -591,14 +658,14 @@ func (s *ParentWorkService) VoidEntry(ctx context.Context, id uuid.UUID, reason 
 	if err != nil {
 		return nil, err
 	}
-	if v.Status == "VOIDED" {
+	if v.Status == domain.ParentWorkStatusVoided {
 		return nil, fmt.Errorf("%w: Eintrag ist bereits storniert", ErrConflict)
 	}
 	reason = strings.TrimSpace(reason)
 	if reason == "" {
 		return nil, fmt.Errorf("%w: Stornogrund fehlt", ErrInvalidInput)
 	}
-	v.Status = "VOIDED"
+	v.Status = domain.ParentWorkStatusVoided
 	v.VoidReason = &reason
 	v.UpdatedBy = &userID
 	if err := s.repo.SaveEntry(ctx, v); err != nil {
@@ -606,6 +673,8 @@ func (s *ParentWorkService) VoidEntry(ctx context.Context, id uuid.UUID, reason 
 	}
 	return v, nil
 }
+
+// SaveOverride sets a household annual requirement.
 func (s *ParentWorkService) SaveOverride(ctx context.Context, v domain.ParentWorkOverride,
 	userID uuid.UUID) (*domain.ParentWorkOverride, error) {
 	if v.KitaYear < 1900 || v.KitaYear > 9998 || v.RequiredMinutes < 0 || strings.TrimSpace(v.Reason) == "" {
@@ -625,6 +694,8 @@ func (s *ParentWorkService) SaveOverride(ctx context.Context, v domain.ParentWor
 	}
 	return &v, nil
 }
+
+// DeleteOverride removes a household annual requirement.
 func (s *ParentWorkService) DeleteOverride(ctx context.Context, id uuid.UUID, year int) error {
 	err := s.repo.DeleteOverride(ctx, id, year)
 	if errors.Is(err, repository.ErrNotFound) {
@@ -632,9 +703,13 @@ func (s *ParentWorkService) DeleteOverride(ctx context.Context, id uuid.UUID, ye
 	}
 	return err
 }
+
+// Terms lists board appointments.
 func (s *ParentWorkService) Terms(ctx context.Context) ([]domain.BoardTerm, error) {
 	return s.repo.ListTerms(ctx)
 }
+
+// SaveTerm creates or updates a board appointment.
 func (s *ParentWorkService) SaveTerm(
 	ctx context.Context, id uuid.UUID, v domain.BoardTerm,
 ) (*domain.BoardTerm, error) {
@@ -666,6 +741,8 @@ func (s *ParentWorkService) SaveTerm(
 	}
 	return s.repo.GetTerm(ctx, v.ID)
 }
+
+// DeleteTerm removes a board appointment.
 func (s *ParentWorkService) DeleteTerm(ctx context.Context, id uuid.UUID) error {
 	err := s.repo.DeleteTerm(ctx, id)
 	if errors.Is(err, repository.ErrNotFound) {

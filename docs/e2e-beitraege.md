@@ -30,6 +30,7 @@ Nach dem Lauf beendet Playwright das Skript per SIGTERM, das Skript entfernt den
 - Daten, die nicht Gegenstand des Tests sind, per `adminApi` über die echte API anlegen; den zu prüfenden Ablauf über die Oberfläche.
 - Selektoren über Rolle und Beschriftung (`getByRole`, `getByLabel`). Fehlt einem Element ein zugänglicher Name, im Frontend ergänzen (z. B. `role="dialog"` + `aria-label`, Benutzermenü `aria-label="Benutzermenü"`).
 - Bank-CSVs mit `bankCsv()` aus `bank.ts` und je Test eigener Zahler-IBAN (`uniqueIban()`): Eine automatisch zugeordnete Zahlung macht ihre IBAN für dieses Kind vertrauenswürdig, eine geteilte IBAN leitet Zahlungen anderer Tests dorthin um.
+- Mitgliedsnummern sind `varchar(10)`: nicht aus `uniq()` bauen, sondern kurze Zufallszahlen verwenden (siehe `parent-work.spec.ts`).
 - Fehlversuche beim Login zählen gegen die Login-Bremse (20 pro IP in 15 Minuten, alle Tests teilen `127.0.0.1`). Tests für falsche Passwörter nutzen eigene Konten (`createUser`) und bleiben sparsam.
 
 ## Abgedeckt
@@ -38,3 +39,4 @@ Nach dem Lauf beendet Playwright das Skript per SIGTERM, das Skript entfernt den
 - `users.spec.ts`: Benutzer anlegen, Nicht-Admin ohne Zugriff auf „Benutzer“, eigenes Passwort ändern (andere Sitzungen enden), Deaktivieren, Selbstschutz.
 - `fees-flow.spec.ts`: Kind und Elternteil anlegen, Monatsbeiträge generieren, Bank-CSV hochladen, automatische Zuordnung, Beitrag erscheint als bezahlt.
 - `banking-sync-import.spec.ts`: der tägliche Upload von banking-sync, ohne Login, nur `X-Import-Token` und Multipart-Feld `file` wie `banking-sync/upload.js`/`sync.js`: falsches Token → 401, Zahlung wird automatisch zugeordnet, erneuter Upload derselben Datei wird übersprungen.
+- `parent-work.spec.ts` (Elternstunden): Rolle `PARENT_WORK` sieht nur den Elternstunden-Bereich und bekommt 403 auf `/children`; Eintrag erfassen senkt „Offen“, Stornieren stellt es wieder her; Vorstandsamt befreit die Familie; CSV-Vorschau ordnet über das Kind zu und importiert einen Eintrag.

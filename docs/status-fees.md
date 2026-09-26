@@ -3,9 +3,41 @@
 Rolling change log of non-obvious implementation decisions. Newest first.
 Basics (ports, commands, layout) live in `AGENTS.md`.
 
-## Elternstunden: fachliche Regeln (Stand 2026-09-26, noch nicht umgesetzt)
+## Elternstunden, Stufe 1: Erfassung durch Tim (2026-09-27)
 
-Noch kein Code. Ausgangspunkt war die nie deployte Portal-Spec (Tag `archive/pre-cleanup-2026-09`, `docs/portal/SPEC.md`, `backend-portal/internal/service/parent_work_rules.go`); mit Stefan abgeglichen, dazu Betreuungsvertrag Ziff. 7.3 und der Vordruck „Erfassung Elternstunden“:
+Umgesetzt nach dem (inzwischen gelöschten) Plan `docs/plan-elternstunden.md` in fünf Etappen, jeweils von Codex
+gebaut und danach selbst geprüft (Tests, lokale Kopie der Live-Daten, Screenshots).
+
+- **Rolle `PARENT_WORK`** („Elternstunden“, Migration `000038`): sieht nur `/elternstunden/**` und die API
+  `/api/fees/v1/parent-work/**`. Dafür trennt der Router jetzt nach Gruppen: Beitrags-Routen nur `ADMIN`/`USER`,
+  `/users` nur `ADMIN`, `/parent-work` `ADMIN`/`PARENT_WORK` (Regelwerk schreiben nur `ADMIN`). Vorher reichte für
+  alle Beitrags-Routen jede Anmeldung. JWT-Uploads auf `/import/upload` nur `ADMIN`/`USER`; der Import-Token von
+  banking-sync bleibt unverändert. `USER` hat keinen Zugriff auf Elternstunden (live gibt es nur einen `ADMIN`).
+- **Tabellen** (Migration `000039`): `parent_work_rules` (versioniert per `valid_from`, Seed ab 01.08.2025:
+  540 min je Kind, 3000 Cent je Fehlstunde, max. 180 min Übertrag; neue Versionen nur ab einem künftigen 01.08.),
+  `board_terms` (Amtszeiten an `fees.members`), `parent_work_entries` (je Familie, Minuten in Viertelstunden,
+  Status für spätere Stufen, Storno statt Löschen, Quelle `MANUAL`/`IMPORT`), `parent_work_overrides` (manuelles
+  Soll je Familie und Kita-Jahr mit Begründung). Eine Familie mit Elternstunden-Einträgen lässt sich nicht löschen (409).
+- **Berechnung** (`domain.CalculateParentWork`, rein, tabellengetrieben getestet): Soll je Kind 3 h je angefangenem
+  Tertial; Vorstandsbefreiung, wenn eine Amtszeit eines Vereinsmitglieds der Familie (direkt über
+  `members.household_id` oder über `parents.member_id`) das Kita-Jahr schneidet; manuelles Soll ersetzt beides;
+  Übertrag `min(max, Ist + Übertrag − Soll, Ist)` – übertragene Stunden werden zuerst verbraucht und nie weitergereicht;
+  Fehlbetrag nur angezeigt. Der Service rechnet Jahr für Jahr ab dem ersten Regelwerk-Jahr aus einem gesammelt
+  geladenen Snapshot, keine Abfrage je Familie.
+- **Import:** Tims Excel als CSV; Spalten werden im Dialog zugeordnet, Familien über Kind- oder Mitglieds-/Elternnamen
+  gefunden, Dubletten markiert, Ausführung atomar. Das echte Excel lag noch nicht vor; die Annahme „eine Zeile je
+  Zettel mit den Feldern des Vordrucks“ ist ungeprüft.
+- **Geprüft an einer lokalen Kopie der Live-Daten** (Stand 2026-09-26, `pg_dump --schema=fees`, Wegwerf-Container):
+  45 Familien mit 50 Kindern im Kita-Jahr 2026/27, Soll 438 h – deckt sich mit einer unabhängigen SQL-Rechnung.
+  11 Kinder ohne Familie sind alle ausgetreten; künftige Fälle zeigt die Übersicht als Hinweis.
+- **E2E:** `frontend/e2e/beitraege/parent-work.spec.ts` (Rollenrechte, Eintrag/Storno, Vorstandsbefreiung, CSV-Import).
+- **Nicht umgesetzt:** Vorstandsmitglieder und Amtsbeginne sind live noch nicht erfasst (nach dem Deploy auf der
+  Vorstandsseite eintragen); Befreiung für die ganze Kita-Zeit nach 2 Jahren Vorstand ist nicht beschlossen und
+  nicht gebaut; keine Eltern-Zugänge, keine Abnahme durch Erzieherinnen, keine Erinnerungen, keine Forderung.
+
+### Fachliche Regeln (Stand 2026-09-26)
+
+Ausgangspunkt war die nie deployte Portal-Spec (Tag `archive/pre-cleanup-2026-09`, `docs/portal/SPEC.md`, `backend-portal/internal/service/parent_work_rules.go`); mit Stefan abgeglichen, dazu Betreuungsvertrag Ziff. 7.3 und der Vordruck „Erfassung Elternstunden“:
 
 - **Rechtsgrundlage:** Satzung 2025 § 5: Mitglieder leisten je Kita-Jahr Arbeitsstunden, für nicht geleistete ist ein Entgelt zu zahlen; Stundenzahl, Höhe und Fälligkeit beschließt die Mitgliederversammlung (2/3). Die Elternbeitragsordnung 2025 regelt dazu nichts. Betreuungsvertrag 7.3: „derzeit 9 Stunden (pro Kind)“, „für jede nicht geleistete Stunde … derzeit 30,00 Euro“, nachweispflichtig ist das Vereinsmitglied.
 - **Soll:** 9 h je Kind und Kita-Jahr (01.08.–31.07.). Bei Ein- oder Austritt im Jahr 3 h je angefangenem Tertial (01.08.–30.11., 01.12.–31.03., 01.04.–31.07.). Manuelles Überschreiben mit Begründung bleibt möglich.
@@ -345,22 +377,3 @@ WHERE c.household_id IS NOT NULL
 - `src/layouts/MainLayout.vue` prevents root horizontal overflow, uses tighter mobile padding, and opens the nav drawer from the right.
 - `src/assets/main.css` constrains app-wide horizontal overflow and adds touch-friendly internal scrolling for wide tables.
 - `src/pages/ImportPage.vue` wraps import-history, unmatched, blacklist and matched tables in horizontal scroll containers; the tab bar scrolls internally. If another page shifts the viewport sideways, look for raw `<table>` markup or unbounded tab/filter rows missing an `overflow-x-auto` container.
-
-## Elternstunden Etappe 1: Rolle und Zugriff (2026-09-26)
-
-`PARENT_WORK` ist als Benutzerrolle angelegt. Der Router trennt Beiträge (ADMIN/USER),
-Benutzerverwaltung (ADMIN) und `/parent-work` (ADMIN/PARENT_WORK).
-`GET /parent-work/ping` und die Frontend-Seite `/elternstunden` sind nur Gerüste;
-Erfassung, Berechnung und Datenmodell folgen in späteren Etappen. JWT-Uploads
-unter `/import/upload` erlauben nur ADMIN/USER; der Import-Token bleibt gültig.
-
-## Elternstunden Etappe 4: CSV-Import (2026-09-26)
-
-`POST /parent-work/import/parse` liest Excel-Exporte als CSV über den gemeinsamen
-CSV-Parser. `preview` akzeptiert Header, Zeilen und Feldindizes für Mitglied, Kind,
-Datum, Anlass und Stunden, löst eindeutige Treffer gegen Kinder, Vereinsmitglieder
-und Eltern auf und markiert Fehler sowie Dubletten. Stunden werden als positive
-Viertelstunden in Minuten behandelt. `execute` legt ausgewählte Zeilen atomar als
-genehmigte Einträge mit `source=IMPORT` und dem angemeldeten Benutzer an.
-Die Beiträge-App hat dafür die geschützte Route `/elternstunden/import` mit
-Spaltenzuordnung, Vorschau, Familienauswahl und Dubletten-Auswahl.

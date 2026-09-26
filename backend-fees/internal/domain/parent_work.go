@@ -7,6 +7,22 @@ import (
 	"github.com/google/uuid"
 )
 
+const (
+	ParentWorkStatusSubmitted = "SUBMITTED"
+	ParentWorkStatusApproved  = "APPROVED"
+	ParentWorkStatusRejected  = "REJECTED"
+	ParentWorkStatusVoided    = "VOIDED"
+)
+
+// ParentWorkUnassignedChild is a cared-for child without a household.
+type ParentWorkUnassignedChild struct {
+	ID        uuid.UUID  `json:"id" db:"id"`
+	Name      string     `json:"name" db:"name"`
+	EntryDate time.Time  `json:"-" db:"entry_date"`
+	ExitDate  *time.Time `json:"-" db:"exit_date"`
+}
+
+// ParentWorkRule defines the contribution rules valid from a given date.
 type ParentWorkRule struct {
 	ID                   uuid.UUID `json:"id" db:"id"`
 	ValidFrom            time.Time `json:"validFrom" db:"valid_from"`
@@ -17,6 +33,7 @@ type ParentWorkRule struct {
 	UpdatedAt            time.Time `json:"updatedAt" db:"updated_at"`
 }
 
+// ParentWorkChild is a child linked to a household for account calculations.
 type ParentWorkChild struct {
 	ID          uuid.UUID  `json:"id" db:"id"`
 	HouseholdID uuid.UUID  `json:"-" db:"household_id"`
@@ -28,17 +45,20 @@ type ParentWorkChild struct {
 	Tertials    int        `json:"tertials" db:"-"`
 }
 
+// ParentWorkMember is a club member linked to a household.
 type ParentWorkMember struct {
 	ID          uuid.UUID `json:"id" db:"id"`
 	HouseholdID uuid.UUID `json:"-" db:"household_id"`
 	Name        string    `json:"name" db:"name"`
 }
 
+// ParentWorkParent is a parent linked to a household.
 type ParentWorkParent struct {
 	HouseholdID uuid.UUID `json:"-" db:"household_id"`
 	Name        string    `json:"name" db:"name"`
 }
 
+// BoardTerm records a club board appointment.
 type BoardTerm struct {
 	ID            uuid.UUID  `json:"id" db:"id"`
 	MemberID      uuid.UUID  `json:"memberId" db:"member_id"`
@@ -53,6 +73,7 @@ type BoardTerm struct {
 	UpdatedAt     time.Time  `json:"updatedAt" db:"updated_at"`
 }
 
+// ParentWorkEntry records work credited to a household.
 type ParentWorkEntry struct {
 	ID              uuid.UUID  `json:"id" db:"id"`
 	HouseholdID     uuid.UUID  `json:"householdId" db:"household_id"`
@@ -70,6 +91,7 @@ type ParentWorkEntry struct {
 	UpdatedAt       time.Time  `json:"updatedAt" db:"updated_at"`
 }
 
+// ParentWorkOverride replaces a household's calculated annual requirement.
 type ParentWorkOverride struct {
 	ID              uuid.UUID  `json:"id" db:"id"`
 	HouseholdID     uuid.UUID  `json:"householdId" db:"household_id"`
@@ -81,6 +103,7 @@ type ParentWorkOverride struct {
 	UpdatedAt       time.Time  `json:"updatedAt" db:"updated_at"`
 }
 
+// ParentWorkAccount contains the calculated annual balance of a household.
 type ParentWorkAccount struct {
 	HouseholdID        uuid.UUID         `json:"householdId"`
 	HouseholdName      string            `json:"householdName"`
@@ -103,6 +126,7 @@ func ParentWorkYearStart(year int) time.Time {
 	return time.Date(year, 8, 1, 0, 0, 0, 0, time.UTC)
 }
 
+// ParentWorkKitaYear returns the start year of the Kita year containing date.
 func ParentWorkKitaYear(date time.Time) int {
 	if date.Month() < time.August {
 		return date.Year() - 1
@@ -158,7 +182,7 @@ func CalculateParentWork(year int, rule *ParentWorkRule, children []ParentWorkCh
 	for _, entry := range entries {
 		if !entry.WorkDate.Before(starts[0]) && !entry.WorkDate.After(ends[2]) {
 			result.EntryCount++
-			if entry.Status == "APPROVED" {
+			if entry.Status == ParentWorkStatusApproved {
 				result.DoneMinutes += entry.DurationMinutes
 			}
 		}

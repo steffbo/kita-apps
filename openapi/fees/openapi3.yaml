@@ -8705,6 +8705,16 @@ components:
         - updatedAt
         - validFrom
       type: object
+    domain.ParentWorkUnassignedChild:
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+      required:
+        - id
+        - name
+      type: object
     domain.PaymentMatch:
       properties:
         amount:
@@ -9496,6 +9506,10 @@ components:
           type: integer
         rule:
           $ref: "#/components/schemas/domain.ParentWorkRule"
+        unassignedChildren:
+          items:
+            $ref: "#/components/schemas/domain.ParentWorkUnassignedChild"
+          type: array
       required:
         - doneMinutes
         - households
@@ -9503,6 +9517,7 @@ components:
         - missingAmountCents
         - openMinutes
         - requiredMinutes
+        - unassignedChildren
       type: object
     service.PreviewResult:
       properties:

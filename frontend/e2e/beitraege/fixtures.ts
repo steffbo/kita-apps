@@ -57,8 +57,8 @@ type Fixtures = {
   adminPage: import('@playwright/test').Page;
   /** API client authenticated as admin, for seeding. */
   adminApi: Api;
-  /** Creates an active account with role USER (or ADMIN) and returns its credentials. */
-  createUser: (role?: 'USER' | 'ADMIN') => Promise<TestUser>;
+  /** Creates an active account with the requested role and returns its credentials. */
+  createUser: (role?: 'USER' | 'ADMIN' | 'PARENT_WORK') => Promise<TestUser>;
 };
 
 export const test = base.extend<Fixtures>({

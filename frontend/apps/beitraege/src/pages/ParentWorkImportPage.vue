@@ -3,6 +3,8 @@ import { computed, ref } from 'vue';
 import { RouterLink } from 'vue-router';
 import api from '@/api/client';
 import type { ParentWorkHouseholdOption, ParentWorkImportPreviewRow, ParentWorkImportExecuteRow } from '@/api/types';
+import { formatDate, formatHours } from '@/utils/format';
+import HouseholdPicker from '@/components/parent-work/HouseholdPicker.vue';
 
 const headers = ref<string[]>([]);
 const csvRows = ref<string[][]>([]);
@@ -15,11 +17,11 @@ const error = ref('');
 const success = ref('');
 const file = ref<File | null>(null);
 const fields = [
-  { key: 'memberName', label: 'Mitglied', hints: ['mitglied', 'elternteil', 'name'] },
   { key: 'childName', label: 'Kind', hints: ['kind'] },
-  { key: 'workDate', label: 'Datum', hints: ['datum', 'wann', 'tag'] },
-  { key: 'occasion', label: 'Anlass', hints: ['anlass', 'tatigkeit', 'tätigkeit', 'arbeit'] },
-  { key: 'hours', label: 'Stunden', hints: ['stunden', 'std', 'dauer', 'zeit'] },
+  { key: 'memberName', label: 'Mitglied', hints: ['mitglied'] },
+  { key: 'workDate', label: 'Datum', hints: ['datum', 'wann'] },
+  { key: 'occasion', label: 'Anlass', hints: ['anlass', 'tatigkeit', 'tätigkeit'] },
+  { key: 'hours', label: 'Stunden', hints: ['stunden', 'std', 'dauer'] },
 ];
 const canPreview = computed(() => ['workDate', 'hours', 'occasion'].every(k => mapping.value[k] !== undefined) &&
   (mapping.value.childName !== undefined || mapping.value.memberName !== undefined));
@@ -46,14 +48,24 @@ async function preview() {
       api.previewParentWorkImport(headers.value, csvRows.value, mapping.value), api.getParentWorkHouseholds(),
     ]);
     rows.value = result; households.value = familyList ?? [];
-    selected.value = Object.fromEntries(result.map(r => [r.index, !r.duplicate && r.errors.length === 0]));
+    selected.value = Object.fromEntries(result.map(r => [r.index, !r.duplicate && rowSelectable(r)]));
   } catch (e) { error.value = e instanceof Error ? e.message : 'Vorschau fehlgeschlagen'; }
   finally { busy.value = false; }
 }
-function rowReady(row: ParentWorkImportPreviewRow) {
-  return !!row.householdId && !!row.workDate && !!row.durationMinutes && !!row.occasion?.trim();
+function remainingErrors(row: ParentWorkImportPreviewRow) {
+  return row.errors.filter(message => !(row.householdId &&
+    (message.includes('Familie auswählen') || message.includes('Familie nicht gefunden'))));
 }
-const chosenRows = computed(() => rows.value.filter(r => selected.value[r.index] && rowReady(r)));
+function rowSelectable(row: ParentWorkImportPreviewRow) {
+  return !!row.householdId && !!row.workDate && !!row.durationMinutes &&
+    !!row.occasion?.trim() && remainingErrors(row).length === 0;
+}
+function chooseHousehold(row: ParentWorkImportPreviewRow, id: string) {
+  row.householdId = id || undefined;
+  row.householdName = households.value.find(h => h.id === id)?.name;
+  selected.value[row.index] = rowSelectable(row) && !row.duplicate;
+}
+const chosenRows = computed(() => rows.value.filter(r => selected.value[r.index] && rowSelectable(r)));
 async function execute() {
   busy.value = true; error.value = ''; success.value = '';
   try {
@@ -62,7 +74,7 @@ async function execute() {
       ...(r.memberName ? { memberName: r.memberName } : {}), ...(r.childName ? { childName: r.childName } : {}),
     }));
     const result = await api.executeParentWorkImport(payload);
-    success.value = `${result.created} Einträge wurden importiert.`; rows.value = [];
+    success.value = `${result.created} ${result.created === 1 ? 'Eintrag wurde' : 'Einträge wurden'} importiert.`; rows.value = [];
   } catch (e) { error.value = e instanceof Error ? e.message : 'Import fehlgeschlagen'; }
   finally { busy.value = false; }
 }
@@ -78,7 +90,7 @@ async function execute() {
     <div class="rounded-lg border bg-white p-4">
       <label class="block text-sm font-medium" for="parent-work-csv">CSV-Datei</label>
       <input id="parent-work-csv" class="mt-2 block w-full text-sm" type="file" accept=".csv,text/csv" @change="file = ($event.target as HTMLInputElement).files?.[0] ?? null; chooseFile()" />
-      <p v-if="headers.length" class="mt-2 text-sm text-gray-600">{{ csvRows.length }} Zeilen erkannt.</p>
+      <p v-if="headers.length" class="mt-2 text-sm text-gray-600">{{ csvRows.length }} {{ csvRows.length === 1 ? 'Zeile' : 'Zeilen' }} erkannt.</p>
     </div>
     <div v-if="headers.length" class="rounded-lg border bg-white p-4">
       <h2 class="font-semibold">Spalten zuordnen</h2>
@@ -94,16 +106,19 @@ async function execute() {
     <p v-if="error" class="rounded border border-red-300 bg-red-50 p-3 text-sm text-red-800" role="alert">{{ error }}</p>
     <p v-if="success" class="rounded border border-green-300 bg-green-50 p-3 text-sm text-green-800" role="status">{{ success }} <RouterLink class="underline" to="/elternstunden">Zur Übersicht</RouterLink></p>
     <div v-if="rows.length" class="space-y-3">
-      <div class="flex flex-wrap items-center justify-between gap-3"><h2 class="text-lg font-semibold">Vorschau ({{ chosenRows.length }} ausgewählt)</h2><button class="rounded bg-primary px-4 py-2 text-white disabled:opacity-50" :disabled="busy || !chosenRows.length" @click="execute">{{ chosenRows.length }} Einträge importieren</button></div>
+      <div class="flex flex-wrap items-center justify-between gap-3"><h2 class="text-lg font-semibold">Vorschau ({{ chosenRows.length }} ausgewählt)</h2><button class="rounded bg-primary px-4 py-2 text-white disabled:opacity-50" :disabled="busy || !chosenRows.length" @click="execute">{{ chosenRows.length }} {{ chosenRows.length === 1 ? 'Eintrag' : 'Einträge' }} importieren</button></div>
       <div class="overflow-x-auto rounded-lg border bg-white">
         <table class="min-w-full text-left text-sm"><thead class="bg-gray-50"><tr><th class="p-3">Import</th><th class="p-3">Zeile</th><th class="p-3">Datum</th><th class="p-3">Stunden</th><th class="p-3">Anlass</th><th class="p-3">Mitglied / Kind</th><th class="p-3">Familie</th><th class="p-3">Status</th></tr></thead>
           <tbody><tr v-for="row in rows" :key="row.index" class="border-t align-top">
-            <td class="p-3"><input v-model="selected[row.index]" type="checkbox" :disabled="!rowReady(row)" :aria-label="`Zeile ${row.index} importieren`" /></td>
-            <td class="p-3">{{ row.index }}</td><td class="p-3">{{ row.workDate ?? '—' }}</td><td class="p-3">{{ row.durationMinutes ? row.durationMinutes / 60 : '—' }}</td><td class="p-3">{{ row.occasion || '—' }}</td><td class="p-3">{{ [row.memberName, row.childName].filter(Boolean).join(' / ') || '—' }}</td>
-            <td class="min-w-56 p-3"><select :value="row.householdId ?? ''" class="w-full rounded border px-2 py-1" :aria-label="`Familie für Zeile ${row.index}`" @change="row.householdId = ($event.target as HTMLSelectElement).value || undefined; row.householdName = households.find(h => h.id === row.householdId)?.name">
-              <option value="">Familie auswählen</option><option v-for="household in households" :key="household.id" :value="household.id">{{ household.name }}</option>
-            </select></td>
-            <td class="max-w-64 p-3"><span v-if="row.duplicate" class="text-amber-700">Dublette</span><span v-else-if="!rowReady(row)" class="text-red-700">{{ row.errors.join('; ') || 'Familie auswählen' }}</span><span v-else class="text-green-700">OK</span></td>
+            <td class="p-3"><input v-model="selected[row.index]" type="checkbox" :disabled="!rowSelectable(row)" :aria-label="`Zeile ${row.index} importieren`" /></td>
+            <td class="p-3">{{ row.index }}</td><td class="p-3">{{ formatDate(row.workDate) }}</td><td class="p-3">{{ row.durationMinutes ? formatHours(row.durationMinutes) : '—' }}</td><td class="p-3">{{ row.occasion || '—' }}</td><td class="p-3">{{ [row.memberName, row.childName].filter(Boolean).join(' / ') || '—' }}</td>
+            <td class="min-w-56 p-3"><HouseholdPicker :model-value="row.householdId" :households="households"
+              :label="`Familie für Zeile ${row.index}`" @update:model-value="chooseHousehold(row, $event)" />
+              <p v-if="row.matchedBy && row.householdId" class="mt-1 text-xs text-gray-600">
+                Treffer über {{ row.matchedBy === 'child' ? 'Kind' : 'Mitglied' }}
+              </p>
+            </td>
+            <td class="max-w-64 p-3"><span v-if="!rowSelectable(row)" class="text-red-700">{{ remainingErrors(row).join('; ') || 'Familie auswählen' }}</span><span v-else-if="row.duplicate" class="text-amber-700">Dublette</span><span v-else class="text-green-700">OK</span></td>
           </tr></tbody>
         </table>
       </div>
