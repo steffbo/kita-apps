@@ -10,6 +10,7 @@ Basics (ports, commands, layout) live in `AGENTS.md`.
 - **OpenAPI:** `openapi/fees/swagger.yaml` ist nicht mehr eingecheckt; `scripts/generate-api.sh` erzeugt es in einem Temp-Verzeichnis und schreibt nur `openapi3.yaml`.
 - **Image:** `backend-fees/Dockerfile` kopiert weder `openapi/` noch `frontend/packages` und generiert keine Typen mehr (`schema.d.ts` ist eingecheckt). `build-images.yml` baut nur noch `backend-fees` und `banking-sync`.
 - **Homelab (Repo `homelab`):** `backend-management` aus der kita-Compose entfernt. Edge-Caddy leitet `/beitraege/*`, `/api/fees/*`, `/health` an `backend-fees`, alles andere per 302 auf `/beitraege/` (302, weil `/` später ein Eltern-Einstieg werden kann). Dabei behoben: `redir /plan/ permanent` wurde von Caddy als Matcher `/plan/` mit Ziel `permanent` gelesen, `/`, `/health` und `/healthz` lieferten öffentlich eine leere 200 – die Health-Checks in `docs/deployment-homelab.md` prüften also nichts.
+- **Live-DB:** Die Management-Tabellen in `public` (Testdaten: 1 Mitarbeiterin, 56 Dienstplan-Einträge, 1 Zeiteintrag, plus `flyway_schema_history` aus der Java-Zeit) und `public.update_updated_at_column()` sind gelöscht; `public` ist leer, `fees` hat keine Abhängigkeiten darauf. Vorher per `pg_dump --schema=public` gesichert auf der Workstation unter `~/backups/kita/kita-public-management-2026-09-26.sql` (enthält E-Mail und Passwort-Hash, Rechte 600).
 
 ## Code-Review-Backlog (ab 2026-09-23)
 
