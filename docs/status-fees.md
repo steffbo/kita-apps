@@ -5,16 +5,17 @@ Basics (ports, commands, layout) live in `AGENTS.md`.
 
 ## Elternstunden: fachliche Regeln (Stand 2026-09-26, noch nicht umgesetzt)
 
-Noch kein Code. Ausgangspunkt war die nie deployte Portal-Spec (Tag `archive/pre-cleanup-2026-09`, `docs/portal/SPEC.md`, `backend-portal/internal/service/parent_work_rules.go`); mit Stefan abgeglichen:
+Noch kein Code. Ausgangspunkt war die nie deployte Portal-Spec (Tag `archive/pre-cleanup-2026-09`, `docs/portal/SPEC.md`, `backend-portal/internal/service/parent_work_rules.go`); mit Stefan abgeglichen, dazu Betreuungsvertrag Ziff. 7.3 und der Vordruck „Erfassung Elternstunden“:
 
-- **Rechtsgrundlage:** Satzung 2025 § 5: Mitglieder leisten je Kita-Jahr Arbeitsstunden, für nicht geleistete ist ein Entgelt zu zahlen; Stundenzahl, Höhe und Fälligkeit beschließt die Mitgliederversammlung (2/3). Die Elternbeitragsordnung 2025 regelt dazu nichts; Zahlen stehen im Betreuungsvertrag.
-- **Soll:** 9 h je Kind und Kita-Jahr (01.08.–31.07.). Bei Ein- oder Austritt im Jahr 3 h je angefangenem Tertial (01.08.–30.11., 01.12.–31.03., 01.04.–31.07.). Vorstandsarbeit befreit. Manuelles Überschreiben mit Begründung bleibt möglich.
-- **Konto je Familie, nicht je Kind:** Das Soll ist die Summe über die Kinder des Haushalts; geleistete Stunden werden dem Haushalt gutgeschrieben, nicht einem Kind (anders als in der Portal-Spec).
-- **Kein Übertrag** ins nächste Kita-Jahr.
-- **Fehlstunden kosten Geld**, werden aber fast immer nachgeholt oder anders gelöst. Daher zunächst nur Fehlstunden anzeigen, keine automatische Forderung. Stundensatz aus dem Vertrag steht noch aus; er gehört dann versioniert in die Daten (wie `fees.fee_schedules`), nicht in den Code.
+- **Rechtsgrundlage:** Satzung 2025 § 5: Mitglieder leisten je Kita-Jahr Arbeitsstunden, für nicht geleistete ist ein Entgelt zu zahlen; Stundenzahl, Höhe und Fälligkeit beschließt die Mitgliederversammlung (2/3). Die Elternbeitragsordnung 2025 regelt dazu nichts. Betreuungsvertrag 7.3: „derzeit 9 Stunden (pro Kind)“, „für jede nicht geleistete Stunde … derzeit 30,00 Euro“, nachweispflichtig ist das Vereinsmitglied.
+- **Soll:** 9 h je Kind und Kita-Jahr (01.08.–31.07.). Bei Ein- oder Austritt im Jahr 3 h je angefangenem Tertial (01.08.–30.11., 01.12.–31.03., 01.04.–31.07.). Manuelles Überschreiben mit Begründung bleibt möglich.
+- **Konto und Einträge je Familie (Haushalt), nicht je Kind:** Das Soll ist die Summe über die Kinder des Haushalts; Einträge gehören dem Haushalt (anders als in der Portal-Spec).
+- **Vorstandsbefreiung:** Vorstandsmitglieder müssen gekennzeichnet werden (Zeiträume am Vereinsmitglied, `fees.members`); ein Haushalt mit Vorstandsmitglied ist befreit.
+- **Fehlstunden:** 30 € je Stunde. Werden aber fast immer nachgeholt oder anders gelöst; daher zunächst nur anzeigen (inkl. Betrag), keine automatische Forderung. Stundenzahl und Satz sind Beschlüsse der Mitgliederversammlung („derzeit“), gehören also versioniert in die Daten, nicht in den Code.
+- **Übertrag: widersprüchlich.** Stefan: kein Übertrag. Der Vordruck sagt: „Wurden mehr als neun Stunden in einem Kitajahr geleistet, so werden bis zu drei Stunden ins folgende Kitajahr übertragen.“ Noch zu klären.
 - **Genauigkeit:** mindestens halbe Stunden; ob Viertelstunden gebraucht werden, ist offen. Speichern in Minuten hält beides offen.
-- **Ablauf heute:** Eltern erledigen Aufgaben (Räume reinigen, Küchendienst, Betreuung während Dienstbesprechungen, Garten …), eine Erzieherin unterschreibt den Zettel, Tim Hall führt die Übersicht (vermutlich Excel). Geplante Stufen: (1) Tim erfasst und sieht die Übersicht mit einer eigenen Rolle nur für Elternstunden, (2) Erzieherinnen nehmen digital ab, (3) Eltern reichen selbst ein und bekommen Erinnerungen; danach entfällt Tims Buchführung.
-- **Rollen-Hinweis:** Heute sperrt der Router nur einzelne Routen auf `ADMIN`; jeder andere angemeldete Benutzer sieht alle Beiträge. Eine Elternstunden-Rolle erfordert, die Beitrags-Routen ausdrücklich auf `ADMIN`/`USER` zu beschränken.
+- **Ablauf heute:** Eltern erledigen Aufgaben (Räume reinigen, Küchendienst, Betreuung während Dienstbesprechungen, Garten …) und füllen den Vordruck aus (Mitglied, Kind, Datum, Anlass, Stunden, Unterschrift Mitglied und Erzieher/in). Tim Hall pflegt die Übersicht für den Vorstand (Excel mit denselben Angaben). Geplante Stufen: (1) Tim erfasst und sieht die Übersicht mit einer eigenen Rolle nur für Elternstunden, (2) Erzieherinnen nehmen digital ab, (3) Eltern reichen selbst ein und bekommen Erinnerungen; danach entfällt Tims Buchführung.
+- **Rollen:** Heute sperrt der Router nur einzelne Routen auf `ADMIN`; jeder andere angemeldete Benutzer sieht alle Beiträge. Entscheidung: Rechte klar trennen – Beitrags-Routen nur für `ADMIN`/`USER`, Admin-Routen nur `ADMIN`, die neue Elternstunden-Rolle sieht nur Elternstunden.
 
 ## OpenAPI-Drift-Check in CI (2026-09-26)
 
