@@ -9,7 +9,7 @@
 # Requirements (versions pinned below as SWAG_VERSION / S2O_VERSION, so CI job
 # `openapi-drift` in ci.yml and local runs produce byte-identical output;
 # bump them here and in ci.yml together):
-#   - swag CLI:  go install github.com/swaggo/swag/cmd/swag@v1.16.4
+#   - swag CLI:  go install github.com/swaggo/swag/cmd/swag@v1.16.6
 #     (expected at ~/go/bin/swag, override with SWAG=...)
 #   - swagger2openapi: fetched via bunx/npx, or a local binary via S2O=...
 #     NOTE: the Artifactory npm mirror blocks this package, so it is fetched
@@ -23,7 +23,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 SWAG="${SWAG:-$HOME/go/bin/swag}"
-SWAG_VERSION="v1.16.4"
+SWAG_VERSION="v1.16.6"
 S2O_VERSION="7.0.8"
 
 command -v "$SWAG" >/dev/null 2>&1 || {
@@ -31,8 +31,11 @@ command -v "$SWAG" >/dev/null 2>&1 || {
   echo "       install with: go install github.com/swaggo/swag/cmd/swag@$SWAG_VERSION" >&2
   exit 1
 }
-"$SWAG" --version | grep -q "$SWAG_VERSION" || {
-  echo "error: expected swag $SWAG_VERSION, got: $("$SWAG" --version)" >&2
+# `swag --version` is unreliable (v1.16.6 still reports v1.16.4), so read the
+# module version from the binary's build info.
+swag_mod_version="$(go version -m "$SWAG" 2>/dev/null | awk '$1 == "mod" { print $3 }' || true)"
+[ "$swag_mod_version" = "$SWAG_VERSION" ] || {
+  echo "error: expected swag $SWAG_VERSION, got: ${swag_mod_version:-unknown}" >&2
   echo "       install with: go install github.com/swaggo/swag/cmd/swag@$SWAG_VERSION" >&2
   exit 1
 }

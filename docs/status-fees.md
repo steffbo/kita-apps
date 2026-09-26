@@ -7,7 +7,7 @@ Basics (ports, commands, layout) live in `AGENTS.md`.
 
 - Die Quelle für den API-Vertrag ist der Go-Code (swag-Annotationen und Structs), nicht die Spec. `openapi3.yaml` und `schema.d.ts` sind eingecheckte Generate. Bisher prüfte nichts, ob sie nach Änderungen am Backend neu erzeugt wurden: Der Typecheck lief dann gegen den alten Stand.
 - Neuer CI-Job `openapi-drift`: führt `scripts/generate-api.sh` aus und bricht bei `git diff` auf beide Dateien ab. `build-images` hängt über `needs: ci` auch an ihm.
-- Damit CI und lokale Läufe byte-gleich erzeugen, pinnt das Skript swag (`v1.16.4`, prüft `swag --version`) und swagger2openapi (`7.0.8`); der Fallback auf ein global installiertes, ungepinntes `swagger2openapi` ist entfernt. openapi-typescript ist über das Lockfile gepinnt. Beim Anheben der swag-Version Skript und `ci.yml` gemeinsam ändern.
+- Damit CI und lokale Läufe byte-gleich erzeugen, pinnt das Skript swag (`v1.16.6`, geprüft per `go version -m` auf die Binary, weil `swag --version` bei v1.16.6 noch „v1.16.4“ meldet; der erste CI-Lauf mit echter v1.16.4 ließ die `x-enum-descriptions` weg) und swagger2openapi (`7.0.8`); der Fallback auf ein global installiertes, ungepinntes `swagger2openapi` ist entfernt. openapi-typescript ist über das Lockfile gepinnt. Beim Anheben der swag-Version Skript und `ci.yml` gemeinsam ändern.
 - Spec-first (z. B. `oapi-codegen`) wurde erwogen und für den Bestand verworfen; für eine künftige Eltern-API wieder offen.
 
 ## Aufräumen: nur noch Beiträge (2026-09-26)

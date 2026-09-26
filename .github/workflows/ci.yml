@@ -68,7 +68,7 @@ jobs:
 
       # Keep in sync with SWAG_VERSION in scripts/generate-api.sh.
       - name: Install swag
-        run: go install github.com/swaggo/swag/cmd/swag@v1.16.4
+        run: go install github.com/swaggo/swag/cmd/swag@v1.16.6
 
       - name: Install frontend dependencies
         working-directory: frontend

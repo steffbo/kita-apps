@@ -401,7 +401,7 @@ The Go code is the source of truth: handler annotations and structs → [swag](h
 
 ```bash
 # Install swag CLI (once); the version is pinned in scripts/generate-api.sh
-go install github.com/swaggo/swag/cmd/swag@v1.16.4
+go install github.com/swaggo/swag/cmd/swag@v1.16.6
 ```
 
 `swagger2openapi` (pinned to 7.0.8) is fetched by the script via `bunx`.
