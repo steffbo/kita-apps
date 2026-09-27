@@ -141,7 +141,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="bg-white rounded-xl border p-6 mb-6">
+  <div class="bg-card rounded-xl border p-6 mb-6">
     <div class="flex items-center justify-between mb-4">
       <div class="flex items-center gap-2">
         <NotebookPen class="h-5 w-5 text-primary" />
@@ -149,23 +149,23 @@ onUnmounted(() => {
       </div>
       <button
         @click="openNoteCreateDialog"
-        class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-primary text-white hover:bg-primary/90 rounded-md transition-colors"
+        class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 rounded-md transition-colors"
       >
         <Plus class="h-3 w-3" />
         Notiz
       </button>
     </div>
 
-    <div v-if="notesIsLoading" class="flex items-center gap-2 text-sm text-gray-500 py-4">
+    <div v-if="notesIsLoading" class="flex items-center gap-2 text-sm text-muted-foreground py-4">
       <Loader2 class="h-4 w-4 animate-spin" />
       Lade Notizen...
     </div>
 
-    <div v-else-if="notesError" class="p-3 bg-red-50 border border-red-200 rounded-lg">
-      <p class="text-sm text-red-600">{{ notesError }}</p>
+    <div v-else-if="notesError" class="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg">
+      <p class="text-sm text-red-600 dark:text-red-300">{{ notesError }}</p>
     </div>
 
-    <div v-else-if="notes.length === 0" class="text-center py-6 text-gray-500 text-sm">
+    <div v-else-if="notes.length === 0" class="text-center py-6 text-muted-foreground text-sm">
       Keine Notizen vorhanden
     </div>
 
@@ -173,12 +173,12 @@ onUnmounted(() => {
       <div
         v-for="note in notes"
         :key="note.id"
-        class="p-3 bg-gray-50 border border-gray-200 rounded-lg"
+        class="p-3 bg-muted border border-border rounded-lg"
       >
         <div class="flex items-start justify-between gap-3">
           <div class="min-w-0">
-            <p class="text-sm text-gray-700 whitespace-pre-wrap break-words">{{ note.text }}</p>
-            <p class="text-xs text-gray-400 mt-1">
+            <p class="text-sm text-foreground whitespace-pre-wrap break-words">{{ note.text }}</p>
+            <p class="text-xs text-muted-foreground mt-1">
               {{ formatDateTime(note.createdAt) }}
               <span v-if="isNoteEdited(note)"> · Bearbeitet: {{ formatDateTime(note.updatedAt) }}</span>
             </p>
@@ -186,14 +186,14 @@ onUnmounted(() => {
           <div class="flex items-center gap-1 flex-shrink-0">
             <button
               @click="openNoteEditDialog(note)"
-              class="p-1.5 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              class="p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors"
               title="Bearbeiten"
             >
               <Edit class="h-4 w-4" />
             </button>
             <button
               @click="noteToDelete = note; showNoteDeleteDialog = true"
-              class="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+              class="p-1.5 text-red-500 dark:text-red-400 hover:text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/40 rounded-lg transition-colors"
               title="Löschen"
             >
               <Trash2 class="h-4 w-4" />
@@ -203,18 +203,18 @@ onUnmounted(() => {
       </div>
 
       <div v-if="notesTotalPages > 1" class="flex items-center justify-end gap-2 pt-2">
-        <span class="text-xs text-gray-500">Seite {{ notesPage }} von {{ notesTotalPages }}</span>
+        <span class="text-xs text-muted-foreground">Seite {{ notesPage }} von {{ notesTotalPages }}</span>
         <button
           @click="notesPage--"
           :disabled="notesPage <= 1"
-          class="p-1 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          class="p-1 rounded hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <ChevronLeft class="h-4 w-4" />
         </button>
         <button
           @click="notesPage++"
           :disabled="notesPage >= notesTotalPages"
-          class="p-1 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+          class="p-1 rounded hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <ChevronRight class="h-4 w-4" />
         </button>
@@ -227,45 +227,45 @@ onUnmounted(() => {
     class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
     @click.self="showNoteDialog = false"
   >
-    <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+    <div class="bg-card rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
       <div class="flex items-center justify-between mb-6">
         <h2 class="text-xl font-semibold">
           {{ noteDialogMode === 'create' ? 'Notiz erstellen' : 'Notiz bearbeiten' }}
         </h2>
-        <button @click="showNoteDialog = false" class="p-1 hover:bg-gray-100 rounded">
+        <button @click="showNoteDialog = false" class="p-1 hover:bg-accent rounded">
           <X class="h-5 w-5" />
         </button>
       </div>
 
       <form @submit.prevent="handleSaveNote" class="space-y-4">
         <div>
-          <label for="note-text" class="block text-sm font-medium text-gray-700 mb-1">Text *</label>
+          <label for="note-text" class="block text-sm font-medium text-foreground mb-1">Text *</label>
           <textarea
             id="note-text"
             v-model="noteForm.text"
             required
             rows="4"
             placeholder="Notiz eingeben..."
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none resize-y"
+            class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none resize-y"
           ></textarea>
         </div>
 
-        <div v-if="noteError" class="p-3 bg-red-50 border border-red-200 rounded-lg">
-          <p class="text-sm text-red-600">{{ noteError }}</p>
+        <div v-if="noteError" class="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg">
+          <p class="text-sm text-red-600 dark:text-red-300">{{ noteError }}</p>
         </div>
 
         <div class="flex justify-end gap-3 pt-4">
           <button
             type="button"
             @click="showNoteDialog = false"
-            class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            class="px-4 py-2 text-foreground hover:bg-accent rounded-lg transition-colors"
           >
             Abbrechen
           </button>
           <button
             type="submit"
             :disabled="isSavingNote || !noteForm.text.trim()"
-            class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+            class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
             <Loader2 v-if="isSavingNote" class="h-4 w-4 animate-spin" />
             <Check v-else class="h-4 w-4" />
@@ -282,15 +282,15 @@ onUnmounted(() => {
     class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
     @click.self="showNoteDeleteDialog = false"
   >
-    <div class="bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
+    <div class="bg-card rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
       <div class="flex items-center gap-3 mb-4">
-        <div class="p-2 bg-red-100 rounded-lg">
-          <Trash2 class="h-6 w-6 text-red-600" />
+        <div class="p-2 bg-red-100 dark:bg-red-950/40 rounded-lg">
+          <Trash2 class="h-6 w-6 text-red-600 dark:text-red-300" />
         </div>
         <h2 class="text-xl font-semibold">Notiz löschen?</h2>
       </div>
 
-      <p class="text-gray-600 mb-6">
+      <p class="text-muted-foreground mb-6">
         Möchtest du diese Notiz wirklich löschen?
         Diese Aktion kann nicht rückgängig gemacht werden.
       </p>
@@ -298,7 +298,7 @@ onUnmounted(() => {
       <div class="flex justify-end gap-3">
         <button
           @click="showNoteDeleteDialog = false"
-          class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+          class="px-4 py-2 text-foreground hover:bg-accent rounded-lg transition-colors"
         >
           Abbrechen
         </button>

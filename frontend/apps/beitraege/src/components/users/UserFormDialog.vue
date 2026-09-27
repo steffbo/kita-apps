@@ -55,7 +55,7 @@ async function submit() {
 
 <template>
   <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50" @click.self="emit('close')">
-    <form role="dialog" aria-modal="true" :aria-label="isNew ? 'Benutzer anlegen' : 'Benutzer bearbeiten'" class="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 p-6" @submit.prevent="submit">
+    <form role="dialog" aria-modal="true" :aria-label="isNew ? 'Benutzer anlegen' : 'Benutzer bearbeiten'" class="bg-card rounded-xl shadow-xl w-full max-w-lg mx-4 p-6" @submit.prevent="submit">
       <div class="flex items-center gap-3 mb-6">
         <div class="p-2 bg-primary/10 rounded-lg">
           <UserPlus v-if="isNew" class="h-6 w-6 text-primary" />
@@ -66,54 +66,54 @@ async function submit() {
 
       <div class="space-y-4">
         <label class="block">
-          <span class="text-sm font-medium text-gray-700">E-Mail (Anmeldename) *</span>
+          <span class="text-sm font-medium text-foreground">E-Mail (Anmeldename) *</span>
           <input v-model="email" type="email" required autocomplete="off" class="mt-1 w-full rounded-lg border px-3 py-2" />
         </label>
         <div class="grid gap-4 sm:grid-cols-2">
           <label class="block">
-            <span class="text-sm font-medium text-gray-700">Vorname</span>
+            <span class="text-sm font-medium text-foreground">Vorname</span>
             <input v-model="firstName" type="text" class="mt-1 w-full rounded-lg border px-3 py-2" />
           </label>
           <label class="block">
-            <span class="text-sm font-medium text-gray-700">Nachname</span>
+            <span class="text-sm font-medium text-foreground">Nachname</span>
             <input v-model="lastName" type="text" class="mt-1 w-full rounded-lg border px-3 py-2" />
           </label>
         </div>
         <label class="block">
-          <span class="text-sm font-medium text-gray-700">Rolle</span>
-          <select v-model="role" :disabled="isSelf" class="mt-1 w-full rounded-lg border px-3 py-2 disabled:bg-gray-100">
+          <span class="text-sm font-medium text-foreground">Rolle</span>
+          <select v-model="role" :disabled="isSelf" class="mt-1 w-full rounded-lg border px-3 py-2 disabled:bg-muted">
             <option value="USER">Benutzer</option>
             <option value="ADMIN">Administrator</option>
             <option value="PARENT_WORK">Elternstunden</option>
           </select>
-          <span class="mt-1 block text-xs text-gray-500">
+          <span class="mt-1 block text-xs text-muted-foreground">
             Administratoren dürfen zusätzlich Benutzer, Beitragsordnung, Erinnerungen und Bankabruf verwalten.
           </span>
         </label>
         <label class="flex items-center gap-2">
           <input v-model="isActive" type="checkbox" :disabled="isSelf" class="rounded" />
-          <span class="text-sm text-gray-700">Aktiv (darf sich anmelden)</span>
+          <span class="text-sm text-foreground">Aktiv (darf sich anmelden)</span>
         </label>
-        <p v-if="isSelf" class="text-xs text-gray-500">
+        <p v-if="isSelf" class="text-xs text-muted-foreground">
           Das eigene Konto kann nicht deaktiviert oder herabgestuft werden.
         </p>
         <label v-if="isNew" class="block">
-          <span class="text-sm font-medium text-gray-700">Startpasswort (mind. {{ MIN_LENGTH }} Zeichen) *</span>
+          <span class="text-sm font-medium text-foreground">Startpasswort (mind. {{ MIN_LENGTH }} Zeichen) *</span>
           <input v-model="password" type="text" required autocomplete="off" class="mt-1 w-full rounded-lg border px-3 py-2 font-mono" />
-          <span class="mt-1 block text-xs text-gray-500">
+          <span class="mt-1 block text-xs text-muted-foreground">
             Bitte der Person mitteilen; sie kann es nach der Anmeldung selbst ändern.
           </span>
         </label>
 
-        <div v-if="error" class="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700" role="alert">
+        <div v-if="error" class="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg text-sm text-red-700 dark:text-red-300" role="alert">
           {{ error }}
         </div>
       </div>
 
       <div class="flex justify-end gap-3 mt-6">
-        <button type="button" class="px-4 py-2 border rounded-lg hover:bg-gray-50" @click="emit('close')">Abbrechen</button>
+        <button type="button" class="px-4 py-2 border rounded-lg hover:bg-accent" @click="emit('close')">Abbrechen</button>
         <button type="submit" :disabled="isSaving"
-          class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:opacity-50">
+          class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50">
           <Loader2 v-if="isSaving" class="h-4 w-4 animate-spin" />
           {{ isNew ? 'Anlegen' : 'Speichern' }}
         </button>

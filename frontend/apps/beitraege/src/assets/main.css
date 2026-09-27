@@ -4,6 +4,7 @@
 
 @layer base {
   :root {
+    color-scheme: light;
     --background: 245 251 233;
     --foreground: 36 51 41;
     --card: 255 255 255;
@@ -33,6 +34,7 @@
   }
 
   .dark {
+    color-scheme: dark;
     --background: 36 51 41;
     --foreground: 245 251 233;
     --card: 44 61 48;
@@ -73,6 +75,18 @@
   * {
     @apply border-border;
   }
+
+  input,
+  select,
+  textarea {
+    @apply border-input bg-background text-foreground;
+  }
+
+  input[type="checkbox"],
+  input[type="radio"] {
+    accent-color: rgb(var(--primary));
+  }
+
   body {
     @apply bg-background font-sans text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;

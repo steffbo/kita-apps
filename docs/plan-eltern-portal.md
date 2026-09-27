@@ -28,6 +28,8 @@ Status: umgesetzt.
 
 ## Etappe 1b: Seiten auf semantische Farben
 
+Status: umgesetzt.
+
 Alle Seiten/Komponenten von festen `gray-*`/`white`-Klassen auf Tokens (`bg-card`, `text-muted-foreground`,
 `border-border` …) umstellen, Statusfarben mit `dark:`-Varianten. Ziel: jede Seite in Dunkel lesbar.
 

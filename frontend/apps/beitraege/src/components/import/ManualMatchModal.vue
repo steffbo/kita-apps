@@ -189,60 +189,60 @@ const displayedFeeCandidates = computed<ScoredFee[]>(() => {
     class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
     @click.self="$emit('close')"
   >
-    <div class="bg-white rounded-xl shadow-xl max-w-3xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+    <div class="bg-card rounded-xl shadow-xl max-w-3xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
       <!-- Modal Header -->
       <div class="p-4 border-b">
         <div class="flex items-center justify-between">
           <h2 class="text-lg font-semibold">Transaktion manuell zuordnen</h2>
-          <button @click="$emit('close')" class="text-gray-400 hover:text-gray-600">
+          <button @click="$emit('close')" class="text-muted-foreground hover:text-muted-foreground">
             <XCircle class="h-5 w-5" />
           </button>
         </div>
       </div>
 
       <!-- Transaction Details -->
-      <div class="p-4 bg-gray-50 border-b">
+      <div class="p-4 bg-muted border-b">
         <div class="grid grid-cols-2 gap-4 text-sm">
           <div>
-            <span class="text-gray-500">Zahler:</span>
+            <span class="text-muted-foreground">Zahler:</span>
             <span class="ml-2 font-medium">{{ transaction.payerName || 'Unbekannt' }}</span>
           </div>
           <div>
-            <span class="text-gray-500">Betrag:</span>
-            <span class="ml-2 font-medium text-green-600">{{ formatCurrency(transaction.amount) }}</span>
+            <span class="text-muted-foreground">Betrag:</span>
+            <span class="ml-2 font-medium text-green-600 dark:text-green-300">{{ formatCurrency(transaction.amount) }}</span>
           </div>
           <div>
-            <span class="text-gray-500">Datum:</span>
+            <span class="text-muted-foreground">Datum:</span>
             <span class="ml-2">{{ formatDate(transaction.bookingDate) }}</span>
           </div>
           <div v-if="transaction.payerIban">
-            <span class="text-gray-500">IBAN:</span>
+            <span class="text-muted-foreground">IBAN:</span>
             <span class="ml-2 font-mono text-xs">{{ transaction.payerIban }}</span>
           </div>
         </div>
-        <div v-if="transaction.description" class="mt-2 text-sm text-gray-600">
+        <div v-if="transaction.description" class="mt-2 text-sm text-muted-foreground">
           {{ transaction.description }}
         </div>
       </div>
 
       <!-- Suggestion (if available) -->
       <div v-if="isLoadingSuggestions" class="p-4 border-b">
-        <div class="flex items-center gap-2 text-gray-500">
+        <div class="flex items-center gap-2 text-muted-foreground">
           <Loader2 class="h-4 w-4 animate-spin" />
           Lade Vorschlage...
         </div>
       </div>
       <div v-else-if="manualMatchSuggestion?.expectation" class="p-4 border-b">
-        <h3 class="text-sm font-medium text-gray-700 mb-2">Vorschlag</h3>
+        <h3 class="text-sm font-medium text-foreground mb-2">Vorschlag</h3>
         <div
-          class="p-3 bg-green-50 border border-green-200 rounded-lg flex items-center justify-between cursor-pointer hover:bg-green-100"
+          class="p-3 bg-green-50 dark:bg-green-950/40 border border-green-200 rounded-lg flex items-center justify-between cursor-pointer hover:bg-green-100 dark:hover:bg-green-900/40"
           @click="confirmManualMatch(manualMatchSuggestion.expectation!.id)"
         >
           <div class="flex-1">
             <div class="font-medium">
               {{ manualMatchSuggestion.child?.firstName }} {{ manualMatchSuggestion.child?.lastName }}
             </div>
-            <div class="text-sm text-gray-600">
+            <div class="text-sm text-muted-foreground">
               {{ getFeeTypeName(manualMatchSuggestion.expectation?.feeType) }}
               - {{ manualMatchSuggestion.expectation?.month }}/{{ manualMatchSuggestion.expectation?.year }}
               - {{ formatCurrency(manualMatchSuggestion.expectation?.amount || 0) }}
@@ -257,7 +257,7 @@ const displayedFeeCandidates = computed<ScoredFee[]>(() => {
             >
               {{ Math.round(manualMatchSuggestion.confidence * 100) }}%
             </span>
-            <CheckCircle class="h-5 w-5 text-green-500" />
+            <CheckCircle class="h-5 w-5 text-green-500 dark:text-green-400" />
           </div>
         </div>
       </div>
@@ -265,7 +265,7 @@ const displayedFeeCandidates = computed<ScoredFee[]>(() => {
       <!-- Fee Search -->
       <div class="p-4 border-b">
         <div class="flex items-center justify-between mb-2">
-          <h3 class="text-sm font-medium text-gray-700">Offene Beitrage durchsuchen</h3>
+          <h3 class="text-sm font-medium text-foreground">Offene Beitrage durchsuchen</h3>
           <button
             v-if="manualMatchSuggestion?.confidence && highConfidenceFees.length > 0 && !feeSearch.trim()"
             @click="showAllFees = !showAllFees"
@@ -274,11 +274,11 @@ const displayedFeeCandidates = computed<ScoredFee[]>(() => {
             {{ showAllFees ? 'Nur hohe Konfidenz' : 'Alle offenen Beitrage anzeigen' }}
           </button>
         </div>
-        <p v-if="isConfidencePrefiltered" class="text-xs text-gray-500 mb-2">
+        <p v-if="isConfidencePrefiltered" class="text-xs text-muted-foreground mb-2">
           Gefiltert nach hoher Konfidenz (>= {{ Math.round(PREFILTER_CONFIDENCE * 100) }}%).
         </p>
         <div class="relative">
-          <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
             v-model="feeSearch"
             type="text"
@@ -290,7 +290,7 @@ const displayedFeeCandidates = computed<ScoredFee[]>(() => {
       </div>
 
       <div v-if="matchError" class="px-4 pt-4">
-        <div class="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">{{ matchError }}</div>
+        <div class="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg text-sm text-red-700 dark:text-red-300">{{ matchError }}</div>
       </div>
 
       <!-- Fee List -->
@@ -298,21 +298,21 @@ const displayedFeeCandidates = computed<ScoredFee[]>(() => {
         <div v-if="isLoadingFees" class="flex items-center justify-center py-8">
           <Loader2 class="h-6 w-6 animate-spin text-primary" />
         </div>
-        <div v-else-if="displayedFeeCandidates.length === 0" class="text-center py-8 text-gray-500">
+        <div v-else-if="displayedFeeCandidates.length === 0" class="text-center py-8 text-muted-foreground">
           Keine offenen Beitrage gefunden
         </div>
         <div v-else class="space-y-2">
           <div
             v-for="candidate in displayedFeeCandidates"
             :key="candidate.fee.id"
-            class="p-3 border rounded-lg hover:bg-gray-50 cursor-pointer flex items-center justify-between"
+            class="p-3 border rounded-lg hover:bg-accent cursor-pointer flex items-center justify-between"
             @click="confirmManualMatch(candidate.fee.id)"
           >
             <div>
               <div class="font-medium">
                 {{ candidate.fee.child?.firstName }} {{ candidate.fee.child?.lastName }}
               </div>
-              <div class="text-sm text-gray-600">
+              <div class="text-sm text-muted-foreground">
                 {{ getFeeTypeName(candidate.fee.feeType) }}
                 - {{ candidate.fee.month ? candidate.fee.month + '/' : '' }}{{ candidate.fee.year }}
               </div>
@@ -330,15 +330,15 @@ const displayedFeeCandidates = computed<ScoredFee[]>(() => {
                 </span>
                 <div class="font-medium">{{ formatCurrency(candidate.fee.amount) }}</div>
               </div>
-              <div class="text-xs text-gray-500">Fallig: {{ formatDate(candidate.fee.dueDate) }}</div>
+              <div class="text-xs text-muted-foreground">Fallig: {{ formatDate(candidate.fee.dueDate) }}</div>
             </div>
           </div>
         </div>
       </div>
 
       <!-- Modal Footer -->
-      <div class="p-4 border-t bg-gray-50 flex justify-end">
-        <button @click="$emit('close')" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-900">
+      <div class="p-4 border-t bg-muted flex justify-end">
+        <button @click="$emit('close')" class="px-4 py-2 text-sm text-muted-foreground hover:text-foreground">
           Abbrechen
         </button>
       </div>

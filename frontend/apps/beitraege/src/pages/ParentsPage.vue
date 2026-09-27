@@ -287,12 +287,12 @@ const visiblePages = computed(() => {
     <!-- Header -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
       <div>
-        <h1 class="text-2xl font-bold text-gray-900">Eltern</h1>
-        <p class="text-gray-600 mt-1">{{ total }} Eltern registriert</p>
+        <h1 class="text-2xl font-bold text-foreground">Eltern</h1>
+        <p class="text-muted-foreground mt-1">{{ total }} Eltern registriert</p>
       </div>
       <button
         @click="openCreateParentDialog"
-        class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+        class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
       >
         <Plus class="h-4 w-4" />
         Elternteil hinzufügen
@@ -301,36 +301,36 @@ const visiblePages = computed(() => {
 
     <!-- Search -->
     <div class="relative mb-6">
-      <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+      <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
       <input
         v-model="searchQuery"
         @input="handleSearchInput"
         type="text"
         placeholder="Suchen nach Name oder E-Mail..."
-        class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+        class="w-full pl-10 pr-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
       />
     </div>
 
     <!-- Bulk actions bar -->
     <div
       v-if="selectedIds.size > 0"
-      class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between"
+      class="mb-4 p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 rounded-lg flex items-center justify-between"
     >
-      <span class="text-sm font-medium text-blue-800">
+      <span class="text-sm font-medium text-blue-800 dark:text-blue-300">
         {{ selectedIds.size }} {{ selectedIds.size === 1 ? 'Elternteil' : 'Eltern' }} ausgewählt
       </span>
       <div class="flex items-center gap-2">
         <button
           v-if="authStore.isAdmin"
           @click="showDeleteDialog = true"
-          class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-red-100 text-red-800 rounded-lg hover:bg-red-200 transition-colors"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-red-100 dark:bg-red-950/40 text-red-800 dark:text-red-300 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors"
         >
           <Trash2 class="h-4 w-4" />
           Löschen
         </button>
         <button
           @click="selectedIds = new Set()"
-          class="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+          class="px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent rounded-lg transition-colors"
         >
           Auswahl aufheben
         </button>
@@ -343,19 +343,19 @@ const visiblePages = computed(() => {
     </div>
 
     <!-- Error state -->
-    <div v-else-if="error" class="bg-red-50 border border-red-200 rounded-lg p-4">
-      <p class="text-red-600">{{ error }}</p>
-      <button @click="loadParents" class="mt-2 text-sm text-red-700 underline">
+    <div v-else-if="error" class="bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg p-4">
+      <p class="text-red-600 dark:text-red-300">{{ error }}</p>
+      <button @click="loadParents" class="mt-2 text-sm text-red-700 dark:text-red-300 underline">
         Erneut versuchen
       </button>
     </div>
 
     <!-- Parents table -->
-    <div v-else class="bg-white rounded-xl border overflow-hidden">
+    <div v-else class="bg-card rounded-xl border overflow-hidden">
       <div class="overflow-x-auto">
         <table class="w-full">
-          <thead class="bg-gray-50">
-            <tr class="text-left text-sm text-gray-500">
+          <thead class="bg-muted">
+            <tr class="text-left text-sm text-muted-foreground">
               <!-- Checkbox column -->
               <th class="px-4 py-3 w-12">
                 <input
@@ -363,14 +363,14 @@ const visiblePages = computed(() => {
                   :checked="isAllSelected"
                   :indeterminate="isSomeSelected"
                   @change="toggleSelectAll"
-                  class="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary"
+                  class="w-4 h-4 text-primary rounded border-border focus:ring-primary"
                 />
               </th>
               <!-- Last Name -->
               <th class="px-4 py-3 font-medium">
                 <button
                   @click="toggleSort('lastName')"
-                  class="flex items-center gap-1 hover:text-gray-700"
+                  class="flex items-center gap-1 hover:text-foreground"
                 >
                   <User class="h-4 w-4" />
                   Nachname
@@ -381,7 +381,7 @@ const visiblePages = computed(() => {
               <th class="px-4 py-3 font-medium">
                 <button
                   @click="toggleSort('firstName')"
-                  class="flex items-center gap-1 hover:text-gray-700"
+                  class="flex items-center gap-1 hover:text-foreground"
                 >
                   Vorname
                   <component :is="getSortIcon('firstName')" class="h-4 w-4" />
@@ -391,7 +391,7 @@ const visiblePages = computed(() => {
               <th class="px-4 py-3 font-medium">
                 <button
                   @click="toggleSort('email')"
-                  class="flex items-center gap-1 hover:text-gray-700"
+                  class="flex items-center gap-1 hover:text-foreground"
                 >
                   <Mail class="h-4 w-4" />
                   E-Mail
@@ -415,8 +415,8 @@ const visiblePages = computed(() => {
               :key="parent.id"
               @click="goToParent(parent.id)"
               :class="[
-                'border-t hover:bg-gray-50 cursor-pointer transition-colors',
-                selectedIds.has(parent.id) ? 'bg-blue-50' : '',
+                'border-t hover:bg-accent cursor-pointer transition-colors',
+                selectedIds.has(parent.id) ? 'bg-blue-50 dark:bg-blue-950/40' : '',
               ]"
             >
               <!-- Checkbox -->
@@ -425,7 +425,7 @@ const visiblePages = computed(() => {
                   type="checkbox"
                   :checked="selectedIds.has(parent.id)"
                   @change="toggleSelect(parent.id, $event)"
-                  class="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary"
+                  class="w-4 h-4 text-primary rounded border-border focus:ring-primary"
                 />
               </td>
               <!-- Last Name -->
@@ -433,14 +433,14 @@ const visiblePages = computed(() => {
               <!-- First Name -->
               <td class="px-4 py-3">{{ parent.firstName }}</td>
               <!-- Email -->
-              <td class="px-4 py-3 text-gray-600">
+              <td class="px-4 py-3 text-muted-foreground">
                 <span v-if="parent.email" class="truncate">{{ parent.email }}</span>
-                <span v-else class="text-gray-400">-</span>
+                <span v-else class="text-muted-foreground">-</span>
               </td>
               <!-- Phone -->
-              <td class="px-4 py-3 text-gray-600">
+              <td class="px-4 py-3 text-muted-foreground">
                 <span v-if="parent.phone">{{ parent.phone }}</span>
-                <span v-else class="text-gray-400">-</span>
+                <span v-else class="text-muted-foreground">-</span>
               </td>
               <!-- Children -->
               <td class="px-4 py-3">
@@ -448,16 +448,16 @@ const visiblePages = computed(() => {
                   <span
                     v-for="child in parent.children"
                     :key="child.id"
-                    class="inline-flex items-center px-2 py-0.5 rounded text-xs bg-gray-100 text-gray-700"
+                    class="inline-flex items-center px-2 py-0.5 rounded text-xs bg-muted text-foreground"
                   >
                     {{ child.firstName }}
                   </span>
                 </div>
-                <span v-else class="text-gray-400">-</span>
+                <span v-else class="text-muted-foreground">-</span>
               </td>
             </tr>
             <tr v-if="parents.length === 0">
-              <td colspan="6" class="px-4 py-8 text-center text-gray-500">
+              <td colspan="6" class="px-4 py-8 text-center text-muted-foreground">
                 Keine Eltern gefunden
               </td>
             </tr>
@@ -466,14 +466,14 @@ const visiblePages = computed(() => {
       </div>
 
       <!-- Pagination -->
-      <div class="flex items-center justify-between px-4 py-3 border-t bg-gray-50">
+      <div class="flex items-center justify-between px-4 py-3 border-t bg-muted">
         <div class="flex items-center gap-4">
-          <span class="text-sm text-gray-600">
+          <span class="text-sm text-muted-foreground">
             {{ offset + 1 }}-{{ Math.min(offset + pageSize, total) }} von {{ total }}
           </span>
           <select
             v-model="pageSize"
-            class="text-sm border border-gray-300 rounded px-2 py-1 focus:ring-primary focus:border-primary"
+            class="text-sm border border-border rounded px-2 py-1 focus:ring-primary focus:border-primary"
           >
             <option v-for="size in pageSizeOptions" :key="size" :value="size">
               {{ size }} pro Seite
@@ -484,20 +484,20 @@ const visiblePages = computed(() => {
           <button
             @click="goToPage(currentPage - 1)"
             :disabled="currentPage === 1"
-            class="p-1.5 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            class="p-1.5 rounded hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <ChevronLeft class="h-4 w-4" />
           </button>
           <template v-for="page in visiblePages" :key="page">
-            <span v-if="page === '...'" class="px-2 text-gray-400">...</span>
+            <span v-if="page === '...'" class="px-2 text-muted-foreground">...</span>
             <button
               v-else
               @click="goToPage(page)"
               :class="[
                 'px-3 py-1 rounded text-sm',
                 page === currentPage
-                  ? 'bg-primary text-white'
-                  : 'hover:bg-gray-200',
+                  ? 'bg-primary text-primary-foreground'
+                  : 'hover:bg-accent',
               ]"
             >
               {{ page }}
@@ -506,7 +506,7 @@ const visiblePages = computed(() => {
           <button
             @click="goToPage(currentPage + 1)"
             :disabled="currentPage === totalPages"
-            class="p-1.5 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            class="p-1.5 rounded hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <ChevronRight class="h-4 w-4" />
           </button>
@@ -520,20 +520,20 @@ const visiblePages = computed(() => {
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
       @click.self="showDeleteDialog = false"
     >
-      <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+      <div class="bg-card rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
         <div class="flex items-center gap-3 mb-4">
-          <div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-            <Trash2 class="h-5 w-5 text-red-600" />
+          <div class="w-10 h-10 bg-red-100 dark:bg-red-950/40 rounded-full flex items-center justify-center">
+            <Trash2 class="h-5 w-5 text-red-600 dark:text-red-300" />
           </div>
-          <h2 class="text-xl font-semibold text-red-700">Eltern löschen</h2>
+          <h2 class="text-xl font-semibold text-red-700 dark:text-red-300">Eltern löschen</h2>
         </div>
         
-        <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+        <div class="bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg p-4 mb-4">
           <div class="flex items-start gap-2">
-            <AlertTriangle class="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <AlertTriangle class="h-5 w-5 text-red-600 dark:text-red-300 flex-shrink-0 mt-0.5" />
             <div>
-              <p class="font-semibold text-red-800">Achtung: Permanente Löschung!</p>
-              <p class="text-sm text-red-700 mt-1">
+              <p class="font-semibold text-red-800 dark:text-red-300">Achtung: Permanente Löschung!</p>
+              <p class="text-sm text-red-700 dark:text-red-300 mt-1">
                 Diese Aktion kann nicht rückgängig gemacht werden. Die Verknüpfungen 
                 zu den Kindern werden ebenfalls entfernt.
               </p>
@@ -541,19 +541,19 @@ const visiblePages = computed(() => {
           </div>
         </div>
 
-        <p class="text-gray-600 mb-6">
+        <p class="text-muted-foreground mb-6">
           Möchten Sie <strong>{{ selectedIds.size }}</strong> {{ selectedIds.size === 1 ? 'Elternteil' : 'Eltern' }} wirklich
-          <strong class="text-red-600">unwiderruflich löschen</strong>?
+          <strong class="text-red-600 dark:text-red-300">unwiderruflich löschen</strong>?
         </p>
 
-        <div v-if="bulkActionError" class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-          <p class="text-sm text-red-600">{{ bulkActionError }}</p>
+        <div v-if="bulkActionError" class="mb-4 p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg">
+          <p class="text-sm text-red-600 dark:text-red-300">{{ bulkActionError }}</p>
         </div>
 
         <div class="flex justify-end gap-3">
           <button
             @click="showDeleteDialog = false"
-            class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            class="px-4 py-2 text-foreground hover:bg-accent rounded-lg transition-colors"
           >
             Abbrechen
           </button>
@@ -576,10 +576,10 @@ const visiblePages = computed(() => {
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
       @click.self="showCreateDialog = false"
     >
-      <div class="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 p-6">
+      <div class="bg-card rounded-xl shadow-xl w-full max-w-lg mx-4 p-6">
         <div class="flex items-center justify-between mb-6">
           <h2 class="text-xl font-semibold">Elternteil anlegen</h2>
-          <button @click="showCreateDialog = false" class="p-1 hover:bg-gray-100 rounded">
+          <button @click="showCreateDialog = false" class="p-1 hover:bg-accent rounded">
             <X class="h-5 w-5" />
           </button>
         </div>
@@ -587,22 +587,22 @@ const visiblePages = computed(() => {
         <form @submit.prevent="handleCreateParent" class="space-y-4">
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label for="parent-firstName" class="block text-sm font-medium text-gray-700 mb-1">Vorname *</label>
+              <label for="parent-firstName" class="block text-sm font-medium text-foreground mb-1">Vorname *</label>
               <input
                 id="parent-firstName"
                 v-model="parentForm.firstName"
                 type="text"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
                 required
               />
             </div>
             <div>
-              <label for="parent-lastName" class="block text-sm font-medium text-gray-700 mb-1">Nachname *</label>
+              <label for="parent-lastName" class="block text-sm font-medium text-foreground mb-1">Nachname *</label>
               <input
                 id="parent-lastName"
                 v-model="parentForm.lastName"
                 type="text"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
                 required
               />
             </div>
@@ -610,93 +610,93 @@ const visiblePages = computed(() => {
 
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label for="parent-birthDate" class="block text-sm font-medium text-gray-700 mb-1">Geburtsdatum</label>
+              <label for="parent-birthDate" class="block text-sm font-medium text-foreground mb-1">Geburtsdatum</label>
               <input
                 id="parent-birthDate"
                 v-model="parentForm.birthDate"
                 type="date"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
               />
             </div>
             <div>
-              <label for="parent-phone" class="block text-sm font-medium text-gray-700 mb-1">Telefon</label>
+              <label for="parent-phone" class="block text-sm font-medium text-foreground mb-1">Telefon</label>
               <input
                 id="parent-phone"
                 v-model="parentForm.phone"
                 type="tel"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
               />
             </div>
           </div>
 
           <div>
-            <label for="parent-email" class="block text-sm font-medium text-gray-700 mb-1">E-Mail</label>
+            <label for="parent-email" class="block text-sm font-medium text-foreground mb-1">E-Mail</label>
             <input
               id="parent-email"
               v-model="parentForm.email"
               type="email"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
             />
           </div>
 
           <div class="grid grid-cols-4 gap-4">
             <div class="col-span-3">
-              <label for="parent-street" class="block text-sm font-medium text-gray-700 mb-1">Straße</label>
+              <label for="parent-street" class="block text-sm font-medium text-foreground mb-1">Straße</label>
               <input
                 id="parent-street"
                 v-model="parentForm.street"
                 type="text"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
               />
             </div>
             <div>
-              <label for="parent-streetNo" class="block text-sm font-medium text-gray-700 mb-1">Hausnr.</label>
+              <label for="parent-streetNo" class="block text-sm font-medium text-foreground mb-1">Hausnr.</label>
               <input
                 id="parent-streetNo"
                 v-model="parentForm.streetNo"
                 type="text"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
               />
             </div>
           </div>
 
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label for="parent-postalCode" class="block text-sm font-medium text-gray-700 mb-1">PLZ</label>
+              <label for="parent-postalCode" class="block text-sm font-medium text-foreground mb-1">PLZ</label>
               <input
                 id="parent-postalCode"
                 v-model="parentForm.postalCode"
                 type="text"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
               />
             </div>
             <div>
-              <label for="parent-city" class="block text-sm font-medium text-gray-700 mb-1">Ort</label>
+              <label for="parent-city" class="block text-sm font-medium text-foreground mb-1">Ort</label>
               <input
                 id="parent-city"
                 v-model="parentForm.city"
                 type="text"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
               />
             </div>
           </div>
 
-          <div v-if="createError" class="p-3 bg-red-50 border border-red-200 rounded-lg">
-            <p class="text-sm text-red-600">{{ createError }}</p>
+          <div v-if="createError" class="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg">
+            <p class="text-sm text-red-600 dark:text-red-300">{{ createError }}</p>
           </div>
 
           <div class="flex justify-end gap-3">
             <button
               type="button"
               @click="showCreateDialog = false"
-              class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              class="px-4 py-2 text-foreground hover:bg-accent rounded-lg transition-colors"
             >
               Abbrechen
             </button>
             <button
               type="submit"
               :disabled="isCreatingParent"
-              class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+              class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
             >
               <Loader2 v-if="isCreatingParent" class="h-4 w-4 animate-spin" />
               <Plus v-else class="h-4 w-4" />

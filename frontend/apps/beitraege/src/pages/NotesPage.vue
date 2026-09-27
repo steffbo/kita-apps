@@ -117,8 +117,8 @@ const visiblePages = computed(() => {
   <div>
     <!-- Header -->
     <div class="mb-6">
-      <h1 class="text-2xl font-bold text-gray-900">Notizen</h1>
-      <p class="text-gray-600 mt-1">{{ total }} Notizen zu Kindern</p>
+      <h1 class="text-2xl font-bold text-foreground">Notizen</h1>
+      <p class="text-muted-foreground mt-1">{{ total }} Notizen zu Kindern</p>
     </div>
 
     <!-- Loading state -->
@@ -127,19 +127,19 @@ const visiblePages = computed(() => {
     </div>
 
     <!-- Error state -->
-    <div v-else-if="error" class="bg-red-50 border border-red-200 rounded-lg p-4">
-      <p class="text-red-600">{{ error }}</p>
-      <button @click="loadNotes" class="mt-2 text-sm text-red-700 underline">
+    <div v-else-if="error" class="bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg p-4">
+      <p class="text-red-600 dark:text-red-300">{{ error }}</p>
+      <button @click="loadNotes" class="mt-2 text-sm text-red-700 dark:text-red-300 underline">
         Erneut versuchen
       </button>
     </div>
 
     <!-- Notes table -->
-    <div v-else class="bg-white rounded-xl border overflow-hidden">
+    <div v-else class="bg-card rounded-xl border overflow-hidden">
       <div class="overflow-x-auto">
         <table class="w-full">
-          <thead class="bg-gray-50">
-            <tr class="text-left text-sm text-gray-500">
+          <thead class="bg-muted">
+            <tr class="text-left text-sm text-muted-foreground">
               <th class="px-4 py-3 font-medium">Notiz</th>
               <th class="px-4 py-3 font-medium">
                 <span class="flex items-center gap-1">
@@ -152,9 +152,9 @@ const visiblePages = computed(() => {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="note in notes" :key="note.id" class="border-t hover:bg-gray-50 transition-colors">
+            <tr v-for="note in notes" :key="note.id" class="border-t hover:bg-accent transition-colors">
               <td class="px-4 py-3">
-                <p class="text-gray-700 max-w-md">{{ truncateText(note.text) }}</p>
+                <p class="text-foreground max-w-md">{{ truncateText(note.text) }}</p>
               </td>
               <td class="px-4 py-3">
                 <router-link
@@ -164,16 +164,16 @@ const visiblePages = computed(() => {
                   {{ childName(note) }}
                 </router-link>
               </td>
-              <td class="px-4 py-3 text-gray-600 whitespace-nowrap">
+              <td class="px-4 py-3 text-muted-foreground whitespace-nowrap">
                 {{ formatDateTime(note.createdAt) }}
               </td>
-              <td class="hidden md:table-cell px-4 py-3 text-gray-500 whitespace-nowrap">
+              <td class="hidden md:table-cell px-4 py-3 text-muted-foreground whitespace-nowrap">
                 <template v-if="isEdited(note)">{{ formatDateTime(note.updatedAt) }}</template>
-                <span v-else class="text-gray-300">-</span>
+                <span v-else class="text-muted-foreground/60">-</span>
               </td>
             </tr>
             <tr v-if="notes.length === 0">
-              <td colspan="4" class="px-4 py-8 text-center text-gray-500">
+              <td colspan="4" class="px-4 py-8 text-center text-muted-foreground">
                 Keine Notizen vorhanden
               </td>
             </tr>
@@ -182,15 +182,15 @@ const visiblePages = computed(() => {
       </div>
 
       <!-- Pagination -->
-      <div class="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t bg-gray-50">
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t bg-muted">
         <div class="flex items-center gap-4">
-          <span class="text-sm text-gray-600">
+          <span class="text-sm text-muted-foreground">
             {{ offset + 1 }}-{{ Math.min(offset + pageSize, total) }} von {{ total }}
           </span>
           <select
             v-model="pageSize"
             @change="handlePageSizeChange"
-            class="text-sm border border-gray-300 rounded px-2 py-1 focus:ring-primary focus:border-primary"
+            class="text-sm border border-border rounded px-2 py-1 focus:ring-primary focus:border-primary"
           >
             <option v-for="size in pageSizeOptions" :key="size" :value="size">
               {{ size }} pro Seite
@@ -201,20 +201,20 @@ const visiblePages = computed(() => {
           <button
             @click="goToPage(currentPage - 1)"
             :disabled="currentPage === 1"
-            class="p-1.5 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            class="p-1.5 rounded hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <ChevronLeft class="h-4 w-4" />
           </button>
           <template v-for="page in visiblePages" :key="page">
-            <span v-if="page === '...'" class="px-2 text-gray-400">...</span>
+            <span v-if="page === '...'" class="px-2 text-muted-foreground">...</span>
             <button
               v-else
               @click="goToPage(page)"
               :class="[
                 'px-3 py-1 rounded text-sm',
                 page === currentPage
-                  ? 'bg-primary text-white'
-                  : 'hover:bg-gray-200',
+                  ? 'bg-primary text-primary-foreground'
+                  : 'hover:bg-accent',
               ]"
             >
               {{ page }}
@@ -223,7 +223,7 @@ const visiblePages = computed(() => {
           <button
             @click="goToPage(currentPage + 1)"
             :disabled="currentPage === totalPages"
-            class="p-1.5 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            class="p-1.5 rounded hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <ChevronRight class="h-4 w-4" />
           </button>

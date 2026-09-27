@@ -109,10 +109,10 @@ async function handleEdit() {
     class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
     @click.self="$emit('close')"
   >
-    <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6 max-h-[90vh] overflow-y-auto">
+    <div class="bg-card rounded-xl shadow-xl w-full max-w-md mx-4 p-6 max-h-[90vh] overflow-y-auto">
       <div class="flex items-center justify-between mb-6">
         <h2 class="text-xl font-semibold">Kind bearbeiten</h2>
-        <button @click="$emit('close')" class="p-1 hover:bg-gray-100 rounded">
+        <button @click="$emit('close')" class="p-1 hover:bg-accent rounded">
           <X class="h-5 w-5" />
         </button>
       </div>
@@ -120,143 +120,143 @@ async function handleEdit() {
       <form @submit.prevent="handleEdit" class="space-y-4">
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <label for="edit-firstName" class="block text-sm font-medium text-gray-700 mb-1">Vorname</label>
+            <label for="edit-firstName" class="block text-sm font-medium text-foreground mb-1">Vorname</label>
             <input
               id="edit-firstName"
               v-model="editForm.firstName"
               type="text"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
             />
           </div>
           <div>
-            <label for="edit-lastName" class="block text-sm font-medium text-gray-700 mb-1">Nachname</label>
+            <label for="edit-lastName" class="block text-sm font-medium text-foreground mb-1">Nachname</label>
             <input
               id="edit-lastName"
               v-model="editForm.lastName"
               type="text"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
             />
           </div>
         </div>
 
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <label for="edit-birthDate" class="block text-sm font-medium text-gray-700 mb-1">Geburtsdatum</label>
+            <label for="edit-birthDate" class="block text-sm font-medium text-foreground mb-1">Geburtsdatum</label>
             <input
               id="edit-birthDate"
               v-model="editForm.birthDate"
               type="date"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
             />
           </div>
           <div>
-            <label for="edit-entryDate" class="block text-sm font-medium text-gray-700 mb-1">Eintrittsdatum</label>
+            <label for="edit-entryDate" class="block text-sm font-medium text-foreground mb-1">Eintrittsdatum</label>
             <input
               id="edit-entryDate"
               v-model="editForm.entryDate"
               type="date"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
             />
           </div>
         </div>
 
         <div>
-          <label for="edit-exitDate" class="block text-sm font-medium text-gray-700 mb-1">Austrittsdatum</label>
+          <label for="edit-exitDate" class="block text-sm font-medium text-foreground mb-1">Austrittsdatum</label>
           <input
             id="edit-exitDate"
             v-model="editForm.exitDate"
             type="date"
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+            class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
           />
-          <p class="text-xs text-gray-500 mt-1">Optional: Datum, an dem das Kind die Kita verlässt</p>
+          <p class="text-xs text-muted-foreground mt-1">Optional: Datum, an dem das Kind die Kita verlässt</p>
         </div>
 
         <div class="grid grid-cols-4 gap-4">
           <div class="col-span-3">
-            <label for="edit-street" class="block text-sm font-medium text-gray-700 mb-1">Straße</label>
+            <label for="edit-street" class="block text-sm font-medium text-foreground mb-1">Straße</label>
             <input
               id="edit-street"
               v-model="editForm.street"
               type="text"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
             />
           </div>
           <div>
-            <label for="edit-streetNo" class="block text-sm font-medium text-gray-700 mb-1">Hausnr.</label>
+            <label for="edit-streetNo" class="block text-sm font-medium text-foreground mb-1">Hausnr.</label>
             <input
               id="edit-streetNo"
               v-model="editForm.streetNo"
               type="text"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
             />
           </div>
         </div>
 
         <div class="grid grid-cols-3 gap-4">
           <div>
-            <label for="edit-postalCode" class="block text-sm font-medium text-gray-700 mb-1">PLZ</label>
+            <label for="edit-postalCode" class="block text-sm font-medium text-foreground mb-1">PLZ</label>
             <input
               id="edit-postalCode"
               v-model="editForm.postalCode"
               type="text"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
             />
           </div>
           <div class="col-span-2">
-            <label for="edit-city" class="block text-sm font-medium text-gray-700 mb-1">Ort</label>
+            <label for="edit-city" class="block text-sm font-medium text-foreground mb-1">Ort</label>
             <input
               id="edit-city"
               v-model="editForm.city"
               type="text"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
             />
           </div>
         </div>
 
         <!-- Care Hours Section -->
         <div class="pt-4 border-t">
-          <h3 class="text-sm font-medium text-gray-700 mb-3">Betreuungszeiten</h3>
+          <h3 class="text-sm font-medium text-foreground mb-3">Betreuungszeiten</h3>
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label for="edit-legalHours" class="block text-sm font-medium text-gray-700 mb-1">Rechtsanspruch (Std./Woche)</label>
+              <label for="edit-legalHours" class="block text-sm font-medium text-foreground mb-1">Rechtsanspruch (Std./Woche)</label>
               <input
                 id="edit-legalHours"
                 v-model.number="editForm.legalHours"
                 type="number"
                 min="0"
                 max="50"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
               />
             </div>
             <div>
-              <label for="edit-legalHoursValidFrom" class="block text-sm font-medium text-gray-700 mb-1">Rechtsanspruch gültig ab</label>
+              <label for="edit-legalHoursValidFrom" class="block text-sm font-medium text-foreground mb-1">Rechtsanspruch gültig ab</label>
               <input
                 id="edit-legalHoursValidFrom"
                 v-model="editForm.legalHoursValidFrom"
                 type="date"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
               />
             </div>
           </div>
           <div class="mt-4">
-            <label for="edit-careHours" class="block text-sm font-medium text-gray-700 mb-1">Betreuungszeit (Std./Woche)</label>
+            <label for="edit-careHours" class="block text-sm font-medium text-foreground mb-1">Betreuungszeit (Std./Woche)</label>
             <input
               id="edit-careHours"
               v-model.number="editForm.careHours"
               type="number"
               min="0"
               max="50"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
             />
-            <p class="text-xs text-gray-500 mt-1">Änderungen werden als Historieneintrag gespeichert und gelten ab dem gewählten Datum.</p>
+            <p class="text-xs text-muted-foreground mt-1">Änderungen werden als Historieneintrag gespeichert und gelten ab dem gewählten Datum.</p>
           </div>
           <div class="mt-4">
-            <label for="edit-careHoursValidFrom" class="block text-sm font-medium text-gray-700 mb-1">Betreuungszeit gültig ab</label>
+            <label for="edit-careHoursValidFrom" class="block text-sm font-medium text-foreground mb-1">Betreuungszeit gültig ab</label>
             <input
               id="edit-careHoursValidFrom"
               v-model="editForm.careHoursValidFrom"
               type="date"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
             />
           </div>
         </div>
@@ -266,28 +266,28 @@ async function handleEdit() {
             <input
               v-model="editForm.isActive"
               type="checkbox"
-              class="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary"
+              class="w-4 h-4 text-primary rounded border-border focus:ring-primary"
             />
-            <span class="text-sm text-gray-700">Kind ist aktiv</span>
+            <span class="text-sm text-foreground">Kind ist aktiv</span>
           </label>
         </div>
 
-        <div v-if="editError" class="p-3 bg-red-50 border border-red-200 rounded-lg">
-          <p class="text-sm text-red-600">{{ editError }}</p>
+        <div v-if="editError" class="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg">
+          <p class="text-sm text-red-600 dark:text-red-300">{{ editError }}</p>
         </div>
 
         <div class="flex justify-end gap-3 pt-4">
           <button
             type="button"
             @click="$emit('close')"
-            class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            class="px-4 py-2 text-foreground hover:bg-accent rounded-lg transition-colors"
           >
             Abbrechen
           </button>
           <button
             type="submit"
             :disabled="isEditing"
-            class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+            class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
             <Loader2 v-if="isEditing" class="h-4 w-4 animate-spin" />
             <Check v-else class="h-4 w-4" />

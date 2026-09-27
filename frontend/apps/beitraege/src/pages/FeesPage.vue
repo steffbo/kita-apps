@@ -255,13 +255,13 @@ watch([sortBy, sortDir], () => {
 
 function getStatusInfo(fee: FeeExpectation) {
   if (fee.isPaid) {
-    return { icon: CheckCircle, color: 'text-green-500', label: 'Bezahlt', bg: 'bg-green-50' };
+    return { icon: CheckCircle, color: 'text-green-500 dark:text-green-400', label: 'Bezahlt', bg: 'bg-green-50 dark:bg-green-950/40' };
   }
   const isOverdue = new Date(fee.dueDate) < new Date();
   if (isOverdue) {
-    return { icon: AlertTriangle, color: 'text-red-500', label: 'Überfällig', bg: 'bg-red-50' };
+    return { icon: AlertTriangle, color: 'text-red-500 dark:text-red-400', label: 'Überfällig', bg: 'bg-red-50 dark:bg-red-950/40' };
   }
-  return { icon: Clock, color: 'text-amber-500', label: 'Offen', bg: 'bg-amber-50' };
+  return { icon: Clock, color: 'text-amber-500 dark:text-amber-400', label: 'Offen', bg: 'bg-amber-50 dark:bg-amber-950/40' };
 }
 
 // Selection functions
@@ -387,8 +387,8 @@ async function onFeeCreated() {
     <!-- Header -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
       <div>
-        <h1 class="text-2xl font-bold text-gray-900">Beiträge</h1>
-        <p class="text-gray-600 mt-1">{{ total }} Beiträge gesamt</p>
+        <h1 class="text-2xl font-bold text-foreground">Beiträge</h1>
+        <p class="text-muted-foreground mt-1">{{ total }} Beiträge gesamt</p>
       </div>
       <div class="flex gap-2">
         <button
@@ -400,7 +400,7 @@ async function onFeeCreated() {
         </button>
         <button
           @click="showGenerateDialog = true"
-          class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+          class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
         >
           <Calendar class="h-4 w-4" />
           Beiträge generieren
@@ -411,15 +411,15 @@ async function onFeeCreated() {
     <!-- Selection Action Bar -->
     <div
       v-if="selectedCount > 0"
-      class="flex items-center justify-between gap-4 mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg"
+      class="flex items-center justify-between gap-4 mb-4 p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 rounded-lg"
     >
       <div class="flex items-center gap-3">
-        <span class="text-sm font-medium text-blue-800">
+        <span class="text-sm font-medium text-blue-800 dark:text-blue-300">
           {{ selectedCount }} ausgewählt
         </span>
         <button
           @click="clearSelection"
-          class="text-sm text-blue-600 hover:text-blue-800 underline"
+          class="text-sm text-blue-600 dark:text-blue-300 hover:text-blue-800 dark:text-blue-300 underline"
         >
           Auswahl aufheben
         </button>
@@ -432,39 +432,39 @@ async function onFeeCreated() {
         <Trash2 class="h-4 w-4" />
         {{ selectedDeletableCount }} löschen
       </button>
-      <span v-else class="text-sm text-gray-500">
+      <span v-else class="text-sm text-muted-foreground">
         Nur unbezahlte Beiträge können gelöscht werden
       </span>
     </div>
 
     <!-- Filters -->
-    <div class="flex flex-wrap gap-4 mb-6 p-4 bg-white rounded-xl border">
+    <div class="flex flex-wrap gap-4 mb-6 p-4 bg-card rounded-xl border">
       <div class="flex items-center gap-2">
-        <Filter class="h-4 w-4 text-gray-400" />
-        <span class="text-sm font-medium text-gray-700">Filter:</span>
+        <Filter class="h-4 w-4 text-muted-foreground" />
+        <span class="text-sm font-medium text-foreground">Filter:</span>
       </div>
 
       <!-- Search Input -->
       <div class="relative">
-        <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <input
           v-model="searchQuery"
           type="text"
           placeholder="Mitgl.-Nr. oder Name..."
           @input="handleSearchInput"
-          class="pl-9 pr-3 py-1.5 w-48 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+          class="pl-9 pr-3 py-1.5 w-48 border border-border rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
         />
       </div>
       
       <!-- Status Filter Buttons -->
-      <div class="flex items-center gap-1 p-1 bg-gray-100 rounded-lg">
+      <div class="flex items-center gap-1 p-1 bg-muted rounded-lg">
         <button
           @click="setStatusFilter('open')"
           :class="[
             'flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
             selectedStatus === 'open'
-              ? 'bg-white text-amber-600 shadow-sm'
-              : 'text-gray-600 hover:text-gray-900'
+              ? 'bg-card text-amber-600 dark:text-amber-300 shadow-sm'
+              : 'text-muted-foreground hover:text-foreground'
           ]"
           title="Offene Beiträge"
         >
@@ -476,8 +476,8 @@ async function onFeeCreated() {
           :class="[
             'flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
             selectedStatus === 'paid'
-              ? 'bg-white text-green-600 shadow-sm'
-              : 'text-gray-600 hover:text-gray-900'
+              ? 'bg-card text-green-600 dark:text-green-300 shadow-sm'
+              : 'text-muted-foreground hover:text-foreground'
           ]"
           title="Bezahlte Beiträge"
         >
@@ -489,8 +489,8 @@ async function onFeeCreated() {
           :class="[
             'flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
             selectedStatus === 'all'
-              ? 'bg-white text-gray-900 shadow-sm'
-              : 'text-gray-600 hover:text-gray-900'
+              ? 'bg-card text-foreground shadow-sm'
+              : 'text-muted-foreground hover:text-foreground'
           ]"
           title="Alle Beiträge"
         >
@@ -498,7 +498,7 @@ async function onFeeCreated() {
         </button>
       </div>
 
-      <div class="flex items-center gap-1 p-1 bg-gray-100 rounded-lg">
+      <div class="flex items-center gap-1 p-1 bg-muted rounded-lg">
         <button
           v-for="type in feeTypes"
           :key="type.value || 'all'"
@@ -506,8 +506,8 @@ async function onFeeCreated() {
           :class="[
             'px-3 py-1.5 text-sm font-medium rounded-md transition-colors whitespace-nowrap',
             selectedType === type.value
-              ? 'bg-white text-primary shadow-sm'
-              : 'text-gray-600 hover:text-gray-900'
+              ? 'bg-card text-primary shadow-sm'
+              : 'text-muted-foreground hover:text-foreground'
           ]"
         >
           {{ type.label }}
@@ -521,95 +521,95 @@ async function onFeeCreated() {
     </div>
 
     <!-- Error state -->
-    <div v-else-if="error" class="bg-red-50 border border-red-200 rounded-lg p-4">
-      <p class="text-red-600">{{ error }}</p>
-      <button @click="loadFees" class="mt-2 text-sm text-red-700 underline">
+    <div v-else-if="error" class="bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg p-4">
+      <p class="text-red-600 dark:text-red-300">{{ error }}</p>
+      <button @click="loadFees" class="mt-2 text-sm text-red-700 dark:text-red-300 underline">
         Erneut versuchen
       </button>
     </div>
 
     <!-- Fees table -->
-    <div v-else class="bg-white rounded-xl border overflow-hidden">
+    <div v-else class="bg-card rounded-xl border overflow-hidden">
       <div class="overflow-x-auto">
         <table class="w-full">
-          <thead class="bg-gray-50">
-            <tr class="text-left text-sm text-gray-500">
+          <thead class="bg-muted">
+            <tr class="text-left text-sm text-muted-foreground">
               <th class="px-4 py-3 font-medium w-10">
                 <input
                   type="checkbox"
                   :checked="allSelected"
                   :indeterminate="someSelected"
                   @change="toggleSelectAll"
-                  class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+                  class="h-4 w-4 rounded border-border text-primary focus:ring-primary cursor-pointer"
                 />
               </th>
               <th class="px-4 py-3 font-medium">
                 <button
                   @click="toggleSort('memberNumber')"
-                  class="inline-flex items-center gap-1 hover:text-gray-700"
+                  class="inline-flex items-center gap-1 hover:text-foreground"
                   type="button"
                   :aria-sort="isSorted('memberNumber') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'"
                 >
                   <span>Mitgl.-Nr.</span>
                   <component
                     :is="getSortIcon('memberNumber')"
-                    :class="['h-4 w-4', isSorted('memberNumber') ? 'text-gray-700' : 'text-gray-400']"
+                    :class="['h-4 w-4', isSorted('memberNumber') ? 'text-foreground' : 'text-muted-foreground']"
                   />
                 </button>
               </th>
               <th class="px-4 py-3 font-medium">
                 <button
                   @click="toggleSort('childName')"
-                  class="inline-flex items-center gap-1 hover:text-gray-700"
+                  class="inline-flex items-center gap-1 hover:text-foreground"
                   type="button"
                   :aria-sort="isSorted('childName') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'"
                 >
                   <span>Kind</span>
                   <component
                     :is="getSortIcon('childName')"
-                    :class="['h-4 w-4', isSorted('childName') ? 'text-gray-700' : 'text-gray-400']"
+                    :class="['h-4 w-4', isSorted('childName') ? 'text-foreground' : 'text-muted-foreground']"
                   />
                 </button>
               </th>
               <th class="px-4 py-3 font-medium">
                 <button
                   @click="toggleSort('feeType')"
-                  class="inline-flex items-center gap-1 hover:text-gray-700"
+                  class="inline-flex items-center gap-1 hover:text-foreground"
                   type="button"
                   :aria-sort="isSorted('feeType') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'"
                 >
                   <span>Typ</span>
                   <component
                     :is="getSortIcon('feeType')"
-                    :class="['h-4 w-4', isSorted('feeType') ? 'text-gray-700' : 'text-gray-400']"
+                    :class="['h-4 w-4', isSorted('feeType') ? 'text-foreground' : 'text-muted-foreground']"
                   />
                 </button>
               </th>
               <th class="px-4 py-3 font-medium">
                 <button
                   @click="toggleSort('period')"
-                  class="inline-flex items-center gap-1 hover:text-gray-700"
+                  class="inline-flex items-center gap-1 hover:text-foreground"
                   type="button"
                   :aria-sort="isSorted('period') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'"
                 >
                   <span>Zeitraum</span>
                   <component
                     :is="getSortIcon('period')"
-                    :class="['h-4 w-4', isSorted('period') ? 'text-gray-700' : 'text-gray-400']"
+                    :class="['h-4 w-4', isSorted('period') ? 'text-foreground' : 'text-muted-foreground']"
                   />
                 </button>
               </th>
               <th class="px-4 py-3 font-medium text-right">
                 <button
                   @click="toggleSort('amount')"
-                  class="inline-flex items-center gap-1 hover:text-gray-700 justify-end w-full"
+                  class="inline-flex items-center gap-1 hover:text-foreground justify-end w-full"
                   type="button"
                   :aria-sort="isSorted('amount') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'"
                 >
                   <span>Betrag</span>
                   <component
                     :is="getSortIcon('amount')"
-                    :class="['h-4 w-4', isSorted('amount') ? 'text-gray-700' : 'text-gray-400']"
+                    :class="['h-4 w-4', isSorted('amount') ? 'text-foreground' : 'text-muted-foreground']"
                   />
                 </button>
               </th>
@@ -624,7 +624,7 @@ async function onFeeCreated() {
               :key="fee.id"
               :class="[
                 'border-t transition-colors',
-                isSelected(fee.id) ? 'bg-blue-50' : 'hover:bg-gray-50'
+                isSelected(fee.id) ? 'bg-blue-50 dark:bg-blue-950/40' : 'hover:bg-accent'
               ]"
             >
               <td class="px-4 py-3">
@@ -632,10 +632,10 @@ async function onFeeCreated() {
                   type="checkbox"
                   :checked="isSelected(fee.id)"
                   @change="toggleSelect(fee.id)"
-                  class="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
+                  class="h-4 w-4 rounded border-border text-primary focus:ring-primary cursor-pointer"
                 />
               </td>
-              <td class="px-4 py-3 text-gray-600 font-mono text-sm">
+              <td class="px-4 py-3 text-muted-foreground font-mono text-sm">
                 {{ fee.child?.memberNumber }}
               </td>
               <td class="px-4 py-3">
@@ -656,13 +656,13 @@ async function onFeeCreated() {
                   {{ getFeeTypeName(fee.feeType) }}
                 </span>
               </td>
-              <td class="px-4 py-3 text-gray-600">
+              <td class="px-4 py-3 text-muted-foreground">
                 {{ fee.month ? formatMonthName(fee.month) + ' ' : '' }}{{ fee.year }}
               </td>
               <td class="px-4 py-3 text-right font-medium">
                 {{ formatCurrency(fee.amount) }}
               </td>
-              <td class="px-4 py-3 text-gray-600">
+              <td class="px-4 py-3 text-muted-foreground">
                 {{ formatDate(fee.dueDate) }}
               </td>
               <td class="px-4 py-3">
@@ -679,7 +679,7 @@ async function onFeeCreated() {
                   <button
                     v-if="canCreateReminder(fee)"
                     @click="openReminderDialog(fee)"
-                    class="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 rounded transition-colors"
+                    class="p-1.5 text-muted-foreground hover:text-amber-600 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/40 rounded transition-colors"
                     title="Mahngebühr erstellen"
                   >
                     <AlertCircle class="h-4 w-4" />
@@ -687,7 +687,7 @@ async function onFeeCreated() {
                   <button
                     v-if="!fee.isPaid"
                     @click="deleteSingleFee(fee)"
-                    class="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
+                    class="p-1.5 text-muted-foreground hover:text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/40 rounded transition-colors"
                     title="Löschen"
                   >
                     <Trash2 class="h-4 w-4" />
@@ -696,7 +696,7 @@ async function onFeeCreated() {
               </td>
             </tr>
             <tr v-if="fees.length === 0">
-              <td colspan="9" class="px-4 py-8 text-center text-gray-500">
+              <td colspan="9" class="px-4 py-8 text-center text-muted-foreground">
                 Keine Beiträge gefunden
               </td>
             </tr>
@@ -705,14 +705,14 @@ async function onFeeCreated() {
       </div>
 
       <!-- Pagination -->
-      <div class="flex items-center justify-between px-4 py-3 border-t bg-gray-50">
+      <div class="flex items-center justify-between px-4 py-3 border-t bg-muted">
         <div class="flex items-center gap-4">
-          <span class="text-sm text-gray-600">
+          <span class="text-sm text-muted-foreground">
             {{ offset + 1 }}-{{ Math.min(offset + pageSize, total) }} von {{ total }}
           </span>
           <select
             v-model="pageSize"
-            class="text-sm border border-gray-300 rounded px-2 py-1 focus:ring-primary focus:border-primary"
+            class="text-sm border border-border rounded px-2 py-1 focus:ring-primary focus:border-primary"
           >
             <option v-for="size in pageSizeOptions" :key="size" :value="size">
               {{ size }} pro Seite
@@ -723,20 +723,20 @@ async function onFeeCreated() {
           <button
             @click="goToPage(currentPage - 1)"
             :disabled="currentPage === 1"
-            class="p-1.5 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            class="p-1.5 rounded hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <ChevronLeft class="h-4 w-4" />
           </button>
           <template v-for="page in visiblePages" :key="page">
-            <span v-if="page === '...'" class="px-2 text-gray-400">...</span>
+            <span v-if="page === '...'" class="px-2 text-muted-foreground">...</span>
             <button
               v-else
               @click="goToPage(page)"
               :class="[
                 'px-3 py-1 rounded text-sm',
                 page === currentPage
-                  ? 'bg-primary text-white'
-                  : 'hover:bg-gray-200',
+                  ? 'bg-primary text-primary-foreground'
+                  : 'hover:bg-accent',
               ]"
             >
               {{ page }}
@@ -745,7 +745,7 @@ async function onFeeCreated() {
           <button
             @click="goToPage(currentPage + 1)"
             :disabled="currentPage === totalPages"
-            class="p-1.5 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            class="p-1.5 rounded hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <ChevronRight class="h-4 w-4" />
           </button>
@@ -761,18 +761,18 @@ async function onFeeCreated() {
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
       @click.self="showDeleteConfirm = false"
     >
-      <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+      <div class="bg-card rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
         <div class="flex items-center gap-3 mb-6">
-          <div class="p-2 bg-red-100 rounded-lg">
-            <Trash2 class="h-6 w-6 text-red-600" />
+          <div class="p-2 bg-red-100 dark:bg-red-950/40 rounded-lg">
+            <Trash2 class="h-6 w-6 text-red-600 dark:text-red-300" />
           </div>
           <div>
             <h2 class="text-xl font-semibold">Beiträge löschen</h2>
-            <p class="text-sm text-gray-600">Diese Aktion kann nicht rückgängig gemacht werden</p>
+            <p class="text-sm text-muted-foreground">Diese Aktion kann nicht rückgängig gemacht werden</p>
           </div>
         </div>
 
-        <p class="text-gray-700 mb-6">
+        <p class="text-foreground mb-6">
           Möchten Sie wirklich <strong>{{ selectedDeletableCount }} Beiträge</strong> löschen?
         </p>
 
@@ -780,7 +780,7 @@ async function onFeeCreated() {
           <button
             @click="showDeleteConfirm = false"
             :disabled="isDeleting"
-            class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+            class="px-4 py-2 text-foreground hover:bg-accent rounded-lg transition-colors disabled:opacity-50"
           >
             Abbrechen
           </button>
@@ -803,24 +803,24 @@ async function onFeeCreated() {
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
       @click.self="showReminderConfirm = false"
     >
-      <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+      <div class="bg-card rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
         <div class="flex items-center gap-3 mb-6">
-          <div class="p-2 bg-amber-100 rounded-lg">
-            <AlertCircle class="h-6 w-6 text-amber-600" />
+          <div class="p-2 bg-amber-100 dark:bg-amber-950/40 rounded-lg">
+            <AlertCircle class="h-6 w-6 text-amber-600 dark:text-amber-300" />
           </div>
           <div>
             <h2 class="text-xl font-semibold">Mahngebühr erstellen</h2>
-            <p class="text-sm text-gray-600">Eine Mahngebühr von 10,00 € wird erstellt</p>
+            <p class="text-sm text-muted-foreground">Eine Mahngebühr von 10,00 € wird erstellt</p>
           </div>
         </div>
 
-        <div v-if="reminderTargetFee" class="mb-6 p-4 bg-gray-50 rounded-lg">
-          <p class="text-sm text-gray-600">Für den überfälligen Beitrag:</p>
+        <div v-if="reminderTargetFee" class="mb-6 p-4 bg-muted rounded-lg">
+          <p class="text-sm text-muted-foreground">Für den überfälligen Beitrag:</p>
           <p class="font-medium mt-1">
             {{ getFeeTypeName(reminderTargetFee.feeType) }} - 
             {{ reminderTargetFee.child?.firstName }} {{ reminderTargetFee.child?.lastName }}
           </p>
-          <p class="text-sm text-gray-500 mt-1">
+          <p class="text-sm text-muted-foreground mt-1">
             {{ formatCurrency(reminderTargetFee.amount) }} • Fällig: {{ formatDate(reminderTargetFee.dueDate) }}
           </p>
         </div>
@@ -829,7 +829,7 @@ async function onFeeCreated() {
           <button
             @click="showReminderConfirm = false"
             :disabled="isCreatingReminder"
-            class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors disabled:opacity-50"
+            class="px-4 py-2 text-foreground hover:bg-accent rounded-lg transition-colors disabled:opacity-50"
           >
             Abbrechen
           </button>

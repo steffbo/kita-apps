@@ -56,11 +56,11 @@ function updateField(key: keyof IncomeDetails, event: Event) {
   <div class="space-y-4">
     <!-- Employee income -->
     <div>
-      <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Einkommen aus nichtselbständiger Arbeit</h4>
+      <h4 class="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Einkommen aus nichtselbständiger Arbeit</h4>
       <div class="space-y-2">
         <div v-for="field in employeeFields" :key="field.key" class="flex items-center gap-2">
-          <span class="w-5 text-center text-xs font-bold" :class="field.sign === '+' ? 'text-green-600' : 'text-red-500'">{{ field.sign }}</span>
-          <label class="flex-1 text-sm text-gray-600">{{ field.label }}</label>
+          <span class="w-5 text-center text-xs font-bold" :class="field.sign === '+' ? 'text-green-600 dark:text-green-300' : 'text-red-500 dark:text-red-400'">{{ field.sign }}</span>
+          <label class="flex-1 text-sm text-muted-foreground">{{ field.label }}</label>
           <input
             type="number"
             step="0.01"
@@ -75,11 +75,11 @@ function updateField(key: keyof IncomeDetails, event: Event) {
 
     <!-- Other income -->
     <div>
-      <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Sonstige Einnahmen</h4>
+      <h4 class="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Sonstige Einnahmen</h4>
       <div class="space-y-2">
         <div v-for="field in otherIncomeFields" :key="field.key" class="flex items-center gap-2">
-          <span class="w-5 text-center text-xs font-bold" :class="field.sign === '+' ? 'text-green-600' : 'text-red-500'">{{ field.sign }}</span>
-          <label class="flex-1 text-sm text-gray-600">{{ field.label }}</label>
+          <span class="w-5 text-center text-xs font-bold" :class="field.sign === '+' ? 'text-green-600 dark:text-green-300' : 'text-red-500 dark:text-red-400'">{{ field.sign }}</span>
+          <label class="flex-1 text-sm text-muted-foreground">{{ field.label }}</label>
           <input
             type="number"
             step="0.01"
@@ -94,11 +94,11 @@ function updateField(key: keyof IncomeDetails, event: Event) {
 
     <!-- Self-employed -->
     <div>
-      <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Einkommen aus selbständiger Arbeit</h4>
+      <h4 class="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Einkommen aus selbständiger Arbeit</h4>
       <div class="space-y-2">
         <div v-for="field in selfEmployedFields" :key="field.key" class="flex items-center gap-2">
-          <span class="w-5 text-center text-xs font-bold" :class="field.sign === '+' ? 'text-green-600' : 'text-red-500'">{{ field.sign }}</span>
-          <label class="flex-1 text-sm text-gray-600">{{ field.label }}</label>
+          <span class="w-5 text-center text-xs font-bold" :class="field.sign === '+' ? 'text-green-600 dark:text-green-300' : 'text-red-500 dark:text-red-400'">{{ field.sign }}</span>
+          <label class="flex-1 text-sm text-muted-foreground">{{ field.label }}</label>
           <input
             type="number"
             step="0.01"
@@ -113,13 +113,13 @@ function updateField(key: keyof IncomeDetails, event: Event) {
 
     <!-- Benefits -->
     <div>
-      <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Leistungen</h4>
+      <h4 class="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Leistungen</h4>
       <div class="space-y-2">
         <div v-for="field in benefitFields" :key="field.key" class="flex items-center gap-2">
-          <span class="w-5 text-center text-xs font-bold" :class="field.sign === '+' ? 'text-green-600' : 'text-red-500'">{{ field.sign }}</span>
+          <span class="w-5 text-center text-xs font-bold" :class="field.sign === '+' ? 'text-green-600 dark:text-green-300' : 'text-red-500 dark:text-red-400'">{{ field.sign }}</span>
           <div class="flex-1">
-            <span class="text-sm text-gray-600">{{ field.label }}</span>
-            <span v-if="field.hint" class="ml-1 text-xs text-orange-500">({{ field.hint }})</span>
+            <span class="text-sm text-muted-foreground">{{ field.label }}</span>
+            <span v-if="field.hint" class="ml-1 text-xs text-orange-500 dark:text-orange-400">({{ field.hint }})</span>
           </div>
           <input
             type="number"
@@ -135,11 +135,11 @@ function updateField(key: keyof IncomeDetails, event: Event) {
 
     <!-- Maintenance -->
     <div>
-      <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Unterhalt</h4>
+      <h4 class="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Unterhalt</h4>
       <div class="space-y-2">
         <div v-for="field in maintenanceFields" :key="field.key" class="flex items-center gap-2">
-          <span class="w-5 text-center text-xs font-bold" :class="field.sign === '+' ? 'text-green-600' : 'text-red-500'">{{ field.sign }}</span>
-          <label class="flex-1 text-sm text-gray-600">{{ field.label }}</label>
+          <span class="w-5 text-center text-xs font-bold" :class="field.sign === '+' ? 'text-green-600 dark:text-green-300' : 'text-red-500 dark:text-red-400'">{{ field.sign }}</span>
+          <label class="flex-1 text-sm text-muted-foreground">{{ field.label }}</label>
           <input
             type="number"
             step="0.01"

@@ -373,20 +373,20 @@ const visiblePages = computed(() => {
     <!-- Header -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
       <div>
-        <h1 class="text-2xl font-bold text-gray-900">Vereinsmitglieder</h1>
-        <p class="text-gray-600 mt-1">{{ total }} Mitglieder registriert</p>
+        <h1 class="text-2xl font-bold text-foreground">Vereinsmitglieder</h1>
+        <p class="text-muted-foreground mt-1">{{ total }} Mitglieder registriert</p>
       </div>
       <div class="flex items-center gap-2">
         <button
           @click="openStichtagModal"
-          class="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 bg-white rounded-lg hover:bg-gray-50 transition-colors"
+          class="inline-flex items-center gap-2 px-4 py-2 border border-border text-foreground bg-card rounded-lg hover:bg-accent transition-colors"
         >
           <CalendarClock class="h-4 w-4" />
           Stichtagsreport
         </button>
         <button
           @click="showCreateDialog = true"
-          class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+          class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
         >
           <Plus class="h-4 w-4" />
           Mitglied hinzufügen
@@ -397,13 +397,13 @@ const visiblePages = computed(() => {
     <!-- Filters -->
     <div class="flex flex-col sm:flex-row gap-4 mb-6">
       <div class="relative flex-1">
-        <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <input
           v-model="searchQuery"
           @input="handleSearchInput"
           type="text"
           placeholder="Suchen nach Name, Mitgliedsnummer oder E-Mail..."
-          class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+          class="w-full pl-10 pr-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
         />
       </div>
       <label class="flex items-center gap-2 cursor-pointer">
@@ -411,24 +411,24 @@ const visiblePages = computed(() => {
           v-model="showInactive"
           @change="handleInactiveChange"
           type="checkbox"
-          class="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary"
+          class="w-4 h-4 text-primary rounded border-border focus:ring-primary"
         />
-        <span class="text-sm text-gray-700">Inaktive anzeigen</span>
+        <span class="text-sm text-foreground">Inaktive anzeigen</span>
       </label>
     </div>
 
     <!-- Bulk actions bar -->
     <div
       v-if="selectedIds.size > 0"
-      class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between"
+      class="mb-4 p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 rounded-lg flex items-center justify-between"
     >
-      <span class="text-sm font-medium text-blue-800">
+      <span class="text-sm font-medium text-blue-800 dark:text-blue-300">
         {{ selectedIds.size }} {{ selectedIds.size === 1 ? 'Mitglied' : 'Mitglieder' }} ausgewählt
       </span>
       <div class="flex items-center gap-2">
         <button
           @click="showDeactivateDialog = true"
-          class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-amber-100 text-amber-800 rounded-lg hover:bg-amber-200 transition-colors"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 rounded-lg hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors"
         >
           <UserX class="h-4 w-4" />
           Deaktivieren
@@ -436,14 +436,14 @@ const visiblePages = computed(() => {
         <button
           v-if="authStore.isAdmin"
           @click="showDeleteDialog = true"
-          class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-red-100 text-red-800 rounded-lg hover:bg-red-200 transition-colors"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-red-100 dark:bg-red-950/40 text-red-800 dark:text-red-300 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors"
         >
           <Trash2 class="h-4 w-4" />
           Löschen
         </button>
         <button
           @click="selectedIds = new Set()"
-          class="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+          class="px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent rounded-lg transition-colors"
         >
           Auswahl aufheben
         </button>
@@ -456,19 +456,19 @@ const visiblePages = computed(() => {
     </div>
 
     <!-- Error state -->
-    <div v-else-if="error" class="bg-red-50 border border-red-200 rounded-lg p-4">
-      <p class="text-red-600">{{ error }}</p>
-      <button @click="loadMembers" class="mt-2 text-sm text-red-700 underline">
+    <div v-else-if="error" class="bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg p-4">
+      <p class="text-red-600 dark:text-red-300">{{ error }}</p>
+      <button @click="loadMembers" class="mt-2 text-sm text-red-700 dark:text-red-300 underline">
         Erneut versuchen
       </button>
     </div>
 
     <!-- Members table -->
-    <div v-else class="bg-white rounded-xl border overflow-hidden">
+    <div v-else class="bg-card rounded-xl border overflow-hidden">
       <div class="overflow-x-auto">
         <table class="w-full">
-          <thead class="bg-gray-50">
-            <tr class="text-left text-sm text-gray-500">
+          <thead class="bg-muted">
+            <tr class="text-left text-sm text-muted-foreground">
               <!-- Checkbox column -->
               <th class="px-4 py-3 w-12">
                 <input
@@ -476,14 +476,14 @@ const visiblePages = computed(() => {
                   :checked="isAllSelected"
                   :indeterminate="isSomeSelected"
                   @change="toggleSelectAll"
-                  class="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary"
+                  class="w-4 h-4 text-primary rounded border-border focus:ring-primary"
                 />
               </th>
               <!-- Member number -->
               <th class="px-4 py-3 font-medium">
                 <button
                   @click="toggleSort('memberNumber')"
-                  class="flex items-center gap-1 hover:text-gray-700"
+                  class="flex items-center gap-1 hover:text-foreground"
                 >
                   <Hash class="h-4 w-4" />
                   Nr.
@@ -494,7 +494,7 @@ const visiblePages = computed(() => {
               <th class="px-4 py-3 font-medium">
                 <button
                   @click="toggleSort('lastName')"
-                  class="flex items-center gap-1 hover:text-gray-700"
+                  class="flex items-center gap-1 hover:text-foreground"
                 >
                   <User class="h-4 w-4" />
                   Nachname
@@ -505,7 +505,7 @@ const visiblePages = computed(() => {
               <th class="px-4 py-3 font-medium">
                 <button
                   @click="toggleSort('firstName')"
-                  class="flex items-center gap-1 hover:text-gray-700"
+                  class="flex items-center gap-1 hover:text-foreground"
                 >
                   Vorname
                   <component :is="getSortIcon('firstName')" class="h-4 w-4" />
@@ -522,7 +522,7 @@ const visiblePages = computed(() => {
               <th class="px-4 py-3 font-medium">
                 <button
                   @click="toggleSort('email')"
-                  class="flex items-center gap-1 hover:text-gray-700"
+                  class="flex items-center gap-1 hover:text-foreground"
                 >
                   <Mail class="h-4 w-4" />
                   E-Mail
@@ -540,7 +540,7 @@ const visiblePages = computed(() => {
               <th class="px-4 py-3 font-medium">
                 <button
                   @click="toggleSort('membershipStart')"
-                  class="flex items-center gap-1 hover:text-gray-700"
+                  class="flex items-center gap-1 hover:text-foreground"
                 >
                   <Calendar class="h-4 w-4" />
                   Mitglied seit
@@ -557,8 +557,8 @@ const visiblePages = computed(() => {
               :key="member.id"
               @click="goToMember(member.id)"
               :class="[
-                'border-t hover:bg-gray-50 cursor-pointer transition-colors',
-                selectedIds.has(member.id) ? 'bg-blue-50' : '',
+                'border-t hover:bg-accent cursor-pointer transition-colors',
+                selectedIds.has(member.id) ? 'bg-blue-50 dark:bg-blue-950/40' : '',
               ]"
             >
               <!-- Checkbox -->
@@ -567,7 +567,7 @@ const visiblePages = computed(() => {
                   type="checkbox"
                   :checked="selectedIds.has(member.id)"
                   @change="toggleSelect(member.id, $event)"
-                  class="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary"
+                  class="w-4 h-4 text-primary rounded border-border focus:ring-primary"
                 />
               </td>
               <!-- Member number -->
@@ -577,30 +577,30 @@ const visiblePages = computed(() => {
               <!-- First Name -->
               <td class="px-4 py-3">{{ member.firstName }}</td>
               <!-- Children -->
-              <td class="px-4 py-3 text-gray-600">
+              <td class="px-4 py-3 text-muted-foreground">
                 <span v-if="childNamesFor(member).length > 0" class="truncate">
                   {{ childNamesFor(member).join(', ') }}
                 </span>
-                <span v-else class="text-gray-400">-</span>
+                <span v-else class="text-muted-foreground">-</span>
               </td>
               <!-- Email -->
-              <td class="px-4 py-3 text-gray-600">
+              <td class="px-4 py-3 text-muted-foreground">
                 <span v-if="member.email" class="truncate">{{ member.email }}</span>
-                <span v-else class="text-gray-400">-</span>
+                <span v-else class="text-muted-foreground">-</span>
               </td>
               <!-- Phone -->
-              <td class="px-4 py-3 text-gray-600">
+              <td class="px-4 py-3 text-muted-foreground">
                 <span v-if="member.phone">{{ member.phone }}</span>
-                <span v-else class="text-gray-400">-</span>
+                <span v-else class="text-muted-foreground">-</span>
               </td>
               <!-- Membership Start -->
-              <td class="px-4 py-3 text-gray-600">{{ formatDate(member.membershipStart) }}</td>
+              <td class="px-4 py-3 text-muted-foreground">{{ formatDate(member.membershipStart) }}</td>
               <!-- Status -->
               <td class="px-4 py-3">
                 <span
                   :class="[
                     'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium',
-                    member.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600',
+                    member.isActive ? 'bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-300' : 'bg-muted text-muted-foreground',
                   ]"
                 >
                   {{ member.isActive ? 'Aktiv' : 'Inaktiv' }}
@@ -608,7 +608,7 @@ const visiblePages = computed(() => {
               </td>
             </tr>
             <tr v-if="members.length === 0">
-              <td colspan="9" class="px-4 py-8 text-center text-gray-500">
+              <td colspan="9" class="px-4 py-8 text-center text-muted-foreground">
                 Keine Mitglieder gefunden
               </td>
             </tr>
@@ -617,14 +617,14 @@ const visiblePages = computed(() => {
       </div>
 
       <!-- Pagination -->
-      <div class="flex items-center justify-between px-4 py-3 border-t bg-gray-50">
+      <div class="flex items-center justify-between px-4 py-3 border-t bg-muted">
         <div class="flex items-center gap-4">
-          <span class="text-sm text-gray-600">
+          <span class="text-sm text-muted-foreground">
             {{ offset + 1 }}-{{ Math.min(offset + pageSize, total) }} von {{ total }}
           </span>
           <select
             v-model="pageSize"
-            class="text-sm border border-gray-300 rounded px-2 py-1 focus:ring-primary focus:border-primary"
+            class="text-sm border border-border rounded px-2 py-1 focus:ring-primary focus:border-primary"
           >
             <option v-for="size in pageSizeOptions" :key="size" :value="size">
               {{ size }} pro Seite
@@ -635,20 +635,20 @@ const visiblePages = computed(() => {
           <button
             @click="goToPage(currentPage - 1)"
             :disabled="currentPage === 1"
-            class="p-1.5 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            class="p-1.5 rounded hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <ChevronLeft class="h-4 w-4" />
           </button>
           <template v-for="page in visiblePages" :key="page">
-            <span v-if="page === '...'" class="px-2 text-gray-400">...</span>
+            <span v-if="page === '...'" class="px-2 text-muted-foreground">...</span>
             <button
               v-else
               @click="goToPage(page)"
               :class="[
                 'px-3 py-1 rounded text-sm',
                 page === currentPage
-                  ? 'bg-primary text-white'
-                  : 'hover:bg-gray-200',
+                  ? 'bg-primary text-primary-foreground'
+                  : 'hover:bg-accent',
               ]"
             >
               {{ page }}
@@ -657,7 +657,7 @@ const visiblePages = computed(() => {
           <button
             @click="goToPage(currentPage + 1)"
             :disabled="currentPage === totalPages"
-            class="p-1.5 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            class="p-1.5 rounded hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <ChevronRight class="h-4 w-4" />
           </button>
@@ -671,10 +671,10 @@ const visiblePages = computed(() => {
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
       @click.self="showCreateDialog = false"
     >
-      <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+      <div class="bg-card rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
         <div class="flex items-center justify-between mb-6">
           <h2 class="text-xl font-semibold">Mitglied hinzufügen</h2>
-          <button @click="showCreateDialog = false" class="p-1 hover:bg-gray-100 rounded">
+          <button @click="showCreateDialog = false" class="p-1 hover:bg-accent rounded">
             <X class="h-5 w-5" />
           </button>
         </div>
@@ -682,74 +682,74 @@ const visiblePages = computed(() => {
         <form @submit.prevent="handleCreate" class="space-y-4">
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label for="firstName" class="block text-sm font-medium text-gray-700 mb-1">Vorname *</label>
+              <label for="firstName" class="block text-sm font-medium text-foreground mb-1">Vorname *</label>
               <input
                 id="firstName"
                 v-model="createForm.firstName"
                 required
                 type="text"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
               />
             </div>
             <div>
-              <label for="lastName" class="block text-sm font-medium text-gray-700 mb-1">Nachname *</label>
+              <label for="lastName" class="block text-sm font-medium text-foreground mb-1">Nachname *</label>
               <input
                 id="lastName"
                 v-model="createForm.lastName"
                 required
                 type="text"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
               />
             </div>
           </div>
 
           <div>
-            <label for="email" class="block text-sm font-medium text-gray-700 mb-1">E-Mail</label>
+            <label for="email" class="block text-sm font-medium text-foreground mb-1">E-Mail</label>
             <input
               id="email"
               v-model="createForm.email"
               type="email"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
             />
           </div>
 
           <div>
-            <label for="phone" class="block text-sm font-medium text-gray-700 mb-1">Telefon</label>
+            <label for="phone" class="block text-sm font-medium text-foreground mb-1">Telefon</label>
             <input
               id="phone"
               v-model="createForm.phone"
               type="tel"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
             />
           </div>
 
           <div>
-            <label for="membershipStart" class="block text-sm font-medium text-gray-700 mb-1">Mitglied seit *</label>
+            <label for="membershipStart" class="block text-sm font-medium text-foreground mb-1">Mitglied seit *</label>
             <input
               id="membershipStart"
               v-model="createForm.membershipStart"
               required
               type="date"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
             />
           </div>
 
-          <div v-if="createError" class="p-3 bg-red-50 border border-red-200 rounded-lg">
-            <p class="text-sm text-red-600">{{ createError }}</p>
+          <div v-if="createError" class="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg">
+            <p class="text-sm text-red-600 dark:text-red-300">{{ createError }}</p>
           </div>
 
           <div class="flex justify-end gap-3 pt-4">
             <button
               type="button"
               @click="showCreateDialog = false"
-              class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              class="px-4 py-2 text-foreground hover:bg-accent rounded-lg transition-colors"
             >
               Abbrechen
             </button>
             <button
               type="submit"
               :disabled="isCreating"
-              class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+              class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
             >
               <Loader2 v-if="isCreating" class="h-4 w-4 animate-spin" />
               <Check v-else class="h-4 w-4" />
@@ -766,27 +766,27 @@ const visiblePages = computed(() => {
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
       @click.self="showDeactivateDialog = false"
     >
-      <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+      <div class="bg-card rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
         <div class="flex items-center gap-3 mb-4">
-          <div class="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center">
-            <UserX class="h-5 w-5 text-amber-600" />
+          <div class="w-10 h-10 bg-amber-100 dark:bg-amber-950/40 rounded-full flex items-center justify-center">
+            <UserX class="h-5 w-5 text-amber-600 dark:text-amber-300" />
           </div>
           <h2 class="text-xl font-semibold">Mitglieder deaktivieren</h2>
         </div>
         
-        <p class="text-gray-600 mb-6">
+        <p class="text-muted-foreground mb-6">
           Möchten Sie <strong>{{ selectedIds.size }}</strong> {{ selectedIds.size === 1 ? 'Mitglied' : 'Mitglieder' }} wirklich deaktivieren?
           Deaktivierte Mitglieder werden nicht mehr in den Standardlisten angezeigt.
         </p>
 
-        <div v-if="bulkActionError" class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-          <p class="text-sm text-red-600">{{ bulkActionError }}</p>
+        <div v-if="bulkActionError" class="mb-4 p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg">
+          <p class="text-sm text-red-600 dark:text-red-300">{{ bulkActionError }}</p>
         </div>
 
         <div class="flex justify-end gap-3">
           <button
             @click="showDeactivateDialog = false"
-            class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            class="px-4 py-2 text-foreground hover:bg-accent rounded-lg transition-colors"
           >
             Abbrechen
           </button>
@@ -809,20 +809,20 @@ const visiblePages = computed(() => {
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
       @click.self="showDeleteDialog = false"
     >
-      <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+      <div class="bg-card rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
         <div class="flex items-center gap-3 mb-4">
-          <div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-            <Trash2 class="h-5 w-5 text-red-600" />
+          <div class="w-10 h-10 bg-red-100 dark:bg-red-950/40 rounded-full flex items-center justify-center">
+            <Trash2 class="h-5 w-5 text-red-600 dark:text-red-300" />
           </div>
-          <h2 class="text-xl font-semibold text-red-700">Mitglieder löschen</h2>
+          <h2 class="text-xl font-semibold text-red-700 dark:text-red-300">Mitglieder löschen</h2>
         </div>
         
-        <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+        <div class="bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg p-4 mb-4">
           <div class="flex items-start gap-2">
-            <AlertTriangle class="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <AlertTriangle class="h-5 w-5 text-red-600 dark:text-red-300 flex-shrink-0 mt-0.5" />
             <div>
-              <p class="font-semibold text-red-800">Achtung: Permanente Löschung!</p>
-              <p class="text-sm text-red-700 mt-1">
+              <p class="font-semibold text-red-800 dark:text-red-300">Achtung: Permanente Löschung!</p>
+              <p class="text-sm text-red-700 dark:text-red-300 mt-1">
                 Diese Aktion kann nicht rückgängig gemacht werden. Alle zugehörigen Daten
                 werden ebenfalls gelöscht.
               </p>
@@ -830,19 +830,19 @@ const visiblePages = computed(() => {
           </div>
         </div>
 
-        <p class="text-gray-600 mb-6">
+        <p class="text-muted-foreground mb-6">
           Möchten Sie <strong>{{ selectedIds.size }}</strong> {{ selectedIds.size === 1 ? 'Mitglied' : 'Mitglieder' }} wirklich
-          <strong class="text-red-600">unwiderruflich löschen</strong>?
+          <strong class="text-red-600 dark:text-red-300">unwiderruflich löschen</strong>?
         </p>
 
-        <div v-if="bulkActionError" class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-          <p class="text-sm text-red-600">{{ bulkActionError }}</p>
+        <div v-if="bulkActionError" class="mb-4 p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg">
+          <p class="text-sm text-red-600 dark:text-red-300">{{ bulkActionError }}</p>
         </div>
 
         <div class="flex justify-end gap-3">
           <button
             @click="showDeleteDialog = false"
-            class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            class="px-4 py-2 text-foreground hover:bg-accent rounded-lg transition-colors"
           >
             Abbrechen
           </button>
@@ -872,18 +872,18 @@ const visiblePages = computed(() => {
         />
 
         <!-- Modal -->
-        <div class="relative bg-white rounded-xl shadow-xl w-full max-w-2xl">
+        <div class="relative bg-card rounded-xl shadow-xl w-full max-w-2xl">
           <!-- Header -->
           <div class="flex items-center justify-between p-6 border-b">
             <div>
-              <h2 class="text-lg font-semibold text-gray-900">Mitglieder-Stichtagsreport</h2>
-              <p class="text-sm text-gray-500 mt-0.5">
+              <h2 class="text-lg font-semibold text-foreground">Mitglieder-Stichtagsreport</h2>
+              <p class="text-sm text-muted-foreground mt-0.5">
                 Anzahl der Vereinsmitglieder zum Stichtag, inklusive bereits inaktiver Mitglieder
               </p>
             </div>
             <button
               @click="showStichtagModal = false"
-              class="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"
+              class="p-2 text-muted-foreground hover:text-muted-foreground rounded-lg hover:bg-accent"
             >
               <X class="h-5 w-5" />
             </button>
@@ -892,18 +892,18 @@ const visiblePages = computed(() => {
           <!-- Content -->
           <div class="p-6">
             <div class="mb-6">
-              <label for="member-count-date" class="block text-sm font-medium text-gray-700 mb-2">Stichtag</label>
+              <label for="member-count-date" class="block text-sm font-medium text-foreground mb-2">Stichtag</label>
               <div class="flex gap-2">
                 <input
                   id="member-count-date"
                   v-model="stichtagDate"
                   type="date"
-                  class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                  class="flex-1 px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
                   @change="loadStichtagCount"
                 />
                 <button
                   @click="resetStichtagToToday"
-                  class="px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors whitespace-nowrap"
+                  class="px-3 py-2 text-sm font-medium text-foreground bg-muted hover:bg-accent rounded-lg transition-colors whitespace-nowrap"
                 >
                   Heute
                 </button>
@@ -914,26 +914,26 @@ const visiblePages = computed(() => {
               <Loader2 class="h-6 w-6 animate-spin text-primary" />
             </div>
 
-            <div v-else-if="stichtagError" class="bg-red-50 border border-red-200 rounded-lg p-4">
-              <p class="text-red-600">{{ stichtagError }}</p>
-              <button @click="loadStichtagCount" class="mt-2 text-sm text-red-700 underline">
+            <div v-else-if="stichtagError" class="bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg p-4">
+              <p class="text-red-600 dark:text-red-300">{{ stichtagError }}</p>
+              <button @click="loadStichtagCount" class="mt-2 text-sm text-red-700 dark:text-red-300 underline">
                 Erneut versuchen
               </button>
             </div>
 
             <div v-else-if="stichtagData" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div class="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
-                <p class="text-sm text-emerald-700 font-medium">Mitglieder am Stichtag</p>
-                <p class="text-2xl font-bold text-emerald-900 mt-1">{{ stichtagData.total }}</p>
-                <p class="text-xs text-emerald-700 mt-1">am {{ formatDate(stichtagData.asOf) }}</p>
+              <div class="rounded-lg border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/40 p-4">
+                <p class="text-sm text-emerald-700 dark:text-emerald-300 font-medium">Mitglieder am Stichtag</p>
+                <p class="text-2xl font-bold text-emerald-900 dark:text-emerald-300 mt-1">{{ stichtagData.total }}</p>
+                <p class="text-xs text-emerald-700 dark:text-emerald-300 mt-1">am {{ formatDate(stichtagData.asOf) }}</p>
               </div>
               <div class="rounded-lg border border-sky-200 bg-sky-50 p-4">
                 <p class="text-sm text-sky-700 font-medium">Davon aktuell aktiv</p>
                 <p class="text-2xl font-bold text-sky-900 mt-1">{{ stichtagData.active }}</p>
               </div>
-              <div class="rounded-lg border border-amber-200 bg-amber-50 p-4">
-                <p class="text-sm text-amber-700 font-medium">Davon inaktiv</p>
-                <p class="text-2xl font-bold text-amber-900 mt-1">{{ stichtagData.inactive }}</p>
+              <div class="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/40 p-4">
+                <p class="text-sm text-amber-700 dark:text-amber-300 font-medium">Davon inaktiv</p>
+                <p class="text-2xl font-bold text-amber-900 dark:text-amber-300 mt-1">{{ stichtagData.inactive }}</p>
               </div>
             </div>
           </div>

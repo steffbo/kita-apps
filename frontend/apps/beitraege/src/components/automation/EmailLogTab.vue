@@ -80,18 +80,18 @@ function toggleEmailLogsSort(): void {
 <template>
   <div>
     <div class="flex items-center justify-between mb-4">
-      <p class="text-sm text-gray-600">Alle versendeten E-Mails inklusive Inhalt.</p>
+      <p class="text-sm text-muted-foreground">Alle versendeten E-Mails inklusive Inhalt.</p>
       <button class="text-sm text-primary hover:underline" :disabled="isEmailLogsLoading" @click="loadEmailLogs(true)">
         Neu laden
       </button>
     </div>
 
-    <div v-if="emailLogsError" class="text-sm text-red-600 mb-3">{{ emailLogsError }}</div>
+    <div v-if="emailLogsError" class="text-sm text-red-600 dark:text-red-300 mb-3">{{ emailLogsError }}</div>
 
     <div class="flex flex-col sm:flex-row sm:items-center gap-2 mb-4">
       <select
         v-model="emailLogsTypeFilter"
-        class="px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+        class="px-3 py-2 text-sm border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
       >
         <option value="">Alle Typen</option>
         <option value="REMINDER_INITIAL">Zahlungserinnerung</option>
@@ -102,18 +102,18 @@ function toggleEmailLogsSort(): void {
       </select>
 
       <div class="relative flex-1 min-w-[200px]">
-        <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <input
           v-model="emailLogsSearch"
           type="text"
           placeholder="Suche nach Empfänger oder Betreff..."
-          class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+          class="w-full pl-10 pr-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
         />
       </div>
 
       <button
         type="button"
-        class="inline-flex items-center gap-1.5 px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+        class="inline-flex items-center gap-1.5 px-3 py-2 text-sm border border-border rounded-lg hover:bg-accent transition-colors"
         @click="toggleEmailLogsSort"
         :title="emailLogsSortDir === 'desc' ? 'Älteste zuerst' : 'Neueste zuerst'"
       >
@@ -123,14 +123,14 @@ function toggleEmailLogsSort(): void {
       </button>
     </div>
 
-    <div v-if="emailLogs.length === 0 && !isEmailLogsLoading" class="text-sm text-gray-500">
+    <div v-if="emailLogs.length === 0 && !isEmailLogsLoading" class="text-sm text-muted-foreground">
       Keine E-Mails für diese Filter gefunden.
     </div>
 
     <div v-else class="overflow-x-auto">
       <table class="w-full table-fixed text-sm">
         <thead>
-          <tr class="text-left text-gray-500 border-b">
+          <tr class="text-left text-muted-foreground border-b">
             <th class="w-36 pb-3 font-medium">Zeitpunkt</th>
             <th class="w-44 pb-3 font-medium">Typ</th>
             <th class="pb-3 font-medium">Empfänger</th>
@@ -159,19 +159,19 @@ function toggleEmailLogsSort(): void {
       </table>
     </div>
 
-    <div v-if="isEmailLogsLoading" class="mt-3 text-sm text-gray-500">Versandverlauf wird geladen...</div>
+    <div v-if="isEmailLogsLoading" class="mt-3 text-sm text-muted-foreground">Versandverlauf wird geladen...</div>
 
     <div
       v-if="emailLogsTotalPages > 1 || emailLogsPage > 1"
       class="flex items-center justify-between mt-4 pt-4 border-t"
     >
-      <p class="text-sm text-gray-600">
+      <p class="text-sm text-muted-foreground">
         Seite {{ emailLogsPage }} von {{ emailLogsTotalPages }} ({{ emailLogsTotal }} Einträge)
       </p>
       <div class="flex items-center gap-2">
         <button
           type="button"
-          class="px-3 py-1.5 text-sm border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          class="px-3 py-1.5 text-sm border rounded-lg hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
           :disabled="emailLogsPage <= 1 || isEmailLogsLoading"
           @click="goToEmailLogsPage(emailLogsPage - 1)"
         >
@@ -179,7 +179,7 @@ function toggleEmailLogsSort(): void {
         </button>
         <button
           type="button"
-          class="px-3 py-1.5 text-sm border rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          class="px-3 py-1.5 text-sm border rounded-lg hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
           :disabled="emailLogsPage >= emailLogsTotalPages || isEmailLogsLoading"
           @click="goToEmailLogsPage(emailLogsPage + 1)"
         >

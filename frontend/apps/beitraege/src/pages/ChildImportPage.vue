@@ -29,14 +29,14 @@ const {
     <div class="mb-6">
       <button
         @click="router.push('/kinder')"
-        class="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-4"
+        class="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-4"
       >
         <ArrowLeft class="h-4 w-4" />
         Zurück zur Übersicht
       </button>
       
-      <h1 class="text-2xl font-bold text-gray-900">Kinder importieren</h1>
-      <p class="text-gray-600 mt-1">CSV-Datei hochladen und Kinder anlegen</p>
+      <h1 class="text-2xl font-bold text-foreground">Kinder importieren</h1>
+      <p class="text-muted-foreground mt-1">CSV-Datei hochladen und Kinder anlegen</p>
     </div>
 
     <!-- Step indicator -->
@@ -47,8 +47,8 @@ const {
             :class="[
               'w-10 h-10 rounded-full flex items-center justify-center font-medium transition-colors',
               currentStep >= step
-                ? 'bg-primary text-white'
-                : 'bg-gray-200 text-gray-500',
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-muted text-muted-foreground',
             ]"
           >
             <Check v-if="currentStep > step" class="h-5 w-5" />
@@ -57,7 +57,7 @@ const {
           <span
             :class="[
               'ml-2 text-sm font-medium',
-              currentStep >= step ? 'text-gray-900' : 'text-gray-500',
+              currentStep >= step ? 'text-foreground' : 'text-muted-foreground',
             ]"
           >
             {{
@@ -70,7 +70,7 @@ const {
             v-if="step < 4"
             :class="[
               'w-16 h-0.5 mx-4',
-              currentStep > step ? 'bg-primary' : 'bg-gray-200',
+              currentStep > step ? 'bg-primary' : 'bg-muted',
             ]"
           />
         </div>
@@ -78,18 +78,18 @@ const {
     </div>
 
     <!-- Error display -->
-    <div v-if="error" class="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3">
-      <AlertTriangle class="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+    <div v-if="error" class="mb-6 p-4 bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg flex items-start gap-3">
+      <AlertTriangle class="h-5 w-5 text-red-500 dark:text-red-400 flex-shrink-0 mt-0.5" />
       <div>
-        <p class="text-red-700">{{ error }}</p>
-        <button @click="error = null" class="text-sm text-red-600 underline mt-1">
+        <p class="text-red-700 dark:text-red-300">{{ error }}</p>
+        <button @click="error = null" class="text-sm text-red-600 dark:text-red-300 underline mt-1">
           Schließen
         </button>
       </div>
     </div>
 
     <!-- Step 1: Upload -->
-    <div v-if="currentStep === 1" class="bg-white rounded-xl border p-8">
+    <div v-if="currentStep === 1" class="bg-card rounded-xl border p-8">
       <div
         @dragover="handleDragOver"
         @dragleave="handleDragLeave"
@@ -98,7 +98,7 @@ const {
           'border-2 border-dashed rounded-xl p-12 text-center transition-colors',
           isDragging
             ? 'border-primary bg-primary/5'
-            : 'border-gray-300 hover:border-gray-400',
+            : 'border-border hover:border-border',
         ]"
       >
         <input
@@ -111,23 +111,23 @@ const {
         
         <div v-if="isLoading" class="flex flex-col items-center">
           <Loader2 class="h-12 w-12 text-primary animate-spin" />
-          <p class="mt-4 text-gray-600">Datei wird verarbeitet...</p>
+          <p class="mt-4 text-muted-foreground">Datei wird verarbeitet...</p>
         </div>
         
         <label v-else for="file-upload" class="cursor-pointer">
-          <FileSpreadsheet class="h-12 w-12 text-gray-400 mx-auto" />
-          <p class="mt-4 text-lg font-medium text-gray-900">
+          <FileSpreadsheet class="h-12 w-12 text-muted-foreground mx-auto" />
+          <p class="mt-4 text-lg font-medium text-foreground">
             CSV-Datei hier ablegen oder klicken zum Auswählen
           </p>
-          <p class="mt-2 text-sm text-gray-500">
+          <p class="mt-2 text-sm text-muted-foreground">
             Unterstützte Formate: CSV mit Semikolon, Komma oder Tab als Trennzeichen
           </p>
         </label>
       </div>
 
-      <div class="mt-6 p-4 bg-blue-50 rounded-lg">
-        <h3 class="font-medium text-blue-900">Hinweise zum CSV-Format</h3>
-        <ul class="mt-2 text-sm text-blue-800 space-y-1">
+      <div class="mt-6 p-4 bg-blue-50 dark:bg-blue-950/40 rounded-lg">
+        <h3 class="font-medium text-blue-900 dark:text-blue-300">Hinweise zum CSV-Format</h3>
+        <ul class="mt-2 text-sm text-blue-800 dark:text-blue-300 space-y-1">
           <li>- Die erste Zeile sollte die Spaltenüberschriften enthalten</li>
           <li>- Pflichtfelder: Mitgliedsnummer, Vorname, Nachname, Geburtsdatum, Eintrittsdatum</li>
           <li>- Datumsformate: DD.MM.YYYY oder YYYY-MM-DD</li>
@@ -144,41 +144,41 @@ const {
 
     <!-- Step 4: Results -->
     <div v-if="currentStep === 4" class="space-y-6">
-      <div class="bg-white rounded-xl border p-8 text-center">
-        <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <CheckCircle class="h-8 w-8 text-green-600" />
+      <div class="bg-card rounded-xl border p-8 text-center">
+        <div class="w-16 h-16 bg-green-100 dark:bg-green-950/40 rounded-full flex items-center justify-center mx-auto mb-4">
+          <CheckCircle class="h-8 w-8 text-green-600 dark:text-green-300" />
         </div>
-        <h2 class="text-2xl font-bold text-gray-900 mb-2">Import abgeschlossen</h2>
-        <p class="text-gray-600">Die Daten wurden erfolgreich importiert.</p>
+        <h2 class="text-2xl font-bold text-foreground mb-2">Import abgeschlossen</h2>
+        <p class="text-muted-foreground">Die Daten wurden erfolgreich importiert.</p>
       </div>
 
       <!-- Stats -->
       <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
-        <div class="bg-white rounded-xl border p-6 text-center">
+        <div class="bg-card rounded-xl border p-6 text-center">
           <div class="text-3xl font-bold text-primary">{{ executeResult?.childrenCreated || 0 }}</div>
-          <div class="text-gray-600 mt-1">Kinder erstellt</div>
+          <div class="text-muted-foreground mt-1">Kinder erstellt</div>
         </div>
-        <div class="bg-white rounded-xl border p-6 text-center">
-          <div class="text-3xl font-bold text-blue-600">{{ executeResult?.childrenUpdated || 0 }}</div>
-          <div class="text-gray-600 mt-1">Kinder aktualisiert</div>
+        <div class="bg-card rounded-xl border p-6 text-center">
+          <div class="text-3xl font-bold text-blue-600 dark:text-blue-300">{{ executeResult?.childrenUpdated || 0 }}</div>
+          <div class="text-muted-foreground mt-1">Kinder aktualisiert</div>
         </div>
-        <div class="bg-white rounded-xl border p-6 text-center">
-          <div class="text-3xl font-bold text-green-600">{{ executeResult?.parentsCreated || 0 }}</div>
-          <div class="text-gray-600 mt-1">Eltern erstellt</div>
+        <div class="bg-card rounded-xl border p-6 text-center">
+          <div class="text-3xl font-bold text-green-600 dark:text-green-300">{{ executeResult?.parentsCreated || 0 }}</div>
+          <div class="text-muted-foreground mt-1">Eltern erstellt</div>
         </div>
-        <div class="bg-white rounded-xl border p-6 text-center">
-          <div class="text-3xl font-bold text-amber-600">{{ executeResult?.parentsLinked || 0 }}</div>
-          <div class="text-gray-600 mt-1">Eltern verknüpft</div>
+        <div class="bg-card rounded-xl border p-6 text-center">
+          <div class="text-3xl font-bold text-amber-600 dark:text-amber-300">{{ executeResult?.parentsLinked || 0 }}</div>
+          <div class="text-muted-foreground mt-1">Eltern verknüpft</div>
         </div>
       </div>
 
       <!-- Errors -->
-      <div v-if="executeResult?.errors && executeResult.errors.length > 0" class="bg-red-50 rounded-xl border border-red-200 p-6">
-        <h3 class="font-semibold text-red-800 mb-3 flex items-center gap-2">
+      <div v-if="executeResult?.errors && executeResult.errors.length > 0" class="bg-red-50 dark:bg-red-950/40 rounded-xl border border-red-200 p-6">
+        <h3 class="font-semibold text-red-800 dark:text-red-300 mb-3 flex items-center gap-2">
           <AlertTriangle class="h-5 w-5" />
           Fehler beim Import ({{ executeResult.errors.length }})
         </h3>
-        <ul class="space-y-2 text-sm text-red-700">
+        <ul class="space-y-2 text-sm text-red-700 dark:text-red-300">
           <li v-for="err in executeResult.errors" :key="err.rowIndex">
             Zeile {{ err.rowIndex + 1 }}: {{ err.error }}
           </li>
@@ -189,7 +189,7 @@ const {
       <div class="flex justify-center">
         <button
           @click="finishImport"
-          class="px-6 py-3 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2"
+          class="px-6 py-3 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2"
         >
           <Check class="h-5 w-5" />
           Zur Kinderübersicht

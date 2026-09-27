@@ -54,73 +54,73 @@ async function confirmTransactionAction(): Promise<void> {
     class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
     @click.self="$emit('close')"
   >
-    <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+    <div class="bg-card rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
       <div class="flex items-center justify-between mb-6">
         <div class="flex items-center gap-3">
-          <div class="p-2 bg-green-100 rounded-lg">
-            <CreditCard class="h-6 w-6 text-green-600" />
+          <div class="p-2 bg-green-100 dark:bg-green-950/40 rounded-lg">
+            <CreditCard class="h-6 w-6 text-green-600 dark:text-green-300" />
           </div>
           <h2 class="text-xl font-semibold">Transaktionsdetails</h2>
         </div>
-        <button @click="$emit('close')" class="p-1 hover:bg-gray-100 rounded">
+        <button @click="$emit('close')" class="p-1 hover:bg-accent rounded">
           <X class="h-5 w-5" />
         </button>
       </div>
 
       <div v-if="fee && getFeeMatches(fee).length > 1" class="mb-6">
-        <p class="text-sm font-medium text-gray-600 mb-2">Zahlungen ({{ getFeeMatches(fee).length }})</p>
+        <p class="text-sm font-medium text-muted-foreground mb-2">Zahlungen ({{ getFeeMatches(fee).length }})</p>
         <div class="space-y-2">
           <button
             v-for="match in getFeeMatches(fee)"
             :key="match.id"
             @click="selectedTransaction = match.transaction ?? null"
-            class="w-full flex items-center justify-between p-2 border rounded-lg text-left hover:bg-gray-50"
+            class="w-full flex items-center justify-between p-2 border rounded-lg text-left hover:bg-accent"
           >
             <div>
               <p class="text-sm font-medium">{{ match.transaction?.payerName || 'Unbekannt' }}</p>
-              <p class="text-xs text-gray-500">
+              <p class="text-xs text-muted-foreground">
                 {{ match.transaction?.bookingDate ? formatDate(match.transaction.bookingDate) : 'Kein Datum' }}
               </p>
             </div>
-            <div class="text-sm font-semibold text-green-600">
+            <div class="text-sm font-semibold text-green-600 dark:text-green-300">
               {{ formatCurrency(match.amount) }}
             </div>
           </button>
         </div>
-        <p v-if="!selectedTransaction" class="text-xs text-gray-500 mt-2">
+        <p v-if="!selectedTransaction" class="text-xs text-muted-foreground mt-2">
           Wähle eine Zahlung, um die Details anzuzeigen.
         </p>
       </div>
 
       <div v-if="selectedTransaction" class="space-y-4">
         <div>
-          <p class="text-sm text-gray-500">Zahler</p>
+          <p class="text-sm text-muted-foreground">Zahler</p>
           <p class="font-medium">{{ selectedTransaction.payerName || 'Unbekannt' }}</p>
         </div>
 
         <div>
-          <p class="text-sm text-gray-500">Buchungsdatum</p>
+          <p class="text-sm text-muted-foreground">Buchungsdatum</p>
           <p class="font-medium">{{ formatDate(selectedTransaction.bookingDate) }}</p>
         </div>
 
         <div v-if="selectedTransaction.payerIban">
-          <p class="text-sm text-gray-500">IBAN</p>
+          <p class="text-sm text-muted-foreground">IBAN</p>
           <p class="font-mono text-sm">{{ selectedTransaction.payerIban }}</p>
         </div>
 
         <div v-if="selectedTransaction.description">
-          <p class="text-sm text-gray-500">Verwendungszweck</p>
-          <p class="text-sm text-gray-700 break-words">{{ selectedTransaction.description }}</p>
+          <p class="text-sm text-muted-foreground">Verwendungszweck</p>
+          <p class="text-sm text-foreground break-words">{{ selectedTransaction.description }}</p>
         </div>
 
         <div>
-          <p class="text-sm text-gray-500">Betrag</p>
-          <p class="font-semibold text-green-600 text-lg">{{ formatCurrency(selectedTransaction.amount) }}</p>
+          <p class="text-sm text-muted-foreground">Betrag</p>
+          <p class="font-semibold text-green-600 dark:text-green-300 text-lg">{{ formatCurrency(selectedTransaction.amount) }}</p>
         </div>
 
         <div>
-          <p class="text-sm text-gray-500">Importiert am</p>
-          <p class="text-sm text-gray-600">{{ formatDate(selectedTransaction.importedAt) }}</p>
+          <p class="text-sm text-muted-foreground">Importiert am</p>
+          <p class="text-sm text-muted-foreground">{{ formatDate(selectedTransaction.importedAt) }}</p>
         </div>
       </div>
 
@@ -129,7 +129,7 @@ async function confirmTransactionAction(): Promise<void> {
           v-if="transactionAction"
           :class="[
             'p-3 rounded-lg text-sm',
-            transactionAction === 'delete' ? 'bg-red-50 text-red-800' : 'bg-amber-50 text-amber-800'
+            transactionAction === 'delete' ? 'bg-red-50 dark:bg-red-950/40 text-red-800 dark:text-red-300' : 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300'
           ]"
         >
           <p class="font-medium">
@@ -156,14 +156,14 @@ async function confirmTransactionAction(): Promise<void> {
             </button>
             <button
               @click="cancelTransactionAction"
-              class="px-3 py-1.5 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+              class="px-3 py-1.5 text-xs bg-muted text-foreground rounded hover:bg-accent"
             >
               Nein
             </button>
           </div>
         </div>
 
-        <p v-if="transactionActionError" class="text-sm text-red-600">
+        <p v-if="transactionActionError" class="text-sm text-red-600 dark:text-red-300">
           {{ transactionActionError }}
         </p>
 
@@ -171,7 +171,7 @@ async function confirmTransactionAction(): Promise<void> {
           <button
             @click="requestTransactionAction('unmatch')"
             :disabled="isUnmatchingTransaction || isDeletingTransaction"
-            class="inline-flex items-center gap-2 px-3 py-2 text-sm text-amber-700 bg-amber-50 hover:bg-amber-100 rounded-lg transition-colors disabled:opacity-50"
+            class="inline-flex items-center gap-2 px-3 py-2 text-sm text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/40 rounded-lg transition-colors disabled:opacity-50"
           >
             <Unlink class="h-4 w-4" />
             Zuordnung aufheben
@@ -179,7 +179,7 @@ async function confirmTransactionAction(): Promise<void> {
           <button
             @click="requestTransactionAction('delete')"
             :disabled="isUnmatchingTransaction || isDeletingTransaction"
-            class="inline-flex items-center gap-2 px-3 py-2 text-sm text-red-700 bg-red-50 hover:bg-red-100 rounded-lg transition-colors disabled:opacity-50"
+            class="inline-flex items-center gap-2 px-3 py-2 text-sm text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-900/40 rounded-lg transition-colors disabled:opacity-50"
           >
             <Trash2 class="h-4 w-4" />
             Transaktion löschen
@@ -189,7 +189,7 @@ async function confirmTransactionAction(): Promise<void> {
         <div class="flex justify-end">
           <button
             @click="$emit('close')"
-            class="px-4 py-2 bg-gray-100 text-gray-700 hover:bg-gray-200 rounded-lg transition-colors"
+            class="px-4 py-2 bg-muted text-foreground hover:bg-accent rounded-lg transition-colors"
           >
             Schließen
           </button>

@@ -19,15 +19,15 @@ export function getFeeTypeName(type?: string): string {
 export function getFeeTypeColor(type?: string): string {
   switch (type) {
     case 'MEMBERSHIP':
-      return 'bg-purple-100 text-purple-700';
+      return 'bg-purple-100 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300';
     case 'FOOD':
-      return 'bg-orange-100 text-orange-700';
+      return 'bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300';
     case 'CHILDCARE':
-      return 'bg-blue-100 text-blue-700';
+      return 'bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300';
     case 'REMINDER':
-      return 'bg-red-100 text-red-700';
+      return 'bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-300';
     default:
-      return 'bg-gray-100 text-gray-700';
+      return 'bg-muted text-foreground';
   }
 }
 
@@ -78,9 +78,9 @@ export function formatMatchedBy(reason?: string): string {
 }
 
 export function getConfidenceColor(confidence: number): string {
-  if (confidence >= 0.8) return 'text-green-600 bg-green-100';
-  if (confidence >= 0.5) return 'text-amber-600 bg-amber-100';
-  return 'text-red-600 bg-red-100';
+  if (confidence >= 0.8) return 'text-green-600 dark:text-green-300 bg-green-100 dark:bg-green-950/40';
+  if (confidence >= 0.5) return 'text-amber-600 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/40';
+  return 'text-red-600 dark:text-red-300 bg-red-100 dark:bg-red-950/40';
 }
 
 export function getConfidenceLabel(confidence: number): string {

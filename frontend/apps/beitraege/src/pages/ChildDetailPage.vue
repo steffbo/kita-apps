@@ -565,7 +565,7 @@ async function createReminder() {
     <!-- Back button -->
     <button
       @click="router.push('/kinder')"
-      class="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6"
+      class="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6"
     >
       <ArrowLeft class="h-4 w-4" />
       Zurück zur Übersicht
@@ -577,9 +577,9 @@ async function createReminder() {
     </div>
 
     <!-- Error state -->
-    <div v-else-if="error" class="bg-red-50 border border-red-200 rounded-lg p-4">
-      <p class="text-red-600">{{ error }}</p>
-      <button @click="loadChild" class="mt-2 text-sm text-red-700 underline">
+    <div v-else-if="error" class="bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg p-4">
+      <p class="text-red-600 dark:text-red-300">{{ error }}</p>
+      <button @click="loadChild" class="mt-2 text-sm text-red-700 dark:text-red-300 underline">
         Erneut versuchen
       </button>
     </div>
@@ -587,29 +587,29 @@ async function createReminder() {
     <!-- Child details -->
     <div v-else-if="child">
       <!-- Header -->
-      <div class="bg-white rounded-xl border p-6 mb-6">
+      <div class="bg-card rounded-xl border p-6 mb-6">
         <div class="flex items-start justify-between">
           <div class="flex items-center gap-4">
             <div class="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
               <User class="h-8 w-8 text-primary" />
             </div>
             <div>
-              <h1 class="text-2xl font-bold text-gray-900">
+              <h1 class="text-2xl font-bold text-foreground">
                 {{ child.firstName }} {{ child.lastName }}
               </h1>
-              <p class="text-gray-600 font-mono">Mitglieds-Nr. {{ child.memberNumber }}</p>
+              <p class="text-muted-foreground font-mono">Mitglieds-Nr. {{ child.memberNumber }}</p>
               <div class="flex items-center gap-2 mt-2">
                 <span
                   :class="[
                     'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium',
-                    child.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600',
+                    child.isActive ? 'bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-300' : 'bg-muted text-muted-foreground',
                   ]"
                 >
                   {{ child.isActive ? 'Aktiv' : 'Inaktiv' }}
                 </span>
                 <span
                   v-if="isUnderThree(child.birthDate)"
-                  class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700"
+                  class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300"
                 >
                   U3
                 </span>
@@ -619,14 +619,14 @@ async function createReminder() {
           <div class="flex items-center gap-2">
             <button
               @click="showEditDialog = true"
-              class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              class="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors"
               title="Bearbeiten"
             >
               <Edit class="h-5 w-5" />
             </button>
             <button
               @click="showDeleteDialog = true"
-              class="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+              class="p-2 text-red-500 dark:text-red-400 hover:text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/40 rounded-lg transition-colors"
               title="Löschen"
             >
               <Trash2 class="h-5 w-5" />
@@ -637,39 +637,39 @@ async function createReminder() {
         <!-- Info grid -->
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mt-6 pt-6 border-t">
           <div class="flex items-start gap-3">
-            <Calendar class="h-5 w-5 text-gray-400 mt-0.5" />
+            <Calendar class="h-5 w-5 text-muted-foreground mt-0.5" />
             <div>
-              <p class="text-sm text-gray-500">Geburtsdatum</p>
+              <p class="text-sm text-muted-foreground">Geburtsdatum</p>
               <p class="font-medium">{{ formatDate(child.birthDate) }}</p>
-              <p class="text-sm text-gray-500">{{ calculateAge(child.birthDate) }} Jahre alt</p>
+              <p class="text-sm text-muted-foreground">{{ calculateAge(child.birthDate) }} Jahre alt</p>
             </div>
           </div>
           <div class="flex items-start gap-3">
-            <Calendar class="h-5 w-5 text-gray-400 mt-0.5" />
+            <Calendar class="h-5 w-5 text-muted-foreground mt-0.5" />
             <div>
-              <p class="text-sm text-gray-500">Eintrittsdatum</p>
+              <p class="text-sm text-muted-foreground">Eintrittsdatum</p>
               <p class="font-medium">{{ formatDate(child.entryDate) }}</p>
             </div>
           </div>
           <div v-if="child.exitDate" class="flex items-start gap-3">
-            <Calendar class="h-5 w-5 text-gray-400 mt-0.5" />
+            <Calendar class="h-5 w-5 text-muted-foreground mt-0.5" />
             <div>
-              <p class="text-sm text-gray-500">Austrittsdatum</p>
+              <p class="text-sm text-muted-foreground">Austrittsdatum</p>
               <p class="font-medium">{{ formatDate(child.exitDate) }}</p>
             </div>
           </div>
           <div v-if="child.street" class="flex items-start gap-3">
-            <MapPin class="h-5 w-5 text-gray-400 mt-0.5" />
+            <MapPin class="h-5 w-5 text-muted-foreground mt-0.5" />
             <div>
-              <p class="text-sm text-gray-500">Adresse</p>
+              <p class="text-sm text-muted-foreground">Adresse</p>
               <p class="font-medium">{{ child.street }} {{ child.streetNo }}</p>
-              <p class="text-sm text-gray-500">{{ child.postalCode }} {{ child.city }}</p>
+              <p class="text-sm text-muted-foreground">{{ child.postalCode }} {{ child.city }}</p>
             </div>
           </div>
           <div v-if="child.legalHours || child.careHours || legalHoursHistory.length > 0 || careHoursHistory.length > 0" class="flex items-start gap-3">
-            <Clock class="h-5 w-5 text-gray-400 mt-0.5" />
+            <Clock class="h-5 w-5 text-muted-foreground mt-0.5" />
             <div>
-              <p class="text-sm text-gray-500">Betreuungszeiten</p>
+              <p class="text-sm text-muted-foreground">Betreuungszeiten</p>
               <p class="font-medium">
                 Rechtsanspruch:
                 <template v-if="upcomingLegalHours">
@@ -677,7 +677,7 @@ async function createReminder() {
                 </template>
                 <template v-else>
                   {{ formatCareHours(child.legalHours) }}
-                  <span v-if="child.legalHoursUntil" class="text-sm text-gray-500">
+                  <span v-if="child.legalHoursUntil" class="text-sm text-muted-foreground">
                     (bis {{ formatDate(child.legalHoursUntil) }})
                   </span>
                 </template>
@@ -690,25 +690,25 @@ async function createReminder() {
                 <template v-else>{{ formatCareHours(child.careHours) }}</template>
               </p>
               <div v-if="legalHoursHistory.length > 0" class="mt-2 space-y-1">
-                <p class="text-xs uppercase tracking-wide text-gray-400">Historie Rechtsanspruch</p>
+                <p class="text-xs uppercase tracking-wide text-muted-foreground">Historie Rechtsanspruch</p>
                 <div
                   v-for="entry in legalHoursHistory"
                   :key="entry.id"
-                  class="flex items-center justify-between text-sm text-gray-600"
+                  class="flex items-center justify-between text-sm text-muted-foreground"
                 >
                   <span>{{ formatHistoryRange(entry) }}</span>
-                  <span class="font-medium text-gray-700">{{ formatCareHours(entry.legalHours) }}</span>
+                  <span class="font-medium text-foreground">{{ formatCareHours(entry.legalHours) }}</span>
                 </div>
               </div>
               <div v-if="careHoursHistory.length > 0" class="mt-2 space-y-1">
-                <p class="text-xs uppercase tracking-wide text-gray-400">Historie Betreuungszeit</p>
+                <p class="text-xs uppercase tracking-wide text-muted-foreground">Historie Betreuungszeit</p>
                 <div
                   v-for="entry in careHoursHistory"
                   :key="entry.id"
-                  class="flex items-center justify-between text-sm text-gray-600"
+                  class="flex items-center justify-between text-sm text-muted-foreground"
                 >
                   <span>{{ formatHistoryRange(entry) }}</span>
-                  <span class="font-medium text-gray-700">{{ formatCareHours(entry.careHours) }}</span>
+                  <span class="font-medium text-foreground">{{ formatCareHours(entry.careHours) }}</span>
                 </div>
               </div>
             </div>
@@ -718,7 +718,7 @@ async function createReminder() {
       </div>
 
       <!-- Household & Income Section -->
-      <div class="bg-white rounded-xl border p-6 mb-6">
+      <div class="bg-card rounded-xl border p-6 mb-6">
         <div class="flex items-center justify-between mb-4">
           <div class="flex items-center gap-2">
             <Home class="h-5 w-5 text-primary" />
@@ -735,7 +735,7 @@ async function createReminder() {
             </button>
             <button
               @click="openCreateParentDialog"
-              class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-primary text-white hover:bg-primary/90 rounded-md transition-colors"
+              class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 rounded-md transition-colors"
             >
               <Plus class="h-3 w-3" />
               Elternteil
@@ -743,7 +743,7 @@ async function createReminder() {
             <button
               v-if="child.household && !isEditingHousehold"
               @click="startEditingHousehold"
-              class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              class="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors"
               title="Bearbeiten"
             >
               <Edit class="h-4 w-4" />
@@ -757,14 +757,14 @@ async function createReminder() {
           <div v-if="!isEditingHousehold" class="space-y-4">
             <!-- Household Name -->
             <div>
-              <p class="text-sm text-gray-500">Haushaltsname</p>
+              <p class="text-sm text-muted-foreground">Haushaltsname</p>
               <p class="font-medium">{{ child.household.name }}</p>
             </div>
 
             <!-- Income Status -->
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <div>
-                <p class="text-sm text-gray-500">Einkommensstatus</p>
+                <p class="text-sm text-muted-foreground">Einkommensstatus</p>
                 <p class="font-medium">{{ getIncomeStatusLabel(child.household.incomeStatus) }}</p>
                 <router-link
                   v-if="!child.household.incomeStatus || child.household.incomeStatus === 'PENDING'"
@@ -782,26 +782,26 @@ async function createReminder() {
                 </router-link>
               </div>
               <div v-if="child.household.incomeStatus === 'PROVIDED' || child.household.incomeStatus === 'HISTORIC'">
-                <p class="text-sm text-gray-500">Jahreshaushaltseinkommen</p>
+                <p class="text-sm text-muted-foreground">Jahreshaushaltseinkommen</p>
                 <p class="font-medium">{{ formatCurrencyWhole(child.household.annualHouseholdIncome) }}</p>
               </div>
               <div v-if="child.household.childrenCountForFees">
-                <p class="text-sm text-gray-500">Kinder (Beitragsberechnung)</p>
+                <p class="text-sm text-muted-foreground">Kinder (Beitragsberechnung)</p>
                 <p class="font-medium">{{ child.household.childrenCountForFees }}</p>
               </div>
             </div>
 
             <div v-if="trustedIbans.length > 0" class="pt-3 border-t">
-              <p class="text-sm text-gray-500 mb-2">Bekannte IBANs</p>
+              <p class="text-sm text-muted-foreground mb-2">Bekannte IBANs</p>
               <div class="flex flex-wrap gap-2">
                 <span
                   v-for="iban in trustedIbans"
                   :key="iban.iban"
                   :title="iban.payerName ? `${iban.payerName} · ${iban.iban}` : iban.iban"
-                  class="inline-flex items-center gap-1 px-2 py-1 bg-gray-50 border border-gray-200 rounded-full text-xs text-gray-700"
+                  class="inline-flex items-center gap-1 px-2 py-1 bg-muted border border-border rounded-full text-xs text-foreground"
                 >
                   <span class="font-mono">{{ maskIban(iban.iban) }}</span>
-                  <span v-if="iban.transactionCount > 0" class="text-gray-500">· {{ iban.transactionCount }} Zahlungen</span>
+                  <span v-if="iban.transactionCount > 0" class="text-muted-foreground">· {{ iban.transactionCount }} Zahlungen</span>
                 </span>
               </div>
             </div>
@@ -811,26 +811,26 @@ async function createReminder() {
               <div class="flex items-start gap-3">
                 <Euro class="h-5 w-5 text-primary mt-0.5" />
                 <div class="flex-1">
-                  <p class="text-sm text-gray-500">Monatliches Platzgeld</p>
+                  <p class="text-sm text-muted-foreground">Monatliches Platzgeld</p>
                   <div v-if="isLoadingChildcareFee" class="flex items-center gap-2">
-                    <Loader2 class="h-4 w-4 animate-spin text-gray-400" />
-                    <span class="text-gray-400 text-sm">Berechne...</span>
+                    <Loader2 class="h-4 w-4 animate-spin text-muted-foreground" />
+                    <span class="text-muted-foreground text-sm">Berechne...</span>
                   </div>
                   <div v-else-if="childcareFee">
                     <p class="font-semibold text-lg text-primary">{{ formatCurrency(childcareFee.fee) }}</p>
-                    <p class="text-sm text-gray-500">{{ childcareFee.rule }}</p>
-                    <p v-if="childcareFeeCareHours" class="text-sm text-gray-500">
+                    <p class="text-sm text-muted-foreground">{{ childcareFee.rule }}</p>
+                    <p v-if="childcareFeeCareHours" class="text-sm text-muted-foreground">
                       Basis: {{ formatCareHours(childcareFeeCareHours.hours) }}<span v-if="childcareFeeCareHours.effectiveFrom"> (ab {{ formatDate(childcareFeeCareHours.effectiveFrom) }})</span>
                     </p>
-                    <p v-if="childcareFee.discountPercent > 0" class="text-sm text-green-600">
+                    <p v-if="childcareFee.discountPercent > 0" class="text-sm text-green-600 dark:text-green-300">
                       Geschwisterrabatt: {{ childcareFee.discountPercent }}%
                     </p>
-                    <p v-if="childcareFee.notes && childcareFee.notes.length > 0" class="text-xs text-gray-400 mt-1">
+                    <p v-if="childcareFee.notes && childcareFee.notes.length > 0" class="text-xs text-muted-foreground mt-1">
                       {{ childcareFee.notes.join(' · ') }}
                     </p>
                   </div>
                   <div v-else>
-                    <p class="text-gray-400 text-sm italic">
+                    <p class="text-muted-foreground text-sm italic">
                       <span v-if="!child.household.incomeStatus || child.household.incomeStatus === 'PENDING'">
                         Einkommen noch nicht angegeben
                       </span>
@@ -851,27 +851,27 @@ async function createReminder() {
 
             <!-- Family Members -->
             <div v-if="householdParents.length > 0 || siblings.length > 0" class="pt-4 border-t">
-              <p class="text-sm text-gray-500 mb-3">Familienmitglieder</p>
+              <p class="text-sm text-muted-foreground mb-3">Familienmitglieder</p>
               
               <!-- Parents in Household -->
               <div v-if="householdParents.length > 0" class="mb-3">
-                <p class="text-xs text-gray-400 uppercase tracking-wide mb-2">Eltern</p>
+                <p class="text-xs text-muted-foreground uppercase tracking-wide mb-2">Eltern</p>
                 <div class="flex flex-wrap gap-2">
                   <div
                     v-for="parent in householdParents"
                     :key="parent.id"
-                    class="inline-flex items-center bg-blue-50 border border-blue-200 rounded-lg text-sm"
+                    class="inline-flex items-center bg-blue-50 dark:bg-blue-950/40 border border-blue-200 rounded-lg text-sm"
                   >
                     <button
                       @click="openParentDetailModal(parent)"
-                      class="inline-flex items-center gap-2 px-3 py-1.5 hover:bg-blue-100 rounded-l-lg transition-colors"
+                      class="inline-flex items-center gap-2 px-3 py-1.5 hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded-l-lg transition-colors"
                     >
-                      <User class="h-4 w-4 text-blue-500" />
+                      <User class="h-4 w-4 text-blue-500 dark:text-blue-400" />
                       <span>{{ parent.firstName }} {{ parent.lastName }}</span>
                     </button>
                     <button
                       @click="confirmUnlinkParent(parent)"
-                      class="p-1.5 text-blue-400 hover:text-red-500 hover:bg-red-50 rounded-r-lg border-l border-blue-200 transition-colors"
+                      class="p-1.5 text-blue-400 hover:text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/40 rounded-r-lg border-l border-blue-200 transition-colors"
                       title="Verknüpfung aufheben"
                       aria-label="Verknüpfung aufheben"
                     >
@@ -883,15 +883,15 @@ async function createReminder() {
 
               <!-- Siblings in Household -->
               <div v-if="siblings.length > 0">
-                <p class="text-xs text-gray-400 uppercase tracking-wide mb-2">Geschwister</p>
+                <p class="text-xs text-muted-foreground uppercase tracking-wide mb-2">Geschwister</p>
                 <div class="flex flex-wrap gap-2">
                   <router-link
                     v-for="sibling in siblings"
                     :key="sibling.id"
                     :to="`/kinder/${sibling.id}`"
-                    class="inline-flex items-center gap-2 px-3 py-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-lg text-sm transition-colors"
+                    class="inline-flex items-center gap-2 px-3 py-1.5 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/40 border border-amber-200 rounded-lg text-sm transition-colors"
                   >
-                    <User class="h-4 w-4 text-amber-500" />
+                    <User class="h-4 w-4 text-amber-500 dark:text-amber-400" />
                     <span>{{ sibling.firstName }} {{ sibling.lastName }}</span>
                   </router-link>
                 </div>
@@ -902,21 +902,21 @@ async function createReminder() {
           <!-- Edit Mode -->
           <form v-else @submit.prevent="saveHouseholdEdit" class="space-y-4">
             <div>
-              <label for="household-name" class="block text-sm font-medium text-gray-700 mb-1">Haushaltsname</label>
+              <label for="household-name" class="block text-sm font-medium text-foreground mb-1">Haushaltsname</label>
               <input
                 id="household-name"
                 v-model="householdEditForm.name"
                 type="text"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
               />
             </div>
 
             <div>
-              <label for="household-incomeStatus" class="block text-sm font-medium text-gray-700 mb-1">Einkommensstatus</label>
+              <label for="household-incomeStatus" class="block text-sm font-medium text-foreground mb-1">Einkommensstatus</label>
               <select
                 id="household-incomeStatus"
                 v-model="householdEditForm.incomeStatus"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-white"
+                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-background"
               >
                 <option v-for="option in incomeStatusOptions" :key="option.value" :value="option.value">
                   {{ option.label }}
@@ -925,19 +925,19 @@ async function createReminder() {
             </div>
 
             <div v-if="householdEditForm.incomeStatus === 'PROVIDED' || householdEditForm.incomeStatus === 'HISTORIC'">
-              <label for="household-income" class="block text-sm font-medium text-gray-700 mb-1">Jahreshaushaltseinkommen</label>
+              <label for="household-income" class="block text-sm font-medium text-foreground mb-1">Jahreshaushaltseinkommen</label>
               <input
                 id="household-income"
                 v-model.number="householdEditForm.annualHouseholdIncome"
                 type="number"
                 min="0"
                 step="any"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
               />
             </div>
 
             <div>
-              <label for="household-childrenCount" class="block text-sm font-medium text-gray-700 mb-1">Anzahl Kinder (für Beitragsberechnung)</label>
+              <label for="household-childrenCount" class="block text-sm font-medium text-foreground mb-1">Anzahl Kinder (für Beitragsberechnung)</label>
               <input
                 id="household-childrenCount"
                 v-model.number="householdEditForm.childrenCountForFees"
@@ -945,27 +945,27 @@ async function createReminder() {
                 min="1"
                 max="10"
                 placeholder="Automatisch"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
               />
-              <p class="text-xs text-gray-500 mt-1">Leer lassen für automatische Zählung der U3-Kinder im Haushalt</p>
+              <p class="text-xs text-muted-foreground mt-1">Leer lassen für automatische Zählung der U3-Kinder im Haushalt</p>
             </div>
 
-            <div v-if="householdError" class="p-3 bg-red-50 border border-red-200 rounded-lg">
-              <p class="text-sm text-red-600">{{ householdError }}</p>
+            <div v-if="householdError" class="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg">
+              <p class="text-sm text-red-600 dark:text-red-300">{{ householdError }}</p>
             </div>
 
             <div class="flex justify-end gap-3 pt-2">
               <button
                 type="button"
                 @click="cancelEditingHousehold"
-                class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+                class="px-4 py-2 text-foreground hover:bg-accent rounded-lg transition-colors"
               >
                 Abbrechen
               </button>
               <button
                 type="submit"
                 :disabled="isSavingHousehold"
-                class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+                class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
               >
                 <Loader2 v-if="isSavingHousehold" class="h-4 w-4 animate-spin" />
                 <Check v-else class="h-4 w-4" />
@@ -976,10 +976,10 @@ async function createReminder() {
         </div>
 
         <!-- No Household -->
-        <div v-else class="text-center py-6 bg-gray-50 rounded-lg border border-dashed">
-          <Users class="h-8 w-8 text-gray-400 mx-auto mb-2" />
-          <p class="text-gray-500 text-sm mb-1">Noch keine Eltern zugeordnet</p>
-          <p class="text-gray-400 text-xs mb-4">Ein Haushalt wird automatisch erstellt, wenn der erste Elternteil verknüpft wird.</p>
+        <div v-else class="text-center py-6 bg-muted rounded-lg border border-dashed">
+          <Users class="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+          <p class="text-muted-foreground text-sm mb-1">Noch keine Eltern zugeordnet</p>
+          <p class="text-muted-foreground text-xs mb-4">Ein Haushalt wird automatisch erstellt, wenn der erste Elternteil verknüpft wird.</p>
           <div class="flex items-center justify-center gap-2">
             <button
               @click="openLinkParentDialog"
@@ -990,7 +990,7 @@ async function createReminder() {
             </button>
             <button
               @click="openCreateParentDialog"
-              class="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium bg-primary text-white hover:bg-primary/90 rounded-lg transition-colors"
+              class="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg transition-colors"
             >
               <Plus class="h-4 w-4" />
               Neu anlegen
@@ -1002,7 +1002,7 @@ async function createReminder() {
       <ChildNotesCard :child-id="childId" />
 
       <!-- Fees section -->
-      <div class="bg-white rounded-xl border p-6">
+      <div class="bg-card rounded-xl border p-6">
         <div class="flex items-center justify-between mb-6">
           <div class="flex items-center gap-2">
             <Receipt class="h-5 w-5 text-primary" />
@@ -1014,36 +1014,36 @@ async function createReminder() {
         <div>
           <!-- Likely unmatched transactions -->
           <div class="mb-6">
-            <h3 class="text-sm font-medium text-gray-500 mb-3 flex items-center gap-2">
+            <h3 class="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
               <Receipt class="h-4 w-4" />
               Wahrscheinlich zugehörige Transaktionen
             </h3>
 
-            <div v-if="isLoadingLikelyTransactions" class="flex items-center gap-2 text-sm text-gray-500">
+            <div v-if="isLoadingLikelyTransactions" class="flex items-center gap-2 text-sm text-muted-foreground">
               <Loader2 class="h-4 w-4 animate-spin" />
               Lade Vorschläge...
             </div>
-            <div v-else-if="likelyTransactionsError" class="text-sm text-red-600">
+            <div v-else-if="likelyTransactionsError" class="text-sm text-red-600 dark:text-red-300">
               {{ likelyTransactionsError }}
             </div>
-            <div v-else-if="likelyTransactions.length === 0" class="text-sm text-gray-500">
+            <div v-else-if="likelyTransactions.length === 0" class="text-sm text-muted-foreground">
               Keine offenen Transaktionen mit hoher Wahrscheinlichkeit gefunden.
             </div>
             <div v-else class="space-y-2">
               <div
                 v-for="suggestion in likelyTransactions"
                 :key="suggestion.transaction.id"
-                class="flex items-start justify-between gap-4 p-3 bg-blue-50 border border-blue-200 rounded-lg"
+                class="flex items-start justify-between gap-4 p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 rounded-lg"
               >
                 <div class="space-y-1">
-                  <p class="font-medium text-blue-900">
+                  <p class="font-medium text-blue-900 dark:text-blue-300">
                     {{ suggestion.transaction.payerName || 'Unbekannt' }}
-                    <span class="text-xs text-blue-600 ml-2">· {{ formatDate(suggestion.transaction.bookingDate) }}</span>
+                    <span class="text-xs text-blue-600 dark:text-blue-300 ml-2">· {{ formatDate(suggestion.transaction.bookingDate) }}</span>
                   </p>
-                  <p v-if="suggestion.transaction.description" class="text-sm text-blue-800 break-words">
+                  <p v-if="suggestion.transaction.description" class="text-sm text-blue-800 dark:text-blue-300 break-words">
                     {{ suggestion.transaction.description }}
                   </p>
-                  <div class="text-xs text-blue-700 flex items-center gap-2">
+                  <div class="text-xs text-blue-700 dark:text-blue-300 flex items-center gap-2">
                     <span>Konfidenz: {{ formatConfidence(suggestion.confidence) }}</span>
                     <span>· Match: {{ formatMatchedBy(suggestion.matchedBy) }}</span>
                     <span v-if="formatSuggestionExpectation(suggestion)">
@@ -1052,23 +1052,23 @@ async function createReminder() {
                   </div>
                 </div>
                 <div class="text-right space-y-2">
-                  <p class="font-semibold text-blue-900">{{ formatCurrency(suggestion.transaction.amount) }}</p>
+                  <p class="font-semibold text-blue-900 dark:text-blue-300">{{ formatCurrency(suggestion.transaction.amount) }}</p>
                   <p
                     v-if="(suggestion.transaction.matchedAmount ?? 0) > 0"
-                    class="text-xs text-amber-700"
+                    class="text-xs text-amber-700 dark:text-amber-300"
                   >
                     Bereits zugeordnet: {{ formatCurrency(suggestion.transaction.matchedAmount ?? 0) }}
                     · Rest: {{ formatCurrency(getTxRemainingAmount(suggestion.transaction)) }}
                   </p>
                   <button
                     @click="openAllocationModal(suggestion)"
-                    class="inline-flex items-center gap-1 px-2 py-1 text-xs text-blue-700 bg-white hover:bg-blue-100 border border-blue-200 rounded transition-colors"
+                    class="inline-flex items-center gap-1 px-2 py-1 text-xs text-blue-700 dark:text-blue-300 bg-card hover:bg-blue-100 dark:hover:bg-blue-900/40 border border-blue-200 rounded transition-colors"
                   >
                     Zuordnen
                   </button>
                 </div>
               </div>
-              <p v-if="likelyTransactionsScanned > 0" class="text-xs text-gray-400">
+              <p v-if="likelyTransactionsScanned > 0" class="text-xs text-muted-foreground">
                 {{ likelyTransactions.length }} Treffer aus {{ likelyTransactionsScanned }} offenen Transaktionen.
               </p>
             </div>
@@ -1076,7 +1076,7 @@ async function createReminder() {
 
           <!-- Open fees -->
           <div v-if="openFeeGroups.length > 0" class="mb-6">
-            <h3 class="text-sm font-medium text-gray-500 mb-3 flex items-center gap-2">
+            <h3 class="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
               <Clock class="h-4 w-4" />
               Offene Beiträge ({{ openFeeGroups.length }})
             </h3>
@@ -1086,49 +1086,49 @@ async function createReminder() {
                 :key="group.fee.id"
                 :class="[
                   'flex items-center justify-between p-3 rounded-lg',
-                  group.fee.feeType === 'REMINDER' 
-                    ? 'bg-red-50 border border-red-200' 
-                    : 'bg-amber-50 border border-amber-200'
+                  group.fee.feeType === 'REMINDER'
+                    ? 'bg-red-50 dark:bg-red-950/40 border border-red-200'
+                    : 'bg-amber-50 dark:bg-amber-950/40 border border-amber-200'
                 ]"
               >
                 <div class="flex items-center gap-3">
                   <AlertTriangle
                     v-if="new Date(group.fee.dueDate) < new Date()"
-                    :class="group.fee.feeType === 'REMINDER' ? 'h-5 w-5 text-red-500' : 'h-5 w-5 text-red-500'"
+                    :class="group.fee.feeType === 'REMINDER' ? 'h-5 w-5 text-red-500 dark:text-red-400' : 'h-5 w-5 text-red-500 dark:text-red-400'"
                   />
-                  <Clock v-else :class="group.fee.feeType === 'REMINDER' ? 'h-5 w-5 text-red-500' : 'h-5 w-5 text-amber-500'" />
+                  <Clock v-else :class="group.fee.feeType === 'REMINDER' ? 'h-5 w-5 text-red-500 dark:text-red-400' : 'h-5 w-5 text-amber-500 dark:text-amber-400'" />
                   <div>
-                    <p :class="['font-medium', group.fee.feeType === 'REMINDER' ? 'text-red-700' : '']">{{ getFeeTypeName(group.fee.feeType) }}</p>
-                    <p class="text-sm text-gray-600">
+                    <p :class="['font-medium', group.fee.feeType === 'REMINDER' ? 'text-red-700 dark:text-red-300' : '']">{{ getFeeTypeName(group.fee.feeType) }}</p>
+                    <p class="text-sm text-muted-foreground">
                       {{ group.fee.month ? formatMonthName(group.fee.month) + ' ' : '' }}{{ group.fee.year }}
                       · Fällig: {{ formatDate(group.fee.dueDate) }}
                     </p>
-                    <p v-if="group.fee.matchedAmount && group.fee.matchedAmount > 0" class="text-xs text-amber-700">
+                    <p v-if="group.fee.matchedAmount && group.fee.matchedAmount > 0" class="text-xs text-amber-700 dark:text-amber-300">
                       Bereits bezahlt: {{ formatCurrency(group.fee.matchedAmount) }} · Rest: {{ formatCurrency(getFeeRemainingAmount(group.fee)) }}
                     </p>
                     <p
                       v-if="group.reminders.length > 0"
                       :class="[
                         'text-xs',
-                        group.reminders.some(rem => !rem.isPaid) ? 'text-red-700' : 'text-green-700'
+                        group.reminders.some(rem => !rem.isPaid) ? 'text-red-700 dark:text-red-300' : 'text-green-700 dark:text-green-300'
                       ]"
                     >
                       Mahngebühren: {{ getReminderSummary(group.reminders) }}
                     </p>
                     <p
                       v-if="group.fee.isPaid && group.reminders.some(rem => !rem.isPaid)"
-                      class="text-xs text-amber-700"
+                      class="text-xs text-amber-700 dark:text-amber-300"
                     >
                       Beitrag bezahlt · Mahngebühren offen
                     </p>
                   </div>
                 </div>
                 <div class="flex items-center gap-2">
-                  <p :class="['font-semibold', group.fee.feeType === 'REMINDER' ? 'text-red-700' : '']">{{ formatCurrency(group.fee.amount) }}</p>
+                  <p :class="['font-semibold', group.fee.feeType === 'REMINDER' ? 'text-red-700 dark:text-red-300' : '']">{{ formatCurrency(group.fee.amount) }}</p>
                   <button
                     v-if="canCreateReminder(group.fee)"
                     @click="openReminderDialog(group.fee)"
-                    class="p-1.5 text-amber-600 hover:text-amber-800 hover:bg-amber-100 rounded-lg transition-colors"
+                    class="p-1.5 text-amber-600 dark:text-amber-300 hover:text-amber-800 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40 rounded-lg transition-colors"
                     title="Mahngebühr erstellen"
                   >
                     <AlertCircle class="h-4 w-4" />
@@ -1140,7 +1140,7 @@ async function createReminder() {
 
           <!-- Paid fees -->
           <div v-if="paidFeeGroups.length > 0">
-            <h3 class="text-sm font-medium text-gray-500 mb-3 flex items-center gap-2">
+            <h3 class="text-sm font-medium text-muted-foreground mb-3 flex items-center gap-2">
               <CheckCircle class="h-4 w-4" />
               Bezahlte Beiträge ({{ paidFeeGroups.length }})
             </h3>
@@ -1150,41 +1150,41 @@ async function createReminder() {
                 :key="group.fee.id"
                 @click="openTransactionModal(group.fee)"
                 :class="[
-                  'w-full flex items-center justify-between p-3 bg-green-50 border border-green-200 rounded-lg text-left transition-colors',
-                  getFeeMatches(group.fee).length > 0 ? 'hover:bg-green-100 cursor-pointer' : ''
+                  'w-full flex items-center justify-between p-3 bg-green-50 dark:bg-green-950/40 border border-green-200 rounded-lg text-left transition-colors',
+                  getFeeMatches(group.fee).length > 0 ? 'hover:bg-green-100 dark:hover:bg-green-900/40 cursor-pointer' : ''
                 ]"
                 :disabled="getFeeMatches(group.fee).length === 0"
               >
                 <div class="flex items-center gap-3">
-                  <CheckCircle class="h-5 w-5 text-green-500" />
+                  <CheckCircle class="h-5 w-5 text-green-500 dark:text-green-400" />
                   <div>
                     <p class="font-medium">{{ getFeeTypeName(group.fee.feeType) }}</p>
-                    <p class="text-sm text-gray-600">
+                    <p class="text-sm text-muted-foreground">
                       {{ group.fee.month ? formatMonthName(group.fee.month) + ' ' : '' }}{{ group.fee.year }}
-                      <span v-if="getPaymentSummary(group.fee)" class="text-green-600">
+                      <span v-if="getPaymentSummary(group.fee)" class="text-green-600 dark:text-green-300">
                         · {{ getPaymentSummary(group.fee) }}
                       </span>
                     </p>
-                    <p v-if="group.reminders.length > 0" class="text-xs text-green-700">
+                    <p v-if="group.reminders.length > 0" class="text-xs text-green-700 dark:text-green-300">
                       Mahngebühren: {{ getReminderSummary(group.reminders) }}
                     </p>
                   </div>
                 </div>
                 <div class="flex items-center gap-2">
-                  <p class="font-semibold text-green-700">{{ formatCurrency(group.fee.amount) }}</p>
+                  <p class="font-semibold text-green-700 dark:text-green-300">{{ formatCurrency(group.fee.amount) }}</p>
                   <span
                     v-if="getFeeMatches(group.fee).length > 1"
-                    class="text-xs font-medium text-green-700 bg-green-100 px-2 py-0.5 rounded-full"
+                    class="text-xs font-medium text-green-700 dark:text-green-300 bg-green-100 dark:bg-green-950/40 px-2 py-0.5 rounded-full"
                   >
                     {{ getFeeMatches(group.fee).length }}x
                   </span>
-                  <CreditCard v-if="getFeeMatches(group.fee).length > 0" class="h-4 w-4 text-green-500" />
+                  <CreditCard v-if="getFeeMatches(group.fee).length > 0" class="h-4 w-4 text-green-500 dark:text-green-400" />
                 </div>
               </button>
             </div>
           </div>
 
-          <div v-if="fees.length === 0" class="text-center py-8 text-gray-500">
+          <div v-if="fees.length === 0" class="text-center py-8 text-muted-foreground">
             Keine Beiträge vorhanden
           </div>
         </div>
@@ -1206,15 +1206,15 @@ async function createReminder() {
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
       @click.self="showDeleteDialog = false"
     >
-      <div class="bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
+      <div class="bg-card rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
         <div class="flex items-center gap-3 mb-4">
-          <div class="p-2 bg-red-100 rounded-lg">
-            <Trash2 class="h-6 w-6 text-red-600" />
+          <div class="p-2 bg-red-100 dark:bg-red-950/40 rounded-lg">
+            <Trash2 class="h-6 w-6 text-red-600 dark:text-red-300" />
           </div>
           <h2 class="text-xl font-semibold">Kind löschen?</h2>
         </div>
 
-        <p class="text-gray-600 mb-6">
+        <p class="text-muted-foreground mb-6">
           Möchtest du <strong>{{ child?.firstName }} {{ child?.lastName }}</strong> wirklich löschen?
           Diese Aktion kann nicht rückgängig gemacht werden.
         </p>
@@ -1222,7 +1222,7 @@ async function createReminder() {
         <div class="flex justify-end gap-3">
           <button
             @click="showDeleteDialog = false"
-            class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            class="px-4 py-2 text-foreground hover:bg-accent rounded-lg transition-colors"
           >
             Abbrechen
           </button>
@@ -1253,15 +1253,15 @@ async function createReminder() {
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
       @click.self="showUnlinkDialog = false"
     >
-      <div class="bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
+      <div class="bg-card rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
         <div class="flex items-center gap-3 mb-4">
-          <div class="p-2 bg-amber-100 rounded-lg">
-            <Unlink class="h-6 w-6 text-amber-600" />
+          <div class="p-2 bg-amber-100 dark:bg-amber-950/40 rounded-lg">
+            <Unlink class="h-6 w-6 text-amber-600 dark:text-amber-300" />
           </div>
           <h2 class="text-xl font-semibold">Verknüpfung aufheben?</h2>
         </div>
 
-        <p class="text-gray-600 mb-6">
+        <p class="text-muted-foreground mb-6">
           Möchtest du die Verknüpfung zu <strong>{{ parentToUnlink?.firstName }} {{ parentToUnlink?.lastName }}</strong> aufheben?
           Der Elternteil wird nicht gelöscht, nur die Verknüpfung zu diesem Kind.
         </p>
@@ -1269,7 +1269,7 @@ async function createReminder() {
         <div class="flex justify-end gap-3">
           <button
             @click="showUnlinkDialog = false"
-            class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            class="px-4 py-2 text-foreground hover:bg-accent rounded-lg transition-colors"
           >
             Abbrechen
           </button>
@@ -1314,41 +1314,41 @@ async function createReminder() {
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
       @click.self="showReminderDialog = false"
     >
-      <div class="bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
+      <div class="bg-card rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
         <div class="flex items-center gap-3 mb-4">
-          <div class="p-2 bg-amber-100 rounded-lg">
-            <AlertCircle class="h-6 w-6 text-amber-600" />
+          <div class="p-2 bg-amber-100 dark:bg-amber-950/40 rounded-lg">
+            <AlertCircle class="h-6 w-6 text-amber-600 dark:text-amber-300" />
           </div>
           <h2 class="text-xl font-semibold">Mahngebühr erstellen?</h2>
         </div>
 
         <div class="mb-6">
-          <p class="text-gray-600 mb-4">
+          <p class="text-muted-foreground mb-4">
             Möchtest du eine Mahngebühr für den folgenden überfälligen Beitrag erstellen?
           </p>
-          <div class="p-3 bg-amber-50 border border-amber-200 rounded-lg">
+          <div class="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 rounded-lg">
             <p class="font-medium">{{ getFeeTypeName(reminderFee.feeType) }}</p>
-            <p class="text-sm text-gray-600">
+            <p class="text-sm text-muted-foreground">
               {{ reminderFee.month ? formatMonthName(reminderFee.month) + ' ' : '' }}{{ reminderFee.year }}
               · {{ formatCurrency(reminderFee.amount) }}
             </p>
-            <p class="text-sm text-red-600 mt-1">
+            <p class="text-sm text-red-600 dark:text-red-300 mt-1">
               Fällig seit: {{ formatDate(reminderFee.dueDate) }}
             </p>
           </div>
-          <p class="text-sm text-gray-500 mt-3">
+          <p class="text-sm text-muted-foreground mt-3">
             Es wird eine Mahngebühr von <strong>10,00 EUR</strong> erstellt.
           </p>
         </div>
 
-        <div v-if="reminderError" class="p-3 bg-red-50 border border-red-200 rounded-lg mb-4">
-          <p class="text-sm text-red-600">{{ reminderError }}</p>
+        <div v-if="reminderError" class="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg mb-4">
+          <p class="text-sm text-red-600 dark:text-red-300">{{ reminderError }}</p>
         </div>
 
         <div class="flex justify-end gap-3">
           <button
             @click="showReminderDialog = false"
-            class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            class="px-4 py-2 text-foreground hover:bg-accent rounded-lg transition-colors"
           >
             Abbrechen
           </button>

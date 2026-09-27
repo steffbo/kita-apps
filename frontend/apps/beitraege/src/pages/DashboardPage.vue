@@ -74,13 +74,13 @@ const bankingSyncLabel = computed(() => {
 const bankingSyncTone = computed(() => {
   switch (bankingSyncStatus.value?.status) {
     case 'running':
-      return 'bg-blue-100 text-blue-700';
+      return 'bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300';
     case 'waiting_for_2fa':
-      return 'bg-amber-100 text-amber-700';
+      return 'bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300';
     case 'success':
-      return 'bg-green-100 text-green-700';
+      return 'bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-300';
     case 'error':
-      return 'bg-red-100 text-red-700';
+      return 'bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-300';
     default:
       return 'bg-muted text-foreground';
   }
@@ -252,9 +252,9 @@ function formatHoursLabel(hours: number | null | undefined): string {
     </div>
 
     <!-- Error state -->
-    <div v-else-if="error" class="bg-red-50 border border-red-200 rounded-lg p-4">
-      <p class="text-red-600">{{ error }}</p>
-      <button @click="loadDashboard" class="mt-2 text-sm text-red-700 underline">
+    <div v-else-if="error" class="bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg p-4">
+      <p class="text-red-600 dark:text-red-300">{{ error }}</p>
+      <button @click="loadDashboard" class="mt-2 text-sm text-red-700 dark:text-red-300 underline">
         Erneut versuchen
       </button>
     </div>
@@ -266,48 +266,48 @@ function formatHoursLabel(hours: number | null | undefined): string {
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <!-- Open Food Fees -->
           <div
-            class="p-4 rounded-lg bg-orange-50 hover:bg-orange-100 cursor-pointer transition-colors"
+            class="p-4 rounded-lg bg-orange-50 dark:bg-orange-950/40 hover:bg-orange-100 dark:hover:bg-orange-900/40 cursor-pointer transition-colors"
             @click="router.push('/beitraege?feeType=FOOD&status=open')"
           >
             <div class="flex items-center gap-3">
-              <div class="p-2 rounded-lg bg-orange-100">
-                <Utensils class="h-5 w-5 text-orange-600" />
+              <div class="p-2 rounded-lg bg-orange-100 dark:bg-orange-950/40">
+                <Utensils class="h-5 w-5 text-orange-600 dark:text-orange-300" />
               </div>
               <div class="flex-1 min-w-0">
-                <p class="text-xs text-orange-700 font-medium truncate">Offene Essensgelder</p>
-                <p class="text-xl font-bold text-orange-900">{{ overview.openFoodCount }}</p>
+                <p class="text-xs text-orange-700 dark:text-orange-300 font-medium truncate">Offene Essensgelder</p>
+                <p class="text-xl font-bold text-orange-900 dark:text-orange-300">{{ overview.openFoodCount }}</p>
               </div>
             </div>
           </div>
 
           <!-- Open Childcare Fees -->
           <div
-            class="p-4 rounded-lg bg-blue-50 hover:bg-blue-100 cursor-pointer transition-colors"
+            class="p-4 rounded-lg bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/40 cursor-pointer transition-colors"
             @click="router.push('/beitraege?feeType=CHILDCARE&status=open')"
           >
             <div class="flex items-center gap-3">
-              <div class="p-2 rounded-lg bg-blue-100">
-                <Home class="h-5 w-5 text-blue-600" />
+              <div class="p-2 rounded-lg bg-blue-100 dark:bg-blue-950/40">
+                <Home class="h-5 w-5 text-blue-600 dark:text-blue-300" />
               </div>
               <div class="flex-1 min-w-0">
-                <p class="text-xs text-blue-700 font-medium truncate">Offene Platzgelder</p>
-                <p class="text-xl font-bold text-blue-900">{{ overview.openChildcareCount }}</p>
+                <p class="text-xs text-blue-700 dark:text-blue-300 font-medium truncate">Offene Platzgelder</p>
+                <p class="text-xl font-bold text-blue-900 dark:text-blue-300">{{ overview.openChildcareCount }}</p>
               </div>
             </div>
           </div>
 
           <!-- Open Membership Fees -->
           <div
-            class="p-4 rounded-lg bg-purple-50 hover:bg-purple-100 cursor-pointer transition-colors"
+            class="p-4 rounded-lg bg-purple-50 dark:bg-purple-950/40 hover:bg-purple-100 dark:hover:bg-purple-900/40 cursor-pointer transition-colors"
             @click="router.push('/beitraege?feeType=MEMBERSHIP&status=open')"
           >
             <div class="flex items-center gap-3">
-              <div class="p-2 rounded-lg bg-purple-100">
-                <Users2 class="h-5 w-5 text-purple-600" />
+              <div class="p-2 rounded-lg bg-purple-100 dark:bg-purple-950/40">
+                <Users2 class="h-5 w-5 text-purple-600 dark:text-purple-300" />
               </div>
               <div class="flex-1 min-w-0">
-                <p class="text-xs text-purple-700 font-medium truncate">Offene Vereinsbeiträge</p>
-                <p class="text-xl font-bold text-purple-900">{{ overview.openMembershipCount }}</p>
+                <p class="text-xs text-purple-700 dark:text-purple-300 font-medium truncate">Offene Vereinsbeiträge</p>
+                <p class="text-xl font-bold text-purple-900 dark:text-purple-300">{{ overview.openMembershipCount }}</p>
               </div>
             </div>
           </div>
@@ -359,8 +359,8 @@ function formatHoursLabel(hours: number | null | undefined): string {
         <!-- U3/Ü3 Children Card -->
         <div class="bg-card rounded-2xl border shadow-sm p-5">
           <div class="flex items-center gap-3">
-            <div class="p-2.5 bg-violet-100 rounded-lg">
-              <Baby class="h-5 w-5 text-violet-600" />
+            <div class="p-2.5 bg-violet-100 dark:bg-violet-950/40 rounded-lg">
+              <Baby class="h-5 w-5 text-violet-600 dark:text-violet-300" />
             </div>
             <div>
               <p class="text-xs text-muted-foreground font-medium">Aktive Kinder</p>
@@ -380,13 +380,13 @@ function formatHoursLabel(hours: number | null | undefined): string {
           @click="openStichtagModal"
         >
           <div class="flex items-start gap-3">
-            <div class="p-2.5 bg-emerald-100 rounded-lg">
-              <Calendar class="h-5 w-5 text-emerald-600" />
+            <div class="p-2.5 bg-emerald-100 dark:bg-emerald-950/40 rounded-lg">
+              <Calendar class="h-5 w-5 text-emerald-600 dark:text-emerald-300" />
             </div>
             <div class="flex-1 min-w-0">
               <div class="flex items-center justify-between gap-2">
                 <p class="text-xs text-muted-foreground font-medium">Stichtagsmeldung</p>
-                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-700">
+                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300">
                   {{ stichtagStats.daysUntilStichtag }}d
                 </span>
               </div>
@@ -420,18 +420,18 @@ function formatHoursLabel(hours: number | null | undefined): string {
         <!-- Missing Income Warning Card -->
         <div
           v-if="childrenWithWarnings > 0"
-          class="bg-red-50 border border-red-200 rounded-xl p-5 cursor-pointer hover:bg-red-100 transition-colors"
+          class="bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-xl p-5 cursor-pointer hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
           @click="router.push('/kinder?warnings=true')"
         >
           <div class="flex items-center gap-3">
-            <div class="p-2.5 bg-red-100 rounded-lg">
-              <CircleDollarSign class="h-5 w-5 text-red-600" />
+            <div class="p-2.5 bg-red-100 dark:bg-red-950/40 rounded-lg">
+              <CircleDollarSign class="h-5 w-5 text-red-600 dark:text-red-300" />
             </div>
             <div class="flex-1">
-              <p class="text-xs text-red-700 font-medium">Fehlende Daten</p>
-              <p class="text-lg font-bold text-red-900">{{ childrenWithWarnings }} Kinder</p>
+              <p class="text-xs text-red-700 dark:text-red-300 font-medium">Fehlende Daten</p>
+              <p class="text-lg font-bold text-red-900 dark:text-red-300">{{ childrenWithWarnings }} Kinder</p>
             </div>
-            <svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-4 h-4 text-red-600 dark:text-red-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
             </svg>
           </div>
@@ -440,18 +440,18 @@ function formatHoursLabel(hours: number | null | undefined): string {
         <!-- Unmatched Transactions Card -->
         <div
           v-if="unmatchedTotal > 0"
-          class="bg-amber-50 border border-amber-200 rounded-xl p-5 cursor-pointer hover:bg-amber-100 transition-colors"
+          class="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 rounded-xl p-5 cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors"
           @click="router.push('/bankabgleich')"
         >
           <div class="flex items-center gap-3">
-            <div class="p-2.5 bg-amber-100 rounded-lg">
-              <Link2 class="h-5 w-5 text-amber-600" />
+            <div class="p-2.5 bg-amber-100 dark:bg-amber-950/40 rounded-lg">
+              <Link2 class="h-5 w-5 text-amber-600 dark:text-amber-300" />
             </div>
             <div class="flex-1">
-              <p class="text-xs text-amber-700 font-medium">Nicht zugeordnet</p>
-              <p class="text-lg font-bold text-amber-900">{{ unmatchedTotal }} Transaktionen</p>
+              <p class="text-xs text-amber-700 dark:text-amber-300 font-medium">Nicht zugeordnet</p>
+              <p class="text-lg font-bold text-amber-900 dark:text-amber-300">{{ unmatchedTotal }} Transaktionen</p>
             </div>
-            <svg class="w-4 h-4 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg class="w-4 h-4 text-amber-600 dark:text-amber-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
             </svg>
           </div>
@@ -483,7 +483,7 @@ function formatHoursLabel(hours: number | null | undefined): string {
           </div>
           <select
             v-model="selectedYear"
-            class="px-3 py-1.5 text-sm border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+            class="px-3 py-1.5 text-sm border border-input bg-background rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
           >
             <option v-for="year in years" :key="year" :value="year">{{ year }}</option>
           </select>
@@ -491,27 +491,27 @@ function formatHoursLabel(hours: number | null | undefined): string {
 
         <!-- Year summary stats -->
         <div v-if="!isLoadingMonthly && monthlyOverview" class="grid grid-cols-2 gap-4 mb-6">
-          <div class="p-4 rounded-lg bg-red-50">
+          <div class="p-4 rounded-lg bg-red-50 dark:bg-red-950/40">
             <div class="flex items-center gap-3">
-              <div class="p-2 rounded-lg bg-red-100">
-                <AlertTriangle class="h-5 w-5 text-red-600" />
+              <div class="p-2 rounded-lg bg-red-100 dark:bg-red-950/40">
+                <AlertTriangle class="h-5 w-5 text-red-600 dark:text-red-300" />
               </div>
               <div>
-                <p class="text-xs text-red-700 font-medium">Überfällig {{ selectedYear }}</p>
-                <p class="text-xl font-bold text-red-900">{{ monthlyOverview.totalOverdue }}</p>
-                <p class="text-xs text-red-600 font-medium">{{ formatCurrency(monthlyOverview.amountOverdue) }}</p>
+                <p class="text-xs text-red-700 dark:text-red-300 font-medium">Überfällig {{ selectedYear }}</p>
+                <p class="text-xl font-bold text-red-900 dark:text-red-300">{{ monthlyOverview.totalOverdue }}</p>
+                <p class="text-xs text-red-600 dark:text-red-300 font-medium">{{ formatCurrency(monthlyOverview.amountOverdue) }}</p>
               </div>
             </div>
           </div>
-          <div class="p-4 rounded-lg bg-green-50">
+          <div class="p-4 rounded-lg bg-green-50 dark:bg-green-950/40">
             <div class="flex items-center gap-3">
-              <div class="p-2 rounded-lg bg-green-100">
-                <CheckCircle class="h-5 w-5 text-green-600" />
+              <div class="p-2 rounded-lg bg-green-100 dark:bg-green-950/40">
+                <CheckCircle class="h-5 w-5 text-green-600 dark:text-green-300" />
               </div>
               <div>
-                <p class="text-xs text-green-700 font-medium">Bezahlt {{ selectedYear }}</p>
-                <p class="text-xl font-bold text-green-900">{{ monthlyOverview.totalPaid }}</p>
-                <p class="text-xs text-green-600 font-medium">{{ formatCurrency(monthlyOverview.amountPaid) }}</p>
+                <p class="text-xs text-green-700 dark:text-green-300 font-medium">Bezahlt {{ selectedYear }}</p>
+                <p class="text-xl font-bold text-green-900 dark:text-green-300">{{ monthlyOverview.totalPaid }}</p>
+                <p class="text-xs text-green-600 dark:text-green-300 font-medium">{{ formatCurrency(monthlyOverview.amountPaid) }}</p>
               </div>
             </div>
           </div>
@@ -542,7 +542,7 @@ function formatHoursLabel(hours: number | null | undefined): string {
                 <td class="py-3 text-right">
                   <span
                     v-if="month.openCount > 0"
-                    class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700"
+                    class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300"
                   >
                     {{ month.openCount }}
                   </span>
@@ -551,16 +551,16 @@ function formatHoursLabel(hours: number | null | undefined): string {
                 <td class="py-3 text-right">
                   <span
                     v-if="month.paidCount > 0"
-                    class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700"
+                    class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-300"
                   >
                     {{ month.paidCount }}
                   </span>
                   <span v-else class="text-muted-foreground">-</span>
                 </td>
-                <td class="py-3 text-right text-blue-600">
+                <td class="py-3 text-right text-blue-600 dark:text-blue-300">
                   {{ month.openAmount > 0 ? formatCurrency(month.openAmount) : '-' }}
                 </td>
-                <td class="py-3 text-right text-green-600">
+                <td class="py-3 text-right text-green-600 dark:text-green-300">
                   {{ month.paidAmount > 0 ? formatCurrency(month.paidAmount) : '-' }}
                 </td>
               </tr>
@@ -598,7 +598,7 @@ function formatHoursLabel(hours: number | null | undefined): string {
             </div>
             <button
               @click="showStichtagModal = false"
-              class="p-2 text-muted-foreground hover:text-muted-foreground rounded-lg hover:bg-muted"
+              class="p-2 text-muted-foreground hover:text-muted-foreground rounded-lg hover:bg-accent"
             >
               <X class="h-5 w-5" />
             </button>
@@ -631,18 +631,18 @@ function formatHoursLabel(hours: number | null | undefined): string {
 
             <div v-else class="space-y-6">
               <div v-if="report" class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div class="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
-                  <p class="text-sm text-emerald-700 font-medium">Kinder angemeldet</p>
-                  <p class="text-2xl font-bold text-emerald-900 mt-1">{{ report.totalChildrenInKita }}</p>
-                  <p class="text-xs text-emerald-700 mt-1">am {{ formatDate(report.reportDate) }}</p>
+                <div class="rounded-lg border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/40 p-4">
+                  <p class="text-sm text-emerald-700 dark:text-emerald-300 font-medium">Kinder angemeldet</p>
+                  <p class="text-2xl font-bold text-emerald-900 dark:text-emerald-300 mt-1">{{ report.totalChildrenInKita }}</p>
+                  <p class="text-xs text-emerald-700 dark:text-emerald-300 mt-1">am {{ formatDate(report.reportDate) }}</p>
                 </div>
                 <div class="rounded-lg border border-sky-200 bg-sky-50 p-4">
                   <p class="text-sm text-sky-700 font-medium">Davon U3</p>
                   <p class="text-2xl font-bold text-sky-900 mt-1">{{ report.u3ChildrenCount }}</p>
                 </div>
-                <div class="rounded-lg border border-amber-200 bg-amber-50 p-4">
-                  <p class="text-sm text-amber-700 font-medium">Davon Ü3</p>
-                  <p class="text-2xl font-bold text-amber-900 mt-1">{{ report.ue3ChildrenCount }}</p>
+                <div class="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/40 p-4">
+                  <p class="text-sm text-amber-700 dark:text-amber-300 font-medium">Davon Ü3</p>
+                  <p class="text-2xl font-bold text-amber-900 dark:text-amber-300 mt-1">{{ report.ue3ChildrenCount }}</p>
                 </div>
               </div>
 
@@ -672,7 +672,7 @@ function formatHoursLabel(hours: number | null | undefined): string {
                           <tr v-for="item in report.legalHoursBreakdown" :key="item.legalHours ?? 'unknown'">
                             <td class="px-4 py-3 text-foreground">{{ formatHoursLabel(item.legalHours) }}</td>
                             <td class="px-4 py-3 text-right font-semibold text-sky-900">{{ item.u3Count }}</td>
-                            <td class="px-4 py-3 text-right font-semibold text-amber-900">{{ item.ue3Count }}</td>
+                            <td class="px-4 py-3 text-right font-semibold text-amber-900 dark:text-amber-300">{{ item.ue3Count }}</td>
                             <td class="px-4 py-3 text-right font-semibold text-foreground">{{ item.count }}</td>
                           </tr>
                         </tbody>
@@ -700,7 +700,7 @@ function formatHoursLabel(hours: number | null | undefined): string {
                           <tr v-for="item in report.careHoursBreakdown" :key="item.careHours ?? 'unknown'">
                             <td class="px-4 py-3 text-foreground">{{ formatHoursLabel(item.careHours) }}</td>
                             <td class="px-4 py-3 text-right font-semibold text-sky-900">{{ item.u3Count }}</td>
-                            <td class="px-4 py-3 text-right font-semibold text-amber-900">{{ item.ue3Count }}</td>
+                            <td class="px-4 py-3 text-right font-semibold text-amber-900 dark:text-amber-300">{{ item.ue3Count }}</td>
                             <td class="px-4 py-3 text-right font-semibold text-foreground">{{ item.count }}</td>
                           </tr>
                         </tbody>
@@ -710,13 +710,13 @@ function formatHoursLabel(hours: number | null | undefined): string {
                 </div>
               </div>
 
-              <div class="rounded-xl border border-emerald-200 bg-emerald-50/50">
+              <div class="rounded-xl border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/40">
                 <div class="px-4 py-3 border-b border-emerald-200">
-                  <h3 class="text-sm font-semibold text-emerald-900">U3-Stichtagsmeldung</h3>
-                  <p class="text-xs text-emerald-700 mt-1">Spezifische Prüfung für die offizielle Meldung</p>
+                  <h3 class="text-sm font-semibold text-emerald-900 dark:text-emerald-300">U3-Stichtagsmeldung</h3>
+                  <p class="text-xs text-emerald-700 dark:text-emerald-300 mt-1">Spezifische Prüfung für die offizielle Meldung</p>
                 </div>
 
-                <div v-if="u3Children.length === 0" class="px-4 py-8 text-center text-emerald-800">
+                <div v-if="u3Children.length === 0" class="px-4 py-8 text-center text-emerald-800 dark:text-emerald-300">
                   Keine U3-Kinder gefunden
                 </div>
 
@@ -731,16 +731,16 @@ function formatHoursLabel(hours: number | null | undefined): string {
                     <div
                       :class="[
                         'flex items-center justify-between px-3 py-2 rounded-lg mb-2',
-                        bracket === 'fosterFamily' || bracket === 'maxAccepted' ? 'bg-muted' : 'bg-emerald-50'
+                        bracket === 'fosterFamily' || bracket === 'maxAccepted' ? 'bg-muted' : 'bg-emerald-50 dark:bg-emerald-950/40'
                       ]"
                     >
                       <div class="flex items-center gap-2">
-                        <span :class="['text-sm font-medium', bracket === 'fosterFamily' || bracket === 'maxAccepted' ? 'text-muted-foreground' : 'text-emerald-800']">
+                        <span :class="['text-sm font-medium', bracket === 'fosterFamily' || bracket === 'maxAccepted' ? 'text-muted-foreground' : 'text-emerald-800 dark:text-emerald-300']">
                           {{ bracketLabels[bracket] }}
                         </span>
                         <span v-if="bracket === 'fosterFamily' || bracket === 'maxAccepted'" class="text-xs text-muted-foreground">(nicht gezählt)</span>
                       </div>
-                      <span :class="['text-sm font-bold', bracket === 'fosterFamily' || bracket === 'maxAccepted' ? 'text-muted-foreground' : 'text-emerald-800']">
+                      <span :class="['text-sm font-bold', bracket === 'fosterFamily' || bracket === 'maxAccepted' ? 'text-muted-foreground' : 'text-emerald-800 dark:text-emerald-300']">
                         {{ groupedU3Children[bracket].length }}
                       </span>
                     </div>
@@ -772,7 +772,7 @@ function formatHoursLabel(hours: number | null | undefined): string {
                             v-if="bracket !== 'fosterFamily' && bracket !== 'maxAccepted'"
                             :class="[
                               'text-sm font-medium w-20 text-right',
-                              child.householdIncome === null ? 'text-red-600' : 'text-foreground'
+                              child.householdIncome === null ? 'text-red-600 dark:text-red-300' : 'text-foreground'
                             ]"
                           >
                             {{ formatCurrencyWhole(child.householdIncome) }}

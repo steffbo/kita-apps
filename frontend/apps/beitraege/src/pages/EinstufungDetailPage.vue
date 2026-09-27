@@ -444,15 +444,15 @@ watch(defaultEmailBody, (next) => {
     <div class="flex items-center gap-4 mb-6">
       <button
         @click="router.push('/einstufungen')"
-        class="p-2 rounded-lg hover:bg-gray-100 transition-colors"
+        class="p-2 rounded-lg hover:bg-accent transition-colors"
       >
         <ArrowLeft class="h-5 w-5" />
       </button>
       <div class="flex-1">
-        <h1 class="text-2xl font-bold text-gray-900">
+        <h1 class="text-2xl font-bold text-foreground">
           {{ isFollowUpMode ? 'Folgeeinstufung erstellen' : isNew ? 'Neue Einstufung' : 'Einstufung bearbeiten' }}
         </h1>
-        <p v-if="einstufung && einstufung.child" class="text-sm text-gray-500 mt-0.5">
+        <p v-if="einstufung && einstufung.child" class="text-sm text-muted-foreground mt-0.5">
           {{ einstufung.child.firstName }} {{ einstufung.child.lastName }} &middot; {{ einstufung.year }}
         </p>
       </div>
@@ -464,32 +464,32 @@ watch(defaultEmailBody, (next) => {
     </div>
 
     <!-- Error -->
-    <div v-if="error" class="bg-red-50 text-red-700 p-4 rounded-lg mb-4">
+    <div v-if="error" class="bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 p-4 rounded-lg mb-4">
       {{ error }}
     </div>
 
     <!-- Success -->
-    <div v-if="saveSuccess" class="bg-green-50 text-green-700 p-4 rounded-lg mb-4 flex items-center gap-2">
+    <div v-if="saveSuccess" class="bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300 p-4 rounded-lg mb-4 flex items-center gap-2">
       <CheckCircle class="h-5 w-5" />
       {{ sourceEinstufung ? 'Folgeeinstufung erfolgreich gespeichert.' : 'Einstufung erfolgreich gespeichert.' }}
     </div>
 
     <form v-if="!isLoading" @submit.prevent="handleSubmit" class="space-y-6">
       <!-- Child & Parameters Card -->
-      <div class="bg-white rounded-lg border shadow-sm p-6">
-        <h2 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-          <User class="h-5 w-5 text-gray-400" />
+      <div class="bg-card rounded-lg border shadow-sm p-6">
+        <h2 class="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+          <User class="h-5 w-5 text-muted-foreground" />
           Kind & Parameter
         </h2>
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <!-- Child select -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Kind *</label>
+            <label class="block text-sm font-medium text-foreground mb-1">Kind *</label>
             <select
               v-model="selectedChildId"
               :disabled="!isNew"
-              class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:bg-gray-50 disabled:text-gray-500"
+              class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:bg-muted disabled:text-muted-foreground"
               required
             >
               <option value="">— Kind auswählen —</option>
@@ -501,11 +501,11 @@ watch(defaultEmailBody, (next) => {
 
           <!-- Year -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Jahr *</label>
+            <label class="block text-sm font-medium text-foreground mb-1">Jahr *</label>
             <select
               v-model="selectedYear"
               :disabled="!isNew"
-              class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:bg-gray-50"
+              class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:bg-muted"
               required
             >
               <option v-for="y in [selectedYear - 1, selectedYear, selectedYear + 1]" :key="y" :value="y">
@@ -516,25 +516,25 @@ watch(defaultEmailBody, (next) => {
 
           <!-- Income changes still need a date; initial validity comes from the child. -->
           <div v-if="isFollowUpMode">
-            <label class="block text-sm font-medium text-gray-700 mb-1">Änderungsdatum *</label>
+            <label class="block text-sm font-medium text-foreground mb-1">Änderungsdatum *</label>
             <input
               type="date"
               v-model="validFrom"
               class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary"
               required
             />
-            <p v-if="isFollowUpMode" class="mt-1 text-xs text-gray-500">
+            <p v-if="isFollowUpMode" class="mt-1 text-xs text-muted-foreground">
               Wirksam ab {{ new Date(effectiveFromMonthPreview).toLocaleDateString('de-DE', { month: 'long', year: 'numeric' }) }}
             </p>
           </div>
 
-          <div v-else class="md:col-span-2 rounded-lg border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+          <div v-else class="md:col-span-2 rounded-lg border border-blue-100 bg-blue-50 dark:bg-blue-950/40 px-4 py-3 text-sm text-blue-800 dark:text-blue-300">
             Gültigkeit und Betreuungsstunden werden automatisch aus dem Kinddatensatz und dessen Stundenverlauf übernommen.
           </div>
 
           <!-- Children count -->
           <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Anzahl unterhaltspflichtiger Kinder *</label>
+            <label class="block text-sm font-medium text-foreground mb-1">Anzahl unterhaltspflichtiger Kinder *</label>
             <input
               type="number"
               v-model.number="childrenCount"
@@ -553,28 +553,28 @@ watch(defaultEmailBody, (next) => {
               id="highestRateVoluntary"
               class="h-4 w-4 text-primary rounded focus:ring-primary/20"
             />
-            <label for="highestRateVoluntary" class="text-sm text-gray-700">
+            <label for="highestRateVoluntary" class="text-sm text-foreground">
               Freiwillige Anerkennung des Höchstsatzes
             </label>
           </div>
         </div>
 
         <!-- Household info -->
-        <div v-if="selectedHousehold" class="mt-4 p-3 bg-gray-50 rounded-lg flex items-center gap-2 text-sm text-gray-600">
-          <Home class="h-4 w-4 text-gray-400" />
+        <div v-if="selectedHousehold" class="mt-4 p-3 bg-muted rounded-lg flex items-center gap-2 text-sm text-muted-foreground">
+          <Home class="h-4 w-4 text-muted-foreground" />
           Haushalt: <strong>{{ selectedHousehold.name }}</strong>
           <span v-if="selectedHousehold.annualHouseholdIncome" class="ml-2">
             (bisheriges Einkommen: {{ formatCurrency(selectedHousehold.annualHouseholdIncome) }})
           </span>
         </div>
-        <div v-else-if="childMissingHousehold" class="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-2 text-sm text-amber-800">
-          <Info class="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
+        <div v-else-if="childMissingHousehold" class="mt-4 p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 rounded-lg flex items-start gap-2 text-sm text-amber-800 dark:text-amber-300">
+          <Info class="h-4 w-4 text-amber-500 dark:text-amber-400 mt-0.5 shrink-0" />
           <div>
             <strong>Kein Haushalt zugeordnet.</strong>
             Bitte zuerst Eltern anlegen und dem Kind einen Haushalt zuweisen, bevor eine Einstufung erstellt werden kann.
             <router-link
               :to="`/kinder/${selectedChildId}`"
-              class="underline font-medium hover:text-amber-900"
+              class="underline font-medium hover:text-amber-900 dark:text-amber-300"
             >
               Zum Kind →
             </router-link>
@@ -583,7 +583,7 @@ watch(defaultEmailBody, (next) => {
 
         <!-- Notes -->
         <div class="mt-4">
-          <label class="block text-sm font-medium text-gray-700 mb-1">Bemerkungen</label>
+          <label class="block text-sm font-medium text-foreground mb-1">Bemerkungen</label>
           <textarea
             v-model="notes"
             rows="2"
@@ -594,19 +594,19 @@ watch(defaultEmailBody, (next) => {
       </div>
 
       <!-- Income Calculation Card -->
-      <div v-if="!highestRateVoluntary" class="bg-white rounded-lg border shadow-sm p-6">
-        <h2 class="text-lg font-semibold text-gray-900 mb-1 flex items-center gap-2">
-          <Calculator class="h-5 w-5 text-gray-400" />
+      <div v-if="!highestRateVoluntary" class="bg-card rounded-lg border shadow-sm p-6">
+        <h2 class="text-lg font-semibold text-foreground mb-1 flex items-center gap-2">
+          <Calculator class="h-5 w-5 text-muted-foreground" />
           Einkommensberechnung
         </h2>
-        <p class="text-sm text-gray-500 mb-4">
+        <p class="text-sm text-muted-foreground mb-4">
           Festsetzung des Elternbeitrages – alle Beträge als Jahressummen in EUR
         </p>
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <!-- Parent 1 -->
           <div>
-            <h3 class="font-medium text-gray-800 mb-3 pb-2 border-b">
+            <h3 class="font-medium text-foreground mb-3 pb-2 border-b">
               Elternteil 1 (Mutter / Sorgeberechtigte/r)
             </h3>
             <IncomeForm v-model="parent1Income" />
@@ -614,7 +614,7 @@ watch(defaultEmailBody, (next) => {
 
           <!-- Parent 2 -->
           <div>
-            <h3 class="font-medium text-gray-800 mb-3 pb-2 border-b">
+            <h3 class="font-medium text-foreground mb-3 pb-2 border-b">
               Elternteil 2 (Vater / Sorgeberechtigte/r)
             </h3>
             <IncomeForm v-model="parent2Income" />
@@ -622,35 +622,35 @@ watch(defaultEmailBody, (next) => {
         </div>
 
         <!-- Calculation preview -->
-        <div v-if="incomePreview" class="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-100">
-          <h4 class="text-sm font-semibold text-blue-900 mb-3 flex items-center gap-2">
+        <div v-if="incomePreview" class="mt-6 p-4 bg-blue-50 dark:bg-blue-950/40 rounded-lg border border-blue-100">
+          <h4 class="text-sm font-semibold text-blue-900 dark:text-blue-300 mb-3 flex items-center gap-2">
             <Euro class="h-4 w-4" />
             Einkommensvorschau
           </h4>
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
             <div>
-              <span class="text-blue-600">Elternteil 1 (Netto)</span>
-              <p class="font-semibold text-blue-900">{{ formatCurrency(incomePreview.parent1NetIncome) }}</p>
-              <span class="text-xs text-blue-500">Beitragsrelevant: {{ formatCurrency(incomePreview.parent1FeeRelevantIncome) }}</span>
+              <span class="text-blue-600 dark:text-blue-300">Elternteil 1 (Netto)</span>
+              <p class="font-semibold text-blue-900 dark:text-blue-300">{{ formatCurrency(incomePreview.parent1NetIncome) }}</p>
+              <span class="text-xs text-blue-500 dark:text-blue-400">Beitragsrelevant: {{ formatCurrency(incomePreview.parent1FeeRelevantIncome) }}</span>
             </div>
             <div>
-              <span class="text-blue-600">Elternteil 2 (Netto)</span>
-              <p class="font-semibold text-blue-900">{{ formatCurrency(incomePreview.parent2NetIncome) }}</p>
-              <span class="text-xs text-blue-500">Beitragsrelevant: {{ formatCurrency(incomePreview.parent2FeeRelevantIncome) }}</span>
+              <span class="text-blue-600 dark:text-blue-300">Elternteil 2 (Netto)</span>
+              <p class="font-semibold text-blue-900 dark:text-blue-300">{{ formatCurrency(incomePreview.parent2NetIncome) }}</p>
+              <span class="text-xs text-blue-500 dark:text-blue-400">Beitragsrelevant: {{ formatCurrency(incomePreview.parent2FeeRelevantIncome) }}</span>
             </div>
             <div>
-              <span class="text-blue-600">Haushaltseinkommen (beitragsrelevant)</span>
-              <p class="text-lg font-bold text-blue-900">{{ formatCurrency(incomePreview.householdFeeIncome) }}</p>
-              <span class="text-xs text-blue-500">Gesamt inkl. Leistungen: {{ formatCurrency(incomePreview.householdFullIncome) }}</span>
+              <span class="text-blue-600 dark:text-blue-300">Haushaltseinkommen (beitragsrelevant)</span>
+              <p class="text-lg font-bold text-blue-900 dark:text-blue-300">{{ formatCurrency(incomePreview.householdFeeIncome) }}</p>
+              <span class="text-xs text-blue-500 dark:text-blue-400">Gesamt inkl. Leistungen: {{ formatCurrency(incomePreview.householdFullIncome) }}</span>
             </div>
           </div>
         </div>
       </div>
 
       <!-- Highest rate notice -->
-      <div v-if="highestRateVoluntary" class="bg-orange-50 border border-orange-200 rounded-lg p-4 flex items-start gap-3">
-        <Info class="h-5 w-5 text-orange-500 mt-0.5 shrink-0" />
-        <div class="text-sm text-orange-800">
+      <div v-if="highestRateVoluntary" class="bg-orange-50 dark:bg-orange-950/40 border border-orange-200 rounded-lg p-4 flex items-start gap-3">
+        <Info class="h-5 w-5 text-orange-500 dark:text-orange-400 mt-0.5 shrink-0" />
+        <div class="text-sm text-orange-800 dark:text-orange-300">
           <strong>Freiwillige Anerkennung des Höchstsatzes</strong>
           <p class="mt-1">
             Die Einkommensberechnung entfällt, da der Höchstsatz freiwillig anerkannt wird.
@@ -660,41 +660,41 @@ watch(defaultEmailBody, (next) => {
       </div>
 
       <!-- Result preview (edit mode) -->
-      <div v-if="einstufung" class="bg-white rounded-lg border shadow-sm p-6">
+      <div v-if="einstufung" class="bg-card rounded-lg border shadow-sm p-6">
         <div class="flex items-center justify-between gap-3 mb-4">
-          <h2 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
-            <FileText class="h-5 w-5 text-gray-400" />
+          <h2 class="text-lg font-semibold text-foreground flex items-center gap-2">
+            <FileText class="h-5 w-5 text-muted-foreground" />
             Ergebnis
           </h2>
           <button
             v-if="!isNew && !successorEinstufung"
             type="button"
             @click="router.push(`/einstufungen/neu?sourceId=${einstufung.id}`)"
-            class="inline-flex items-center gap-2 px-3 py-2 text-xs text-white bg-primary rounded-lg hover:bg-primary/90 transition-colors"
+            class="inline-flex items-center gap-2 px-3 py-2 text-xs text-primary-foreground bg-primary rounded-lg hover:bg-primary/90 transition-colors"
           >
             Folgeeinstufung erstellen
           </button>
         </div>
         <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div>
-            <span class="text-sm text-gray-500">Platzgeld</span>
-            <p class="text-xl font-bold text-gray-900">{{ formatCurrency(einstufung.monthlyChildcareFee) }}</p>
-            <span class="text-xs text-gray-400">monatlich</span>
+            <span class="text-sm text-muted-foreground">Platzgeld</span>
+            <p class="text-xl font-bold text-foreground">{{ formatCurrency(einstufung.monthlyChildcareFee) }}</p>
+            <span class="text-xs text-muted-foreground">monatlich</span>
           </div>
           <div>
-            <span class="text-sm text-gray-500">Essengeld</span>
-            <p class="text-xl font-bold text-gray-900">{{ formatCurrency(einstufung.monthlyFoodFee) }}</p>
-            <span class="text-xs text-gray-400">monatlich</span>
+            <span class="text-sm text-muted-foreground">Essengeld</span>
+            <p class="text-xl font-bold text-foreground">{{ formatCurrency(einstufung.monthlyFoodFee) }}</p>
+            <span class="text-xs text-muted-foreground">monatlich</span>
           </div>
           <div>
-            <span class="text-sm text-gray-500">Vereinsbeitrag</span>
-            <p class="text-xl font-bold text-gray-900">{{ formatCurrency(einstufung.annualMembershipFee) }}</p>
-            <span class="text-xs text-gray-400">jährlich</span>
+            <span class="text-sm text-muted-foreground">Vereinsbeitrag</span>
+            <p class="text-xl font-bold text-foreground">{{ formatCurrency(einstufung.annualMembershipFee) }}</p>
+            <span class="text-xs text-muted-foreground">jährlich</span>
           </div>
           <div>
-            <span class="text-sm text-gray-500">Regel</span>
-            <p class="text-lg font-semibold text-gray-900">{{ einstufung.feeRule }}</p>
-            <span v-if="einstufung.discountPercent > 0" class="text-xs text-green-600">
+            <span class="text-sm text-muted-foreground">Regel</span>
+            <p class="text-lg font-semibold text-foreground">{{ einstufung.feeRule }}</p>
+            <span v-if="einstufung.discountPercent > 0" class="text-xs text-green-600 dark:text-green-300">
               {{ einstufung.discountPercent }}% Geschwisterrabatt
             </span>
           </div>
@@ -702,23 +702,23 @@ watch(defaultEmailBody, (next) => {
 
         <!-- Monthly table -->
         <div v-if="einstufung.monthlyTable && einstufung.monthlyTable.length" class="mt-6">
-          <h3 class="text-sm font-medium text-gray-700 mb-2">Monatsübersicht</h3>
-          <table class="min-w-full divide-y divide-gray-200 text-sm">
-            <thead class="bg-gray-50">
+          <h3 class="text-sm font-medium text-foreground mb-2">Monatsübersicht</h3>
+          <table class="min-w-full divide-y divide-border text-sm">
+            <thead class="bg-muted">
               <tr>
-                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Monat</th>
-                <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Bereich</th>
-                <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Platzgeld</th>
-                <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Essengeld</th>
-                <th class="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Vereinsbeitrag</th>
+                <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Monat</th>
+                <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Bereich</th>
+                <th class="px-3 py-2 text-right text-xs font-medium text-muted-foreground uppercase">Platzgeld</th>
+                <th class="px-3 py-2 text-right text-xs font-medium text-muted-foreground uppercase">Essengeld</th>
+                <th class="px-3 py-2 text-right text-xs font-medium text-muted-foreground uppercase">Vereinsbeitrag</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-gray-100">
+            <tbody class="divide-y divide-border">
               <tr v-for="row in einstufung.monthlyTable" :key="`${row.year}-${row.month}`">
-                <td class="px-3 py-2 text-gray-700">
+                <td class="px-3 py-2 text-foreground">
                   {{ formatMonthYear(row.year, row.month) }}
                 </td>
-                <td class="px-3 py-2 text-gray-600">{{ row.careType }} · {{ row.careHoursPerWeek }}h</td>
+                <td class="px-3 py-2 text-muted-foreground">{{ row.careType }} · {{ row.careHoursPerWeek }}h</td>
                 <td class="px-3 py-2 text-right font-medium">{{ formatCurrency(row.childcareFee) }}</td>
                 <td class="px-3 py-2 text-right">{{ formatCurrency(row.foodFee) }}</td>
                 <td class="px-3 py-2 text-right">{{ row.membershipFee > 0 ? formatCurrency(row.membershipFee) : '—' }}</td>
@@ -728,68 +728,68 @@ watch(defaultEmailBody, (next) => {
         </div>
       </div>
 
-      <div v-if="expectationChanges" class="bg-white rounded-lg border shadow-sm p-6">
-        <h2 class="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-          <CheckCircle class="h-5 w-5 text-gray-400" />
+      <div v-if="expectationChanges" class="bg-card rounded-lg border shadow-sm p-6">
+        <h2 class="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+          <CheckCircle class="h-5 w-5 text-muted-foreground" />
           Beitragsanpassung
         </h2>
         <div class="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
           <div>
-            <span class="text-gray-500">Neu angelegt</span>
-            <p class="text-xl font-bold text-gray-900">{{ expectationChanges.created }}</p>
+            <span class="text-muted-foreground">Neu angelegt</span>
+            <p class="text-xl font-bold text-foreground">{{ expectationChanges.created }}</p>
           </div>
           <div>
-            <span class="text-gray-500">Aktualisiert</span>
-            <p class="text-xl font-bold text-gray-900">{{ expectationChanges.updated }}</p>
+            <span class="text-muted-foreground">Aktualisiert</span>
+            <p class="text-xl font-bold text-foreground">{{ expectationChanges.updated }}</p>
           </div>
           <div>
-            <span class="text-gray-500">Übersprungen</span>
-            <p class="text-xl font-bold text-gray-900">{{ expectationChanges.skipped }}</p>
+            <span class="text-muted-foreground">Übersprungen</span>
+            <p class="text-xl font-bold text-foreground">{{ expectationChanges.skipped }}</p>
           </div>
           <div>
-            <span class="text-gray-500">Offene Differenz</span>
-            <p class="text-xl font-bold text-gray-900">{{ formatCurrency(expectationChanges.deltaOpen) }}</p>
+            <span class="text-muted-foreground">Offene Differenz</span>
+            <p class="text-xl font-bold text-foreground">{{ formatCurrency(expectationChanges.deltaOpen) }}</p>
           </div>
           <div>
-            <span class="text-gray-500">Gutschrift prüfen</span>
-            <p class="text-xl font-bold text-gray-900">{{ expectationChanges.creditReviewRequired.length }}</p>
+            <span class="text-muted-foreground">Gutschrift prüfen</span>
+            <p class="text-xl font-bold text-foreground">{{ expectationChanges.creditReviewRequired.length }}</p>
           </div>
         </div>
 
         <div v-if="expectationChanges.creditReviewRequired.length" class="mt-5 overflow-x-auto">
-          <table class="min-w-full divide-y divide-gray-200 text-sm">
-            <thead class="bg-amber-50">
+          <table class="min-w-full divide-y divide-border text-sm">
+            <thead class="bg-amber-50 dark:bg-amber-950/40">
               <tr>
-                <th class="px-3 py-2 text-left text-xs font-medium text-amber-800 uppercase">Monat</th>
-                <th class="px-3 py-2 text-right text-xs font-medium text-amber-800 uppercase">Alt</th>
-                <th class="px-3 py-2 text-right text-xs font-medium text-amber-800 uppercase">Neu</th>
-                <th class="px-3 py-2 text-right text-xs font-medium text-amber-800 uppercase">Bezahlt</th>
-                <th class="px-3 py-2 text-right text-xs font-medium text-amber-800 uppercase">Prüfbetrag</th>
+                <th class="px-3 py-2 text-left text-xs font-medium text-amber-800 dark:text-amber-300 uppercase">Monat</th>
+                <th class="px-3 py-2 text-right text-xs font-medium text-amber-800 dark:text-amber-300 uppercase">Alt</th>
+                <th class="px-3 py-2 text-right text-xs font-medium text-amber-800 dark:text-amber-300 uppercase">Neu</th>
+                <th class="px-3 py-2 text-right text-xs font-medium text-amber-800 dark:text-amber-300 uppercase">Bezahlt</th>
+                <th class="px-3 py-2 text-right text-xs font-medium text-amber-800 dark:text-amber-300 uppercase">Prüfbetrag</th>
               </tr>
             </thead>
-            <tbody class="divide-y divide-gray-100">
+            <tbody class="divide-y divide-border">
               <tr v-for="item in expectationChanges.creditReviewRequired" :key="item.feeId">
-                <td class="px-3 py-2 text-gray-700">{{ formatMonthYear(item.year, item.month) }}</td>
+                <td class="px-3 py-2 text-foreground">{{ formatMonthYear(item.year, item.month) }}</td>
                 <td class="px-3 py-2 text-right">{{ formatCurrency(item.oldAmount) }}</td>
                 <td class="px-3 py-2 text-right">{{ formatCurrency(item.newAmount) }}</td>
                 <td class="px-3 py-2 text-right">{{ formatCurrency(item.matchedAmount) }}</td>
-                <td class="px-3 py-2 text-right font-medium text-amber-800">{{ formatCurrency(item.creditAmount) }}</td>
+                <td class="px-3 py-2 text-right font-medium text-amber-800 dark:text-amber-300">{{ formatCurrency(item.creditAmount) }}</td>
               </tr>
             </tbody>
           </table>
         </div>
       </div>
 
-      <div v-if="einstufung" class="bg-white rounded-lg border shadow-sm p-6 space-y-4">
+      <div v-if="einstufung" class="bg-card rounded-lg border shadow-sm p-6 space-y-4">
         <div class="flex items-center justify-between gap-3">
-          <h2 class="text-lg font-semibold text-gray-900 flex items-center gap-2">
-            <Mail class="h-5 w-5 text-gray-400" />
+          <h2 class="text-lg font-semibold text-foreground flex items-center gap-2">
+            <Mail class="h-5 w-5 text-muted-foreground" />
             E-Mail an Eltern
           </h2>
           <button
             type="button"
             @click="resetEmailDraft"
-            class="inline-flex items-center gap-2 px-3 py-2 text-xs text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+            class="inline-flex items-center gap-2 px-3 py-2 text-xs text-foreground bg-muted rounded-lg hover:bg-accent transition-colors"
           >
             <RotateCcw class="h-3.5 w-3.5" />
             Standardtext einsetzen
@@ -797,17 +797,17 @@ watch(defaultEmailBody, (next) => {
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Empfänger</label>
-          <p v-if="emailRecipients.length" class="text-sm text-gray-700">
+          <label class="block text-sm font-medium text-foreground mb-1">Empfänger</label>
+          <p v-if="emailRecipients.length" class="text-sm text-foreground">
             {{ emailRecipients.join(', ') }}
           </p>
-          <p v-else class="text-sm text-amber-700">
+          <p v-else class="text-sm text-amber-700 dark:text-amber-300">
             Keine Empfänger gefunden. Bitte E-Mail-Adressen in den Elterndaten hinterlegen.
           </p>
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Betreff</label>
+          <label class="block text-sm font-medium text-foreground mb-1">Betreff</label>
           <input
             v-model="emailSubject"
             @input="emailSubjectDirty = true"
@@ -817,19 +817,19 @@ watch(defaultEmailBody, (next) => {
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Text</label>
+          <label class="block text-sm font-medium text-foreground mb-1">Text</label>
           <textarea
             v-model="emailBody"
             @input="emailBodyDirty = true"
             rows="16"
             class="w-full border rounded-lg px-3 py-2 text-sm leading-6 focus:ring-2 focus:ring-primary/20 focus:border-primary"
           ></textarea>
-          <p class="mt-2 text-xs text-gray-500">
+          <p class="mt-2 text-xs text-muted-foreground">
             Hinweis: Die PDF bitte zuerst über den PDF-Button erstellen und dann im Mailprogramm anhängen.
           </p>
         </div>
 
-        <div v-if="mailError" class="text-sm text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+        <div v-if="mailError" class="text-sm text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-950/40 border border-red-100 rounded-lg px-3 py-2">
           {{ mailError }}
         </div>
 
@@ -837,7 +837,7 @@ watch(defaultEmailBody, (next) => {
           <button
             type="button"
             @click="openEmailComposer"
-            class="inline-flex items-center gap-2 px-4 py-2 text-sm text-white bg-primary rounded-lg hover:bg-primary/90 transition-colors"
+            class="inline-flex items-center gap-2 px-4 py-2 text-sm text-primary-foreground bg-primary rounded-lg hover:bg-primary/90 transition-colors"
           >
             <Mail class="h-4 w-4" />
             E-Mail im Mailprogramm öffnen
@@ -858,14 +858,14 @@ watch(defaultEmailBody, (next) => {
         <button
           type="button"
           @click="router.push('/einstufungen')"
-          class="px-4 py-2 text-sm text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition-colors"
+          class="px-4 py-2 text-sm text-foreground bg-muted rounded-lg hover:bg-accent transition-colors"
         >
           Abbrechen
         </button>
         <button
           type="submit"
           :disabled="isSaving || childMissingHousehold"
-          class="inline-flex items-center gap-2 px-6 py-2 text-sm text-white bg-primary rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+          class="inline-flex items-center gap-2 px-6 py-2 text-sm text-primary-foreground bg-primary rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
         >
           <Loader2 v-if="isSaving" class="h-4 w-4 animate-spin" />
           <Save v-else class="h-4 w-4" />

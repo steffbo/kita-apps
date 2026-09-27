@@ -377,11 +377,11 @@ watch(
     <!-- Header -->
     <div class="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
       <div>
-        <h1 class="text-2xl font-bold text-gray-900">Erinnerungen</h1>
-        <p class="text-gray-600 mt-1">Familien mit offenen Beiträgen bearbeiten</p>
+        <h1 class="text-2xl font-bold text-foreground">Erinnerungen</h1>
+        <p class="text-muted-foreground mt-1">Familien mit offenen Beiträgen bearbeiten</p>
       </div>
       <button
-        class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium hover:bg-gray-50"
+        class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium hover:bg-accent"
         @click="showSettingsDialog = true"
       >
         <Settings class="h-4 w-4" />
@@ -393,14 +393,14 @@ watch(
     <div class="flex gap-1 mb-6 border-b">
       <button
         class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors"
-        :class="activeTab === 'worklist' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700'"
+        :class="activeTab === 'worklist' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'"
         @click="activeTab = 'worklist'"
       >
         Arbeitsliste
       </button>
       <button
         class="px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors"
-        :class="activeTab === 'log' ? 'border-primary text-primary' : 'border-transparent text-gray-500 hover:text-gray-700'"
+        :class="activeTab === 'log' ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'"
         @click="activeTab = 'log'"
       >
         Versandverlauf
@@ -414,26 +414,26 @@ watch(
         <div class="inline-flex rounded-lg border overflow-hidden">
           <button
             class="px-4 py-2 text-sm font-medium transition-colors"
-            :class="scope === 'actionable' ? 'bg-primary text-white' : 'bg-white text-gray-600 hover:bg-gray-50'"
+            :class="scope === 'actionable' ? 'bg-primary text-primary-foreground' : 'bg-card text-muted-foreground hover:bg-accent'"
             @click="scope = 'actionable'"
           >
             Handlungsbedarf
           </button>
           <button
             class="px-4 py-2 text-sm font-medium transition-colors"
-            :class="scope === 'all' ? 'bg-primary text-white' : 'bg-white text-gray-600 hover:bg-gray-50'"
+            :class="scope === 'all' ? 'bg-primary text-primary-foreground' : 'bg-card text-muted-foreground hover:bg-accent'"
             @click="scope = 'all'"
           >
             Alle offenen
           </button>
         </div>
         <div class="relative flex-1 min-w-[200px]">
-          <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
             v-model="caseSearch"
             type="text"
             placeholder="Familie suchen..."
-            class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+            class="w-full pl-10 pr-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
           />
         </div>
         <button class="text-sm text-primary hover:underline" :disabled="isCasesLoading" @click="loadCases()">
@@ -441,9 +441,9 @@ watch(
         </button>
       </div>
 
-      <div v-if="casesError" class="mb-4 text-sm text-red-600">{{ casesError }}</div>
-      <div v-if="isCasesLoading && cases.length === 0" class="text-sm text-gray-500">Familien werden geladen...</div>
-      <div v-else-if="filteredCases.length === 0" class="text-sm text-gray-500 py-8 text-center">
+      <div v-if="casesError" class="mb-4 text-sm text-red-600 dark:text-red-300">{{ casesError }}</div>
+      <div v-if="isCasesLoading && cases.length === 0" class="text-sm text-muted-foreground">Familien werden geladen...</div>
+      <div v-else-if="filteredCases.length === 0" class="text-sm text-muted-foreground py-8 text-center">
         Keine offenen Fälle in dieser Ansicht.
       </div>
 
@@ -454,13 +454,13 @@ watch(
           <ul class="space-y-2">
             <li v-for="item in filteredCases" :key="item.householdId">
               <button
-                class="w-full text-left p-4 border rounded-xl transition-colors hover:bg-gray-50"
-                :class="item.householdId === selectedHouseholdId ? 'border-primary ring-1 ring-primary' : 'border-gray-200'"
+                class="w-full text-left p-4 border rounded-xl transition-colors hover:bg-accent"
+                :class="item.householdId === selectedHouseholdId ? 'border-primary ring-1 ring-primary' : 'border-border'"
                 @click="openCase(item.householdId)"
               >
                 <div class="flex items-center justify-between gap-3">
-                  <span class="font-medium text-gray-900">{{ item.householdName }}</span>
-                  <span class="font-semibold text-gray-900 whitespace-nowrap">{{ formatCurrency(item.totalRemaining) }}</span>
+                  <span class="font-medium text-foreground">{{ item.householdName }}</span>
+                  <span class="font-semibold text-foreground whitespace-nowrap">{{ formatCurrency(item.totalRemaining) }}</span>
                 </div>
                 <div class="flex flex-wrap items-center gap-1.5 mt-2">
                   <span
@@ -478,7 +478,7 @@ watch(
                     Keine E-Mail
                   </span>
                 </div>
-                <div class="flex flex-wrap items-center gap-4 mt-2 text-xs text-gray-500">
+                <div class="flex flex-wrap items-center gap-4 mt-2 text-xs text-muted-foreground">
                   <span class="inline-flex items-center gap-1">
                     <Clock class="h-3.5 w-3.5" />
                     Nächste Aktion: {{ formatDate(item.nextActionAt) }}
@@ -498,18 +498,18 @@ watch(
           <div class="lg:sticky lg:top-6">
             <!-- Mobile back -->
             <button
-              class="inline-flex items-center gap-2 text-sm text-gray-600 hover:text-gray-900 mb-3 lg:hidden"
+              class="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-3 lg:hidden"
               @click="closeCase"
             >
               <ArrowLeft class="h-4 w-4" />
               Zurück zur Liste
             </button>
 
-            <div class="bg-white border rounded-xl p-5">
+            <div class="bg-card border rounded-xl p-5">
               <!-- Success banner -->
-              <div v-if="sendResult" class="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg text-sm">
-                <p class="font-medium text-green-800">E-Mail gesendet an {{ sendResult.sentTo.join(', ') }}</p>
-                <p class="text-green-700 mt-1">
+              <div v-if="sendResult" class="mb-4 p-4 bg-green-50 dark:bg-green-950/40 border border-green-200 rounded-lg text-sm">
+                <p class="font-medium text-green-800 dark:text-green-300">E-Mail gesendet an {{ sendResult.sentTo.join(', ') }}</p>
+                <p class="text-green-700 dark:text-green-300 mt-1">
                   Frist: {{ formatDate(sendResult.deadline) }}
                   <template v-if="sendResult.createdReminderFees.length > 0">
                     · Mahngebühren erstellt: {{ sendResult.createdReminderFees.length }}
@@ -519,16 +519,16 @@ watch(
 
               <div class="flex items-start justify-between gap-3 mb-4">
                 <div>
-                  <h2 class="text-lg font-semibold text-gray-900">{{ selectedCase.householdName }}</h2>
-                  <p class="text-sm text-gray-500">
+                  <h2 class="text-lg font-semibold text-foreground">{{ selectedCase.householdName }}</h2>
+                  <p class="text-sm text-muted-foreground">
                     Empfänger:
                     <template v-if="selectedCase.recipients.length > 0">{{ selectedCase.recipients.join(', ') }}</template>
-                    <template v-else><span class="text-red-600 font-medium">keine gültige E-Mail-Adresse</span></template>
+                    <template v-else><span class="text-red-600 dark:text-red-300 font-medium">keine gültige E-Mail-Adresse</span></template>
                   </p>
                 </div>
                 <div class="text-right shrink-0">
-                  <p class="text-xs text-gray-500">Offen gesamt</p>
-                  <p class="font-semibold text-gray-900">{{ formatCurrency(selectedCase.totalRemaining) }}</p>
+                  <p class="text-xs text-muted-foreground">Offen gesamt</p>
+                  <p class="font-semibold text-foreground">{{ formatCurrency(selectedCase.totalRemaining) }}</p>
                 </div>
               </div>
 
@@ -536,25 +536,25 @@ watch(
               <div class="flex flex-wrap items-center gap-2 mb-3">
                 <button
                   class="px-4 py-2 text-sm font-medium rounded-lg border transition-colors"
-                  :class="stage === 'initial' ? 'bg-primary text-white border-primary' : 'border-gray-300 text-gray-700 hover:bg-gray-50'"
+                  :class="stage === 'initial' ? 'bg-primary text-primary-foreground border-primary' : 'border-border text-foreground hover:bg-accent'"
                   @click="stage = 'initial'"
                 >
                   Erinnerung
                 </button>
                 <button
                   class="px-4 py-2 text-sm font-medium rounded-lg border transition-colors"
-                  :class="stage === 'final' ? 'bg-amber-600 text-white border-amber-600' : 'border-gray-300 text-gray-700 hover:bg-gray-50'"
+                  :class="stage === 'final' ? 'bg-amber-600 text-white border-amber-600' : 'border-border text-foreground hover:bg-accent'"
                   @click="stage = 'final'"
                 >
                   Mahnung
                 </button>
-                <label class="inline-flex items-center gap-2 text-sm text-gray-700 ml-2">
+                <label class="inline-flex items-center gap-2 text-sm text-foreground ml-2">
                   <input type="checkbox" v-model="includeQR" />
                   QR-Code
                 </label>
               </div>
-              <p v-if="stageWarning" class="text-xs text-amber-700 mb-3">{{ stageWarning }}</p>
-              <p v-else-if="recommendedStage" class="text-xs text-gray-500 mb-3">
+              <p v-if="stageWarning" class="text-xs text-amber-700 dark:text-amber-300 mb-3">{{ stageWarning }}</p>
+              <p v-else-if="recommendedStage" class="text-xs text-muted-foreground mb-3">
                 Empfehlung: {{ recommendedStage === 'final' ? 'Mahnung' : 'Erinnerung' }}
               </p>
 
@@ -563,7 +563,7 @@ watch(
                 <div class="overflow-x-auto">
                   <table class="w-full text-sm">
                     <thead>
-                      <tr class="text-left text-gray-500 border-b bg-gray-50">
+                      <tr class="text-left text-muted-foreground border-b bg-muted">
                         <th class="w-8 py-2 pl-3"></th>
                         <th class="py-2 pr-3 font-medium">Kind / Beitrag</th>
                         <th class="py-2 pr-3 font-medium">Zeitraum</th>
@@ -612,7 +612,7 @@ watch(
               <!-- Warnings -->
               <div
                 v-if="preview && preview.warnings && preview.warnings.length > 0"
-                class="p-3 bg-amber-50 border border-amber-300 rounded-lg text-sm text-amber-900 mb-4"
+                class="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 rounded-lg text-sm text-amber-900 dark:text-amber-300 mb-4"
               >
                 <p class="font-semibold mb-1">Hinweise</p>
                 <ul class="space-y-0.5">
@@ -621,7 +621,7 @@ watch(
               </div>
 
               <!-- Send error -->
-              <div v-if="sendError" class="p-3 bg-red-50 border border-red-300 rounded-lg text-sm text-red-800 mb-4">
+              <div v-if="sendError" class="p-3 bg-red-50 dark:bg-red-950/40 border border-red-300 rounded-lg text-sm text-red-800 dark:text-red-300 mb-4">
                 {{ sendError }}
                 <span v-if="conflictFeeCount > 0" class="block text-xs mt-1">
                   Betroffene Beiträge: {{ conflictFeeCount }} — bitte Auswahl prüfen.
@@ -629,24 +629,24 @@ watch(
               </div>
 
               <!-- Preview -->
-              <div v-if="selectedFeeIds.length === 0" class="text-sm text-gray-500 mb-4">
+              <div v-if="selectedFeeIds.length === 0" class="text-sm text-muted-foreground mb-4">
                 Bitte mindestens einen Beitrag auswählen.
               </div>
-              <div v-else-if="isPreviewLoading && !preview" class="text-sm text-gray-500 mb-4">Vorschau wird erstellt...</div>
-              <div v-else-if="previewError" class="text-sm text-red-600 mb-4">{{ previewError }}</div>
-              <div v-else-if="preview" class="border rounded-lg p-4 mb-4 bg-gray-50">
+              <div v-else-if="isPreviewLoading && !preview" class="text-sm text-muted-foreground mb-4">Vorschau wird erstellt...</div>
+              <div v-else-if="previewError" class="text-sm text-red-600 dark:text-red-300 mb-4">{{ previewError }}</div>
+              <div v-else-if="preview" class="border rounded-lg p-4 mb-4 bg-muted">
                 <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
-                  <p class="text-sm font-medium text-gray-800">
+                  <p class="text-sm font-medium text-foreground">
                     Vorschau · Frist: <span class="font-semibold">{{ formatDate(preview.deadline) }}</span>
                     · Gesamtbetrag: <span class="font-semibold">{{ formatCurrency(preview.totalAmount) }}</span>
                   </p>
-                  <p v-if="resetNotice" class="text-xs text-amber-700">Manuelle Textänderungen wurden zurückgesetzt.</p>
+                  <p v-if="resetNotice" class="text-xs text-amber-700 dark:text-amber-300">Manuelle Textänderungen wurden zurückgesetzt.</p>
                 </div>
 
                 <!-- Planned reminder fees -->
-                <div v-if="preview.plannedReminderFees.length > 0" class="mb-3 p-3 bg-white border rounded-lg text-sm">
-                  <p class="font-medium text-gray-800 mb-1">Neu entstehende Mahngebühren</p>
-                  <ul class="space-y-0.5 text-gray-700">
+                <div v-if="preview.plannedReminderFees.length > 0" class="mb-3 p-3 bg-card border rounded-lg text-sm">
+                  <p class="font-medium text-foreground mb-1">Neu entstehende Mahngebühren</p>
+                  <ul class="space-y-0.5 text-foreground">
                     <li v-for="planned in preview.plannedReminderFees" :key="planned.baseFeeId" class="flex justify-between gap-3">
                       <span>Mahngebühr für {{ planned.baseLabel }}</span>
                       <span class="font-medium">{{ formatCurrency(planned.amount) }}</span>
@@ -656,49 +656,49 @@ watch(
 
                 <div class="space-y-2">
                   <div>
-                    <label class="block text-xs text-gray-500 mb-1">Betreff</label>
+                    <label class="block text-xs text-muted-foreground mb-1">Betreff</label>
                     <input
                       type="text"
                       v-model="subjectEdit"
                       @input="onSubjectInput"
-                      class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-white"
+                      class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-background"
                     />
                   </div>
                   <div>
-                    <label class="block text-xs text-gray-500 mb-1">Text</label>
+                    <label class="block text-xs text-muted-foreground mb-1">Text</label>
                     <textarea
                       v-model="bodyEdit"
                       @input="onBodyInput"
                       rows="14"
-                      class="w-full px-3 py-2 border border-gray-300 rounded-lg font-mono text-xs focus:ring-2 focus:ring-primary focus:border-transparent outline-none whitespace-pre-wrap bg-white"
+                      class="w-full px-3 py-2 border border-border rounded-lg font-mono text-xs focus:ring-2 focus:ring-primary focus:border-transparent outline-none whitespace-pre-wrap bg-background"
                     ></textarea>
-                    <p v-if="userEdited" class="mt-1 text-xs text-amber-700">
+                    <p v-if="userEdited" class="mt-1 text-xs text-amber-700 dark:text-amber-300">
                       Text angepasst — Änderungen an Auswahl oder Mahnstufe setzen ihn zurück.
                     </p>
                   </div>
                   <div v-if="includeQR && preview.qrImageDataUrl" class="space-y-2">
-                    <p class="text-xs text-gray-500">SEPA-QR-Code</p>
-                    <img :src="preview.qrImageDataUrl" alt="SEPA QR-Code" class="w-full max-w-[220px] border rounded bg-white p-2" />
+                    <p class="text-xs text-muted-foreground">SEPA-QR-Code</p>
+                    <img :src="preview.qrImageDataUrl" alt="SEPA QR-Code" class="w-full max-w-[220px] border rounded bg-card p-2" />
                     <details v-if="preview.qrPayload">
-                      <summary class="text-xs text-gray-500 cursor-pointer">Im QR-Code enthalten</summary>
-                      <pre class="mt-1 whitespace-pre-wrap break-all font-mono text-xs text-gray-600 bg-white border rounded p-3">{{ preview.qrPayload }}</pre>
+                      <summary class="text-xs text-muted-foreground cursor-pointer">Im QR-Code enthalten</summary>
+                      <pre class="mt-1 whitespace-pre-wrap break-all font-mono text-xs text-muted-foreground bg-card border rounded p-3">{{ preview.qrPayload }}</pre>
                     </details>
                   </div>
-                  <p v-else-if="!includeQR" class="text-xs text-gray-500">QR-Code ist deaktiviert und wird nicht angehängt.</p>
+                  <p v-else-if="!includeQR" class="text-xs text-muted-foreground">QR-Code ist deaktiviert und wird nicht angehängt.</p>
                 </div>
               </div>
 
               <!-- Actions -->
               <div class="flex flex-wrap justify-end gap-3">
                 <button
-                  class="px-4 py-2 rounded-lg border text-sm font-medium hover:bg-gray-50"
+                  class="px-4 py-2 rounded-lg border text-sm font-medium hover:bg-accent"
                   @click="resetEdits"
                   v-if="preview && userEdited"
                 >
                   Text zurücksetzen
                 </button>
                 <button
-                  class="px-4 py-2 bg-primary text-white text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+                  class="px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
                   :disabled="!preview || isPreviewLoading || isSending || selectedCase.recipients.length === 0"
                   @click="openSendConfirmation"
                 >
@@ -708,15 +708,15 @@ watch(
 
               <!-- Family chronology -->
               <div class="mt-6 pt-4 border-t">
-                <h3 class="text-sm font-semibold text-gray-800 mb-2">Chronik dieser Familie</h3>
-                <div v-if="isChronologyLoading" class="text-xs text-gray-500">Wird geladen...</div>
-                <div v-else-if="chronology.length === 0" class="text-xs text-gray-500">Noch keine E-Mails an diese Familie gesendet.</div>
+                <h3 class="text-sm font-semibold text-foreground mb-2">Chronik dieser Familie</h3>
+                <div v-if="isChronologyLoading" class="text-xs text-muted-foreground">Wird geladen...</div>
+                <div v-else-if="chronology.length === 0" class="text-xs text-muted-foreground">Noch keine E-Mails an diese Familie gesendet.</div>
                 <ul v-else class="divide-y">
                   <li v-for="log in chronology" :key="log.id" class="py-2 flex items-center justify-between gap-3 text-sm">
                     <div class="min-w-0">
-                      <span class="text-gray-900">{{ formatDateTime(log.sentAt) }}</span>
-                      <span class="text-gray-500"> · {{ formatEmailType(log.emailType) }}</span>
-                      <span class="block truncate text-gray-600">{{ log.subject }}</span>
+                      <span class="text-foreground">{{ formatDateTime(log.sentAt) }}</span>
+                      <span class="text-muted-foreground"> · {{ formatEmailType(log.emailType) }}</span>
+                      <span class="block truncate text-muted-foreground">{{ log.subject }}</span>
                     </div>
                     <button class="text-primary hover:underline shrink-0 inline-flex items-center gap-1" @click="selectedChronologyLog = log">
                       <Eye class="h-4 w-4" />
@@ -730,7 +730,7 @@ watch(
         </div>
 
         <!-- Desktop empty state -->
-        <div v-else class="hidden lg:flex items-center justify-center border border-dashed rounded-xl p-12 text-gray-400 text-sm">
+        <div v-else class="hidden lg:flex items-center justify-center border border-dashed rounded-xl p-12 text-muted-foreground text-sm">
           Familie aus der Liste auswählen, um den Entwurf zu erstellen.
         </div>
       </div>
@@ -749,57 +749,57 @@ watch(
       class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
       @click.self="showConfirmModal = false"
     >
-      <div class="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col">
+      <div class="bg-card rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col">
         <div class="flex items-start justify-between gap-4 p-5 border-b">
-          <h3 class="text-lg font-semibold text-gray-900">
+          <h3 class="text-lg font-semibold text-foreground">
             {{ stage === 'final' ? 'Mahnung senden?' : 'Erinnerung senden?' }}
           </h3>
-          <button type="button" class="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-900" @click="showConfirmModal = false">
+          <button type="button" class="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground" @click="showConfirmModal = false">
             <X class="h-5 w-5" />
           </button>
         </div>
         <div class="overflow-y-auto p-5 text-sm space-y-3">
           <dl class="grid grid-cols-2 gap-3">
             <div>
-              <dt class="text-gray-500">Familie</dt>
-              <dd class="font-medium text-gray-900">{{ selectedCase?.householdName }}</dd>
+              <dt class="text-muted-foreground">Familie</dt>
+              <dd class="font-medium text-foreground">{{ selectedCase?.householdName }}</dd>
             </div>
             <div>
-              <dt class="text-gray-500">Empfänger</dt>
-              <dd class="font-medium text-gray-900 break-all">{{ preview.recipients.join(', ') }}</dd>
+              <dt class="text-muted-foreground">Empfänger</dt>
+              <dd class="font-medium text-foreground break-all">{{ preview.recipients.join(', ') }}</dd>
             </div>
             <div>
-              <dt class="text-gray-500">Beiträge</dt>
-              <dd class="font-medium text-gray-900">{{ preview.selectedFees.length }}</dd>
+              <dt class="text-muted-foreground">Beiträge</dt>
+              <dd class="font-medium text-foreground">{{ preview.selectedFees.length }}</dd>
             </div>
             <div>
-              <dt class="text-gray-500">Gesamtbetrag</dt>
-              <dd class="font-medium text-gray-900">{{ formatCurrency(preview.totalAmount) }}</dd>
+              <dt class="text-muted-foreground">Gesamtbetrag</dt>
+              <dd class="font-medium text-foreground">{{ formatCurrency(preview.totalAmount) }}</dd>
             </div>
             <div>
-              <dt class="text-gray-500">Frist</dt>
-              <dd class="font-medium text-gray-900">{{ formatDate(preview.deadline) }}</dd>
+              <dt class="text-muted-foreground">Frist</dt>
+              <dd class="font-medium text-foreground">{{ formatDate(preview.deadline) }}</dd>
             </div>
             <div>
-              <dt class="text-gray-500">QR-Code</dt>
-              <dd class="font-medium text-gray-900">{{ includeQR ? 'angehängt' : 'deaktiviert' }}</dd>
+              <dt class="text-muted-foreground">QR-Code</dt>
+              <dd class="font-medium text-foreground">{{ includeQR ? 'angehängt' : 'deaktiviert' }}</dd>
             </div>
           </dl>
-          <div v-if="preview.plannedReminderFees.length > 0" class="p-3 bg-amber-50 border border-amber-300 rounded-lg">
-            <p class="font-medium text-amber-900 mb-1">Neu entstehende Mahngebühren</p>
-            <ul class="space-y-0.5 text-amber-900">
+          <div v-if="preview.plannedReminderFees.length > 0" class="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 rounded-lg">
+            <p class="font-medium text-amber-900 dark:text-amber-300 mb-1">Neu entstehende Mahngebühren</p>
+            <ul class="space-y-0.5 text-amber-900 dark:text-amber-300">
               <li v-for="planned in preview.plannedReminderFees" :key="planned.baseFeeId" class="flex justify-between gap-3">
                 <span>Mahngebühr für {{ planned.baseLabel }}</span>
                 <span class="font-medium">{{ formatCurrency(planned.amount) }}</span>
               </li>
             </ul>
           </div>
-          <p v-if="preview.warnings && preview.warnings.length > 0" class="text-xs text-amber-700">
+          <p v-if="preview.warnings && preview.warnings.length > 0" class="text-xs text-amber-700 dark:text-amber-300">
             {{ preview.warnings.length }} Hinweis(e) — siehe Vorschau.
           </p>
         </div>
         <div class="flex justify-end gap-3 p-5 border-t">
-          <button class="px-4 py-2 rounded-lg border text-sm font-medium hover:bg-gray-50" @click="showConfirmModal = false">
+          <button class="px-4 py-2 rounded-lg border text-sm font-medium hover:bg-accent" @click="showConfirmModal = false">
             Abbrechen
           </button>
           <button

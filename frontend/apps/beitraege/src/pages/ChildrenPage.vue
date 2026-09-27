@@ -400,20 +400,20 @@ const visiblePages = computed(() => {
     <!-- Header -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
       <div>
-        <h1 class="text-2xl font-bold text-gray-900">Kinder</h1>
-        <p class="text-gray-600 mt-1">{{ total }} Kinder registriert</p>
+        <h1 class="text-2xl font-bold text-foreground">Kinder</h1>
+        <p class="text-muted-foreground mt-1">{{ total }} Kinder registriert</p>
       </div>
       <div class="flex items-center gap-2">
         <button
           @click="router.push('/kinder/import')"
-          class="inline-flex items-center gap-2 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+          class="inline-flex items-center gap-2 px-4 py-2 border border-border text-foreground rounded-lg hover:bg-accent transition-colors"
         >
           <Upload class="h-4 w-4" />
           Importieren
         </button>
         <button
           @click="openCreateDialog"
-          class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+          class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
         >
           <Plus class="h-4 w-4" />
           Kind hinzufügen
@@ -424,13 +424,13 @@ const visiblePages = computed(() => {
     <!-- Filters -->
     <div class="flex flex-col sm:flex-row gap-4 mb-6">
       <div class="relative flex-1">
-        <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <input
           v-model="searchQuery"
           @input="handleSearchInput"
           type="text"
           placeholder="Suchen nach Name oder Mitgliedsnummer..."
-          class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+          class="w-full pl-10 pr-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
         />
       </div>
       <label class="flex items-center gap-2 cursor-pointer">
@@ -438,51 +438,51 @@ const visiblePages = computed(() => {
           v-model="showInactive"
           @change="handleInactiveChange"
           type="checkbox"
-          class="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary"
+          class="w-4 h-4 text-primary rounded border-border focus:ring-primary"
         />
-        <span class="text-sm text-gray-700">Inaktive anzeigen</span>
+        <span class="text-sm text-foreground">Inaktive anzeigen</span>
       </label>
       <label class="flex items-center gap-2 cursor-pointer">
         <input
           v-model="showOnlyU3"
           @change="handleU3Change"
           type="checkbox"
-          class="w-4 h-4 text-amber-500 rounded border-gray-300 focus:ring-amber-500"
+          class="w-4 h-4 text-amber-500 dark:text-amber-400 rounded border-border focus:ring-amber-500"
         />
-        <span class="text-sm text-gray-700">Nur U3</span>
+        <span class="text-sm text-foreground">Nur U3</span>
       </label>
       <label class="flex items-center gap-2 cursor-pointer">
         <input
           v-model="showOnlyWarnings"
           @change="handleWarningsChange"
           type="checkbox"
-          class="w-4 h-4 text-amber-500 rounded border-gray-300 focus:ring-amber-500"
+          class="w-4 h-4 text-amber-500 dark:text-amber-400 rounded border-border focus:ring-amber-500"
         />
-        <span class="text-sm text-gray-700">Nur mit Hinweisen</span>
+        <span class="text-sm text-foreground">Nur mit Hinweisen</span>
       </label>
       <label class="flex items-center gap-2 cursor-pointer">
         <input
           v-model="showOnlyOpenFees"
           @change="handleOpenFeesChange"
           type="checkbox"
-          class="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+          class="w-4 h-4 text-blue-600 dark:text-blue-300 rounded border-border focus:ring-blue-500"
         />
-        <span class="text-sm text-gray-700">Nur mit offenen Beiträgen</span>
+        <span class="text-sm text-foreground">Nur mit offenen Beiträgen</span>
       </label>
     </div>
 
     <!-- Bulk actions bar -->
     <div
       v-if="selectedIds.size > 0"
-      class="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between"
+      class="mb-4 p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 rounded-lg flex items-center justify-between"
     >
-      <span class="text-sm font-medium text-blue-800">
+      <span class="text-sm font-medium text-blue-800 dark:text-blue-300">
         {{ selectedIds.size }} {{ selectedIds.size === 1 ? 'Kind' : 'Kinder' }} ausgewählt
       </span>
       <div class="flex items-center gap-2">
         <button
           @click="showDeactivateDialog = true"
-          class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-amber-100 text-amber-800 rounded-lg hover:bg-amber-200 transition-colors"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 rounded-lg hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors"
         >
           <UserX class="h-4 w-4" />
           Deaktivieren
@@ -490,14 +490,14 @@ const visiblePages = computed(() => {
         <button
           v-if="authStore.isAdmin"
           @click="showDeleteDialog = true"
-          class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-red-100 text-red-800 rounded-lg hover:bg-red-200 transition-colors"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-red-100 dark:bg-red-950/40 text-red-800 dark:text-red-300 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors"
         >
           <Trash2 class="h-4 w-4" />
           Löschen
         </button>
         <button
           @click="selectedIds = new Set()"
-          class="px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+          class="px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent rounded-lg transition-colors"
         >
           Auswahl aufheben
         </button>
@@ -510,19 +510,19 @@ const visiblePages = computed(() => {
     </div>
 
     <!-- Error state -->
-    <div v-else-if="error" class="bg-red-50 border border-red-200 rounded-lg p-4">
-      <p class="text-red-600">{{ error }}</p>
-      <button @click="loadChildren" class="mt-2 text-sm text-red-700 underline">
+    <div v-else-if="error" class="bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg p-4">
+      <p class="text-red-600 dark:text-red-300">{{ error }}</p>
+      <button @click="loadChildren" class="mt-2 text-sm text-red-700 dark:text-red-300 underline">
         Erneut versuchen
       </button>
     </div>
 
     <!-- Children table -->
-    <div v-else class="bg-white rounded-xl border overflow-hidden">
+    <div v-else class="bg-card rounded-xl border overflow-hidden">
       <div class="overflow-x-auto">
         <table class="w-full">
-          <thead class="bg-gray-50">
-            <tr class="text-left text-sm text-gray-500">
+          <thead class="bg-muted">
+            <tr class="text-left text-sm text-muted-foreground">
               <!-- Checkbox column -->
               <th class="px-4 py-3 w-12">
                 <input
@@ -530,14 +530,14 @@ const visiblePages = computed(() => {
                   :checked="isAllSelected"
                   :indeterminate="isSomeSelected"
                   @change="toggleSelectAll"
-                  class="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary"
+                  class="w-4 h-4 text-primary rounded border-border focus:ring-primary"
                 />
               </th>
               <!-- Member number -->
               <th class="px-4 py-3 font-medium">
                 <button
                   @click="toggleSort('memberNumber')"
-                  class="flex items-center gap-1 hover:text-gray-700"
+                  class="flex items-center gap-1 hover:text-foreground"
                 >
                   <Hash class="h-4 w-4" />
                   Nr.
@@ -548,7 +548,7 @@ const visiblePages = computed(() => {
               <th class="px-4 py-3 font-medium">
                 <button
                   @click="toggleSort('lastName')"
-                  class="flex items-center gap-1 hover:text-gray-700"
+                  class="flex items-center gap-1 hover:text-foreground"
                 >
                   <User class="h-4 w-4" />
                   Nachname
@@ -559,7 +559,7 @@ const visiblePages = computed(() => {
               <th class="px-4 py-3 font-medium">
                 <button
                   @click="toggleSort('firstName')"
-                  class="flex items-center gap-1 hover:text-gray-700"
+                  class="flex items-center gap-1 hover:text-foreground"
                 >
                   Vorname
                   <component :is="getSortIcon('firstName')" class="h-4 w-4" />
@@ -569,7 +569,7 @@ const visiblePages = computed(() => {
               <th class="px-4 py-3 font-medium">
                 <button
                   @click="toggleSort('birthDate')"
-                  class="flex items-center gap-1 hover:text-gray-700"
+                  class="flex items-center gap-1 hover:text-foreground"
                 >
                   <Calendar class="h-4 w-4" />
                   Geburtsdatum
@@ -592,8 +592,8 @@ const visiblePages = computed(() => {
               :key="child.id"
               @click="goToChild(child.id)"
               :class="[
-                'border-t hover:bg-gray-50 cursor-pointer transition-colors',
-                selectedIds.has(child.id) ? 'bg-blue-50' : '',
+                'border-t hover:bg-accent cursor-pointer transition-colors',
+                selectedIds.has(child.id) ? 'bg-blue-50 dark:bg-blue-950/40' : '',
               ]"
             >
               <!-- Checkbox -->
@@ -602,7 +602,7 @@ const visiblePages = computed(() => {
                   type="checkbox"
                   :checked="selectedIds.has(child.id)"
                   @change="toggleSelect(child.id, $event)"
-                  class="w-4 h-4 text-primary rounded border-gray-300 focus:ring-primary"
+                  class="w-4 h-4 text-primary rounded border-border focus:ring-primary"
                 />
               </td>
               <!-- Member number -->
@@ -612,46 +612,46 @@ const visiblePages = computed(() => {
               <!-- First Name -->
               <td class="px-4 py-3">{{ child.firstName }}</td>
               <!-- Birth date -->
-              <td class="px-4 py-3 text-gray-600">{{ formatDate(child.birthDate) }}</td>
+              <td class="px-4 py-3 text-muted-foreground">{{ formatDate(child.birthDate) }}</td>
               <!-- Age -->
               <td class="px-4 py-3">{{ calculateAge(child.birthDate) }} J.</td>
               <!-- Care Hours -->
-              <td class="px-4 py-3 text-gray-600">
+              <td class="px-4 py-3 text-muted-foreground">
                 <span v-if="child.careHours">{{ child.careHours }}h</span>
-                <span v-else class="text-gray-400">-</span>
+                <span v-else class="text-muted-foreground">-</span>
               </td>
               <!-- Warnings -->
               <td class="px-4 py-3">
                 <div class="flex items-center gap-2">
                   <div v-if="getChildWarnings(child).length > 0" class="group relative">
-                    <div class="flex items-center gap-1 text-amber-600">
+                    <div class="flex items-center gap-1 text-amber-600 dark:text-amber-300">
                       <AlertTriangle class="h-4 w-4" />
                       <span class="text-xs font-medium">{{ getChildWarnings(child).length }}</span>
                     </div>
                     <!-- Tooltip -->
-                    <div class="hidden group-hover:block absolute left-0 top-6 z-10 bg-white border rounded-lg shadow-lg p-3 w-56">
+                    <div class="hidden group-hover:block absolute left-0 top-6 z-10 bg-popover border rounded-lg shadow-lg p-3 w-56">
                       <ul class="text-xs space-y-1">
                         <li
                           v-for="(warning, idx) in getChildWarnings(child)"
                           :key="idx"
                           class="flex items-start gap-2"
                         >
-                          <AlertTriangle class="h-3 w-3 text-amber-500 flex-shrink-0 mt-0.5" />
-                          <span class="text-gray-700">{{ warning }}</span>
+                          <AlertTriangle class="h-3 w-3 text-amber-500 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                          <span class="text-foreground">{{ warning }}</span>
                         </li>
                       </ul>
                     </div>
                   </div>
                   <div v-if="hasOpenFees(child)" class="group relative">
-                    <div class="flex items-center gap-1 text-blue-600">
+                    <div class="flex items-center gap-1 text-blue-600 dark:text-blue-300">
                       <Coins class="h-4 w-4" />
                       <span class="text-xs font-medium">{{ child.openFeesCount ?? 0 }}</span>
                     </div>
-                    <div class="hidden group-hover:block absolute left-0 top-6 z-10 bg-white border rounded-lg shadow-lg p-3 w-56 text-xs text-gray-700">
+                    <div class="hidden group-hover:block absolute left-0 top-6 z-10 bg-popover border rounded-lg shadow-lg p-3 w-56 text-xs text-foreground">
                       {{ child.openFeesCount ?? 0 }} offene Beiträge
                     </div>
                   </div>
-                  <span v-if="getChildWarnings(child).length === 0 && !hasOpenFees(child)" class="text-green-600">
+                  <span v-if="getChildWarnings(child).length === 0 && !hasOpenFees(child)" class="text-green-600 dark:text-green-300">
                     <Check class="h-4 w-4" />
                   </span>
                 </div>
@@ -661,7 +661,7 @@ const visiblePages = computed(() => {
                 <span
                   :class="[
                     'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium',
-                    child.isActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600',
+                    child.isActive ? 'bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-300' : 'bg-muted text-muted-foreground',
                   ]"
                 >
                   {{ child.isActive ? 'Aktiv' : 'Inaktiv' }}
@@ -669,7 +669,7 @@ const visiblePages = computed(() => {
               </td>
             </tr>
             <tr v-if="children.length === 0">
-              <td colspan="9" class="px-4 py-8 text-center text-gray-500">
+              <td colspan="9" class="px-4 py-8 text-center text-muted-foreground">
                 Keine Kinder gefunden
               </td>
             </tr>
@@ -678,14 +678,14 @@ const visiblePages = computed(() => {
       </div>
 
       <!-- Pagination -->
-      <div class="flex items-center justify-between px-4 py-3 border-t bg-gray-50">
+      <div class="flex items-center justify-between px-4 py-3 border-t bg-muted">
         <div class="flex items-center gap-4">
-          <span class="text-sm text-gray-600">
+          <span class="text-sm text-muted-foreground">
             {{ offset + 1 }}-{{ Math.min(offset + pageSize, total) }} von {{ total }}
           </span>
           <select
             v-model="pageSize"
-            class="text-sm border border-gray-300 rounded px-2 py-1 focus:ring-primary focus:border-primary"
+            class="text-sm border border-border rounded px-2 py-1 focus:ring-primary focus:border-primary"
           >
             <option v-for="size in pageSizeOptions" :key="size" :value="size">
               {{ size }} pro Seite
@@ -696,20 +696,20 @@ const visiblePages = computed(() => {
           <button
             @click="goToPage(currentPage - 1)"
             :disabled="currentPage === 1"
-            class="p-1.5 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            class="p-1.5 rounded hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <ChevronLeft class="h-4 w-4" />
           </button>
           <template v-for="page in visiblePages" :key="page">
-            <span v-if="page === '...'" class="px-2 text-gray-400">...</span>
+            <span v-if="page === '...'" class="px-2 text-muted-foreground">...</span>
             <button
               v-else
               @click="goToPage(page)"
               :class="[
                 'px-3 py-1 rounded text-sm',
                 page === currentPage
-                  ? 'bg-primary text-white'
-                  : 'hover:bg-gray-200',
+                  ? 'bg-primary text-primary-foreground'
+                  : 'hover:bg-accent',
               ]"
             >
               {{ page }}
@@ -718,7 +718,7 @@ const visiblePages = computed(() => {
           <button
             @click="goToPage(currentPage + 1)"
             :disabled="currentPage === totalPages"
-            class="p-1.5 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            class="p-1.5 rounded hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <ChevronRight class="h-4 w-4" />
           </button>
@@ -732,89 +732,89 @@ const visiblePages = computed(() => {
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
       @click.self="showCreateDialog = false"
     >
-      <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+      <div class="bg-card rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
         <div class="flex items-center justify-between mb-6">
           <h2 class="text-xl font-semibold">Kind hinzufügen</h2>
-          <button @click="showCreateDialog = false" class="p-1 hover:bg-gray-100 rounded">
+          <button @click="showCreateDialog = false" class="p-1 hover:bg-accent rounded">
             <X class="h-5 w-5" />
           </button>
         </div>
 
         <form @submit.prevent="handleCreate" class="space-y-4">
           <div>
-            <label for="memberNumber" class="block text-sm font-medium text-gray-700 mb-1">Mitgliedsnummer *</label>
+            <label for="memberNumber" class="block text-sm font-medium text-foreground mb-1">Mitgliedsnummer *</label>
             <input
               id="memberNumber"
               v-model="createForm.memberNumber"
               required
               type="text"
               placeholder="z.B. 11072"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
             />
           </div>
 
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label for="firstName" class="block text-sm font-medium text-gray-700 mb-1">Vorname *</label>
+              <label for="firstName" class="block text-sm font-medium text-foreground mb-1">Vorname *</label>
               <input
                 id="firstName"
                 v-model="createForm.firstName"
                 required
                 type="text"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
               />
             </div>
             <div>
-              <label for="lastName" class="block text-sm font-medium text-gray-700 mb-1">Nachname *</label>
+              <label for="lastName" class="block text-sm font-medium text-foreground mb-1">Nachname *</label>
               <input
                 id="lastName"
                 v-model="createForm.lastName"
                 required
                 type="text"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
               />
             </div>
           </div>
 
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label for="birthDate" class="block text-sm font-medium text-gray-700 mb-1">Geburtsdatum *</label>
+              <label for="birthDate" class="block text-sm font-medium text-foreground mb-1">Geburtsdatum *</label>
               <input
                 id="birthDate"
                 v-model="createForm.birthDate"
                 required
                 type="date"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
               />
             </div>
             <div>
-              <label for="entryDate" class="block text-sm font-medium text-gray-700 mb-1">Eintrittsdatum *</label>
+              <label for="entryDate" class="block text-sm font-medium text-foreground mb-1">Eintrittsdatum *</label>
               <input
                 id="entryDate"
                 v-model="createForm.entryDate"
                 required
                 type="date"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
               />
             </div>
           </div>
 
-          <div v-if="createError" class="p-3 bg-red-50 border border-red-200 rounded-lg">
-            <p class="text-sm text-red-600">{{ createError }}</p>
+          <div v-if="createError" class="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg">
+            <p class="text-sm text-red-600 dark:text-red-300">{{ createError }}</p>
           </div>
 
           <div class="flex justify-end gap-3 pt-4">
             <button
               type="button"
               @click="showCreateDialog = false"
-              class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              class="px-4 py-2 text-foreground hover:bg-accent rounded-lg transition-colors"
             >
               Abbrechen
             </button>
             <button
               type="submit"
               :disabled="isCreating"
-              class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+              class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
             >
               <Loader2 v-if="isCreating" class="h-4 w-4 animate-spin" />
               <Check v-else class="h-4 w-4" />
@@ -831,27 +831,27 @@ const visiblePages = computed(() => {
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
       @click.self="showDeactivateDialog = false"
     >
-      <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+      <div class="bg-card rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
         <div class="flex items-center gap-3 mb-4">
-          <div class="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center">
-            <UserX class="h-5 w-5 text-amber-600" />
+          <div class="w-10 h-10 bg-amber-100 dark:bg-amber-950/40 rounded-full flex items-center justify-center">
+            <UserX class="h-5 w-5 text-amber-600 dark:text-amber-300" />
           </div>
           <h2 class="text-xl font-semibold">Kinder deaktivieren</h2>
         </div>
         
-        <p class="text-gray-600 mb-6">
+        <p class="text-muted-foreground mb-6">
           Möchten Sie <strong>{{ selectedIds.size }}</strong> {{ selectedIds.size === 1 ? 'Kind' : 'Kinder' }} wirklich deaktivieren?
           Deaktivierte Kinder werden nicht mehr in den Standardlisten angezeigt.
         </p>
 
-        <div v-if="bulkActionError" class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-          <p class="text-sm text-red-600">{{ bulkActionError }}</p>
+        <div v-if="bulkActionError" class="mb-4 p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg">
+          <p class="text-sm text-red-600 dark:text-red-300">{{ bulkActionError }}</p>
         </div>
 
         <div class="flex justify-end gap-3">
           <button
             @click="showDeactivateDialog = false"
-            class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            class="px-4 py-2 text-foreground hover:bg-accent rounded-lg transition-colors"
           >
             Abbrechen
           </button>
@@ -874,20 +874,20 @@ const visiblePages = computed(() => {
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
       @click.self="showDeleteDialog = false"
     >
-      <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+      <div class="bg-card rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
         <div class="flex items-center gap-3 mb-4">
-          <div class="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-            <Trash2 class="h-5 w-5 text-red-600" />
+          <div class="w-10 h-10 bg-red-100 dark:bg-red-950/40 rounded-full flex items-center justify-center">
+            <Trash2 class="h-5 w-5 text-red-600 dark:text-red-300" />
           </div>
-          <h2 class="text-xl font-semibold text-red-700">Kinder löschen</h2>
+          <h2 class="text-xl font-semibold text-red-700 dark:text-red-300">Kinder löschen</h2>
         </div>
         
-        <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+        <div class="bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg p-4 mb-4">
           <div class="flex items-start gap-2">
-            <AlertTriangle class="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <AlertTriangle class="h-5 w-5 text-red-600 dark:text-red-300 flex-shrink-0 mt-0.5" />
             <div>
-              <p class="font-semibold text-red-800">Achtung: Permanente Löschung!</p>
-              <p class="text-sm text-red-700 mt-1">
+              <p class="font-semibold text-red-800 dark:text-red-300">Achtung: Permanente Löschung!</p>
+              <p class="text-sm text-red-700 dark:text-red-300 mt-1">
                 Diese Aktion kann nicht rückgängig gemacht werden. Alle zugehörigen Daten
                 (Elternverknüpfungen, Gebühreneinträge, etc.) werden ebenfalls gelöscht.
               </p>
@@ -895,19 +895,19 @@ const visiblePages = computed(() => {
           </div>
         </div>
 
-        <p class="text-gray-600 mb-6">
+        <p class="text-muted-foreground mb-6">
           Möchten Sie <strong>{{ selectedIds.size }}</strong> {{ selectedIds.size === 1 ? 'Kind' : 'Kinder' }} wirklich
-          <strong class="text-red-600">unwiderruflich löschen</strong>?
+          <strong class="text-red-600 dark:text-red-300">unwiderruflich löschen</strong>?
         </p>
 
-        <div v-if="bulkActionError" class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-          <p class="text-sm text-red-600">{{ bulkActionError }}</p>
+        <div v-if="bulkActionError" class="mb-4 p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg">
+          <p class="text-sm text-red-600 dark:text-red-300">{{ bulkActionError }}</p>
         </div>
 
         <div class="flex justify-end gap-3">
           <button
             @click="showDeleteDialog = false"
-            class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            class="px-4 py-2 text-foreground hover:bg-accent rounded-lg transition-colors"
           >
             Abbrechen
           </button>

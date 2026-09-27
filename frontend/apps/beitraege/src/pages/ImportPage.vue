@@ -483,17 +483,17 @@ function getWarningTypeLabel(type: string): string {
 function getWarningTypeColor(type: string): string {
   switch (type) {
     case 'AMOUNT_MISMATCH':
-      return 'bg-amber-100 text-amber-700';
+      return 'bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300';
     case 'DUPLICATE_PAYMENT':
-      return 'bg-red-100 text-red-700';
+      return 'bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-300';
     case 'UNKNOWN_IBAN':
-      return 'bg-gray-100 text-gray-700';
+      return 'bg-muted text-foreground';
     case 'LATE_PAYMENT':
-      return 'bg-orange-100 text-orange-700';
+      return 'bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300';
     case 'OVERPAYMENT':
-      return 'bg-purple-100 text-purple-700';
+      return 'bg-purple-100 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300';
     default:
-      return 'bg-gray-100 text-gray-700';
+      return 'bg-muted text-foreground';
   }
 }
 </script>
@@ -502,8 +502,8 @@ function getWarningTypeColor(type: string): string {
   <div>
     <!-- Header -->
     <div class="mb-6">
-      <h1 class="text-2xl font-bold text-gray-900">Bankabgleich</h1>
-      <p class="text-gray-600 mt-1">
+      <h1 class="text-2xl font-bold text-foreground">Bankabgleich</h1>
+      <p class="text-muted-foreground mt-1">
         Banktransaktionen abrufen und Zahlungen zuordnen
       </p>
     </div>
@@ -514,18 +514,18 @@ function getWarningTypeColor(type: string): string {
     <!-- Rescan Result -->
     <div
       v-if="rescanResult"
-      class="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-3"
+      class="mb-4 p-4 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 rounded-lg flex items-start gap-3"
     >
-      <CheckCircle class="h-5 w-5 text-blue-500 flex-shrink-0 mt-0.5" />
+      <CheckCircle class="h-5 w-5 text-blue-500 dark:text-blue-400 flex-shrink-0 mt-0.5" />
       <div>
-        <p class="text-blue-700 font-medium">Erneute Zuordnung abgeschlossen</p>
-        <p class="text-sm text-blue-600">
+        <p class="text-blue-700 dark:text-blue-300 font-medium">Erneute Zuordnung abgeschlossen</p>
+        <p class="text-sm text-blue-600 dark:text-blue-300">
           {{ rescanResult.scanned }} Transaktionen gescannt<span v-if="rescanResult.autoMatched > 0">, {{ rescanResult.autoMatched }} automatisch zugeordnet</span><span v-if="rescanResult.newMatches > 0">, {{ rescanResult.newMatches }} Vorschläge zur Überprüfung</span>
         </p>
       </div>
       <button
         @click="rescanResult = null"
-        class="ml-auto text-blue-500 hover:text-blue-700"
+        class="ml-auto text-blue-500 dark:text-blue-400 hover:text-blue-700 dark:text-blue-300"
       >
         <XCircle class="h-4 w-4" />
       </button>
@@ -540,25 +540,25 @@ function getWarningTypeColor(type: string): string {
     <!-- Errors of the latest (usually automated) import -->
     <div
       v-if="latestImportBatch && latestImportBatch.errorCount > 0"
-      class="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3"
+      class="mb-4 p-4 bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg flex items-start gap-3"
       role="alert"
     >
-      <AlertTriangle class="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+      <AlertTriangle class="h-5 w-5 text-red-500 dark:text-red-400 flex-shrink-0 mt-0.5" />
       <div class="flex-1">
-        <p class="text-red-700 font-medium">
+        <p class="text-red-700 dark:text-red-300 font-medium">
           Letzter Import vom {{ formatDateTime(latestImportBatch.importedAt) }}:
           {{ latestImportBatch.errorCount }}
           {{ latestImportBatch.errorCount === 1 ? 'Buchung' : 'Buchungen' }} mit Fehlern
         </p>
-        <p class="text-sm text-red-600">{{ latestImportBatch.importedByEmail }} · {{ latestImportBatch.fileName }}</p>
+        <p class="text-sm text-red-600 dark:text-red-300">{{ latestImportBatch.importedByEmail }} · {{ latestImportBatch.fileName }}</p>
       </div>
-      <button @click="openLatestImportErrors" class="text-sm text-red-700 hover:text-red-900 underline">
+      <button @click="openLatestImportErrors" class="text-sm text-red-700 dark:text-red-300 hover:text-red-900 dark:text-red-300 underline">
         Details
       </button>
     </div>
 
     <!-- Toolbar -->
-    <div class="bg-white rounded-xl border p-4 mb-6 space-y-3">
+    <div class="bg-card rounded-xl border p-4 mb-6 space-y-3">
       <div class="flex flex-col lg:flex-row lg:items-center gap-3">
         <div class="flex flex-wrap items-center gap-2">
           <button
@@ -566,8 +566,8 @@ function getWarningTypeColor(type: string): string {
             :class="[
               'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition-colors',
               activeFilter === 'offen'
-                ? 'bg-primary text-white border-primary'
-                : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50',
+                ? 'bg-primary text-primary-foreground border-primary'
+                : 'bg-card text-muted-foreground border-border hover:bg-accent',
             ]"
           >
             Offen
@@ -575,7 +575,7 @@ function getWarningTypeColor(type: string): string {
               v-if="offenCount > 0"
               :class="[
                 'px-1.5 py-0.5 text-xs rounded-full',
-                activeFilter === 'offen' ? 'bg-white/20 text-white' : 'bg-amber-100 text-amber-700',
+                activeFilter === 'offen' ? 'bg-card/20 text-white' : 'bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300',
               ]"
             >
               {{ offenCount }}
@@ -586,8 +586,8 @@ function getWarningTypeColor(type: string): string {
             :class="[
               'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition-colors',
               activeFilter === 'warnungen'
-                ? 'bg-primary text-white border-primary'
-                : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50',
+                ? 'bg-primary text-primary-foreground border-primary'
+                : 'bg-card text-muted-foreground border-border hover:bg-accent',
             ]"
           >
             Warnungen
@@ -595,7 +595,7 @@ function getWarningTypeColor(type: string): string {
               v-if="warnungenCount > 0"
               :class="[
                 'px-1.5 py-0.5 text-xs rounded-full',
-                activeFilter === 'warnungen' ? 'bg-white/20 text-white' : 'bg-orange-100 text-orange-700',
+                activeFilter === 'warnungen' ? 'bg-card/20 text-white' : 'bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300',
               ]"
             >
               {{ warnungenCount }}
@@ -606,8 +606,8 @@ function getWarningTypeColor(type: string): string {
             :class="[
               'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition-colors',
               activeFilter === 'zugeordnet'
-                ? 'bg-primary text-white border-primary'
-                : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50',
+                ? 'bg-primary text-primary-foreground border-primary'
+                : 'bg-card text-muted-foreground border-border hover:bg-accent',
             ]"
           >
             Zugeordnet
@@ -615,7 +615,7 @@ function getWarningTypeColor(type: string): string {
               v-if="zugeordnetCount > 0"
               :class="[
                 'px-1.5 py-0.5 text-xs rounded-full',
-                activeFilter === 'zugeordnet' ? 'bg-white/20 text-white' : 'bg-green-100 text-green-700',
+                activeFilter === 'zugeordnet' ? 'bg-card/20 text-white' : 'bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-300',
               ]"
             >
               {{ zugeordnetCount }}
@@ -626,8 +626,8 @@ function getWarningTypeColor(type: string): string {
             :class="[
               'px-3 py-1.5 rounded-full text-sm font-medium border transition-colors',
               activeFilter === 'alle'
-                ? 'bg-primary text-white border-primary'
-                : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50',
+                ? 'bg-primary text-primary-foreground border-primary'
+                : 'bg-card text-muted-foreground border-border hover:bg-accent',
             ]"
           >
             Alle
@@ -636,12 +636,12 @@ function getWarningTypeColor(type: string): string {
 
         <div class="flex-1 min-w-[220px]">
           <div class="relative max-w-md lg:ml-auto">
-            <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <input
               v-model="transactionSearch"
               type="text"
               placeholder="Suche nach Zahler oder Beschreibung..."
-              class="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              class="w-full pl-10 pr-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
             />
           </div>
         </div>
@@ -650,7 +650,7 @@ function getWarningTypeColor(type: string): string {
           <button
             @click="rescanTransactions"
             :disabled="isRescanning || offenCount === 0"
-            class="inline-flex items-center gap-1 px-3 py-2 text-sm border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            class="inline-flex items-center gap-1 px-3 py-2 text-sm border border-border text-foreground rounded-lg hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             title="Automatische Zuordnung erneut ausführen"
           >
             <Loader2 v-if="isRescanning" class="h-4 w-4 animate-spin" />
@@ -659,7 +659,7 @@ function getWarningTypeColor(type: string): string {
           </button>
           <button
             @click="showUploadModal = true"
-            class="inline-flex items-center gap-1 px-3 py-2 text-sm bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+            class="inline-flex items-center gap-1 px-3 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
           >
             <Upload class="h-4 w-4" />
             CSV hochladen
@@ -668,21 +668,21 @@ function getWarningTypeColor(type: string): string {
       </div>
 
       <div class="flex flex-wrap items-center justify-between gap-3 pt-1 border-t text-sm">
-        <p class="text-gray-500 pt-2">
+        <p class="text-muted-foreground pt-2">
           {{ sortedRows.length }} Transaktionen
           <span v-if="filteredRows.length !== transactionRows.length"> (gefiltert von {{ transactionRows.length }})</span>
         </p>
         <div class="flex items-center gap-4 pt-2">
           <button
             @click="openHistoryModal"
-            class="inline-flex items-center gap-1 text-gray-600 hover:text-gray-900 underline"
+            class="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground underline"
           >
             <History class="h-4 w-4" />
             Import-Historie
           </button>
           <button
             @click="openBlacklistModal"
-            class="inline-flex items-center gap-1 text-gray-600 hover:text-gray-900 underline"
+            class="inline-flex items-center gap-1 text-muted-foreground hover:text-foreground underline"
           >
             <ShieldOff class="h-4 w-4" />
             Blacklist
@@ -694,14 +694,14 @@ function getWarningTypeColor(type: string): string {
     <!-- Error Banner -->
     <div
       v-if="uploadError"
-      class="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start gap-3"
+      class="mb-4 p-4 bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg flex items-start gap-3"
     >
-      <XCircle class="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+      <XCircle class="h-5 w-5 text-red-500 dark:text-red-400 flex-shrink-0 mt-0.5" />
       <div>
-        <p class="text-red-700 font-medium">Fehler</p>
-        <p class="text-sm text-red-600">{{ uploadError }}</p>
+        <p class="text-red-700 dark:text-red-300 font-medium">Fehler</p>
+        <p class="text-sm text-red-600 dark:text-red-300">{{ uploadError }}</p>
       </div>
-      <button @click="uploadError = null" class="ml-auto text-red-400 hover:text-red-600">
+      <button @click="uploadError = null" class="ml-auto text-red-400 hover:text-red-600 dark:text-red-300">
         <XCircle class="h-4 w-4" />
       </button>
     </div>
@@ -711,66 +711,66 @@ function getWarningTypeColor(type: string): string {
       <Loader2 class="h-8 w-8 animate-spin text-primary" />
     </div>
 
-    <div v-else-if="pagedRows.length === 0" class="bg-white rounded-xl border text-center py-12">
+    <div v-else-if="pagedRows.length === 0" class="bg-card rounded-xl border text-center py-12">
       <component
         :is="transactionSearch.trim() ? Search : CheckCircle"
-        :class="['h-12 w-12 mx-auto mb-4', transactionSearch.trim() ? 'text-gray-300' : 'text-green-300']"
+        :class="['h-12 w-12 mx-auto mb-4', transactionSearch.trim() ? 'text-muted-foreground/60' : 'text-green-300']"
       />
-      <p class="text-gray-600">
+      <p class="text-muted-foreground">
         {{ transactionSearch.trim() ? 'Keine Transaktionen gefunden' : 'Keine offenen Transaktionen' }}
       </p>
-      <p v-if="transactionSearch.trim()" class="text-sm text-gray-500 mt-1">Versuche einen anderen Suchbegriff</p>
-      <p v-else-if="activeFilter === 'warnungen'" class="text-sm text-gray-500 mt-1">Alle Zahlungen wurden korrekt verarbeitet</p>
-      <p v-else-if="activeFilter === 'zugeordnet'" class="text-sm text-gray-500 mt-1">Noch keine zugeordneten Transaktionen</p>
+      <p v-if="transactionSearch.trim()" class="text-sm text-muted-foreground mt-1">Versuche einen anderen Suchbegriff</p>
+      <p v-else-if="activeFilter === 'warnungen'" class="text-sm text-muted-foreground mt-1">Alle Zahlungen wurden korrekt verarbeitet</p>
+      <p v-else-if="activeFilter === 'zugeordnet'" class="text-sm text-muted-foreground mt-1">Noch keine zugeordneten Transaktionen</p>
     </div>
 
-    <div v-else class="bg-white rounded-xl border overflow-hidden">
+    <div v-else class="bg-card rounded-xl border overflow-hidden">
       <div class="overflow-x-auto">
         <table class="w-full">
-          <thead class="bg-gray-50">
-            <tr class="text-left text-sm text-gray-500">
+          <thead class="bg-muted">
+            <tr class="text-left text-sm text-muted-foreground">
               <th
-                class="px-4 py-3 font-medium cursor-pointer hover:bg-gray-100 select-none"
+                class="px-4 py-3 font-medium cursor-pointer hover:bg-accent select-none"
                 @click="toggleSort('date')"
               >
                 <div class="flex items-center gap-1">
                   Datum
                   <ArrowUp v-if="sortField === 'date' && sortDirection === 'asc'" class="h-4 w-4" />
                   <ArrowDown v-else-if="sortField === 'date' && sortDirection === 'desc'" class="h-4 w-4" />
-                  <ArrowUpDown v-else class="h-4 w-4 text-gray-400" />
+                  <ArrowUpDown v-else class="h-4 w-4 text-muted-foreground" />
                 </div>
               </th>
               <th
-                class="px-4 py-3 font-medium cursor-pointer hover:bg-gray-100 select-none"
+                class="px-4 py-3 font-medium cursor-pointer hover:bg-accent select-none"
                 @click="toggleSort('payer')"
               >
                 <div class="flex items-center gap-1">
                   Zahler
                   <ArrowUp v-if="sortField === 'payer' && sortDirection === 'asc'" class="h-4 w-4" />
                   <ArrowDown v-else-if="sortField === 'payer' && sortDirection === 'desc'" class="h-4 w-4" />
-                  <ArrowUpDown v-else class="h-4 w-4 text-gray-400" />
+                  <ArrowUpDown v-else class="h-4 w-4 text-muted-foreground" />
                 </div>
               </th>
               <th
-                class="px-4 py-3 font-medium cursor-pointer hover:bg-gray-100 select-none"
+                class="px-4 py-3 font-medium cursor-pointer hover:bg-accent select-none"
                 @click="toggleSort('description')"
               >
                 <div class="flex items-center gap-1">
                   Beschreibung
                   <ArrowUp v-if="sortField === 'description' && sortDirection === 'asc'" class="h-4 w-4" />
                   <ArrowDown v-else-if="sortField === 'description' && sortDirection === 'desc'" class="h-4 w-4" />
-                  <ArrowUpDown v-else class="h-4 w-4 text-gray-400" />
+                  <ArrowUpDown v-else class="h-4 w-4 text-muted-foreground" />
                 </div>
               </th>
               <th
-                class="px-4 py-3 font-medium text-right cursor-pointer hover:bg-gray-100 select-none"
+                class="px-4 py-3 font-medium text-right cursor-pointer hover:bg-accent select-none"
                 @click="toggleSort('amount')"
               >
                 <div class="flex items-center justify-end gap-1">
                   Betrag
                   <ArrowUp v-if="sortField === 'amount' && sortDirection === 'asc'" class="h-4 w-4" />
                   <ArrowDown v-else-if="sortField === 'amount' && sortDirection === 'desc'" class="h-4 w-4" />
-                  <ArrowUpDown v-else class="h-4 w-4 text-gray-400" />
+                  <ArrowUpDown v-else class="h-4 w-4 text-muted-foreground" />
                 </div>
               </th>
               <th class="px-4 py-3 font-medium">Status</th>
@@ -779,13 +779,13 @@ function getWarningTypeColor(type: string): string {
           </thead>
           <tbody>
             <template v-for="row in pagedRows" :key="row.key">
-              <tr class="border-t hover:bg-gray-50">
-                <td class="px-4 py-3 text-gray-600 whitespace-nowrap">
+              <tr class="border-t hover:bg-accent">
+                <td class="px-4 py-3 text-muted-foreground whitespace-nowrap">
                   {{ formatDate(row.tx.bookingDate) }}
                 </td>
                 <td class="px-4 py-3">
                   <div class="font-medium">{{ row.tx.payerName || 'Unbekannt' }}</div>
-                  <div v-if="row.tx.payerIban" class="text-xs text-gray-500 font-mono">
+                  <div v-if="row.tx.payerIban" class="text-xs text-muted-foreground font-mono">
                     {{ row.tx.payerIban }}
                   </div>
                   <template v-for="warning in row.warnings" :key="warning.id">
@@ -798,13 +798,13 @@ function getWarningTypeColor(type: string): string {
                     </router-link>
                   </template>
                 </td>
-                <td class="px-4 py-3 text-gray-600 truncate max-w-xs">
+                <td class="px-4 py-3 text-muted-foreground truncate max-w-xs">
                   {{ row.tx.description }}
                 </td>
                 <td
                   :class="[
                     'px-4 py-3 text-right font-medium whitespace-nowrap',
-                    row.matched ? 'text-green-600' : '',
+                    row.matched ? 'text-green-600 dark:text-green-300' : '',
                   ]"
                 >
                   {{ formatCurrency(row.tx.amount) }}
@@ -813,21 +813,21 @@ function getWarningTypeColor(type: string): string {
                   <div class="flex flex-col items-start gap-1.5">
                     <span
                       v-if="isPartiallyAllocated(row)"
-                      class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700"
+                      class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300"
                     >
                       <AlertTriangle class="h-3 w-3" />
                       Teilweise zugeordnet · Rest {{ formatCurrency(getTxRemaining(row.tx)) }}
                     </span>
                     <span
                       v-else-if="row.matched"
-                      class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-700"
+                      class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-300"
                     >
                       <CheckCircle class="h-3 w-3" />
                       Zugeordnet
                     </span>
                     <span
                       v-else
-                      class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700"
+                      class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300"
                     >
                       <AlertTriangle class="h-3 w-3" />
                       Nicht zugeordnet
@@ -850,7 +850,7 @@ function getWarningTypeColor(type: string): string {
                     <button
                       v-if="row.warnings.length > 0"
                       @click="toggleWarnings(row.key)"
-                      class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-700 hover:bg-orange-200 transition-colors"
+                      class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 hover:bg-orange-200 dark:hover:bg-orange-900/50 transition-colors"
                     >
                       <AlertTriangle class="h-3 w-3" />
                       {{ row.warnings.length }} {{ row.warnings.length === 1 ? 'Warnung' : 'Warnungen' }}
@@ -863,7 +863,7 @@ function getWarningTypeColor(type: string): string {
                   <!-- Unmatched actions -->
                   <template v-if="!row.matched">
                     <div v-if="dismissConfirmId === row.tx.id" class="flex items-center justify-end gap-2">
-                      <span class="text-xs text-gray-500">Ignorieren?</span>
+                      <span class="text-xs text-muted-foreground">Ignorieren?</span>
                       <button
                         @click="dismissTransaction(row.tx)"
                         class="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600"
@@ -872,22 +872,22 @@ function getWarningTypeColor(type: string): string {
                       </button>
                       <button
                         @click="cancelDismiss"
-                        class="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                        class="px-2 py-1 text-xs bg-muted text-foreground rounded hover:bg-accent"
                       >
                         Nein
                       </button>
                     </div>
                     <div v-else-if="hideConfirmId === row.tx.id" class="flex items-center justify-end gap-2">
-                      <span class="text-xs text-gray-500">Ausblenden?</span>
+                      <span class="text-xs text-muted-foreground">Ausblenden?</span>
                       <button
                         @click="hideTransaction(row.tx)"
-                        class="px-2 py-1 text-xs bg-gray-700 text-white rounded hover:bg-gray-800"
+                        class="px-2 py-1 text-xs bg-muted text-white rounded hover:bg-accent"
                       >
                         Ja
                       </button>
                       <button
                         @click="cancelHide"
-                        class="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                        class="px-2 py-1 text-xs bg-muted text-foreground rounded hover:bg-accent"
                       >
                         Nein
                       </button>
@@ -904,7 +904,7 @@ function getWarningTypeColor(type: string): string {
                       <button
                         @click="showHideConfirm(row.tx.id)"
                         :disabled="isHiding === row.tx.id"
-                        class="inline-flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded transition-colors disabled:opacity-50"
+                        class="inline-flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-colors disabled:opacity-50"
                         title="Transaktion ausblenden"
                       >
                         <Loader2 v-if="isHiding === row.tx.id" class="h-3 w-3 animate-spin" />
@@ -914,7 +914,7 @@ function getWarningTypeColor(type: string): string {
                       <button
                         @click="showDismissConfirm(row.tx.id)"
                         :disabled="isDismissing === row.tx.id"
-                        class="inline-flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
+                        class="inline-flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/40 rounded transition-colors disabled:opacity-50"
                         title="IBAN dauerhaft ignorieren"
                       >
                         <Loader2 v-if="isDismissing === row.tx.id" class="h-3 w-3 animate-spin" />
@@ -927,7 +927,7 @@ function getWarningTypeColor(type: string): string {
                   <!-- Matched actions -->
                   <template v-else>
                     <div v-if="unmatchConfirmId === row.tx.id" class="flex items-center justify-end gap-2">
-                      <span class="text-xs text-gray-500">Zuordnung aufheben?</span>
+                      <span class="text-xs text-muted-foreground">Zuordnung aufheben?</span>
                       <button
                         @click="unmatchTransaction(row.tx)"
                         class="px-2 py-1 text-xs bg-amber-500 text-white rounded hover:bg-amber-600"
@@ -936,13 +936,13 @@ function getWarningTypeColor(type: string): string {
                       </button>
                       <button
                         @click="cancelMatchAction"
-                        class="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                        class="px-2 py-1 text-xs bg-muted text-foreground rounded hover:bg-accent"
                       >
                         Nein
                       </button>
                     </div>
                     <div v-else-if="deleteConfirmId === row.tx.id" class="flex items-center justify-end gap-2">
-                      <span class="text-xs text-gray-500">Transaktion löschen?</span>
+                      <span class="text-xs text-muted-foreground">Transaktion löschen?</span>
                       <button
                         @click="unmatchTransaction(row.tx, true)"
                         class="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600"
@@ -951,7 +951,7 @@ function getWarningTypeColor(type: string): string {
                       </button>
                       <button
                         @click="cancelMatchAction"
-                        class="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                        class="px-2 py-1 text-xs bg-muted text-foreground rounded hover:bg-accent"
                       >
                         Nein
                       </button>
@@ -960,7 +960,7 @@ function getWarningTypeColor(type: string): string {
                       <button
                         @click="showUnmatchConfirm(row.tx.id)"
                         :disabled="isUnmatching === row.tx.id || isDeletingMatched === row.tx.id"
-                        class="inline-flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:text-amber-700 hover:bg-amber-50 rounded transition-colors disabled:opacity-50"
+                        class="inline-flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/40 rounded transition-colors disabled:opacity-50"
                         title="Zuordnung aufheben"
                       >
                         <Loader2 v-if="isUnmatching === row.tx.id" class="h-3 w-3 animate-spin" />
@@ -970,7 +970,7 @@ function getWarningTypeColor(type: string): string {
                       <button
                         @click="showDeleteConfirm(row.tx.id)"
                         :disabled="isUnmatching === row.tx.id || isDeletingMatched === row.tx.id"
-                        class="inline-flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:text-red-600 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
+                        class="inline-flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/40 rounded transition-colors disabled:opacity-50"
                         title="Transaktion löschen"
                       >
                         <Loader2 v-if="isDeletingMatched === row.tx.id" class="h-3 w-3 animate-spin" />
@@ -983,13 +983,13 @@ function getWarningTypeColor(type: string): string {
               </tr>
 
               <!-- Expanded warning details -->
-              <tr v-if="expandedWarnings.has(row.key) && row.warnings.length > 0" class="border-t bg-orange-50/40">
+              <tr v-if="expandedWarnings.has(row.key) && row.warnings.length > 0" class="border-t bg-orange-50 dark:bg-orange-950/40">
                 <td colspan="6" class="px-4 py-4">
                   <div class="space-y-4">
                     <div
                       v-for="warning in row.warnings"
                       :key="warning.id"
-                      class="bg-white rounded-xl border p-4"
+                      class="bg-card rounded-xl border p-4"
                     >
                       <div class="flex items-start justify-between gap-4">
                         <div class="flex-1">
@@ -1009,49 +1009,49 @@ function getWarningTypeColor(type: string): string {
                             >
                               {{ warning.child.firstName }} {{ warning.child.lastName }}
                             </router-link>
-                            <span class="text-xs text-gray-500">
+                            <span class="text-xs text-muted-foreground">
                               {{ formatDateTime(warning.createdAt) }}
                             </span>
                           </div>
 
-                          <p class="text-gray-700 mb-3">{{ warning.message }}</p>
+                          <p class="text-foreground mb-3">{{ warning.message }}</p>
 
-                          <div v-if="warning.transaction" class="p-3 bg-gray-50 rounded-lg text-sm space-y-1">
+                          <div v-if="warning.transaction" class="p-3 bg-muted rounded-lg text-sm space-y-1">
                             <div class="flex justify-between">
-                              <span class="text-gray-500">Transaktion:</span>
+                              <span class="text-muted-foreground">Transaktion:</span>
                               <span class="font-medium">{{ warning.transaction.payerName || 'Unbekannt' }}</span>
                             </div>
                             <div class="flex justify-between">
-                              <span class="text-gray-500">Betrag:</span>
-                              <span class="font-medium text-green-600">{{ formatCurrency(warning.transaction.amount) }}</span>
+                              <span class="text-muted-foreground">Betrag:</span>
+                              <span class="font-medium text-green-600 dark:text-green-300">{{ formatCurrency(warning.transaction.amount) }}</span>
                             </div>
                             <div class="flex justify-between">
-                              <span class="text-gray-500">Datum:</span>
+                              <span class="text-muted-foreground">Datum:</span>
                               <span>{{ formatDate(warning.transaction.bookingDate) }}</span>
                             </div>
-                            <div v-if="warning.transaction.description" class="text-gray-600 text-xs truncate">
+                            <div v-if="warning.transaction.description" class="text-muted-foreground text-xs truncate">
                               {{ warning.transaction.description }}
                             </div>
                           </div>
 
                           <div
                             v-if="warning.warningType === 'LATE_PAYMENT' && warning.matchedFee"
-                            class="mt-2 p-3 bg-orange-50 rounded-lg text-sm space-y-1"
+                            class="mt-2 p-3 bg-orange-50 dark:bg-orange-950/40 rounded-lg text-sm space-y-1"
                           >
-                            <div class="flex items-center gap-1 text-orange-700 font-medium mb-1">
+                            <div class="flex items-center gap-1 text-orange-700 dark:text-orange-300 font-medium mb-1">
                               <Clock class="h-4 w-4" />
                               Verspätete Zahlung für:
                             </div>
                             <div class="flex justify-between">
-                              <span class="text-gray-500">Beitragsart:</span>
+                              <span class="text-muted-foreground">Beitragsart:</span>
                               <span class="font-medium">{{ getFeeTypeName(warning.matchedFee.feeType) }}</span>
                             </div>
                             <div class="flex justify-between">
-                              <span class="text-gray-500">Zeitraum:</span>
+                              <span class="text-muted-foreground">Zeitraum:</span>
                               <span>{{ formatMonthName(warning.matchedFee.month) }} {{ warning.matchedFee.year }}</span>
                             </div>
                             <div class="flex justify-between">
-                              <span class="text-gray-500">Betrag:</span>
+                              <span class="text-muted-foreground">Betrag:</span>
                               <span class="font-medium">{{ formatCurrency(warning.matchedFee.amount) }}</span>
                             </div>
                           </div>
@@ -1070,7 +1070,7 @@ function getWarningTypeColor(type: string): string {
                             Mahngebuhr erstellen
                           </button>
 
-                          <div v-if="dismissWarningId === warning.id" class="p-3 bg-gray-50 rounded-lg space-y-2">
+                          <div v-if="dismissWarningId === warning.id" class="p-3 bg-muted rounded-lg space-y-2">
                             <input
                               v-model="dismissNote"
                               type="text"
@@ -1087,7 +1087,7 @@ function getWarningTypeColor(type: string): string {
                               </button>
                               <button
                                 @click="cancelWarningDismiss"
-                                class="px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded hover:bg-gray-300"
+                                class="px-2 py-1 text-xs bg-muted text-foreground rounded hover:bg-accent"
                               >
                                 Abbrechen
                               </button>
@@ -1098,7 +1098,7 @@ function getWarningTypeColor(type: string): string {
                             v-else
                             @click="showWarningDismiss(warning.id)"
                             :disabled="isResolvingWarning === warning.id"
-                            class="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors disabled:opacity-50"
+                            class="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-muted-foreground hover:text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/40 rounded-lg transition-colors disabled:opacity-50"
                           >
                             <XCircle class="h-4 w-4" />
                             Verwerfen
@@ -1115,15 +1115,15 @@ function getWarningTypeColor(type: string): string {
       </div>
 
       <!-- Pagination -->
-      <div v-if="totalPages > 1" class="flex items-center justify-between px-4 py-3 border-t bg-gray-50">
-        <div class="text-sm text-gray-600">
+      <div v-if="totalPages > 1" class="flex items-center justify-between px-4 py-3 border-t bg-muted">
+        <div class="text-sm text-muted-foreground">
           Seite {{ page }} von {{ totalPages }} ({{ sortedRows.length }} Einträge)
         </div>
         <div class="flex items-center gap-2">
           <button
             @click="goToPage(page - 1)"
             :disabled="page <= 1"
-            class="p-1 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            class="p-1 rounded hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <ChevronLeft class="h-5 w-5" />
           </button>
@@ -1133,7 +1133,7 @@ function getWarningTypeColor(type: string): string {
             @click="goToPage(pageNumber)"
             :class="[
               'px-3 py-1 rounded text-sm',
-              pageNumber === page ? 'bg-primary text-white' : 'hover:bg-gray-200',
+              pageNumber === page ? 'bg-primary text-primary-foreground' : 'hover:bg-accent',
             ]"
           >
             {{ pageNumber }}
@@ -1141,7 +1141,7 @@ function getWarningTypeColor(type: string): string {
           <button
             @click="goToPage(page + 1)"
             :disabled="page >= totalPages"
-            class="p-1 rounded hover:bg-gray-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            class="p-1 rounded hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <ChevronRight class="h-5 w-5" />
           </button>

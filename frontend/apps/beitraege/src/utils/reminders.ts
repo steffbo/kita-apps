@@ -35,15 +35,15 @@ export function statusLabel(status: string): string {
 export function statusBadgeClass(status: string): string {
   switch (status) {
     case 'actionable_initial':
-      return 'bg-amber-100 text-amber-700';
+      return 'bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300';
     case 'actionable_final':
-      return 'bg-red-100 text-red-700';
+      return 'bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-300';
     case 'waiting':
-      return 'bg-blue-100 text-blue-700';
+      return 'bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300';
     case 'history_unknown':
-      return 'bg-gray-200 text-gray-700';
+      return 'bg-muted text-foreground';
     default:
-      return 'bg-gray-100 text-gray-600';
+      return 'bg-muted text-muted-foreground';
   }
 }
 

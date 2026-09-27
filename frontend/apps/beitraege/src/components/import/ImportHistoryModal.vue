@@ -44,24 +44,24 @@ onMounted(loadHistory);
     class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
     @click.self="$emit('close')"
   >
-    <div class="bg-white rounded-xl shadow-xl max-w-4xl w-full mx-4 max-h-[85vh] overflow-hidden flex flex-col">
+    <div class="bg-card rounded-xl shadow-xl max-w-4xl w-full mx-4 max-h-[85vh] overflow-hidden flex flex-col">
       <div class="p-4 border-b flex items-center justify-between">
         <div>
           <h2 class="text-lg font-semibold">Import-Historie</h2>
-          <p class="text-sm text-gray-600">Frühere CSV- und Sync-Importe</p>
+          <p class="text-sm text-muted-foreground">Frühere CSV- und Sync-Importe</p>
         </div>
         <div class="flex items-center gap-3">
-          <button @click="loadHistory" class="text-sm text-gray-600 hover:text-gray-900 underline">
+          <button @click="loadHistory" class="text-sm text-muted-foreground hover:text-foreground underline">
             Aktualisieren
           </button>
-          <button @click="$emit('close')" class="text-gray-400 hover:text-gray-600">
+          <button @click="$emit('close')" class="text-muted-foreground hover:text-muted-foreground">
             <XCircle class="h-5 w-5" />
           </button>
         </div>
       </div>
 
       <div class="overflow-y-auto p-4">
-        <div v-if="historyError" class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+        <div v-if="historyError" class="mb-4 p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg text-sm text-red-700 dark:text-red-300">
           {{ historyError }}
         </div>
         <div v-if="isLoadingHistory" class="flex items-center justify-center py-12">
@@ -69,15 +69,15 @@ onMounted(loadHistory);
         </div>
 
         <div v-else-if="importHistory.length === 0" class="text-center py-12">
-          <History class="h-12 w-12 text-gray-300 mx-auto mb-4" />
-          <p class="text-gray-600">Noch keine Importe durchgeführt</p>
+          <History class="h-12 w-12 text-muted-foreground/60 mx-auto mb-4" />
+          <p class="text-muted-foreground">Noch keine Importe durchgeführt</p>
         </div>
 
         <div v-else class="rounded-xl border overflow-hidden">
           <div class="overflow-x-auto">
             <table class="w-full">
-              <thead class="bg-gray-50">
-                <tr class="text-left text-sm text-gray-500">
+              <thead class="bg-muted">
+                <tr class="text-left text-sm text-muted-foreground">
                   <th class="px-4 py-3 font-medium">Datei</th>
                   <th class="px-4 py-3 font-medium">Zeitraum</th>
                   <th class="px-4 py-3 font-medium">Transaktionen</th>
@@ -89,18 +89,18 @@ onMounted(loadHistory);
               </thead>
               <tbody>
                 <template v-for="batch in importHistory" :key="batch.id">
-                <tr class="border-t hover:bg-gray-50">
+                <tr class="border-t hover:bg-accent">
                   <td class="px-4 py-3">
                     <div class="flex items-center gap-2">
-                      <FileSpreadsheet class="h-4 w-4 text-gray-400" />
+                      <FileSpreadsheet class="h-4 w-4 text-muted-foreground" />
                       <span class="font-medium">{{ batch.fileName }}</span>
                     </div>
                   </td>
-                  <td class="px-4 py-3 text-gray-600 text-sm">
+                  <td class="px-4 py-3 text-muted-foreground text-sm">
                     <span v-if="batch.dateFrom && batch.dateTo">
                       {{ formatDate(batch.dateFrom) }} - {{ formatDate(batch.dateTo) }}
                     </span>
-                    <span v-else class="text-gray-400">-</span>
+                    <span v-else class="text-muted-foreground">-</span>
                   </td>
                   <td class="px-4 py-3">{{ batch.transactionCount }}</td>
                   <td class="px-4 py-3">
@@ -108,10 +108,10 @@ onMounted(loadHistory);
                       :class="[
                         'px-2 py-0.5 rounded-full text-xs font-medium',
                         batch.matchedCount === batch.transactionCount
-                          ? 'bg-green-100 text-green-700'
+                          ? 'bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-300'
                           : batch.matchedCount > 0
-                            ? 'bg-amber-100 text-amber-700'
-                            : 'bg-gray-100 text-gray-700',
+                            ? 'bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300'
+                            : 'bg-muted text-foreground',
                       ]"
                     >
                       {{ batch.matchedCount }} / {{ batch.transactionCount }}
@@ -121,16 +121,16 @@ onMounted(loadHistory);
                     <button
                       v-if="batch.errorCount > 0"
                       @click="toggleBatchErrors(batch.id)"
-                      class="px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700 hover:bg-red-200"
+                      class="px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900/50"
                     >
                       {{ batch.errorCount }} {{ expandedBatchId === batch.id ? '▲' : '▼' }}
                     </button>
-                    <span v-else class="text-gray-400">–</span>
+                    <span v-else class="text-muted-foreground">–</span>
                   </td>
-                  <td class="px-4 py-3 text-gray-600">
+                  <td class="px-4 py-3 text-muted-foreground">
                     {{ formatDateTime(batch.importedAt) }}
                   </td>
-                  <td class="px-4 py-3 text-gray-600">
+                  <td class="px-4 py-3 text-muted-foreground">
                     {{ batch.importedByEmail || batch.importedBy }}
                   </td>
                 </tr>

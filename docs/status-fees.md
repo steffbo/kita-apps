@@ -14,7 +14,8 @@ Basics (ports, commands, layout) live in `AGENTS.md`.
 - `USER` ruft den Admin-Endpunkt für den Bank-Sync-Status nicht mehr auf. Dashboard-Anfragen scheitern
   unabhängig voneinander; Erinnerungen und die Banking-Sync-Karte sind Admins vorbehalten.
 - Nunito kommt aus `@fontsource-variable/nunito` (im Bundle, kein externer Font-Server).
-- Nur Layout, Login und Dashboard sind dunkeltauglich; die übrigen Seiten folgen in Etappe 1b.
+- Neutrale Flächen und Texte verwenden semantische Tokens; Statusfarben erhalten passende `dark:`-Varianten.
+  Formularfelder nutzen eine Grundregel für `bg-background`, `text-foreground` und `border-input`.
 
 ## Elternstunden, Stufe 1: Erfassung durch Tim (2026-09-27)
 

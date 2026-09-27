@@ -189,7 +189,7 @@ async function handleUnlinkMember() {
     <!-- Back button -->
     <button
       @click="router.push('/eltern')"
-      class="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6"
+      class="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6"
     >
       <ArrowLeft class="h-4 w-4" />
       Zurück zur Übersicht
@@ -201,9 +201,9 @@ async function handleUnlinkMember() {
     </div>
 
     <!-- Error state -->
-    <div v-else-if="error" class="bg-red-50 border border-red-200 rounded-lg p-4">
-      <p class="text-red-600">{{ error }}</p>
-      <button @click="loadParent" class="mt-2 text-sm text-red-700 underline">
+    <div v-else-if="error" class="bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg p-4">
+      <p class="text-red-600 dark:text-red-300">{{ error }}</p>
+      <button @click="loadParent" class="mt-2 text-sm text-red-700 dark:text-red-300 underline">
         Erneut versuchen
       </button>
     </div>
@@ -211,23 +211,23 @@ async function handleUnlinkMember() {
     <!-- Parent details -->
     <div v-else-if="parent">
       <!-- Header -->
-      <div class="bg-white rounded-xl border p-6 mb-6">
+      <div class="bg-card rounded-xl border p-6 mb-6">
         <div class="flex items-start justify-between">
           <div class="flex items-center gap-4">
             <div class="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
               <User class="h-8 w-8 text-primary" />
             </div>
             <div>
-              <h1 class="text-2xl font-bold text-gray-900">
+              <h1 class="text-2xl font-bold text-foreground">
                 {{ parent.firstName }} {{ parent.lastName }}
               </h1>
-              <p class="text-gray-600">Elternteil</p>
+              <p class="text-muted-foreground">Elternteil</p>
             </div>
           </div>
           <div class="flex items-center gap-2">
             <button
               @click="openEditDialog"
-              class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              class="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors"
               title="Bearbeiten"
             >
               <Edit class="h-5 w-5" />
@@ -235,7 +235,7 @@ async function handleUnlinkMember() {
             <button
               v-if="authStore.isAdmin"
               @click="showDeleteDialog = true"
-              class="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+              class="p-2 text-red-500 dark:text-red-400 hover:text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/40 rounded-lg transition-colors"
               title="Löschen"
             >
               <Trash2 class="h-5 w-5" />
@@ -246,36 +246,36 @@ async function handleUnlinkMember() {
         <!-- Info grid -->
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mt-6 pt-6 border-t">
           <div v-if="parent.birthDate" class="flex items-start gap-3">
-            <Calendar class="h-5 w-5 text-gray-400 mt-0.5" />
+            <Calendar class="h-5 w-5 text-muted-foreground mt-0.5" />
             <div>
-              <p class="text-sm text-gray-500">Geburtsdatum</p>
+              <p class="text-sm text-muted-foreground">Geburtsdatum</p>
               <p class="font-medium">{{ formatDate(parent.birthDate) }}</p>
             </div>
           </div>
           <div v-if="parent.email" class="flex items-start gap-3">
-            <Mail class="h-5 w-5 text-gray-400 mt-0.5" />
+            <Mail class="h-5 w-5 text-muted-foreground mt-0.5" />
             <div>
-              <p class="text-sm text-gray-500">E-Mail</p>
+              <p class="text-sm text-muted-foreground">E-Mail</p>
               <a :href="`mailto:${parent.email}`" class="font-medium text-primary hover:underline">
                 {{ parent.email }}
               </a>
             </div>
           </div>
           <div v-if="parent.phone" class="flex items-start gap-3">
-            <Phone class="h-5 w-5 text-gray-400 mt-0.5" />
+            <Phone class="h-5 w-5 text-muted-foreground mt-0.5" />
             <div>
-              <p class="text-sm text-gray-500">Telefon</p>
+              <p class="text-sm text-muted-foreground">Telefon</p>
               <a :href="`tel:${parent.phone}`" class="font-medium text-primary hover:underline">
                 {{ parent.phone }}
               </a>
             </div>
           </div>
           <div v-if="parent.street" class="flex items-start gap-3">
-            <MapPin class="h-5 w-5 text-gray-400 mt-0.5" />
+            <MapPin class="h-5 w-5 text-muted-foreground mt-0.5" />
             <div>
-              <p class="text-sm text-gray-500">Adresse</p>
+              <p class="text-sm text-muted-foreground">Adresse</p>
               <p class="font-medium">{{ parent.street }} {{ parent.streetNo }}</p>
-              <p class="text-sm text-gray-500">{{ parent.postalCode }} {{ parent.city }}</p>
+              <p class="text-sm text-muted-foreground">{{ parent.postalCode }} {{ parent.city }}</p>
             </div>
           </div>
         </div>
@@ -283,8 +283,8 @@ async function handleUnlinkMember() {
         <!-- Children Section -->
         <div class="mt-6 pt-6 border-t">
           <div class="flex items-center gap-2 mb-4">
-            <Users class="h-4 w-4 text-gray-500" />
-            <h3 class="text-sm font-medium text-gray-500">Verknüpfte Kinder</h3>
+            <Users class="h-4 w-4 text-muted-foreground" />
+            <h3 class="text-sm font-medium text-muted-foreground">Verknüpfte Kinder</h3>
           </div>
 
           <div v-if="parent.children && parent.children.length > 0" class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -292,23 +292,23 @@ async function handleUnlinkMember() {
               v-for="child in parent.children"
               :key="child.id"
               @click="goToChild(child.id)"
-              class="bg-gray-50 rounded-lg border p-4 hover:border-primary/50 hover:bg-gray-100 transition-colors text-left"
+              class="bg-muted rounded-lg border p-4 hover:border-primary/50 hover:bg-accent transition-colors text-left"
             >
               <div class="flex items-center gap-3">
                 <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
                   <User class="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <p class="font-medium text-gray-900">{{ child.firstName }} {{ child.lastName }}</p>
-                  <p class="text-sm text-gray-500 font-mono">{{ child.memberNumber }}</p>
+                  <p class="font-medium text-foreground">{{ child.firstName }} {{ child.lastName }}</p>
+                  <p class="text-sm text-muted-foreground font-mono">{{ child.memberNumber }}</p>
                 </div>
               </div>
             </button>
           </div>
 
-          <div v-else class="text-center py-6 bg-gray-50 rounded-lg border border-dashed">
-            <Users class="h-8 w-8 text-gray-400 mx-auto mb-2" />
-            <p class="text-gray-500 text-sm">Keine Kinder verknüpft</p>
+          <div v-else class="text-center py-6 bg-muted rounded-lg border border-dashed">
+            <Users class="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+            <p class="text-muted-foreground text-sm">Keine Kinder verknüpft</p>
           </div>
         </div>
 
@@ -316,21 +316,21 @@ async function handleUnlinkMember() {
         <div class="mt-6 pt-6 border-t">
           <div class="flex items-center justify-between mb-4">
             <div class="flex items-center gap-2">
-              <UserPlus class="h-4 w-4 text-gray-500" />
-              <h3 class="text-sm font-medium text-gray-500">Vereinsmitgliedschaft</h3>
+              <UserPlus class="h-4 w-4 text-muted-foreground" />
+              <h3 class="text-sm font-medium text-muted-foreground">Vereinsmitgliedschaft</h3>
             </div>
           </div>
 
           <!-- Already a member -->
-          <div v-if="parent.member" class="bg-green-50 rounded-lg border border-green-200 p-4">
+          <div v-if="parent.member" class="bg-green-50 dark:bg-green-950/40 rounded-lg border border-green-200 p-4">
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
-                  <UserPlus class="h-5 w-5 text-green-600" />
+                <div class="w-10 h-10 rounded-full bg-green-100 dark:bg-green-950/40 flex items-center justify-center">
+                  <UserPlus class="h-5 w-5 text-green-600 dark:text-green-300" />
                 </div>
                 <div>
-                  <p class="font-medium text-gray-900">{{ parent.member.memberNumber }}</p>
-                  <p class="text-sm text-gray-500">
+                  <p class="font-medium text-foreground">{{ parent.member.memberNumber }}</p>
+                  <p class="text-sm text-muted-foreground">
                     Mitglied seit {{ formatDate(parent.member.membershipStart) }}
                   </p>
                 </div>
@@ -345,7 +345,7 @@ async function handleUnlinkMember() {
                 </button>
                 <button
                   @click="handleUnlinkMember"
-                  class="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-gray-500 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                  class="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-muted-foreground hover:text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/40 rounded-lg transition-colors"
                   title="Verknüpfung entfernen"
                 >
                   <X class="h-4 w-4" />
@@ -355,12 +355,12 @@ async function handleUnlinkMember() {
           </div>
 
           <!-- Not a member yet -->
-          <div v-else class="text-center py-6 bg-gray-50 rounded-lg border border-dashed">
-            <UserPlus class="h-8 w-8 text-gray-400 mx-auto mb-2" />
-            <p class="text-gray-500 text-sm mb-3">Kein Vereinsmitglied</p>
+          <div v-else class="text-center py-6 bg-muted rounded-lg border border-dashed">
+            <UserPlus class="h-8 w-8 text-muted-foreground mx-auto mb-2" />
+            <p class="text-muted-foreground text-sm mb-3">Kein Vereinsmitglied</p>
             <button
               @click="openMemberDialog"
-              class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+              class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
             >
               <UserPlus class="h-4 w-4" />
               Zum Mitglied machen
@@ -376,10 +376,10 @@ async function handleUnlinkMember() {
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
       @click.self="showEditDialog = false"
     >
-      <div class="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6 max-h-[90vh] overflow-y-auto">
+      <div class="bg-card rounded-xl shadow-xl w-full max-w-md mx-4 p-6 max-h-[90vh] overflow-y-auto">
         <div class="flex items-center justify-between mb-6">
           <h2 class="text-xl font-semibold">Elternteil bearbeiten</h2>
-          <button @click="showEditDialog = false" class="p-1 hover:bg-gray-100 rounded">
+          <button @click="showEditDialog = false" class="p-1 hover:bg-accent rounded">
             <X class="h-5 w-5" />
           </button>
         </div>
@@ -387,113 +387,113 @@ async function handleUnlinkMember() {
         <form @submit.prevent="handleEdit" class="space-y-4">
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label for="edit-firstName" class="block text-sm font-medium text-gray-700 mb-1">Vorname</label>
+              <label for="edit-firstName" class="block text-sm font-medium text-foreground mb-1">Vorname</label>
               <input
                 id="edit-firstName"
                 v-model="editForm.firstName"
                 type="text"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
               />
             </div>
             <div>
-              <label for="edit-lastName" class="block text-sm font-medium text-gray-700 mb-1">Nachname</label>
+              <label for="edit-lastName" class="block text-sm font-medium text-foreground mb-1">Nachname</label>
               <input
                 id="edit-lastName"
                 v-model="editForm.lastName"
                 type="text"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
               />
             </div>
           </div>
 
           <div>
-            <label for="edit-birthDate" class="block text-sm font-medium text-gray-700 mb-1">Geburtsdatum</label>
+            <label for="edit-birthDate" class="block text-sm font-medium text-foreground mb-1">Geburtsdatum</label>
             <input
               id="edit-birthDate"
               v-model="editForm.birthDate"
               type="date"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
             />
           </div>
 
           <div>
-            <label for="edit-email" class="block text-sm font-medium text-gray-700 mb-1">E-Mail</label>
+            <label for="edit-email" class="block text-sm font-medium text-foreground mb-1">E-Mail</label>
             <input
               id="edit-email"
               v-model="editForm.email"
               type="email"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
             />
           </div>
 
           <div>
-            <label for="edit-phone" class="block text-sm font-medium text-gray-700 mb-1">Telefon</label>
+            <label for="edit-phone" class="block text-sm font-medium text-foreground mb-1">Telefon</label>
             <input
               id="edit-phone"
               v-model="editForm.phone"
               type="tel"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
             />
           </div>
 
           <div class="grid grid-cols-4 gap-4">
             <div class="col-span-3">
-              <label for="edit-street" class="block text-sm font-medium text-gray-700 mb-1">Straße</label>
+              <label for="edit-street" class="block text-sm font-medium text-foreground mb-1">Straße</label>
               <input
                 id="edit-street"
                 v-model="editForm.street"
                 type="text"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
               />
             </div>
             <div>
-              <label for="edit-streetNo" class="block text-sm font-medium text-gray-700 mb-1">Hausnr.</label>
+              <label for="edit-streetNo" class="block text-sm font-medium text-foreground mb-1">Hausnr.</label>
               <input
                 id="edit-streetNo"
                 v-model="editForm.streetNo"
                 type="text"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
               />
             </div>
           </div>
 
           <div class="grid grid-cols-3 gap-4">
             <div>
-              <label for="edit-postalCode" class="block text-sm font-medium text-gray-700 mb-1">PLZ</label>
+              <label for="edit-postalCode" class="block text-sm font-medium text-foreground mb-1">PLZ</label>
               <input
                 id="edit-postalCode"
                 v-model="editForm.postalCode"
                 type="text"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
               />
             </div>
             <div class="col-span-2">
-              <label for="edit-city" class="block text-sm font-medium text-gray-700 mb-1">Ort</label>
+              <label for="edit-city" class="block text-sm font-medium text-foreground mb-1">Ort</label>
               <input
                 id="edit-city"
                 v-model="editForm.city"
                 type="text"
-                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
               />
             </div>
           </div>
 
-          <div v-if="editError" class="p-3 bg-red-50 border border-red-200 rounded-lg">
-            <p class="text-sm text-red-600">{{ editError }}</p>
+          <div v-if="editError" class="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg">
+            <p class="text-sm text-red-600 dark:text-red-300">{{ editError }}</p>
           </div>
 
           <div class="flex justify-end gap-3 pt-4">
             <button
               type="button"
               @click="showEditDialog = false"
-              class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+              class="px-4 py-2 text-foreground hover:bg-accent rounded-lg transition-colors"
             >
               Abbrechen
             </button>
             <button
               type="submit"
               :disabled="isEditing"
-              class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+              class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
             >
               <Loader2 v-if="isEditing" class="h-4 w-4 animate-spin" />
               <Check v-else class="h-4 w-4" />
@@ -510,15 +510,15 @@ async function handleUnlinkMember() {
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
       @click.self="showDeleteDialog = false"
     >
-      <div class="bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
+      <div class="bg-card rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
         <div class="flex items-center gap-3 mb-4">
-          <div class="p-2 bg-red-100 rounded-lg">
-            <Trash2 class="h-6 w-6 text-red-600" />
+          <div class="p-2 bg-red-100 dark:bg-red-950/40 rounded-lg">
+            <Trash2 class="h-6 w-6 text-red-600 dark:text-red-300" />
           </div>
           <h2 class="text-xl font-semibold">Elternteil löschen?</h2>
         </div>
 
-        <p class="text-gray-600 mb-6">
+        <p class="text-muted-foreground mb-6">
           Möchten Sie <strong>{{ parent?.firstName }} {{ parent?.lastName }}</strong> wirklich löschen?
           Diese Aktion kann nicht rückgängig gemacht werden. Die Verknüpfungen zu Kindern werden ebenfalls entfernt.
         </p>
@@ -526,7 +526,7 @@ async function handleUnlinkMember() {
         <div class="flex justify-end gap-3">
           <button
             @click="showDeleteDialog = false"
-            class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            class="px-4 py-2 text-foreground hover:bg-accent rounded-lg transition-colors"
           >
             Abbrechen
           </button>
@@ -549,7 +549,7 @@ async function handleUnlinkMember() {
       class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
       @click.self="showMemberDialog = false"
     >
-      <div class="bg-white rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
+      <div class="bg-card rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
         <div class="flex items-center gap-3 mb-4">
           <div class="p-2 bg-primary/10 rounded-lg">
             <UserPlus class="h-6 w-6 text-primary" />
@@ -557,41 +557,41 @@ async function handleUnlinkMember() {
           <h2 class="text-xl font-semibold">Vereinsmitglied erstellen</h2>
         </div>
 
-        <p class="text-gray-600 mb-4">
+        <p class="text-muted-foreground mb-4">
           <strong>{{ parent?.firstName }} {{ parent?.lastName }}</strong> wird als Vereinsmitglied registriert.
           Die Kontaktdaten werden übernommen.
         </p>
 
         <div class="mb-6">
-          <label for="membershipStart" class="block text-sm font-medium text-gray-700 mb-1">
+          <label for="membershipStart" class="block text-sm font-medium text-foreground mb-1">
             Mitgliedschaft ab
           </label>
           <input
             id="membershipStart"
             v-model="membershipStart"
             type="date"
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+            class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
           />
-          <p v-if="parent?.children && parent.children.length > 0" class="mt-1 text-xs text-gray-500">
+          <p v-if="parent?.children && parent.children.length > 0" class="mt-1 text-xs text-muted-foreground">
             Vorausgefüllt mit dem Eintrittsdatum des ältesten Kindes
           </p>
         </div>
 
-        <div v-if="memberError" class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-          <p class="text-sm text-red-600">{{ memberError }}</p>
+        <div v-if="memberError" class="mb-4 p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg">
+          <p class="text-sm text-red-600 dark:text-red-300">{{ memberError }}</p>
         </div>
 
         <div class="flex justify-end gap-3">
           <button
             @click="showMemberDialog = false"
-            class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            class="px-4 py-2 text-foreground hover:bg-accent rounded-lg transition-colors"
           >
             Abbrechen
           </button>
           <button
             @click="handleCreateMember"
             :disabled="isCreatingMember"
-            class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+            class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
             <Loader2 v-if="isCreatingMember" class="h-4 w-4 animate-spin" />
             <Check v-else class="h-4 w-4" />

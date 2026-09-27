@@ -86,7 +86,7 @@ async function saveParentEdit() {
     class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
     @click.self="$emit('close')"
   >
-    <div class="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 p-6 max-h-[90vh] overflow-y-auto">
+    <div class="bg-card rounded-xl shadow-xl w-full max-w-lg mx-4 p-6 max-h-[90vh] overflow-y-auto">
       <div class="flex items-center justify-between mb-6">
         <div class="flex items-center gap-3">
           <div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
@@ -96,19 +96,19 @@ async function saveParentEdit() {
             <h2 class="text-xl font-semibold">
               {{ current.firstName }} {{ current.lastName }}
             </h2>
-            <p class="text-sm text-gray-500">Elternteil</p>
+            <p class="text-sm text-muted-foreground">Elternteil</p>
           </div>
         </div>
         <div class="flex items-center gap-2">
           <button
             v-if="!isEditingParent"
             @click="startEditingParent"
-            class="p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            class="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors"
             title="Bearbeiten"
           >
             <Edit class="h-5 w-5" />
           </button>
-            <button @click="$emit('close')" class="p-1 hover:bg-gray-100 rounded" aria-label="Schließen">
+            <button @click="$emit('close')" class="p-1 hover:bg-accent rounded" aria-label="Schließen">
               <X class="h-5 w-5" />
             </button>
         </div>
@@ -117,12 +117,12 @@ async function saveParentEdit() {
       <!-- View Mode -->
       <div v-if="!isEditingParent" class="space-y-4">
         <div v-if="current.birthDate">
-          <p class="text-sm text-gray-500">Geburtsdatum</p>
+          <p class="text-sm text-muted-foreground">Geburtsdatum</p>
           <p class="font-medium">{{ formatDate(current.birthDate) }}</p>
         </div>
 
         <div v-if="current.email">
-          <p class="text-sm text-gray-500">E-Mail</p>
+          <p class="text-sm text-muted-foreground">E-Mail</p>
           <div class="mt-1 flex items-center gap-2">
             <a :href="`mailto:${current.email}`" class="font-medium text-primary hover:underline break-all">
               {{ current.email }}
@@ -130,7 +130,7 @@ async function saveParentEdit() {
             <button
               type="button"
               @click="copyParentEmailToClipboard"
-              class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-md transition-colors"
+              class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-foreground bg-muted hover:bg-accent rounded-md transition-colors"
               :title="isParentEmailCopied ? 'E-Mail kopiert' : 'E-Mail kopieren'"
             >
               <Check v-if="isParentEmailCopied" class="h-3.5 w-3.5" />
@@ -141,19 +141,19 @@ async function saveParentEdit() {
         </div>
 
         <div v-if="current.phone">
-          <p class="text-sm text-gray-500">Telefon</p>
+          <p class="text-sm text-muted-foreground">Telefon</p>
           <a :href="`tel:${current.phone}`" class="font-medium text-primary hover:underline">
             {{ current.phone }}
           </a>
         </div>
 
         <div v-if="current.street">
-          <p class="text-sm text-gray-500">Adresse</p>
+          <p class="text-sm text-muted-foreground">Adresse</p>
           <p class="font-medium">{{ current.street }} {{ current.streetNo }}</p>
-          <p class="text-gray-600">{{ current.postalCode }} {{ current.city }}</p>
+          <p class="text-muted-foreground">{{ current.postalCode }} {{ current.city }}</p>
         </div>
 
-        <div class="pt-4 border-t text-sm text-gray-500">
+        <div class="pt-4 border-t text-sm text-muted-foreground">
           <p>Erstellt: {{ formatDate(current.createdAt) }}</p>
           <p>Aktualisiert: {{ formatDate(current.updatedAt) }}</p>
         </div>
@@ -163,113 +163,113 @@ async function saveParentEdit() {
       <form v-else @submit.prevent="saveParentEdit" class="space-y-4">
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <label for="parent-edit-firstName" class="block text-sm font-medium text-gray-700 mb-1">Vorname</label>
+            <label for="parent-edit-firstName" class="block text-sm font-medium text-foreground mb-1">Vorname</label>
             <input
               id="parent-edit-firstName"
               v-model="parentEditForm.firstName"
               type="text"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
             />
           </div>
           <div>
-            <label for="parent-edit-lastName" class="block text-sm font-medium text-gray-700 mb-1">Nachname</label>
+            <label for="parent-edit-lastName" class="block text-sm font-medium text-foreground mb-1">Nachname</label>
             <input
               id="parent-edit-lastName"
               v-model="parentEditForm.lastName"
               type="text"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
             />
           </div>
         </div>
 
         <div>
-          <label for="parent-edit-birthDate" class="block text-sm font-medium text-gray-700 mb-1">Geburtsdatum</label>
+          <label for="parent-edit-birthDate" class="block text-sm font-medium text-foreground mb-1">Geburtsdatum</label>
           <input
             id="parent-edit-birthDate"
             v-model="parentEditForm.birthDate"
             type="date"
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+            class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
           />
         </div>
 
         <div>
-          <label for="parent-edit-email" class="block text-sm font-medium text-gray-700 mb-1">E-Mail</label>
+          <label for="parent-edit-email" class="block text-sm font-medium text-foreground mb-1">E-Mail</label>
           <input
             id="parent-edit-email"
             v-model="parentEditForm.email"
             type="email"
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+            class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
           />
         </div>
 
         <div>
-          <label for="parent-edit-phone" class="block text-sm font-medium text-gray-700 mb-1">Telefon</label>
+          <label for="parent-edit-phone" class="block text-sm font-medium text-foreground mb-1">Telefon</label>
           <input
             id="parent-edit-phone"
             v-model="parentEditForm.phone"
             type="tel"
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+            class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
           />
         </div>
 
         <div class="grid grid-cols-4 gap-4">
           <div class="col-span-3">
-            <label for="parent-edit-street" class="block text-sm font-medium text-gray-700 mb-1">Straße</label>
+            <label for="parent-edit-street" class="block text-sm font-medium text-foreground mb-1">Straße</label>
             <input
               id="parent-edit-street"
               v-model="parentEditForm.street"
               type="text"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
             />
           </div>
           <div>
-            <label for="parent-edit-streetNo" class="block text-sm font-medium text-gray-700 mb-1">Hausnr.</label>
+            <label for="parent-edit-streetNo" class="block text-sm font-medium text-foreground mb-1">Hausnr.</label>
             <input
               id="parent-edit-streetNo"
               v-model="parentEditForm.streetNo"
               type="text"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
             />
           </div>
         </div>
 
         <div class="grid grid-cols-3 gap-4">
           <div>
-            <label for="parent-edit-postalCode" class="block text-sm font-medium text-gray-700 mb-1">PLZ</label>
+            <label for="parent-edit-postalCode" class="block text-sm font-medium text-foreground mb-1">PLZ</label>
             <input
               id="parent-edit-postalCode"
               v-model="parentEditForm.postalCode"
               type="text"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
             />
           </div>
           <div class="col-span-2">
-            <label for="parent-edit-city" class="block text-sm font-medium text-gray-700 mb-1">Ort</label>
+            <label for="parent-edit-city" class="block text-sm font-medium text-foreground mb-1">Ort</label>
             <input
               id="parent-edit-city"
               v-model="parentEditForm.city"
               type="text"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
             />
           </div>
         </div>
 
-        <div v-if="parentDetailError" class="p-3 bg-red-50 border border-red-200 rounded-lg">
-          <p class="text-sm text-red-600">{{ parentDetailError }}</p>
+        <div v-if="parentDetailError" class="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg">
+          <p class="text-sm text-red-600 dark:text-red-300">{{ parentDetailError }}</p>
         </div>
 
         <div class="flex justify-end gap-3 pt-4">
           <button
             type="button"
             @click="cancelEditingParent"
-            class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition-colors"
+            class="px-4 py-2 text-foreground hover:bg-accent rounded-lg transition-colors"
           >
             Abbrechen
           </button>
           <button
             type="submit"
             :disabled="isSavingParent"
-            class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+            class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
             <Loader2 v-if="isSavingParent" class="h-4 w-4 animate-spin" />
             <Check v-else class="h-4 w-4" />

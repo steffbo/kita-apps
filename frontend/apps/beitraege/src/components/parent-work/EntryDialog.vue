@@ -52,11 +52,11 @@ async function save() {
 
 <template>
   <div class="fixed inset-0 z-50 overflow-y-auto bg-black/50 p-4" @click.self="emit('close')">
-    <form role="dialog" aria-modal="true" :aria-label="entry ? 'Stunden bearbeiten' : 'Stunden erfassen'" class="mx-auto my-8 max-w-xl rounded-xl bg-white p-6 shadow-xl" @submit.prevent="save">
+    <form role="dialog" aria-modal="true" :aria-label="entry ? 'Stunden bearbeiten' : 'Stunden erfassen'" class="mx-auto my-8 max-w-xl rounded-xl bg-card p-6 shadow-xl" @submit.prevent="save">
       <h2 class="text-xl font-semibold">{{ entry ? 'Stunden bearbeiten' : 'Stunden erfassen' }}</h2>
       <div class="mt-5 space-y-4">
         <HouseholdPicker v-model="householdId" :households="households" label="Familie *" />
-        <p v-if="loading" class="text-sm text-gray-500">Familien werden geladen …</p>
+        <p v-if="loading" class="text-sm text-muted-foreground">Familien werden geladen …</p>
         <div class="grid gap-4 sm:grid-cols-2">
           <label class="block text-sm font-medium">Datum *<input v-model="date" type="date" required class="mt-1 w-full rounded-lg border px-3 py-2" /></label>
           <label class="block text-sm font-medium">Stunden *<input v-model.number="hours" type="number" min="0.25" step="0.25" required class="mt-1 w-full rounded-lg border px-3 py-2" /></label>
@@ -70,9 +70,9 @@ async function save() {
           <input v-model="childName" list="parent-work-children" type="text" class="mt-1 w-full rounded-lg border px-3 py-2" />
           <datalist id="parent-work-children"><option v-for="c in selected?.children ?? []" :key="c.id" :value="c.name" /></datalist>
         </label>
-        <p v-if="error" role="alert" class="rounded-lg bg-red-50 p-3 text-sm text-red-700">{{ error }}</p>
+        <p v-if="error" role="alert" class="rounded-lg bg-red-50 dark:bg-red-950/40 p-3 text-sm text-red-700 dark:text-red-300">{{ error }}</p>
       </div>
-      <div class="mt-6 flex justify-end gap-3"><button type="button" class="rounded-lg border px-4 py-2" @click="emit('close')">Abbrechen</button><button type="submit" :disabled="saving || loading" class="rounded-lg bg-primary px-4 py-2 text-white disabled:opacity-50">Speichern</button></div>
+      <div class="mt-6 flex justify-end gap-3"><button type="button" class="rounded-lg border px-4 py-2" @click="emit('close')">Abbrechen</button><button type="submit" :disabled="saving || loading" class="rounded-lg bg-primary px-4 py-2 text-primary-foreground disabled:opacity-50">Speichern</button></div>
     </form>
   </div>
 </template>

@@ -64,55 +64,55 @@ onMounted(loadReminderSettings);
     class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
     @click.self="$emit('close')"
   >
-    <div class="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col">
+    <div class="bg-card rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col">
       <div class="flex items-start justify-between gap-4 p-5 border-b">
-        <h3 class="text-lg font-semibold text-gray-900">Zahlungsdaten für QR-Code</h3>
-        <button type="button" class="rounded-lg p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-900" @click="$emit('close')">
+        <h3 class="text-lg font-semibold text-foreground">Zahlungsdaten für QR-Code</h3>
+        <button type="button" class="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground" @click="$emit('close')">
           <X class="h-5 w-5" />
         </button>
       </div>
       <div class="overflow-y-auto p-5 space-y-3">
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Empfänger</label>
+          <label class="block text-sm font-medium text-foreground mb-1">Empfänger</label>
           <input
             type="text"
             v-model="reminderPaymentRecipientName"
             :disabled="isReminderSettingsLoading"
             placeholder="Knirpsenstadt e.V."
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+            class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
           />
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">IBAN</label>
+          <label class="block text-sm font-medium text-foreground mb-1">IBAN</label>
           <input
             type="text"
             v-model="reminderPaymentIBAN"
             :disabled="isReminderSettingsLoading"
             placeholder="DE33370205000003321400"
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+            class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
           />
         </div>
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">
-            BIC <span class="font-normal text-gray-400">(optional)</span>
+          <label class="block text-sm font-medium text-foreground mb-1">
+            BIC <span class="font-normal text-muted-foreground">(optional)</span>
           </label>
           <input
             type="text"
             v-model="reminderPaymentBIC"
             :disabled="isReminderSettingsLoading"
             placeholder="BFSWDE33XXX"
-            class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+            class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
           />
         </div>
-        <p class="text-xs text-gray-500">Wenn Felder leer bleiben, werden die Standard-Zahlungsdaten der Kita verwendet.</p>
-        <div v-if="reminderSettingsError" class="text-sm text-red-600">{{ reminderSettingsError }}</div>
+        <p class="text-xs text-muted-foreground">Wenn Felder leer bleiben, werden die Standard-Zahlungsdaten der Kita verwendet.</p>
+        <div v-if="reminderSettingsError" class="text-sm text-red-600 dark:text-red-300">{{ reminderSettingsError }}</div>
       </div>
       <div class="flex justify-end gap-3 p-5 border-t">
-        <button class="px-4 py-2 rounded-lg border text-sm font-medium hover:bg-gray-50" @click="$emit('close')">
+        <button class="px-4 py-2 rounded-lg border text-sm font-medium hover:bg-accent" @click="$emit('close')">
           Abbrechen
         </button>
         <button
-          class="px-4 py-2 rounded-lg bg-primary text-white text-sm font-medium hover:bg-primary/90 disabled:opacity-50"
+          class="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50"
           :disabled="isReminderSettingsLoading"
           @click="savePaymentSettings"
         >

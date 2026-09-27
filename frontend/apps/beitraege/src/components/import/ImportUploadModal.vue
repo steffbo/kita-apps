@@ -175,16 +175,16 @@ function resetUpload(): void {
     class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
     @click.self="$emit('close')"
   >
-    <div class="bg-white rounded-xl shadow-xl max-w-3xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
+    <div class="bg-card rounded-xl shadow-xl max-w-3xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
       <div class="p-4 border-b flex items-center justify-between">
         <h2 class="text-lg font-semibold">CSV hochladen</h2>
-        <button @click="$emit('close')" class="text-gray-400 hover:text-gray-600">
+        <button @click="$emit('close')" class="text-muted-foreground hover:text-muted-foreground">
           <XCircle class="h-5 w-5" />
         </button>
       </div>
 
       <div class="overflow-y-auto p-4 space-y-6">
-        <div v-if="uploadError" class="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700">
+        <div v-if="uploadError" class="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg text-sm text-red-700 dark:text-red-300">
           {{ uploadError }}
         </div>
         <!-- Upload Area -->
@@ -195,31 +195,31 @@ function resetUpload(): void {
           @drop="handleDrop"
           :class="[
             'border-2 border-dashed rounded-xl p-12 text-center transition-colors',
-            isDragging ? 'border-primary bg-primary/5' : 'border-gray-300 hover:border-gray-400',
+            isDragging ? 'border-primary bg-primary/5' : 'border-border hover:border-border',
             isUploading ? 'opacity-50 pointer-events-none' : '',
           ]"
         >
           <div v-if="isUploading" class="flex flex-col items-center gap-4">
             <Loader2 class="h-12 w-12 animate-spin text-primary" />
-            <p class="text-gray-600">CSV wird verarbeitet...</p>
+            <p class="text-muted-foreground">CSV wird verarbeitet...</p>
           </div>
           <div v-else class="flex flex-col items-center gap-4">
-            <div class="p-4 bg-gray-100 rounded-full">
-              <FileSpreadsheet class="h-12 w-12 text-gray-400" />
+            <div class="p-4 bg-muted rounded-full">
+              <FileSpreadsheet class="h-12 w-12 text-muted-foreground" />
             </div>
             <div>
-              <p class="text-lg font-medium text-gray-700">CSV-Datei hierher ziehen</p>
-              <p class="text-sm text-gray-500 mt-1">oder klicken um eine Datei auszuwählen</p>
+              <p class="text-lg font-medium text-foreground">CSV-Datei hierher ziehen</p>
+              <p class="text-sm text-muted-foreground mt-1">oder klicken um eine Datei auszuwählen</p>
             </div>
             <input type="file" accept=".csv" @change="handleFileSelect" class="hidden" id="file-input" />
             <label
               for="file-input"
-              class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 cursor-pointer transition-colors"
+              class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 cursor-pointer transition-colors"
             >
               <Upload class="h-4 w-4" />
               Datei auswählen
             </label>
-            <p class="text-xs text-gray-400 mt-2">
+            <p class="text-xs text-muted-foreground mt-2">
               Unterstützt: Deutsche Bankexporte (CSV, Semikolon-getrennt, ISO-8859-1 oder UTF-8)
             </p>
           </div>
@@ -230,35 +230,35 @@ function resetUpload(): void {
           <div class="rounded-xl border p-6">
             <div class="flex items-center justify-between mb-4">
               <div class="flex items-center gap-3">
-                <div v-if="importResult.errors?.length" class="p-2 bg-red-100 rounded-lg">
-                  <AlertTriangle class="h-6 w-6 text-red-600" />
+                <div v-if="importResult.errors?.length" class="p-2 bg-red-100 dark:bg-red-950/40 rounded-lg">
+                  <AlertTriangle class="h-6 w-6 text-red-600 dark:text-red-300" />
                 </div>
-                <div v-else class="p-2 bg-green-100 rounded-lg">
-                  <CheckCircle class="h-6 w-6 text-green-600" />
+                <div v-else class="p-2 bg-green-100 dark:bg-green-950/40 rounded-lg">
+                  <CheckCircle class="h-6 w-6 text-green-600 dark:text-green-300" />
                 </div>
                 <div>
                   <h2 class="text-lg font-semibold">
                     {{ importResult.errors?.length ? 'Import mit Fehlern abgeschlossen' : 'Import erfolgreich' }}
                   </h2>
-                  <p class="text-sm text-gray-600">{{ importResult.fileName }}</p>
+                  <p class="text-sm text-muted-foreground">{{ importResult.fileName }}</p>
                 </div>
               </div>
-              <button @click="resetUpload" class="text-sm text-gray-600 hover:text-gray-900 underline">
+              <button @click="resetUpload" class="text-sm text-muted-foreground hover:text-foreground underline">
                 Neuer Import
               </button>
             </div>
             <div class="grid grid-cols-3 gap-4">
-              <div class="p-3 bg-gray-50 rounded-lg text-center">
-                <div class="text-2xl font-bold text-gray-900">{{ importResult.totalRows }}</div>
-                <div class="text-sm text-gray-600">Zeilen gelesen</div>
+              <div class="p-3 bg-muted rounded-lg text-center">
+                <div class="text-2xl font-bold text-foreground">{{ importResult.totalRows }}</div>
+                <div class="text-sm text-muted-foreground">Zeilen gelesen</div>
               </div>
-              <div class="p-3 bg-green-50 rounded-lg text-center">
-                <div class="text-2xl font-bold text-green-600">{{ importResult.imported }}</div>
-                <div class="text-sm text-gray-600">Importiert</div>
+              <div class="p-3 bg-green-50 dark:bg-green-950/40 rounded-lg text-center">
+                <div class="text-2xl font-bold text-green-600 dark:text-green-300">{{ importResult.imported }}</div>
+                <div class="text-sm text-muted-foreground">Importiert</div>
               </div>
-              <div class="p-3 bg-gray-50 rounded-lg text-center">
-                <div class="text-2xl font-bold text-gray-500">{{ importResult.skipped }}</div>
-                <div class="text-sm text-gray-600">Übersprungen</div>
+              <div class="p-3 bg-muted rounded-lg text-center">
+                <div class="text-2xl font-bold text-muted-foreground">{{ importResult.skipped }}</div>
+                <div class="text-sm text-muted-foreground">Übersprungen</div>
               </div>
             </div>
           </div>
@@ -268,12 +268,12 @@ function resetUpload(): void {
           <!-- Confirm Result -->
           <div
             v-if="confirmResult"
-            class="p-4 bg-green-50 border border-green-200 rounded-lg flex items-start gap-3"
+            class="p-4 bg-green-50 dark:bg-green-950/40 border border-green-200 rounded-lg flex items-start gap-3"
           >
-            <CheckCircle class="h-5 w-5 text-green-500 flex-shrink-0 mt-0.5" />
+            <CheckCircle class="h-5 w-5 text-green-500 dark:text-green-400 flex-shrink-0 mt-0.5" />
             <div>
-              <p class="text-green-700 font-medium">Zuordnungen bestätigt</p>
-              <p class="text-sm text-green-600">
+              <p class="text-green-700 dark:text-green-300 font-medium">Zuordnungen bestätigt</p>
+              <p class="text-sm text-green-600 dark:text-green-300">
                 {{ confirmResult.confirmed }} Zahlungen wurden als bezahlt markiert
                 <span v-if="confirmResult.failed > 0">, {{ confirmResult.failed }} fehlgeschlagen</span>
               </p>
@@ -285,7 +285,7 @@ function resetUpload(): void {
             <div class="p-4 border-b flex items-center justify-between">
               <div>
                 <h3 class="font-semibold">Zuordnungsvorschläge</h3>
-                <p class="text-sm text-gray-600">
+                <p class="text-sm text-muted-foreground">
                   {{ selectedMatches.size }} von {{ matchableSuggestions.length }} ausgewählt
                 </p>
               </div>
@@ -293,8 +293,8 @@ function resetUpload(): void {
                 <button @click="selectAllMatches" class="text-sm text-primary hover:underline">
                   Alle auswählen
                 </button>
-                <span class="text-gray-300">|</span>
-                <button @click="deselectAllMatches" class="text-sm text-gray-600 hover:underline">
+                <span class="text-muted-foreground/60">|</span>
+                <button @click="deselectAllMatches" class="text-sm text-muted-foreground hover:underline">
                   Keine
                 </button>
               </div>
@@ -312,8 +312,8 @@ function resetUpload(): void {
                     :class="[
                       'mt-1 w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 transition-colors',
                       selectedMatches.has(suggestion.transaction.id)
-                        ? 'bg-primary border-primary text-white'
-                        : 'border-gray-300 hover:border-gray-400',
+                        ? 'bg-primary border-primary text-primary-foreground'
+                        : 'border-border hover:border-border',
                     ]"
                   >
                     <Check v-if="selectedMatches.has(suggestion.transaction.id)" class="h-3 w-3" />
@@ -325,15 +325,15 @@ function resetUpload(): void {
                         <div class="font-medium">
                           {{ suggestion.transaction.payerName || 'Unbekannt' }}
                         </div>
-                        <div class="text-sm text-gray-600 truncate">
+                        <div class="text-sm text-muted-foreground truncate">
                           {{ suggestion.transaction.description }}
                         </div>
                       </div>
                       <div class="text-right flex-shrink-0">
-                        <div class="font-semibold text-green-600">
+                        <div class="font-semibold text-green-600 dark:text-green-300">
                           {{ formatCurrency(suggestion.transaction.amount) }}
                         </div>
-                        <div class="text-xs text-gray-500">
+                        <div class="text-xs text-muted-foreground">
                           {{ formatDate(suggestion.transaction.bookingDate) }}
                         </div>
                       </div>
@@ -348,10 +348,10 @@ function resetUpload(): void {
                       >
                         {{ getConfidenceLabel(suggestion.confidence) }} ({{ Math.round(suggestion.confidence * 100) }}%)
                       </span>
-                      <span class="text-gray-500">
+                      <span class="text-muted-foreground">
                         Erkannt als: {{ getFeeTypeName(suggestion.detectedType) }}
                       </span>
-                      <span class="text-gray-500">Grund: {{ suggestion.matchedBy }}</span>
+                      <span class="text-muted-foreground">Grund: {{ suggestion.matchedBy }}</span>
                     </div>
 
                     <button
@@ -368,36 +368,36 @@ function resetUpload(): void {
 
                     <div
                       v-if="expandedSuggestions.has(suggestion.transaction.id)"
-                      class="mt-3 p-3 bg-gray-50 rounded-lg text-sm space-y-2"
+                      class="mt-3 p-3 bg-muted rounded-lg text-sm space-y-2"
                     >
                       <div class="grid grid-cols-2 gap-4">
                         <div>
-                          <span class="text-gray-500">Zugeordnetes Kind:</span>
+                          <span class="text-muted-foreground">Zugeordnetes Kind:</span>
                           <span class="ml-2 font-medium">
                             {{ suggestion.child?.firstName }} {{ suggestion.child?.lastName }}
                           </span>
                         </div>
                         <div>
-                          <span class="text-gray-500">Beitragsart:</span>
+                          <span class="text-muted-foreground">Beitragsart:</span>
                           <span class="ml-2 font-medium">
                             {{ getFeeTypeName(suggestion.expectation?.feeType) }}
                           </span>
                         </div>
                         <div>
-                          <span class="text-gray-500">Erwarteter Betrag:</span>
+                          <span class="text-muted-foreground">Erwarteter Betrag:</span>
                           <span class="ml-2 font-medium">
                             {{ formatCurrency(suggestion.expectation?.amount || 0) }}
                           </span>
                         </div>
                         <div>
-                          <span class="text-gray-500">Zeitraum:</span>
+                          <span class="text-muted-foreground">Zeitraum:</span>
                           <span class="ml-2 font-medium">
                             {{ suggestion.expectation?.month ? suggestion.expectation.month + '/' : '' }}{{ suggestion.expectation?.year }}
                           </span>
                         </div>
                       </div>
                       <div v-if="suggestion.transaction.payerIban">
-                        <span class="text-gray-500">IBAN:</span>
+                        <span class="text-muted-foreground">IBAN:</span>
                         <span class="ml-2 font-mono text-xs">
                           {{ suggestion.transaction.payerIban }}
                         </span>
@@ -408,12 +408,12 @@ function resetUpload(): void {
               </div>
             </div>
 
-            <div class="p-4 border-t bg-gray-50 flex items-center justify-between">
-              <p class="text-sm text-gray-600">{{ selectedMatches.size }} Zuordnungen ausgewählt</p>
+            <div class="p-4 border-t bg-muted flex items-center justify-between">
+              <p class="text-sm text-muted-foreground">{{ selectedMatches.size }} Zuordnungen ausgewählt</p>
               <button
                 @click="confirmMatches"
                 :disabled="selectedMatches.size === 0 || isConfirming"
-                class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 <Loader2 v-if="isConfirming" class="h-4 w-4 animate-spin" />
                 <CheckCircle v-else class="h-4 w-4" />
@@ -426,10 +426,10 @@ function resetUpload(): void {
           <div v-if="unmatchableSuggestions.length > 0" class="rounded-xl border">
             <div class="p-4 border-b">
               <div class="flex items-center gap-2">
-                <AlertTriangle class="h-5 w-5 text-amber-500" />
+                <AlertTriangle class="h-5 w-5 text-amber-500 dark:text-amber-400" />
                 <h3 class="font-semibold">Nicht zuordenbar</h3>
               </div>
-              <p class="text-sm text-gray-600 mt-1">
+              <p class="text-sm text-muted-foreground mt-1">
                 Diese Transaktionen konnten keinem offenen Beitrag zugeordnet werden
               </p>
             </div>
@@ -444,7 +444,7 @@ function resetUpload(): void {
                   <div class="font-medium">
                     {{ suggestion.transaction.payerName || 'Unbekannt' }}
                   </div>
-                  <div class="text-sm text-gray-600 truncate max-w-md">
+                  <div class="text-sm text-muted-foreground truncate max-w-md">
                     {{ suggestion.transaction.description }}
                   </div>
                 </div>
@@ -452,7 +452,7 @@ function resetUpload(): void {
                   <div class="font-semibold">
                     {{ formatCurrency(suggestion.transaction.amount) }}
                   </div>
-                  <div class="text-xs text-gray-500">
+                  <div class="text-xs text-muted-foreground">
                     {{ formatDate(suggestion.transaction.bookingDate) }}
                   </div>
                 </div>
