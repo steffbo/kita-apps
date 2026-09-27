@@ -55,7 +55,8 @@ func (r *ParentAccountRepository) Account(ctx context.Context, userID uuid.UUID)
 	return result, nil
 }
 
-func (r *ParentAccountRepository) Children(ctx context.Context, parent domain.Parent) ([]domain.Child, error) {
+func (r *ParentAccountRepository) Children(ctx context.Context, parent domain.Parent) ([]domain.Child,
+	error) {
 	ids := []uuid.UUID{}
 	if parent.HouseholdID != nil {
 		err := conn(ctx, r.db).SelectContext(ctx, &ids,
@@ -82,7 +83,8 @@ func (r *ParentAccountRepository) Children(ctx context.Context, parent domain.Pa
 	return result, nil
 }
 
-func (r *ParentAccountRepository) OtherParents(ctx context.Context, parent domain.Parent) ([]domain.Parent, error) {
+func (r *ParentAccountRepository) OtherParents(ctx context.Context,
+	parent domain.Parent) ([]domain.Parent, error) {
 	result := []domain.Parent{}
 	var err error
 	if parent.HouseholdID != nil {
@@ -112,7 +114,8 @@ type ParentFeeRow struct {
 	Status     string    `json:"status" db:"-"`
 }
 
-func (r *ParentAccountRepository) Fees(ctx context.Context, parent domain.Parent, year int) ([]ParentFeeRow, error) {
+func (r *ParentAccountRepository) Fees(ctx context.Context, parent domain.Parent,
+	year int) ([]ParentFeeRow, error) {
 	rows := []ParentFeeRow{}
 	err := conn(ctx, r.db).SelectContext(ctx, &rows, `SELECT fe.id,fe.child_id,
         c.first_name || ' ' || c.last_name AS child_name,fe.fee_type,fe.year,fe.month,

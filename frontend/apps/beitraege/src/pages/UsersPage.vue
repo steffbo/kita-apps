@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { RouterLink } from 'vue-router';
 import { onMounted, onUnmounted, ref } from 'vue';
 import { KeyRound, Loader2, Pencil, Plus } from 'lucide-vue-next';
 import { api } from '@/api';
@@ -116,6 +117,7 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown));
             <th class="px-4 py-3 font-medium">Name</th>
             <th class="px-4 py-3 font-medium">E-Mail</th>
             <th class="px-4 py-3 font-medium">Rolle</th>
+            <th class="px-4 py-3 font-medium">Elternteil</th>
             <th class="px-4 py-3 font-medium">Status</th>
             <th class="px-4 py-3 font-medium">Angelegt</th>
             <th class="px-4 py-3"></th>
@@ -129,6 +131,9 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown));
             </td>
             <td class="px-4 py-3">{{ user.email }}</td>
             <td class="px-4 py-3">{{ userRoleLabel(user.role) }}</td>
+            <td class="px-4 py-3"><RouterLink v-if="user.parentId" :to="`/eltern/${user.parentId}`"
+              class="text-primary underline">{{ user.parentName || 'Elternteil' }}</RouterLink>
+              <span v-else>—</span></td>
             <td class="px-4 py-3">
               <span
                 class="px-2 py-0.5 rounded-full text-xs font-medium"

@@ -127,7 +127,7 @@ type UserResponse struct {
 	Email     string  `json:"email" example:"user@example.com"`
 	FirstName *string `json:"firstName,omitempty" example:"Max" binding:"optional"`
 	LastName  *string `json:"lastName,omitempty" example:"Mustermann" binding:"optional"`
-	Role      string  `json:"role" example:"ADMIN" enums:"ADMIN,USER,PARENT_WORK"`
+	Role      string  `json:"role" example:"ADMIN" enums:"ADMIN,USER,PARENT_WORK,PARENT"`
 } //@name User
 
 // MessageResponse represents a simple message response.

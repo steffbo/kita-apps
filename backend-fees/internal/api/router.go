@@ -140,7 +140,8 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 					r.Get("/next-member-number", handlers.Child.NextMemberNumber)
 					r.Post("/", handlers.Child.Create)
 					r.Get("/{id}", handlers.Child.Get)
-					r.With(customMiddleware.RequireRole(string(domain.UserRoleAdmin))).Get("/{id}/changes", handlers.ParentAccount.ChildChanges)
+					r.With(customMiddleware.RequireRole(string(domain.UserRoleAdmin))).
+						Get("/{id}/changes", handlers.ParentAccount.ChildChanges)
 					r.Put("/{id}", handlers.Child.Update)
 					r.Delete("/{id}", handlers.Child.Delete)
 					r.Get("/{id}/care-hours-history", handlers.Child.GetCareHoursHistory)
@@ -174,7 +175,8 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 					r.Get("/", handlers.Parent.List)
 					r.Post("/", handlers.Parent.Create)
 					r.Get("/{id}", handlers.Parent.Get)
-					r.With(customMiddleware.RequireRole(string(domain.UserRoleAdmin))).Get("/{id}/changes", handlers.ParentAccount.ParentChanges)
+					r.With(customMiddleware.RequireRole(string(domain.UserRoleAdmin))).
+						Get("/{id}/changes", handlers.ParentAccount.ParentChanges)
 					r.Put("/{id}", handlers.Parent.Update)
 					r.Delete("/{id}", handlers.Parent.Delete)
 					r.Post("/{id}/member", handlers.Parent.CreateMember)

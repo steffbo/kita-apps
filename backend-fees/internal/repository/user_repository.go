@@ -125,6 +125,7 @@ func (r *PostgresUserRepository) UpdatePassword(ctx context.Context, id uuid.UUI
 	return requireRow(result)
 }
 
-func (r *PostgresUserRepository) UpdateLinkedUser(ctx context.Context, user *domain.User, actorID uuid.UUID) error {
+func (r *PostgresUserRepository) UpdateLinkedUser(ctx context.Context, user *domain.User,
+	actorID uuid.UUID) error {
 	return NewParentAccountRepository(r.db).UpdateLinkedUser(ctx, user, actorID)
 }

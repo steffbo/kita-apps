@@ -9953,7 +9953,7 @@ export interface components {
              * @example ADMIN
              * @enum {string}
              */
-            role: "ADMIN" | "USER" | "PARENT_WORK";
+            role: "ADMIN" | "USER" | "PARENT_WORK" | "PARENT";
         };
         UserAccount: {
             createdAt: string;

@@ -12,6 +12,7 @@ const rules = ref<ParentWorkRule[]>([]);
 const year = ref<number | null>(null);
 const search = ref('');
 const onlyOpen = ref(false);
+const onlySubmitted = ref(false);
 const showEntry = ref(false);
 const loading = ref(false);
 const error = ref('');
@@ -25,6 +26,7 @@ const years = computed(() => {
 });
 const rows = computed(() => (overview.value?.households ?? []).filter(h => {
   if (onlyOpen.value && h.openMinutes <= 0) return false;
+  if (onlySubmitted.value && !h.submittedCount) return false;
   const q = search.value.toLocaleLowerCase('de').trim();
   return !q || [h.householdName, ...h.children.map(c => c.name)].some(n => n.toLocaleLowerCase('de').includes(q));
 }));
@@ -54,6 +56,12 @@ async function saved() { showEntry.value = false; await load(); }
     <label class="block w-44 text-sm font-medium">Kita-Jahr
       <select v-model.number="year" class="mt-1 w-full rounded-lg border bg-background px-3 py-2"><option v-for="y in years" :key="y" :value="y">{{ yearLabel(y) }}</option></select>
     </label>
+    <p v-if="overview?.submittedTotal" class="rounded-xl border border-amber-300 bg-amber-50 p-3
+      text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+      {{ overview.submittedTotal }} eingereichte Meldungen warten auf Bestätigung.
+    </p>
+    <label class="flex items-center gap-2 text-sm"><input v-model="onlySubmitted" type="checkbox" />
+      Nur mit Meldungen</label>
     <p v-if="error" role="alert" class="rounded-lg bg-red-50 dark:bg-red-950/40 p-3 text-red-700 dark:text-red-300">{{ error }}</p>
     <p v-if="overview?.notice" class="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/40 p-3 text-amber-900 dark:text-amber-300">{{ overview.notice }}</p>
     <div v-if="overview?.unassignedChildren?.length" role="status"
@@ -78,7 +86,9 @@ async function saved() { showEntry.value = false; await load(); }
         <label class="flex items-center gap-2 text-sm"><input v-model="onlyOpen" type="checkbox" />Nur offene</label>
       </div>
       <div class="overflow-x-auto"><table class="w-full text-sm"><thead class="bg-muted text-left text-muted-foreground"><tr><th class="px-4 py-3">Familie</th><th class="px-4 py-3">Kinder</th><th class="px-4 py-3 text-right">Soll</th><th class="px-4 py-3 text-right">Übertrag</th><th class="px-4 py-3 text-right">Ist</th><th class="px-4 py-3 text-right">Offen</th><th class="px-4 py-3 text-right">Fehlbetrag</th><th class="px-4 py-3">Status</th></tr></thead>
-        <tbody><tr v-for="h in rows" :key="h.householdId" class="border-t hover:bg-accent"><td class="px-4 py-3 font-medium"><RouterLink :to="{ name: 'parent-work-detail', params: { id: h.householdId }, query: { jahr: year } }" class="text-primary hover:underline">{{ h.householdName }}</RouterLink></td><td class="px-4 py-3">{{ h.children.map(c => c.name).join(', ') || '—' }}</td><td class="px-4 py-3 text-right">{{ formatHours(h.requiredMinutes) }}</td><td class="px-4 py-3 text-right">{{ formatHours(h.carryInMinutes) }}</td><td class="px-4 py-3 text-right">{{ formatHours(h.doneMinutes) }}</td><td class="px-4 py-3 text-right">{{ formatHours(h.openMinutes) }}</td><td class="px-4 py-3 text-right">{{ formatCurrency(h.missingAmountCents / 100) }}</td><td class="px-4 py-3"><span class="rounded-full px-2 py-1 text-xs" :class="h.openMinutes > 0 ? 'bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300' : 'bg-green-100 dark:bg-green-950/40 text-green-800 dark:text-green-300'">{{ status(h) }}</span></td></tr>
+        <tbody><tr v-for="h in rows" :key="h.householdId" class="border-t hover:bg-accent"><td class="px-4 py-3 font-medium"><RouterLink :to="{ name: 'parent-work-detail', params: { id: h.householdId }, query: { jahr: year } }" class="text-primary hover:underline">{{ h.householdName }}</RouterLink><span v-if="h.submittedCount"
+          class="ml-2 rounded-full bg-amber-100 px-2 py-1 text-xs text-amber-800
+          dark:bg-amber-950/40 dark:text-amber-300">{{ h.submittedCount }} Meldungen</span></td><td class="px-4 py-3">{{ h.children.map(c => c.name).join(', ') || '—' }}</td><td class="px-4 py-3 text-right">{{ formatHours(h.requiredMinutes) }}</td><td class="px-4 py-3 text-right">{{ formatHours(h.carryInMinutes) }}</td><td class="px-4 py-3 text-right">{{ formatHours(h.doneMinutes) }}</td><td class="px-4 py-3 text-right">{{ formatHours(h.openMinutes) }}</td><td class="px-4 py-3 text-right">{{ formatCurrency(h.missingAmountCents / 100) }}</td><td class="px-4 py-3"><span class="rounded-full px-2 py-1 text-xs" :class="h.openMinutes > 0 ? 'bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300' : 'bg-green-100 dark:bg-green-950/40 text-green-800 dark:text-green-300'">{{ status(h) }}</span></td></tr>
           <tr v-if="!rows.length"><td colspan="8" class="px-4 py-8 text-center text-muted-foreground">{{ loading ? 'Lade Familien …' : 'Keine Familien gefunden.' }}</td></tr></tbody></table></div>
     </div>
     <EntryDialog v-if="showEntry" @close="showEntry = false" @saved="saved" />

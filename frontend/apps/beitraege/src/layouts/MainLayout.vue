@@ -9,7 +9,7 @@ import logo from '@/assets/knirpsenstadt-logo.png';
 import {
   LayoutDashboard, Users, UserCircle, UserPlus, Receipt, RefreshCw, Bell, LogOut,
   Menu, X, ChevronDown, ClipboardList, NotebookPen, Scale, KeyRound, ShieldCheck,
-  Clock, UserCheck, Upload, Monitor, Sun, Moon,
+  Clock, UserCheck, Upload, Monitor, Sun, Moon, FileWarning,
 } from 'lucide-vue-next';
 
 const authStore = useAuthStore();
@@ -25,6 +25,7 @@ const baseNavGroups = [
   { label: 'Täglich', items: [
     { name: 'Dashboard', to: '/', icon: LayoutDashboard },
     { name: 'Bankabgleich', to: '/bankabgleich', icon: RefreshCw },
+    { name: 'Meldungen', to: '/meldungen', icon: FileWarning },
   ] },
   { label: 'Verwaltung', items: [
     { name: 'Kinder', to: '/kinder', icon: Users },
@@ -40,10 +41,16 @@ const baseNavGroups = [
   ] },
 ];
 
+const parentLinks = [
+  { name: 'Übersicht', to: '/familie', icon: LayoutDashboard },
+  { name: 'Beiträge', to: '/familie/beitraege', icon: Receipt },
+  { name: 'Elternstunden', to: '/familie/elternstunden', icon: Clock },
+  { name: 'Meine Daten', to: '/familie/daten', icon: UserCircle },
+];
 const navGroups = computed(() => [
   ...(authStore.canAccessFees ? baseNavGroups.map(group => ({
     ...group,
-    items: group.items.filter(item => item.to !== '/automatisierung' || authStore.isAdmin),
+    items: group.items.filter(item => !['/automatisierung', '/meldungen'].includes(item.to) || authStore.isAdmin),
   })) : []),
   ...(authStore.canAccessParentWork ? [{ label: 'Elternstunden', items: [
     { name: 'Übersicht', to: '/elternstunden', icon: Clock },
@@ -57,6 +64,7 @@ const navGroups = computed(() => [
 ]);
 
 function isActive(path: string) {
+  if (path === '/familie') return route.path === '/familie';
   if (path === '/') return route.path === '/';
   if (path === '/elternstunden') {
     return route.path === path || route.path.startsWith('/elternstunden/familien/');
@@ -117,12 +125,17 @@ function onPasswordChanged() {
   <div class="min-h-screen min-w-0 bg-background">
     <header class="sticky top-0 z-50 border-b border-brand-200 bg-header text-header-foreground shadow-sm">
       <div class="mx-auto flex max-w-7xl items-center gap-4 px-4 py-2 sm:px-6">
-        <RouterLink to="/" class="flex shrink-0 items-center gap-2 rounded-full focus-visible:ring-2 focus-visible:ring-ring">
+        <RouterLink :to="authStore.isParent ? '/familie' : '/'" class="flex shrink-0 items-center gap-2 rounded-full focus-visible:ring-2 focus-visible:ring-ring">
           <img :src="logo" alt="" class="h-10 w-10 rounded-full object-cover" />
           <span class="hidden font-bold sm:inline">Kita Knirpsenstadt</span>
         </RouterLink>
 
         <nav aria-label="Hauptnavigation" class="hidden min-w-0 flex-1 items-center justify-center gap-1 lg:flex">
+          <RouterLink v-for="item in authStore.isParent ? parentLinks : []" :key="item.to"
+            :to="item.to" class="rounded-full px-3 py-2 text-sm font-bold hover:bg-brand-50/70
+              dark:hover:bg-brand-800" :class="{ 'bg-brand-50/80 dark:bg-brand-800': isActive(item.to) }">
+            {{ item.name }}
+          </RouterLink>
           <div v-for="group in navGroups" :key="group.label" class="relative" data-header-menu>
             <RouterLink
               v-if="group.items.length === 1" :to="group.items[0].to"
@@ -200,6 +213,9 @@ function onPasswordChanged() {
       </div>
       <nav v-if="mobileMenuOpen" aria-label="Mobile Navigation"
         class="max-h-[calc(100vh-4rem)] overflow-y-auto border-t bg-header px-4 py-4 lg:hidden">
+        <RouterLink v-for="item in authStore.isParent ? parentLinks : []" :key="item.to"
+          :to="item.to" class="block rounded-xl px-3 py-2 text-sm font-bold
+            hover:bg-brand-50/70 dark:hover:bg-brand-800" @click="closeMenus">{{ item.name }}</RouterLink>
         <div v-for="group in navGroups" :key="group.label" class="mb-4">
           <p class="mb-1 px-3 text-xs font-bold uppercase tracking-wide">{{ group.label }}</p>
           <RouterLink

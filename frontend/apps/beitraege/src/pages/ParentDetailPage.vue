@@ -2,6 +2,7 @@
 import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api';
+import ChangeHistory from '@/components/family/ChangeHistory.vue';
 import { useAuthStore } from '@/stores/auth';
 import type { Parent, UpdateParentRequest } from '@/api/types';
 import {
@@ -185,6 +186,7 @@ async function handleUnlinkMember() {
 </script>
 
 <template>
+  <ChangeHistory v-if="authStore.isAdmin" kind="parent" :id="String(route.params.id)" />
   <div>
     <!-- Back button -->
     <button

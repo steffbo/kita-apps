@@ -74,6 +74,8 @@ Status: umgesetzt.
 
 ## Etappe 2b: Eltern-Oberfläche und Staff-Anpassungen
 
+Status: umgesetzt.
+
 - Eltern-Bereich `/familie/**` im neuen Design, handytauglich: Übersicht, Beiträge, Elternstunden
   (mit „Stunden melden“), Meine Daten. `PARENT` sieht nichts anderes.
 - Staff: Freigabe gemeldeter Stunden, Feed-Widget im Admin-Dashboard, Änderungsverlauf auf der

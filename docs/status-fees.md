@@ -3,6 +3,18 @@
 Rolling change log of non-obvious implementation decisions. Newest first.
 Basics (ports, commands, layout) live in `AGENTS.md`.
 
+## Eltern-Zugang, Etappe 2b (2026-09-27)
+
+- `PARENT` nutzt `/familie/**` mit direktem Menü für Übersicht, Beiträge, Elternstunden und Daten.
+  Rollen-Guards leiten Eltern von Staff-Routen und Staff aus dem Familienbereich um. Eltern sehen
+  eigene Kinder und Beiträge, melden Stunden und Fehler, ziehen eingereichte Stunden zurück und
+  ändern Kontakt- und Kinderdaten. Eine E-Mail-Änderung lädt `/auth/me` neu.
+- Staff sieht offene Elternstunden-Meldungen in der Übersicht und kann sie auf der Familienseite
+  bestätigen oder mit Pflichtgrund ablehnen. Admins sehen Eltern-Aktivitäten auf dem Dashboard,
+  Meldungen unter `/meldungen`, die Verknüpfung auf der Benutzer-Seite und Änderungsverläufe bei
+  Elternteil und Kind. Der Feed lädt unabhängig von den übrigen Dashboard-Karten.
+- Frontend-Typen kommen vollständig aus `schema.d.ts` (Rollen-Enum inkl. `PARENT` in allen Antworten).
+
 ## Beiträge-Design, Etappe 1a (2026-09-27)
 
 - Neues Design-System mit Homepage-Grün, selbst gehostetem Nunito, heller grüner
@@ -19,7 +31,7 @@ Basics (ports, commands, layout) live in `AGENTS.md`.
 
 ## Eltern-Zugang, Etappe 2a (2026-09-27)
 
-Backend umgesetzt; Eltern-Oberfläche folgt in Etappe 2b.
+Backend umgesetzt; Eltern-Oberfläche in Etappe 2b ergänzt.
 
 - Rolle `PARENT`: Verknüpfung beim Anlegen und Rollenwechsel zu `PARENT` über eine eindeutige
   Kontakt-E-Mail. Kontakt- und Login-E-Mail bleiben synchron. Ein Rollenwechsel weg von `PARENT`

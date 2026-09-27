@@ -589,7 +589,8 @@ func (s *ParentWorkService) SubmitParentEntry(ctx context.Context, v domain.Pare
 	v.CreatedBy, v.UpdatedBy = &userID, &userID
 	if v.HouseholdID == uuid.Nil || v.WorkDate.IsZero() || strings.TrimSpace(v.Occasion) == "" ||
 		v.DurationMinutes <= 0 || v.DurationMinutes%15 != 0 {
-		return nil, fmt.Errorf("%w: Datum, Anlass und positive Viertelstunden sind erforderlich", ErrInvalidInput)
+		return nil, fmt.Errorf("%w: Datum, Anlass und positive Viertelstunden sind erforderlich",
+			ErrInvalidInput)
 	}
 	v.Occasion = strings.TrimSpace(v.Occasion)
 	if err := s.repo.SaveEntry(ctx, &v); err != nil {
@@ -683,7 +684,8 @@ func (s *ParentWorkService) SaveEntry(ctx context.Context, id uuid.UUID, v domai
 		}
 		if existing.Source == "PARENT" && existing.Status == domain.ParentWorkStatusSubmitted &&
 			v.Status != domain.ParentWorkStatusSubmitted {
-			return nil, fmt.Errorf("%w: Gemeldete Einträge müssen bestätigt oder abgelehnt werden", ErrConflict)
+			return nil, fmt.Errorf("%w: Gemeldete Einträge müssen bestätigt oder abgelehnt werden",
+				ErrConflict)
 		}
 	} else {
 		v.Source = "MANUAL"

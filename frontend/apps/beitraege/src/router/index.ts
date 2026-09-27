@@ -15,6 +15,18 @@ const router = createRouter({
       component: () => import('@/layouts/MainLayout.vue'),
       meta: { requiresAuth: true },
       children: [
+        { path: 'familie', name: 'family', component: () => import('@/pages/FamilyOverviewPage.vue'),
+          meta: { requiresParent: true } },
+        { path: 'familie/beitraege', name: 'family-fees',
+          component: () => import('@/pages/FamilyFeesPage.vue'), meta: { requiresParent: true } },
+        { path: 'familie/elternstunden', name: 'family-work',
+          component: () => import('@/pages/FamilyWorkPage.vue'), meta: { requiresParent: true } },
+        { path: 'familie/daten', name: 'family-data',
+          component: () => import('@/pages/FamilyDataPage.vue'), meta: { requiresParent: true } },
+        { path: 'familie/:pathMatch(.*)*', redirect: { name: 'family' },
+          meta: { requiresParent: true } },
+        { path: 'meldungen', name: 'reports', component: () => import('@/pages/ReportsPage.vue'),
+          meta: { requiresAdmin: true } },
         {
           path: '',
           name: 'dashboard',
@@ -138,6 +150,15 @@ router.beforeEach(async (to, _from, next) => {
     return;
   }
 
+  if (authStore.isAuthenticated && authStore.isParent && !to.meta.requiresParent && to.name !== 'login') {
+    next({ name: 'family' });
+    return;
+  }
+  if (to.meta.requiresParent && !authStore.isParent) {
+    next({ name: authStore.isParentWork ? 'parent-work' : 'dashboard' });
+    return;
+  }
+
   if (to.meta.requiresFees && !authStore.canAccessFees) {
     next({ name: 'parent-work' });
     return;
@@ -154,7 +175,7 @@ router.beforeEach(async (to, _from, next) => {
   }
 
   if (to.name === 'login' && authStore.isAuthenticated) {
-    next({ name: authStore.isParentWork ? 'parent-work' : 'dashboard' });
+    next({ name: authStore.isParent ? 'family' : authStore.isParentWork ? 'parent-work' : 'dashboard' });
     return;
   }
 

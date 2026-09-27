@@ -8059,6 +8059,7 @@ components:
             - ADMIN
             - USER
             - PARENT_WORK
+            - PARENT
           example: ADMIN
           type: string
       required:

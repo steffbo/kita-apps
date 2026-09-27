@@ -54,15 +54,18 @@ func TestParentAccountLinking(t *testing.T) {
 	if _, err := testDB.Exec(`UPDATE fees.parents SET email=$2 WHERE id=$1`, p1, otherEmail); err != nil {
 		t.Fatal(err)
 	}
-	_, err = svc.Create(ctx, service.UserInput{Email: otherEmail, Role: domain.UserRolePARENT, IsActive: true}, "password123")
+	_, err = svc.Create(ctx, service.UserInput{Email: otherEmail, Role: domain.UserRolePARENT,
+		IsActive: true}, "password123")
 	if !errors.Is(err, service.ErrConflict) {
 		t.Fatalf("already linked: %v", err)
 	}
-	moved, err := svc.Update(ctx, uuid.New(), user.ID, service.UserInput{Email: email, Role: domain.UserRoleUser, IsActive: true})
+	moved, err := svc.Update(ctx, uuid.New(), user.ID, service.UserInput{Email: email,
+		Role: domain.UserRoleUser, IsActive: true})
 	if err != nil || moved.ParentID != nil {
 		t.Fatalf("role switch: %+v %v", moved, err)
 	}
-	moved, err = svc.Update(ctx, uuid.New(), user.ID, service.UserInput{Email: otherEmail, Role: domain.UserRolePARENT, IsActive: true})
+	moved, err = svc.Update(ctx, uuid.New(), user.ID, service.UserInput{Email: otherEmail,
+		Role: domain.UserRolePARENT, IsActive: true})
 	if err != nil || moved.ParentID == nil || *moved.ParentID != p1 {
 		t.Fatalf("relink: %+v %v", moved, err)
 	}
@@ -77,7 +80,8 @@ func TestParentAccountIsolationAndAudit(t *testing.T) {
 	users := []uuid.UUID{uuid.New(), uuid.New()}
 	children := []uuid.UUID{uuid.New(), uuid.New()}
 	for i := 0; i < 2; i++ {
-		if _, err := testDB.Exec(`INSERT INTO fees.households(id,name) VALUES ($1,$2)`, households[i], "Family "+string(rune('A'+i))); err != nil {
+		if _, err := testDB.Exec(`INSERT INTO fees.households(id,name) VALUES ($1,$2)`, households[i],
+			"Family "+string(rune('A'+i))); err != nil {
 			t.Fatal(err)
 		}
 		email := uuid.NewString() + "@example.org"
@@ -90,12 +94,15 @@ func TestParentAccountIsolationAndAudit(t *testing.T) {
             VALUES ($1,$2,$4,'PARENT',$3)`, users[i], email, parents[i], hash); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := testDB.Exec(`INSERT INTO fees.children(id,household_id,member_number,first_name,last_name,
+		if _,
+			err := testDB.Exec(`INSERT INTO fees.children(id,household_id,member_number,first_name,last_name,
             birth_date,entry_date) VALUES ($1,$2,$3,'Child','Test','2020-01-01','2025-08-01')`,
 			children[i], households[i], uuid.NewString()[:8]); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := testDB.Exec(`INSERT INTO fees.fee_expectations(child_id,fee_type,year,month,amount,due_date)
+		if _,
+			err := testDB.Exec(`INSERT INTO
+			fees.fee_expectations(child_id,fee_type,year,month,amount,due_date)
             VALUES ($1,'FOOD',2026,9,45,'2026-09-01')`, children[i]); err != nil {
 			t.Fatal(err)
 		}
@@ -104,7 +111,9 @@ func TestParentAccountIsolationAndAudit(t *testing.T) {
 		for i := 0; i < 2; i++ {
 			testDB.Exec(`DELETE FROM fees.children WHERE id=$1`, children[i])
 			testDB.Exec(`DELETE FROM fees.parent_work_entries WHERE household_id=$1`, households[i])
-			testDB.Exec(`DELETE FROM fees.data_changes WHERE parent_id=$1 OR (entity_type='PARENT' AND entity_id=$1)`, parents[i])
+			testDB.Exec(`DELETE FROM fees.data_changes WHERE parent_id=$1 OR (entity_type='PARENT' AND
+	entity_id=$1)
+	`, parents[i])
 			testDB.Exec(`DELETE FROM fees.users WHERE id=$1`, users[i])
 			testDB.Exec(`DELETE FROM fees.parents WHERE id=$1`, parents[i])
 			testDB.Exec(`DELETE FROM fees.households WHERE id=$1`, households[i])
@@ -128,7 +137,8 @@ func TestParentAccountIsolationAndAudit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = work.WithdrawParentEntry(ctx, entry.ID, households[0], users[0]); !errors.Is(err, service.ErrNotFound) {
+	if _, err = work.WithdrawParentEntry(ctx, entry.ID, households[0], users[0]); !errors.Is(err,
+		service.ErrNotFound) {
 		t.Fatalf("foreign withdrawal: %v", err)
 	}
 	own, err := work.SubmitParentEntry(ctx, domain.ParentWorkEntry{HouseholdID: households[0],
@@ -156,14 +166,16 @@ func TestParentAccountIsolationAndAudit(t *testing.T) {
 		t.Fatalf("rejection: %+v", rejected)
 	}
 	if err = accountRepo.SaveContact(ctx, parents[0], users[0], map[string]*string{
-		"email": nil, "phone": nil, "street": nil, "street_no": nil, "postal_code": nil, "city": nil}); !errors.Is(err, repository.ErrEmailRequired) {
+		"email": nil, "phone": nil, "street": nil, "street_no": nil, "postal_code": nil,
+		"city": nil}); !errors.Is(err, repository.ErrEmailRequired) {
 		t.Fatalf("linked email must be required: %v", err)
 	}
 	email := *a.Parent.Email
 	phone := "123"
 	city := "Berlin"
 	if err = accountRepo.SaveContact(ctx, parents[0], users[0], map[string]*string{
-		"email": &email, "phone": &phone, "street": nil, "street_no": nil, "postal_code": nil, "city": &city}); err != nil {
+		"email": &email, "phone": &phone, "street": nil, "street_no": nil, "postal_code": nil,
+		"city": &city}); err != nil {
 		t.Fatal(err)
 	}
 	changes, err := accountRepo.ContactChanges(ctx, parents[0])
@@ -194,13 +206,16 @@ func TestParentAccountIsolationAndAudit(t *testing.T) {
 		t.Fatalf("own child: %+v %v", changedChild, err)
 	}
 	var childName string
-	if err := testDB.Get(&childName, `SELECT first_name FROM fees.children WHERE id=$1`, children[0]); err != nil || childName != "Updated" {
+	if err := testDB.Get(&childName, `SELECT first_name FROM fees.children WHERE id=$1`,
+		children[0]); err != nil || childName != "Updated" {
 		t.Fatalf("child persisted: %q %v", childName, err)
 	}
-	if _, err := accountSvc.CreateReport(ctx, users[0], service.ReportInput{Topic: "CHILD", ReferenceID: &children[1], Message: "Wrong"}); !errors.Is(err, service.ErrNotFound) {
+	if _, err := accountSvc.CreateReport(ctx, users[0], service.ReportInput{Topic: "CHILD",
+		ReferenceID: &children[1], Message: "Wrong"}); !errors.Is(err, service.ErrNotFound) {
 		t.Fatalf("foreign report: %v", err)
 	}
-	if _, err := accountSvc.CreateReport(ctx, users[0], service.ReportInput{Topic: "CHILD", ReferenceID: &children[0], Message: "Please check"}); err != nil {
+	if _, err := accountSvc.CreateReport(ctx, users[0], service.ReportInput{Topic: "CHILD",
+		ReferenceID: &children[0], Message: "Please check"}); err != nil {
 		t.Fatal(err)
 	}
 	activity, err = accountRepo.Activity(ctx, 100)
@@ -211,7 +226,8 @@ func TestParentAccountIsolationAndAudit(t *testing.T) {
 	for _, v := range activity {
 		seen[v.Type] = true
 	}
-	for _, kind := range []string{"CONTACT_CHANGED", "CHILD_CHANGED", "PARENT_WORK_SUBMITTED", "REPORT_CREATED"} {
+	for _, kind := range []string{"CONTACT_CHANGED", "CHILD_CHANGED", "PARENT_WORK_SUBMITTED",
+		"REPORT_CREATED"} {
 		if !seen[kind] {
 			t.Fatalf("missing activity %s", kind)
 		}
@@ -227,7 +243,8 @@ func TestParentAccountIsolationAndAudit(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = accountSvc.Contact(ctx, users[0], map[string]*string{"email": &taken.Email}); !errors.Is(err, service.ErrConflict) {
+	if _, err = accountSvc.Contact(ctx, users[0],
+		map[string]*string{"email": &taken.Email}); !errors.Is(err, service.ErrConflict) {
 		t.Fatalf("email conflict: %v", err)
 	}
 	current, err = userRepo.GetByID(ctx, users[0])
@@ -242,7 +259,8 @@ func TestParentAccountIsolationAndAudit(t *testing.T) {
 	if _, err = accountSvc.Contact(ctx, users[0], map[string]*string{"email": &newEmail}); err != nil {
 		t.Fatal(err)
 	}
-	authSvc := service.NewAuthService(userRepo, time.Hour, repository.NewPostgresRefreshTokenRepository(testDB))
+	authSvc := service.NewAuthService(userRepo, time.Hour,
+		repository.NewPostgresRefreshTokenRepository(testDB))
 	if _, err = authSvc.Authenticate(ctx, newEmail, "password123"); err != nil {
 		t.Fatalf("new login: %v", err)
 	}
@@ -251,7 +269,8 @@ func TestParentAccountIsolationAndAudit(t *testing.T) {
 	}
 	staff := service.NewParentService(repository.NewPostgresParentRepository(testDB), nil, nil, nil)
 	staff.SetAccountChanges(accountRepo)
-	if _, err = staff.Update(ctx, parents[0], service.UpdateParentInput{Email: &taken.Email, ActorID: users[1]}); !errors.Is(err, service.ErrConflict) {
+	if _, err = staff.Update(ctx, parents[0], service.UpdateParentInput{Email: &taken.Email,
+		ActorID: users[1]}); !errors.Is(err, service.ErrConflict) {
 		t.Fatalf("staff conflict: %v", err)
 	}
 	a, err = accountRepo.Account(ctx, users[0])
@@ -263,14 +282,16 @@ func TestParentAccountIsolationAndAudit(t *testing.T) {
 		t.Fatalf("staff conflict changed user: %+v %v", current, err)
 	}
 	staffEmail := uuid.NewString() + "@example.org"
-	if _, err = staff.Update(ctx, parents[0], service.UpdateParentInput{Email: &staffEmail, ActorID: users[1]}); err != nil {
+	if _, err = staff.Update(ctx, parents[0], service.UpdateParentInput{Email: &staffEmail,
+		ActorID: users[1]}); err != nil {
 		t.Fatalf("staff email: %v", err)
 	}
 	if _, err = authSvc.Authenticate(ctx, staffEmail, "password123"); err != nil {
 		t.Fatalf("staff login: %v", err)
 	}
 	userSvc := service.NewUserService(userRepo, repository.NewPostgresRefreshTokenRepository(testDB))
-	if _, err = userSvc.Update(ctx, users[1], users[0], service.UserInput{Email: taken.Email, Role: domain.UserRolePARENT, IsActive: true}); !errors.Is(err, service.ErrConflict) {
+	if _, err = userSvc.Update(ctx, users[1], users[0], service.UserInput{Email: taken.Email,
+		Role: domain.UserRolePARENT, IsActive: true}); !errors.Is(err, service.ErrConflict) {
 		t.Fatalf("admin conflict: %v", err)
 	}
 	a, err = accountRepo.Account(ctx, users[0])
@@ -278,7 +299,8 @@ func TestParentAccountIsolationAndAudit(t *testing.T) {
 		t.Fatalf("admin conflict changed parent: %+v %v", a, err)
 	}
 	adminEmail := uuid.NewString() + "@example.org"
-	if _, err = userSvc.Update(ctx, users[1], users[0], service.UserInput{Email: adminEmail, Role: domain.UserRolePARENT, IsActive: true}); err != nil {
+	if _, err = userSvc.Update(ctx, users[1], users[0], service.UserInput{Email: adminEmail,
+		Role: domain.UserRolePARENT, IsActive: true}); err != nil {
 		t.Fatalf("admin login email: %v", err)
 	}
 	a, err = accountRepo.Account(ctx, users[0])

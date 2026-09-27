@@ -18,6 +18,7 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isAuthenticated = computed(() => !!accessToken.value);
   const isAdmin = computed(() => user.value?.role === 'ADMIN');
+  const isParent = computed(() => user.value?.role === 'PARENT');
   const isParentWork = computed(() => user.value?.role === 'PARENT_WORK');
   const canAccessFees = computed(() => isAdmin.value || user.value?.role === 'USER');
   const canAccessParentWork = computed(() => isAdmin.value || isParentWork.value);
@@ -97,6 +98,7 @@ export const useAuthStore = defineStore('auth', () => {
     user,
     isAuthenticated,
     isAdmin,
+    isParent,
     isParentWork,
     canAccessFees,
     canAccessParentWork,

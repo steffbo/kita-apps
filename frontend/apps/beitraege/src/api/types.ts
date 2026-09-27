@@ -54,6 +54,19 @@ export type UserRole = UserAccount['role'];
 export type UserAccountRequest = Schema['UserAccountRequest'];
 export type CreateUserAccountRequest = Schema['CreateUserAccountRequest'];
 
+export type OwnOverview = Schema['handler.ownOverview'];
+export type OwnChild = Schema['handler.ownChild'];
+export type OwnFees = Schema['handler.ownFees'];
+export type OwnWork = Schema['handler.ownWork'];
+export type OwnWorkEntry = Schema['handler.ownWorkEntry'];
+export type OwnWorkRequest = Schema['handler.ownWorkRequest'];
+export type ParentReport = Schema['repository.ParentReport'];
+export type ParentActivity = Schema['repository.Activity'];
+export type DataChange = Schema['repository.DataChange'];
+export type OwnContactRequest = Schema['handler.ownContactRequest'];
+export type OwnChildRequest = Schema['service.OwnChildInput'];
+export type ReportRequest = Schema['service.ReportInput'];
+
 // ── Reminder settings and runs ───────────────────────────────────────────────
 export type ReminderPaymentSettings = Schema['handler.ReminderPaymentSettingsPayload'];
 export type ReminderSettingsResponse = 

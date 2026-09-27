@@ -85,7 +85,11 @@ async function submit() {
             <option value="USER">Benutzer</option>
             <option value="ADMIN">Administrator</option>
             <option value="PARENT_WORK">Elternstunden</option>
+            <option value="PARENT">Eltern</option>
           </select>
+          <span v-if="role === 'PARENT'" class="mt-1 block text-xs text-muted-foreground">
+            Das Konto wird über die E-Mail-Adresse mit dem Elternteil verknüpft.
+          </span>
           <span class="mt-1 block text-xs text-muted-foreground">
             Administratoren dürfen zusätzlich Benutzer, Beitragsordnung, Erinnerungen und Bankabruf verwalten.
           </span>

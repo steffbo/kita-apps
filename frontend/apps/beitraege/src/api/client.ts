@@ -86,6 +86,8 @@ import type {
   BoardTerm, BoardTermRequest, ParentWorkRule, ParentWorkRuleRequest,
   ParentWorkImportParseResult, ParentWorkImportPreviewRow, ParentWorkImportExecuteRow,
   ParentWorkImportExecuteResult,
+  OwnOverview, OwnFees, OwnWork, OwnWorkEntry, OwnWorkRequest, OwnChild, OwnChildRequest,
+  OwnContactRequest, ParentReport, ParentActivity, DataChange, ReportRequest,
 } from './types';
 import { ReminderCaseConflictError } from './types';
 import { todayISO } from '@/utils/format';
@@ -210,6 +212,50 @@ class ApiClient {
     return this.request<RefreshResponse>('/auth/change-password', {
       method: 'POST',
       body: JSON.stringify(data),
+    });
+  }
+
+  // Elternkonto und Admin-Prüfung
+  getOwnOverview(): Promise<OwnOverview> { return this.request('/me'); }
+  getOwnFees(year: number): Promise<OwnFees> { return this.request(`/me/fees?year=${year}`); }
+  getOwnWork(year?: number): Promise<OwnWork> {
+    return this.request(`/me/parent-work${year ? `?year=${year}` : ''}`);
+  }
+  submitOwnWork(data: OwnWorkRequest): Promise<OwnWorkEntry> {
+    return this.request('/me/parent-work/entries', { method: 'POST', body: JSON.stringify(data) });
+  }
+  withdrawOwnWork(id: string): Promise<OwnWorkEntry> {
+    return this.request(`/me/parent-work/entries/${encodeURIComponent(id)}/withdraw`, { method: 'POST' });
+  }
+  updateOwnContact(data: OwnContactRequest): Promise<void> {
+    return this.request('/me/contact', { method: 'PUT', body: JSON.stringify(data) });
+  }
+  updateOwnChild(id: string, data: OwnChildRequest): Promise<OwnChild> {
+    return this.request(`/me/children/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(data) });
+  }
+  getOwnReports(): Promise<ParentReport[]> { return this.request('/me/reports'); }
+  createOwnReport(data: ReportRequest): Promise<ParentReport> {
+    return this.request('/me/reports', { method: 'POST', body: JSON.stringify(data) });
+  }
+  getParentReports(status: 'OPEN' | 'DONE' | 'ALL'): Promise<ParentReport[]> {
+    return this.request(`/parent-reports?status=${status}`);
+  }
+  resolveParentReport(id: string): Promise<ParentReport> {
+    return this.request(`/parent-reports/${encodeURIComponent(id)}/resolve`, { method: 'POST' });
+  }
+  getParentActivity(): Promise<ParentActivity[]> { return this.request('/activity?limit=15'); }
+  getParentChanges(id: string): Promise<DataChange[]> {
+    return this.request(`/parents/${encodeURIComponent(id)}/changes`);
+  }
+  getChildChanges(id: string): Promise<DataChange[]> {
+    return this.request(`/children/${encodeURIComponent(id)}/changes`);
+  }
+  approveParentWorkEntry(id: string): Promise<ParentWorkEntry> {
+    return this.request(`/parent-work/entries/${encodeURIComponent(id)}/approve`, { method: 'POST' });
+  }
+  rejectParentWorkEntry(id: string, reason: string): Promise<ParentWorkEntry> {
+    return this.request(`/parent-work/entries/${encodeURIComponent(id)}/reject`, {
+      method: 'POST', body: JSON.stringify({ reason }),
     });
   }
 

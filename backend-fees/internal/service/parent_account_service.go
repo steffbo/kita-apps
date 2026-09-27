@@ -20,7 +20,8 @@ type ParentAccountService struct {
 	work     *ParentWorkService
 }
 
-func NewParentAccountService(accounts *repository.ParentAccountRepository, work *ParentWorkService) *ParentAccountService {
+func NewParentAccountService(accounts *repository.ParentAccountRepository,
+	work *ParentWorkService) *ParentAccountService {
 	return &ParentAccountService{accounts: accounts, work: work}
 }
 func mapAccountError(err error) error {
@@ -35,14 +36,16 @@ func mapAccountError(err error) error {
 		return err
 	}
 }
-func (s *ParentAccountService) Account(ctx context.Context, userID uuid.UUID) (*repository.ParentAccount, error) {
+func (s *ParentAccountService) Account(ctx context.Context, userID uuid.UUID) (*repository.ParentAccount,
+	error) {
 	account, err := s.accounts.Account(ctx, userID)
 	if errors.Is(err, repository.ErrNotFound) {
 		return nil, fmt.Errorf("%w: Konto ist keinem Elternteil zugeordnet", ErrConflict)
 	}
 	return account, mapAccountError(err)
 }
-func (s *ParentAccountService) Overview(ctx context.Context, userID uuid.UUID) (*repository.ParentAccount, []domain.Parent, []domain.Child, error) {
+func (s *ParentAccountService) Overview(ctx context.Context,
+	userID uuid.UUID) (*repository.ParentAccount, []domain.Parent, []domain.Child, error) {
 	account, err := s.Account(ctx, userID)
 	if err != nil {
 		return nil, nil, nil, err
@@ -54,7 +57,8 @@ func (s *ParentAccountService) Overview(ctx context.Context, userID uuid.UUID) (
 	children, err := s.accounts.Children(ctx, account.Parent)
 	return account, others, children, err
 }
-func (s *ParentAccountService) Fees(ctx context.Context, userID uuid.UUID, year int) ([]repository.ParentFeeRow, float64, float64, error) {
+func (s *ParentAccountService) Fees(ctx context.Context, userID uuid.UUID,
+	year int) ([]repository.ParentFeeRow, float64, float64, error) {
 	account, err := s.Account(ctx, userID)
 	if err != nil {
 		return nil, 0, 0, err
@@ -70,7 +74,8 @@ func (s *ParentAccountService) Fees(ctx context.Context, userID uuid.UUID, year 
 	}
 	return rows, domain.Euros(open), domain.Euros(paid), nil
 }
-func (s *ParentAccountService) Work(ctx context.Context, userID uuid.UUID, year int) (*ParentWorkDetail, error) {
+func (s *ParentAccountService) Work(ctx context.Context, userID uuid.UUID, year int) (*ParentWorkDetail,
+	error) {
 	account, err := s.Account(ctx, userID)
 	if err != nil {
 		return nil, err
@@ -80,7 +85,8 @@ func (s *ParentAccountService) Work(ctx context.Context, userID uuid.UUID, year 
 	}
 	return s.work.Detail(ctx, account.Household.ID, year)
 }
-func (s *ParentAccountService) Submit(ctx context.Context, userID uuid.UUID, v domain.ParentWorkEntry) (*domain.ParentWorkEntry, error) {
+func (s *ParentAccountService) Submit(ctx context.Context, userID uuid.UUID,
+	v domain.ParentWorkEntry) (*domain.ParentWorkEntry, error) {
 	account, err := s.Account(ctx, userID)
 	if err != nil {
 		return nil, err
@@ -91,7 +97,8 @@ func (s *ParentAccountService) Submit(ctx context.Context, userID uuid.UUID, v d
 	v.HouseholdID = account.Household.ID
 	return s.work.SubmitParentEntry(ctx, v, userID)
 }
-func (s *ParentAccountService) Withdraw(ctx context.Context, userID, id uuid.UUID) (*domain.ParentWorkEntry, error) {
+func (s *ParentAccountService) Withdraw(ctx context.Context, userID,
+	id uuid.UUID) (*domain.ParentWorkEntry, error) {
 	account, err := s.Account(ctx, userID)
 	if err != nil {
 		return nil, err
@@ -111,14 +118,17 @@ func cleanContact(v *string) *string {
 	}
 	return &x
 }
-func (s *ParentAccountService) Contact(ctx context.Context, userID uuid.UUID, updates map[string]*string) (*domain.Parent, error) {
+func (s *ParentAccountService) Contact(ctx context.Context, userID uuid.UUID,
+	updates map[string]*string) (*domain.Parent, error) {
 	account, err := s.Account(ctx, userID)
 	if err != nil {
 		return nil, err
 	}
 	p := account.Parent
-	fields := map[string]*string{"email": p.Email, "phone": p.Phone, "street": p.Street, "street_no": p.StreetNo, "postal_code": p.PostalCode, "city": p.City}
-	names := map[string]string{"email": "email", "phone": "phone", "street": "street", "streetNo": "street_no", "postalCode": "postal_code", "city": "city"}
+	fields := map[string]*string{"email": p.Email, "phone": p.Phone, "street": p.Street,
+		"street_no": p.StreetNo, "postal_code": p.PostalCode, "city": p.City}
+	names := map[string]string{"email": "email", "phone": "phone", "street": "street",
+		"streetNo": "street_no", "postalCode": "postal_code", "city": "city"}
 	for name, value := range updates {
 		key, ok := names[name]
 		if !ok {
@@ -153,7 +163,8 @@ type OwnChildInput struct {
 	City       *string `json:"city" binding:"optional"`
 }
 
-func (s *ParentAccountService) UpdateChild(ctx context.Context, userID, childID uuid.UUID, in OwnChildInput) (*domain.Child, error) {
+func (s *ParentAccountService) UpdateChild(ctx context.Context, userID, childID uuid.UUID,
+	in OwnChildInput) (*domain.Child, error) {
 	account, err := s.Account(ctx, userID)
 	if err != nil {
 		return nil, err
@@ -182,7 +193,8 @@ func (s *ParentAccountService) UpdateChild(ctx context.Context, userID, childID 
 		return nil, fmt.Errorf("%w: Pflichtfelder oder Geburtsdatum ungültig", ErrInvalidInput)
 	}
 	child.FirstName, child.LastName, child.BirthDate = in.FirstName, in.LastName, birth
-	child.Street, child.StreetNo, child.PostalCode, child.City = cleanContact(in.Street), cleanContact(in.StreetNo), cleanContact(in.PostalCode), cleanContact(in.City)
+	child.Street, child.StreetNo, child.PostalCode, child.City = cleanContact(in.Street),
+		cleanContact(in.StreetNo), cleanContact(in.PostalCode), cleanContact(in.City)
 	if err = s.accounts.SaveChild(ctx, child, account.Parent.ID, userID); err != nil {
 		return nil, mapAccountError(err)
 	}
@@ -195,7 +207,8 @@ type ReportInput struct {
 	Message     string     `json:"message"`
 }
 
-func (s *ParentAccountService) CreateReport(ctx context.Context, userID uuid.UUID, in ReportInput) (*repository.ParentReport, error) {
+func (s *ParentAccountService) CreateReport(ctx context.Context, userID uuid.UUID,
+	in ReportInput) (*repository.ParentReport, error) {
 	account, err := s.Account(ctx, userID)
 	if err != nil {
 		return nil, err
@@ -224,13 +237,16 @@ func (s *ParentAccountService) CreateReport(ctx context.Context, userID uuid.UUI
 			return nil, ErrNotFound
 		}
 	}
-	v := &repository.ParentReport{ParentID: account.Parent.ID, UserID: &userID, HouseholdID: account.Household.ID, Topic: in.Topic, ReferenceID: in.ReferenceID, Message: in.Message}
+	v := &repository.ParentReport{ParentID: account.Parent.ID, UserID: &userID,
+		HouseholdID: account.Household.ID, Topic: in.Topic, ReferenceID: in.ReferenceID,
+		Message: in.Message}
 	if err = s.accounts.CreateReport(ctx, v); err != nil {
 		return nil, err
 	}
 	return v, nil
 }
-func (s *ParentAccountService) OwnReports(ctx context.Context, userID uuid.UUID) ([]repository.ParentReport, error) {
+func (s *ParentAccountService) OwnReports(ctx context.Context,
+	userID uuid.UUID) ([]repository.ParentReport, error) {
 	account, err := s.Account(ctx, userID)
 	if err != nil {
 		return nil, err
@@ -240,7 +256,8 @@ func (s *ParentAccountService) OwnReports(ctx context.Context, userID uuid.UUID)
 	}
 	return s.accounts.OwnReports(ctx, account.Household.ID)
 }
-func (s *ParentAccountService) StaffReports(ctx context.Context, status string) ([]repository.ParentReport, error) {
+func (s *ParentAccountService) StaffReports(ctx context.Context,
+	status string) ([]repository.ParentReport, error) {
 	if status == "" {
 		status = "OPEN"
 	}
@@ -249,11 +266,13 @@ func (s *ParentAccountService) StaffReports(ctx context.Context, status string) 
 	}
 	return s.accounts.StaffReports(ctx, status)
 }
-func (s *ParentAccountService) ResolveReport(ctx context.Context, id, userID uuid.UUID) (*repository.ParentReport, error) {
+func (s *ParentAccountService) ResolveReport(ctx context.Context, id,
+	userID uuid.UUID) (*repository.ParentReport, error) {
 	v, err := s.accounts.ResolveReport(ctx, id, userID)
 	return v, mapAccountError(err)
 }
-func (s *ParentAccountService) Changes(ctx context.Context, entityType string, id uuid.UUID) ([]repository.DataChange, error) {
+func (s *ParentAccountService) Changes(ctx context.Context, entityType string,
+	id uuid.UUID) ([]repository.DataChange, error) {
 	return s.accounts.Changes(ctx, entityType, id)
 }
 func (s *ParentAccountService) Activity(ctx context.Context, limit int) ([]repository.Activity, error) {

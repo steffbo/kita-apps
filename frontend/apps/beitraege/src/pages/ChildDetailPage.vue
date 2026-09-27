@@ -2,6 +2,8 @@
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api';
+import ChangeHistory from '@/components/family/ChangeHistory.vue';
+import { useAuthStore } from '@/stores/auth';
 import type {
   CareHoursHistoryEntry,
   Child,
@@ -59,6 +61,7 @@ import {
   isUnderThree,
 } from '@/utils/child';
 
+const authStore = useAuthStore();
 const route = useRoute();
 const router = useRouter();
 
@@ -561,6 +564,7 @@ async function createReminder() {
 </script>
 
 <template>
+  <ChangeHistory v-if="authStore.isAdmin" kind="child" :id="String(route.params.id)" />
   <div>
     <!-- Back button -->
     <button

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { api } from '@/api';
+import ActivityCard from '@/components/family/ActivityCard.vue';
 import { useAuthStore } from '@/stores/auth';
 import type { FeeOverview, StichtagsmeldungReport, StichtagsmeldungStats, U3ChildDetail, BankingSyncStatus } from '@/api/types';
 import {
@@ -245,6 +246,8 @@ function formatHoursLabel(hours: number | null | undefined): string {
       <h1 class="text-2xl font-bold text-foreground">Dashboard</h1>
       <p class="text-muted-foreground mt-1">Übersicht der Beitragszahlungen</p>
     </div>
+
+    <ActivityCard v-if="authStore.isAdmin" class="mb-6" />
 
     <!-- Loading state -->
     <div v-if="isLoading" class="flex items-center justify-center py-12">

@@ -20,7 +20,8 @@ import (
 
 type ParentAccountHandler struct{ svc *service.ParentAccountService }
 
-func NewParentAccountHandler(accounts *repository.ParentAccountRepository, work *service.ParentWorkService) *ParentAccountHandler {
+func NewParentAccountHandler(accounts *repository.ParentAccountRepository,
+	work *service.ParentWorkService) *ParentAccountHandler {
 	return &ParentAccountHandler{svc: service.NewParentAccountService(accounts, work)}
 }
 func parentAccountError(w http.ResponseWriter, err error) {
@@ -142,13 +143,16 @@ type ownContactRequest struct {
 }
 
 func ownParentFrom(p domain.Parent) ownParent {
-	return ownParent{p.ID, p.FirstName, p.LastName, p.Email, p.Phone, p.Street, p.StreetNo, p.PostalCode, p.City}
+	return ownParent{p.ID, p.FirstName, p.LastName, p.Email, p.Phone, p.Street, p.StreetNo, p.PostalCode,
+		p.City}
 }
 func ownChildFrom(v domain.Child) ownChild {
-	return ownChild{v.ID, v.FirstName, v.LastName, v.BirthDate, v.EntryDate, v.ExitDate, v.CareHours, v.MemberNumber, v.Street, v.StreetNo, v.PostalCode, v.City, v.LegalHours}
+	return ownChild{v.ID, v.FirstName, v.LastName, v.BirthDate, v.EntryDate, v.ExitDate, v.CareHours,
+		v.MemberNumber, v.Street, v.StreetNo, v.PostalCode, v.City, v.LegalHours}
 }
 func ownWorkEntryFrom(v *domain.ParentWorkEntry) ownWorkEntry {
-	return ownWorkEntry{v.ID, v.WorkDate, v.DurationMinutes, v.Occasion, v.MemberName, v.ChildName, v.Status, v.Source, v.RejectReason, v.VoidReason}
+	return ownWorkEntry{v.ID, v.WorkDate, v.DurationMinutes, v.Occasion, v.MemberName, v.ChildName,
+		v.Status, v.Source, v.RejectReason, v.VoidReason}
 }
 
 // Me handles GET /me.
@@ -167,7 +171,8 @@ func (h *ParentAccountHandler) Me(w http.ResponseWriter, r *http.Request) {
 		parentAccountError(w, err)
 		return
 	}
-	out := ownOverview{Parent: ownParentFrom(account.Parent), OtherParents: []ownOtherParent{}, Children: []ownChild{}}
+	out := ownOverview{Parent: ownParentFrom(account.Parent), OtherParents: []ownOtherParent{},
+		Children: []ownChild{}}
 	if account.Household != nil {
 		out.Household = &ownHousehold{account.Household.ID, account.Household.Name}
 	}
@@ -225,7 +230,9 @@ func (h *ParentAccountHandler) ParentWork(w http.ResponseWriter, r *http.Request
 		parentAccountError(w, err)
 		return
 	}
-	out := ownWork{detail.RequiredMinutes, detail.DoneMinutes, detail.OpenMinutes, detail.CarryInMinutes, detail.CarryOutMinutes, detail.MissingAmountCents, detail.ExemptReason != nil, nil, []ownWorkEntry{}}
+	out := ownWork{detail.RequiredMinutes, detail.DoneMinutes, detail.OpenMinutes, detail.CarryInMinutes,
+		detail.CarryOutMinutes, detail.MissingAmountCents, detail.ExemptReason != nil, nil,
+		[]ownWorkEntry{}}
 	if out.Exempt {
 		label := "Befreit"
 		out.ExemptText = &label
@@ -258,7 +265,9 @@ func (h *ParentAccountHandler) SubmitEntry(w http.ResponseWriter, r *http.Reques
 		response.BadRequest(w, "Ungültiges Arbeitsdatum")
 		return
 	}
-	v, err := h.svc.Submit(r.Context(), id, domain.ParentWorkEntry{WorkDate: date, DurationMinutes: req.DurationMinutes, Occasion: req.Occasion, MemberName: req.MemberName, ChildName: req.ChildName})
+	v, err := h.svc.Submit(r.Context(), id, domain.ParentWorkEntry{WorkDate: date,
+		DurationMinutes: req.DurationMinutes, Occasion: req.Occasion, MemberName: req.MemberName,
+		ChildName: req.ChildName})
 	if err != nil {
 		parentAccountError(w, err)
 		return

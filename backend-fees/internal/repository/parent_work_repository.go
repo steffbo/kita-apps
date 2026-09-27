@@ -162,7 +162,8 @@ func (r *PostgresParentWorkRepository) SaveEntry(ctx context.Context, v *domain.
              status,void_reason,reject_reason,source,created_by,updated_by,created_at,updated_at)
             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
 			v.ID, v.HouseholdID, v.WorkDate, v.DurationMinutes, v.Occasion, v.MemberName, v.ChildName,
-			v.Status, v.VoidReason, v.RejectReason, v.Source, v.CreatedBy, v.UpdatedBy, v.CreatedAt, v.UpdatedAt)
+			v.Status, v.VoidReason, v.RejectReason, v.Source, v.CreatedBy, v.UpdatedBy, v.CreatedAt,
+			v.UpdatedAt)
 		return err
 	}
 	result, err := conn(ctx, r.db).ExecContext(ctx, `UPDATE fees.parent_work_entries SET
