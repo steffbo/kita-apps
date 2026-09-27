@@ -33,11 +33,40 @@ Status: umgesetzt.
 Alle Seiten/Komponenten von festen `gray-*`/`white`-Klassen auf Tokens (`bg-card`, `text-muted-foreground`,
 `border-border` …) umstellen, Statusfarben mit `dark:`-Varianten. Ziel: jede Seite in Dunkel lesbar.
 
-## Etappe 2: Eltern-Rolle und Eltern-Oberfläche
+## Entscheidungen Etappe 2/3 (Stefan, 2026-09-27)
 
-Offen, wird nach Etappe 1 detailliert (Verknüpfung Konto ↔ Elternteil/Haushalt, eigene Endpunkte unter
-`/me/**`, Startseite mit Kindern, Beitragsstand, Elternstunden).
+- Konto ↔ Elternteil automatisch über die E-Mail-Adresse.
+- Eltern dürfen ihre Kontaktdaten ändern, ohne Freigabe, aber mit Audit-Log. Alte Werte sieht nur der Admin.
+  Admin-Dashboard bekommt ein rein informatives Feed-Widget mit den letzten Änderungen.
+- Eltern dürfen Elternstunden melden; gemeldete Stunden zählen erst nach Bestätigung (Tim/Admin).
+- Passwörter/Zugänge werden später manuell verschickt, erst nach Umzug auf einen VPS. Jetzt nur vorbereiten.
 
-## Etappe 3: Konten für Eltern
+## Etappe 2a: Backend Eltern-Rolle
 
-Offen (Einladung per E-Mail vs. Anlage durch Admin, Passwort setzen).
+- Rolle `PARENT` (Label „Eltern“). `fees.users.parent_id` (eindeutig, `ON DELETE SET NULL`).
+  Beim Anlegen/Ändern eines `PARENT`-Kontos wird der Elternteil über die E-Mail gesucht
+  (Groß-/Kleinschreibung egal): genau einer → verknüpfen; keiner → Fehler „Kein Elternteil mit dieser
+  E-Mail“; mehrere → Konflikt. Die Verknüpfung bleibt, wenn der Elternteil später seine Kontakt-E-Mail
+  ändert (Login-E-Mail und Kontakt-E-Mail sind getrennt).
+- Endpunkte `/me/**` nur für `PARENT`, Haushalt immer serverseitig aus `parent_id` bestimmt:
+  Übersicht (eigene Kontaktdaten, Haushalt, Kinder), Beiträge des Haushalts je Jahr (offen/bezahlt),
+  Elternstunden des Haushalts je Kita-Jahr (Soll/Ist/Offen/Befreiung, Einträge), Stunden melden
+  (`SUBMITTED`, Quelle `PARENT`), eigene gemeldete Einträge zurückziehen, Kontaktdaten ändern.
+- Audit: `fees.parent_contact_changes` (Elternteil, Konto, Feld, alt, neu, Zeitpunkt), in derselben
+  Transaktion wie die Änderung. Verlauf je Elternteil und Feed nur für `ADMIN`.
+- Freigabe: gemeldete Einträge bestätigen/ablehnen (mit Grund) durch `ADMIN`/`PARENT_WORK`;
+  Übersicht zeigt Anzahl offener Meldungen.
+- Keine Einkommens-/Einstufungsdaten, keine internen Notizen, keine Override-Gründe für Eltern.
+
+## Etappe 2b: Eltern-Oberfläche und Staff-Anpassungen
+
+- Eltern-Bereich `/familie/**` im neuen Design, handytauglich: Übersicht, Beiträge, Elternstunden
+  (mit „Stunden melden“), Meine Daten. `PARENT` sieht nichts anderes.
+- Staff: Freigabe gemeldeter Stunden, Feed-Widget im Admin-Dashboard, Änderungsverlauf auf der
+  Elternteil-Seite (Admin), Rolle „Eltern“ auf der Benutzer-Seite mit Anzeige des verknüpften Elternteils.
+- e2e: Eltern-Flow (sieht nur eigenen Haushalt, meldet Stunden, ändert Kontaktdaten; Admin sieht Feed).
+
+## Etappe 3: Zugänge vorbereiten (nicht aktiv nutzen vor VPS-Umzug)
+
+Eltern-Konten gesammelt aus Elternteilen mit E-Mail anlegen (ohne Passwort), Einmal-Link zum
+Passwort-Setzen, den der Admin kopieren und manuell verschicken kann. E-Mail-Versand erst später.
