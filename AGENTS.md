@@ -32,7 +32,7 @@ Go services all follow: `cmd/server`, `cmd/migrate`, `internal/api` (handlers + 
 
 Router groups by role: fee routes `ADMIN`/`USER`, `/users` `ADMIN`, `/parent-work/**` `ADMIN`/`PARENT_WORK`
 (rules write `ADMIN`), `/me/**` `PARENT`, `/activity`, `/parent-reports/**`, `/parents/{id}/changes` and `/children/{id}/changes` `ADMIN`.
-`PARENT` is linked by login email, uses `/familie/**`, and sees its own family; linked contact and login emails stay synchronized. `PARENT_WORK` sees only `/beitraege/elternstunden/**`. Parent edits to contact and child data are audited in `fees.data_changes`; error reports live in `fees.parent_reports`.
+`PARENT` is linked by login email, uses `/familie/**`, and sees its own family (may edit the other parent's contact data, not their login email); linked contact and login emails stay synchronized. `PARENT_WORK` sees only `/beitraege/elternstunden/**`. Parent edits to contact and child data are audited in `fees.data_changes`; error reports live in `fees.parent_reports`.
 Parent work is booked per household
 (`fees.households`), stored in minutes (multiples of 15); rules (hours per child, rate per missing hour, carry-over cap)
 are versioned data in `fees.parent_work_rules`, board terms in `fees.board_terms`. Calculation:

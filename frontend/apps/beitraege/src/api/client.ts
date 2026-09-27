@@ -230,6 +230,10 @@ class ApiClient {
   updateOwnContact(data: OwnContactRequest): Promise<void> {
     return this.request('/me/contact', { method: 'PUT', body: JSON.stringify(data) });
   }
+  updateParentContact(parentId: string, data: OwnContactRequest): Promise<void> {
+    return this.request(`/me/parents/${encodeURIComponent(parentId)}/contact`,
+      { method: 'PUT', body: JSON.stringify(data) });
+  }
   updateOwnChild(id: string, data: OwnChildRequest): Promise<OwnChild> {
     return this.request(`/me/children/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(data) });
   }
@@ -240,8 +244,9 @@ class ApiClient {
   getParentReports(status: 'OPEN' | 'DONE' | 'ALL'): Promise<ParentReport[]> {
     return this.request(`/parent-reports?status=${status}`);
   }
-  resolveParentReport(id: string): Promise<ParentReport> {
-    return this.request(`/parent-reports/${encodeURIComponent(id)}/resolve`, { method: 'POST' });
+  resolveParentReport(id: string, response = ''): Promise<ParentReport> {
+    return this.request(`/parent-reports/${encodeURIComponent(id)}/resolve`,
+      { method: 'POST', body: JSON.stringify({ response }) });
   }
   getParentActivity(): Promise<ParentActivity[]> { return this.request('/activity?limit=15'); }
   getParentChanges(id: string): Promise<DataChange[]> {

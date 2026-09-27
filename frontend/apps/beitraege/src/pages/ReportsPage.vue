@@ -8,6 +8,7 @@ const status = ref<'OPEN' | 'DONE' | 'ALL'>('OPEN');
 const reports = ref<ParentReport[]>([]);
 const error = ref('');
 const feeChildren = ref<Record<string, string>>({});
+const answers = ref<Record<string, string>>({});
 async function load() {
   try {
     reports.value = await api.getParentReports(status.value);
@@ -20,7 +21,8 @@ async function load() {
 }
 onMounted(load); watch(status, load);
 async function resolve(id: string) {
-  try { await api.resolveParentReport(id); await load(); }
+  error.value = '';
+  try { await api.resolveParentReport(id, answers.value[id] ?? ''); delete answers.value[id]; await load(); }
   catch (e) { error.value = e instanceof Error ? e.message : 'Erledigen fehlgeschlagen'; }
 }
 function link(report: ParentReport) {
@@ -48,14 +50,25 @@ const topics: Record<string, string> = {
     <p v-if="error" role="alert" class="text-red-700 dark:text-red-300">{{ error }}</p>
     <p v-if="!reports.length" class="text-muted-foreground">Keine Meldungen.</p>
     <article v-for="report in reports" :key="report.id" class="rounded-2xl border bg-card p-4">
-      <div class="flex flex-wrap justify-between gap-2"><h2 class="font-bold">{{ topics[report.topic] ?? report.topic }}</h2>
-        <span>{{ report.status === 'OPEN' ? 'Offen' : 'Erledigt' }}</span></div>
+      <div class="flex items-start justify-between gap-2"><h2 class="font-bold">{{ topics[report.topic] ?? report.topic }}</h2>
+        <span class="shrink-0 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold" :class="
+          report.status === 'OPEN'
+            ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300'
+            : 'bg-green-100 text-green-800 dark:bg-green-950/40 dark:text-green-300'">
+          {{ report.status === 'OPEN' ? 'Offen' : '✓ Erledigt' }}</span></div>
       <p class="mt-2 whitespace-pre-wrap">{{ report.message }}</p>
-      <p class="mt-2 text-sm text-muted-foreground">{{ formatDate(report.createdAt) }}</p>
-      <div class="mt-3 flex gap-4 text-sm"><RouterLink :to="link(report)" class="text-primary underline">
+      <p class="mt-2 text-sm text-muted-foreground">{{ formatDate(report.createdAt) }}<template
+        v-if="report.parentName"> · von {{ report.parentName }}</template></p>
+      <p v-if="report.response" class="mt-2 rounded-lg bg-muted p-3 text-sm">
+        <span class="font-semibold">Antwort:</span> {{ report.response }}</p>
+      <label v-if="report.status === 'OPEN'" class="mt-3 block text-sm font-medium">
+        Antwort an die Eltern (optional)
+        <textarea v-model="answers[report.id]" rows="2" maxlength="2000"
+          class="mt-1 w-full rounded-lg border px-3 py-2" /></label>
+      <div class="mt-3 flex flex-wrap items-center gap-4 text-sm"><RouterLink :to="link(report)" class="text-primary underline">
         Bezug ansehen</RouterLink>
-        <button v-if="report.status === 'OPEN'" class="text-primary underline"
-          @click="resolve(report.id)">Erledigt</button></div>
+        <button v-if="report.status === 'OPEN'" class="rounded-lg bg-primary px-3 py-1.5 text-primary-foreground"
+          @click="resolve(report.id)">{{ answers[report.id]?.trim() ? 'Antworten und erledigen' : 'Erledigt' }}</button></div>
     </article>
   </div>
 </template>

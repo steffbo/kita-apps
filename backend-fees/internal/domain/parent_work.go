@@ -88,6 +88,9 @@ type ParentWorkEntry struct {
 	Source          string     `json:"source" db:"source"`
 	CreatedBy       *uuid.UUID `json:"createdBy,omitempty" db:"created_by" binding:"optional"`
 	UpdatedBy       *uuid.UUID `json:"updatedBy,omitempty" db:"updated_by" binding:"optional"`
+	ReviewedBy      *uuid.UUID `json:"reviewedBy,omitempty" db:"reviewed_by" binding:"optional"`
+	ReviewedByName  *string    `json:"reviewedByName,omitempty" db:"reviewed_by_name" binding:"optional"`
+	ReviewedAt      *time.Time `json:"reviewedAt,omitempty" db:"reviewed_at" binding:"optional"`
 	CreatedAt       time.Time  `json:"createdAt" db:"created_at"`
 	UpdatedAt       time.Time  `json:"updatedAt" db:"updated_at"`
 }

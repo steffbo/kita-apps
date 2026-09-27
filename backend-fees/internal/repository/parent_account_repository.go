@@ -55,6 +55,15 @@ func (r *ParentAccountRepository) Account(ctx context.Context, userID uuid.UUID)
 	return result, nil
 }
 
+func (r *ParentAccountRepository) Parent(ctx context.Context, id uuid.UUID) (*domain.Parent, error) {
+	var parent domain.Parent
+	err := conn(ctx, r.db).GetContext(ctx, &parent, `SELECT * FROM fees.parents WHERE id=$1`, id)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	return &parent, err
+}
+
 func (r *ParentAccountRepository) Children(ctx context.Context, parent domain.Parent) ([]domain.Child,
 	error) {
 	ids := []uuid.UUID{}
@@ -124,7 +133,7 @@ func (r *ParentAccountRepository) Fees(ctx context.Context, parent domain.Parent
         LEFT JOIN fees.payment_matches pm ON pm.expectation_id=fe.id
         WHERE fe.year=$2 AND (c.household_id=$3 OR ($3::uuid IS NULL AND EXISTS
             (SELECT 1 FROM fees.child_parents cp WHERE cp.child_id=c.id AND cp.parent_id=$1)))
-        GROUP BY fe.id,c.first_name,c.last_name ORDER BY fe.due_date,fe.id`,
+        GROUP BY fe.id,c.first_name,c.last_name ORDER BY fe.due_date DESC,fe.id DESC`,
 		parent.ID, year, parent.HouseholdID)
 	if err != nil {
 		return nil, err

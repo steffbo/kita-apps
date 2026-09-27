@@ -6157,12 +6157,7 @@ export interface paths {
                 path?: never;
                 cookie?: never;
             };
-            /** @description Kontaktdaten */
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["handler.ownContactRequest"];
-                };
-            };
+            requestBody: components["requestBodies"]["handler.ownContactRequest"];
             responses: {
                 /** @description OK */
                 200: {
@@ -6334,6 +6329,45 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/parents/{id}/contact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Kontaktdaten eines Elternteils der eigenen Familie ändern */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Elternteil */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: components["requestBodies"]["handler.ownContactRequest"];
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["handler.ownParent"];
+                    };
+                };
+            };
+        };
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -6910,7 +6944,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Fehlermeldung erledigen */
+        /** Fehlermeldung erledigen, optional mit Antwort an die Eltern */
         post: {
             parameters: {
                 query?: never;
@@ -6921,7 +6955,12 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            requestBody?: never;
+            /** @description Antwort */
+            requestBody?: {
+                content: {
+                    "application/json": components["schemas"]["handler.resolveReportRequest"];
+                };
+            };
             responses: {
                 /** @description OK */
                 200: {
@@ -10329,6 +10368,9 @@ export interface components {
             memberName?: string;
             occasion: string;
             rejectReason?: string;
+            reviewedAt?: string;
+            reviewedBy?: string;
+            reviewedByName?: string;
             source: string;
             status: string;
             updatedAt: string;
@@ -10500,8 +10542,17 @@ export interface components {
             name: string;
         };
         "handler.ownOtherParent": {
+            city?: string;
+            email?: string;
             firstName: string;
+            /** @description HasLogin marks parents whose email is their own login (read-only for the other parent). */
+            hasLogin: boolean;
+            id: string;
             lastName: string;
+            phone?: string;
+            postalCode?: string;
+            street?: string;
+            streetNo?: string;
         };
         "handler.ownOverview": {
             children: components["schemas"]["handler.ownChild"][];
@@ -10579,6 +10630,9 @@ export interface components {
         "handler.parentWorkVoidRequest": {
             reason: string;
         };
+        "handler.resolveReportRequest": {
+            response?: string;
+        };
         "repository.Activity": {
             at: string;
             childId?: string;
@@ -10595,6 +10649,7 @@ export interface components {
             parentName?: string;
             reportId?: string;
             status?: string;
+            targetName?: string;
             topic?: string;
             type: string;
         };
@@ -10627,9 +10682,12 @@ export interface components {
             id: string;
             message: string;
             parentId: string;
+            parentName?: string;
             referenceId?: string;
             resolvedAt?: string;
             resolvedBy?: string;
+            /** @description Response is the optional answer shown to the household's parents. */
+            response?: string;
             status: string;
             topic: string;
             userId?: string;
@@ -10928,6 +10986,12 @@ export interface components {
                      */
                     file: string;
                 };
+            };
+        };
+        /** @description Kontaktdaten */
+        "handler.ownContactRequest": {
+            content: {
+                "application/json": components["schemas"]["handler.ownContactRequest"];
             };
         };
         /** @description Amt */

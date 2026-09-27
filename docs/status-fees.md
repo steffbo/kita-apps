@@ -3,6 +3,24 @@
 Rolling change log of non-obvious implementation decisions. Newest first.
 Basics (ports, commands, layout) live in `AGENTS.md`.
 
+## Eltern-Zugang: Rückmeldungen aus dem ersten Test (2026-09-27)
+
+- Migration `000041`: `parent_reports.response` (optionale Antwort des Admins beim Erledigen,
+  `POST /parent-reports/{id}/resolve` mit `{response}`) und `parent_work_entries.reviewed_by/_at`.
+  `updated_by` reicht nicht als Nachweis der Freigabe, weil jede spätere Bearbeitung ihn überschreibt;
+  `reviewed_*` setzt nur Bestätigen/Ablehnen, Bearbeiten übernimmt die Werte. Bereits geprüfte
+  Eltern-Meldungen wurden aus `updated_by/updated_at` nachgetragen (beste verfügbare Angabe).
+  Die Familienseite (Staff) zeigt „von {Name}, {Datum}“; Eltern bekommen den Namen nicht.
+- Meldungen sehen beide Elternteile des Haushalts (mit Absender, Status und Antwort), sonst nur Admins.
+  Die Übersicht zeigt offene Meldungen und Antworten der letzten 30 Tage, „Meine Daten“ alle.
+  Im Admin-Feed tragen erledigte Meldungen und geprüfte Stunden einen Haken und ihren Status.
+- Eltern dürfen die Kontaktdaten des anderen Elternteils im Haushalt ändern
+  (`PUT /me/parents/{id}/contact`, Audit mit handelndem Elternteil). Die E-Mail des anderen bleibt
+  gesperrt, sobald sie dessen Login ist (sonst könnte ein Elternteil das fremde Login übernehmen).
+  `/me` liefert `otherParents` deshalb mit Kontaktdaten und `hasLogin`. Der Feed nennt bei Kind- und
+  Fremdänderungen, wessen Daten geändert wurden; Feldnamen sind deutsch (`street_no` → Hausnummer).
+- Beiträge der Eltern: neueste zuerst, Jahresauswahl ab 2025 (davor gibt es keine Daten im Portal).
+
 ## Eltern-Zugang, Etappe 2b (2026-09-27)
 
 - `PARENT` nutzt `/familie/**` mit direktem Menü für Übersicht, Beiträge, Elternstunden und Daten.

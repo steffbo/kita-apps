@@ -572,7 +572,8 @@ func (s *ParentWorkService) ReviewEntry(ctx context.Context, id uuid.UUID, appro
 		}
 		v.Status, v.RejectReason = domain.ParentWorkStatusRejected, &reason
 	}
-	v.UpdatedBy = &userID
+	now := util.Now()
+	v.UpdatedBy, v.ReviewedBy, v.ReviewedAt = &userID, &userID, &now
 	if err := s.repo.SaveEntry(ctx, v); err != nil {
 		return nil, err
 	}
@@ -679,6 +680,7 @@ func (s *ParentWorkService) SaveEntry(ctx context.Context, id uuid.UUID, v domai
 		v.CreatedAt = existing.CreatedAt
 		v.CreatedBy = existing.CreatedBy
 		v.Source = existing.Source
+		v.ReviewedBy, v.ReviewedAt = existing.ReviewedBy, existing.ReviewedAt
 		if v.Status == "" {
 			v.Status = existing.Status
 		}

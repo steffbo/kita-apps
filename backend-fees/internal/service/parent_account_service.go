@@ -124,7 +124,34 @@ func (s *ParentAccountService) Contact(ctx context.Context, userID uuid.UUID,
 	if err != nil {
 		return nil, err
 	}
-	p := account.Parent
+	return s.ParentContact(ctx, userID, account.Parent.ID, updates)
+}
+
+// ParentContact changes the contact data of the own parent or another parent of the household.
+// Another parent's email stays untouched while it is that parent's login.
+func (s *ParentAccountService) ParentContact(ctx context.Context, userID, parentID uuid.UUID,
+	updates map[string]*string) (*domain.Parent, error) {
+	account, err := s.Account(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	target := &account.Parent
+	if parentID != account.Parent.ID {
+		others, err := s.accounts.OtherParents(ctx, account.Parent)
+		if err != nil {
+			return nil, err
+		}
+		target = nil
+		for i := range others {
+			if others[i].ID == parentID {
+				target = &others[i]
+			}
+		}
+		if target == nil {
+			return nil, ErrNotFound
+		}
+	}
+	p := *target
 	fields := map[string]*string{"email": p.Email, "phone": p.Phone, "street": p.Street,
 		"street_no": p.StreetNo, "postal_code": p.PostalCode, "city": p.City}
 	names := map[string]string{"email": "email", "phone": "phone", "street": "street",
@@ -143,14 +170,30 @@ func (s *ParentAccountService) Contact(ctx context.Context, userID uuid.UUID,
 			return nil, fmt.Errorf("%w: Ungültige E-Mail-Adresse", ErrInvalidInput)
 		}
 	}
-	if err = s.accounts.SaveContact(ctx, p.ID, userID, fields); err != nil {
+	if p.ID == account.Parent.ID {
+		err = s.accounts.SaveContact(ctx, p.ID, userID, fields)
+	} else {
+		hasLogin, e := s.accounts.HasLogin(ctx, p.ID)
+		if e != nil {
+			return nil, e
+		}
+		if hasLogin && !sameContact(p.Email, email) {
+			return nil, fmt.Errorf("%w: Die E-Mail-Adresse ist das Login von %s und kann nur dort "+
+				"geändert werden", ErrInvalidInput, p.FirstName)
+		}
+		err = s.accounts.SaveContactAs(ctx, p.ID, userID, account.Parent.ID, fields)
+	}
+	if err != nil {
 		return nil, mapAccountError(err)
 	}
-	account, err = s.Account(ctx, userID)
-	if err != nil {
-		return nil, err
-	}
-	return &account.Parent, nil
+	return s.accounts.Parent(ctx, p.ID)
+}
+
+func sameContact(a, b *string) bool { return a == nil && b == nil || a != nil && b != nil && *a == *b }
+
+// HasLogin reports whether the parent has a linked login.
+func (s *ParentAccountService) HasLogin(ctx context.Context, parentID uuid.UUID) (bool, error) {
+	return s.accounts.HasLogin(ctx, parentID)
 }
 
 type OwnChildInput struct {
@@ -267,8 +310,16 @@ func (s *ParentAccountService) StaffReports(ctx context.Context,
 	return s.accounts.StaffReports(ctx, status)
 }
 func (s *ParentAccountService) ResolveReport(ctx context.Context, id,
-	userID uuid.UUID) (*repository.ParentReport, error) {
-	v, err := s.accounts.ResolveReport(ctx, id, userID)
+	userID uuid.UUID, response string) (*repository.ParentReport, error) {
+	response = strings.TrimSpace(response)
+	if utf8.RuneCountInString(response) > 2000 {
+		return nil, fmt.Errorf("%w: Antwort darf höchstens 2000 Zeichen enthalten", ErrInvalidInput)
+	}
+	var answer *string
+	if response != "" {
+		answer = &response
+	}
+	v, err := s.accounts.ResolveReport(ctx, id, userID, answer)
 	return v, mapAccountError(err)
 }
 func (s *ParentAccountService) Changes(ctx context.Context, entityType string,

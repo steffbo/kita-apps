@@ -22,6 +22,9 @@ type ParentReport struct {
 	CreatedAt   time.Time  `json:"createdAt" db:"created_at"`
 	ResolvedAt  *time.Time `json:"resolvedAt" db:"resolved_at" binding:"optional"`
 	ResolvedBy  *uuid.UUID `json:"resolvedBy" db:"resolved_by" binding:"optional"`
+	// Response is the optional answer shown to the household's parents.
+	Response   *string `json:"response" db:"response" binding:"optional"`
+	ParentName *string `json:"parentName" db:"parent_name" binding:"optional"`
 }
 
 func (r *ParentAccountRepository) ReferenceBelongs(ctx context.Context, topic string, id,
@@ -67,24 +70,26 @@ func (r *ParentAccountRepository) OwnReports(ctx context.Context, householdID uu
 	error) {
 	out := []ParentReport{}
 	err := conn(ctx, r.db).SelectContext(ctx, &out,
-		`SELECT * FROM fees.parent_reports WHERE household_id=$1 ORDER BY created_at DESC,id DESC`,
+		`SELECT r.*,p.first_name||' '||p.last_name AS parent_name FROM fees.parent_reports r
+	JOIN fees.parents p ON p.id=r.parent_id WHERE r.household_id=$1 ORDER BY r.created_at DESC,r.id DESC`,
 		householdID)
 	return out, err
 }
 func (r *ParentAccountRepository) StaffReports(ctx context.Context, status string) ([]ParentReport, error) {
 	out := []ParentReport{}
 	err := conn(ctx, r.db).SelectContext(ctx, &out,
-		`SELECT * FROM fees.parent_reports WHERE $1='ALL' OR status=$1 ORDER BY created_at DESC,id DESC`,
+		`SELECT r.*,p.first_name||' '||p.last_name AS parent_name FROM fees.parent_reports r
+	JOIN fees.parents p ON p.id=r.parent_id WHERE $1='ALL' OR r.status=$1 ORDER BY r.created_at DESC,r.id DESC`,
 		status)
 	return out, err
 }
 func (r *ParentAccountRepository) ResolveReport(ctx context.Context, id,
-	userID uuid.UUID) (*ParentReport, error) {
+	userID uuid.UUID, response *string) (*ParentReport, error) {
 	var v ParentReport
 	err := conn(ctx, r.db).GetContext(ctx, &v,
-		`UPDATE fees.parent_reports SET status='DONE',resolved_at=$2,resolved_by=$3 WHERE id=$1 AND
-	status='OPEN' RETURNING *
-	`, id, util.Now(), userID)
+		`UPDATE fees.parent_reports SET status='DONE',resolved_at=$2,resolved_by=$3,response=$4 WHERE
+	id=$1 AND status='OPEN' RETURNING *
+	`, id, util.Now(), userID, response)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}

@@ -91,11 +91,11 @@ async function confirmWithdraw() {
       <h2 class="text-lg font-bold">Einträge</h2>
       <p v-if="!work.entries.length" class="text-muted-foreground">Noch keine Einträge.</p>
       <article v-for="entry in work.entries" :key="entry.id" class="rounded-2xl border bg-card p-4">
-        <div class="flex flex-wrap justify-between gap-2">
+        <div class="flex items-start justify-between gap-3">
           <div><h3 class="font-bold">{{ entry.occasion }}</h3>
             <p class="text-sm">{{ formatDate(entry.workDate) }} · {{ formatHours(entry.durationMinutes) }}</p>
             <p v-if="entry.childName" class="text-sm">{{ entry.childName }}</p></div>
-          <span class="rounded-full px-2 py-1 text-xs font-semibold" :class="
+          <span class="shrink-0 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold" :class="
             entry.status === 'APPROVED'
               ? 'bg-green-100 text-green-800 dark:bg-green-950/40 dark:text-green-300'
               : entry.status === 'REJECTED'

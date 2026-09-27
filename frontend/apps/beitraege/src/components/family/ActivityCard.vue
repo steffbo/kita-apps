@@ -5,10 +5,14 @@ import { api } from '@/api';
 import type { ParentActivity } from '@/api/types';
 const activity = ref<ParentActivity[]>([]);
 const error = ref('');
+// Keys are the database column names stored in fees.data_changes.field.
 const fields: Record<string, string> = {
-  phone: 'Telefon', email: 'E-Mail', street: 'Straße', streetNo: 'Hausnummer',
-  postalCode: 'PLZ', city: 'Ort', firstName: 'Vorname', lastName: 'Nachname',
-  birthDate: 'Geburtsdatum',
+  phone: 'Telefon', email: 'E-Mail', street: 'Straße', street_no: 'Hausnummer',
+  postal_code: 'PLZ', city: 'Ort', first_name: 'Vorname', last_name: 'Nachname',
+  birth_date: 'Geburtsdatum',
+};
+const workStatus: Record<string, string> = {
+  APPROVED: 'bestätigt', REJECTED: 'abgelehnt', VOIDED: 'zurückgezogen',
 };
 onMounted(async () => {
   try { activity.value = await api.getParentActivity(); }
@@ -17,7 +21,8 @@ onMounted(async () => {
 function text(item: ParentActivity) {
   const who = item.parentName ?? 'Ein Elternteil';
   if (item.type === 'CONTACT_CHANGED' || item.type === 'CHILD_CHANGED') {
-    return `${who} hat ${fields[item.field ?? ''] ?? item.field} geändert: `
+    const whose = item.childName ?? item.targetName;
+    return `${who} hat ${whose ? `bei ${whose} ` : ''}${fields[item.field ?? ''] ?? item.field} geändert: `
       + `${item.oldValue || '—'} → ${item.newValue || '—'}`;
   }
   if (item.type === 'PARENT_WORK_SUBMITTED') {
@@ -33,6 +38,15 @@ function link(item: ParentActivity) {
   }
   if (item.type === 'REPORT_CREATED') return '/meldungen';
   return `/eltern/${item.parentId}`;
+}
+function done(item: ParentActivity) {
+  return item.type === 'REPORT_CREATED' ? item.status === 'DONE'
+    : item.type === 'PARENT_WORK_SUBMITTED' && item.status !== 'SUBMITTED';
+}
+function outcome(item: ParentActivity) {
+  if (item.type === 'REPORT_CREATED') return item.status === 'DONE' ? 'erledigt' : 'offen';
+  if (item.type === 'PARENT_WORK_SUBMITTED') return workStatus[item.status ?? ''] ?? 'wartet auf Freigabe';
+  return '';
 }
 function relative(date: string) {
   const minutes = Math.max(0, Math.floor((Date.now() - new Date(date).getTime()) / 60000));
@@ -50,10 +64,13 @@ function relative(date: string) {
     <p v-else-if="!activity.length" class="mt-3 text-sm text-muted-foreground">Noch keine Aktivitäten.</p>
     <ul class="mt-3 space-y-3"><li v-for="(item, index) in activity" :key="index"
       class="flex gap-3 border-t pt-3 text-sm">
-      <span aria-hidden="true">{{ item.type === 'REPORT_CREATED' ? '⚑' :
-        item.type === 'PARENT_WORK_SUBMITTED' ? '◷' : '✎' }}</span>
-      <div><RouterLink :to="link(item)" class="text-primary underline">{{ text(item) }}</RouterLink>
-        <p class="text-xs text-muted-foreground">{{ relative(item.at) }}</p></div>
+      <span aria-hidden="true" :class="done(item) ? 'text-green-700 dark:text-green-400' : ''">{{
+        done(item) ? '✓' : item.type === 'REPORT_CREATED' ? '⚑' :
+          item.type === 'PARENT_WORK_SUBMITTED' ? '◷' : '✎' }}</span>
+      <div><RouterLink :to="link(item)" class="underline"
+        :class="done(item) ? 'text-muted-foreground' : 'text-primary'">{{ text(item) }}</RouterLink>
+        <p class="text-xs text-muted-foreground">{{ relative(item.at) }}<template v-if="outcome(item)">
+          · {{ outcome(item) }}</template></p></div>
     </li></ul>
   </section>
 </template>

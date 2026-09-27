@@ -2,12 +2,14 @@
 import { onMounted, ref, computed } from 'vue';
 import { RouterLink } from 'vue-router';
 import { api } from '@/api';
-import type { OwnOverview, OwnFees, OwnWork } from '@/api/types';
+import type { OwnOverview, OwnFees, OwnWork, ParentReport } from '@/api/types';
 import { formatCurrency, formatDate, formatHours, todayISO } from '@/utils/format';
 import ReportDialog from '@/components/family/ReportDialog.vue';
+import ReportList from '@/components/family/ReportList.vue';
 const overview = ref<OwnOverview | null>(null);
 const fees = ref<OwnFees | null>(null);
 const work = ref<OwnWork | null>(null);
+const reports = ref<ParentReport[]>([]);
 const error = ref('');
 const showReport = ref(false);
 const berlinDate = todayISO();
@@ -19,10 +21,15 @@ const progress = computed(() => work.value?.requiredMinutes
 onMounted(async () => {
   try { overview.value = await api.getOwnOverview(); }
   catch (e) { error.value = e instanceof Error ? e.message : 'Familie konnte nicht geladen werden'; return; }
-  const [f, w] = await Promise.allSettled([api.getOwnFees(year), api.getOwnWork(kitaYear)]);
+  const [f, w] = await Promise.allSettled([api.getOwnFees(year), api.getOwnWork(kitaYear),
+    loadReports()]);
   if (f.status === 'fulfilled') fees.value = f.value;
   if (w.status === 'fulfilled') work.value = w.value;
 });
+async function loadReports() { reports.value = await api.getOwnReports(); }
+// Open reports plus answers from the last 30 days; older finished ones stay on "Meine Daten".
+const recentReports = computed(() => reports.value.filter(r => r.status === 'OPEN'
+  || Date.now() - new Date(r.resolvedAt ?? r.createdAt).getTime() < 30 * 86400000).slice(0, 5));
 </script>
 <template>
   <div class="space-y-5">
@@ -66,8 +73,20 @@ onMounted(async () => {
             text-primary-foreground">Stunden melden</RouterLink>
         </section>
       </div>
-      <button class="rounded-lg border px-4 py-2 text-primary" @click="showReport = true">Fehler melden</button>
+      <section class="rounded-2xl border bg-card p-5">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <h2 class="text-lg font-bold">Meldungen deiner Familie</h2>
+          <button class="rounded-lg border px-4 py-2 text-primary hover:bg-accent"
+            @click="showReport = true">Fehler melden</button>
+        </div>
+        <p v-if="!recentReports.length" class="mt-3 text-sm text-muted-foreground">
+          Keine offenen Meldungen. Stimmt etwas nicht? Dann melde es uns.</p>
+        <ReportList v-else class="mt-3" :reports="recentReports" />
+        <RouterLink v-if="reports.length > recentReports.length" to="/familie/daten"
+          class="mt-3 inline-block text-sm text-primary underline">Alle Meldungen</RouterLink>
+      </section>
     </template>
-    <ReportDialog v-if="showReport" @close="showReport = false" @saved="showReport = false" />
+    <ReportDialog v-if="showReport" @close="showReport = false"
+      @saved="showReport = false; loadReports()" />
   </div>
 </template>

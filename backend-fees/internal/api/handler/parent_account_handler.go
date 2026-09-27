@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"strconv"
 	"strings"
@@ -74,8 +75,9 @@ type ownHousehold struct {
 	Name string    `json:"name"`
 }
 type ownOtherParent struct {
-	FirstName string `json:"firstName"`
-	LastName  string `json:"lastName"`
+	ownParent
+	// HasLogin marks parents whose email is their own login (read-only for the other parent).
+	HasLogin bool `json:"hasLogin"`
 }
 type ownChild struct {
 	ID           uuid.UUID  `json:"id"`
@@ -177,7 +179,12 @@ func (h *ParentAccountHandler) Me(w http.ResponseWriter, r *http.Request) {
 		out.Household = &ownHousehold{account.Household.ID, account.Household.Name}
 	}
 	for _, p := range others {
-		out.OtherParents = append(out.OtherParents, ownOtherParent{p.FirstName, p.LastName})
+		hasLogin, err := h.svc.HasLogin(r.Context(), p.ID)
+		if err != nil {
+			parentAccountError(w, err)
+			return
+		}
+		out.OtherParents = append(out.OtherParents, ownOtherParent{ownParentFrom(p), hasLogin})
 	}
 	for _, c := range children {
 		out.Children = append(out.Children, ownChildFrom(c))
@@ -311,19 +318,9 @@ func (h *ParentAccountHandler) Contact(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	var raw map[string]json.RawMessage
-	if request.DecodeJSON(r, &raw) != nil {
-		response.BadRequest(w, "Ungültige Anfrage")
+	values, ok := contactValues(w, r)
+	if !ok {
 		return
-	}
-	values := map[string]*string{}
-	for key, value := range raw {
-		var decoded *string
-		if json.Unmarshal(value, &decoded) != nil {
-			response.BadRequest(w, "Ungültiges Kontaktfeld")
-			return
-		}
-		values[key] = decoded
 	}
 	p, err := h.svc.Contact(r.Context(), id, values)
 	if err != nil {
@@ -331,6 +328,54 @@ func (h *ParentAccountHandler) Contact(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	response.Success(w, ownParentFrom(*p))
+}
+
+// ParentContact handles PUT /me/parents/{id}/contact.
+// @Summary Kontaktdaten eines Elternteils der eigenen Familie ändern
+// @Tags Parent account
+// @Security BearerAuth
+// @Param id path string true "Elternteil"
+// @Param request body ownContactRequest true "Kontaktdaten"
+// @Success 200 {object} ownParent
+// @Router /me/parents/{id}/contact [put]
+func (h *ParentAccountHandler) ParentContact(w http.ResponseWriter, r *http.Request) {
+	userID, ok := ownID(w, r)
+	if !ok {
+		return
+	}
+	id, ok := pathID(w, r)
+	if !ok {
+		return
+	}
+	values, ok := contactValues(w, r)
+	if !ok {
+		return
+	}
+	p, err := h.svc.ParentContact(r.Context(), userID, id, values)
+	if err != nil {
+		parentAccountError(w, err)
+		return
+	}
+	response.Success(w, ownParentFrom(*p))
+}
+
+// contactValues keeps omitted fields apart from explicit nulls.
+func contactValues(w http.ResponseWriter, r *http.Request) (map[string]*string, bool) {
+	var raw map[string]json.RawMessage
+	if request.DecodeJSON(r, &raw) != nil {
+		response.BadRequest(w, "Ungültige Anfrage")
+		return nil, false
+	}
+	values := map[string]*string{}
+	for key, value := range raw {
+		var decoded *string
+		if json.Unmarshal(value, &decoded) != nil {
+			response.BadRequest(w, "Ungültiges Kontaktfeld")
+			return nil, false
+		}
+		values[key] = decoded
+	}
+	return values, true
 }
 
 // UpdateChild handles PUT /me/children/{id}.
@@ -423,11 +468,16 @@ func (h *ParentAccountHandler) StaffReports(w http.ResponseWriter, r *http.Reque
 	response.Success(w, rows)
 }
 
+type resolveReportRequest struct {
+	Response string `json:"response" binding:"optional"`
+}
+
 // ResolveReport handles POST /parent-reports/{id}/resolve.
-// @Summary Fehlermeldung erledigen
+// @Summary Fehlermeldung erledigen, optional mit Antwort an die Eltern
 // @Tags Parent account
 // @Security BearerAuth
 // @Param id path string true "Meldung"
+// @Param request body resolveReportRequest false "Antwort"
 // @Success 200 {object} repository.ParentReport
 // @Router /parent-reports/{id}/resolve [post]
 func (h *ParentAccountHandler) ResolveReport(w http.ResponseWriter, r *http.Request) {
@@ -439,7 +489,12 @@ func (h *ParentAccountHandler) ResolveReport(w http.ResponseWriter, r *http.Requ
 	if !ok {
 		return
 	}
-	v, err := h.svc.ResolveReport(r.Context(), id, userID)
+	var req resolveReportRequest
+	if err := request.DecodeJSON(r, &req); err != nil && !errors.Is(err, io.EOF) {
+		response.BadRequest(w, "Ungültige Anfrage")
+		return
+	}
+	v, err := h.svc.ResolveReport(r.Context(), id, userID, req.Response)
 	if err != nil {
 		parentAccountError(w, err)
 		return

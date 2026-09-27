@@ -4031,12 +4031,7 @@ paths:
   /me/contact:
     put:
       requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/handler.ownContactRequest"
-        description: Kontaktdaten
-        required: true
+        $ref: "#/components/requestBodies/handler.ownContactRequest"
       responses:
         "200":
           description: OK
@@ -4129,6 +4124,29 @@ paths:
       security:
         - BearerAuth: []
       summary: Eigene Meldung zurückziehen
+      tags:
+        - Parent account
+  "/me/parents/{id}/contact":
+    put:
+      parameters:
+        - description: Elternteil
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        $ref: "#/components/requestBodies/handler.ownContactRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/handler.ownParent"
+      security:
+        - BearerAuth: []
+      summary: Kontaktdaten eines Elternteils der eigenen Familie ändern
       tags:
         - Parent account
   /me/reports:
@@ -4525,6 +4543,12 @@ paths:
           required: true
           schema:
             type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/handler.resolveReportRequest"
+        description: Antwort
       responses:
         "200":
           description: OK
@@ -4534,7 +4558,7 @@ paths:
                 $ref: "#/components/schemas/repository.ParentReport"
       security:
         - BearerAuth: []
-      summary: Fehlermeldung erledigen
+      summary: Fehlermeldung erledigen, optional mit Antwort an die Eltern
       tags:
         - Parent account
   /parent-work/board-terms:
@@ -5702,6 +5726,13 @@ components:
                 format: binary
             required:
               - file
+      required: true
+    handler.ownContactRequest:
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/handler.ownContactRequest"
+      description: Kontaktdaten
       required: true
     handler.boardTermRequest:
       content:
@@ -8967,6 +8998,12 @@ components:
           type: string
         rejectReason:
           type: string
+        reviewedAt:
+          type: string
+        reviewedBy:
+          type: string
+        reviewedByName:
+          type: string
         source:
           type: string
         status:
@@ -9416,12 +9453,32 @@ components:
       type: object
     handler.ownOtherParent:
       properties:
+        city:
+          type: string
+        email:
+          type: string
         firstName:
+          type: string
+        hasLogin:
+          description: HasLogin marks parents whose email is their own login (read-only
+            for the other parent).
+          type: boolean
+        id:
           type: string
         lastName:
           type: string
+        phone:
+          type: string
+        postalCode:
+          type: string
+        street:
+          type: string
+        streetNo:
+          type: string
       required:
         - firstName
+        - hasLogin
+        - id
         - lastName
       type: object
     handler.ownOverview:
@@ -9619,6 +9676,11 @@ components:
       required:
         - reason
       type: object
+    handler.resolveReportRequest:
+      properties:
+        response:
+          type: string
+      type: object
     repository.Activity:
       properties:
         at:
@@ -9650,6 +9712,8 @@ components:
         reportId:
           type: string
         status:
+          type: string
+        targetName:
           type: string
         topic:
           type: string
@@ -9731,11 +9795,16 @@ components:
           type: string
         parentId:
           type: string
+        parentName:
+          type: string
         referenceId:
           type: string
         resolvedAt:
           type: string
         resolvedBy:
+          type: string
+        response:
+          description: Response is the optional answer shown to the household's parents.
           type: string
         status:
           type: string

@@ -9,7 +9,9 @@ const year = ref(Number(todayISO().slice(0, 4)));
 const fees = ref<OwnFees | null>(null);
 const error = ref('');
 const reportId = ref<string | null>(null);
-const years = Array.from({ length: 5 }, (_, i) => year.value + 1 - i);
+// Fee data in the portal starts with January 2025.
+const firstYear = 2025;
+const years = Array.from({ length: Math.max(1, year.value - firstYear + 1) }, (_, i) => year.value - i);
 const status: Record<string, string> = { OPEN: 'Offen', PAID: 'Bezahlt', OVERDUE: 'Überfällig' };
 function tone(value: string) {
   return value === 'PAID' ? 'bg-green-100 text-green-800 dark:bg-green-950/40 dark:text-green-300'
@@ -44,7 +46,7 @@ onMounted(load); watch(year, load);
             <p class="text-sm text-muted-foreground">{{ getFeeTypeName(fee.feeType) }} ·
               {{ fee.month ? formatMonthName(fee.month) : 'Jahr' }} {{ fee.year }}</p>
           </div>
-          <span class="rounded-full px-2 py-1 text-xs font-semibold" :class="tone(fee.status)">
+          <span class="whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold" :class="tone(fee.status)">
             {{ status[fee.status] ?? fee.status }}
           </span>
         </div>

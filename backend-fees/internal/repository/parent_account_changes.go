@@ -52,6 +52,20 @@ func (r *ParentAccountRepository) SaveContact(ctx context.Context, parentID, use
 	return r.saveContact(ctx, parentID, userID, &parentID, fields)
 }
 
+// SaveContactAs lets a parent edit another parent of the same household (actor is the editing parent).
+func (r *ParentAccountRepository) SaveContactAs(ctx context.Context, parentID, userID,
+	actorParentID uuid.UUID, fields map[string]*string) error {
+	return r.saveContact(ctx, parentID, userID, &actorParentID, fields)
+}
+
+// HasLogin reports whether a user account is linked to the parent.
+func (r *ParentAccountRepository) HasLogin(ctx context.Context, parentID uuid.UUID) (bool, error) {
+	var ok bool
+	err := conn(ctx, r.db).GetContext(ctx, &ok,
+		`SELECT EXISTS(SELECT 1 FROM fees.users WHERE parent_id=$1)`, parentID)
+	return ok, err
+}
+
 func (r *ParentAccountRepository) SaveStaffContact(ctx context.Context, parentID, userID uuid.UUID,
 	fields map[string]*string) error {
 	return r.saveContact(ctx, parentID, userID, nil, fields)
@@ -228,6 +242,7 @@ type Activity struct {
 	HouseholdName   *string    `json:"householdName,omitempty" db:"household_name" binding:"optional"`
 	ChildID         *uuid.UUID `json:"childId,omitempty" db:"child_id" binding:"optional"`
 	ChildName       *string    `json:"childName,omitempty" db:"child_name" binding:"optional"`
+	TargetName      *string    `json:"targetName,omitempty" db:"target_name" binding:"optional"`
 	ReportID        *uuid.UUID `json:"reportId,omitempty" db:"report_id" binding:"optional"`
 	Topic           *string    `json:"topic,omitempty" db:"topic" binding:"optional"`
 	Message         *string    `json:"message,omitempty" db:"message" binding:"optional"`
@@ -246,21 +261,24 @@ func (r *ParentAccountRepository) Activity(ctx context.Context, limit int) ([]Ac
  d.changed_at AS at,d.parent_id,p.first_name||' '||p.last_name AS parent_name,p.household_id,
  h.name AS household_name,CASE WHEN d.entity_type='CHILD' THEN d.entity_id END AS child_id,
  CASE WHEN d.entity_type='CHILD' THEN c.first_name||' '||c.last_name END AS child_name,
+ CASE WHEN d.entity_type='PARENT' AND d.entity_id<>d.parent_id THEN tp.first_name||' '||tp.last_name
+ END AS target_name,
  NULL::uuid AS report_id,NULL::varchar AS topic,NULL::text AS message,d.field,d.old_value,d.new_value,
  NULL::int AS duration_minutes,NULL::text AS occasion,NULL::varchar AS status
  FROM fees.data_changes d JOIN fees.parents p ON p.id=d.parent_id
  LEFT JOIN fees.households h ON h.id=p.household_id LEFT JOIN fees.children c ON c.id=d.entity_id
- AND d.entity_type='CHILD'
+ AND d.entity_type='CHILD' LEFT JOIN fees.parents tp ON tp.id=d.entity_id AND d.entity_type='PARENT'
  WHERE d.parent_id IS NOT NULL
  UNION ALL
  SELECT 'PARENT_WORK_SUBMITTED',e.created_at,p.id,p.first_name||' '||p.last_name,e.household_id,h.name,
- NULL::uuid,NULL::text,NULL::uuid,NULL::varchar,NULL::text,NULL::varchar,NULL::text,NULL::text,
+ NULL::uuid,NULL::text,NULL::text,NULL::uuid,NULL::varchar,NULL::text,NULL::varchar,NULL::text,NULL::text,
  e.duration_minutes,e.occasion,e.status
  FROM fees.parent_work_entries e JOIN fees.households h ON h.id=e.household_id
  JOIN fees.users u ON u.id=e.created_by JOIN fees.parents p ON p.id=u.parent_id WHERE e.source='PARENT'
  UNION ALL
  SELECT 'REPORT_CREATED',r.created_at,r.parent_id,p.first_name||' '||p.last_name,r.household_id,h.name,
- NULL::uuid,NULL::text,r.id,r.topic,left(r.message,200),NULL::varchar,NULL::text,NULL::text,NULL::int,
+ NULL::uuid,NULL::text,NULL::text,r.id,r.topic,left(r.message,200),NULL::varchar,NULL::text,NULL::text,
+ NULL::int,
  NULL::text,r.status
  FROM fees.parent_reports r JOIN fees.parents p ON p.id=r.parent_id JOIN fees.households h ON
  h.id=r.household_id
