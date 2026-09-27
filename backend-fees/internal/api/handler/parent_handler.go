@@ -1,7 +1,9 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -225,7 +227,12 @@ func (h *ParentHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	actorID, ok := currentUserID(w, r)
+	if !ok {
+		return
+	}
 	parent, err := h.parentService.Update(r.Context(), id, service.UpdateParentInput{
+		ActorID:               actorID,
 		FirstName:             req.FirstName,
 		LastName:              req.LastName,
 		BirthDate:             req.BirthDate,
@@ -241,6 +248,14 @@ func (h *ParentHandler) Update(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if err == service.ErrNotFound {
 			response.NotFound(w, "parent not found")
+			return
+		}
+		if errors.Is(err, service.ErrConflict) {
+			response.Conflict(w, "E-Mail-Adresse wird bereits verwendet")
+			return
+		}
+		if errors.Is(err, service.ErrInvalidInput) {
+			response.BadRequest(w, strings.TrimPrefix(err.Error(), "invalid input: "))
 			return
 		}
 		response.InternalError(w, "failed to update parent")

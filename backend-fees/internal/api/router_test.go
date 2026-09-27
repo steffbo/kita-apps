@@ -53,6 +53,11 @@ var adminRoutes = []string{
 	"POST /users/",
 	"PUT /users/{id}",
 	"POST /users/{id}/password",
+	"GET /activity",
+	"GET /parents/{id}/changes",
+	"GET /children/{id}/changes",
+	"GET /parent-reports/",
+	"POST /parent-reports/{id}/resolve",
 }
 
 // testRouter wires the real router with nil handlers: every request asserted
@@ -214,20 +219,34 @@ func TestRouter_RoleAreas(t *testing.T) {
 		path    string
 		allowed map[string]bool
 	}{
-		{"/auth/me", map[string]bool{"ADMIN": true, "USER": true, "PARENT_WORK": true}},
+		{"/auth/me", map[string]bool{"ADMIN": true, "USER": true, "PARENT_WORK": true, "PARENT": true}},
 		{"/users/", map[string]bool{"ADMIN": true}},
 		{"/children/", map[string]bool{"ADMIN": true, "USER": true}},
 		{"/fees/", map[string]bool{"ADMIN": true, "USER": true}},
 		{"/fee-schedules/", map[string]bool{"ADMIN": true, "USER": true}},
 		{"/fees/reminders/settings", map[string]bool{"ADMIN": true}},
 		{"/parent-work/rules", map[string]bool{"ADMIN": true, "PARENT_WORK": true}},
+		{"/activity", map[string]bool{"ADMIN": true}},
+		{"/parent-reports/", map[string]bool{"ADMIN": true}},
+		{"/children/" + uuid.NewString() + "/changes", map[string]bool{"ADMIN": true}},
+		{"/parents/" + uuid.NewString(), map[string]bool{"ADMIN": true, "USER": true}},
+		{"/me", map[string]bool{"PARENT": true}},
 	}
-	for _, role := range []string{"ADMIN", "USER", "PARENT_WORK"} {
+	for _, role := range []string{"ADMIN", "USER", "PARENT_WORK", "PARENT"} {
 		tokens, err := jwtService.GenerateTokenPair(uuid.New(), role+"@example.org", role)
 		if err != nil {
 			t.Fatal(err)
 		}
 		for _, route := range routes {
+			if route.path == "/me" && role == "PARENT" {
+				continue
+			}
+			if route.path == "/activity" && role == "ADMIN" {
+				continue
+			}
+			if strings.HasPrefix(route.path, "/parents/") && role != "PARENT" {
+				continue
+			}
 			t.Run(role+route.path, func(t *testing.T) {
 				req := httptest.NewRequest(http.MethodGet, apiPrefix+route.path, nil)
 				req.Header.Set("Authorization", "Bearer "+tokens.AccessToken)

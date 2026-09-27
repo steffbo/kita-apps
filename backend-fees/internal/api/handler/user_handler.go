@@ -26,14 +26,16 @@ func NewUserHandler(userService *service.UserService) *UserHandler {
 
 // UserAccountResponse is a user account as shown in the user management.
 type UserAccountResponse struct {
-	ID        string  `json:"id"`
-	Email     string  `json:"email" example:"user@example.com"`
-	FirstName *string `json:"firstName,omitempty" example:"Max" binding:"optional"`
-	LastName  *string `json:"lastName,omitempty" example:"Mustermann" binding:"optional"`
-	Role      string  `json:"role" example:"USER" enums:"ADMIN,USER,PARENT_WORK"`
-	IsActive  bool    `json:"isActive"`
-	CreatedAt string  `json:"createdAt"`
-	UpdatedAt string  `json:"updatedAt"`
+	ID         string     `json:"id"`
+	Email      string     `json:"email" example:"user@example.com"`
+	FirstName  *string    `json:"firstName,omitempty" example:"Max" binding:"optional"`
+	LastName   *string    `json:"lastName,omitempty" example:"Mustermann" binding:"optional"`
+	Role       string     `json:"role" example:"USER" enums:"ADMIN,USER,PARENT_WORK,PARENT"`
+	ParentID   *uuid.UUID `json:"parentId" binding:"optional"`
+	ParentName *string    `json:"parentName" binding:"optional"`
+	IsActive   bool       `json:"isActive"`
+	CreatedAt  string     `json:"createdAt"`
+	UpdatedAt  string     `json:"updatedAt"`
 } //@name UserAccount
 
 // UserAccountRequest updates a user account.
@@ -41,7 +43,7 @@ type UserAccountRequest struct {
 	Email     string  `json:"email" example:"user@example.com"`
 	FirstName *string `json:"firstName,omitempty" example:"Max" binding:"optional"`
 	LastName  *string `json:"lastName,omitempty" example:"Mustermann" binding:"optional"`
-	Role      string  `json:"role" example:"USER" enums:"ADMIN,USER,PARENT_WORK"`
+	Role      string  `json:"role" example:"USER" enums:"ADMIN,USER,PARENT_WORK,PARENT"`
 	IsActive  bool    `json:"isActive"`
 } //@name UserAccountRequest
 
@@ -217,13 +219,15 @@ func writeUserError(w http.ResponseWriter, err error) {
 
 func toUserAccountResponse(u *domain.User) UserAccountResponse {
 	return UserAccountResponse{
-		ID:        u.ID.String(),
-		Email:     u.Email,
-		FirstName: u.FirstName,
-		LastName:  u.LastName,
-		Role:      string(u.Role),
-		IsActive:  u.IsActive,
-		CreatedAt: u.CreatedAt.UTC().Format("2006-01-02T15:04:05Z07:00"),
-		UpdatedAt: u.UpdatedAt.UTC().Format("2006-01-02T15:04:05Z07:00"),
+		ID:         u.ID.String(),
+		Email:      u.Email,
+		FirstName:  u.FirstName,
+		LastName:   u.LastName,
+		Role:       string(u.Role),
+		ParentID:   u.ParentID,
+		ParentName: u.ParentName,
+		IsActive:   u.IsActive,
+		CreatedAt:  u.CreatedAt.UTC().Format("2006-01-02T15:04:05Z07:00"),
+		UpdatedAt:  u.UpdatedAt.UTC().Format("2006-01-02T15:04:05Z07:00"),
 	}
 }

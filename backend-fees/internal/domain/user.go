@@ -8,15 +8,17 @@ import (
 
 // User represents an authenticated user in the system.
 type User struct {
-	ID           uuid.UUID `json:"id" db:"id"`
-	Email        string    `json:"email" db:"email"`
-	PasswordHash string    `json:"-" db:"password_hash"`
-	FirstName    *string   `json:"firstName,omitempty" db:"first_name" binding:"optional"`
-	LastName     *string   `json:"lastName,omitempty" db:"last_name" binding:"optional"`
-	Role         UserRole  `json:"role" db:"role"`
-	IsActive     bool      `json:"isActive" db:"is_active"`
-	CreatedAt    time.Time `json:"createdAt" db:"created_at"`
-	UpdatedAt    time.Time `json:"updatedAt" db:"updated_at"`
+	ID           uuid.UUID  `json:"id" db:"id"`
+	Email        string     `json:"email" db:"email"`
+	PasswordHash string     `json:"-" db:"password_hash"`
+	FirstName    *string    `json:"firstName,omitempty" db:"first_name" binding:"optional"`
+	LastName     *string    `json:"lastName,omitempty" db:"last_name" binding:"optional"`
+	Role         UserRole   `json:"role" db:"role"`
+	ParentID     *uuid.UUID `json:"parentId" db:"parent_id" binding:"optional"`
+	ParentName   *string    `json:"parentName" db:"parent_name" binding:"optional"`
+	IsActive     bool       `json:"isActive" db:"is_active"`
+	CreatedAt    time.Time  `json:"createdAt" db:"created_at"`
+	UpdatedAt    time.Time  `json:"updatedAt" db:"updated_at"`
 }
 
 // UserRole defines the access level of a user.
@@ -26,6 +28,7 @@ const (
 	UserRoleAdmin      UserRole = "ADMIN"
 	UserRoleUser       UserRole = "USER"
 	UserRoleParentWork UserRole = "PARENT_WORK"
+	UserRolePARENT     UserRole = "PARENT"
 )
 
 // RefreshToken represents a stored refresh token.

@@ -127,6 +127,8 @@ func main() {
 
 	childService := service.NewChildService(childRepo, parentRepo, householdRepo)
 	parentService := service.NewParentService(parentRepo, childRepo, memberRepo, householdRepo)
+	accountRepo := repository.NewParentAccountRepository(db)
+	parentService.SetAccountChanges(accountRepo)
 	householdService := service.NewHouseholdService(householdRepo, parentRepo, childRepo)
 	memberService := service.NewMemberService(memberRepo, householdRepo)
 	feeService := service.NewFeeService(feeRepo, childRepo, householdRepo, matchRepo, transactionRepo, feeScheduleRepo)
@@ -145,19 +147,21 @@ func main() {
 	handlers := &api.Handlers{
 		Auth: handler.NewAuthHandler(authService, jwtService,
 			auth.NewLoginLimiter(auth.DefaultLoginMaxPerAccount, auth.DefaultLoginMaxPerIP, auth.DefaultLoginWindow)),
-		User:             handler.NewUserHandler(userService),
-		Child:            handler.NewChildHandler(childService, feeService, coverageService),
-		ChildImport:      handler.NewChildImportHandler(childImportService),
-		ChildNote:        handler.NewChildNoteHandler(childNoteService),
-		Parent:           handler.NewParentHandler(parentService),
-		Household:        handler.NewHouseholdHandler(householdService),
-		Member:           handler.NewMemberHandler(memberService),
-		Fee:              handler.NewFeeHandler(feeService, importService, reminderService),
-		Import:           handler.NewImportHandler(importService),
-		BankingSync:      handler.NewBankingSyncHandler(cfg.BankingSync.BaseURL, cfg.BankingSync.Token, cfg.BankingSync.Timeout),
-		Einstufung:       handler.NewEinstufungHandler(einstufungService),
-		FeeSchedule:      handler.NewFeeScheduleHandler(feeScheduleService),
-		ParentWork:       handler.NewParentWorkHandler(parentWorkService),
+		User:        handler.NewUserHandler(userService),
+		Child:       handler.NewChildHandler(childService, feeService, coverageService),
+		ChildImport: handler.NewChildImportHandler(childImportService),
+		ChildNote:   handler.NewChildNoteHandler(childNoteService),
+		Parent:      handler.NewParentHandler(parentService),
+		Household:   handler.NewHouseholdHandler(householdService),
+		Member:      handler.NewMemberHandler(memberService),
+		Fee:         handler.NewFeeHandler(feeService, importService, reminderService),
+		Import:      handler.NewImportHandler(importService),
+		BankingSync: handler.NewBankingSyncHandler(cfg.BankingSync.BaseURL, cfg.BankingSync.Token, cfg.BankingSync.Timeout),
+		Einstufung:  handler.NewEinstufungHandler(einstufungService),
+		FeeSchedule: handler.NewFeeScheduleHandler(feeScheduleService),
+		ParentWork:  handler.NewParentWorkHandler(parentWorkService),
+		ParentAccount: handler.NewParentAccountHandler(
+			accountRepo, parentWorkService),
 		Stichtagsmeldung: handler.NewStichtagsmeldungHandler(stichtagService),
 		JWTService:       jwtService,
 	}

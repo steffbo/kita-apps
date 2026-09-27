@@ -159,17 +159,17 @@ func (r *PostgresParentWorkRepository) SaveEntry(ctx context.Context, v *domain.
 		v.CreatedAt = now
 		_, err := conn(ctx, r.db).ExecContext(ctx, `INSERT INTO fees.parent_work_entries
             (id,household_id,work_date,duration_minutes,occasion,member_name,child_name,
-             status,void_reason,source,created_by,updated_by,created_at,updated_at)
-            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+             status,void_reason,reject_reason,source,created_by,updated_by,created_at,updated_at)
+            VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
 			v.ID, v.HouseholdID, v.WorkDate, v.DurationMinutes, v.Occasion, v.MemberName, v.ChildName,
-			v.Status, v.VoidReason, v.Source, v.CreatedBy, v.UpdatedBy, v.CreatedAt, v.UpdatedAt)
+			v.Status, v.VoidReason, v.RejectReason, v.Source, v.CreatedBy, v.UpdatedBy, v.CreatedAt, v.UpdatedAt)
 		return err
 	}
 	result, err := conn(ctx, r.db).ExecContext(ctx, `UPDATE fees.parent_work_entries SET
         household_id=$2,work_date=$3,duration_minutes=$4,occasion=$5,member_name=$6,
-        child_name=$7,status=$8,void_reason=$9,updated_by=$10,updated_at=$11 WHERE id=$1`,
+        child_name=$7,status=$8,void_reason=$9,reject_reason=$10,updated_by=$11,updated_at=$12 WHERE id=$1`,
 		v.ID, v.HouseholdID, v.WorkDate, v.DurationMinutes, v.Occasion, v.MemberName, v.ChildName,
-		v.Status, v.VoidReason, v.UpdatedBy, now)
+		v.Status, v.VoidReason, v.RejectReason, v.UpdatedBy, now)
 	if err != nil {
 		return err
 	}

@@ -25,6 +25,8 @@ type UserRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.User, error)
 	// GetByEmail matches case-insensitively.
 	GetByEmail(ctx context.Context, email string) (*domain.User, error)
+	FindParentMatches(ctx context.Context, email string) ([]uuid.UUID, error)
+	ParentLinkedToOther(ctx context.Context, parentID, userID uuid.UUID) (bool, error)
 	// Create returns ErrDuplicate when the email is taken.
 	Create(ctx context.Context, user *domain.User) error
 	// Update writes email, names, role and active flag (not the password).

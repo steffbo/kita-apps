@@ -17,6 +17,22 @@ Basics (ports, commands, layout) live in `AGENTS.md`.
 - Neutrale Flächen und Texte verwenden semantische Tokens; Statusfarben erhalten passende `dark:`-Varianten.
   Formularfelder nutzen eine Grundregel für `bg-background`, `text-foreground` und `border-input`.
 
+## Eltern-Zugang, Etappe 2a (2026-09-27)
+
+Backend umgesetzt; Eltern-Oberfläche folgt in Etappe 2b.
+
+- Rolle `PARENT`: Verknüpfung beim Anlegen und Rollenwechsel zu `PARENT` über eine eindeutige
+  Kontakt-E-Mail. Kontakt- und Login-E-Mail bleiben synchron. Ein Rollenwechsel weg von `PARENT`
+  entfernt die Verknüpfung.
+- `/me/**` leitet die Familie bei jeder Anfrage aus dem Konto ab. Ohne Haushalt kommen Kinder aus
+  `child_parents`; Elternstunden benötigen einen Haushalt. Beitragsstatus: bezahlt bei vollständig
+  gedecktem Betrag mit Cent-Toleranz, sonst überfällig vor dem heutigen Berliner Datum, sonst offen.
+- Eltern-Meldungen haben Status `SUBMITTED` und Quelle `PARENT`; erst bestätigte Minuten zählen ins Ist.
+  `ADMIN` und `PARENT_WORK` bestätigen oder lehnen ab. Der Ablehnungsgrund steht in der neuen Spalte
+  `parent_work_entries.reject_reason`; die Übersicht zählt Meldungen je Haushalt und insgesamt.
+- Kontaktänderungen wirken sofort. Jedes tatsächlich geänderte Feld wird in derselben Transaktion in
+  `data_changes` protokolliert. Alte Werte stehen nur im Admin-Verlauf und Admin-Feed.
+
 ## Elternstunden, Stufe 1: Erfassung durch Tim (2026-09-27)
 
 Umgesetzt nach dem (inzwischen gelöschten) Plan `docs/plan-elternstunden.md` in fünf Etappen, jeweils von Codex
@@ -391,3 +407,18 @@ WHERE c.household_id IS NOT NULL
 - `src/layouts/MainLayout.vue` prevents root horizontal overflow, uses tighter mobile padding, and opens the nav drawer from the right.
 - `src/assets/main.css` constrains app-wide horizontal overflow and adds touch-friendly internal scrolling for wide tables.
 - `src/pages/ImportPage.vue` wraps import-history, unmatched, blacklist and matched tables in horizontal scroll containers; the tab bar scrolls internally. If another page shifts the viewport sideways, look for raw `<table>` markup or unbounded tab/filter rows missing an `overflow-x-auto` container.
+
+### Eltern-Zugang, Etappe 2a Teil 2 (2026-09-27)
+
+- `ParentAccountService` bündelt Kontoauflösung, Sichtbarkeit, Beitragsstatus, Elternstunden,
+  Kontaktdaten, Kinderdaten und Fehlermeldungen; Handler parsen und antworten.
+- Kontakt-E-Mail und Login-E-Mail eines verknüpften `PARENT`-Kontos ändern sich atomar,
+  auch bei Staff- und Admin-Änderungen. Belegte oder leere Anmelde-E-Mails werden abgewiesen;
+  Refresh-Sessions bleiben bestehen. Die Elternsuche nach E-Mail erfolgt nur bei Kontoanlage
+  und Rollenwechsel zu `PARENT`.
+- Migration 000040 erstellt `fees.data_changes` für auditierte Eltern- und Kinderdaten sowie
+  `fees.parent_reports`. Eltern bearbeiten eigene Kinderdaten über `PUT /me/children/{id}` und
+  melden Fehler über `/me/reports`; fremde Bezüge liefern 404. Admin nutzt
+  `/parents/{id}/changes`, `/children/{id}/changes` und `/parent-reports`.
+- Der Admin-Feed mischt Kontaktänderungen, Kindänderungen, gemeldete Elternstunden und
+  Fehlermeldungen. Nur von Eltern vorgenommene Datenänderungen erscheinen im Feed.

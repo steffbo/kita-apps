@@ -84,6 +84,7 @@ type ParentWorkEntry struct {
 	ChildName       *string    `json:"childName,omitempty" db:"child_name" binding:"optional"`
 	Status          string     `json:"status" db:"status"`
 	VoidReason      *string    `json:"voidReason,omitempty" db:"void_reason" binding:"optional"`
+	RejectReason    *string    `json:"rejectReason,omitempty" db:"reject_reason" binding:"optional"`
 	Source          string     `json:"source" db:"source"`
 	CreatedBy       *uuid.UUID `json:"createdBy,omitempty" db:"created_by" binding:"optional"`
 	UpdatedBy       *uuid.UUID `json:"updatedBy,omitempty" db:"updated_by" binding:"optional"`
@@ -119,6 +120,7 @@ type ParentWorkAccount struct {
 	CarryOutMinutes    int               `json:"carryOutMinutes"`
 	MissingAmountCents int               `json:"missingAmountCents"`
 	EntryCount         int               `json:"entryCount"`
+	SubmittedCount     int               `json:"submittedCount"`
 }
 
 // ParentWorkYearStart returns the first day of a Kita year.
@@ -182,6 +184,9 @@ func CalculateParentWork(year int, rule *ParentWorkRule, children []ParentWorkCh
 	for _, entry := range entries {
 		if !entry.WorkDate.Before(starts[0]) && !entry.WorkDate.After(ends[2]) {
 			result.EntryCount++
+			if entry.Status == ParentWorkStatusSubmitted {
+				result.SubmittedCount++
+			}
 			if entry.Status == ParentWorkStatusApproved {
 				result.DoneMinutes += entry.DurationMinutes
 			}

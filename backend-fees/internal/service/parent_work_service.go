@@ -282,6 +282,7 @@ type ParentWorkOverview struct {
 	DoneMinutes        int                                `json:"doneMinutes"`
 	OpenMinutes        int                                `json:"openMinutes"`
 	MissingAmountCents int                                `json:"missingAmountCents"`
+	SubmittedTotal     int                                `json:"submittedTotal"`
 }
 
 // ParentWorkHouseholdOption supplies names for household selection.
@@ -357,6 +358,7 @@ func (s *ParentWorkService) Overview(ctx context.Context, year int) (*ParentWork
 			if row.EntryCount > 0 || row.ExemptReason != nil || row.OverrideMinutes != nil {
 				result.Households = append(result.Households, row)
 				result.DoneMinutes += row.DoneMinutes
+				result.SubmittedTotal += row.SubmittedCount
 			}
 		}
 		return result, nil
@@ -424,6 +426,7 @@ func (s *ParentWorkService) Overview(ctx context.Context, year int) (*ParentWork
 			result.Households = append(result.Households, row)
 			result.RequiredMinutes += row.RequiredMinutes
 			result.DoneMinutes += row.DoneMinutes
+			result.SubmittedTotal += row.SubmittedCount
 			result.OpenMinutes += row.OpenMinutes
 			result.MissingAmountCents += row.MissingAmountCents
 		}
@@ -547,6 +550,78 @@ func (s *ParentWorkService) Detail(ctx context.Context, id uuid.UUID, year int) 
 	return detail, nil
 }
 
+// ReviewEntry accepts or rejects a submitted entry.
+func (s *ParentWorkService) ReviewEntry(ctx context.Context, id uuid.UUID, approve bool,
+	reason string, userID uuid.UUID) (*domain.ParentWorkEntry, error) {
+	v, err := s.repo.GetEntry(ctx, id)
+	if errors.Is(err, repository.ErrNotFound) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	if v.Status != domain.ParentWorkStatusSubmitted {
+		return nil, fmt.Errorf("%w: Nur gemeldete Einträge können geprüft werden", ErrConflict)
+	}
+	if approve {
+		v.Status, v.RejectReason = domain.ParentWorkStatusApproved, nil
+	} else {
+		reason = strings.TrimSpace(reason)
+		if reason == "" {
+			return nil, fmt.Errorf("%w: Ablehnungsgrund fehlt", ErrInvalidInput)
+		}
+		v.Status, v.RejectReason = domain.ParentWorkStatusRejected, &reason
+	}
+	v.UpdatedBy = &userID
+	if err := s.repo.SaveEntry(ctx, v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
+// SubmitParentEntry stores a new parent report without crediting it yet.
+func (s *ParentWorkService) SubmitParentEntry(ctx context.Context, v domain.ParentWorkEntry,
+	userID uuid.UUID) (*domain.ParentWorkEntry, error) {
+	if v.WorkDate.After(util.Today()) {
+		return nil, fmt.Errorf("%w: Arbeitsdatum darf nicht in der Zukunft liegen", ErrInvalidInput)
+	}
+	v.Status, v.Source = domain.ParentWorkStatusSubmitted, "PARENT"
+	v.CreatedBy, v.UpdatedBy = &userID, &userID
+	if v.HouseholdID == uuid.Nil || v.WorkDate.IsZero() || strings.TrimSpace(v.Occasion) == "" ||
+		v.DurationMinutes <= 0 || v.DurationMinutes%15 != 0 {
+		return nil, fmt.Errorf("%w: Datum, Anlass und positive Viertelstunden sind erforderlich", ErrInvalidInput)
+	}
+	v.Occasion = strings.TrimSpace(v.Occasion)
+	if err := s.repo.SaveEntry(ctx, &v); err != nil {
+		return nil, err
+	}
+	return &v, nil
+}
+
+// WithdrawParentEntry only voids a submitted entry belonging to this household.
+func (s *ParentWorkService) WithdrawParentEntry(ctx context.Context, id, householdID,
+	userID uuid.UUID) (*domain.ParentWorkEntry, error) {
+	v, err := s.repo.GetEntry(ctx, id)
+	if errors.Is(err, repository.ErrNotFound) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	if v.HouseholdID != householdID || v.Source != "PARENT" {
+		return nil, ErrNotFound
+	}
+	if v.Status != domain.ParentWorkStatusSubmitted {
+		return nil, fmt.Errorf("%w: Nur gemeldete Einträge können zurückgezogen werden", ErrConflict)
+	}
+	reason := "Von Eltern zurückgezogen"
+	v.Status, v.VoidReason, v.UpdatedBy = domain.ParentWorkStatusVoided, &reason, &userID
+	if err := s.repo.SaveEntry(ctx, v); err != nil {
+		return nil, err
+	}
+	return v, nil
+}
+
 // SaveRule creates or updates a rule version.
 func (s *ParentWorkService) SaveRule(
 	ctx context.Context, id uuid.UUID, v domain.ParentWorkRule,
@@ -605,6 +680,10 @@ func (s *ParentWorkService) SaveEntry(ctx context.Context, id uuid.UUID, v domai
 		v.Source = existing.Source
 		if v.Status == "" {
 			v.Status = existing.Status
+		}
+		if existing.Source == "PARENT" && existing.Status == domain.ParentWorkStatusSubmitted &&
+			v.Status != domain.ParentWorkStatusSubmitted {
+			return nil, fmt.Errorf("%w: Gemeldete Einträge müssen bestätigt oder abgelehnt werden", ErrConflict)
 		}
 	} else {
 		v.Source = "MANUAL"

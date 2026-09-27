@@ -272,6 +272,50 @@ func (h *ParentWorkHandler) VoidEntry(w http.ResponseWriter, r *http.Request) {
 	response.Success(w, v)
 }
 
+type parentWorkReviewRequest struct {
+	Reason string `json:"reason"`
+}
+
+// ApproveEntry handles POST /parent-work/entries/{id}/approve.
+// @Summary Gemeldete Elternstunden bestätigen
+// @Tags parent-work
+// @Security BearerAuth
+// @Param id path string true "Eintrag"
+// @Success 200 {object} domain.ParentWorkEntry
+// @Router /parent-work/entries/{id}/approve [post]
+func (h *ParentWorkHandler) ApproveEntry(w http.ResponseWriter, r *http.Request) {
+	h.reviewEntry(w, r, true)
+}
+
+// RejectEntry handles POST /parent-work/entries/{id}/reject.
+// @Summary Gemeldete Elternstunden ablehnen
+// @Tags parent-work
+// @Security BearerAuth
+// @Param id path string true "Eintrag"
+// @Param request body parentWorkReviewRequest true "Ablehnungsgrund"
+// @Success 200 {object} domain.ParentWorkEntry
+// @Router /parent-work/entries/{id}/reject [post]
+func (h *ParentWorkHandler) RejectEntry(w http.ResponseWriter, r *http.Request) {
+	h.reviewEntry(w, r, false)
+}
+
+func (h *ParentWorkHandler) reviewEntry(w http.ResponseWriter, r *http.Request, approve bool) {
+	id, ok := parentWorkID(w, r, "id")
+	if !ok {
+		return
+	}
+	var req parentWorkReviewRequest
+	if !approve && !decodeParentWork(w, r, &req) {
+		return
+	}
+	v, err := h.svc.ReviewEntry(r.Context(), id, approve, req.Reason, parentWorkUser(r))
+	if err != nil {
+		parentWorkError(w, err)
+		return
+	}
+	response.Success(w, v)
+}
+
 // SaveOverride handles PUT /parent-work/households/{id}/override.
 // @Summary Manuelles Soll setzen
 // @Tags parent-work

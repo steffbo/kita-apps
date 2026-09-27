@@ -6,6 +6,28 @@ info:
   title: Kita Knirpsenstadt Fees API
   version: 1.0.0
 paths:
+  /activity:
+    get:
+      parameters:
+        - description: Anzahl (1..100)
+          in: query
+          name: limit
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            "*/*":
+              schema:
+                items:
+                  $ref: "#/components/schemas/repository.Activity"
+                type: array
+      security:
+        - BearerAuth: []
+      summary: Letzte Eltern-Aktivitäten
+      tags:
+        - Parent account
   /auth/change-password:
     post:
       description: Change the password for the currently authenticated user. Ends all
@@ -682,6 +704,29 @@ paths:
       summary: Add child care hours history entry
       tags:
         - Children
+  "/children/{id}/changes":
+    get:
+      parameters:
+        - description: Kind
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            "*/*":
+              schema:
+                items:
+                  $ref: "#/components/schemas/repository.DataChange"
+                type: array
+      security:
+        - BearerAuth: []
+      summary: Datenänderungen eines Kindes
+      tags:
+        - Parent account
   "/children/{id}/ledger":
     get:
       description: Retrieve the payment ledger showing all fees and payments for a child
@@ -3941,6 +3986,187 @@ paths:
       summary: Resolve late payment warning by creating late fee
       tags:
         - Import
+  /me:
+    get:
+      responses:
+        "200":
+          description: OK
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/handler.ownOverview"
+      security:
+        - BearerAuth: []
+      summary: Eigene Familiendaten
+      tags:
+        - Parent account
+  "/me/children/{id}":
+    put:
+      parameters:
+        - description: Kind
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/service.OwnChildInput"
+        description: Kinderdaten
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/handler.ownChild"
+      security:
+        - BearerAuth: []
+      summary: Eigene Kinderdaten ändern
+      tags:
+        - Parent account
+  /me/contact:
+    put:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/handler.ownContactRequest"
+        description: Kontaktdaten
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/handler.ownParent"
+      security:
+        - BearerAuth: []
+      summary: Eigene Kontaktdaten ändern
+      tags:
+        - Parent account
+  /me/fees:
+    get:
+      parameters:
+        - description: Kalenderjahr
+          in: query
+          name: year
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/handler.ownFees"
+      security:
+        - BearerAuth: []
+      summary: Eigene Beiträge
+      tags:
+        - Parent account
+  /me/parent-work:
+    get:
+      parameters:
+        - description: Kita-Jahr
+          in: query
+          name: year
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/handler.ownWork"
+      security:
+        - BearerAuth: []
+      summary: Eigene Elternstunden
+      tags:
+        - Parent account
+  /me/parent-work/entries:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/handler.ownWorkRequest"
+        description: Meldung
+        required: true
+      responses:
+        "201":
+          description: Created
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/handler.ownWorkEntry"
+      security:
+        - BearerAuth: []
+      summary: Elternstunden melden
+      tags:
+        - Parent account
+  "/me/parent-work/entries/{id}/withdraw":
+    post:
+      parameters:
+        - description: Eintrag
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/handler.ownWorkEntry"
+      security:
+        - BearerAuth: []
+      summary: Eigene Meldung zurückziehen
+      tags:
+        - Parent account
+  /me/reports:
+    get:
+      responses:
+        "200":
+          description: OK
+          content:
+            "*/*":
+              schema:
+                items:
+                  $ref: "#/components/schemas/repository.ParentReport"
+                type: array
+      security:
+        - BearerAuth: []
+      summary: Eigene Fehlermeldungen
+      tags:
+        - Parent account
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/service.ReportInput"
+        description: Meldung
+        required: true
+      responses:
+        "201":
+          description: Created
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/repository.ParentReport"
+      security:
+        - BearerAuth: []
+      summary: Fehler melden
+      tags:
+        - Parent account
   /members:
     get:
       description: Get a paginated list of members with optional filtering and sorting
@@ -4268,6 +4494,49 @@ paths:
       summary: List all notes
       tags:
         - Notes
+  /parent-reports:
+    get:
+      parameters:
+        - description: OPEN, DONE oder ALL
+          in: query
+          name: status
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            "*/*":
+              schema:
+                items:
+                  $ref: "#/components/schemas/repository.ParentReport"
+                type: array
+      security:
+        - BearerAuth: []
+      summary: Fehlermeldungen der Eltern
+      tags:
+        - Parent account
+  "/parent-reports/{id}/resolve":
+    post:
+      parameters:
+        - description: Meldung
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/repository.ParentReport"
+      security:
+        - BearerAuth: []
+      summary: Fehlermeldung erledigen
+      tags:
+        - Parent account
   /parent-work/board-terms:
     get:
       responses:
@@ -4375,6 +4644,55 @@ paths:
       security:
         - BearerAuth: []
       summary: Elternstunden bearbeiten
+      tags:
+        - parent-work
+  "/parent-work/entries/{id}/approve":
+    post:
+      parameters:
+        - description: Eintrag
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/domain.ParentWorkEntry"
+      security:
+        - BearerAuth: []
+      summary: Gemeldete Elternstunden bestätigen
+      tags:
+        - parent-work
+  "/parent-work/entries/{id}/reject":
+    post:
+      parameters:
+        - description: Eintrag
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/handler.parentWorkReviewRequest"
+        description: Ablehnungsgrund
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/domain.ParentWorkEntry"
+      security:
+        - BearerAuth: []
+      summary: Gemeldete Elternstunden ablehnen
       tags:
         - parent-work
   "/parent-work/entries/{id}/void":
@@ -4907,6 +5225,29 @@ paths:
       summary: Update parent
       tags:
         - Parents
+  "/parents/{id}/changes":
+    get:
+      parameters:
+        - description: Elternteil
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            "*/*":
+              schema:
+                items:
+                  $ref: "#/components/schemas/repository.DataChange"
+                type: array
+      security:
+        - BearerAuth: []
+      summary: Datenänderungen eines Elternteils
+      tags:
+        - Parent account
   "/parents/{id}/member":
     delete:
       description: Remove the member association from a parent (does not delete the member)
@@ -6104,6 +6445,7 @@ components:
             - ADMIN
             - USER
             - PARENT_WORK
+            - PARENT
           example: USER
           type: string
       required:
@@ -7741,11 +8083,16 @@ components:
         lastName:
           example: Mustermann
           type: string
+        parentId:
+          type: string
+        parentName:
+          type: string
         role:
           enum:
             - ADMIN
             - USER
             - PARENT_WORK
+            - PARENT
           example: USER
           type: string
         updatedAt:
@@ -7776,6 +8123,7 @@ components:
             - ADMIN
             - USER
             - PARENT_WORK
+            - PARENT
           example: USER
           type: string
       required:
@@ -8558,6 +8906,8 @@ components:
           type: string
         requiredMinutes:
           type: integer
+        submittedCount:
+          type: integer
       required:
         - calculatedMinutes
         - carryInMinutes
@@ -8570,6 +8920,7 @@ components:
         - missingAmountCents
         - openMinutes
         - requiredMinutes
+        - submittedCount
       type: object
     domain.ParentWorkChild:
       properties:
@@ -8612,6 +8963,8 @@ components:
         memberName:
           type: string
         occasion:
+          type: string
+        rejectReason:
           type: string
         source:
           type: string
@@ -8984,6 +9337,215 @@ components:
         - office
         - startDate
       type: object
+    handler.ownChild:
+      properties:
+        birthDate:
+          type: string
+        careHours:
+          type: integer
+        city:
+          type: string
+        entryDate:
+          type: string
+        exitDate:
+          type: string
+        firstName:
+          type: string
+        id:
+          type: string
+        lastName:
+          type: string
+        legalHours:
+          type: integer
+        memberNumber:
+          type: string
+        postalCode:
+          type: string
+        street:
+          type: string
+        streetNo:
+          type: string
+      required:
+        - birthDate
+        - entryDate
+        - firstName
+        - id
+        - lastName
+        - memberNumber
+      type: object
+    handler.ownContactRequest:
+      properties:
+        city:
+          type: string
+        email:
+          type: string
+        phone:
+          type: string
+        postalCode:
+          type: string
+        street:
+          type: string
+        streetNo:
+          type: string
+      type: object
+    handler.ownFees:
+      properties:
+        items:
+          items:
+            $ref: "#/components/schemas/repository.ParentFeeRow"
+          type: array
+        openTotal:
+          type: number
+        paidTotal:
+          type: number
+      required:
+        - items
+        - openTotal
+        - paidTotal
+      type: object
+    handler.ownHousehold:
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+      required:
+        - id
+        - name
+      type: object
+    handler.ownOtherParent:
+      properties:
+        firstName:
+          type: string
+        lastName:
+          type: string
+      required:
+        - firstName
+        - lastName
+      type: object
+    handler.ownOverview:
+      properties:
+        children:
+          items:
+            $ref: "#/components/schemas/handler.ownChild"
+          type: array
+        household:
+          $ref: "#/components/schemas/handler.ownHousehold"
+        otherParents:
+          items:
+            $ref: "#/components/schemas/handler.ownOtherParent"
+          type: array
+        parent:
+          $ref: "#/components/schemas/handler.ownParent"
+      required:
+        - children
+        - otherParents
+        - parent
+      type: object
+    handler.ownParent:
+      properties:
+        city:
+          type: string
+        email:
+          type: string
+        firstName:
+          type: string
+        id:
+          type: string
+        lastName:
+          type: string
+        phone:
+          type: string
+        postalCode:
+          type: string
+        street:
+          type: string
+        streetNo:
+          type: string
+      required:
+        - firstName
+        - id
+        - lastName
+      type: object
+    handler.ownWork:
+      properties:
+        carryInMinutes:
+          type: integer
+        carryOutMinutes:
+          type: integer
+        doneMinutes:
+          type: integer
+        entries:
+          items:
+            $ref: "#/components/schemas/handler.ownWorkEntry"
+          type: array
+        exempt:
+          type: boolean
+        exemptText:
+          type: string
+        missingAmountCents:
+          type: integer
+        openMinutes:
+          type: integer
+        requiredMinutes:
+          type: integer
+      required:
+        - carryInMinutes
+        - carryOutMinutes
+        - doneMinutes
+        - entries
+        - exempt
+        - missingAmountCents
+        - openMinutes
+        - requiredMinutes
+      type: object
+    handler.ownWorkEntry:
+      properties:
+        childName:
+          type: string
+        durationMinutes:
+          type: integer
+        id:
+          type: string
+        memberName:
+          type: string
+        occasion:
+          type: string
+        rejectReason:
+          type: string
+        source:
+          type: string
+        status:
+          type: string
+        voidReason:
+          type: string
+        workDate:
+          type: string
+      required:
+        - durationMinutes
+        - id
+        - occasion
+        - source
+        - status
+        - workDate
+      type: object
+    handler.ownWorkRequest:
+      properties:
+        childName:
+          type: string
+        durationMinutes:
+          type: integer
+        memberName:
+          type: string
+        occasion:
+          type: string
+        workDate:
+          type: string
+      required:
+        - durationMinutes
+        - occasion
+        - workDate
+      type: object
     handler.parentWorkEntryRequest:
       properties:
         childName:
@@ -9025,6 +9587,13 @@ components:
         - reason
         - requiredMinutes
       type: object
+    handler.parentWorkReviewRequest:
+      properties:
+        reason:
+          type: string
+      required:
+        - reason
+      type: object
     handler.parentWorkRuleRequest:
       properties:
         hoursPerChildMinutes:
@@ -9048,6 +9617,139 @@ components:
           type: string
       required:
         - reason
+      type: object
+    repository.Activity:
+      properties:
+        at:
+          type: string
+        childId:
+          type: string
+        childName:
+          type: string
+        durationMinutes:
+          type: integer
+        field:
+          type: string
+        householdId:
+          type: string
+        householdName:
+          type: string
+        message:
+          type: string
+        newValue:
+          type: string
+        occasion:
+          type: string
+        oldValue:
+          type: string
+        parentId:
+          type: string
+        parentName:
+          type: string
+        reportId:
+          type: string
+        status:
+          type: string
+        topic:
+          type: string
+        type:
+          type: string
+      required:
+        - at
+        - type
+      type: object
+    repository.DataChange:
+      properties:
+        changedAt:
+          type: string
+        entityId:
+          type: string
+        entityType:
+          type: string
+        field:
+          type: string
+        id:
+          type: string
+        newValue:
+          type: string
+        oldValue:
+          type: string
+        parentId:
+          type: string
+        userId:
+          type: string
+      required:
+        - changedAt
+        - entityId
+        - entityType
+        - field
+        - id
+      type: object
+    repository.ParentFeeRow:
+      properties:
+        amount:
+          type: number
+        childId:
+          type: string
+        childName:
+          type: string
+        dueDate:
+          type: string
+        feeType:
+          type: string
+        id:
+          type: string
+        month:
+          type: integer
+        paidAmount:
+          type: number
+        status:
+          type: string
+        year:
+          type: integer
+      required:
+        - amount
+        - childId
+        - childName
+        - dueDate
+        - feeType
+        - id
+        - paidAmount
+        - status
+        - year
+      type: object
+    repository.ParentReport:
+      properties:
+        createdAt:
+          type: string
+        householdId:
+          type: string
+        id:
+          type: string
+        message:
+          type: string
+        parentId:
+          type: string
+        referenceId:
+          type: string
+        resolvedAt:
+          type: string
+        resolvedBy:
+          type: string
+        status:
+          type: string
+        topic:
+          type: string
+        userId:
+          type: string
+      required:
+        - createdAt
+        - householdId
+        - id
+        - message
+        - parentId
+        - status
+        - topic
       type: object
     service.ChildImportParseResult:
       properties:
@@ -9244,6 +9946,27 @@ components:
         - child
         - index
       type: object
+    service.OwnChildInput:
+      properties:
+        birthDate:
+          type: string
+        city:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        postalCode:
+          type: string
+        street:
+          type: string
+        streetNo:
+          type: string
+      required:
+        - birthDate
+        - firstName
+        - lastName
+      type: object
     service.ParentDecision:
       properties:
         action:
@@ -9340,6 +10063,8 @@ components:
           type: string
         requiredMinutes:
           type: integer
+        submittedCount:
+          type: integer
       required:
         - boardTerms
         - calculatedMinutes
@@ -9354,6 +10079,7 @@ components:
         - missingAmountCents
         - openMinutes
         - requiredMinutes
+        - submittedCount
       type: object
     service.ParentWorkHouseholdOption:
       properties:
@@ -9506,6 +10232,8 @@ components:
           type: integer
         rule:
           $ref: "#/components/schemas/domain.ParentWorkRule"
+        submittedTotal:
+          type: integer
         unassignedChildren:
           items:
             $ref: "#/components/schemas/domain.ParentWorkUnassignedChild"
@@ -9517,6 +10245,7 @@ components:
         - missingAmountCents
         - openMinutes
         - requiredMinutes
+        - submittedTotal
         - unassignedChildren
       type: object
     service.PreviewResult:
@@ -9778,3 +10507,15 @@ components:
         - ReminderStageInitial
         - ReminderStageFinal
         - ReminderStageNone
+    service.ReportInput:
+      properties:
+        message:
+          type: string
+        referenceId:
+          type: string
+        topic:
+          type: string
+      required:
+        - message
+        - topic
+      type: object

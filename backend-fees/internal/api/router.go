@@ -73,6 +73,26 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 			r.Get("/auth/me", handlers.Auth.Me)
 			r.Post("/auth/change-password", handlers.Auth.ChangePassword)
 
+			r.Route("/me", func(r chi.Router) {
+				r.Use(customMiddleware.RequireRole(string(domain.UserRolePARENT)))
+				r.Get("/", handlers.ParentAccount.Me)
+				r.Get("/fees", handlers.ParentAccount.Fees)
+				r.Get("/parent-work", handlers.ParentAccount.ParentWork)
+				r.Post("/parent-work/entries", handlers.ParentAccount.SubmitEntry)
+				r.Post("/parent-work/entries/{id}/withdraw", handlers.ParentAccount.WithdrawEntry)
+				r.Put("/contact", handlers.ParentAccount.Contact)
+				r.Put("/children/{id}", handlers.ParentAccount.UpdateChild)
+				r.Get("/reports", handlers.ParentAccount.OwnReports)
+				r.Post("/reports", handlers.ParentAccount.CreateReport)
+			})
+			r.With(customMiddleware.RequireRole(string(domain.UserRoleAdmin))).
+				Get("/activity", handlers.ParentAccount.Activity)
+			r.Route("/parent-reports", func(r chi.Router) {
+				r.Use(customMiddleware.RequireRole(string(domain.UserRoleAdmin)))
+				r.Get("/", handlers.ParentAccount.StaffReports)
+				r.Post("/{id}/resolve", handlers.ParentAccount.ResolveReport)
+			})
+
 			// User management (admin only)
 			r.Route("/users", func(r chi.Router) {
 				r.Use(customMiddleware.RequireRole(string(domain.UserRoleAdmin)))
@@ -94,6 +114,8 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 				r.Post("/entries", handlers.ParentWork.CreateEntry)
 				r.Put("/entries/{id}", handlers.ParentWork.UpdateEntry)
 				r.Post("/entries/{id}/void", handlers.ParentWork.VoidEntry)
+				r.Post("/entries/{id}/approve", handlers.ParentWork.ApproveEntry)
+				r.Post("/entries/{id}/reject", handlers.ParentWork.RejectEntry)
 				r.Get("/board-terms", handlers.ParentWork.Terms)
 				r.Post("/board-terms", handlers.ParentWork.CreateTerm)
 				r.Put("/board-terms/{id}", handlers.ParentWork.UpdateTerm)
@@ -118,6 +140,7 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 					r.Get("/next-member-number", handlers.Child.NextMemberNumber)
 					r.Post("/", handlers.Child.Create)
 					r.Get("/{id}", handlers.Child.Get)
+					r.With(customMiddleware.RequireRole(string(domain.UserRoleAdmin))).Get("/{id}/changes", handlers.ParentAccount.ChildChanges)
 					r.Put("/{id}", handlers.Child.Update)
 					r.Delete("/{id}", handlers.Child.Delete)
 					r.Get("/{id}/care-hours-history", handlers.Child.GetCareHoursHistory)
@@ -151,6 +174,7 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 					r.Get("/", handlers.Parent.List)
 					r.Post("/", handlers.Parent.Create)
 					r.Get("/{id}", handlers.Parent.Get)
+					r.With(customMiddleware.RequireRole(string(domain.UserRoleAdmin))).Get("/{id}/changes", handlers.ParentAccount.ParentChanges)
 					r.Put("/{id}", handlers.Parent.Update)
 					r.Delete("/{id}", handlers.Parent.Delete)
 					r.Post("/{id}/member", handlers.Parent.CreateMember)
@@ -280,6 +304,7 @@ type Handlers struct {
 	Einstufung       *handler.EinstufungHandler
 	FeeSchedule      *handler.FeeScheduleHandler
 	ParentWork       *handler.ParentWorkHandler
+	ParentAccount    *handler.ParentAccountHandler
 	Import           *handler.ImportHandler
 	BankingSync      *handler.BankingSyncHandler
 	Stichtagsmeldung *handler.StichtagsmeldungHandler

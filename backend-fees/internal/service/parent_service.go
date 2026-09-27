@@ -2,6 +2,9 @@ package service
 
 import (
 	"context"
+	"fmt"
+	"net/mail"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -13,10 +16,11 @@ import (
 
 // ParentService handles parent-related business logic.
 type ParentService struct {
-	parentRepo    repository.ParentRepository
-	childRepo     repository.ChildRepository
-	memberRepo    repository.MemberRepository
-	householdRepo repository.HouseholdRepository
+	parentRepo     repository.ParentRepository
+	childRepo      repository.ChildRepository
+	memberRepo     repository.MemberRepository
+	householdRepo  repository.HouseholdRepository
+	accountChanges *repository.ParentAccountRepository
 }
 
 // NewParentService creates a new parent service.
@@ -46,6 +50,7 @@ type CreateParentInput struct {
 
 // UpdateParentInput defines input for updating a parent.
 type UpdateParentInput struct {
+	ActorID               uuid.UUID
 	FirstName             *string
 	LastName              *string
 	BirthDate             *string
@@ -163,7 +168,16 @@ func (s *ParentService) Update(ctx context.Context, id uuid.UUID, input UpdatePa
 		parent.BirthDate = &t
 	}
 	if input.Email != nil {
-		parent.Email = input.Email
+		email := strings.TrimSpace(*input.Email)
+		if email != "" {
+			parsed, parseErr := mail.ParseAddress(email)
+			if parseErr != nil || parsed.Address != email {
+				return nil, fmt.Errorf("%w: Ungültige E-Mail-Adresse", ErrInvalidInput)
+			}
+			parent.Email = &email
+		} else {
+			parent.Email = nil
+		}
 	}
 	if input.Phone != nil {
 		parent.Phone = input.Phone
@@ -187,7 +201,11 @@ func (s *ParentService) Update(ctx context.Context, id uuid.UUID, input UpdatePa
 		parent.IncomeStatus = domain.IncomeStatus(*input.IncomeStatus)
 	}
 
-	if err := s.parentRepo.Update(ctx, parent); err != nil {
+	if s.accountChanges != nil {
+		if err := s.accountChanges.SaveStaffParent(ctx, parent, input.ActorID); err != nil {
+			return nil, mapAccountError(err)
+		}
+	} else if err := s.parentRepo.Update(ctx, parent); err != nil {
 		return nil, err
 	}
 
@@ -324,4 +342,8 @@ func stringOrEmpty(s *string) string {
 		return ""
 	}
 	return *s
+}
+
+func (s *ParentService) SetAccountChanges(repo *repository.ParentAccountRepository) {
+	s.accountChanges = repo
 }

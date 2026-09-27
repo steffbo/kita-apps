@@ -4,6 +4,45 @@
  */
 
 export interface paths {
+    "/activity": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Letzte Eltern-Aktivitäten */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Anzahl (1..100) */
+                    limit?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["repository.Activity"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/change-password": {
         parameters: {
             query?: never;
@@ -1040,6 +1079,45 @@ export interface paths {
                 };
             };
         };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/children/{id}/changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Datenänderungen eines Kindes */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Kind */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["repository.DataChange"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -5983,6 +6061,346 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Eigene Familiendaten */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["handler.ownOverview"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/children/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Eigene Kinderdaten ändern */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Kind */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Kinderdaten */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["service.OwnChildInput"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["handler.ownChild"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/contact": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Eigene Kontaktdaten ändern */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Kontaktdaten */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["handler.ownContactRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["handler.ownParent"];
+                    };
+                };
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/fees": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Eigene Beiträge */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Kalenderjahr */
+                    year?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["handler.ownFees"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/parent-work": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Eigene Elternstunden */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Kita-Jahr */
+                    year?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["handler.ownWork"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/parent-work/entries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Elternstunden melden */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Meldung */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["handler.ownWorkRequest"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["handler.ownWorkEntry"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/parent-work/entries/{id}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Eigene Meldung zurückziehen */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Eintrag */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["handler.ownWorkEntry"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Eigene Fehlermeldungen */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["repository.ParentReport"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Fehler melden */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Meldung */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["service.ReportInput"];
+                };
+            };
+            responses: {
+                /** @description Created */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["repository.ParentReport"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/members": {
         parameters: {
             query?: never;
@@ -6444,6 +6862,84 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/parent-reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Fehlermeldungen der Eltern */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description OPEN, DONE oder ALL */
+                    status?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["repository.ParentReport"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/parent-reports/{id}/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Fehlermeldung erledigen */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Meldung */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["repository.ParentReport"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/parent-work/board-terms": {
         parameters: {
             query?: never;
@@ -6629,6 +7125,89 @@ export interface paths {
             };
         };
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/parent-work/entries/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Gemeldete Elternstunden bestätigen */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Eintrag */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["domain.ParentWorkEntry"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/parent-work/entries/{id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Gemeldete Elternstunden ablehnen */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Eintrag */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Ablehnungsgrund */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["handler.parentWorkReviewRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["domain.ParentWorkEntry"];
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -7449,6 +8028,45 @@ export interface paths {
                 };
             };
         };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/parents/{id}/changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Datenänderungen eines Elternteils */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Elternteil */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["repository.DataChange"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -8489,7 +9107,7 @@ export interface components {
              * @example USER
              * @enum {string}
              */
-            role: "ADMIN" | "USER" | "PARENT_WORK";
+            role: "ADMIN" | "USER" | "PARENT_WORK" | "PARENT";
         };
         /** @description Paid month that would become overpaid after a childcare fee decrease */
         CreditReviewPeriod: {
@@ -9347,11 +9965,13 @@ export interface components {
             isActive: boolean;
             /** @example Mustermann */
             lastName?: string;
+            parentId?: string;
+            parentName?: string;
             /**
              * @example USER
              * @enum {string}
              */
-            role: "ADMIN" | "USER" | "PARENT_WORK";
+            role: "ADMIN" | "USER" | "PARENT_WORK" | "PARENT";
             updatedAt: string;
         };
         UserAccountRequest: {
@@ -9366,7 +9986,7 @@ export interface components {
              * @example USER
              * @enum {string}
              */
-            role: "ADMIN" | "USER" | "PARENT_WORK";
+            role: "ADMIN" | "USER" | "PARENT_WORK" | "PARENT";
         };
         /** @description Paginated warnings list as returned by the warnings endpoint */
         WarningList: {
@@ -9688,6 +10308,7 @@ export interface components {
             overrideMinutes?: number;
             overrideReason?: string;
             requiredMinutes: number;
+            submittedCount: number;
         };
         "domain.ParentWorkChild": {
             entryDate: string;
@@ -9707,6 +10328,7 @@ export interface components {
             id: string;
             memberName?: string;
             occasion: string;
+            rejectReason?: string;
             source: string;
             status: string;
             updatedAt: string;
@@ -9845,6 +10467,89 @@ export interface components {
             /** @example 2026-08-01 */
             startDate: string;
         };
+        "handler.ownChild": {
+            birthDate: string;
+            careHours?: number;
+            city?: string;
+            entryDate: string;
+            exitDate?: string;
+            firstName: string;
+            id: string;
+            lastName: string;
+            legalHours?: number;
+            memberNumber: string;
+            postalCode?: string;
+            street?: string;
+            streetNo?: string;
+        };
+        "handler.ownContactRequest": {
+            city?: string;
+            email?: string;
+            phone?: string;
+            postalCode?: string;
+            street?: string;
+            streetNo?: string;
+        };
+        "handler.ownFees": {
+            items: components["schemas"]["repository.ParentFeeRow"][];
+            openTotal: number;
+            paidTotal: number;
+        };
+        "handler.ownHousehold": {
+            id: string;
+            name: string;
+        };
+        "handler.ownOtherParent": {
+            firstName: string;
+            lastName: string;
+        };
+        "handler.ownOverview": {
+            children: components["schemas"]["handler.ownChild"][];
+            household?: components["schemas"]["handler.ownHousehold"];
+            otherParents: components["schemas"]["handler.ownOtherParent"][];
+            parent: components["schemas"]["handler.ownParent"];
+        };
+        "handler.ownParent": {
+            city?: string;
+            email?: string;
+            firstName: string;
+            id: string;
+            lastName: string;
+            phone?: string;
+            postalCode?: string;
+            street?: string;
+            streetNo?: string;
+        };
+        "handler.ownWork": {
+            carryInMinutes: number;
+            carryOutMinutes: number;
+            doneMinutes: number;
+            entries: components["schemas"]["handler.ownWorkEntry"][];
+            exempt: boolean;
+            exemptText?: string;
+            missingAmountCents: number;
+            openMinutes: number;
+            requiredMinutes: number;
+        };
+        "handler.ownWorkEntry": {
+            childName?: string;
+            durationMinutes: number;
+            id: string;
+            memberName?: string;
+            occasion: string;
+            rejectReason?: string;
+            source: string;
+            status: string;
+            voidReason?: string;
+            workDate: string;
+        };
+        "handler.ownWorkRequest": {
+            childName?: string;
+            durationMinutes: number;
+            memberName?: string;
+            occasion: string;
+            workDate: string;
+        };
         "handler.parentWorkEntryRequest": {
             childName?: string;
             durationMinutes: number;
@@ -9861,6 +10566,9 @@ export interface components {
             reason: string;
             requiredMinutes: number;
         };
+        "handler.parentWorkReviewRequest": {
+            reason: string;
+        };
         "handler.parentWorkRuleRequest": {
             hoursPerChildMinutes: number;
             maxCarryOverMinutes: number;
@@ -9870,6 +10578,61 @@ export interface components {
         };
         "handler.parentWorkVoidRequest": {
             reason: string;
+        };
+        "repository.Activity": {
+            at: string;
+            childId?: string;
+            childName?: string;
+            durationMinutes?: number;
+            field?: string;
+            householdId?: string;
+            householdName?: string;
+            message?: string;
+            newValue?: string;
+            occasion?: string;
+            oldValue?: string;
+            parentId?: string;
+            parentName?: string;
+            reportId?: string;
+            status?: string;
+            topic?: string;
+            type: string;
+        };
+        "repository.DataChange": {
+            changedAt: string;
+            entityId: string;
+            entityType: string;
+            field: string;
+            id: string;
+            newValue?: string;
+            oldValue?: string;
+            parentId?: string;
+            userId?: string;
+        };
+        "repository.ParentFeeRow": {
+            amount: number;
+            childId: string;
+            childName: string;
+            dueDate: string;
+            feeType: string;
+            id: string;
+            month?: number;
+            paidAmount: number;
+            status: string;
+            year: number;
+        };
+        "repository.ParentReport": {
+            createdAt: string;
+            householdId: string;
+            id: string;
+            message: string;
+            parentId: string;
+            referenceId?: string;
+            resolvedAt?: string;
+            resolvedBy?: string;
+            status: string;
+            topic: string;
+            userId?: string;
         };
         "service.ChildImportParseResult": {
             detectedSeparator: string;
@@ -9947,6 +10710,15 @@ export interface components {
             parent1?: components["schemas"]["service.ParentPreview"];
             parent2?: components["schemas"]["service.ParentPreview"];
         };
+        "service.OwnChildInput": {
+            birthDate: string;
+            city?: string;
+            firstName: string;
+            lastName: string;
+            postalCode?: string;
+            street?: string;
+            streetNo?: string;
+        };
         "service.ParentDecision": {
             /** @description "create" or "link" */
             action: string;
@@ -9989,6 +10761,7 @@ export interface components {
             overrideMinutes?: number;
             overrideReason?: string;
             requiredMinutes: number;
+            submittedCount: number;
         };
         "service.ParentWorkHouseholdOption": {
             children: components["schemas"]["domain.ParentWorkChild"][];
@@ -10045,6 +10818,7 @@ export interface components {
             openMinutes: number;
             requiredMinutes: number;
             rule?: components["schemas"]["domain.ParentWorkRule"];
+            submittedTotal: number;
             unassignedChildren: components["schemas"]["domain.ParentWorkUnassignedChild"][];
         };
         "service.PreviewResult": {
@@ -10130,6 +10904,11 @@ export interface components {
         };
         /** @enum {string} */
         "service.ReminderStage": "auto" | "initial" | "final" | "none";
+        "service.ReportInput": {
+            message: string;
+            referenceId?: string;
+            topic: string;
+        };
     };
     responses: never;
     parameters: never;

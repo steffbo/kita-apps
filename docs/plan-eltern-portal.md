@@ -38,22 +38,36 @@ Alle Seiten/Komponenten von festen `gray-*`/`white`-Klassen auf Tokens (`bg-card
 - Konto ↔ Elternteil automatisch über die E-Mail-Adresse.
 - Eltern dürfen ihre Kontaktdaten ändern, ohne Freigabe, aber mit Audit-Log. Alte Werte sieht nur der Admin.
   Admin-Dashboard bekommt ein rein informatives Feed-Widget mit den letzten Änderungen.
+- Nachtrag (2026-09-27): Eltern dürfen auch Kinderdaten ändern (Vorname, Nachname, Geburtsdatum, Adresse),
+  ebenfalls mit Audit-Log. Nur lesbar: Betreuungszeit, Rechtsanspruch, außerdem Mitgliedsnummer und
+  Ein-/Austrittsdatum (Vertragsdaten, Annahme). Eltern können einen Fehler melden (Freitext, optional mit
+  Bezug auf Kind/Beitrag/Elternstunden); Meldungen erscheinen im Admin-Feed und werden dort erledigt.
+- E-Mail-Änderung ändert auch den Login: Kontakt-E-Mail des Elternteils und Login-E-Mail des verknüpften
+  Kontos bleiben immer gleich (auch wenn der Admin die E-Mail des Elternteils ändert).
 - Eltern dürfen Elternstunden melden; gemeldete Stunden zählen erst nach Bestätigung (Tim/Admin).
 - Passwörter/Zugänge werden später manuell verschickt, erst nach Umzug auf einen VPS. Jetzt nur vorbereiten.
 
 ## Etappe 2a: Backend Eltern-Rolle
 
+Status: umgesetzt.
+
 - Rolle `PARENT` (Label „Eltern“). `fees.users.parent_id` (eindeutig, `ON DELETE SET NULL`).
-  Beim Anlegen/Ändern eines `PARENT`-Kontos wird der Elternteil über die E-Mail gesucht
+  Beim Anlegen bzw. Wechsel zur Rolle `PARENT` wird der Elternteil über die E-Mail gesucht
   (Groß-/Kleinschreibung egal): genau einer → verknüpfen; keiner → Fehler „Kein Elternteil mit dieser
-  E-Mail“; mehrere → Konflikt. Die Verknüpfung bleibt, wenn der Elternteil später seine Kontakt-E-Mail
-  ändert (Login-E-Mail und Kontakt-E-Mail sind getrennt).
+  E-Mail“; mehrere → Konflikt. Danach bleiben Kontakt- und Login-E-Mail synchron (siehe Nachtrag).
 - Endpunkte `/me/**` nur für `PARENT`, Haushalt immer serverseitig aus `parent_id` bestimmt:
   Übersicht (eigene Kontaktdaten, Haushalt, Kinder), Beiträge des Haushalts je Jahr (offen/bezahlt),
   Elternstunden des Haushalts je Kita-Jahr (Soll/Ist/Offen/Befreiung, Einträge), Stunden melden
-  (`SUBMITTED`, Quelle `PARENT`), eigene gemeldete Einträge zurückziehen, Kontaktdaten ändern.
-- Audit: `fees.parent_contact_changes` (Elternteil, Konto, Feld, alt, neu, Zeitpunkt), in derselben
-  Transaktion wie die Änderung. Verlauf je Elternteil und Feed nur für `ADMIN`.
+  (`SUBMITTED`, Quelle `PARENT`), eigene gemeldete Einträge zurückziehen, Kontaktdaten und
+  Kinderdaten ändern, Fehler melden und eigene Meldungen sehen.
+- Audit: `fees.data_changes` für Eltern- und Kinderdaten (Entität, handelnder Elternteil, Konto,
+  Feld, alt, neu, Zeitpunkt), in derselben Transaktion wie die Änderung. Verlauf je Elternteil
+  und Kind sowie Feed nur für `ADMIN`. Staff-Änderungen haben keinen handelnden Elternteil und
+  erscheinen nicht im Feed.
+- `fees.parent_reports`: Eltern melden Fehler zu Kind, Beitrag oder Elternstunden-Eintrag des
+  eigenen Haushalts; Admin sieht und erledigt sie. Kontakt und Allgemeines erlauben Freitext ohne Bezug.
+- Kontakt-E-Mail und Login-E-Mail des verknüpften Kontos werden bei Änderungen durch Eltern, Staff
+  und auf der Benutzer-Seite zusammen aktualisiert; bestehende Refresh-Sessions bleiben gültig.
 - Freigabe: gemeldete Einträge bestätigen/ablehnen (mit Grund) durch `ADMIN`/`PARENT_WORK`;
   Übersicht zeigt Anzahl offener Meldungen.
 - Keine Einkommens-/Einstufungsdaten, keine internen Notizen, keine Override-Gründe für Eltern.
