@@ -1,100 +1,108 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
-import {
-  LayoutDashboard,
-  Users,
-  UserCircle,
-  UserPlus,
-  Receipt,
-  RefreshCw,
-  Bell,
-  LogOut,
-  Menu,
-  X,
-  ChevronDown,
-  ClipboardList,
-  NotebookPen,
-  Scale,
-  KeyRound,
-  ShieldCheck,
-  Clock,
-  Scale as RulesIcon,
-  UserCheck,
-  Upload,
-} from 'lucide-vue-next';
+import { useTheme } from '@/composables/useTheme';
 import { userRoleLabel } from '@/utils/userRole';
 import ChangePasswordDialog from '@/components/ChangePasswordDialog.vue';
+import logo from '@/assets/knirpsenstadt-logo.png';
+import {
+  LayoutDashboard, Users, UserCircle, UserPlus, Receipt, RefreshCw, Bell, LogOut,
+  Menu, X, ChevronDown, ClipboardList, NotebookPen, Scale, KeyRound, ShieldCheck,
+  Clock, UserCheck, Upload, Monitor, Sun, Moon,
+} from 'lucide-vue-next';
 
 const authStore = useAuthStore();
 const route = useRoute();
 const router = useRouter();
+const { mode, setTheme } = useTheme();
 const mobileMenuOpen = ref(false);
-const showUserMenu = ref(false);
+const openMenu = ref<string | null>(null);
 const showChangePassword = ref(false);
 const passwordChanged = ref(false);
 
-const currentPath = computed(() => route.path);
-
 const baseNavGroups = [
-  {
-    label: 'Täglich',
-    items: [
-      { name: 'Dashboard', to: '/', icon: LayoutDashboard },
-      { name: 'Bankabgleich', to: '/bankabgleich', icon: RefreshCw },
-    ],
-  },
-  {
-    label: 'Verwaltung',
-    items: [
-      { name: 'Kinder', to: '/kinder', icon: Users },
-      { name: 'Eltern', to: '/eltern', icon: UserCircle },
-      { name: 'Mitglieder', to: '/mitglieder', icon: UserPlus },
-      { name: 'Notizen', to: '/notizen', icon: NotebookPen },
-    ],
-  },
-  {
-    label: 'Beiträge',
-    items: [
-      { name: 'Beiträge', to: '/beitraege', icon: Receipt },
-      { name: 'Einstufungen', to: '/einstufungen', icon: ClipboardList },
-      { name: 'Erinnerungen', to: '/automatisierung', icon: Bell },
-      { name: 'Beitragsordnung', to: '/beitragsordnung', icon: Scale },
-    ],
-  },
+  { label: 'Täglich', items: [
+    { name: 'Dashboard', to: '/', icon: LayoutDashboard },
+    { name: 'Bankabgleich', to: '/bankabgleich', icon: RefreshCw },
+  ] },
+  { label: 'Verwaltung', items: [
+    { name: 'Kinder', to: '/kinder', icon: Users },
+    { name: 'Eltern', to: '/eltern', icon: UserCircle },
+    { name: 'Mitglieder', to: '/mitglieder', icon: UserPlus },
+    { name: 'Notizen', to: '/notizen', icon: NotebookPen },
+  ] },
+  { label: 'Beiträge', items: [
+    { name: 'Beiträge', to: '/beitraege', icon: Receipt },
+    { name: 'Einstufungen', to: '/einstufungen', icon: ClipboardList },
+    { name: 'Erinnerungen', to: '/automatisierung', icon: Bell },
+    { name: 'Beitragsordnung', to: '/beitragsordnung', icon: Scale },
+  ] },
 ];
 
 const navGroups = computed(() => [
-  ...(authStore.canAccessFees ? baseNavGroups : []),
-  ...(authStore.canAccessParentWork
-    ? [{ label: 'Elternstunden', items: [
-        { name: 'Übersicht', to: '/elternstunden', icon: Clock },
-        { name: 'Vorstand', to: '/elternstunden/vorstand', icon: UserCheck },
-        { name: 'Regeln', to: '/elternstunden/regeln', icon: RulesIcon },
-        { name: 'Import', to: '/elternstunden/import', icon: Upload },
-      ] }]
-    : []),
-  ...(authStore.isAdmin
-    ? [{ label: 'System', items: [{ name: 'Benutzer', to: '/benutzer', icon: ShieldCheck }] }]
-    : []),
+  ...(authStore.canAccessFees ? baseNavGroups.map(group => ({
+    ...group,
+    items: group.items.filter(item => item.to !== '/automatisierung' || authStore.isAdmin),
+  })) : []),
+  ...(authStore.canAccessParentWork ? [{ label: 'Elternstunden', items: [
+    { name: 'Übersicht', to: '/elternstunden', icon: Clock },
+    { name: 'Vorstand', to: '/elternstunden/vorstand', icon: UserCheck },
+    { name: 'Regeln', to: '/elternstunden/regeln', icon: Scale },
+    { name: 'Import', to: '/elternstunden/import', icon: Upload },
+  ] }] : []),
+  ...(authStore.isAdmin ? [{ label: 'System', items: [
+    { name: 'Benutzer', to: '/benutzer', icon: ShieldCheck },
+  ] }] : []),
 ]);
 
 function isActive(path: string) {
-  if (path === '/') {
-    return currentPath.value === '/';
+  if (path === '/') return route.path === '/';
+  if (path === '/elternstunden') {
+    return route.path === path || route.path.startsWith('/elternstunden/familien/');
   }
-  if (path === '/elternstunden') return currentPath.value === path || currentPath.value.startsWith('/elternstunden/familien/');
-  return currentPath.value.startsWith(path);
+  return route.path.startsWith(path);
+}
+
+function groupActive(items: { to: string }[]) {
+  return items.some(item => isActive(item.to));
+}
+
+function closeMenus() {
+  openMenu.value = null;
+  mobileMenuOpen.value = false;
+}
+
+function onDocumentClick(event: MouseEvent) {
+  if (!(event.target as Element).closest('[data-header-menu]')) openMenu.value = null;
+}
+
+function onKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape') closeMenus();
+}
+
+watch(() => route.fullPath, closeMenus);
+onMounted(() => {
+  document.addEventListener('click', onDocumentClick);
+  document.addEventListener('keydown', onKeydown);
+});
+onUnmounted(() => {
+  document.removeEventListener('click', onDocumentClick);
+  document.removeEventListener('keydown', onKeydown);
+});
+
+function cycleTheme() {
+  setTheme(mode.value === 'system' ? 'light' : mode.value === 'light' ? 'dark' : 'system');
 }
 
 async function handleLogout() {
+  closeMenus();
   await authStore.logout();
   router.push('/login');
 }
 
 function openChangePassword() {
-  showUserMenu.value = false;
+  closeMenus();
   showChangePassword.value = true;
 }
 
@@ -103,155 +111,112 @@ function onPasswordChanged() {
   passwordChanged.value = true;
   setTimeout(() => (passwordChanged.value = false), 5000);
 }
-
-function toggleUserMenu() {
-  showUserMenu.value = !showUserMenu.value;
-}
 </script>
 
 <template>
-  <div class="min-h-screen min-w-0 overflow-x-hidden bg-gray-50">
-    <!-- Mobile menu button -->
-    <div class="lg:hidden fixed top-0 left-0 right-0 z-30 bg-white border-b px-4 py-3 flex items-center justify-between">
-      <span class="font-semibold text-lg text-primary">Beiträge</span>
-      <button @click="mobileMenuOpen = !mobileMenuOpen" class="p-2 rounded-md hover:bg-gray-100">
-        <Menu v-if="!mobileMenuOpen" class="h-6 w-6" />
-        <X v-else class="h-6 w-6" />
-      </button>
-    </div>
+  <div class="min-h-screen min-w-0 bg-background">
+    <header class="sticky top-0 z-50 border-b border-brand-200 bg-header text-header-foreground shadow-sm">
+      <div class="mx-auto flex max-w-7xl items-center gap-4 px-4 py-2 sm:px-6">
+        <RouterLink to="/" class="flex shrink-0 items-center gap-2 rounded-full focus-visible:ring-2 focus-visible:ring-ring">
+          <img :src="logo" alt="" class="h-10 w-10 rounded-full object-cover" />
+          <span class="hidden font-bold sm:inline">Kita Knirpsenstadt</span>
+        </RouterLink>
 
-    <!-- Mobile menu overlay -->
-    <div
-      v-if="mobileMenuOpen"
-      class="lg:hidden fixed inset-0 z-40 bg-black/50"
-      @click="mobileMenuOpen = false"
-    />
-
-    <!-- Sidebar -->
-    <aside
-      :class="[
-        'fixed inset-y-0 right-0 z-50 w-72 max-w-[calc(100vw-2rem)] bg-white border-l transform transition-transform duration-200 ease-in-out lg:left-0 lg:right-auto lg:w-64 lg:max-w-none lg:border-l-0 lg:border-r lg:translate-x-0',
-        mobileMenuOpen ? 'translate-x-0' : 'translate-x-full',
-      ]"
-    >
-      <div class="flex flex-col h-full">
-        <!-- Logo -->
-        <div class="h-16 flex items-center px-6 border-b">
-          <span class="font-bold text-xl text-primary">Kita Knirpsenstadt</span>
-        </div>
-
-        <!-- Navigation -->
-        <nav class="flex-1 px-3 py-4 space-y-5 overflow-y-auto">
-          <div v-for="group in navGroups" :key="group.label">
-            <p class="px-3 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-wide">
-              {{ group.label }}
-            </p>
-            <div class="space-y-1">
-              <RouterLink
-                v-for="item in group.items"
-                :key="item.to"
-                :to="item.to"
-                :class="[
-                  'flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors',
-                  isActive(item.to)
-                    ? 'bg-primary text-white'
-                    : 'text-gray-700 hover:bg-gray-100',
-                ]"
-                @click="mobileMenuOpen = false"
+        <nav aria-label="Hauptnavigation" class="hidden min-w-0 flex-1 items-center justify-center gap-1 lg:flex">
+          <div v-for="group in navGroups" :key="group.label" class="relative" data-header-menu>
+            <RouterLink
+              v-if="group.items.length === 1" :to="group.items[0].to"
+              class="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold hover:bg-brand-50/70 dark:hover:bg-brand-800"
+              :class="{ 'bg-brand-50/80 dark:bg-brand-800': groupActive(group.items) }"
+            >
+              <component :is="group.items[0].icon" class="h-4 w-4" />
+              {{ group.items[0].name }}
+            </RouterLink>
+            <template v-else>
+              <button
+                type="button" class="flex items-center gap-1 rounded-full px-4 py-2 text-sm font-bold hover:bg-brand-50/70 dark:hover:bg-brand-800"
+                :class="{ 'bg-brand-50/80 dark:bg-brand-800': groupActive(group.items) }"
+                :aria-expanded="openMenu === group.label"
+                :aria-controls="'menu-' + group.label"
+                @click="openMenu = openMenu === group.label ? null : group.label"
+              >{{ group.label }} <ChevronDown class="h-4 w-4" /></button>
+              <div
+                v-if="openMenu === group.label" :id="'menu-' + group.label"
+                class="absolute left-0 top-full z-50 mt-2 min-w-48 rounded-2xl border bg-popover p-2 text-popover-foreground shadow-lg"
               >
-                <component :is="item.icon" class="h-5 w-5" />
-                {{ item.name }}
-              </RouterLink>
-            </div>
+                <RouterLink
+                  v-for="item in group.items" :key="item.to" :to="item.to"
+                  class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm hover:bg-accent"
+                  :class="{ 'bg-accent font-bold': isActive(item.to) }" @click="closeMenus"
+                ><component :is="item.icon" class="h-4 w-4" />{{ item.name }}</RouterLink>
+              </div>
+            </template>
           </div>
         </nav>
 
-        <!-- User section -->
-        <div class="border-t p-4">
-          <div class="relative">
+        <div class="ml-auto flex items-center gap-2">
+          <button
+            type="button" class="rounded-full p-2 hover:bg-brand-50/70 dark:hover:bg-accent"
+            :aria-label="'Design: ' + (mode === 'system' ? 'System' : mode === 'light' ? 'Hell' : 'Dunkel') + '. Umschalten'"
+            :title="'Design: ' + (mode === 'system' ? 'System' : mode === 'light' ? 'Hell' : 'Dunkel')"
+            @click="cycleTheme"
+          >
+            <Monitor v-if="mode === 'system'" class="h-5 w-5" />
+            <Sun v-else-if="mode === 'light'" class="h-5 w-5" />
+            <Moon v-else class="h-5 w-5" />
+          </button>
+          <div class="relative" data-header-menu>
             <button
-              @click="toggleUserMenu"
-              aria-label="Benutzermenü"
-              :aria-expanded="showUserMenu"
-              class="w-full flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-gray-100 transition-colors"
+              type="button" aria-label="Benutzermenü" :aria-expanded="openMenu === 'Benutzer'"
+              class="flex items-center gap-2 rounded-full px-2 py-1 hover:bg-brand-50/70 dark:hover:bg-accent"
+              @click="openMenu = openMenu === 'Benutzer' ? null : 'Benutzer'"
             >
-              <div class="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-                <UserCircle class="h-6 w-6 text-primary" />
-              </div>
-              <div class="flex-1 min-w-0 text-left">
-                <p class="text-sm font-medium truncate">
-                  {{ authStore.user?.firstName || authStore.user?.email }}
-                </p>
-                <p class="text-xs text-gray-500 truncate">
-                  {{ authStore.user ? userRoleLabel(authStore.user.role) : '' }}
-                </p>
-              </div>
-              <ChevronDown 
-                class="w-4 h-4 text-gray-400 transition-transform"
-                :class="{ 'rotate-180': showUserMenu }"
-              />
+              <UserCircle class="h-7 w-7" />
+              <span class="hidden max-w-32 text-left sm:block">
+                <span class="block truncate text-sm font-bold">{{ authStore.user?.firstName || authStore.user?.email }}</span>
+                <span class="block truncate text-xs">{{ authStore.user ? userRoleLabel(authStore.user.role) : '' }}</span>
+              </span>
+              <ChevronDown class="hidden h-4 w-4 sm:block" />
             </button>
-
-            <!-- User dropdown menu -->
-            <Transition
-              enter-active-class="transition ease-out duration-100"
-              enter-from-class="transform opacity-0 scale-95"
-              enter-to-class="transform opacity-100 scale-100"
-              leave-active-class="transition ease-in duration-75"
-              leave-from-class="transform opacity-100 scale-100"
-              leave-to-class="transform opacity-0 scale-95"
+            <div
+              v-if="openMenu === 'Benutzer'"
+              class="absolute right-0 top-full z-50 mt-2 min-w-48 rounded-2xl border bg-popover p-2 text-popover-foreground shadow-lg"
             >
-              <div
-                v-if="showUserMenu"
-                class="absolute bottom-full left-0 right-0 mb-1 bg-white rounded-lg shadow-lg border py-1"
-              >
-                <button
-                  @click="openChangePassword"
-                  class="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                >
-                  <KeyRound class="h-4 w-4" />
-                  Passwort ändern
-                </button>
-                <button
-                  @click="handleLogout"
-                  class="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
-                >
-                  <LogOut class="h-4 w-4" />
-                  Abmelden
-                </button>
-              </div>
-            </Transition>
+              <button class="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm hover:bg-accent"
+                @click="openChangePassword"><KeyRound class="h-4 w-4" />Passwort ändern</button>
+              <button class="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm hover:bg-accent"
+                @click="handleLogout"><LogOut class="h-4 w-4" />Abmelden</button>
+            </div>
           </div>
+          <button
+            type="button" class="rounded-full p-2 hover:bg-brand-50/70 lg:hidden"
+            :aria-label="mobileMenuOpen ? 'Menü schließen' : 'Menü öffnen'"
+            :aria-expanded="mobileMenuOpen" @click="mobileMenuOpen = !mobileMenuOpen"
+          >
+            <X v-if="mobileMenuOpen" class="h-6 w-6" />
+            <Menu v-else class="h-6 w-6" />
+          </button>
         </div>
       </div>
-    </aside>
+      <nav v-if="mobileMenuOpen" aria-label="Mobile Navigation"
+        class="max-h-[calc(100vh-4rem)] overflow-y-auto border-t bg-header px-4 py-4 lg:hidden">
+        <div v-for="group in navGroups" :key="group.label" class="mb-4">
+          <p class="mb-1 px-3 text-xs font-bold uppercase tracking-wide">{{ group.label }}</p>
+          <RouterLink
+            v-for="item in group.items" :key="item.to" :to="item.to"
+            class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm hover:bg-brand-50/70 dark:hover:bg-brand-800"
+            :class="{ 'bg-brand-50/80 font-bold': isActive(item.to) }" @click="closeMenus"
+          ><component :is="item.icon" class="h-4 w-4" />{{ item.name }}</RouterLink>
+        </div>
+      </nav>
+    </header>
 
-    <!-- Click outside to close user menu -->
-    <div
-      v-if="showUserMenu"
-      class="fixed inset-0 z-40"
-      @click="showUserMenu = false"
-    />
-
-    <!-- Main content -->
-    <main class="min-w-0 overflow-x-hidden pt-14 lg:pl-64 lg:pt-0">
-      <div class="min-w-0 max-w-full px-4 py-5 sm:p-6">
-        <RouterView />
-      </div>
-    </main>
-
-    <ChangePasswordDialog
-      v-if="showChangePassword"
-      @close="showChangePassword = false"
-      @changed="onPasswordChanged"
-    />
-    <div
-      v-if="passwordChanged"
-      class="fixed bottom-4 right-4 z-[60] rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 shadow"
-      role="status"
-    >
+    <main class="mx-auto min-w-0 max-w-7xl px-4 py-6 sm:px-6 lg:py-8"><RouterView /></main>
+    <ChangePasswordDialog v-if="showChangePassword" @close="showChangePassword = false"
+      @changed="onPasswordChanged" />
+    <div v-if="passwordChanged" role="status"
+      class="fixed bottom-4 right-4 z-[60] rounded-2xl border bg-card px-4 py-3 text-sm text-card-foreground shadow">
       Passwort geändert.
     </div>
-
   </div>
 </template>

@@ -17,6 +17,8 @@ brand-400 `#a8d98a`, brand-600 `#86c06a`, brand-700 `#5d9847`, brand-800 `#4a7a3
 
 ## Etappe 1a: Design-System und Layout
 
+Status: umgesetzt.
+
 - Tokens in `main.css` (hell + dunkel) auf Homepage-Grün, Schrift Nunito (selbst gehostet, `@fontsource`).
 - `MainLayout`: Kopfleiste mit Logo, Menügruppen als Dropdowns, Benutzer-Menü rechts; mobil ausklappbar.
 - Theme-Umschalter System/Hell/Dunkel, in `localStorage` gespeichert, ohne Aufblitzen beim Laden.

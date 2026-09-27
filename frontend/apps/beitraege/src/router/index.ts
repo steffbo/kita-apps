@@ -86,7 +86,7 @@ const router = createRouter({
           path: 'automatisierung',
           name: 'automation',
           component: () => import('@/pages/AutomationPage.vue'),
-          meta: { requiresFees: true },
+          meta: { requiresFees: true, requiresAdmin: true },
         },
         {
           path: 'beitragsordnung',

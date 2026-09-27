@@ -40,6 +40,7 @@ test('parent work role sees only its area and cannot fetch children', async ({ b
     for (const group of ['Täglich', 'Verwaltung', 'Beiträge', 'System']) {
       await expect(navigation.getByText(group, { exact: true })).toHaveCount(0);
     }
+    await navigation.getByRole('button', { name: 'Elternstunden' }).click();
     await expect(navigation.getByRole('link', { name: 'Vorstand' })).toBeVisible();
     await page.goto('/beitraege/kinder');
     await expect(page).toHaveURL(/\/beitraege\/elternstunden$/);

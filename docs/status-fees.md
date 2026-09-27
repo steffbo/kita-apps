@@ -3,6 +3,19 @@
 Rolling change log of non-obvious implementation decisions. Newest first.
 Basics (ports, commands, layout) live in `AGENTS.md`.
 
+## Beiträge-Design, Etappe 1a (2026-09-27)
+
+- Neues Design-System mit Homepage-Grün, selbst gehostetem Nunito, heller grüner
+  Kopfleiste, Logo, Gruppenmenü und zentriertem Inhalt. Login und Dashboard verwenden semantische Farben
+  und weichere Karten. Auf schmalen Bildschirmen stehen alle Menüeinträge im ausklappbaren Panel.
+- Der Theme-Schalter wechselt zwischen System, Hell und Dunkel, speichert die Wahl unter `kita-theme` und
+  setzt die Dunkelklasse vor dem ersten Rendern. Dunkle Grund- und Kartenfarben wurden aus der
+  Homepage-Palette abgeleitet: `#243329`, `#2c3d30`, `#354836`, Text `#dcebd5`.
+- `USER` ruft den Admin-Endpunkt für den Bank-Sync-Status nicht mehr auf. Dashboard-Anfragen scheitern
+  unabhängig voneinander; Erinnerungen und die Banking-Sync-Karte sind Admins vorbehalten.
+- Nunito kommt aus `@fontsource-variable/nunito` (im Bundle, kein externer Font-Server).
+- Nur Layout, Login und Dashboard sind dunkeltauglich; die übrigen Seiten folgen in Etappe 1b.
+
 ## Elternstunden, Stufe 1: Erfassung durch Tim (2026-09-27)
 
 Umgesetzt nach dem (inzwischen gelöschten) Plan `docs/plan-elternstunden.md` in fünf Etappen, jeweils von Codex

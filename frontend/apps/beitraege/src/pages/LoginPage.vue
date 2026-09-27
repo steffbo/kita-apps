@@ -3,6 +3,7 @@ import { ref } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useAuthStore } from '@/stores/auth';
 import { Loader2 } from 'lucide-vue-next';
+import logo from '@/assets/knirpsenstadt-logo.png';
 
 const router = useRouter();
 const route = useRoute();
@@ -21,22 +22,23 @@ async function handleSubmit() {
 </script>
 
 <template>
-  <div class="min-h-screen flex items-center justify-center bg-gray-50 px-4">
+  <div class="flex min-h-screen items-center justify-center bg-background px-4 py-8">
     <div class="w-full max-w-md">
       <!-- Header -->
       <div class="text-center mb-8">
+        <img :src="logo" alt="" class="mx-auto mb-4 h-20 w-20 rounded-full object-cover shadow-sm" />
         <h1 class="text-3xl font-bold text-primary">Kita Knirpsenstadt</h1>
-        <p class="text-gray-600 mt-2">Beitragsverwaltung</p>
+        <p class="mt-2 text-muted-foreground">Beitragsverwaltung</p>
       </div>
 
       <!-- Login Card -->
-      <div class="bg-white rounded-xl shadow-lg p-8">
+      <div class="rounded-2xl border bg-card p-8 text-card-foreground shadow-lg">
         <h2 class="text-xl font-semibold mb-6">Anmelden</h2>
 
         <form @submit.prevent="handleSubmit" class="space-y-4">
           <!-- Email -->
           <div>
-            <label for="email" class="block text-sm font-medium text-gray-700 mb-1">
+            <label for="email" class="mb-1 block text-sm font-medium text-foreground">
               E-Mail
             </label>
             <input
@@ -45,14 +47,14 @@ async function handleSubmit() {
               type="email"
               required
               autocomplete="email"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-shadow"
+              class="w-full rounded-xl border border-input bg-background px-3 py-2 text-foreground outline-none transition-shadow focus:ring-2 focus:ring-ring"
               placeholder="name@knirpsenstadt.de"
             />
           </div>
 
           <!-- Password -->
           <div>
-            <label for="password" class="block text-sm font-medium text-gray-700 mb-1">
+            <label for="password" class="mb-1 block text-sm font-medium text-foreground">
               Passwort
             </label>
             <input
@@ -61,21 +63,21 @@ async function handleSubmit() {
               type="password"
               required
               autocomplete="current-password"
-              class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-shadow"
+              class="w-full rounded-xl border border-input bg-background px-3 py-2 text-foreground outline-none transition-shadow focus:ring-2 focus:ring-ring"
               placeholder="••••••••"
             />
           </div>
 
           <!-- Error message -->
-          <div v-if="authStore.error" class="p-3 bg-red-50 border border-red-200 rounded-lg">
-            <p class="text-sm text-red-600">{{ authStore.error }}</p>
+          <div v-if="authStore.error" class="rounded-xl border border-destructive/30 bg-destructive/10 p-3">
+            <p class="text-sm text-destructive dark:text-destructive-foreground">{{ authStore.error }}</p>
           </div>
 
           <!-- Submit button -->
           <button
             type="submit"
             :disabled="authStore.isLoading"
-            class="w-full py-2.5 px-4 bg-primary text-white font-medium rounded-lg hover:bg-primary/90 focus:ring-2 focus:ring-primary focus:ring-offset-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            class="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 font-medium text-primary-foreground transition-colors hover:bg-brand-800 focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-brand-200"
           >
             <Loader2 v-if="authStore.isLoading" class="h-4 w-4 animate-spin" />
             {{ authStore.isLoading ? 'Anmelden...' : 'Anmelden' }}

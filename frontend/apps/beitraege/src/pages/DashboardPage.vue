@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { api } from '@/api';
+import { useAuthStore } from '@/stores/auth';
 import type { FeeOverview, StichtagsmeldungReport, StichtagsmeldungStats, U3ChildDetail, BankingSyncStatus } from '@/api/types';
 import {
   Receipt,
@@ -22,6 +23,7 @@ import { useRouter } from 'vue-router';
 import { formatCurrency, formatCurrencyWhole, formatDate, formatDateTime, formatMonthName, todayISO } from '@/utils/format';
 
 const router = useRouter();
+const authStore = useAuthStore();
 const overview = ref<FeeOverview | null>(null);
 const monthlyOverview = ref<FeeOverview | null>(null);
 const unmatchedTotal = ref(0);
@@ -80,7 +82,7 @@ const bankingSyncTone = computed(() => {
     case 'error':
       return 'bg-red-100 text-red-700';
     default:
-      return 'bg-gray-100 text-gray-700';
+      return 'bg-muted text-foreground';
   }
 });
 
@@ -128,24 +130,23 @@ async function loadDashboard() {
   isLoading.value = true;
   error.value = null;
   try {
-    const [overviewData, monthlyData, unmatchedData, stichtagData, u3Data, totalData, warningsData, syncStatusData] = await Promise.all([
-      api.getFeeOverview(), // Current state - no year filter
+    overview.value = await api.getFeeOverview();
+    const [monthlyData, unmatchedData, stichtagData, u3Data, totalData, warningsData, syncStatusData] = await Promise.allSettled([
       api.getFeeOverview(selectedYear.value), // Monthly overview with year
       api.getUnmatchedTransactions({ perPage: 1 }),
       api.getStichtagsmeldungStats(),
       api.getChildren({ activeOnly: true, u3Only: true, perPage: 1 }),
       api.getChildren({ activeOnly: true, perPage: 1 }),
       api.getChildren({ activeOnly: true, hasWarnings: true, perPage: 1 }),
-      api.getBankingSyncStatus(),
-    ]);
-    overview.value = overviewData;
-    monthlyOverview.value = monthlyData;
-    unmatchedTotal.value = unmatchedData.total;
-    stichtagStats.value = stichtagData;
-    u3Count.value = u3Data.total;
-    totalChildrenCount.value = totalData.total;
-    childrenWithWarnings.value = warningsData.total;
-    bankingSyncStatus.value = syncStatusData;
+      authStore.isAdmin ? api.getBankingSyncStatus() : Promise.resolve(null),
+    ] as const);
+    if (monthlyData.status === 'fulfilled') monthlyOverview.value = monthlyData.value;
+    if (unmatchedData.status === 'fulfilled') unmatchedTotal.value = unmatchedData.value.total;
+    if (stichtagData.status === 'fulfilled') stichtagStats.value = stichtagData.value;
+    if (u3Data.status === 'fulfilled') u3Count.value = u3Data.value.total;
+    if (totalData.status === 'fulfilled') totalChildrenCount.value = totalData.value.total;
+    if (warningsData.status === 'fulfilled') childrenWithWarnings.value = warningsData.value.total;
+    if (syncStatusData.status === 'fulfilled') bankingSyncStatus.value = syncStatusData.value;
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Fehler beim Laden';
   } finally {
@@ -241,8 +242,8 @@ function formatHoursLabel(hours: number | null | undefined): string {
   <div>
     <!-- Header -->
     <div class="mb-6">
-      <h1 class="text-2xl font-bold text-gray-900">Dashboard</h1>
-      <p class="text-gray-600 mt-1">Übersicht der Beitragszahlungen</p>
+      <h1 class="text-2xl font-bold text-foreground">Dashboard</h1>
+      <p class="text-muted-foreground mt-1">Übersicht der Beitragszahlungen</p>
     </div>
 
     <!-- Loading state -->
@@ -261,7 +262,7 @@ function formatHoursLabel(hours: number | null | undefined): string {
     <!-- Content -->
     <div v-else-if="overview" class="space-y-6">
       <!-- Main Stats Card - Open Fees (current state) -->
-      <div class="bg-white rounded-xl border p-5">
+      <div class="bg-card rounded-2xl border shadow-sm p-5">
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <!-- Open Food Fees -->
           <div
@@ -314,11 +315,11 @@ function formatHoursLabel(hours: number | null | undefined): string {
 
         <!-- Summary row -->
         <div class="mt-4 pt-4 border-t flex items-center justify-between">
-          <div class="flex items-center gap-2 text-gray-600">
+          <div class="flex items-center gap-2 text-muted-foreground">
             <Receipt class="h-4 w-4" />
             <span class="text-sm">Offener Gesamtbetrag:</span>
           </div>
-          <span class="text-lg font-bold text-gray-900">
+          <span class="text-lg font-bold text-foreground">
             {{ formatCurrency(overview.amountOpen + overview.amountOverdue) }}
           </span>
         </div>
@@ -327,17 +328,17 @@ function formatHoursLabel(hours: number | null | undefined): string {
       <!-- Secondary Cards Row -->
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <!-- Bank Import Status Card -->
-        <div
-          class="bg-white rounded-xl border p-5 cursor-pointer hover:bg-gray-50 transition-colors"
+        <div v-if="authStore.isAdmin"
+          class="bg-card rounded-2xl border shadow-sm p-5 cursor-pointer hover:bg-muted/50 transition-colors"
           @click="router.push('/bankabgleich')"
         >
           <div class="flex items-start gap-3">
-            <div class="p-2.5 bg-gray-100 rounded-lg">
-              <RefreshCw class="h-5 w-5 text-gray-600" />
+            <div class="p-2.5 bg-muted rounded-lg">
+              <RefreshCw class="h-5 w-5 text-muted-foreground" />
             </div>
             <div class="flex-1 min-w-0">
               <div class="flex items-center justify-between gap-2">
-                <p class="text-xs text-gray-500 font-medium">Bank-Import</p>
+                <p class="text-xs text-muted-foreground font-medium">Bank-Import</p>
                 <span
                   :class="[
                     'inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium',
@@ -347,27 +348,27 @@ function formatHoursLabel(hours: number | null | undefined): string {
                   {{ bankingSyncLabel }}
                 </span>
               </div>
-              <p class="text-sm font-semibold text-gray-900 mt-0.5 truncate">
+              <p class="text-sm font-semibold text-foreground mt-0.5 truncate">
                 {{ bankingSyncDate || 'Noch kein Import' }}
               </p>
-              <p class="text-xs text-gray-500 mt-1">Zum Bankabgleich</p>
+              <p class="text-xs text-muted-foreground mt-1">Zum Bankabgleich</p>
             </div>
           </div>
         </div>
 
         <!-- U3/Ü3 Children Card -->
-        <div class="bg-white rounded-xl border p-5">
+        <div class="bg-card rounded-2xl border shadow-sm p-5">
           <div class="flex items-center gap-3">
             <div class="p-2.5 bg-violet-100 rounded-lg">
               <Baby class="h-5 w-5 text-violet-600" />
             </div>
             <div>
-              <p class="text-xs text-gray-500 font-medium">Aktive Kinder</p>
-              <p class="text-lg font-bold text-gray-900">
-                {{ u3Count }} <span class="text-gray-400 font-normal">U3</span>
-                · {{ ue3Count }} <span class="text-gray-400 font-normal">Ü3</span>
+              <p class="text-xs text-muted-foreground font-medium">Aktive Kinder</p>
+              <p class="text-lg font-bold text-foreground">
+                {{ u3Count }} <span class="text-muted-foreground font-normal">U3</span>
+                · {{ ue3Count }} <span class="text-muted-foreground font-normal">Ü3</span>
               </p>
-              <p class="text-xs text-gray-500">Gesamt: {{ totalChildrenCount }}</p>
+              <p class="text-xs text-muted-foreground">Gesamt: {{ totalChildrenCount }}</p>
             </div>
           </div>
         </div>
@@ -375,7 +376,7 @@ function formatHoursLabel(hours: number | null | undefined): string {
         <!-- Stichtagsmeldung Card (clickable) -->
         <div
           v-if="stichtagStats"
-          class="bg-white rounded-xl border p-5 cursor-pointer hover:bg-gray-50 transition-colors"
+          class="bg-card rounded-2xl border shadow-sm p-5 cursor-pointer hover:bg-muted/50 transition-colors"
           @click="openStichtagModal"
         >
           <div class="flex items-start gap-3">
@@ -384,30 +385,30 @@ function formatHoursLabel(hours: number | null | undefined): string {
             </div>
             <div class="flex-1 min-w-0">
               <div class="flex items-center justify-between gap-2">
-                <p class="text-xs text-gray-500 font-medium">Stichtagsmeldung</p>
+                <p class="text-xs text-muted-foreground font-medium">Stichtagsmeldung</p>
                 <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-emerald-100 text-emerald-700">
                   {{ stichtagStats.daysUntilStichtag }}d
                 </span>
               </div>
-              <p class="text-sm font-semibold text-gray-900 mt-0.5">{{ formatDate(stichtagStats.nextStichtag) }}</p>
-              <div class="mt-2 pt-2 border-t text-xs text-gray-500 space-y-0.5">
+              <p class="text-sm font-semibold text-foreground mt-0.5">{{ formatDate(stichtagStats.nextStichtag) }}</p>
+              <div class="mt-2 pt-2 border-t text-xs text-muted-foreground space-y-0.5">
                 <div class="flex justify-between">
                   <span>≤20k</span>
-                  <span class="font-medium text-gray-700">{{ stichtagStats.u3IncomeBreakdown.upTo20k }}</span>
+                  <span class="font-medium text-foreground">{{ stichtagStats.u3IncomeBreakdown.upTo20k }}</span>
                 </div>
                 <div class="flex justify-between">
                   <span>20–35k</span>
-                  <span class="font-medium text-gray-700">{{ stichtagStats.u3IncomeBreakdown.from20To35k }}</span>
+                  <span class="font-medium text-foreground">{{ stichtagStats.u3IncomeBreakdown.from20To35k }}</span>
                 </div>
                 <div class="flex justify-between">
                   <span>35–55k</span>
-                  <span class="font-medium text-gray-700">{{ stichtagStats.u3IncomeBreakdown.from35To55k }}</span>
+                  <span class="font-medium text-foreground">{{ stichtagStats.u3IncomeBreakdown.from35To55k }}</span>
                 </div>
                 <div class="flex justify-between">
                   <span>Höchstbetrag</span>
-                  <span class="font-medium text-gray-700">{{ stichtagStats.u3IncomeBreakdown.maxAccepted }}</span>
+                  <span class="font-medium text-foreground">{{ stichtagStats.u3IncomeBreakdown.maxAccepted }}</span>
                 </div>
-                <div class="flex justify-between text-gray-400">
+                <div class="flex justify-between text-muted-foreground">
                   <span>Pflegefamilie</span>
                   <span class="font-medium">{{ stichtagStats.u3IncomeBreakdown.fosterFamily }}</span>
                 </div>
@@ -459,22 +460,22 @@ function formatHoursLabel(hours: number | null | undefined): string {
         <!-- Placeholder if no warnings and no unmatched -->
         <div
           v-if="childrenWithWarnings === 0 && unmatchedTotal === 0"
-          class="bg-gray-50 rounded-xl border border-dashed border-gray-200 p-5"
+          class="bg-muted/50 rounded-xl border border-dashed border-border p-5"
         >
           <div class="flex items-center gap-3">
-            <div class="p-2.5 bg-gray-100 rounded-lg">
-              <CheckCircle class="h-5 w-5 text-gray-400" />
+            <div class="p-2.5 bg-muted rounded-lg">
+              <CheckCircle class="h-5 w-5 text-muted-foreground" />
             </div>
             <div>
-              <p class="text-xs text-gray-400 font-medium">Alles in Ordnung</p>
-              <p class="text-sm text-gray-500">Keine Warnungen</p>
+              <p class="text-xs text-muted-foreground font-medium">Alles in Ordnung</p>
+              <p class="text-sm text-muted-foreground">Keine Warnungen</p>
             </div>
           </div>
         </div>
       </div>
 
       <!-- Monthly Overview -->
-      <div class="bg-white rounded-xl border p-6">
+      <div class="bg-card rounded-2xl border shadow-sm p-6">
         <div class="flex items-center justify-between mb-4">
           <div class="flex items-center gap-2">
             <TrendingUp class="h-5 w-5 text-primary" />
@@ -482,7 +483,7 @@ function formatHoursLabel(hours: number | null | undefined): string {
           </div>
           <select
             v-model="selectedYear"
-            class="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+            class="px-3 py-1.5 text-sm border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
           >
             <option v-for="year in years" :key="year" :value="year">{{ year }}</option>
           </select>
@@ -523,7 +524,7 @@ function formatHoursLabel(hours: number | null | undefined): string {
         <div v-else-if="monthlyOverview && monthlyOverview.byMonth.length > 0" class="overflow-x-auto">
           <table class="w-full">
             <thead>
-              <tr class="text-left text-sm text-gray-500 border-b">
+              <tr class="text-left text-sm text-muted-foreground border-b">
                 <th class="pb-3 font-medium">Monat</th>
                 <th class="pb-3 font-medium text-right">Offen</th>
                 <th class="pb-3 font-medium text-right">Bezahlt</th>
@@ -535,7 +536,7 @@ function formatHoursLabel(hours: number | null | undefined): string {
               <tr
                 v-for="month in monthlyOverview.byMonth"
                 :key="month.month"
-                class="border-b last:border-0 hover:bg-gray-50"
+                class="border-b last:border-0 hover:bg-muted/50"
               >
                 <td class="py-3 font-medium">{{ formatMonthName(month.month, 'short') }} {{ month.year }}</td>
                 <td class="py-3 text-right">
@@ -545,7 +546,7 @@ function formatHoursLabel(hours: number | null | undefined): string {
                   >
                     {{ month.openCount }}
                   </span>
-                  <span v-else class="text-gray-400">-</span>
+                  <span v-else class="text-muted-foreground">-</span>
                 </td>
                 <td class="py-3 text-right">
                   <span
@@ -554,7 +555,7 @@ function formatHoursLabel(hours: number | null | undefined): string {
                   >
                     {{ month.paidCount }}
                   </span>
-                  <span v-else class="text-gray-400">-</span>
+                  <span v-else class="text-muted-foreground">-</span>
                 </td>
                 <td class="py-3 text-right text-blue-600">
                   {{ month.openAmount > 0 ? formatCurrency(month.openAmount) : '-' }}
@@ -567,7 +568,7 @@ function formatHoursLabel(hours: number | null | undefined): string {
           </table>
         </div>
 
-        <div v-else class="text-center py-8 text-gray-500">
+        <div v-else class="text-center py-8 text-muted-foreground">
           Keine Daten für {{ selectedYear }} vorhanden
         </div>
       </div>
@@ -586,18 +587,18 @@ function formatHoursLabel(hours: number | null | undefined): string {
         />
 
         <!-- Modal -->
-        <div class="relative bg-white rounded-xl shadow-xl max-w-7xl w-full max-h-[90vh] flex flex-col">
+        <div class="relative bg-card rounded-xl shadow-xl max-w-7xl w-full max-h-[90vh] flex flex-col">
           <!-- Header -->
           <div class="flex items-center justify-between p-6 border-b">
             <div>
-              <h2 class="text-lg font-semibold text-gray-900">Stichtagsreport</h2>
-              <p class="text-sm text-gray-500 mt-0.5">
+              <h2 class="text-lg font-semibold text-foreground">Stichtagsreport</h2>
+              <p class="text-sm text-muted-foreground mt-0.5">
                 Allgemeiner Bestand plus separate U3-Meldung
               </p>
             </div>
             <button
               @click="showStichtagModal = false"
-              class="p-2 text-gray-400 hover:text-gray-600 rounded-lg hover:bg-gray-100"
+              class="p-2 text-muted-foreground hover:text-muted-foreground rounded-lg hover:bg-muted"
             >
               <X class="h-5 w-5" />
             </button>
@@ -606,18 +607,18 @@ function formatHoursLabel(hours: number | null | undefined): string {
           <!-- Content -->
           <div class="flex-1 overflow-auto p-6">
             <div class="mb-6">
-              <label for="report-date" class="block text-sm font-medium text-gray-700 mb-2">Stichtag</label>
+              <label for="report-date" class="block text-sm font-medium text-foreground mb-2">Stichtag</label>
               <div class="flex gap-2">
                 <input
                   id="report-date"
                   v-model="selectedReportDate"
                   type="date"
-                  class="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                  class="flex-1 px-3 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
                   @change="loadStichtagReport"
                 />
                 <button
                   @click="selectedReportDate = todayISO(); loadStichtagReport()"
-                  class="px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors whitespace-nowrap"
+                  class="px-3 py-2 text-sm font-medium text-foreground bg-muted hover:bg-accent rounded-lg transition-colors whitespace-nowrap"
                 >
                   Heute
                 </button>
@@ -645,21 +646,21 @@ function formatHoursLabel(hours: number | null | undefined): string {
                 </div>
               </div>
 
-              <div v-if="report" class="rounded-xl border border-gray-200">
-                <div class="px-4 py-3 border-b bg-gray-50">
-                  <h3 class="text-sm font-semibold text-gray-900">Allgemeiner Stichtagsreport</h3>
+              <div v-if="report" class="rounded-xl border border-border">
+                <div class="px-4 py-3 border-b bg-muted/50">
+                  <h3 class="text-sm font-semibold text-foreground">Allgemeiner Stichtagsreport</h3>
                 </div>
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 p-4">
-                  <div class="rounded-lg border border-gray-200">
-                    <div class="px-4 py-3 border-b bg-white">
-                      <h4 class="text-sm font-medium text-gray-900">Rechtsanspruch</h4>
+                  <div class="rounded-lg border border-border">
+                    <div class="px-4 py-3 border-b bg-card">
+                      <h4 class="text-sm font-medium text-foreground">Rechtsanspruch</h4>
                     </div>
-                    <div v-if="report.legalHoursBreakdown.length === 0" class="px-4 py-6 text-sm text-gray-500">
+                    <div v-if="report.legalHoursBreakdown.length === 0" class="px-4 py-6 text-sm text-muted-foreground">
                       Keine Daten vorhanden
                     </div>
                     <div v-else class="overflow-x-auto">
                       <table class="min-w-full text-sm">
-                        <thead class="bg-gray-50 text-gray-500">
+                        <thead class="bg-muted/50 text-muted-foreground">
                           <tr>
                             <th class="px-4 py-3 text-left font-medium">Stundenmodell</th>
                             <th class="px-4 py-3 text-right font-medium">U3</th>
@@ -669,25 +670,25 @@ function formatHoursLabel(hours: number | null | undefined): string {
                         </thead>
                         <tbody class="divide-y">
                           <tr v-for="item in report.legalHoursBreakdown" :key="item.legalHours ?? 'unknown'">
-                            <td class="px-4 py-3 text-gray-700">{{ formatHoursLabel(item.legalHours) }}</td>
+                            <td class="px-4 py-3 text-foreground">{{ formatHoursLabel(item.legalHours) }}</td>
                             <td class="px-4 py-3 text-right font-semibold text-sky-900">{{ item.u3Count }}</td>
                             <td class="px-4 py-3 text-right font-semibold text-amber-900">{{ item.ue3Count }}</td>
-                            <td class="px-4 py-3 text-right font-semibold text-gray-900">{{ item.count }}</td>
+                            <td class="px-4 py-3 text-right font-semibold text-foreground">{{ item.count }}</td>
                           </tr>
                         </tbody>
                       </table>
                     </div>
                   </div>
-                  <div class="rounded-lg border border-gray-200">
-                    <div class="px-4 py-3 border-b bg-white">
-                      <h4 class="text-sm font-medium text-gray-900">Betreuungszeit</h4>
+                  <div class="rounded-lg border border-border">
+                    <div class="px-4 py-3 border-b bg-card">
+                      <h4 class="text-sm font-medium text-foreground">Betreuungszeit</h4>
                     </div>
-                    <div v-if="report.careHoursBreakdown.length === 0" class="px-4 py-6 text-sm text-gray-500">
+                    <div v-if="report.careHoursBreakdown.length === 0" class="px-4 py-6 text-sm text-muted-foreground">
                       Keine Daten vorhanden
                     </div>
                     <div v-else class="overflow-x-auto">
                       <table class="min-w-full text-sm">
-                        <thead class="bg-gray-50 text-gray-500">
+                        <thead class="bg-muted/50 text-muted-foreground">
                           <tr>
                             <th class="px-4 py-3 text-left font-medium">Stundenmodell</th>
                             <th class="px-4 py-3 text-right font-medium">U3</th>
@@ -697,10 +698,10 @@ function formatHoursLabel(hours: number | null | undefined): string {
                         </thead>
                         <tbody class="divide-y">
                           <tr v-for="item in report.careHoursBreakdown" :key="item.careHours ?? 'unknown'">
-                            <td class="px-4 py-3 text-gray-700">{{ formatHoursLabel(item.careHours) }}</td>
+                            <td class="px-4 py-3 text-foreground">{{ formatHoursLabel(item.careHours) }}</td>
                             <td class="px-4 py-3 text-right font-semibold text-sky-900">{{ item.u3Count }}</td>
                             <td class="px-4 py-3 text-right font-semibold text-amber-900">{{ item.ue3Count }}</td>
-                            <td class="px-4 py-3 text-right font-semibold text-gray-900">{{ item.count }}</td>
+                            <td class="px-4 py-3 text-right font-semibold text-foreground">{{ item.count }}</td>
                           </tr>
                         </tbody>
                       </table>
@@ -730,16 +731,16 @@ function formatHoursLabel(hours: number | null | undefined): string {
                     <div
                       :class="[
                         'flex items-center justify-between px-3 py-2 rounded-lg mb-2',
-                        bracket === 'fosterFamily' || bracket === 'maxAccepted' ? 'bg-gray-100' : 'bg-emerald-50'
+                        bracket === 'fosterFamily' || bracket === 'maxAccepted' ? 'bg-muted' : 'bg-emerald-50'
                       ]"
                     >
                       <div class="flex items-center gap-2">
-                        <span :class="['text-sm font-medium', bracket === 'fosterFamily' || bracket === 'maxAccepted' ? 'text-gray-500' : 'text-emerald-800']">
+                        <span :class="['text-sm font-medium', bracket === 'fosterFamily' || bracket === 'maxAccepted' ? 'text-muted-foreground' : 'text-emerald-800']">
                           {{ bracketLabels[bracket] }}
                         </span>
-                        <span v-if="bracket === 'fosterFamily' || bracket === 'maxAccepted'" class="text-xs text-gray-400">(nicht gezählt)</span>
+                        <span v-if="bracket === 'fosterFamily' || bracket === 'maxAccepted'" class="text-xs text-muted-foreground">(nicht gezählt)</span>
                       </div>
-                      <span :class="['text-sm font-bold', bracket === 'fosterFamily' || bracket === 'maxAccepted' ? 'text-gray-500' : 'text-emerald-800']">
+                      <span :class="['text-sm font-bold', bracket === 'fosterFamily' || bracket === 'maxAccepted' ? 'text-muted-foreground' : 'text-emerald-800']">
                         {{ groupedU3Children[bracket].length }}
                       </span>
                     </div>
@@ -752,31 +753,31 @@ function formatHoursLabel(hours: number | null | undefined): string {
                         :class="[
                           'flex items-center justify-between px-3 py-2 rounded cursor-pointer transition-colors',
                           bracket === 'fosterFamily' || bracket === 'maxAccepted'
-                            ? 'text-gray-400 hover:bg-gray-50'
-                            : 'hover:bg-gray-50'
+                            ? 'text-muted-foreground hover:bg-muted/50'
+                            : 'hover:bg-muted/50'
                         ]"
                         @click="router.push(`/kinder/${child.id}`); showStichtagModal = false"
                       >
                         <div class="flex items-center gap-3">
-                          <span :class="['font-medium', bracket === 'fosterFamily' || bracket === 'maxAccepted' ? 'text-gray-400' : 'text-gray-900']">
+                          <span :class="['font-medium', bracket === 'fosterFamily' || bracket === 'maxAccepted' ? 'text-muted-foreground' : 'text-foreground']">
                             {{ child.lastName }}, {{ child.firstName }}
                           </span>
-                          <span class="text-xs text-gray-400">#{{ child.memberNumber }}</span>
+                          <span class="text-xs text-muted-foreground">#{{ child.memberNumber }}</span>
                         </div>
                         <div class="flex items-center gap-4">
-                          <span :class="['text-sm w-12', bracket === 'fosterFamily' || bracket === 'maxAccepted' ? 'text-gray-400' : 'text-gray-600']">
+                          <span :class="['text-sm w-12', bracket === 'fosterFamily' || bracket === 'maxAccepted' ? 'text-muted-foreground' : 'text-muted-foreground']">
                             {{ formatAge(child.birthDate) }}
                           </span>
                           <span
                             v-if="bracket !== 'fosterFamily' && bracket !== 'maxAccepted'"
                             :class="[
                               'text-sm font-medium w-20 text-right',
-                              child.householdIncome === null ? 'text-red-600' : 'text-gray-700'
+                              child.householdIncome === null ? 'text-red-600' : 'text-foreground'
                             ]"
                           >
                             {{ formatCurrencyWhole(child.householdIncome) }}
                           </span>
-                          <span v-else class="text-sm text-gray-400 w-20 text-right">—</span>
+                          <span v-else class="text-sm text-muted-foreground w-20 text-right">—</span>
                         </div>
                       </div>
                     </div>
@@ -788,8 +789,8 @@ function formatHoursLabel(hours: number | null | undefined): string {
           </div>
 
           <!-- Footer -->
-          <div class="p-6 border-t bg-gray-50 rounded-b-xl">
-            <div class="flex items-center justify-between text-sm text-gray-600">
+          <div class="p-6 border-t bg-muted/50 rounded-b-xl">
+            <div class="flex items-center justify-between text-sm text-muted-foreground">
               <span>
                 <span class="font-medium">{{ u3Children.length }}</span> U3-Kinder ·
                 <span class="font-medium">{{ report?.totalChildrenInKita ?? 0 }}</span> Kinder gesamt in Kita

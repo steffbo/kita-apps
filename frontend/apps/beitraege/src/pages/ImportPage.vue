@@ -4,6 +4,7 @@ import { useRoute } from 'vue-router';
 import { api } from '@/api';
 import type { ImportBatch, BankTransaction, TransactionWarning, RescanResult } from '@/api/types';
 import BankingSyncCard from '@/components/BankingSyncCard.vue';
+import { useAuthStore } from '@/stores/auth';
 import ImportErrorList from '@/components/ImportErrorList.vue';
 import ImportUploadModal from '@/components/import/ImportUploadModal.vue';
 import ImportHistoryModal from '@/components/import/ImportHistoryModal.vue';
@@ -58,6 +59,7 @@ function getTxRemaining(tx: BankTransaction): number {
 }
 
 const route = useRoute();
+const authStore = useAuthStore();
 const activeFilter = ref<StatusFilter>('offen');
 
 // Modals (each loads and resets its own state)
@@ -507,7 +509,7 @@ function getWarningTypeColor(type: string): string {
     </div>
 
     <!-- Banking Sync -->
-    <BankingSyncCard @sync-finished="refreshAfterSync" />
+    <BankingSyncCard v-if="authStore.isAdmin" @sync-finished="refreshAfterSync" />
 
     <!-- Rescan Result -->
     <div
