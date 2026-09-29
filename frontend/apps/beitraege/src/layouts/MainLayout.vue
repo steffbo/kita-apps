@@ -9,7 +9,7 @@ import logo from '@/assets/knirpsenstadt-logo.png';
 import {
   LayoutDashboard, Users, UserCircle, UserPlus, Receipt, RefreshCw, Bell, LogOut,
   Menu, X, ChevronDown, ClipboardList, NotebookPen, Scale, KeyRound, ShieldCheck,
-  Clock, UserCheck, Upload, Monitor, Sun, Moon, FileWarning, VenetianMask, Undo2,
+  Clock, UserCheck, Monitor, Sun, Moon, FileWarning, VenetianMask, Undo2,
 } from 'lucide-vue-next';
 
 const authStore = useAuthStore();
@@ -54,9 +54,8 @@ const navGroups = computed(() => [
   })) : []),
   ...(authStore.canAccessParentWork ? [{ label: 'Elternstunden', items: [
     { name: 'Übersicht', to: '/elternstunden', icon: Clock },
-    { name: 'Vorstand', to: '/elternstunden/vorstand', icon: UserCheck },
-    { name: 'Regeln', to: '/elternstunden/regeln', icon: Scale },
-    { name: 'Import', to: '/elternstunden/import', icon: Upload },
+    ...(authStore.isAdmin ? [{ name: 'Vorstand', to: '/elternstunden/vorstand', icon: UserCheck }] : []),
+    { name: 'Verwaltung', to: '/elternstunden/verwaltung', icon: Scale },
   ] }] : []),
   ...(authStore.isAdmin ? [{ label: 'System', items: [
     { name: 'Benutzer', to: '/benutzer', icon: ShieldCheck },

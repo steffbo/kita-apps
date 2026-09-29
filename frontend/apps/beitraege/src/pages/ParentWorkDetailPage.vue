@@ -1,12 +1,16 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { RouterLink, useRoute } from 'vue-router';
 import { api } from '@/api';
 import type { ParentWorkDetail, ParentWorkEntry } from '@/api/types';
 import { formatCurrency, formatDate, formatHours } from '@/utils/format';
+import { useAuthStore } from '@/stores/auth';
+import { useTableSort } from '@/composables/useTableSort';
 import EntryDialog from '@/components/parent-work/EntryDialog.vue';
+import SortTh from '@/components/SortTh.vue';
 
 const route = useRoute();
+const auth = useAuthStore();
 const detail = ref<ParentWorkDetail | null>(null);
 const year = ref<number | null>(null);
 const error = ref('');
@@ -72,6 +76,29 @@ async function review(id: string, approve: boolean) {
   } catch (e) { actionError.value = e instanceof Error ? e.message : 'Prüfung fehlgeschlagen'; }
   finally { saving.value = false; }
 }
+const entries = computed(() => detail.value?.entries ?? []);
+const { sortKey, sortDir, sorted: sortedEntries, toggle } = useTableSort(entries, {
+  date: e => e.workDate,
+  hours: e => e.durationMinutes,
+  occasion: e => e.occasion,
+  member: e => e.memberName,
+  child: e => e.childName,
+  source: e => source(e.source),
+  status: e => entryStatus(e.status),
+}, { key: 'date', dir: 'desc' });
+const account = computed(() => {
+  const d = detail.value;
+  if (!d) return [];
+  const cards = [
+    { label: 'Soll', value: formatHours(d.requiredMinutes) },
+    { label: 'Geleistet', value: formatHours(d.doneMinutes) },
+    { label: 'Übertrag Vorjahr', value: formatHours(d.carryInMinutes) },
+    { label: 'Offen', value: formatHours(d.openMinutes) },
+    { label: 'Übertrag Folgejahr', value: formatHours(d.carryOutMinutes) },
+  ];
+  if (auth.isAdmin) cards.push({ label: 'Fehlbetrag', value: formatCurrency(d.missingAmountCents / 100) });
+  return cards;
+});
 function entrySaved() { entryDialog.value = false; editingEntry.value = null; load(); }
 function entryStatus(status: string) { return ({ APPROVED: 'Bestätigt', SUBMITTED: 'Eingereicht', REJECTED: 'Abgelehnt', VOIDED: 'Storniert' } as Record<string, string>)[status] ?? status; }
 function source(source: string) { return source === 'IMPORT' ? 'Import' : source === 'MANUAL' ? 'Manuell' : source === 'PARENT' ? 'Eltern' : source; }
@@ -87,12 +114,23 @@ function source(source: string) { return source === 'IMPORT' ? 'Import' : source
         <section class="rounded-xl border bg-card p-5"><h2 class="text-lg font-semibold">Kinder</h2><table class="mt-3 w-full text-sm"><thead class="text-left text-muted-foreground"><tr><th class="py-2">Kind</th><th class="py-2">Betreuung</th><th class="py-2 text-right">Gezählte Tertiale</th></tr></thead><tbody><tr v-for="c in detail.children" :key="c.id" class="border-t"><td class="py-2">{{ c.name }}</td><td class="py-2">{{ formatDate(c.entryDate) }} – {{ formatDate(c.exitDate) }}</td><td class="py-2 text-right">{{ c.tertials }}</td></tr><tr v-if="!detail.children.length"><td colspan="3" class="py-3 text-muted-foreground">Keine Kinder im Kita-Jahr.</td></tr></tbody></table></section>
         <section class="rounded-xl border bg-card p-5"><div class="flex items-center justify-between gap-2"><h2 class="text-lg font-semibold">Soll</h2><button class="text-sm text-primary hover:underline" @click="startOverride">{{ detail.overrideMinutes !== undefined ? 'Manuelles Soll bearbeiten' : 'Manuelles Soll setzen' }}</button></div><p class="mt-3 text-sm">Berechnetes Soll: <strong>{{ formatHours(detail.calculatedMinutes) }}</strong></p><p v-if="detail.exemptReason" class="mt-2 text-sm">Befreiung: {{ detail.exemptReason }}</p><p v-if="detail.overrideMinutes !== undefined" class="mt-2 text-sm">Manuelles Soll: <strong>{{ formatHours(detail.overrideMinutes) }}</strong> · {{ detail.overrideReason }}</p><p v-if="actionError && !overrideDialog && !voidEntry" role="alert" class="mt-3 text-red-700 dark:text-red-300">{{ actionError }}</p></section>
       </div>
-      <section class="rounded-xl border bg-card p-5"><h2 class="text-lg font-semibold">Konto</h2><div class="mt-4 grid gap-4 sm:grid-cols-3 xl:grid-cols-6"><div v-for="item in [{ label: 'Soll', value: formatHours(detail.requiredMinutes) }, { label: 'Übertrag aus Vorjahr', value: formatHours(detail.carryInMinutes) }, { label: 'Ist', value: formatHours(detail.doneMinutes) }, { label: 'Offen', value: formatHours(detail.openMinutes) }, { label: 'Fehlbetrag', value: formatCurrency(detail.missingAmountCents / 100) }, { label: 'Übertrag ins Folgejahr', value: formatHours(detail.carryOutMinutes) }]" :key="item.label"><p class="text-sm text-muted-foreground">{{ item.label }}</p><p class="font-semibold">{{ item.value }}</p></div></div></section>
-      <section class="overflow-hidden rounded-xl border bg-card"><h2 class="p-5 text-lg font-semibold">Einträge</h2><div class="overflow-x-auto"><table class="w-full text-sm"><thead class="bg-muted text-left text-muted-foreground"><tr><th class="px-4 py-3">Datum</th><th class="px-4 py-3 text-right">Stunden</th><th class="px-4 py-3">Anlass</th><th class="px-4 py-3">Mitglied</th><th class="px-4 py-3">Kind</th><th class="px-4 py-3">Quelle</th><th class="px-4 py-3">Status</th><th class="px-4 py-3">Aktionen</th></tr></thead><tbody><tr v-for="e in detail.entries" :key="e.id" class="border-t" :class="e.status === 'VOIDED' ? 'text-muted-foreground bg-muted' : ''"><td class="px-4 py-3">{{ formatDate(e.workDate) }}</td><td class="px-4 py-3 text-right">{{ formatHours(e.durationMinutes) }}</td><td class="px-4 py-3">{{ e.occasion }}</td><td class="px-4 py-3">{{ e.memberName || '—' }}</td><td class="px-4 py-3">{{ e.childName || '—' }}</td><td class="px-4 py-3">{{ source(e.source) }}</td><td class="px-4 py-3">{{ entryStatus(e.status) }}<span v-if="e.reviewedAt" class="block text-xs text-muted-foreground">von {{ e.reviewedByName || 'unbekannt' }}, {{ formatDate(e.reviewedAt) }}</span><span v-if="e.rejectReason" class="block text-xs">Grund: {{ e.rejectReason }}</span><span v-if="e.voidReason" class="block text-xs">Grund: {{ e.voidReason }}</span></td><td class="px-4 py-3"><div v-if="e.status === 'SUBMITTED'" class="flex gap-2">
+      <section aria-labelledby="account-heading"><h2 id="account-heading" class="text-lg font-semibold">Konto</h2>
+        <div class="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3" :class="account.length === 5 ? 'xl:grid-cols-5' : 'xl:grid-cols-6'">
+          <div v-for="item in account" :key="item.label" class="rounded-xl border bg-card p-5"><p class="text-sm text-muted-foreground">{{ item.label }}</p><p class="mt-2 text-2xl font-semibold">{{ item.value }}</p></div>
+        </div></section>
+      <section class="overflow-hidden rounded-xl border bg-card"><h2 class="p-5 text-lg font-semibold">Einträge</h2><div class="overflow-x-auto"><table class="w-full text-sm"><thead class="bg-muted text-muted-foreground"><tr>
+          <SortTh label="Datum" column="date" :sort-key="sortKey" :sort-dir="sortDir" @sort="toggle" />
+          <SortTh label="Stunden" column="hours" align="right" :sort-key="sortKey" :sort-dir="sortDir" @sort="toggle" />
+          <SortTh label="Anlass" column="occasion" :sort-key="sortKey" :sort-dir="sortDir" @sort="toggle" />
+          <SortTh label="Mitglied" column="member" :sort-key="sortKey" :sort-dir="sortDir" @sort="toggle" />
+          <SortTh label="Kind" column="child" :sort-key="sortKey" :sort-dir="sortDir" @sort="toggle" />
+          <SortTh label="Quelle" column="source" :sort-key="sortKey" :sort-dir="sortDir" @sort="toggle" />
+          <SortTh label="Status" column="status" :sort-key="sortKey" :sort-dir="sortDir" @sort="toggle" />
+          <th class="px-4 py-3 text-left">Aktionen</th></tr></thead><tbody><tr v-for="e in sortedEntries" :key="e.id" class="border-t" :class="e.status === 'VOIDED' ? 'text-muted-foreground bg-muted' : ''"><td class="px-4 py-3">{{ formatDate(e.workDate) }}</td><td class="px-4 py-3 text-right">{{ formatHours(e.durationMinutes) }}</td><td class="px-4 py-3">{{ e.occasion }}</td><td class="px-4 py-3">{{ e.memberName || '—' }}</td><td class="px-4 py-3">{{ e.childName || '—' }}</td><td class="px-4 py-3">{{ source(e.source) }}</td><td class="px-4 py-3">{{ entryStatus(e.status) }}<span v-if="e.reviewedAt" class="block text-xs text-muted-foreground">von {{ e.reviewedByName || 'unbekannt' }}, {{ formatDate(e.reviewedAt) }}</span><span v-if="e.rejectReason" class="block text-xs">Grund: {{ e.rejectReason }}</span><span v-if="e.voidReason" class="block text-xs">Grund: {{ e.voidReason }}</span></td><td class="px-4 py-3"><div v-if="e.status === 'SUBMITTED'" class="flex gap-2">
           <button class="text-primary underline" @click="review(e.id, true)">Bestätigen</button>
           <button class="text-red-700 underline dark:text-red-300" @click="rejectEntry = e">Ablehnen</button>
         </div><div v-else-if="e.status !== 'VOIDED'" class="flex gap-2"><button class="text-primary hover:underline" @click="editingEntry = e; entryDialog = true">Bearbeiten</button><button class="text-red-700 dark:text-red-300 hover:underline" @click="voidEntry = e; voidReason = ''; actionError = ''">Stornieren</button></div></td></tr><tr v-if="!detail.entries?.length"><td colspan="8" class="px-4 py-6 text-center text-muted-foreground">Keine Einträge.</td></tr></tbody></table></div></section>
-      <section class="rounded-xl border bg-card p-5"><h2 class="text-lg font-semibold">Vorstands-Amtszeiten</h2><table class="mt-3 w-full text-sm"><thead class="text-left text-muted-foreground"><tr><th class="py-2">Mitglied</th><th class="py-2">Amt</th><th class="py-2">Von</th><th class="py-2">Bis</th></tr></thead><tbody><tr v-for="term in detail.boardTerms" :key="term.id" class="border-t"><td class="py-2">{{ term.memberName }}</td><td class="py-2">{{ term.office }}</td><td class="py-2">{{ formatDate(term.startDate) }}</td><td class="py-2">{{ formatDate(term.endDate) }}</td></tr><tr v-if="!detail.boardTerms?.length"><td colspan="4" class="py-3 text-muted-foreground">Keine Amtszeiten.</td></tr></tbody></table></section>
+      <section v-if="detail.boardTerms?.length" class="rounded-xl border bg-card p-5"><h2 class="text-lg font-semibold">Vorstands-Amtszeiten</h2><table class="mt-3 w-full text-sm"><thead class="text-left text-muted-foreground"><tr><th class="py-2">Mitglied</th><th class="py-2">Amt</th><th class="py-2">Von</th><th class="py-2">Bis</th></tr></thead><tbody><tr v-for="term in detail.boardTerms" :key="term.id" class="border-t"><td class="py-2">{{ term.memberName }}</td><td class="py-2">{{ term.office }}</td><td class="py-2">{{ formatDate(term.startDate) }}</td><td class="py-2">{{ formatDate(term.endDate) }}</td></tr></tbody></table></section>
     </template>
     <div v-if="rejectEntry" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
       <form role="dialog" aria-modal="true" aria-label="Meldung ablehnen"

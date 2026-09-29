@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { onMounted, ref } from 'vue';
 import { api } from '@/api';
 import type { ParentWorkEntry, ParentWorkHouseholdOption, ParentWorkEntryRequest } from '@/api/types';
 import { formatDateForInput, todayISO } from '@/utils/format';
@@ -12,14 +12,9 @@ const householdId = ref(props.entry?.householdId ?? props.householdId ?? '');
 const date = ref(formatDateForInput(props.entry?.workDate) || todayISO());
 const hours = ref<number | null>(props.entry ? props.entry.durationMinutes / 60 : null);
 const occasion = ref(props.entry?.occasion ?? '');
-const memberName = ref(props.entry?.memberName ?? '');
-const childName = ref(props.entry?.childName ?? '');
 const error = ref('');
 const loading = ref(false);
 const saving = ref(false);
-const selected = computed(() => households.value.find(h => h.id === householdId.value));
-const people = computed(() => [...new Set([...(selected.value?.members ?? []).map(m => m.name),
-  ...(selected.value?.parents ?? []).map(p => p.name)])]);
 
 onMounted(async () => {
   loading.value = true;
@@ -27,7 +22,6 @@ onMounted(async () => {
   catch (e) { error.value = e instanceof Error ? e.message : 'Familien konnten nicht geladen werden'; }
   finally { loading.value = false; }
 });
-watch(householdId, (id, oldId) => { if (oldId && id !== oldId) { memberName.value = ''; childName.value = ''; } });
 
 async function save() {
   error.value = '';
@@ -41,7 +35,7 @@ async function save() {
   try {
     const data: ParentWorkEntryRequest = { householdId: householdId.value, workDate: date.value,
       durationMinutes: minutes, occasion: occasion.value.trim(),
-      memberName: memberName.value.trim() || undefined, childName: childName.value.trim() || undefined };
+      memberName: props.entry?.memberName ?? undefined, childName: props.entry?.childName ?? undefined };
     if (props.entry) await api.updateParentWorkEntry(props.entry.id, data);
     else await api.createParentWorkEntry(data);
     emit('saved');
@@ -62,14 +56,6 @@ async function save() {
           <label class="block text-sm font-medium">Stunden *<input v-model.number="hours" type="number" min="0.25" step="0.25" required class="mt-1 w-full rounded-lg border px-3 py-2" /></label>
         </div>
         <label class="block text-sm font-medium">Anlass *<input v-model="occasion" type="text" required class="mt-1 w-full rounded-lg border px-3 py-2" /></label>
-        <label class="block text-sm font-medium">Mitglied
-          <input v-model="memberName" list="parent-work-members" type="text" class="mt-1 w-full rounded-lg border px-3 py-2" />
-          <datalist id="parent-work-members"><option v-for="name in people" :key="name" :value="name" /></datalist>
-        </label>
-        <label class="block text-sm font-medium">Kind
-          <input v-model="childName" list="parent-work-children" type="text" class="mt-1 w-full rounded-lg border px-3 py-2" />
-          <datalist id="parent-work-children"><option v-for="c in selected?.children ?? []" :key="c.id" :value="c.name" /></datalist>
-        </label>
         <p v-if="error" role="alert" class="rounded-lg bg-red-50 dark:bg-red-950/40 p-3 text-sm text-red-700 dark:text-red-300">{{ error }}</p>
       </div>
       <div class="mt-6 flex justify-end gap-3"><button type="button" class="rounded-lg border px-4 py-2" @click="emit('close')">Abbrechen</button><button type="submit" :disabled="saving || loading" class="rounded-lg bg-primary px-4 py-2 text-primary-foreground disabled:opacity-50">Speichern</button></div>

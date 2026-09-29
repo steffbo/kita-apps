@@ -41,7 +41,14 @@ test('parent work role sees only its area and cannot fetch children', async ({ b
       await expect(navigation.getByText(group, { exact: true })).toHaveCount(0);
     }
     await navigation.getByRole('button', { name: 'Elternstunden' }).click();
-    await expect(navigation.getByRole('link', { name: 'Vorstand' })).toBeVisible();
+    await expect(navigation.getByRole('link', { name: 'Verwaltung' })).toBeVisible();
+    await expect(navigation.getByRole('link', { name: 'Vorstand' })).toHaveCount(0);
+    await page.goto('/beitraege/elternstunden/vorstand');
+    await expect(page).toHaveURL(/\/beitraege\/elternstunden$/);
+    const terms = await context.request.get(`${API}/parent-work/board-terms`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(terms.status()).toBe(403);
     await page.goto('/beitraege/kinder');
     await expect(page).toHaveURL(/\/beitraege\/elternstunden$/);
     const response = await context.request.get(`${API}/children`, {
@@ -109,7 +116,7 @@ test('CSV preview matches child and imports an entry', async ({ adminApi, adminP
     'Name des Mitgliedes;Name des Kindes;Wann;Anlass;Stunden',
     `;${family.childName};${bankDate(family.today)};E2E Aufräumen;1,5`,
   ].join('\n');
-  await page.goto('/beitraege/elternstunden/import');
+  await page.goto('/beitraege/elternstunden/verwaltung');
   await page.getByLabel('CSV-Datei').setInputFiles({
     name: 'elternstunden.csv', mimeType: 'text/csv', buffer: Buffer.from(csv),
   });
@@ -124,4 +131,104 @@ test('CSV preview matches child and imports an entry', async ({ adminApi, adminP
   await expect(page.getByRole('status')).toContainText('1 Eintrag wurde importiert.');
   await page.goto(`/beitraege/elternstunden/familien/${family.household.id}?jahr=${family.year}`);
   await expect(page.getByRole('row', { name: /E2E Aufräumen/ })).toContainText('Import');
+});
+
+async function addEntry(adminApi: Api, householdId: string, minutes: number, occasion: string) {
+  const { today } = workYear();
+  const workDate = `${today.year}-${String(today.month).padStart(2, '0')}-${String(today.day).padStart(2, '0')}`;
+  await adminApi.post('/parent-work/entries', { householdId, workDate, durationMinutes: minutes, occasion });
+}
+
+test('overview: row button opens the entry form with the family preselected', async ({ adminApi, adminPage: page }) => {
+  const family = await familyWithChild(adminApi);
+  await page.goto('/beitraege/elternstunden');
+  await expect(page.getByRole('columnheader', { name: /Fehlbetrag/ })).toHaveCount(0);
+  await page.getByLabel('Suche nach Familie oder Kind').fill(family.suffix);
+  const row = page.getByRole('row', { name: new RegExp(family.householdName) });
+  await row.getByRole('button', { name: `Stunden erfassen für ${family.householdName}` }).click();
+  const dialog = page.getByRole('dialog', { name: 'Stunden erfassen' });
+  await expect(dialog).toContainText(`Familie: ${family.householdName}`);
+  await expect(dialog.getByLabel('Mitglied')).toHaveCount(0);
+  await expect(dialog.getByLabel('Kind')).toHaveCount(0);
+  await dialog.getByLabel('Stunden *').fill('2');
+  await dialog.getByLabel('Anlass *').fill('E2E Zeilenbutton');
+  await dialog.getByRole('button', { name: 'Speichern' }).click();
+  await expect(dialog).toBeHidden();
+  await expect(row).toContainText('7 h');
+});
+
+test('overview: cards filter the table', async ({ adminApi, adminPage: page }) => {
+  const idle = await familyWithChild(adminApi);
+  const active = await familyWithChild(adminApi);
+  await addEntry(adminApi, active.household.id, 60, 'E2E Karte');
+  await page.goto('/beitraege/elternstunden');
+  const idleRow = page.getByRole('row', { name: new RegExp(idle.householdName) });
+  const activeRow = page.getByRole('row', { name: new RegExp(active.householdName) });
+  const none = page.getByRole('button', { name: /Noch keine Stunden geleistet/ });
+  await none.click();
+  await expect(none).toHaveAttribute('aria-pressed', 'true');
+  await expect(idleRow).toBeVisible();
+  await expect(activeRow).toHaveCount(0);
+  await page.getByRole('button', { name: /Stunden noch offen/ }).click();
+  await expect(idleRow).toBeVisible();
+  await expect(activeRow).toBeVisible();
+  await page.getByRole('button', { name: /Alle Stunden geleistet/ }).click();
+  await expect(idleRow).toHaveCount(0);
+  await expect(activeRow).toHaveCount(0);
+  await page.getByRole('button', { name: /Alle Stunden geleistet/ }).click();
+  await expect(idleRow).toBeVisible();
+  await expect(page.getByRole('button', { name: /Unbestätigte Meldungen/ })).toBeVisible();
+});
+
+test('overview: table sorts by column', async ({ adminApi, adminPage: page }) => {
+  const idle = await familyWithChild(adminApi);
+  const active = await familyWithChild(adminApi);
+  await addEntry(adminApi, active.household.id, 120, 'E2E Sortierung');
+  await page.goto('/beitraege/elternstunden');
+  const names = () => page.getByRole('row').allInnerTexts();
+  const position = async () => {
+    const rows = await names();
+    return [rows.findIndex(r => r.includes(active.householdName)), rows.findIndex(r => r.includes(idle.householdName))];
+  };
+  await expect(page.getByRole('row', { name: new RegExp(active.householdName) })).toBeVisible();
+  await page.getByRole('button', { name: 'Offen', exact: true }).click();
+  await expect(page.getByRole('columnheader', { name: 'Offen' })).toHaveAttribute('aria-sort', 'ascending');
+  let [a, i] = await position();
+  expect(a).toBeLessThan(i);
+  await page.getByRole('button', { name: 'Offen', exact: true }).click();
+  await expect(page.getByRole('columnheader', { name: 'Offen' })).toHaveAttribute('aria-sort', 'descending');
+  [a, i] = await position();
+  expect(a).toBeGreaterThan(i);
+});
+
+test('detail: account cards, no board section without term, no amount for parent work role',
+  async ({ adminApi, adminPage: page, browser, createUser }) => {
+    const family = await familyWithChild(adminApi);
+    const url = `/beitraege/elternstunden/familien/${family.household.id}?jahr=${family.year}`;
+    await page.goto(url);
+    const account = page.getByRole('heading', { name: 'Konto' }).locator('..');
+    for (const label of ['Soll', 'Geleistet', 'Übertrag Vorjahr', 'Offen', 'Übertrag Folgejahr', 'Fehlbetrag']) {
+      await expect(account.getByText(label, { exact: true })).toBeVisible();
+    }
+    await expect(page.getByRole('heading', { name: 'Vorstands-Amtszeiten' })).toHaveCount(0);
+
+    const user = await createUser('PARENT_WORK');
+    const context = await browser.newContext();
+    try {
+      await loginContext(context, user.email, user.password);
+      const work = await context.newPage();
+      await work.goto(url);
+      const workAccount = work.getByRole('heading', { name: 'Konto' }).locator('..');
+      await expect(workAccount.getByText('Offen', { exact: true })).toBeVisible();
+      await expect(workAccount.getByText('Fehlbetrag', { exact: true })).toHaveCount(0);
+    } finally { await context.close(); }
+  });
+
+test('verwaltung page explains Tertiale and board exemption', async ({ adminPage: page }) => {
+  await page.goto('/beitraege/elternstunden/verwaltung');
+  await expect(page.getByRole('heading', { name: 'Verwaltung', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Regeln', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Import', exact: true })).toBeVisible();
+  await expect(page.getByText('Tertiale:')).toBeVisible();
+  await expect(page.getByText('Vorstandsbetreuung:')).toBeVisible();
 });

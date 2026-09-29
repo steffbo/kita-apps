@@ -3,6 +3,28 @@
 Rolling change log of non-obvious implementation decisions. Newest first.
 Basics (ports, commands, layout) live in `AGENTS.md`.
 
+## Elternstunden-Überarbeitung (2026-09-29)
+
+- **Vorstand nur für Admins:** `/parent-work/board-terms` (GET/POST/PUT/DELETE) ist jetzt auf `ADMIN` beschränkt
+  (Routertest `TestRouter_RoleAreas`); `PARENT_WORK` sieht Menüpunkt und Seite `/elternstunden/vorstand` nicht mehr.
+  Die Amtszeiten einer Familie erscheinen weiter in der Detailansicht, dort aber nur, wenn es welche gibt.
+- **Verwaltung:** „Regeln“ und „Import“ sind eine Seite (`/elternstunden/verwaltung`, Komponenten `RulesSection`/
+  `ImportSection`), für `ADMIN` und `PARENT_WORK`; Regeln schreiben bleibt `ADMIN`. Die alten Pfade
+  `/elternstunden/regeln` und `/elternstunden/import` gibt es nicht mehr. Der Regelteil erklärt Tertiale
+  (1.8.–30.11., 1.12.–31.3., 1.4.–31.7.), die Soll-Berechnung und die Befreiung durch Vorstandstätigkeit.
+- **Übersicht:** Kennzahlen-Karten sind zugleich Filter (Klick schaltet um, Suche wirkt zusätzlich): Familien (alle),
+  „Alle Stunden geleistet“ (`openMinutes <= 0`), „Stunden noch offen“ (`> 0`), „Noch keine Stunden geleistet“
+  (offen und `doneMinutes = 0`, zählt nur bestätigte Stunden) und „Unbestätigte Meldungen“ (Anzahl Meldungen,
+  Filter auf Familien mit Meldungen). Soll/Ist/Offen/Fehlbetrag-Summen, „Nur offene“, „Nur mit Meldungen“ und
+  die Spalte Fehlbetrag sind entfallen. Jede Zeile hat einen „+“-Button, der den Erfassungsdialog mit
+  vorgewählter Familie öffnet. Tabellen sind spaltenweise sortierbar (`useTableSort`, `SortTh`); Übersicht und
+  Einträge der Detailseite.
+- **Erfassungsdialog** ohne Felder „Mitglied“ und „Kind“. Beim Bearbeiten bleiben vorhandene Werte (z. B. aus
+  dem Import) unverändert erhalten.
+- **Detailseite:** Konto als Karten (Soll, Geleistet, Übertrag Vorjahr, Offen, Übertrag Folgejahr); der
+  Fehlbetrag in Euro erscheint als sechste Karte nur für `ADMIN`. Das ist eine reine Oberflächenregel: die API
+  liefert `missingAmountCents` weiterhin auch an `PARENT_WORK`.
+
 ## Impersonation durch Admins (2026-09-29)
 
 - `POST /users/{id}/impersonate` (nur `ADMIN`) liefert ein Access-Token, das sich exakt wie der Zielbenutzer

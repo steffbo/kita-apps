@@ -50,8 +50,7 @@ test('Eltern sehen nur die eigene Familie; Meldungen und Änderungen gehen an St
       await expect(page.getByText('Sommerfest E2E')).toBeVisible();
 
       await adminPage.goto('/beitraege/elternstunden');
-      await expect(adminPage.getByText(/eingereichte Meldungen warten/)).toBeVisible();
-      await adminPage.getByLabel('Nur mit Meldungen').check();
+      await adminPage.getByRole('button', { name: /Unbestätigte Meldungen/ }).click();
       const row = adminPage.getByRole('row', { name: new RegExp(a.childName) });
       await expect(row).toContainText('Meldungen');
       await row.getByRole('link').click();

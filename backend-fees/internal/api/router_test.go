@@ -81,6 +81,10 @@ func (routerParentWorkRepo) ListRules(context.Context) ([]domain.ParentWorkRule,
 	return []domain.ParentWorkRule{}, nil
 }
 
+func (routerParentWorkRepo) ListTerms(context.Context) ([]domain.BoardTerm, error) {
+	return []domain.BoardTerm{}, nil
+}
+
 func concretePath(pattern string) string {
 	path := strings.ReplaceAll(pattern, "/*", "/")
 	for strings.Contains(path, "{") {
@@ -227,6 +231,7 @@ func TestRouter_RoleAreas(t *testing.T) {
 		{"/fee-schedules/", map[string]bool{"ADMIN": true, "USER": true}},
 		{"/fees/reminders/settings", map[string]bool{"ADMIN": true}},
 		{"/parent-work/rules", map[string]bool{"ADMIN": true, "PARENT_WORK": true}},
+		{"/parent-work/board-terms", map[string]bool{"ADMIN": true}},
 		{"/activity", map[string]bool{"ADMIN": true}},
 		{"/parent-reports/", map[string]bool{"ADMIN": true}},
 		{"/children/" + uuid.NewString() + "/changes", map[string]bool{"ADMIN": true}},

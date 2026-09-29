@@ -81,10 +81,9 @@ async function execute() {
 </script>
 
 <template>
-  <section class="mx-auto max-w-7xl space-y-6 p-4 sm:p-6">
+  <section class="space-y-6">
     <div>
-      <RouterLink to="/elternstunden" class="text-sm text-primary hover:underline">← Zur Übersicht</RouterLink>
-      <h1 class="mt-2 text-2xl font-semibold">Elternstunden importieren</h1>
+      <h2 class="text-xl font-semibold">Import</h2>
       <p class="mt-1 text-sm text-muted-foreground">Excel-Tabelle als CSV speichern (Datei → Speichern unter → CSV UTF-8).</p>
     </div>
     <div class="rounded-lg border bg-card p-4">
