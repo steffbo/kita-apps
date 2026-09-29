@@ -2,7 +2,7 @@
 import { ref, computed, watch, onActivated, onUnmounted } from 'vue';
 import { api } from '@/api';
 import type { EmailLog } from '@/api/types';
-import { Eye, Search, ArrowUp, ArrowDown } from 'lucide-vue-next';
+import { Eye, Search, ArrowUp, ArrowDown, RefreshCw } from 'lucide-vue-next';
 import EmailLogModal from '@/components/automation/EmailLogModal.vue';
 import { formatDateTime } from '@/utils/format';
 import { formatEmailType } from '@/utils/reminders';
@@ -81,7 +81,12 @@ function toggleEmailLogsSort(): void {
   <div>
     <div class="flex items-center justify-between mb-4">
       <p class="text-sm text-muted-foreground">Alle versendeten E-Mails inklusive Inhalt.</p>
-      <button class="text-sm text-primary hover:underline" :disabled="isEmailLogsLoading" @click="loadEmailLogs(true)">
+      <button
+        class="inline-flex items-center gap-1.5 text-sm text-primary hover:underline disabled:opacity-50"
+        :disabled="isEmailLogsLoading"
+        @click="loadEmailLogs(true)"
+      >
+        <RefreshCw class="h-4 w-4" :class="isEmailLogsLoading ? 'animate-spin' : ''" />
         Neu laden
       </button>
     </div>
@@ -113,7 +118,7 @@ function toggleEmailLogsSort(): void {
 
       <button
         type="button"
-        class="inline-flex items-center gap-1.5 px-3 py-2 text-sm border border-border rounded-lg hover:bg-accent transition-colors"
+        class="inline-flex items-center gap-1.5 px-3 py-2 text-sm border border-border rounded-lg bg-card hover:bg-accent transition-colors"
         @click="toggleEmailLogsSort"
         :title="emailLogsSortDir === 'desc' ? 'Älteste zuerst' : 'Neueste zuerst'"
       >
@@ -127,24 +132,24 @@ function toggleEmailLogsSort(): void {
       Keine E-Mails für diese Filter gefunden.
     </div>
 
-    <div v-else class="overflow-x-auto">
+    <div v-else class="overflow-x-auto rounded-xl border bg-card">
       <table class="w-full table-fixed text-sm">
-        <thead>
-          <tr class="text-left text-muted-foreground border-b">
-            <th class="w-36 pb-3 font-medium">Zeitpunkt</th>
-            <th class="w-44 pb-3 font-medium">Typ</th>
-            <th class="pb-3 font-medium">Empfänger</th>
-            <th class="pb-3 font-medium">Betreff</th>
-            <th class="w-32 pb-3 font-medium">Inhalt</th>
+        <thead class="bg-muted">
+          <tr class="text-left text-muted-foreground">
+            <th class="w-48 px-4 py-3 font-medium">Zeitpunkt</th>
+            <th class="w-48 px-4 py-3 font-medium">Typ</th>
+            <th class="px-4 py-3 font-medium">Empfänger</th>
+            <th class="px-4 py-3 font-medium">Betreff</th>
+            <th class="w-36 px-4 py-3 font-medium">Inhalt</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="log in emailLogs" :key="log.id" class="border-b last:border-0 align-top">
-            <td class="py-3 whitespace-nowrap">{{ formatDateTime(log.sentAt) }}</td>
-            <td class="py-3 whitespace-nowrap">{{ formatEmailType(log.emailType) }}</td>
-            <td class="py-3 pr-4 truncate" :title="log.toEmail">{{ log.toEmail }}</td>
-            <td class="py-3 pr-4 truncate" :title="log.subject">{{ log.subject }}</td>
-            <td class="py-3">
+          <tr v-for="log in emailLogs" :key="log.id" class="border-t align-top">
+            <td class="px-4 py-3 whitespace-nowrap">{{ formatDateTime(log.sentAt) }}</td>
+            <td class="px-4 py-3 whitespace-nowrap">{{ formatEmailType(log.emailType) }}</td>
+            <td class="px-4 py-3 truncate" :title="log.toEmail">{{ log.toEmail }}</td>
+            <td class="px-4 py-3 truncate" :title="log.subject">{{ log.subject }}</td>
+            <td class="px-4 py-3">
               <button
                 type="button"
                 class="inline-flex items-center gap-1.5 text-primary hover:underline"

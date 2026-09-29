@@ -10,9 +10,9 @@ import type {
   ReminderCaseStage,
 } from '@/api/types';
 import { ReminderCaseConflictError } from '@/api/types';
-import { Eye, X, Search, ArrowLeft, Settings, Mail, Clock } from 'lucide-vue-next';
+import { Eye, X, Search, ArrowLeft, Settings, Mail, Clock, RefreshCw } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/auth';
-import { formatCurrency, formatDate, formatDateTime, todayISO } from '@/utils/format';
+import { formatCurrency, formatDate, formatDateTime, formatDueIn, todayISO } from '@/utils/format';
 import {
   feeChipClass,
   feeTypeLabel,
@@ -381,7 +381,7 @@ watch(
         <p class="text-muted-foreground mt-1">Familien mit offenen Beiträgen bearbeiten</p>
       </div>
       <button
-        class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium hover:bg-accent"
+        class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border bg-card text-sm font-medium hover:bg-accent"
         @click="showSettingsDialog = true"
       >
         <Settings class="h-4 w-4" />
@@ -436,7 +436,12 @@ watch(
             class="w-full pl-10 pr-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
           />
         </div>
-        <button class="text-sm text-primary hover:underline" :disabled="isCasesLoading" @click="loadCases()">
+        <button
+          class="inline-flex items-center gap-1.5 text-sm text-primary hover:underline disabled:opacity-50"
+          :disabled="isCasesLoading"
+          @click="loadCases()"
+        >
+          <RefreshCw class="h-4 w-4" :class="isCasesLoading ? 'animate-spin' : ''" />
           Neu laden
         </button>
       </div>
@@ -454,7 +459,7 @@ watch(
           <ul class="space-y-2">
             <li v-for="item in filteredCases" :key="item.householdId">
               <button
-                class="w-full text-left p-4 border rounded-xl transition-colors hover:bg-accent"
+                class="w-full text-left p-4 border rounded-xl bg-card transition-colors hover:bg-accent"
                 :class="item.householdId === selectedHouseholdId ? 'border-primary ring-1 ring-primary' : 'border-border'"
                 @click="openCase(item.householdId)"
               >
@@ -479,9 +484,9 @@ watch(
                   </span>
                 </div>
                 <div class="flex flex-wrap items-center gap-4 mt-2 text-xs text-muted-foreground">
-                  <span class="inline-flex items-center gap-1">
+                  <span class="inline-flex items-center gap-1" :title="formatDate(item.nextActionAt)">
                     <Clock class="h-3.5 w-3.5" />
-                    Nächste Aktion: {{ formatDate(item.nextActionAt) }}
+                    Nächste Aktion: {{ formatDueIn(item.nextActionAt) }}
                   </span>
                   <span v-if="lastContactOf(item)" class="inline-flex items-center gap-1">
                     <Mail class="h-3.5 w-3.5" />
@@ -661,7 +666,7 @@ watch(
                       type="text"
                       v-model="subjectEdit"
                       @input="onSubjectInput"
-                      class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-background"
+                      class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-card"
                     />
                   </div>
                   <div>
@@ -670,19 +675,21 @@ watch(
                       v-model="bodyEdit"
                       @input="onBodyInput"
                       rows="14"
-                      class="w-full px-3 py-2 border border-border rounded-lg font-mono text-xs focus:ring-2 focus:ring-primary focus:border-transparent outline-none whitespace-pre-wrap bg-background"
+                      class="w-full px-3 py-2 border border-border rounded-lg font-mono text-xs focus:ring-2 focus:ring-primary focus:border-transparent outline-none whitespace-pre-wrap bg-card"
                     ></textarea>
                     <p v-if="userEdited" class="mt-1 text-xs text-amber-700 dark:text-amber-300">
                       Text angepasst — Änderungen an Auswahl oder Mahnstufe setzen ihn zurück.
                     </p>
                   </div>
-                  <div v-if="includeQR && preview.qrImageDataUrl" class="space-y-2">
-                    <p class="text-xs text-muted-foreground">SEPA-QR-Code</p>
-                    <img :src="preview.qrImageDataUrl" alt="SEPA QR-Code" class="w-full max-w-[220px] border rounded bg-card p-2" />
-                    <details v-if="preview.qrPayload">
-                      <summary class="text-xs text-muted-foreground cursor-pointer">Im QR-Code enthalten</summary>
-                      <pre class="mt-1 whitespace-pre-wrap break-all font-mono text-xs text-muted-foreground bg-card border rounded p-3">{{ preview.qrPayload }}</pre>
-                    </details>
+                  <div v-if="includeQR && preview.qrImageDataUrl" class="flex flex-col sm:flex-row gap-3">
+                    <div class="shrink-0">
+                      <p class="text-xs text-muted-foreground mb-1">SEPA-QR-Code</p>
+                      <img :src="preview.qrImageDataUrl" alt="SEPA QR-Code" class="w-full max-w-[220px] border rounded bg-card p-2" />
+                    </div>
+                    <div v-if="preview.qrPayload" class="flex-1 min-w-0 flex flex-col">
+                      <p class="text-xs text-muted-foreground mb-1">Im QR-Code enthalten</p>
+                      <pre class="flex-1 whitespace-pre-wrap break-all font-mono text-xs text-muted-foreground bg-card border rounded p-3">{{ preview.qrPayload }}</pre>
+                    </div>
                   </div>
                   <p v-else-if="!includeQR" class="text-xs text-muted-foreground">QR-Code ist deaktiviert und wird nicht angehängt.</p>
                 </div>

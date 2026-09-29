@@ -3,6 +3,18 @@
 Rolling change log of non-obvious implementation decisions. Newest first.
 Basics (ports, commands, layout) live in `AGENTS.md`.
 
+## Erinnerungen und globale Flächen (2026-09-29)
+
+- Seitenhintergrund bleibt `--background` (`rgb(245 251 233)`). Formularfelder (`input`, `select`, `textarea`)
+  liegen per Grundregel in `main.css` jetzt auf `bg-card` (hell: weiß), nicht mehr auf `bg-background`.
+- Alle App-Tabellen erhalten per Grundregel Zebra-Streifen (`--muted` mit 45 % Deckkraft auf geraden
+  Zeilen). Ausgenommen sind die PDF-Tabellen `.data-table`/`.fee-table`. Zeilenklassen wie `hover:` oder
+  Statusfarben gewinnen weiter, weil sie Utilities sind.
+- Erinnerungen: Die Karten der Arbeitsliste sind weiß. „Nächste Aktion“ steht relativ da („in 3 Tagen“,
+  „seit 5 Tagen fällig“, `formatDueIn` in `utils/format.ts`), das Datum als Tooltip. „Neu laden“ hat ein
+  Icon (dreht sich beim Laden). Der QR-Inhalt steht dauerhaft neben dem QR-Code statt in einem
+  aufklappbaren Bereich. Die Tabelle im Versandverlauf steckt in einer Karte mit Kopfzeile.
+
 ## Elternstunden-Überarbeitung (2026-09-29)
 
 - **Vorstand nur für Admins:** `/parent-work/board-terms` (GET/POST/PUT/DELETE) ist jetzt auf `ADMIN` beschränkt
@@ -91,7 +103,7 @@ Basics (ports, commands, layout) live in `AGENTS.md`.
   unabhängig voneinander; Erinnerungen und die Banking-Sync-Karte sind Admins vorbehalten.
 - Nunito kommt aus `@fontsource-variable/nunito` (im Bundle, kein externer Font-Server).
 - Neutrale Flächen und Texte verwenden semantische Tokens; Statusfarben erhalten passende `dark:`-Varianten.
-  Formularfelder nutzen eine Grundregel für `bg-background`, `text-foreground` und `border-input`.
+  Formularfelder nutzen eine Grundregel für `bg-card` (bis 2026-09-29 `bg-background`), `text-foreground` und `border-input`.
 
 ## Eltern-Zugang, Etappe 2a (2026-09-27)
 

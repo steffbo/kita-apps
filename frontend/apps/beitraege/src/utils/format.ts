@@ -83,3 +83,27 @@ export function todayISO(): string {
 
 /** Options for month pickers: `{ value: 1, label: 'Januar' }` … */
 export const MONTH_OPTIONS = Array.from({ length: 12 }, (_, i) => ({ value: i + 1, label: formatMonthName(i + 1) }));
+
+/** Berlin calendar date of a date or timestamp as `YYYY-MM-DD`, or null when invalid. */
+function toBerlinISODate(value: string): string | null {
+  const match = DATE_ONLY.exec(value);
+  if (match) return `${match[1]}-${match[2]}-${match[3]}`;
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : isoDateFormat.format(date);
+}
+
+/** Berlin calendar days from today to the given date (negative = past), or null when empty/invalid. */
+export function daysFromToday(value: string | null | undefined): number | null {
+  const iso = value ? toBerlinISODate(value) : null;
+  return iso ? Math.round((Date.parse(iso) - Date.parse(todayISO())) / 86_400_000) : null;
+}
+
+/** Due date relative to today: "heute", "morgen", "in 3 Tagen", "seit 2 Tagen fällig". */
+export function formatDueIn(value: string | null | undefined, fallback = '—'): string {
+  const days = daysFromToday(value);
+  if (days === null) return fallback;
+  if (days === 0) return 'heute';
+  if (days === 1) return 'morgen';
+  if (days > 1) return `in ${days} Tagen`;
+  return days === -1 ? 'seit gestern fällig' : `seit ${-days} Tagen fällig`;
+}

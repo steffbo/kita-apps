@@ -47,7 +47,7 @@ async function handleSubmit() {
               type="email"
               required
               autocomplete="email"
-              class="w-full rounded-xl border border-input bg-background px-3 py-2 text-foreground outline-none transition-shadow focus:ring-2 focus:ring-ring"
+              class="w-full rounded-xl border border-input bg-card px-3 py-2 text-foreground outline-none transition-shadow focus:ring-2 focus:ring-ring"
               placeholder="name@knirpsenstadt.de"
             />
           </div>
@@ -63,7 +63,7 @@ async function handleSubmit() {
               type="password"
               required
               autocomplete="current-password"
-              class="w-full rounded-xl border border-input bg-background px-3 py-2 text-foreground outline-none transition-shadow focus:ring-2 focus:ring-ring"
+              class="w-full rounded-xl border border-input bg-card px-3 py-2 text-foreground outline-none transition-shadow focus:ring-2 focus:ring-ring"
               placeholder="••••••••"
             />
           </div>

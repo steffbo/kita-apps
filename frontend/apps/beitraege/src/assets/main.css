@@ -76,10 +76,16 @@
     @apply border-border;
   }
 
+  /* Page background stays --background; form controls sit on the card color (white in light mode). */
   input,
   select,
   textarea {
-    @apply border-input bg-background text-foreground;
+    @apply border-input bg-card text-foreground;
+  }
+
+  /* Zebra rows for all app tables; row classes (hover, status colors) still win as utilities. */
+  table:not(.data-table):not(.fee-table) > tbody > tr:nth-child(even) {
+    background-color: rgb(var(--muted) / 0.45);
   }
 
   input[type="checkbox"],

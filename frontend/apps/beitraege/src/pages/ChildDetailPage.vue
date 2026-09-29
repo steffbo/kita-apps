@@ -920,7 +920,7 @@ async function createReminder() {
               <select
                 id="household-incomeStatus"
                 v-model="householdEditForm.incomeStatus"
-                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-background"
+                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-card"
               >
                 <option v-for="option in incomeStatusOptions" :key="option.value" :value="option.value">
                   {{ option.label }}

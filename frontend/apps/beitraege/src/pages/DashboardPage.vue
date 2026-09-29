@@ -486,7 +486,7 @@ function formatHoursLabel(hours: number | null | undefined): string {
           </div>
           <select
             v-model="selectedYear"
-            class="px-3 py-1.5 text-sm border border-input bg-background rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+            class="px-3 py-1.5 text-sm border border-input bg-card rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
           >
             <option v-for="year in years" :key="year" :value="year">{{ year }}</option>
           </select>
