@@ -2,14 +2,17 @@ package handler
 
 import (
 	"errors"
+	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/api/middleware"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/api/request"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/api/response"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/auth"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/service"
 )
@@ -17,11 +20,12 @@ import (
 // UserHandler handles user account management (admin only).
 type UserHandler struct {
 	userService *service.UserService
+	jwtService  *auth.JWTService
 }
 
 // NewUserHandler creates a new user handler.
-func NewUserHandler(userService *service.UserService) *UserHandler {
-	return &UserHandler{userService: userService}
+func NewUserHandler(userService *service.UserService, jwtService *auth.JWTService) *UserHandler {
+	return &UserHandler{userService: userService, jwtService: jwtService}
 }
 
 // UserAccountResponse is a user account as shown in the user management.
@@ -178,6 +182,64 @@ func (h *UserHandler) SetPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	response.NoContent(w)
+}
+
+// ImpersonationResponse carries an access token that acts as the target user.
+type ImpersonationResponse struct {
+	AccessToken string       `json:"accessToken" example:"eyJhbGciOiJIUzI1NiIs..."`
+	ExpiresAt   string       `json:"expiresAt" example:"2024-01-27T15:04:05Z"`
+	User        UserResponse `json:"user"`
+} //@name ImpersonationResponse
+
+// Impersonate handles POST /users/{id}/impersonate
+// @Summary Act as another user
+// @Description Returns an access token that behaves exactly like the target user's (same role and data). It cannot be refreshed; the admin's own refresh session is unchanged, so refreshing yields the admin's token again. Administrators, the caller and inactive accounts cannot be impersonated. Changes made meanwhile are attributed to the admin in the audit log.
+// @Tags Users
+// @Produce json
+// @Security BearerAuth
+// @Param id path string true "User ID (UUID)"
+// @Success 200 {object} ImpersonationResponse "Impersonation token"
+// @Failure 400 {object} response.ErrorBody "Target cannot be impersonated"
+// @Failure 401 {object} response.ErrorBody "Not authenticated"
+// @Failure 403 {object} response.ErrorBody "Admin role required"
+// @Failure 404 {object} response.ErrorBody "User not found"
+// @Failure 500 {object} response.ErrorBody "Internal server error"
+// @Router /users/{id}/impersonate [post]
+func (h *UserHandler) Impersonate(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseUUIDParam(w, r, "id")
+	if !ok {
+		return
+	}
+	actorID, ok := currentUserID(w, r)
+	if !ok {
+		return
+	}
+	target, err := h.userService.ImpersonationTarget(r.Context(), actorID, id)
+	if err != nil {
+		writeUserError(w, err)
+		return
+	}
+	token, expiresAt, err := h.jwtService.GenerateImpersonationToken(actorID, target.ID, target.Email, string(target.Role))
+	if err != nil {
+		response.InternalError(w, "failed to issue token")
+		return
+	}
+	slog.Info("impersonation started", "admin", actorID, "user", target.ID)
+	response.Success(w, ImpersonationResponse{
+		AccessToken: token,
+		ExpiresAt:   expiresAt.Format(time.RFC3339),
+		User:        toUserResponse(target),
+	})
+}
+
+func toUserResponse(u *domain.User) UserResponse {
+	return UserResponse{
+		ID:        u.ID.String(),
+		Email:     u.Email,
+		FirstName: u.FirstName,
+		LastName:  u.LastName,
+		Role:      string(u.Role),
+	}
 }
 
 func (req UserAccountRequest) toInput() service.UserInput {

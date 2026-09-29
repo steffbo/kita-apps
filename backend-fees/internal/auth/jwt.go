@@ -32,6 +32,8 @@ type Claims struct {
 	Email     string    `json:"email"`
 	Role      string    `json:"role"`
 	TokenType TokenType `json:"type"`
+	// ImpersonatorID is set on access tokens an admin obtained to act as UserID.
+	ImpersonatorID *uuid.UUID `json:"imp,omitempty" binding:"optional"`
 }
 
 // JWTService handles JWT token operations.
@@ -114,6 +116,30 @@ func (s *JWTService) GenerateTokenPair(userID uuid.UUID, email, role string) (*T
 		ExpiresAt:        accessExpiresAt,
 		RefreshExpiresAt: now.Add(s.refreshExpiry),
 	}, nil
+}
+
+// GenerateImpersonationToken creates an access token that acts as the target
+// user on behalf of an admin. It has no refresh counterpart: the admin's own
+// refresh session stays untouched.
+func (s *JWTService) GenerateImpersonationToken(adminID, userID uuid.UUID, email, role string) (string, time.Time, error) {
+	now := time.Now()
+	expiresAt := now.Add(s.accessExpiry)
+	claims := Claims{
+		RegisteredClaims: jwt.RegisteredClaims{
+			Issuer:    s.issuer,
+			Subject:   userID.String(),
+			IssuedAt:  jwt.NewNumericDate(now),
+			ExpiresAt: jwt.NewNumericDate(expiresAt),
+			ID:        uuid.New().String(),
+		},
+		UserID:         userID,
+		Email:          email,
+		Role:           role,
+		TokenType:      TokenTypeAccess,
+		ImpersonatorID: &adminID,
+	}
+	token, err := jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(s.secret)
+	return token, expiresAt, err
 }
 
 // ValidateToken validates a JWT token and returns the claims.

@@ -53,6 +53,7 @@ var adminRoutes = []string{
 	"POST /users/",
 	"PUT /users/{id}",
 	"POST /users/{id}/password",
+	"POST /users/{id}/impersonate",
 	"GET /activity",
 	"GET /parents/{id}/changes",
 	"GET /children/{id}/changes",

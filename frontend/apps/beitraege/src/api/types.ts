@@ -45,6 +45,7 @@ export type LoginRequest = Schema['LoginRequest'];
 // httpOnly cookie `fees_refresh`. Responses only carry the access token.
 export type LoginResponse = Schema['LoginResponse'];
 export type RefreshResponse = Schema['RefreshResponse'];
+export type ImpersonationResponse = Schema['ImpersonationResponse'];
 export type User = Schema['User'];
 export type ChangePasswordRequest = Schema['ChangePasswordRequest'];
 

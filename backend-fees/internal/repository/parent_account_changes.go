@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/auth"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/util"
 )
@@ -22,6 +23,8 @@ type DataChange struct {
 	OldValue   *string    `json:"oldValue" db:"old_value" binding:"optional"`
 	NewValue   *string    `json:"newValue" db:"new_value" binding:"optional"`
 	ChangedAt  time.Time  `json:"changedAt" db:"changed_at"`
+	// ImpersonatedBy is the admin who made the change while acting as UserID.
+	ImpersonatedBy *uuid.UUID `json:"impersonatedBy" db:"impersonated_by" binding:"optional"`
 }
 
 type ContactChange = DataChange
@@ -31,9 +34,9 @@ func sameValue(a, b *string) bool { return a == nil && b == nil || a != nil && b
 func auditChange(ctx context.Context, tx *sqlx.Tx, entityType string, entityID uuid.UUID,
 	actorParentID *uuid.UUID, userID uuid.UUID, field string, oldValue, newValue *string) error {
 	_, err := tx.ExecContext(ctx, `INSERT INTO fees.data_changes
- (entity_type,entity_id,parent_id,user_id,field,old_value,new_value,changed_at)
+ (entity_type,entity_id,parent_id,user_id,field,old_value,new_value,changed_at,impersonated_by)
  VALUES ($1,$2,$3,$4,$5,$6,$7,
-  $8)`,
+  $8,$9)`,
 		entityType,
 		entityID,
 		actorParentID,
@@ -42,6 +45,7 @@ func auditChange(ctx context.Context, tx *sqlx.Tx, entityType string, entityID u
 		oldValue,
 		newValue,
 		util.Now(),
+		auth.ImpersonatorFrom(ctx),
 	)
 	return err
 }

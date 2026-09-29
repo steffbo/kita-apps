@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { RouterLink } from 'vue-router';
 import { onMounted, onUnmounted, ref } from 'vue';
-import { KeyRound, Loader2, Pencil, Plus } from 'lucide-vue-next';
+import { KeyRound, Loader2, Pencil, Plus, VenetianMask } from 'lucide-vue-next';
 import { api } from '@/api';
 import type { UserAccount } from '@/api/types';
 import { useAuthStore } from '@/stores/auth';
@@ -16,6 +16,8 @@ const users = ref<UserAccount[]>([]);
 const isLoading = ref(true);
 const loadError = ref<string | null>(null);
 const notice = ref<string | null>(null);
+const actionError = ref<string | null>(null);
+const impersonatingId = ref<string | null>(null);
 
 // Dialog state: `formUser === null` with showForm = create, otherwise edit.
 const showForm = ref(false);
@@ -40,6 +42,21 @@ function displayName(user: UserAccount): string {
 
 function isSelf(user: UserAccount | null): boolean {
   return !!user && user.id === authStore.user?.id;
+}
+
+function canImpersonate(user: UserAccount): boolean {
+  return user.isActive && user.role !== 'ADMIN' && !isSelf(user);
+}
+
+async function impersonate(user: UserAccount) {
+  actionError.value = null;
+  impersonatingId.value = user.id;
+  try {
+    await authStore.startImpersonation(user.id);
+  } catch (e) {
+    actionError.value = e instanceof Error ? e.message : 'Anmeldung als Benutzer fehlgeschlagen';
+    impersonatingId.value = null;
+  }
 }
 
 function openCreate() {
@@ -102,6 +119,11 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown));
       <button class="text-green-700 dark:text-green-300 underline" @click="notice = null">OK</button>
     </div>
 
+    <div v-if="actionError" class="mb-4 p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg text-sm text-red-600 dark:text-red-300 flex justify-between gap-2" role="alert">
+      <span>{{ actionError }}</span>
+      <button class="underline" @click="actionError = null">OK</button>
+    </div>
+
     <div v-if="isLoading" class="flex items-center justify-center py-12">
       <Loader2 class="h-8 w-8 animate-spin text-primary" />
     </div>
@@ -144,21 +166,30 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown));
             </td>
             <td class="px-4 py-3">{{ formatDate(user.createdAt) }}</td>
             <td class="px-4 py-3">
-              <div class="flex justify-end gap-2">
+              <div class="flex justify-end gap-1">
                 <button
                   @click="openEdit(user)"
-                  class="inline-flex items-center gap-1 px-3 py-1.5 border rounded-lg hover:bg-accent"
-                  title="Bearbeiten"
+                  class="rounded-lg border p-2 hover:bg-accent"
+                  aria-label="Bearbeiten" title="Bearbeiten"
                 >
-                  <Pencil class="h-4 w-4" /> Bearbeiten
+                  <Pencil class="h-4 w-4" />
                 </button>
                 <button
                   v-if="!isSelf(user)"
                   @click="passwordUser = user"
-                  class="inline-flex items-center gap-1 px-3 py-1.5 border rounded-lg hover:bg-accent"
-                  title="Passwort neu setzen"
+                  class="rounded-lg border p-2 hover:bg-accent"
+                  aria-label="Passwort neu setzen" title="Passwort neu setzen"
                 >
-                  <KeyRound class="h-4 w-4" /> Passwort
+                  <KeyRound class="h-4 w-4" />
+                </button>
+                <button
+                  v-if="canImpersonate(user)"
+                  @click="impersonate(user)"
+                  :disabled="impersonatingId !== null"
+                  class="rounded-lg border p-2 hover:bg-accent disabled:opacity-50"
+                  aria-label="Als diesen Benutzer anmelden" title="Als diesen Benutzer anmelden"
+                >
+                  <VenetianMask class="h-4 w-4" />
                 </button>
               </div>
             </td>

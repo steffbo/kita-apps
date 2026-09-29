@@ -59,6 +59,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not available while impersonating
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: User not found
           content:
@@ -5624,6 +5630,62 @@ paths:
       summary: Update user account
       tags:
         - Users
+  "/users/{id}/impersonate":
+    post:
+      description: Returns an access token that behaves exactly like the target user's
+        (same role and data). It cannot be refreshed; the admin's own refresh
+        session is unchanged, so refreshing yields the admin's token again.
+        Administrators, the caller and inactive accounts cannot be impersonated.
+        Changes made meanwhile are attributed to the admin in the audit log.
+      parameters:
+        - description: User ID (UUID)
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Impersonation token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImpersonationResponse"
+        "400":
+          description: Target cannot be impersonated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Admin role required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: User not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Act as another user
+      tags:
+        - Users
   "/users/{id}/password":
     post:
       description: Sets a new password (admin reset) and ends the account's sessions.
@@ -7016,6 +7078,21 @@ components:
         - perPage
         - total
         - totalPages
+      type: object
+    ImpersonationResponse:
+      properties:
+        accessToken:
+          example: eyJhbGciOiJIUzI1NiIs...
+          type: string
+        expiresAt:
+          example: 2024-01-27T15:04:05Z
+          type: string
+        user:
+          $ref: "#/components/schemas/User"
+      required:
+        - accessToken
+        - expiresAt
+        - user
       type: object
     ImportError:
       properties:
@@ -9734,6 +9811,10 @@ components:
         field:
           type: string
         id:
+          type: string
+        impersonatedBy:
+          description: ImpersonatedBy is the admin who made the change while acting as
+            UserID.
           type: string
         newValue:
           type: string

@@ -101,6 +101,7 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 				r.Post("/", handlers.User.Create)
 				r.Put("/{id}", handlers.User.Update)
 				r.Post("/{id}/password", handlers.User.SetPassword)
+				r.Post("/{id}/impersonate", handlers.User.Impersonate)
 			})
 
 			// Parent-work account routes.

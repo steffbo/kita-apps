@@ -3,6 +3,30 @@
 Rolling change log of non-obvious implementation decisions. Newest first.
 Basics (ports, commands, layout) live in `AGENTS.md`.
 
+## Impersonation durch Admins (2026-09-29)
+
+- `POST /users/{id}/impersonate` (nur `ADMIN`) liefert ein Access-Token, das sich exakt wie der Zielbenutzer
+  verhält (Rolle, Daten, Menüs). Ziel darf kein Admin (auch nicht man selbst) und nicht deaktiviert sein,
+  damit es weder Rechteausweitung noch Ketten gibt. Das Token trägt den Claim `imp` (Admin-ID), hat die
+  normale Laufzeit (15 Min) und gibt es nur als Access-Token: der Refresh-Cookie bleibt immer der des Admins.
+- Während der Impersonation liefert `POST /auth/change-password` 403; Admin-Routen sind für das Token
+  ohnehin gesperrt (Rolle des Ziels). Start wird per `slog` protokolliert.
+- Migration `000042`: `data_changes.impersonated_by`. Änderungen an Eltern-/Kinderdaten während der
+  Impersonation stehen mit `user_id` = Zielbenutzer und `impersonated_by` = Admin im Audit (in der API als
+  `impersonatedBy` an `DataChange`, in der Oberfläche noch nicht angezeigt). Elternstunden-Einträge und
+  Meldungen tragen weiterhin nur den Zielbenutzer.
+- UI: Auf der Benutzerseite sind alle Zeilenaktionen Icon-Buttons (`aria-label`/`title`); der
+  Impersonate-Button (`VenetianMask`, „Als diesen Benutzer anmelden“) erscheint nur bei aktiven Nicht-Admins.
+  Start/Ende laden die Seite komplett neu, damit keine Daten der anderen Identität im Speicher bleiben.
+  Der Modus überlebt Reloads über den `sessionStorage`-Marker `fees_impersonating` (Ziel-ID, pro Tab);
+  `initialize()` holt per Refresh das Admin-Token und tauscht es erneut. Läuft das Token ab, tauscht
+  `api.setTokenExchange` das erneuerte Admin-Token vor dem Retry gegen ein frisches Impersonation-Token;
+  scheitert das (Ziel deaktiviert), wird komplett abgemeldet.
+- Header: amberfarbener Indikator „Impersonation: {Admin} als {Benutzer}“ (`data-testid="impersonation-indicator"`),
+  im Benutzermenü „Impersonation beenden“ (`stop-impersonation`) statt „Passwort ändern“.
+- Tests: `internal/service/impersonation_integration_test.go`, `internal/auth/jwt_test.go`,
+  Playwright `e2e/beitraege/impersonation.spec.ts`.
+
 ## Eltern-Zugang: Rückmeldungen aus dem ersten Test (2026-09-27)
 
 - Migration `000041`: `parent_reports.response` (optionale Antwort des Admins beim Erledigen,

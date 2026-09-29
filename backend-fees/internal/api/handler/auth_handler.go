@@ -334,6 +334,7 @@ type ChangePasswordRequest struct {
 // @Success 200 {object} RefreshResponse "Password changed; new session"
 // @Failure 400 {object} response.ErrorBody "Invalid request or current password incorrect"
 // @Failure 401 {object} response.ErrorBody "Not authenticated"
+// @Failure 403 {object} response.ErrorBody "Not available while impersonating"
 // @Failure 404 {object} response.ErrorBody "User not found"
 // @Failure 429 {object} response.ErrorBody "Too many failed attempts"
 // @Router /auth/change-password [post]
@@ -357,6 +358,11 @@ func (h *AuthHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
 
 	if len(req.NewPassword) < service.MinPasswordLength {
 		response.BadRequest(w, "Das neue Passwort muss mindestens 8 Zeichen haben")
+		return
+	}
+
+	if userCtx.ImpersonatorID != "" {
+		response.Forbidden(w, "Während der Impersonation kann das Passwort nicht geändert werden")
 		return
 	}
 

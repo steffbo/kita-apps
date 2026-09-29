@@ -97,6 +97,15 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorResponse"];
                     };
                 };
+                /** @description Not available while impersonating */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
                 /** @description User not found */
                 404: {
                     headers: {
@@ -8682,6 +8691,93 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/users/{id}/impersonate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Act as another user
+         * @description Returns an access token that behaves exactly like the target user's (same role and data). It cannot be refreshed; the admin's own refresh session is unchanged, so refreshing yields the admin's token again. Administrators, the caller and inactive accounts cannot be impersonated. Changes made meanwhile are attributed to the admin in the audit log.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description User ID (UUID) */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Impersonation token */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ImpersonationResponse"];
+                    };
+                };
+                /** @description Target cannot be impersonated */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Admin role required */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description User not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/users/{id}/password": {
         parameters: {
             query?: never;
@@ -9402,6 +9498,13 @@ export interface components {
             total: number;
             /** @example 1 */
             totalPages: number;
+        };
+        ImpersonationResponse: {
+            /** @example eyJhbGciOiJIUzI1NiIs... */
+            accessToken: string;
+            /** @example 2024-01-27T15:04:05Z */
+            expiresAt: string;
+            user: components["schemas"]["User"];
         };
         ImportError: {
             amount: number;
@@ -10659,6 +10762,8 @@ export interface components {
             entityType: string;
             field: string;
             id: string;
+            /** @description ImpersonatedBy is the admin who made the change while acting as UserID. */
+            impersonatedBy?: string;
             newValue?: string;
             oldValue?: string;
             parentId?: string;

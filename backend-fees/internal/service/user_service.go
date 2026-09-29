@@ -81,6 +81,23 @@ func (s *UserService) List(ctx context.Context) ([]domain.User, error) {
 	return s.users.List(ctx)
 }
 
+// ImpersonationTarget returns the account an admin may act as. Admins (also the
+// admin themselves) and inactive accounts are excluded, so impersonation never
+// escalates privileges or chains.
+func (s *UserService) ImpersonationTarget(ctx context.Context, actorID, id uuid.UUID) (*domain.User, error) {
+	user, err := s.users.GetByID(ctx, id)
+	if err != nil {
+		return nil, mapUserRepoError(err)
+	}
+	switch {
+	case id == actorID || user.Role == domain.UserRoleAdmin:
+		return nil, fmt.Errorf("%w: Administratoren können nicht übernommen werden", ErrInvalidInput)
+	case !user.IsActive:
+		return nil, fmt.Errorf("%w: Deaktivierte Benutzer können nicht übernommen werden", ErrInvalidInput)
+	}
+	return user, nil
+}
+
 // Create adds an account with an initial password.
 func (s *UserService) Create(ctx context.Context, in UserInput, password string) (*domain.User, error) {
 	if err := in.normalize(); err != nil {

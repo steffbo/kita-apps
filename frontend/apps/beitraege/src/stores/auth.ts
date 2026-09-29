@@ -7,16 +7,23 @@ import type { User } from '@/api/types';
 localStorage.removeItem('fees_access_token');
 localStorage.removeItem('fees_refresh_token');
 
+// Survives a reload of the tab (not the browser session): the marker names the
+// user an admin is impersonating; the tokens themselves stay in memory.
+const IMPERSONATION_KEY = 'fees_impersonating';
+
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null);
   // Access token in memory only. The session itself is the httpOnly refresh
   // cookie, so a reload restores it via initialize().
   const accessToken = ref<string | null>(null);
+  // The admin behind an impersonated session; `user` is then the target.
+  const impersonator = ref<User | null>(null);
   const initialized = ref(false);
   const isLoading = ref(false);
   const error = ref<string | null>(null);
 
   const isAuthenticated = computed(() => !!accessToken.value);
+  const isImpersonating = computed(() => !!impersonator.value);
   const isAdmin = computed(() => user.value?.role === 'ADMIN');
   const isParent = computed(() => user.value?.role === 'PARENT');
   const isParentWork = computed(() => user.value?.role === 'PARENT_WORK');
@@ -39,7 +46,48 @@ export const useAuthStore = defineStore('auth', () => {
   function clearSession() {
     accessToken.value = null;
     user.value = null;
+    impersonator.value = null;
+    sessionStorage.removeItem(IMPERSONATION_KEY);
+    api.setTokenExchange(null);
     api.setAccessToken(null);
+  }
+
+  // The refresh cookie always belongs to the admin, so every refresh while
+  // impersonating has to be traded for a fresh token of the target user.
+  async function exchangeForImpersonation(adminToken: string): Promise<string | null> {
+    const targetId = sessionStorage.getItem(IMPERSONATION_KEY);
+    if (!targetId) return null;
+    try {
+      const result = await api.impersonateUser(targetId, adminToken);
+      user.value = result.user;
+      return result.accessToken;
+    } catch {
+      return null;
+    }
+  }
+
+  function homePath(target: User): string {
+    if (target.role === 'PARENT') return '/familie';
+    if (target.role === 'PARENT_WORK') return '/elternstunden';
+    return '/';
+  }
+
+  // Full reload: no data of the previous identity stays in memory, and
+  // initialize() restores (or ends) the mode from the marker.
+  function reloadAt(path: string) {
+    window.location.assign(import.meta.env.BASE_URL.replace(/\/$/, '') + path);
+  }
+
+  /** Validates the request, then reloads as the target user. Throws the backend's message. */
+  async function startImpersonation(userId: string) {
+    const result = await api.impersonateUser(userId);
+    sessionStorage.setItem(IMPERSONATION_KEY, userId);
+    reloadAt(homePath(result.user));
+  }
+
+  function stopImpersonation() {
+    sessionStorage.removeItem(IMPERSONATION_KEY);
+    reloadAt('/benutzer');
   }
 
   async function login(email: string, password: string) {
@@ -89,13 +137,28 @@ export const useAuthStore = defineStore('auth', () => {
   async function initialize() {
     if (initialized.value) return;
     initialized.value = true;
-    if (await api.tryRefreshToken()) {
-      await fetchUser();
+    if (!(await api.tryRefreshToken())) return;
+    await fetchUser();
+
+    const targetId = sessionStorage.getItem(IMPERSONATION_KEY);
+    if (!targetId || !user.value) return;
+    const admin = user.value;
+    try {
+      const result = await api.impersonateUser(targetId);
+      impersonator.value = admin;
+      setAccessToken(result.accessToken);
+      user.value = result.user;
+      api.setTokenExchange(exchangeForImpersonation);
+    } catch {
+      // Target gone or deactivated: stay signed in as the admin.
+      sessionStorage.removeItem(IMPERSONATION_KEY);
     }
   }
 
   return {
     user,
+    impersonator,
+    isImpersonating,
     isAuthenticated,
     isAdmin,
     isParent,
@@ -109,5 +172,7 @@ export const useAuthStore = defineStore('auth', () => {
     fetchUser,
     changePassword,
     initialize,
+    startImpersonation,
+    stopImpersonation,
   };
 });

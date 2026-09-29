@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/google/uuid"
+
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/api/response"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/auth"
 )
@@ -20,6 +22,8 @@ type UserContext struct {
 	UserID string
 	Email  string
 	Role   string
+	// ImpersonatorID is the admin acting as this user, empty for normal sessions.
+	ImpersonatorID string
 }
 
 // AuthMiddleware creates an authentication middleware.
@@ -62,14 +66,21 @@ func authenticateBearer(w http.ResponseWriter, jwtService *auth.JWTService, auth
 		return nil, false
 	}
 
-	return &UserContext{
+	userCtx := &UserContext{
 		UserID: claims.UserID.String(),
 		Email:  claims.Email,
 		Role:   claims.Role,
-	}, true
+	}
+	if claims.ImpersonatorID != nil {
+		userCtx.ImpersonatorID = claims.ImpersonatorID.String()
+	}
+	return userCtx, true
 }
 
 func withUser(ctx context.Context, userCtx *UserContext) context.Context {
+	if id, err := uuid.Parse(userCtx.ImpersonatorID); err == nil {
+		ctx = auth.WithImpersonator(ctx, id)
+	}
 	return context.WithValue(ctx, UserContextKey, userCtx)
 }
 

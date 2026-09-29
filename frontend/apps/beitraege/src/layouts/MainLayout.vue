@@ -9,7 +9,7 @@ import logo from '@/assets/knirpsenstadt-logo.png';
 import {
   LayoutDashboard, Users, UserCircle, UserPlus, Receipt, RefreshCw, Bell, LogOut,
   Menu, X, ChevronDown, ClipboardList, NotebookPen, Scale, KeyRound, ShieldCheck,
-  Clock, UserCheck, Upload, Monitor, Sun, Moon, FileWarning,
+  Clock, UserCheck, Upload, Monitor, Sun, Moon, FileWarning, VenetianMask, Undo2,
 } from 'lucide-vue-next';
 
 const authStore = useAuthStore();
@@ -109,6 +109,16 @@ async function handleLogout() {
   router.push('/login');
 }
 
+function personName(person: { firstName?: string | null; lastName?: string | null; email: string } | null) {
+  if (!person) return '';
+  return [person.firstName, person.lastName].filter(Boolean).join(' ') || person.email;
+}
+
+function stopImpersonation() {
+  closeMenus();
+  authStore.stopImpersonation();
+}
+
 function openChangePassword() {
   closeMenus();
   showChangePassword.value = true;
@@ -168,6 +178,17 @@ function onPasswordChanged() {
         </nav>
 
         <div class="ml-auto flex items-center gap-2">
+          <div
+            v-if="authStore.isImpersonating" data-testid="impersonation-indicator" role="status"
+            :aria-label="`Impersonation: ${personName(authStore.impersonator)} als ${personName(authStore.user)}`"
+            class="flex min-w-0 items-center gap-2 rounded-full bg-amber-400 px-3 py-1 text-sm font-bold text-amber-950 ring-2 ring-amber-600 dark:bg-amber-500 dark:ring-amber-300"
+          >
+            <VenetianMask class="h-4 w-4 shrink-0" />
+            <span class="hidden truncate md:inline">
+              Impersonation: {{ personName(authStore.impersonator) }} als {{ personName(authStore.user) }}
+            </span>
+            <span class="md:hidden">Impersonation</span>
+          </div>
           <button
             type="button" class="rounded-full p-2 hover:bg-brand-50/70 dark:hover:bg-accent"
             :aria-label="'Design: ' + (mode === 'system' ? 'System' : mode === 'light' ? 'Hell' : 'Dunkel') + '. Umschalten'"
@@ -195,7 +216,10 @@ function onPasswordChanged() {
               v-if="openMenu === 'Benutzer'"
               class="absolute right-0 top-full z-50 mt-2 min-w-48 rounded-2xl border bg-popover p-2 text-popover-foreground shadow-lg"
             >
-              <button class="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm hover:bg-accent"
+              <button v-if="authStore.isImpersonating" data-testid="stop-impersonation"
+                class="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm font-bold hover:bg-accent"
+                @click="stopImpersonation"><Undo2 class="h-4 w-4" />Impersonation beenden</button>
+              <button v-else class="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm hover:bg-accent"
                 @click="openChangePassword"><KeyRound class="h-4 w-4" />Passwort ändern</button>
               <button class="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-left text-sm hover:bg-accent"
                 @click="handleLogout"><LogOut class="h-4 w-4" />Abmelden</button>

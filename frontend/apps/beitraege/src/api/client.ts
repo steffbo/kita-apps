@@ -2,6 +2,7 @@ import type {
   LoginRequest,
   LoginResponse,
   RefreshResponse,
+  ImpersonationResponse,
   User,
   Child,
   CreateChildRequest,
@@ -103,6 +104,7 @@ class ApiClient {
   private refreshPromise: Promise<boolean> | null = null;
   private onTokenRefreshed: ((accessToken: string) => void) | null = null;
   private onAuthFailed: (() => void) | null = null;
+  private tokenExchange: ((refreshedToken: string) => Promise<string | null>) | null = null;
 
   setAccessToken(token: string | null) {
     this.accessToken = token;
@@ -118,6 +120,13 @@ class ApiClient {
     this.onAuthFailed = callback;
   }
 
+  // While impersonating, the refresh cookie still yields an admin token. The
+  // exchange trades it for a fresh impersonation token (null = failed) before
+  // the token is used or a failed request is retried.
+  setTokenExchange(exchange: ((refreshedToken: string) => Promise<string | null>) | null) {
+    this.tokenExchange = exchange;
+  }
+
   /** Gets a new access token via the refresh cookie. Concurrent callers share one request. */
   tryRefreshToken(): Promise<boolean> {
     if (this.refreshPromise) {
@@ -131,8 +140,14 @@ class ApiClient {
           return false;
         }
         const tokens: RefreshResponse = await response.json();
-        this.accessToken = tokens.accessToken;
-        this.onTokenRefreshed?.(tokens.accessToken);
+        const token = this.tokenExchange
+          ? await this.tokenExchange(tokens.accessToken)
+          : tokens.accessToken;
+        if (!token) {
+          return false;
+        }
+        this.accessToken = token;
+        this.onTokenRefreshed?.(token);
         return true;
       } catch {
         return false;
@@ -155,7 +170,7 @@ class ApiClient {
       ...options.headers,
     };
 
-    if (this.accessToken) {
+    if (this.accessToken && !(headers as Record<string, string>)['Authorization']) {
       (headers as Record<string, string>)['Authorization'] = `Bearer ${this.accessToken}`;
     }
 
@@ -213,6 +228,15 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify(data),
     });
+  }
+
+  /** Admin only. Pass `bearer` to use a freshly refreshed token instead of the stored one. */
+  async impersonateUser(id: string, bearer?: string): Promise<ImpersonationResponse> {
+    return this.request<ImpersonationResponse>(
+      `/users/${encodeURIComponent(id)}/impersonate`,
+      { method: 'POST', headers: bearer ? { Authorization: `Bearer ${bearer}` } : undefined },
+      !!bearer,
+    );
   }
 
   // Elternkonto und Admin-Prüfung
