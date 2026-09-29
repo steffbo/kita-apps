@@ -143,9 +143,7 @@ const bankingSyncStatusHint = computed(() => {
   if (bankingSyncStatus.value?.status === 'error') {
     return bankingSyncStatus.value?.lastError || 'Sync fehlgeschlagen.';
   }
-  if (bankingSyncStatus.value?.status === 'success' && uploadErrors.value.length === 0) {
-    return 'Letzter Lauf erfolgreich abgeschlossen.';
-  }
+  // Success is already shown by the status badge; only problems and 2FA prompts get a hint box.
   return null;
 });
 
@@ -243,7 +241,10 @@ defineExpose({ reload: loadBankingSyncStatus });
     </div>
     <div
       v-else-if="bankingSyncStatusHint"
-      class="mt-3 p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 rounded-lg text-sm text-amber-800 dark:text-amber-300"
+      class="mt-3 p-3 border rounded-lg text-sm"
+      :class="bankingSyncStatus?.status === 'error'
+        ? 'bg-red-50 dark:bg-red-950/40 border-red-200 text-red-700 dark:text-red-300'
+        : 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 text-amber-800 dark:text-amber-300'"
     >
       {{ bankingSyncStatusHint }}
     </div>

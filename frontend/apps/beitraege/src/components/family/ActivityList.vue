@@ -3,8 +3,13 @@ import { onMounted, ref } from 'vue';
 import { RouterLink } from 'vue-router';
 import { api } from '@/api';
 import type { ParentActivity } from '@/api/types';
+import { activitySeenAt, markActivitySeen } from '@/composables/useActivitySeen';
+const props = withDefaults(defineProps<{ limit?: number }>(), { limit: 100 });
 const activity = ref<ParentActivity[]>([]);
 const error = ref('');
+const loading = ref(true);
+// Captured before marking the page as seen, so this visit still highlights what was new.
+const seenAt = activitySeenAt();
 // Keys are the database column names stored in fees.data_changes.field.
 const fields: Record<string, string> = {
   phone: 'Telefon', email: 'E-Mail', street: 'Straße', street_no: 'Hausnummer',
@@ -15,9 +20,15 @@ const workStatus: Record<string, string> = {
   APPROVED: 'bestätigt', REJECTED: 'abgelehnt', VOIDED: 'zurückgezogen',
 };
 onMounted(async () => {
-  try { activity.value = await api.getParentActivity(); }
-  catch { error.value = 'Aktivitäten konnten nicht geladen werden.'; }
+  try {
+    activity.value = await api.getParentActivity(props.limit);
+    markActivitySeen();
+  } catch { error.value = 'Aktivitäten konnten nicht geladen werden.'; }
+  finally { loading.value = false; }
 });
+function isNew(item: ParentActivity) {
+  return new Date(item.at).getTime() > seenAt;
+}
 function text(item: ParentActivity) {
   const who = item.parentName ?? 'Ein Elternteil';
   if (item.type === 'CONTACT_CHANGED' || item.type === 'CHILD_CHANGED') {
@@ -59,17 +70,19 @@ function relative(date: string) {
 </script>
 <template>
   <section class="rounded-2xl border bg-card p-5">
-    <h2 class="text-lg font-bold">Letzte Änderungen von Eltern</h2>
-    <p v-if="error" class="mt-3 text-sm text-muted-foreground">{{ error }}</p>
-    <p v-else-if="!activity.length" class="mt-3 text-sm text-muted-foreground">Noch keine Aktivitäten.</p>
-    <ul class="mt-3 space-y-3"><li v-for="(item, index) in activity" :key="index"
-      class="flex gap-3 border-t pt-3 text-sm">
+    <p v-if="error" class="text-sm text-muted-foreground">{{ error }}</p>
+    <p v-else-if="loading" class="text-sm text-muted-foreground">Änderungen werden geladen …</p>
+    <p v-else-if="!activity.length" class="text-sm text-muted-foreground">Noch keine Aktivitäten.</p>
+    <ul class="space-y-3"><li v-for="(item, index) in activity" :key="index"
+      class="flex gap-3 border-t pt-3 text-sm first:border-t-0 first:pt-0">
       <span aria-hidden="true" :class="done(item) ? 'text-green-700 dark:text-green-400' : ''">{{
         done(item) ? '✓' : item.type === 'REPORT_CREATED' ? '⚑' :
           item.type === 'PARENT_WORK_SUBMITTED' ? '◷' : '✎' }}</span>
       <div><RouterLink :to="link(item)" class="underline"
         :class="done(item) ? 'text-muted-foreground' : 'text-primary'">{{ text(item) }}</RouterLink>
-        <p class="text-xs text-muted-foreground">{{ relative(item.at) }}<template v-if="outcome(item)">
+        <p class="text-xs text-muted-foreground"><span v-if="isNew(item)"
+          class="mr-1.5 rounded-full bg-primary px-1.5 py-0.5 font-bold text-primary-foreground">neu</span>{{
+            relative(item.at) }}<template v-if="outcome(item)">
           · {{ outcome(item) }}</template></p></div>
     </li></ul>
   </section>

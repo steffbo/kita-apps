@@ -73,6 +73,8 @@ test('Eltern sehen nur die eigene Familie; Meldungen und Änderungen gehen an St
       await other.getByRole('button', { name: 'Kontaktdaten speichern' }).click();
       await expect(page.getByRole('status')).toContainText('Kontaktdaten von Max');
       await adminPage.goto('/beitraege/');
+      await expect(adminPage.getByText(/\d+ neue Änderungen? von Eltern/)).toBeVisible();
+      await adminPage.goto('/beitraege/aenderungen');
       await expect(adminPage.getByText(/Telefon geändert: 030 11111 → 030 22222/)).toBeVisible();
       await expect(adminPage.getByText(/hat bei Max .+ Hausnummer geändert: — → 7a/)).toBeVisible();
 

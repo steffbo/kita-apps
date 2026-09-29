@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { api } from '@/api';
-import ActivityCard from '@/components/family/ActivityCard.vue';
+import ActivitySummaryCard from '@/components/family/ActivitySummaryCard.vue';
 import { useAuthStore } from '@/stores/auth';
 import type { FeeOverview, StichtagsmeldungReport, StichtagsmeldungStats, U3ChildDetail, BankingSyncStatus } from '@/api/types';
 import {
@@ -39,6 +39,7 @@ const error = ref<string | null>(null);
 // Year selector only for monthly overview
 const selectedYear = ref(new Date().getFullYear());
 const isLoadingMonthly = ref(false);
+const monthlyError = ref(false);
 
 // Modal state
 const showStichtagModal = ref(false);
@@ -132,8 +133,10 @@ async function loadDashboard() {
   error.value = null;
   try {
     overview.value = await api.getFeeOverview();
-    const [monthlyData, unmatchedData, stichtagData, u3Data, totalData, warningsData, syncStatusData] = await Promise.allSettled([
-      api.getFeeOverview(selectedYear.value), // Monthly overview with year
+    // The year overview loads on its own: the banking sync status below can take seconds, and a
+    // late combined response must not overwrite a year the user picked in the meantime.
+    loadMonthlyOverview();
+    const [unmatchedData, stichtagData, u3Data, totalData, warningsData, syncStatusData] = await Promise.allSettled([
       api.getUnmatchedTransactions({ perPage: 1 }),
       api.getStichtagsmeldungStats(),
       api.getChildren({ activeOnly: true, u3Only: true, perPage: 1 }),
@@ -141,7 +144,6 @@ async function loadDashboard() {
       api.getChildren({ activeOnly: true, hasWarnings: true, perPage: 1 }),
       authStore.isAdmin ? api.getBankingSyncStatus() : Promise.resolve(null),
     ] as const);
-    if (monthlyData.status === 'fulfilled') monthlyOverview.value = monthlyData.value;
     if (unmatchedData.status === 'fulfilled') unmatchedTotal.value = unmatchedData.value.total;
     if (stichtagData.status === 'fulfilled') stichtagStats.value = stichtagData.value;
     if (u3Data.status === 'fulfilled') u3Count.value = u3Data.value.total;
@@ -155,14 +157,25 @@ async function loadDashboard() {
   }
 }
 
+let monthlyRequest = 0;
+
 async function loadMonthlyOverview() {
+  // Only the response for the most recently selected year may land, whatever order they arrive in.
+  const request = ++monthlyRequest;
+  const year = selectedYear.value;
   isLoadingMonthly.value = true;
+  monthlyError.value = false;
   try {
-    monthlyOverview.value = await api.getFeeOverview(selectedYear.value);
+    const data = await api.getFeeOverview(year);
+    if (request === monthlyRequest) monthlyOverview.value = data;
   } catch (e) {
-    // Silently fail for monthly, main dashboard still works
+    // Do not keep showing another year's numbers under the new year's label.
+    if (request === monthlyRequest) {
+      monthlyOverview.value = null;
+      monthlyError.value = true;
+    }
   } finally {
-    isLoadingMonthly.value = false;
+    if (request === monthlyRequest) isLoadingMonthly.value = false;
   }
 }
 
@@ -247,7 +260,7 @@ function formatHoursLabel(hours: number | null | undefined): string {
       <p class="text-muted-foreground mt-1">Übersicht der Beitragszahlungen</p>
     </div>
 
-    <ActivityCard v-if="authStore.isAdmin" class="mb-6" />
+    <ActivitySummaryCard v-if="authStore.isAdmin" class="mb-6" />
 
     <!-- Loading state -->
     <div v-if="isLoading" class="flex items-center justify-center py-12">
@@ -571,6 +584,10 @@ function formatHoursLabel(hours: number | null | undefined): string {
           </table>
         </div>
 
+        <div v-else-if="monthlyError" class="text-center py-8 text-red-600 dark:text-red-300">
+          Jahresübersicht {{ selectedYear }} konnte nicht geladen werden.
+          <button class="ml-1 underline" @click="loadMonthlyOverview">Erneut versuchen</button>
+        </div>
         <div v-else class="text-center py-8 text-muted-foreground">
           Keine Daten für {{ selectedYear }} vorhanden
         </div>

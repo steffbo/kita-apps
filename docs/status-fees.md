@@ -3,6 +3,24 @@
 Rolling change log of non-obvious implementation decisions. Newest first.
 Basics (ports, commands, layout) live in `AGENTS.md`.
 
+## Navigation, Eltern-Änderungen, Bankabgleich, Jahresübersicht (2026-09-29)
+
+- **Hauptmenü als Split-Button:** Der Gruppenname verlinkt auf die erste Unterseite der Gruppe (z. B.
+  „Verwaltung“ → Kinder), der Pfeil rechts neben einem senkrechten Strich klappt alle Unterseiten auf
+  (`aria-label` „<Gruppe>: alle Seiten“). Gruppen mit nur einer Seite bleiben einfache Links, das mobile
+  Menü ist unverändert.
+- **Änderungen von Eltern:** eigene Seite `/aenderungen` (Admin, Menü „Verwaltung“) mit bis zu 100 Einträgen
+  aus `GET /activity`. Das Dashboard zeigt nur noch eine Karte „x neue Änderungen von Eltern“. „Neu“ heißt:
+  jünger als der letzte Besuch der Seite; der Zeitpunkt liegt pro Browser und Konto im `localStorage`
+  (`kita-activity-seen:<userId>`), kein Serverzustand. Neue Einträge tragen auf der Seite ein „neu“-Badge.
+- **Bankabgleich:** Die Hinweisbox „Letzter Lauf erfolgreich abgeschlossen.“ entfällt, das Status-Badge sagt
+  das schon. Fehler (`lastError`) stehen weiter in einer Box, jetzt rot; die 2FA-Aufforderung bleibt gelb.
+- **Jahresübersicht im Dashboard:** Beim Jahreswechsel blieben nach einer fehlgeschlagenen Anfrage (Fehler
+  wurden verschluckt) die Zahlen des vorherigen Jahres unter dem neuen Jahres-Label stehen. Jetzt landet nur
+  die Antwort zum zuletzt gewählten Jahr (Zähler gegen Reihenfolge-Rennen), ein Fehler zeigt „konnte nicht
+  geladen werden“ mit „Erneut versuchen“, und die Jahresdaten laden unabhängig vom übrigen Dashboard.
+  Live-API und Live-Frontend lieferten beim Nachtest für 2025/2026/2027 korrekte Daten.
+
 ## Erinnerungen und globale Flächen (2026-09-29)
 
 - Seitenhintergrund bleibt `--background` (`rgb(245 251 233)`). Formularfelder (`input`, `select`, `textarea`)

@@ -9,7 +9,7 @@ import logo from '@/assets/knirpsenstadt-logo.png';
 import {
   LayoutDashboard, Users, UserCircle, UserPlus, Receipt, RefreshCw, Bell, LogOut,
   Menu, X, ChevronDown, ClipboardList, NotebookPen, Scale, KeyRound, ShieldCheck,
-  Clock, UserCheck, Monitor, Sun, Moon, FileWarning, VenetianMask, Undo2,
+  Clock, UserCheck, Monitor, Sun, Moon, FileWarning, VenetianMask, Undo2, History,
 } from 'lucide-vue-next';
 
 const authStore = useAuthStore();
@@ -32,6 +32,7 @@ const baseNavGroups = [
     { name: 'Eltern', to: '/eltern', icon: UserCircle },
     { name: 'Mitglieder', to: '/mitglieder', icon: UserPlus },
     { name: 'Notizen', to: '/notizen', icon: NotebookPen },
+    { name: 'Änderungen von Eltern', to: '/aenderungen', icon: History },
   ] },
   { label: 'Beiträge', items: [
     { name: 'Beiträge', to: '/beitraege', icon: Receipt },
@@ -50,7 +51,7 @@ const parentLinks = [
 const navGroups = computed(() => [
   ...(authStore.canAccessFees ? baseNavGroups.map(group => ({
     ...group,
-    items: group.items.filter(item => !['/automatisierung', '/meldungen'].includes(item.to) || authStore.isAdmin),
+    items: group.items.filter(item => !['/automatisierung', '/meldungen', '/aenderungen'].includes(item.to) || authStore.isAdmin),
   })) : []),
   ...(authStore.canAccessParentWork ? [{ label: 'Elternstunden', items: [
     { name: 'Übersicht', to: '/elternstunden', icon: Clock },
@@ -155,20 +156,32 @@ function onPasswordChanged() {
               {{ group.items[0].name }}
             </RouterLink>
             <template v-else>
-              <button
-                type="button" class="flex items-center gap-1 rounded-full px-4 py-2 text-sm font-bold hover:bg-brand-50/70 dark:hover:bg-brand-800"
+              <!-- Split button: the label opens the group's first page, the chevron lists all pages. -->
+              <div
+                class="flex items-center rounded-full hover:bg-brand-50/70 dark:hover:bg-brand-800"
                 :class="{ 'bg-brand-50/80 dark:bg-brand-800': groupActive(group.items) }"
-                :aria-expanded="openMenu === group.label"
-                :aria-controls="'menu-' + group.label"
-                @click="openMenu = openMenu === group.label ? null : group.label"
-              >{{ group.label }} <ChevronDown class="h-4 w-4" /></button>
+              >
+                <RouterLink
+                  :to="group.items[0].to"
+                  class="rounded-l-full py-2 pl-4 pr-2 text-sm font-bold"
+                  @click="closeMenus"
+                >{{ group.label }}</RouterLink>
+                <span aria-hidden="true" class="h-5 w-px bg-header-foreground/25" />
+                <button
+                  type="button" class="rounded-r-full py-2 pl-1.5 pr-3"
+                  :aria-label="`${group.label}: alle Seiten`"
+                  :aria-expanded="openMenu === group.label"
+                  :aria-controls="'menu-' + group.label"
+                  @click="openMenu = openMenu === group.label ? null : group.label"
+                ><ChevronDown class="h-4 w-4" /></button>
+              </div>
               <div
                 v-if="openMenu === group.label" :id="'menu-' + group.label"
                 class="absolute left-0 top-full z-50 mt-2 min-w-48 rounded-2xl border bg-popover p-2 text-popover-foreground shadow-lg"
               >
                 <RouterLink
                   v-for="item in group.items" :key="item.to" :to="item.to"
-                  class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm hover:bg-accent"
+                  class="flex items-center gap-3 whitespace-nowrap rounded-xl px-3 py-2 text-sm hover:bg-accent"
                   :class="{ 'bg-accent font-bold': isActive(item.to) }" @click="closeMenus"
                 ><component :is="item.icon" class="h-4 w-4" />{{ item.name }}</RouterLink>
               </div>

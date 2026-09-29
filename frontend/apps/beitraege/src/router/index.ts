@@ -107,6 +107,12 @@ const router = createRouter({
           meta: { requiresFees: true },
         },
         {
+          path: 'aenderungen',
+          name: 'parent-changes',
+          component: () => import('@/pages/ParentChangesPage.vue'),
+          meta: { requiresFees: true, requiresAdmin: true },
+        },
+        {
           path: 'benutzer',
           name: 'users',
           component: () => import('@/pages/UsersPage.vue'),

@@ -272,7 +272,7 @@ class ApiClient {
     return this.request(`/parent-reports/${encodeURIComponent(id)}/resolve`,
       { method: 'POST', body: JSON.stringify({ response }) });
   }
-  getParentActivity(): Promise<ParentActivity[]> { return this.request('/activity?limit=15'); }
+  getParentActivity(limit = 15): Promise<ParentActivity[]> { return this.request(`/activity?limit=${limit}`); }
   getParentChanges(id: string): Promise<DataChange[]> {
     return this.request(`/parents/${encodeURIComponent(id)}/changes`);
   }
