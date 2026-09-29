@@ -2,7 +2,8 @@
 import { ref, watch, onUnmounted } from 'vue';
 import { api } from '@/api';
 import type { Child, CreateParentRequest, Parent } from '@/api/types';
-import { Loader2, X, Plus, Link, Search } from 'lucide-vue-next';
+import { Loader2, X, Plus, Link } from 'lucide-vue-next';
+import SearchInput from '@/components/SearchInput.vue';
 
 const props = defineProps<{ child: Child; initialMode: 'create' | 'link' }>();
 const emit = defineEmits<{ close: []; saved: [] }>();
@@ -246,17 +247,8 @@ async function handleLinkParent() {
       <div v-else class="space-y-4">
         <div>
           <label for="parent-search" class="block text-sm font-medium text-foreground mb-1">Elternteil suchen</label>
-          <div class="relative">
-            <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input
-              id="parent-search"
-              v-model="searchQuery"
-              type="text"
-              placeholder="Name eingeben..."
-              class="w-full pl-10 pr-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-            />
-            <Loader2 v-if="isSearching" class="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
-          </div>
+          <SearchInput id="parent-search" v-model="searchQuery" placeholder="Name eingeben..."
+            :loading="isSearching" />
         </div>
 
         <!-- Search Results -->

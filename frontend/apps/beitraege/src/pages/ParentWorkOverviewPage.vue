@@ -8,6 +8,7 @@ import { formatHours } from '@/utils/format';
 import { useTableSort } from '@/composables/useTableSort';
 import EntryDialog from '@/components/parent-work/EntryDialog.vue';
 import SortTh from '@/components/SortTh.vue';
+import SearchInput from '@/components/SearchInput.vue';
 
 type Filter = 'fulfilled' | 'open' | 'none' | 'submitted';
 
@@ -79,7 +80,7 @@ async function saved() { showEntry.value = false; await load(); }
 <template>
   <div class="space-y-6">
     <div class="flex flex-wrap items-end justify-between gap-4">
-      <div><h1 class="text-2xl font-bold text-foreground">Elternstunden</h1><p class="text-sm text-muted-foreground">Übersicht je Familie und Kita-Jahr</p></div>
+      <h1 class="text-2xl font-bold text-foreground">Elternstunden</h1>
       <button class="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-primary-foreground" @click="entryHouseholdId = undefined; showEntry = true"><Plus class="h-4 w-4" />Stunden erfassen</button>
     </div>
     <label class="block w-44 text-sm font-medium">Kita-Jahr
@@ -104,10 +105,8 @@ async function saved() { showEntry.value = false; await load(); }
         <p v-if="card.hint" class="mt-1 text-xs text-muted-foreground">{{ card.hint }}</p>
       </button>
     </div>
+    <SearchInput v-model="search" placeholder="Suche nach Familie oder Kind..." label="Suche nach Familie oder Kind" />
     <div class="rounded-xl border bg-card">
-      <div class="border-b p-4">
-        <label class="block text-sm font-medium">Suche nach Familie oder Kind<input v-model="search" type="search" class="mt-2 block w-full max-w-md rounded-lg border px-3 py-2" /></label>
-      </div>
       <div class="overflow-x-auto"><table class="w-full text-sm"><thead class="bg-muted text-muted-foreground"><tr>
         <SortTh label="Familie" column="family" :sort-key="sortKey" :sort-dir="sortDir" @sort="toggle" />
         <SortTh label="Kinder" column="children" :sort-key="sortKey" :sort-dir="sortDir" @sort="toggle" />

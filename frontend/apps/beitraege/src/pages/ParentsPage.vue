@@ -6,7 +6,6 @@ import { useAuthStore } from '@/stores/auth';
 import type { Parent, CreateParentRequest } from '@/api/types';
 import {
   Plus,
-  Search,
   Loader2,
   User,
   Mail,
@@ -20,6 +19,7 @@ import {
   Trash2,
   X,
 } from 'lucide-vue-next';
+import SearchInput from '@/components/SearchInput.vue';
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -300,16 +300,8 @@ const visiblePages = computed(() => {
     </div>
 
     <!-- Search -->
-    <div class="relative mb-6">
-      <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-      <input
-        v-model="searchQuery"
-        @input="handleSearchInput"
-        type="text"
-        placeholder="Suchen nach Name oder E-Mail..."
-        class="w-full pl-10 pr-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-      />
-    </div>
+    <SearchInput v-model="searchQuery" placeholder="Suchen nach Name oder E-Mail..." class="mb-6"
+      @input="handleSearchInput" />
 
     <!-- Bulk actions bar -->
     <div

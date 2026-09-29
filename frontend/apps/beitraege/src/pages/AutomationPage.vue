@@ -10,7 +10,7 @@ import type {
   ReminderCaseStage,
 } from '@/api/types';
 import { ReminderCaseConflictError } from '@/api/types';
-import { Eye, X, Search, ArrowLeft, Settings, Mail, Clock, RefreshCw } from 'lucide-vue-next';
+import { Eye, X, ArrowLeft, Settings, Mail, Clock, RefreshCw } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/auth';
 import { formatCurrency, formatDate, formatDateTime, formatDueIn, todayISO } from '@/utils/format';
 import {
@@ -25,6 +25,7 @@ import {
 import EmailLogTab from '@/components/automation/EmailLogTab.vue';
 import EmailLogModal from '@/components/automation/EmailLogModal.vue';
 import ReminderSettingsDialog from '@/components/automation/ReminderSettingsDialog.vue';
+import SearchInput from '@/components/SearchInput.vue';
 
 const authStore = useAuthStore();
 
@@ -427,15 +428,7 @@ watch(
             Alle offenen
           </button>
         </div>
-        <div class="relative flex-1 min-w-[200px]">
-          <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input
-            v-model="caseSearch"
-            type="text"
-            placeholder="Familie suchen..."
-            class="w-full pl-10 pr-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-          />
-        </div>
+        <SearchInput v-model="caseSearch" placeholder="Familie suchen..." class="flex-1 min-w-[200px]" />
         <button
           class="inline-flex items-center gap-1.5 text-sm text-primary hover:underline disabled:opacity-50"
           :disabled="isCasesLoading"

@@ -6,7 +6,6 @@ import { useAuthStore } from '@/stores/auth';
 import type { Child, CreateChildRequest } from '@/api/types';
 import {
   Plus,
-  Search,
   Loader2,
   User,
   Calendar,
@@ -23,9 +22,11 @@ import {
   ChevronRight,
   Trash2,
   UserX,
+  CalendarX,
 } from 'lucide-vue-next';
-import { formatDate } from '@/utils/format';
+import { formatDate, todayISO } from '@/utils/format';
 import { calculateAge, isUnderThree } from '@/utils/child';
+import SearchInput from '@/components/SearchInput.vue';
 
 const router = useRouter();
 const route = useRoute();
@@ -69,6 +70,8 @@ const isSomeSelected = computed(() => {
 const showCreateDialog = ref(false);
 const showDeactivateDialog = ref(false);
 const showDeleteDialog = ref(false);
+const showExitDateDialog = ref(false);
+const bulkExitDate = ref('');
 const isBulkActionLoading = ref(false);
 const bulkActionError = ref<string | null>(null);
 
@@ -189,6 +192,7 @@ onMounted(() => {
 function handleKeydown(e: KeyboardEvent) {
   if (e.key === 'Escape') {
     if (showDeleteDialog.value) showDeleteDialog.value = false;
+    else if (showExitDateDialog.value) showExitDateDialog.value = false;
     else if (showDeactivateDialog.value) showDeactivateDialog.value = false;
     else if (showCreateDialog.value) showCreateDialog.value = false;
   }
@@ -330,6 +334,36 @@ async function handleCreate() {
 }
 
 // Bulk actions
+// Vorschlag: Ende des laufenden Kita-Jahres (31.07.), typischer Austritt bei Schulbeginn.
+function openExitDateDialog() {
+  const [year, month] = todayISO().split('-').map(Number);
+  bulkExitDate.value = `${month >= 8 ? year + 1 : year}-07-31`;
+  bulkActionError.value = null;
+  showExitDateDialog.value = true;
+}
+
+// Kinder aus der Auswahl, deren Eintritt nach dem gewählten Austrittsdatum liegt.
+const exitBeforeEntry = computed(() => children.value.filter(c =>
+  selectedIds.value.has(c.id) && bulkExitDate.value && c.entryDate.slice(0, 10) > bulkExitDate.value));
+
+async function handleBulkExitDate() {
+  if (selectedIds.value.size === 0 || !bulkExitDate.value || exitBeforeEntry.value.length) return;
+
+  isBulkActionLoading.value = true;
+  bulkActionError.value = null;
+
+  try {
+    await Promise.all([...selectedIds.value].map(id => api.updateChild(id, { exitDate: bulkExitDate.value })));
+    showExitDateDialog.value = false;
+    selectedIds.value = new Set();
+    loadChildren();
+  } catch (e) {
+    bulkActionError.value = e instanceof Error ? e.message : 'Fehler beim Setzen des Austrittsdatums';
+  } finally {
+    isBulkActionLoading.value = false;
+  }
+}
+
 async function handleBulkDeactivate() {
   if (selectedIds.value.size === 0) return;
   
@@ -423,16 +457,8 @@ const visiblePages = computed(() => {
 
     <!-- Filters -->
     <div class="flex flex-col sm:flex-row gap-4 mb-6">
-      <div class="relative flex-1">
-        <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <input
-          v-model="searchQuery"
-          @input="handleSearchInput"
-          type="text"
-          placeholder="Suchen nach Name oder Mitgliedsnummer..."
-          class="w-full pl-10 pr-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-        />
-      </div>
+      <SearchInput v-model="searchQuery" placeholder="Suchen nach Name oder Mitgliedsnummer..." class="flex-1"
+        @input="handleSearchInput" />
       <label class="flex items-center gap-2 cursor-pointer">
         <input
           v-model="showInactive"
@@ -474,12 +500,19 @@ const visiblePages = computed(() => {
     <!-- Bulk actions bar -->
     <div
       v-if="selectedIds.size > 0"
-      class="mb-4 p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 rounded-lg flex items-center justify-between"
+      class="mb-4 p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 rounded-lg flex flex-wrap items-center justify-between gap-2"
     >
       <span class="text-sm font-medium text-blue-800 dark:text-blue-300">
         {{ selectedIds.size }} {{ selectedIds.size === 1 ? 'Kind' : 'Kinder' }} ausgewählt
       </span>
-      <div class="flex items-center gap-2">
+      <div class="flex flex-wrap items-center gap-2">
+        <button
+          @click="openExitDateDialog"
+          class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-card border rounded-lg hover:bg-accent transition-colors"
+        >
+          <CalendarX class="h-4 w-4" />
+          Austrittsdatum setzen
+        </button>
         <button
           @click="showDeactivateDialog = true"
           class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 rounded-lg hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors"
@@ -823,6 +856,59 @@ const visiblePages = computed(() => {
           </div>
         </form>
       </div>
+    </div>
+
+    <!-- Exit Date Dialog -->
+    <div
+      v-if="showExitDateDialog"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+      @click.self="showExitDateDialog = false"
+    >
+      <form role="dialog" aria-modal="true" aria-label="Austrittsdatum setzen"
+        class="bg-card rounded-xl shadow-xl w-full max-w-md mx-4 p-6" @submit.prevent="handleBulkExitDate">
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-10 h-10 bg-muted rounded-full flex items-center justify-center">
+            <CalendarX class="h-5 w-5 text-primary" />
+          </div>
+          <h2 class="text-xl font-semibold">Austrittsdatum setzen</h2>
+        </div>
+
+        <p class="text-muted-foreground mb-4">
+          Für <strong>{{ selectedIds.size }}</strong> {{ selectedIds.size === 1 ? 'Kind' : 'Kinder' }}
+          wird das Austrittsdatum gesetzt. Ein bereits eingetragenes Datum wird überschrieben.
+        </p>
+
+        <label class="block text-sm font-medium mb-4">Austrittsdatum
+          <input v-model="bulkExitDate" type="date" required class="mt-1 w-full rounded-lg border px-3 py-2" />
+        </label>
+
+        <div v-if="exitBeforeEntry.length" role="alert"
+          class="mb-4 p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 rounded-lg text-sm text-amber-800 dark:text-amber-300">
+          Liegt vor dem Eintritt von {{ exitBeforeEntry.map(c => `${c.firstName} ${c.lastName}`).join(', ') }}.
+        </div>
+        <div v-if="bulkActionError" class="mb-4 p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg">
+          <p class="text-sm text-red-600 dark:text-red-300">{{ bulkActionError }}</p>
+        </div>
+
+        <div class="flex justify-end gap-3">
+          <button
+            type="button"
+            @click="showExitDateDialog = false"
+            class="px-4 py-2 text-foreground hover:bg-accent rounded-lg transition-colors"
+          >
+            Abbrechen
+          </button>
+          <button
+            type="submit"
+            :disabled="isBulkActionLoading || !bulkExitDate || exitBeforeEntry.length > 0"
+            class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+          >
+            <Loader2 v-if="isBulkActionLoading" class="h-4 w-4 animate-spin" />
+            <CalendarX v-else class="h-4 w-4" />
+            Austrittsdatum setzen
+          </button>
+        </div>
+      </form>
     </div>
 
     <!-- Deactivate Confirmation Dialog -->

@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { RouterLink } from 'vue-router';
-import { onMounted, onUnmounted, ref } from 'vue';
+import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { KeyRound, Loader2, MailPlus, Pencil, Plus, Send, VenetianMask } from 'lucide-vue-next';
 import { api } from '@/api';
-import type { UserAccount } from '@/api/types';
+import type { UserAccount, UserRole } from '@/api/types';
 import { useAuthStore } from '@/stores/auth';
 import { formatDate } from '@/utils/format';
 import { userRoleLabel } from '@/utils/userRole';
+import { useTableSort } from '@/composables/useTableSort';
+import SearchInput from '@/components/SearchInput.vue';
+import SortTh from '@/components/SortTh.vue';
 import UserFormDialog from '@/components/users/UserFormDialog.vue';
 import SetUserPasswordDialog from '@/components/users/SetUserPasswordDialog.vue';
 import InviteParentsDialog from '@/components/users/InviteParentsDialog.vue';
@@ -26,6 +29,23 @@ const formUser = ref<UserAccount | null>(null);
 const passwordUser = ref<UserAccount | null>(null);
 const showInvitations = ref(false);
 const resendingId = ref<string | null>(null);
+
+const search = ref('');
+const roleFilter = ref<UserRole | ''>('');
+const roles: UserRole[] = ['ADMIN', 'USER', 'PARENT_WORK', 'PARENT'];
+const filteredUsers = computed(() => {
+  const q = search.value.trim().toLocaleLowerCase('de');
+  return users.value.filter(u => (!roleFilter.value || u.role === roleFilter.value)
+    && (!q || [displayName(u), u.email, u.parentName ?? ''].some(v => v.toLocaleLowerCase('de').includes(q))));
+});
+const { sortKey, sortDir, sorted, toggle } = useTableSort(filteredUsers, {
+  name: u => displayName(u),
+  email: u => u.email,
+  role: u => userRoleLabel(u.role),
+  parent: u => u.parentName,
+  status: u => statusLabel(u),
+  createdAt: u => u.createdAt,
+}, { key: 'name' });
 
 async function loadUsers() {
   isLoading.value = true;
@@ -167,76 +187,88 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown));
       <button @click="loadUsers()" class="mt-2 text-sm text-red-700 dark:text-red-300 underline">Erneut versuchen</button>
     </div>
 
-    <div v-else class="bg-card rounded-xl border overflow-x-auto">
-      <table class="w-full text-sm">
-        <thead class="bg-muted text-left text-muted-foreground">
-          <tr>
-            <th class="px-4 py-3 font-medium">Name</th>
-            <th class="px-4 py-3 font-medium">E-Mail</th>
-            <th class="px-4 py-3 font-medium">Rolle</th>
-            <th class="px-4 py-3 font-medium">Elternteil</th>
-            <th class="px-4 py-3 font-medium">Status</th>
-            <th class="px-4 py-3 font-medium">Angelegt</th>
-            <th class="px-4 py-3"></th>
-          </tr>
-        </thead>
-        <tbody class="divide-y">
-          <tr v-for="user in users" :key="user.id" :class="{ 'text-muted-foreground': !user.isActive }">
-            <td class="px-4 py-3 font-medium">
-              {{ displayName(user) }}
-              <span v-if="isSelf(user)" class="ml-1 text-xs text-muted-foreground">(angemeldet)</span>
-            </td>
-            <td class="px-4 py-3">{{ user.email }}</td>
-            <td class="px-4 py-3">{{ userRoleLabel(user.role) }}</td>
-            <td class="px-4 py-3"><RouterLink v-if="user.parentId" :to="`/eltern/${user.parentId}`"
-              class="text-primary underline">{{ user.parentName || 'Elternteil' }}</RouterLink>
-              <span v-else>—</span></td>
-            <td class="px-4 py-3">
-              <span
-                class="px-2 py-0.5 rounded-full text-xs font-medium"
-                :class="statusClass(user)"
-              >
-                {{ statusLabel(user) }}
-              </span>
-            </td>
-            <td class="px-4 py-3">{{ formatDate(user.createdAt) }}</td>
-            <td class="px-4 py-3">
-              <div class="flex justify-end gap-1">
-                <button
-                  @click="openEdit(user)"
-                  class="rounded-lg border p-2 hover:bg-accent"
-                  aria-label="Bearbeiten" title="Bearbeiten"
+    <div v-else class="space-y-4">
+      <div class="flex flex-col gap-3 sm:flex-row">
+        <SearchInput v-model="search" placeholder="Suchen nach Name, E-Mail oder Elternteil..." class="flex-1" />
+        <select v-model="roleFilter" aria-label="Rolle" class="rounded-lg border px-3 py-2">
+          <option value="">Alle Rollen</option>
+          <option v-for="role in roles" :key="role" :value="role">{{ userRoleLabel(role) }}</option>
+        </select>
+      </div>
+      <div class="bg-card rounded-xl border overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-muted text-left text-muted-foreground">
+            <tr>
+              <SortTh label="Name" column="name" :sort-key="sortKey" :sort-dir="sortDir" @sort="toggle" />
+              <SortTh label="E-Mail" column="email" :sort-key="sortKey" :sort-dir="sortDir" @sort="toggle" />
+              <SortTh label="Rolle" column="role" :sort-key="sortKey" :sort-dir="sortDir" @sort="toggle" />
+              <SortTh label="Elternteil" column="parent" :sort-key="sortKey" :sort-dir="sortDir" @sort="toggle" />
+              <SortTh label="Status" column="status" :sort-key="sortKey" :sort-dir="sortDir" @sort="toggle" />
+              <SortTh label="Angelegt" column="createdAt" :sort-key="sortKey" :sort-dir="sortDir" @sort="toggle" />
+              <th class="px-4 py-3"></th>
+            </tr>
+          </thead>
+          <tbody class="divide-y">
+            <tr v-for="user in sorted" :key="user.id" :class="{ 'text-muted-foreground': !user.isActive }">
+              <td class="px-4 py-3 font-medium">
+                {{ displayName(user) }}
+                <span v-if="isSelf(user)" class="ml-1 text-xs text-muted-foreground">(angemeldet)</span>
+              </td>
+              <td class="px-4 py-3">{{ user.email }}</td>
+              <td class="px-4 py-3">{{ userRoleLabel(user.role) }}</td>
+              <td class="px-4 py-3"><RouterLink v-if="user.parentId" :to="`/eltern/${user.parentId}`"
+                class="text-primary underline">{{ user.parentName || 'Elternteil' }}</RouterLink>
+                <span v-else>—</span></td>
+              <td class="px-4 py-3">
+                <span
+                  class="px-2 py-0.5 rounded-full text-xs font-medium"
+                  :class="statusClass(user)"
                 >
-                  <Pencil class="h-4 w-4" />
-                </button>
-                <button
-                  v-if="!isSelf(user)"
-                  @click="passwordUser = user"
-                  class="rounded-lg border p-2 hover:bg-accent"
-                  aria-label="Passwort neu setzen" title="Passwort neu setzen"
-                >
-                  <KeyRound class="h-4 w-4" />
-                </button>
-                <button v-if="user.invitationPending" type="button"
-                  class="rounded-lg border p-2 hover:bg-accent disabled:opacity-50"
-                  :disabled="resendingId !== null" @click="resendInvitation(user)"
-                  aria-label="Einladung erneut senden" title="Einladung erneut senden">
-                  <Send class="h-4 w-4" />
-                </button>
-                <button
-                  v-if="canImpersonate(user)"
-                  @click="impersonate(user)"
-                  :disabled="impersonatingId !== null"
-                  class="rounded-lg border p-2 hover:bg-accent disabled:opacity-50"
-                  aria-label="Als diesen Benutzer anmelden" title="Als diesen Benutzer anmelden"
-                >
-                  <VenetianMask class="h-4 w-4" />
-                </button>
-              </div>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+                  {{ statusLabel(user) }}
+                </span>
+              </td>
+              <td class="px-4 py-3">{{ formatDate(user.createdAt) }}</td>
+              <td class="px-4 py-3">
+                <div class="flex justify-end gap-1">
+                  <button
+                    @click="openEdit(user)"
+                    class="rounded-lg border p-2 hover:bg-accent"
+                    aria-label="Bearbeiten" title="Bearbeiten"
+                  >
+                    <Pencil class="h-4 w-4" />
+                  </button>
+                  <button
+                    v-if="!isSelf(user)"
+                    @click="passwordUser = user"
+                    class="rounded-lg border p-2 hover:bg-accent"
+                    aria-label="Passwort neu setzen" title="Passwort neu setzen"
+                  >
+                    <KeyRound class="h-4 w-4" />
+                  </button>
+                  <button v-if="user.invitationPending" type="button"
+                    class="rounded-lg border p-2 hover:bg-accent disabled:opacity-50"
+                    :disabled="resendingId !== null" @click="resendInvitation(user)"
+                    aria-label="Einladung erneut senden" title="Einladung erneut senden">
+                    <Send class="h-4 w-4" />
+                  </button>
+                  <button
+                    v-if="canImpersonate(user)"
+                    @click="impersonate(user)"
+                    :disabled="impersonatingId !== null"
+                    class="rounded-lg border p-2 hover:bg-accent disabled:opacity-50"
+                    aria-label="Als diesen Benutzer anmelden" title="Als diesen Benutzer anmelden"
+                  >
+                    <VenetianMask class="h-4 w-4" />
+                  </button>
+                </div>
+              </td>
+            </tr>
+            <tr v-if="!sorted.length">
+              <td colspan="7" class="px-4 py-8 text-center text-muted-foreground">Keine Benutzer gefunden.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
 
     <InviteParentsDialog v-if="showInvitations" @close="showInvitations = false"

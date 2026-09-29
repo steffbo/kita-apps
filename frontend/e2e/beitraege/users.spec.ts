@@ -86,3 +86,29 @@ test('deactivated user cannot log in; own account is protected', async ({ adminP
   await expect(dialog.getByLabel('Rolle')).toBeDisabled();
   await expect(dialog.getByLabel('Aktiv (darf sich anmelden)')).toBeDisabled();
 });
+
+test('user list filters by search and role and sorts by column', async ({ adminPage: page, createUser }) => {
+  const user = await createUser();
+  const worker = await createUser('PARENT_WORK');
+
+  await page.goto('/beitraege/benutzer');
+  const userRow = page.getByRole('row', { name: new RegExp(user.email) });
+  const workerRow = page.getByRole('row', { name: new RegExp(worker.email) });
+  await expect(userRow).toBeVisible();
+
+  await page.getByRole('searchbox', { name: /Suchen nach Name/ }).fill(user.email);
+  await expect(userRow).toBeVisible();
+  await expect(workerRow).toHaveCount(0);
+
+  await page.getByRole('searchbox', { name: /Suchen nach Name/ }).fill('');
+  await page.getByLabel('Rolle').selectOption({ label: 'Elternstunden' });
+  await expect(workerRow).toBeVisible();
+  await expect(userRow).toHaveCount(0);
+  await page.getByLabel('Rolle').selectOption({ label: 'Alle Rollen' });
+
+  const emailHeader = page.getByRole('columnheader', { name: 'E-Mail' });
+  await emailHeader.getByRole('button').click();
+  await expect(emailHeader).toHaveAttribute('aria-sort', 'ascending');
+  await emailHeader.getByRole('button').click();
+  await expect(emailHeader).toHaveAttribute('aria-sort', 'descending');
+});

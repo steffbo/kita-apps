@@ -2,10 +2,11 @@
 import { ref, computed, watch, onActivated, onUnmounted } from 'vue';
 import { api } from '@/api';
 import type { EmailLog } from '@/api/types';
-import { Eye, Search, ArrowUp, ArrowDown, RefreshCw } from 'lucide-vue-next';
+import { Eye, ArrowUp, ArrowDown, RefreshCw } from 'lucide-vue-next';
 import EmailLogModal from '@/components/automation/EmailLogModal.vue';
 import { formatDateTime } from '@/utils/format';
 import { formatEmailType } from '@/utils/reminders';
+import SearchInput from '@/components/SearchInput.vue';
 
 // Global log (Versandverlauf); kept alive by the page so filters survive tab switches.
 const emailLogs = ref<EmailLog[]>([]);
@@ -107,15 +108,8 @@ function toggleEmailLogsSort(): void {
         <option value="ACCOUNT_INVITATION">Kontoeinladung</option>
       </select>
 
-      <div class="relative flex-1 min-w-[200px]">
-        <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <input
-          v-model="emailLogsSearch"
-          type="text"
-          placeholder="Suche nach Empfänger oder Betreff..."
-          class="w-full pl-10 pr-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-        />
-      </div>
+      <SearchInput v-model="emailLogsSearch" placeholder="Suche nach Empfänger oder Betreff..."
+        class="flex-1 min-w-[200px]" />
 
       <button
         type="button"

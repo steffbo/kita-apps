@@ -12,7 +12,6 @@ import {
   AlertTriangle,
   Calendar,
   Trash2,
-  Search,
   AlertCircle,
   ChevronUp,
   ChevronDown,
@@ -24,6 +23,7 @@ import { formatCurrency, formatDate, formatMonthName } from '@/utils/format';
 import { getFeeTypeColor, getFeeTypeName } from '@/utils/fees';
 import GenerateFeesDialog from '@/components/fees/GenerateFeesDialog.vue';
 import CreateFeeDialog from '@/components/fees/CreateFeeDialog.vue';
+import SearchInput from '@/components/SearchInput.vue';
 
 const router = useRouter();
 const route = useRoute();
@@ -445,16 +445,8 @@ async function onFeeCreated() {
       </div>
 
       <!-- Search Input -->
-      <div class="relative">
-        <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <input
-          v-model="searchQuery"
-          type="text"
-          placeholder="Mitgl.-Nr. oder Name..."
-          @input="handleSearchInput"
-          class="pl-9 pr-3 py-1.5 w-48 border border-border rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-        />
-      </div>
+      <SearchInput v-model="searchQuery" placeholder="Mitgl.-Nr. oder Name..." size="sm" class="w-48"
+        @input="handleSearchInput" />
       
       <!-- Status Filter Buttons -->
       <div class="flex items-center gap-1 p-1 bg-muted rounded-lg">

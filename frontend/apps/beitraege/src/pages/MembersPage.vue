@@ -6,7 +6,6 @@ import { useAuthStore } from '@/stores/auth';
 import type { Member, CreateMemberRequest, MemberCountAsOf } from '@/api/types';
 import {
   Plus,
-  Search,
   Loader2,
   User,
   Hash,
@@ -26,6 +25,7 @@ import {
   UserX,
 } from 'lucide-vue-next';
 import { formatDate, todayISO } from '@/utils/format';
+import SearchInput from '@/components/SearchInput.vue';
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -396,16 +396,8 @@ const visiblePages = computed(() => {
 
     <!-- Filters -->
     <div class="flex flex-col sm:flex-row gap-4 mb-6">
-      <div class="relative flex-1">
-        <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <input
-          v-model="searchQuery"
-          @input="handleSearchInput"
-          type="text"
-          placeholder="Suchen nach Name, Mitgliedsnummer oder E-Mail..."
-          class="w-full pl-10 pr-4 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-        />
-      </div>
+      <SearchInput v-model="searchQuery" placeholder="Suchen nach Name, Mitgliedsnummer oder E-Mail..."
+        class="flex-1" @input="handleSearchInput" />
       <label class="flex items-center gap-2 cursor-pointer">
         <input
           v-model="showInactive"

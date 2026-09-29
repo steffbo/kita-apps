@@ -3,6 +3,20 @@
 Rolling change log of non-obvious implementation decisions. Newest first.
 Basics (ports, commands, layout) live in `AGENTS.md`.
 
+## Suchfelder, Benutzerliste, Austrittsdatum für mehrere Kinder (2026-09-29)
+
+- **Einheitliche Suchfelder:** Alle Suchen nutzen `components/SearchInput.vue` (Lupe links, optionaler
+  Ladeindikator, `size="sm"` für die kompakte Suche auf der Beitragsseite). `class` geht an den Wrapper, alle
+  übrigen Attribute und Listener an das `<input type="search">`. Die kopierten Utility-Klassen der einzelnen
+  Seiten sind entfernt; auch die Elternstunden-Suchen (Übersicht, Familienauswahl, Vorstand) sehen jetzt so aus.
+- **Elternstunden-Übersicht:** Untertitel entfernt; die Suche steht über der Tabelle statt in der Karte.
+- **Benutzer:** Freitextsuche (Name, E-Mail, Elternteil), Rollenfilter als Dropdown und sortierbare Spalten
+  (`useTableSort` + `SortTh`, clientseitig).
+- **Kinder, Sammelaktion „Austrittsdatum setzen“:** setzt für alle ausgewählten Kinder dasselbe Austrittsdatum
+  (Vorschlag: 31.07. des laufenden Kita-Jahres) über `PUT /children/{id}` mit nur `exitDate`; ein vorhandenes
+  Datum wird überschrieben. Liegt das Datum vor dem Eintritt eines ausgewählten Kindes, ist Speichern gesperrt.
+  Kein neuer Backend-Endpunkt.
+
 ## Eltern gesammelt einladen (2026-09-29)
 
 - Seite „Benutzer“ → „Eltern einladen“: Der Dialog listet Eltern mit Kontakt-E-Mail ohne Konto (weder per

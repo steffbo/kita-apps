@@ -2,8 +2,9 @@
 import { ref, computed, watch, onUnmounted } from 'vue';
 import { api } from '@/api';
 import type { Child, CreateFeeRequest } from '@/api/types';
-import { Loader2, Plus, Search, User } from 'lucide-vue-next';
+import { Loader2, Plus, User } from 'lucide-vue-next';
 import { MONTH_OPTIONS as months } from '@/utils/format';
+import SearchInput from '@/components/SearchInput.vue';
 
 const emit = defineEmits<{ close: []; created: [] }>();
 
@@ -147,16 +148,8 @@ async function handleCreateFee() {
 
           <!-- Child Search -->
           <div v-else class="relative">
-            <div class="relative">
-              <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <input
-                v-model="childSearchQuery"
-                type="text"
-                placeholder="Name oder Mitgliedsnummer eingeben..."
-                class="w-full pl-10 pr-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-              />
-              <Loader2 v-if="isSearchingChildren" class="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
-            </div>
+            <SearchInput v-model="childSearchQuery" placeholder="Name oder Mitgliedsnummer eingeben..."
+              :loading="isSearchingChildren" />
 
             <!-- Search Results Dropdown -->
             <div

@@ -2,9 +2,10 @@
 import { ref, computed, onMounted } from 'vue';
 import { api } from '@/api';
 import type { BankTransaction, FeeExpectation, MatchSuggestion } from '@/api/types';
-import { Loader2, CheckCircle, XCircle, Search } from 'lucide-vue-next';
+import { Loader2, CheckCircle, XCircle } from 'lucide-vue-next';
 import { formatCurrency, formatDate } from '@/utils/format';
 import { getConfidenceColor, getConfidenceLabel, getFeeTypeName } from '@/utils/fees';
+import SearchInput from '@/components/SearchInput.vue';
 
 const props = defineProps<{ transaction: BankTransaction }>();
 const emit = defineEmits<{ close: []; matched: [] }>();
@@ -277,16 +278,8 @@ const displayedFeeCandidates = computed<ScoredFee[]>(() => {
         <p v-if="isConfidencePrefiltered" class="text-xs text-muted-foreground mb-2">
           Gefiltert nach hoher Konfidenz (>= {{ Math.round(PREFILTER_CONFIDENCE * 100) }}%).
         </p>
-        <div class="relative">
-          <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <input
-            v-model="feeSearch"
-            type="text"
-            placeholder="Nach Kind oder Beitragsart suchen..."
-            class="w-full pl-10 pr-4 py-2 border rounded-lg text-sm"
-            @input="loadAvailableFees"
-          />
-        </div>
+        <SearchInput v-model="feeSearch" placeholder="Nach Kind oder Beitragsart suchen..."
+          @input="loadAvailableFees" />
       </div>
 
       <div v-if="matchError" class="px-4 pt-4">
