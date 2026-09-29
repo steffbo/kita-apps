@@ -122,7 +122,7 @@ test('CSV preview matches child and imports an entry', async ({ adminApi, adminP
   });
   await expect(page.getByText('1 Zeile erkannt.')).toBeVisible();
   await page.getByRole('button', { name: 'Vorschau erstellen' }).click();
-  const row = page.getByRole('row', { name: /E2E Aufräumen/ });
+  const row = page.getByRole('table', { name: 'Vorschau' }).getByRole('row', { name: /E2E Aufräumen/ });
   await expect(row).toContainText(family.householdName);
   await expect(row).toContainText('Treffer über Kind');
   await expect(row).toContainText('1,5 h');
@@ -131,6 +131,49 @@ test('CSV preview matches child and imports an entry', async ({ adminApi, adminP
   await expect(page.getByRole('status')).toContainText('1 Eintrag wurde importiert.');
   await page.goto(`/beitraege/elternstunden/familien/${family.household.id}?jahr=${family.year}`);
   await expect(page.getByRole('row', { name: /E2E Aufräumen/ })).toContainText('Import');
+});
+
+test('CSV import: custom headers, ignored columns, drag and drop, warning for unmatched families', async ({ adminApi, adminPage: page }) => {
+  const family = await familyWithChild(adminApi);
+  const date = bankDate(family.today);
+  const csv = [
+    'Lfd. Nr.;Wer;Was;Datum der Arbeit;Dauer in h;Bemerkung',
+    `1;${family.childName.toUpperCase()};Beet gejätet;${date};2;egal`,
+    `2;Niemand Unbekannt;Fenster geputzt;${date};1;egal`,
+  ].join('\n');
+  await page.goto('/beitraege/elternstunden/verwaltung');
+  await expect(page.getByText('Erwartete Spalten')).toBeVisible();
+  await expect(page.getByText('über den Namen, zuerst das Kind')).toBeVisible();
+
+  await page.evaluate((content) => {
+    const data = new DataTransfer();
+    data.items.add(new File([content], 'drop.csv', { type: 'text/csv' }));
+    window.dispatchEvent(new DragEvent('dragenter', { dataTransfer: data, bubbles: true, cancelable: true }));
+    window.dispatchEvent(new DragEvent('drop', { dataTransfer: data, bubbles: true, cancelable: true }));
+  }, csv);
+  await expect(page.getByText('drop.csv')).toBeVisible();
+  await expect(page.getByText('2 Zeilen erkannt.')).toBeVisible();
+
+  const preview = page.getByRole('button', { name: 'Vorschau erstellen' });
+  await expect(page.getByLabel('Zuordnung für Spalte Datum der Arbeit')).toHaveValue('workDate');
+  await expect(page.getByLabel('Zuordnung für Spalte Dauer in h')).toHaveValue('hours');
+  await expect(page.getByText('Es fehlt noch: Anlass, Kind oder Mitglied.')).toBeVisible();
+  await expect(preview).toBeDisabled();
+  await page.getByLabel('Zuordnung für Spalte Wer').selectOption('childName');
+  await page.getByLabel('Zuordnung für Spalte Was').selectOption('occasion');
+  await expect(page.getByText('(2 von 6 ignoriert)')).toBeVisible();
+  await preview.click();
+
+  const warning = page.getByRole('alert').filter({ hasText: '1 Zeile ohne Familie' });
+  await expect(warning).toContainText('Niemand Unbekannt');
+  await expect(warning).toContainText('Zeile 2');
+  const previewTable = page.getByRole('table', { name: 'Vorschau' });
+  const matched = previewTable.getByRole('row', { name: /Beet gejätet/ });
+  await expect(matched).toContainText(family.householdName);
+  await expect(matched.getByRole('checkbox')).toBeChecked();
+  await expect(previewTable.getByRole('row', { name: /Fenster geputzt/ }).getByRole('checkbox')).toBeDisabled();
+  await page.getByRole('button', { name: '1 Eintrag importieren' }).click();
+  await expect(page.getByRole('status')).toContainText('1 Eintrag wurde importiert.');
 });
 
 async function addEntry(adminApi: Api, householdId: string, minutes: number, occasion: string) {

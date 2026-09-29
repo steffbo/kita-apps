@@ -130,8 +130,15 @@ gebaut und danach selbst geprüft (Tests, lokale Kopie der Live-Daten, Screensho
   Übertrag `min(max, Ist + Übertrag − Soll, Ist)` – übertragene Stunden werden zuerst verbraucht und nie weitergereicht;
   Fehlbetrag nur angezeigt. Der Service rechnet Jahr für Jahr ab dem ersten Regelwerk-Jahr aus einem gesammelt
   geladenen Snapshot, keine Abfrage je Familie.
-- **Import:** Tims Excel als CSV; Spalten werden im Dialog zugeordnet, Familien über Kind- oder Mitglieds-/Elternnamen
-  gefunden, Dubletten markiert, Ausführung atomar. Das echte Excel lag noch nicht vor; die Annahme „eine Zeile je
+- **Import:** Tims Excel als CSV; die Seite nennt die erwarteten Spalten (Datum, Stunden, Anlass, Kind und/oder
+  Mitglied). Datei per Button oder per Drag and Drop irgendwo ins Browserfenster (Window-Listener in `ImportSection`).
+  Nach dem Einlesen zeigt eine Tabelle jede CSV-Spalte mit Beispielwerten und einem Feld-Dropdown (Vorbelegung über
+  Spaltennamen, Rest „Ignorieren“; ein Feld gehört immer nur einer Spalte). Familien werden über den Namen gefunden:
+  erst Kind, sonst Mitglied/Elternteil, exakter Vergleich nach Normalisierung (Groß-/Kleinschreibung, Umlaute/ß,
+  Leerzeichen, „Nachname Vorname“ bei zweiteiligen Namen), **kein** Fuzzy-Match; 0 oder mehrere Treffer ⇒ Zeile ohne
+  Familie. Die Vorschau warnt gesammelt („N Zeilen ohne Familie“, je Name mit Zeilennummern, mehrdeutig vs. nicht
+  gefunden); dort wählt man die Familie von Hand, sonst wird die Zeile nicht importiert. Dubletten markiert,
+  Ausführung atomar. Das echte Excel lag noch nicht vor; die Annahme „eine Zeile je
   Zettel mit den Feldern des Vordrucks“ ist ungeprüft.
 - **Geprüft an einer lokalen Kopie der Live-Daten** (Stand 2026-09-26, `pg_dump --schema=fees`, Wegwerf-Container):
   45 Familien mit 50 Kindern im Kita-Jahr 2026/27, Soll 438 h – deckt sich mit einer unabhängigen SQL-Rechnung.
