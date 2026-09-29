@@ -74,11 +74,6 @@ type ownHousehold struct {
 	ID   uuid.UUID `json:"id"`
 	Name string    `json:"name"`
 }
-type ownOtherParent struct {
-	ownParent
-	// HasLogin marks parents whose email is their own login (read-only for the other parent).
-	HasLogin bool `json:"hasLogin"`
-}
 type ownChild struct {
 	ID           uuid.UUID  `json:"id"`
 	FirstName    string     `json:"firstName"`
@@ -95,10 +90,10 @@ type ownChild struct {
 	LegalHours   *int       `json:"legalHours" binding:"optional"`
 }
 type ownOverview struct {
-	Parent       ownParent        `json:"parent"`
-	Household    *ownHousehold    `json:"household" binding:"optional"`
-	OtherParents []ownOtherParent `json:"otherParents"`
-	Children     []ownChild       `json:"children"`
+	Parent       ownParent     `json:"parent"`
+	Household    *ownHousehold `json:"household" binding:"optional"`
+	OtherParents []ownParent   `json:"otherParents"`
+	Children     []ownChild    `json:"children"`
 }
 type ownFees struct {
 	Items     []repository.ParentFeeRow `json:"items"`
@@ -173,18 +168,13 @@ func (h *ParentAccountHandler) Me(w http.ResponseWriter, r *http.Request) {
 		parentAccountError(w, err)
 		return
 	}
-	out := ownOverview{Parent: ownParentFrom(account.Parent), OtherParents: []ownOtherParent{},
+	out := ownOverview{Parent: ownParentFrom(account.Parent), OtherParents: []ownParent{},
 		Children: []ownChild{}}
 	if account.Household != nil {
 		out.Household = &ownHousehold{account.Household.ID, account.Household.Name}
 	}
 	for _, p := range others {
-		hasLogin, err := h.svc.HasLogin(r.Context(), p.ID)
-		if err != nil {
-			parentAccountError(w, err)
-			return
-		}
-		out.OtherParents = append(out.OtherParents, ownOtherParent{ownParentFrom(p), hasLogin})
+		out.OtherParents = append(out.OtherParents, ownParentFrom(p))
 	}
 	for _, c := range children {
 		out.Children = append(out.Children, ownChildFrom(c))

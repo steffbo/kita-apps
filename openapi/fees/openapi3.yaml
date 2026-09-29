@@ -8690,6 +8690,10 @@ components:
         remaining:
           description: Amount still needed
           type: number
+        reminderFor:
+          allOf:
+            - $ref: "#/components/schemas/domain.FeeRef"
+          description: Base fee of a Mahngebühr
         reminderForId:
           description: "For REMINDER type: links to the original fee"
           type: string
@@ -8743,6 +8747,18 @@ components:
         - totalOpen
         - totalOverdue
         - totalPaid
+      type: object
+    domain.FeeRef:
+      properties:
+        feeType:
+          $ref: "#/components/schemas/domain.FeeType"
+        month:
+          type: integer
+        year:
+          type: integer
+      required:
+        - feeType
+        - year
       type: object
     domain.FeeType:
       enum:
@@ -9703,36 +9719,6 @@ components:
         - id
         - name
       type: object
-    handler.ownOtherParent:
-      properties:
-        city:
-          type: string
-        email:
-          type: string
-        firstName:
-          type: string
-        hasLogin:
-          description: HasLogin marks parents whose email is their own login (read-only
-            for the other parent).
-          type: boolean
-        id:
-          type: string
-        lastName:
-          type: string
-        phone:
-          type: string
-        postalCode:
-          type: string
-        street:
-          type: string
-        streetNo:
-          type: string
-      required:
-        - firstName
-        - hasLogin
-        - id
-        - lastName
-      type: object
     handler.ownOverview:
       properties:
         children:
@@ -9743,7 +9729,7 @@ components:
           $ref: "#/components/schemas/handler.ownHousehold"
         otherParents:
           items:
-            $ref: "#/components/schemas/handler.ownOtherParent"
+            $ref: "#/components/schemas/handler.ownParent"
           type: array
         parent:
           $ref: "#/components/schemas/handler.ownParent"
@@ -10029,6 +10015,12 @@ components:
       properties:
         amount:
           type: number
+        baseFeeType:
+          type: string
+        baseMonth:
+          type: integer
+        baseYear:
+          type: integer
         childId:
           type: string
         childName:
@@ -10043,6 +10035,13 @@ components:
           type: integer
         paidAmount:
           type: number
+        paidAt:
+          description: PaidAt is the booking date of the latest matched transaction; only
+            set once fully paid.
+          type: string
+        reminderForId:
+          description: ReminderFor describes the base fee of a Mahngebühr.
+          type: string
         status:
           type: string
         year:

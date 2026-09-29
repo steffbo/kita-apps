@@ -128,7 +128,7 @@ func (s *ParentAccountService) Contact(ctx context.Context, userID uuid.UUID,
 }
 
 // ParentContact changes the contact data of the own parent or another parent of the household.
-// Another parent's email stays untouched while it is that parent's login.
+// Another parent's email is read-only: only that parent or the board may change it.
 func (s *ParentAccountService) ParentContact(ctx context.Context, userID, parentID uuid.UUID,
 	updates map[string]*string) (*domain.Parent, error) {
 	account, err := s.Account(ctx, userID)
@@ -173,13 +173,9 @@ func (s *ParentAccountService) ParentContact(ctx context.Context, userID, parent
 	if p.ID == account.Parent.ID {
 		err = s.accounts.SaveContact(ctx, p.ID, userID, fields)
 	} else {
-		hasLogin, e := s.accounts.HasLogin(ctx, p.ID)
-		if e != nil {
-			return nil, e
-		}
-		if hasLogin && !sameContact(p.Email, email) {
-			return nil, fmt.Errorf("%w: Die E-Mail-Adresse ist das Login von %s und kann nur dort "+
-				"geändert werden", ErrInvalidInput, p.FirstName)
+		if !sameContact(p.Email, email) {
+			return nil, fmt.Errorf("%w: Die E-Mail-Adresse von %s kann nur %s selbst oder der Vorstand "+
+				"ändern", ErrInvalidInput, p.FirstName, p.FirstName)
 		}
 		err = s.accounts.SaveContactAs(ctx, p.ID, userID, account.Parent.ID, fields)
 	}
@@ -190,11 +186,6 @@ func (s *ParentAccountService) ParentContact(ctx context.Context, userID, parent
 }
 
 func sameContact(a, b *string) bool { return a == nil && b == nil || a != nil && b != nil && *a == *b }
-
-// HasLogin reports whether the parent has a linked login.
-func (s *ParentAccountService) HasLogin(ctx context.Context, parentID uuid.UUID) (bool, error) {
-	return s.accounts.HasLogin(ctx, parentID)
-}
 
 type OwnChildInput struct {
 	FirstName  string  `json:"firstName"`

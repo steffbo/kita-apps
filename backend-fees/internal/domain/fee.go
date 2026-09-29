@@ -57,6 +57,14 @@ type FeeExpectation struct {
 	MatchedAmount  float64        `json:"matchedAmount,omitempty" db:"-" binding:"optional"`  // Total matched across all transactions
 	Remaining      float64        `json:"remaining,omitempty" db:"-" binding:"optional"`      // Amount still needed
 	PartialMatches []PaymentMatch `json:"partialMatches,omitempty" db:"-" binding:"optional"` // All transactions covering this fee
+	ReminderFor    *FeeRef        `json:"reminderFor,omitempty" db:"-" binding:"optional"`    // Base fee of a Mahngebühr
+}
+
+// FeeRef names a fee by type and period, e.g. the base fee of a Mahngebühr.
+type FeeRef struct {
+	FeeType FeeType `json:"feeType"`
+	Year    int     `json:"year"`
+	Month   *int    `json:"month,omitempty" binding:"optional"`
 }
 
 // FeeCoverage represents the coverage status of fees by transactions.

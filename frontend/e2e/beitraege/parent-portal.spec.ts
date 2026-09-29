@@ -69,6 +69,7 @@ test('Eltern sehen nur die eigene Familie; Meldungen und Änderungen gehen an St
       await own.getByRole('button', { name: 'Kontaktdaten speichern' }).click();
       await expect(page.getByRole('status')).toContainText('gespeichert');
       const other = page.locator('form').filter({ hasText: 'Kontaktdaten von Max' });
+      await expect(other.getByLabel('E-Mail')).toBeDisabled();
       await other.getByLabel('Hausnummer').fill('7a');
       await other.getByRole('button', { name: 'Kontaktdaten speichern' }).click();
       await expect(page.getByRole('status')).toContainText('Kontaktdaten von Max');
@@ -100,3 +101,40 @@ test('Eltern sehen nur die eigene Familie; Meldungen und Änderungen gehen an St
       await expect(ownReports).toContainText('Antwort vom Vorstand: E2E ist korrigiert');
     } finally { await context.close(); }
   });
+
+test('Beiträge der Familie: Mahngebühr direkt am Beitrag, Filter auf offene', async ({ adminApi, browser }) => {
+  const a = await family(adminApi, 'KindFee');
+  const { year } = berlinToday();
+  const base = await adminApi.post<{ id: string }>('/fees', {
+    childId: a.child.id, feeType: 'FOOD', year, month: 1, amount: 45.4, dueDate: `${year}-01-05`,
+  });
+  await adminApi.post('/fees', {
+    childId: a.child.id, feeType: 'FOOD', year, month: 2, amount: 45.4, dueDate: `${year}-02-05`,
+  });
+  await adminApi.post(`/fees/${base.id}/reminder`);
+  const password = `pw-${uniq()}`;
+  await adminApi.post('/users', {
+    email: a.email, firstName: 'Eva', lastName: 'Eltern', role: 'PARENT', isActive: true, password,
+  });
+  const context = await browser.newContext();
+  try {
+    await loginContext(context, a.email, password);
+    const page = await context.newPage();
+    await page.goto('/beitraege/familie/beitraege');
+    await expect(page.getByRole('heading', { name: 'Beiträge', exact: true })).toBeVisible();
+    // Other specs may generate fees for the current month, so check the order relative to January.
+    const rows = page.locator('tbody tr');
+    await expect(rows.filter({ hasText: 'Januar' })).toHaveCount(1);
+    const texts = await rows.allTextContents();
+    const january = texts.findIndex(t => t.includes('Januar'));
+    // Newest due date first; the Mahngebühr follows its January fee although it is due later.
+    expect(texts[january - 1]).toContain('Februar');
+    expect(texts[january + 1]).toMatch(/Mahngebühr.*10,00/);
+
+    await page.getByRole('button', { name: /Offen:/ }).click();
+    await expect(page.getByRole('button', { name: 'Alle anzeigen' })).toBeVisible();
+    await expect(rows.filter({ hasText: 'Mahngebühr' })).toHaveCount(1);
+    await page.getByRole('button', { name: 'Alle anzeigen' }).click();
+    await expect(page.getByRole('button', { name: 'Alle anzeigen' })).toHaveCount(0);
+  } finally { await context.close(); }
+});

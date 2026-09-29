@@ -62,14 +62,6 @@ func (r *ParentAccountRepository) SaveContactAs(ctx context.Context, parentID, u
 	return r.saveContact(ctx, parentID, userID, &actorParentID, fields)
 }
 
-// HasLogin reports whether a user account is linked to the parent.
-func (r *ParentAccountRepository) HasLogin(ctx context.Context, parentID uuid.UUID) (bool, error) {
-	var ok bool
-	err := conn(ctx, r.db).GetContext(ctx, &ok,
-		`SELECT EXISTS(SELECT 1 FROM fees.users WHERE parent_id=$1)`, parentID)
-	return ok, err
-}
-
 func (r *ParentAccountRepository) SaveStaffContact(ctx context.Context, parentID, userID uuid.UUID,
 	fields map[string]*string) error {
 	return r.saveContact(ctx, parentID, userID, nil, fields)

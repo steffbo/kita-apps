@@ -55,12 +55,16 @@ func TestParentFeedbackOtherParentAndReview(t *testing.T) {
 		map[string]*string{"phone": &phone}); !errors.Is(err, service.ErrNotFound) {
 		t.Fatalf("foreign parent: %v", err)
 	}
-	partnerEmail := uuid.NewString() + "@example.org"
-	got, err := svc.ParentContact(ctx, ownUser, partner,
-		map[string]*string{"phone": &phone, "email": &partnerEmail})
-	if err != nil || got.Phone == nil || *got.Phone != phone || *got.Email != partnerEmail {
+	newEmail := uuid.NewString() + "@example.org"
+	if _, err := svc.ParentContact(ctx, ownUser, partner,
+		map[string]*string{"email": &newEmail}); !errors.Is(err, service.ErrInvalidInput) {
+		t.Fatalf("partner email without login: %v", err)
+	}
+	got, err := svc.ParentContact(ctx, ownUser, partner, map[string]*string{"phone": &phone})
+	if err != nil || got.Phone == nil || *got.Phone != phone || got.Email == nil {
 		t.Fatalf("partner without login: %+v %v", got, err)
 	}
+	partnerEmail := *got.Email
 	activity, err := svc.Activity(ctx, 100)
 	if err != nil {
 		t.Fatal(err)

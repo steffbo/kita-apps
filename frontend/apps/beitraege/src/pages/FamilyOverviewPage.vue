@@ -33,9 +33,7 @@ const recentReports = computed(() => reports.value.filter(r => r.status === 'OPE
 </script>
 <template>
   <div class="space-y-5">
-    <div><h1 class="text-2xl font-bold">Hallo {{ overview?.parent.firstName || 'zusammen' }}!</h1>
-      <p class="text-muted-foreground">Schön, dass du da bist. Hier siehst du deine Familie auf einen Blick.</p>
-    </div>
+    <h1 class="text-2xl font-bold">Hallo {{ overview?.parent.firstName || 'zusammen' }}!</h1>
     <p v-if="error" role="alert" class="rounded-xl border border-amber-300 bg-amber-50 p-4
       text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
       {{ error.includes('zugeordnet') ? 'Dein Konto ist noch keinem Elternteil zugeordnet. Bitte wende dich an den Vorstand.' : error }}

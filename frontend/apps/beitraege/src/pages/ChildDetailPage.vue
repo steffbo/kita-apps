@@ -49,6 +49,7 @@ import {
   formatMatchedBy,
   getFeeMatches,
   getFeeRemainingAmount,
+  getFeePeriodLabel,
   getFeeTypeName,
   getTxRemainingAmount,
   maskIban,
@@ -1104,7 +1105,7 @@ async function createReminder() {
                   <div>
                     <p :class="['font-medium', group.fee.feeType === 'REMINDER' ? 'text-red-700 dark:text-red-300' : '']">{{ getFeeTypeName(group.fee.feeType) }}</p>
                     <p class="text-sm text-muted-foreground">
-                      {{ group.fee.month ? formatMonthName(group.fee.month) + ' ' : '' }}{{ group.fee.year }}
+                      {{ getFeePeriodLabel(group.fee) }}
                       · Fällig: {{ formatDate(group.fee.dueDate) }}
                     </p>
                     <p v-if="group.fee.matchedAmount && group.fee.matchedAmount > 0" class="text-xs text-amber-700 dark:text-amber-300">
@@ -1164,7 +1165,7 @@ async function createReminder() {
                   <div>
                     <p class="font-medium">{{ getFeeTypeName(group.fee.feeType) }}</p>
                     <p class="text-sm text-muted-foreground">
-                      {{ group.fee.month ? formatMonthName(group.fee.month) + ' ' : '' }}{{ group.fee.year }}
+                      {{ getFeePeriodLabel(group.fee) }}
                       <span v-if="getPaymentSummary(group.fee)" class="text-green-600 dark:text-green-300">
                         · {{ getPaymentSummary(group.fee) }}
                       </span>

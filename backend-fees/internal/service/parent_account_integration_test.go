@@ -128,8 +128,43 @@ func TestParentAccountIsolationAndAudit(t *testing.T) {
 		t.Fatalf("children: %+v %v", gotChildren, err)
 	}
 	fees, err := accountRepo.Fees(ctx, a.Parent, 2026)
-	if err != nil || len(fees) != 1 || fees[0].ChildID != children[0] {
+	if err != nil || len(fees) != 1 || fees[0].ChildID != children[0] || fees[0].PaidAt != nil {
 		t.Fatalf("fees: %+v %v", fees, err)
+	}
+	// A paid fee carries the booking date; a Mahngebühr from 2027 belongs to its 2026 base fee.
+	paidFee, txID := uuid.New(), uuid.New()
+	if _, err = testDB.Exec(`INSERT INTO fees.fee_expectations(id,child_id,fee_type,year,month,amount,due_date)
+        VALUES ($1,$2,'FOOD',2026,8,45,'2026-08-01')`, paidFee, children[0]); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = testDB.Exec(`INSERT INTO fees.bank_transactions(id,booking_date,value_date,amount)
+        VALUES ($1,'2026-08-03','2026-08-03',45)`, txID); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { testDB.Exec(`DELETE FROM fees.bank_transactions WHERE id=$1`, txID) })
+	if _, err = testDB.Exec(`INSERT INTO fees.payment_matches(transaction_id,expectation_id,match_type,amount)
+        VALUES ($1,$2,'MANUAL',45)`, txID, paidFee); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = testDB.Exec(`INSERT INTO fees.fee_expectations(child_id,fee_type,year,amount,due_date,
+        reminder_for_id) VALUES ($1,'REMINDER',2027,10,'2027-01-10',$2)`, children[0], fees[0].ID); err != nil {
+		t.Fatal(err)
+	}
+	fees, err = accountRepo.Fees(ctx, a.Parent, 2026)
+	if err != nil || len(fees) != 3 {
+		t.Fatalf("fees with reminder: %+v %v", fees, err)
+	}
+	for _, f := range fees {
+		switch {
+		case f.ID == paidFee:
+			if f.Status != "PAID" || f.PaidAt == nil || f.PaidAt.Format("2006-01-02") != "2026-08-03" {
+				t.Fatalf("paid fee: %+v", f)
+			}
+		case f.FeeType == "REMINDER":
+			if f.ReminderForID == nil || *f.BaseFeeType != "FOOD" || *f.BaseYear != 2026 || *f.BaseMonth != 9 {
+				t.Fatalf("reminder: %+v", f)
+			}
+		}
 	}
 	date := domain.ParentWorkYearStart(2026)
 	entry, err := work.SubmitParentEntry(ctx, domain.ParentWorkEntry{HouseholdID: households[1],

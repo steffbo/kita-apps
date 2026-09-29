@@ -15,13 +15,17 @@ const reportId = ref<string | null>(null);
 const showReport = ref(false);
 type ContactForm = { email: string; phone: string; street: string; streetNo: string;
   postalCode: string; city: string };
-type ParentContact = { id: string; name: string; own: boolean; hasLogin: boolean;
-  savedEmail: string; form: ContactForm };
+type ParentContact = { id: string; name: string; own: boolean; savedEmail: string; form: ContactForm };
 const contacts = ref<ParentContact[]>([]);
-const contactFields = [
-  ['email', 'E-Mail'], ['phone', 'Telefon'], ['street', 'Straße'],
-  ['streetNo', 'Hausnummer'], ['postalCode', 'PLZ'], ['city', 'Ort'],
+// Same 12-column grid for parents and children, so the address fields line up across all cards.
+const addressFields = [
+  ['street', 'Straße', 'sm:col-span-5'], ['streetNo', 'Hausnummer', 'sm:col-span-2'],
+  ['postalCode', 'PLZ', 'sm:col-span-2'], ['city', 'Ort', 'sm:col-span-3'],
 ] as const;
+const contactFields = [
+  ['email', 'E-Mail', 'sm:col-span-6'], ['phone', 'Telefon', 'sm:col-span-6'], ...addressFields,
+] as const;
+const input = 'mt-1 h-9 w-full rounded-lg border px-3 font-normal disabled:opacity-60';
 function formFrom(p: OwnOverview['parent']): ContactForm {
   return { email: p.email ?? '', phone: p.phone ?? '', street: p.street ?? '',
     streetNo: p.streetNo ?? '', postalCode: p.postalCode ?? '', city: p.city ?? '' };
@@ -33,10 +37,10 @@ async function load() {
     overview.value = await api.getOwnOverview();
     const own = overview.value.parent;
     contacts.value = [
-      { id: own.id, name: `${own.firstName} ${own.lastName}`, own: true, hasLogin: true,
+      { id: own.id, name: `${own.firstName} ${own.lastName}`, own: true,
         savedEmail: own.email ?? '', form: formFrom(own) },
       ...overview.value.otherParents.map(p => ({ id: p.id, name: `${p.firstName} ${p.lastName}`,
-        own: false, hasLogin: p.hasLogin, savedEmail: p.email ?? '', form: formFrom(p) })),
+        own: false, savedEmail: p.email ?? '', form: formFrom(p) })),
     ];
     children.value = overview.value.children.map(c => ({ ...c, birthDate: dateInput(c.birthDate) }));
     reports.value = await api.getOwnReports();
@@ -70,57 +74,55 @@ async function saveChild(child: OwnChild) {
     <h1 class="text-2xl font-bold">Meine Daten</h1>
     <p v-if="error" role="alert" class="text-red-700 dark:text-red-300">{{ error }}</p>
     <p v-if="notice" role="status" class="text-green-800 dark:text-green-300">{{ notice }}</p>
-    <form v-for="c in contacts" :key="c.id" class="rounded-2xl border bg-card p-5"
+    <form v-for="c in contacts" :key="c.id" class="rounded-2xl border bg-card p-4"
       @submit.prevent="saveContact(c)">
       <h2 class="text-lg font-bold">{{ c.own ? 'Deine Kontaktdaten' : `Kontaktdaten von ${c.name}` }}</h2>
-      <p class="mt-1 text-sm text-muted-foreground">
+      <p class="text-sm text-muted-foreground">
         {{ c.own ? 'Deine E-Mail-Adresse ist auch dein Login.'
-          : c.hasLogin ? 'Die E-Mail-Adresse ist das Login und kann nur im eigenen Konto geändert werden.'
-            : 'Du kannst auch die Daten des anderen Elternteils pflegen.' }}</p>
-      <div class="mt-4 grid gap-3 sm:grid-cols-2">
-        <label v-for="field in contactFields" :key="field[0]" class="block text-sm font-medium">{{ field[1] }}
+          : 'Du kannst auch die Daten des anderen Elternteils pflegen, außer der E-Mail-Adresse.' }}</p>
+      <div class="mt-3 grid gap-3 sm:grid-cols-12">
+        <label v-for="field in contactFields" :key="field[0]" class="text-sm font-medium" :class="field[2]">
+          {{ field[1] }}
           <input v-model="c.form[field[0]]" :type="field[0] === 'email' ? 'email' : 'text'"
-            :disabled="field[0] === 'email' && !c.own && c.hasLogin"
-            class="mt-1 w-full rounded-lg border px-3 py-2 disabled:opacity-60" /></label>
+            :disabled="field[0] === 'email' && !c.own" :class="input" /></label>
       </div>
-      <button type="submit" class="mt-4 rounded-lg bg-primary px-4 py-2 text-primary-foreground">
+      <button type="submit" class="mt-3 rounded-lg bg-primary px-4 py-2 text-primary-foreground">
         Kontaktdaten speichern
       </button>
     </form>
     <section v-if="overview" class="space-y-4">
       <h2 class="text-lg font-bold">Kinder</h2>
-      <form v-for="child in children" :key="child.id" class="rounded-2xl border bg-card p-5"
+      <form v-for="child in children" :key="child.id" class="rounded-2xl border bg-card p-4"
         @submit.prevent="saveChild(child)">
-        <h3 class="font-bold">{{ child.firstName }} {{ child.lastName }}</h3>
-        <div class="mt-4 grid gap-3 sm:grid-cols-2">
-          <label class="text-sm font-medium">Vorname
-            <input v-model="child.firstName" required class="mt-1 w-full rounded-lg border px-3 py-2" /></label>
-          <label class="text-sm font-medium">Nachname
-            <input v-model="child.lastName" required class="mt-1 w-full rounded-lg border px-3 py-2" /></label>
-          <label class="text-sm font-medium">Geburtsdatum
-            <input v-model="child.birthDate" type="date" required
-              class="mt-1 w-full rounded-lg border px-3 py-2" /></label>
-          <label v-for="field in [
-            ['street', 'Straße'], ['streetNo', 'Hausnummer'], ['postalCode', 'PLZ'], ['city', 'Ort'],
-          ] as const" :key="field[0]" class="text-sm font-medium">{{ field[1] }}
-            <input v-model="child[field[0]]" class="mt-1 w-full rounded-lg border px-3 py-2" /></label>
+        <h3 class="text-lg font-bold">{{ child.firstName }} {{ child.lastName }}</h3>
+        <div class="mt-3 grid gap-3 sm:grid-cols-12">
+          <label class="text-sm font-medium sm:col-span-4">Vorname
+            <input v-model="child.firstName" required :class="input" /></label>
+          <label class="text-sm font-medium sm:col-span-4">Nachname
+            <input v-model="child.lastName" required :class="input" /></label>
+          <label class="text-sm font-medium sm:col-span-4">Geburtsdatum
+            <input v-model="child.birthDate" type="date" required :class="input" /></label>
+          <label v-for="field in addressFields" :key="field[0]" class="text-sm font-medium"
+            :class="field[2]">{{ field[1] }}
+            <input v-model="child[field[0]]" :class="input" /></label>
         </div>
-        <div class="mt-4 text-sm text-muted-foreground">
-          <p>Mitgliedsnummer: {{ child.memberNumber }}</p>
-          <p>Eintritt: {{ formatDate(child.entryDate) }}</p>
-          <p>Austritt: {{ child.exitDate ? formatDate(child.exitDate) : '—' }}</p>
-          <p>Betreuungszeit: {{ child.careHours != null ? `${child.careHours} h/Woche` : 'nicht hinterlegt' }}</p>
-          <p>Rechtsanspruch: {{ child.legalHours != null ? `${child.legalHours} h/Woche` : 'nicht hinterlegt' }}</p>
-          <p class="mt-2">Änderungen daran bitte über „Fehler melden“.</p>
-        </div>
-        <div class="mt-4 flex flex-wrap gap-3">
+        <dl class="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-sm">
+          <div v-for="[term, value] in [
+            ['Mitgliedsnummer', child.memberNumber],
+            ['Eintritt', formatDate(child.entryDate)],
+            ['Austritt', child.exitDate ? formatDate(child.exitDate) : '—'],
+            ['Betreuungszeit', child.careHours != null ? `${child.careHours} h/Woche` : 'nicht hinterlegt'],
+            ['Rechtsanspruch', child.legalHours != null ? `${child.legalHours} h/Woche` : 'nicht hinterlegt'],
+          ]" :key="term"><dt class="inline text-muted-foreground">{{ term }}:</dt> <dd class="inline">{{ value }}</dd></div>
+        </dl>
+        <div class="mt-3 flex flex-wrap items-center gap-3">
           <button type="submit" class="rounded-lg bg-primary px-4 py-2 text-primary-foreground">Speichern</button>
           <button type="button" class="text-primary underline"
             @click="reportId = child.id">Fehler melden</button>
         </div>
       </form>
     </section>
-    <section class="rounded-2xl border bg-card p-5">
+    <section class="rounded-2xl border bg-card p-4">
       <div class="flex flex-wrap items-center justify-between gap-3"><h2 class="text-lg font-bold">Meldungen deiner Familie</h2>
         <button class="text-primary underline" @click="showReport = true">Fehler melden</button></div>
       <p v-if="!reports.length" class="mt-3 text-muted-foreground">Noch keine Meldungen.</p>

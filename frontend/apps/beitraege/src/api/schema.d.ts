@@ -10529,6 +10529,8 @@ export interface components {
             reconciliationYear?: number;
             /** @description Amount still needed */
             remaining?: number;
+            /** @description Base fee of a Mahngebühr */
+            reminderFor?: components["schemas"]["domain.FeeRef"];
             /** @description For REMINDER type: links to the original fee */
             reminderForId?: string;
             year: number;
@@ -10545,6 +10547,11 @@ export interface components {
             totalOpen: number;
             totalOverdue: number;
             totalPaid: number;
+        };
+        "domain.FeeRef": {
+            feeType: components["schemas"]["domain.FeeType"];
+            month?: number;
+            year: number;
         };
         /** @enum {string} */
         "domain.FeeType": "MEMBERSHIP" | "FOOD" | "CHILDCARE" | "REMINDER";
@@ -10919,23 +10926,10 @@ export interface components {
             id: string;
             name: string;
         };
-        "handler.ownOtherParent": {
-            city?: string;
-            email?: string;
-            firstName: string;
-            /** @description HasLogin marks parents whose email is their own login (read-only for the other parent). */
-            hasLogin: boolean;
-            id: string;
-            lastName: string;
-            phone?: string;
-            postalCode?: string;
-            street?: string;
-            streetNo?: string;
-        };
         "handler.ownOverview": {
             children: components["schemas"]["handler.ownChild"][];
             household?: components["schemas"]["handler.ownHousehold"];
-            otherParents: components["schemas"]["handler.ownOtherParent"][];
+            otherParents: components["schemas"]["handler.ownParent"][];
             parent: components["schemas"]["handler.ownParent"];
         };
         "handler.ownParent": {
@@ -11053,6 +11047,9 @@ export interface components {
         };
         "repository.ParentFeeRow": {
             amount: number;
+            baseFeeType?: string;
+            baseMonth?: number;
+            baseYear?: number;
             childId: string;
             childName: string;
             dueDate: string;
@@ -11060,6 +11057,10 @@ export interface components {
             id: string;
             month?: number;
             paidAmount: number;
+            /** @description PaidAt is the booking date of the latest matched transaction; only set once fully paid. */
+            paidAt?: string;
+            /** @description ReminderFor describes the base fee of a Mahngebühr. */
+            reminderForId?: string;
             status: string;
             year: number;
         };

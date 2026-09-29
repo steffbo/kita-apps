@@ -1,5 +1,6 @@
 // Shared helpers for fee expectations and bank transactions.
 import type { BankTransaction, FeeExpectation, PaymentMatch } from '@/api/types';
+import { formatMonthName } from './format';
 
 export function getFeeTypeName(type?: string): string {
   switch (type) {
@@ -14,6 +15,15 @@ export function getFeeTypeName(type?: string): string {
     default:
       return type || 'Unbekannt';
   }
+}
+
+type FeePeriod = { year: number; month?: number | null };
+
+/** "September 2026" or "2026"; for a Mahngebühr the base fee, e.g. "zu Essensgeld September 2026". */
+export function getFeePeriodLabel(fee: FeePeriod & { reminderFor?: FeePeriod & { feeType: string } }): string {
+  const period = (p: FeePeriod) => (p.month ? `${formatMonthName(p.month)} ` : '') + p.year;
+  if (fee.reminderFor) return `zu ${getFeeTypeName(fee.reminderFor.feeType)} ${period(fee.reminderFor)}`;
+  return period(fee);
 }
 
 export function getFeeTypeColor(type?: string): string {

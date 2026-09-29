@@ -7,7 +7,9 @@ import ReportDialog from '@/components/family/ReportDialog.vue';
 const berlinDate = todayISO();
 const currentYear = Number(berlinDate.slice(0, 4));
 const year = ref(Number(berlinDate.slice(5, 7)) >= 8 ? currentYear : currentYear - 1);
-const years = Array.from({ length: 5 }, (_, i) => year.value + 1 - i);
+// Elternstunden are tracked in the app from Kita-Jahr 2025/26 on.
+const firstYear = 2025;
+const years = Array.from({ length: year.value + 2 - firstYear }, (_, i) => year.value + 1 - i);
 const work = ref<OwnWork | null>(null);
 const overview = ref<OwnOverview | null>(null);
 const error = ref('');

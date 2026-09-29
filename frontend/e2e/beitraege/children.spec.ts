@@ -18,7 +18,8 @@ test('admin sets the exit date for several selected children at once', async ({ 
   await page.getByPlaceholder('Suchen nach Name oder Mitgliedsnummer...').fill(`Austritt${suffix}`);
   const rows = page.getByRole('row', { name: new RegExp(`Austritt${suffix}`) });
   await expect(rows).toHaveCount(2);
-  for (const row of await rows.all()) await row.getByRole('checkbox').check();
+  // Check by name: the list may re-sort while hint counts load.
+  for (const name of ['Anna', 'Ben']) await rows.filter({ hasText: name }).getByRole('checkbox').check();
   await expect(page.getByText('2 Kinder ausgewählt')).toBeVisible();
 
   await page.getByRole('button', { name: 'Austrittsdatum setzen' }).click();

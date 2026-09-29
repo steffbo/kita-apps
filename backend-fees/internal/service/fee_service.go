@@ -184,10 +184,28 @@ func (s *FeeService) List(ctx context.Context, filter FeeFilter, offset, limit i
 		}
 	}
 
-	// Enrich with child data and payment status
+	var baseIDs []uuid.UUID
+	for _, fee := range fees {
+		if fee.ReminderForID != nil {
+			baseIDs = append(baseIDs, *fee.ReminderForID)
+		}
+	}
+	baseFees := map[uuid.UUID]*domain.FeeExpectation{}
+	if len(baseIDs) > 0 {
+		if baseFees, err = s.feeRepo.GetByIDs(ctx, baseIDs); err != nil {
+			return nil, 0, err
+		}
+	}
+
+	// Enrich with child data, base fee of reminders and payment status
 	for i := range fees {
 		if child, ok := childMap[fees[i].ChildID]; ok {
 			fees[i].Child = child
+		}
+		if fees[i].ReminderForID != nil {
+			if base, ok := baseFees[*fees[i].ReminderForID]; ok {
+				fees[i].ReminderFor = &domain.FeeRef{FeeType: base.FeeType, Year: base.Year, Month: base.Month}
+			}
 		}
 		s.enrichWithPaymentStatus(ctx, &fees[i])
 	}

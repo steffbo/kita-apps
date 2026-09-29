@@ -120,29 +120,44 @@ type ParentFeeRow struct {
 	Amount     float64   `json:"amount" db:"amount"`
 	DueDate    time.Time `json:"dueDate" db:"due_date"`
 	PaidAmount float64   `json:"paidAmount" db:"paid_amount"`
-	Status     string    `json:"status" db:"-"`
+	// PaidAt is the booking date of the latest matched transaction; only set once fully paid.
+	PaidAt *time.Time `json:"paidAt" db:"paid_at" binding:"optional"`
+	// ReminderFor describes the base fee of a Mahngebühr.
+	ReminderForID *uuid.UUID `json:"reminderForId" db:"reminder_for_id" binding:"optional"`
+	BaseFeeType   *string    `json:"baseFeeType" db:"base_fee_type" binding:"optional"`
+	BaseYear      *int       `json:"baseYear" db:"base_year" binding:"optional"`
+	BaseMonth     *int       `json:"baseMonth" db:"base_month" binding:"optional"`
+	Status        string     `json:"status" db:"-"`
 }
 
+// Fees lists the family's fees of a calendar year. A Mahngebühr belongs to the year of its base fee.
 func (r *ParentAccountRepository) Fees(ctx context.Context, parent domain.Parent,
 	year int) ([]ParentFeeRow, error) {
 	rows := []ParentFeeRow{}
 	err := conn(ctx, r.db).SelectContext(ctx, &rows, `SELECT fe.id,fe.child_id,
         c.first_name || ' ' || c.last_name AS child_name,fe.fee_type,fe.year,fe.month,
-        fe.amount,fe.due_date,COALESCE(SUM(pm.amount),0) AS paid_amount
+        fe.amount,fe.due_date,COALESCE(SUM(pm.amount),0) AS paid_amount,
+        MAX(bt.booking_date) AS paid_at,fe.reminder_for_id,base.fee_type AS base_fee_type,
+        base.year AS base_year,base.month AS base_month
         FROM fees.fee_expectations fe JOIN fees.children c ON c.id=fe.child_id
+        LEFT JOIN fees.fee_expectations base ON base.id=fe.reminder_for_id
         LEFT JOIN fees.payment_matches pm ON pm.expectation_id=fe.id
-        WHERE fe.year=$2 AND (c.household_id=$3 OR ($3::uuid IS NULL AND EXISTS
+        LEFT JOIN fees.bank_transactions bt ON bt.id=pm.transaction_id
+        WHERE COALESCE(base.year,fe.year)=$2 AND (c.household_id=$3 OR ($3::uuid IS NULL AND EXISTS
             (SELECT 1 FROM fees.child_parents cp WHERE cp.child_id=c.id AND cp.parent_id=$1)))
-        GROUP BY fe.id,c.first_name,c.last_name ORDER BY fe.due_date DESC,fe.id DESC`,
+        GROUP BY fe.id,c.first_name,c.last_name,base.id ORDER BY fe.due_date DESC,fe.id DESC`,
 		parent.ID, year, parent.HouseholdID)
 	if err != nil {
 		return nil, err
 	}
 	today := util.Today()
 	for i := range rows {
-		switch {
-		case domain.IsPaid(rows[i].PaidAmount, rows[i].Amount):
+		if domain.IsPaid(rows[i].PaidAmount, rows[i].Amount) {
 			rows[i].Status = string(domain.FeeStatusPaid)
+			continue
+		}
+		rows[i].PaidAt = nil
+		switch {
 		case rows[i].DueDate.Before(today):
 			rows[i].Status = string(domain.FeeStatusOverdue)
 		default:

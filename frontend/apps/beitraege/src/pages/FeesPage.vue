@@ -19,8 +19,8 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-vue-next';
-import { formatCurrency, formatDate, formatMonthName } from '@/utils/format';
-import { getFeeTypeColor, getFeeTypeName } from '@/utils/fees';
+import { formatCurrency, formatDate } from '@/utils/format';
+import { getFeePeriodLabel, getFeeTypeColor, getFeeTypeName } from '@/utils/fees';
 import GenerateFeesDialog from '@/components/fees/GenerateFeesDialog.vue';
 import CreateFeeDialog from '@/components/fees/CreateFeeDialog.vue';
 import SearchInput from '@/components/SearchInput.vue';
@@ -649,7 +649,7 @@ async function onFeeCreated() {
                 </span>
               </td>
               <td class="px-4 py-3 text-muted-foreground">
-                {{ fee.month ? formatMonthName(fee.month) + ' ' : '' }}{{ fee.year }}
+                {{ getFeePeriodLabel(fee) }}
               </td>
               <td class="px-4 py-3 text-right font-medium">
                 {{ formatCurrency(fee.amount) }}

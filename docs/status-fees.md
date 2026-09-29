@@ -3,6 +3,24 @@
 Rolling change log of non-obvious implementation decisions. Newest first.
 Basics (ports, commands, layout) live in `AGENTS.md`.
 
+## Eltern-Ansicht: Beiträge, Meine Daten, Mahngebühr-Bezug (2026-09-29)
+
+- **E-Mail des anderen Elternteils** ist für Eltern immer schreibgeschützt, auch ohne dessen Login
+  (`ParentAccountService.ParentContact` lehnt Änderungen ab; ändern können sie nur die Person selbst oder der
+  Vorstand). `hasLogin` ist aus `GET /me` entfernt.
+- **Beiträge (`/familie/beitraege`):** kompakte Tabelle mit farbigem Chip je Beitragsart; die Karte „Offen“
+  filtert auf offene Beiträge („Alle anzeigen“ hebt den Filter auf). Bezahlte Beiträge zeigen das Buchungsdatum
+  der letzten zugeordneten Überweisung (`paidAt` in `GET /me/fees`, nur wenn vollständig bezahlt).
+- **Mahngebühr am Beitrag:** `GET /me/fees` liefert `reminderForId` und Art/Jahr/Monat des Grundbeitrags; eine
+  Mahngebühr zählt zum Jahr ihres Grundbeitrags und steht direkt darunter. In der Admin-Beitragsliste liefert
+  `GET /fees` `reminderFor` (Art, Jahr, Monat); die Spalte Zeitraum zeigt „zu Essensgeld September 2026“
+  (`getFeePeriodLabel`, auch in Kinderdetails für Mahngebühren ohne sichtbaren Grundbeitrag). Die
+  Erinnerungsmails nannten den Grundbeitrag bereits.
+- **Meine Daten:** gemeinsames 12-Spalten-Raster (Adressfelder bündig über alle Karten), niedrigere Felder,
+  Stammdaten der Kinder in einer Zeile; der Hinweis „Änderungen daran bitte über Fehler melden“ ist entfernt.
+- **Elternstunden:** Kita-Jahre ab 2025/26 (erste Regel gilt ab 01.08.2025) bis zum nächsten Jahr.
+- **Übersicht:** Untertitel unter „Hallo …!“ entfernt.
+
 ## Suchfelder, Benutzerliste, Austrittsdatum für mehrere Kinder (2026-09-29)
 
 - **Einheitliche Suchfelder:** Alle Suchen nutzen `components/SearchInput.vue` (Lupe links, optionaler
