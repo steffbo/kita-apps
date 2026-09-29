@@ -56,6 +56,7 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 			// Refresh and logout authenticate via the httpOnly refresh cookie.
 			r.Post("/refresh", handlers.Auth.Refresh)
 			r.Post("/logout", handlers.Auth.Logout)
+			r.Post("/invitation-password", handlers.Invitation.SetPassword)
 		})
 
 		// Public childcare fee calculator
@@ -99,6 +100,9 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 				r.Use(customMiddleware.RequireRole(string(domain.UserRoleAdmin)))
 				r.Get("/", handlers.User.List)
 				r.Post("/", handlers.User.Create)
+				r.Get("/invitation-candidates", handlers.Invitation.Candidates)
+				r.Post("/invitations", handlers.Invitation.Invite)
+				r.Post("/{id}/invitation", handlers.Invitation.Resend)
 				r.Put("/{id}", handlers.User.Update)
 				r.Post("/{id}/password", handlers.User.SetPassword)
 				r.Post("/{id}/impersonate", handlers.User.Impersonate)
@@ -301,6 +305,7 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 type Handlers struct {
 	Auth             *handler.AuthHandler
 	User             *handler.UserHandler
+	Invitation       *handler.AccountInvitationHandler
 	Child            *handler.ChildHandler
 	ChildImport      *handler.ChildImportHandler
 	ChildNote        *handler.ChildNoteHandler

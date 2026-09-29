@@ -82,6 +82,41 @@ paths:
       summary: Change own password
       tags:
         - Auth
+  /auth/invitation-password:
+    post:
+      description: Invalid or expired tokens are throttled per IP and return the same
+        response.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InvitationPasswordRequest"
+        description: Invitation token and password
+        required: true
+      responses:
+        "204":
+          description: Password set
+        "400":
+          description: Invalid password
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Invalid or expired token
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "429":
+          description: Too many attempts
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      summary: Set first password with invitation token
+      tags:
+        - Auth
   /auth/login:
     post:
       description: Authenticate with email and password. Returns the access token and
@@ -5686,6 +5721,47 @@ paths:
       summary: Act as another user
       tags:
         - Users
+  "/users/{id}/invitation":
+    post:
+      parameters:
+        - description: User ID (UUID)
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Invitation sent
+        "400":
+          description: No pending invitation
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Admin role required
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: User not found
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Resend pending account invitation
+      tags:
+        - Users
   "/users/{id}/password":
     post:
       description: Sets a new password (admin reset) and ends the account's sessions.
@@ -5739,6 +5815,73 @@ paths:
       security:
         - BearerAuth: []
       summary: Set user password
+      tags:
+        - Users
+  /users/invitation-candidates:
+    get:
+      responses:
+        "200":
+          description: Candidates
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/repository.InvitationCandidate"
+                type: array
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Admin role required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: List parent invitation candidates
+      tags:
+        - Users
+  /users/invitations:
+    post:
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/InviteParentsRequest"
+        description: Parent IDs
+        required: true
+      responses:
+        "200":
+          description: Result for each parent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InviteParentsResponse"
+        "400":
+          description: Invalid request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Admin role required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Invite selected parents
       tags:
         - Users
 tags:
@@ -7134,6 +7277,35 @@ components:
         - total
         - totalPages
       type: object
+    InvitationPasswordRequest:
+      properties:
+        password:
+          minLength: 8
+          type: string
+        token:
+          type: string
+      required:
+        - password
+        - token
+      type: object
+    InviteParentsRequest:
+      properties:
+        parentIds:
+          items:
+            type: string
+          type: array
+      required:
+        - parentIds
+      type: object
+    InviteParentsResponse:
+      properties:
+        results:
+          items:
+            $ref: "#/components/schemas/service.InvitationResult"
+          type: array
+      required:
+        - results
+      type: object
     LedgerEntry:
       description: Ledger entry for a child
       properties:
@@ -8187,6 +8359,8 @@ components:
           type: string
         id:
           type: string
+        invitationPending:
+          type: boolean
         isActive:
           type: boolean
         lastName:
@@ -8210,6 +8384,7 @@ components:
         - createdAt
         - email
         - id
+        - invitationPending
         - isActive
         - role
         - updatedAt
@@ -9831,6 +10006,25 @@ components:
         - field
         - id
       type: object
+    repository.InvitationCandidate:
+      properties:
+        ambiguous:
+          type: boolean
+        email:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        parentId:
+          type: string
+      required:
+        - ambiguous
+        - email
+        - firstName
+        - lastName
+        - parentId
+      type: object
     repository.ParentFeeRow:
       properties:
         amount:
@@ -10096,6 +10290,20 @@ components:
       required:
         - child
         - index
+      type: object
+    service.InvitationResult:
+      properties:
+        email:
+          type: string
+        error:
+          type: string
+        parentId:
+          type: string
+        success:
+          type: boolean
+      required:
+        - parentId
+        - success
       type: object
     service.OwnChildInput:
       properties:

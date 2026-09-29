@@ -24,7 +24,7 @@ func NewPostgresUserRepository(db *sqlx.DB) *PostgresUserRepository {
 
 const userColumns = `u.id, u.email, u.password_hash, u.first_name, u.last_name, u.role,
     u.parent_id, NULLIF(CONCAT_WS(' ', p.first_name, p.last_name), '') AS parent_name,
-    u.is_active, u.created_at, u.updated_at`
+    u.is_active, u.invitation_pending, u.created_at, u.updated_at`
 
 // List returns all users, admins first, then by email.
 func (r *PostgresUserRepository) List(ctx context.Context) ([]domain.User, error) {
@@ -117,7 +117,8 @@ func (r *PostgresUserRepository) ParentLinkedToOther(
 // UpdatePassword replaces the password hash.
 func (r *PostgresUserRepository) UpdatePassword(ctx context.Context, id uuid.UUID, passwordHash string) error {
 	result, err := conn(ctx, r.db).ExecContext(ctx, `
-		UPDATE fees.users SET password_hash = $2, updated_at = NOW() WHERE id = $1
+		UPDATE fees.users SET password_hash = $2, invitation_pending = FALSE,
+            updated_at = NOW() WHERE id = $1
 	`, id, passwordHash)
 	if err != nil {
 		return err

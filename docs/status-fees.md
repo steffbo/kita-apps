@@ -3,6 +3,29 @@
 Rolling change log of non-obvious implementation decisions. Newest first.
 Basics (ports, commands, layout) live in `AGENTS.md`.
 
+## Eltern gesammelt einladen (2026-09-29)
+
+- Seite „Benutzer“ → „Eltern einladen“: Der Dialog listet Eltern mit Kontakt-E-Mail ohne Konto (weder per
+  `parent_id` verknüpft noch Login-E-Mail gleich, ohne Groß-/Kleinschreibung). Mehrere Eltern mit derselben
+  E-Mail erscheinen einmal und ausgegraut, weil die Verknüpfung nicht eindeutig wäre. Für jede Auswahl
+  entsteht ein `PARENT`-Konto über dieselbe Verknüpfungslogik wie bei der Einzelanlage, ohne Passwort.
+  Das Ergebnis kommt je Elternteil (Teilerfolg möglich); ohne SMTP wird kein Konto angelegt.
+- Konten mit `fees.users.invitation_pending` (Migration `000043`) können sich nicht anmelden; der Login
+  prüft dabei gegen den Dummy-Hash, damit der Zustand nicht über die Antwortzeit sichtbar wird. Die Liste
+  zeigt „Einladung ausstehend“ und „Einladung erneut senden“ (neuer Token, alter ungültig). Ein
+  Admin-Passwort-Reset beendet den Zustand ebenfalls.
+- Token: 32 Zufallsbytes (hex), in `fees.account_invitations` nur als SHA-256-Hash, ein Token je Konto,
+  7 Tage gültig, einmal verwendbar (Löschen und Passwort setzen in einer Anweisung). Link:
+  `APP_BASE_URL` + `/passwort-setzen?token=…`; `APP_BASE_URL` enthält den Basispfad (Default
+  `http://localhost:5175/beitraege`, live `https://kita.remer.cc/beitraege` in der Homelab-Compose).
+  `POST /auth/invitation-password` ist öffentlich und steht unter einer eigenen `LoginLimiter`-Instanz.
+  Danach landet man auf dem Login mit Erfolgshinweis.
+- Die Mail (du-Form, wie die Erinnerungen) wird als `ACCOUNT_INVITATION` im E-Mail-Log gespeichert, der Link
+  darin als `token=[ausgeblendet]`.
+- API (`ADMIN`): `GET /users/invitation-candidates`, `POST /users/invitations`,
+  `POST /users/{id}/invitation`. Umgesetzt von Codex (gpt-6-sol), danach geprüft und nachgebessert
+  (Login-Timing, Mailtext).
+
 ## Navigation, Eltern-Änderungen, Bankabgleich, Jahresübersicht (2026-09-29)
 
 - **Hauptmenü als Split-Button:** Der Gruppenname verlinkt auf die erste Unterseite der Gruppe (z. B.

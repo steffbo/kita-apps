@@ -104,6 +104,7 @@ function toggleEmailLogsSort(): void {
         <option value="MEMBERSHIP_REMINDER_INITIAL">Vereinsbeitrag Erinnerung</option>
         <option value="MEMBERSHIP_REMINDER_FINAL">Vereinsbeitrag Mahnung</option>
         <option value="PASSWORD_RESET">Passwort-Reset</option>
+        <option value="ACCOUNT_INVITATION">Kontoeinladung</option>
       </select>
 
       <div class="relative flex-1 min-w-[200px]">

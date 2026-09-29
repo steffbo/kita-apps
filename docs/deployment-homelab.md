@@ -57,6 +57,8 @@ ansible-playbook playbooks/deploy-app.yml -e "app=kita" \
 
 The inventory still references a legacy key that is absent on this workstation. Use the one-run override above; do not create a replacement at the legacy path. The playbook deploys the database, `backend-fees`, and both banking-sync containers.
 
+The playbook syncs `stacks/infra-dev/apps/kita/compose.yml` from the local homelab checkout, so compose changes take effect without pushing the homelab repo. Non-secret settings like `APP_BASE_URL=https://kita.remer.cc/beitraege` (base for invitation links) live there. Secrets stay in the encrypted `.env`.
+
 If the command is interrupted or its result is otherwise unclear, treat the deployment state as unknown. Inspect the containers and deployed revisions before deciding whether a retry is needed.
 
 ### 4. Database migrations

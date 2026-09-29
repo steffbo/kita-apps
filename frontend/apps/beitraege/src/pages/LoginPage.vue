@@ -34,6 +34,10 @@ async function handleSubmit() {
       <!-- Login Card -->
       <div class="rounded-2xl border bg-card p-8 text-card-foreground shadow-lg">
         <h2 class="text-xl font-semibold mb-6">Anmelden</h2>
+        <p v-if="route.query.eingeladen === '1'"
+          class="mb-4 rounded-xl bg-green-50 p-3 text-sm text-green-700 dark:bg-green-950/40 dark:text-green-300">
+          Dein Passwort ist gesetzt. Du kannst dich jetzt anmelden.
+        </p>
 
         <form @submit.prevent="handleSubmit" class="space-y-4">
           <!-- Email -->

@@ -91,6 +91,11 @@ func (s *AuthService) Authenticate(ctx context.Context, email, password string) 
 		}
 		return nil, err
 	}
+	if user.InvitationPending {
+		// No password yet: same bcrypt cost as a wrong password, so the state does not leak via timing.
+		auth.CheckPassword(password, dummyPasswordHash)
+		return nil, ErrUnauthorized
+	}
 	if !auth.CheckPassword(password, user.PasswordHash) || !user.IsActive {
 		return nil, ErrUnauthorized
 	}

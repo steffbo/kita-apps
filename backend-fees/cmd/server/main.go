@@ -124,6 +124,8 @@ func main() {
 		log.Info().Str("email", cfg.User.Username).Msg("Created admin user from USER_NAME/USER_PASSWORD")
 	}
 	userService := service.NewUserService(userRepo, refreshTokenRepo)
+	invitationService := service.NewAccountInvitationService(userRepo,
+		repository.NewAccountInvitationRepository(db), emailLogRepo, emailService, cfg.SMTP.BaseURL)
 
 	childService := service.NewChildService(childRepo, parentRepo, householdRepo)
 	parentService := service.NewParentService(parentRepo, childRepo, memberRepo, householdRepo)
@@ -147,7 +149,10 @@ func main() {
 	handlers := &api.Handlers{
 		Auth: handler.NewAuthHandler(authService, jwtService,
 			auth.NewLoginLimiter(auth.DefaultLoginMaxPerAccount, auth.DefaultLoginMaxPerIP, auth.DefaultLoginWindow)),
-		User:        handler.NewUserHandler(userService, jwtService),
+		User: handler.NewUserHandler(userService, jwtService),
+		Invitation: handler.NewAccountInvitationHandler(invitationService,
+			auth.NewLoginLimiter(auth.DefaultLoginMaxPerAccount,
+				auth.DefaultLoginMaxPerIP, auth.DefaultLoginWindow)),
 		Child:       handler.NewChildHandler(childService, feeService, coverageService),
 		ChildImport: handler.NewChildImportHandler(childImportService),
 		ChildNote:   handler.NewChildNoteHandler(childNoteService),

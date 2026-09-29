@@ -132,6 +132,75 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/invitation-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Set first password with invitation token
+         * @description Invalid or expired tokens are throttled per IP and return the same response.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Invitation token and password */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["InvitationPasswordRequest"];
+                };
+            };
+            responses: {
+                /** @description Password set */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Invalid password */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Invalid or expired token */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Too many attempts */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/login": {
         parameters: {
             query?: never;
@@ -8778,6 +8847,79 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/users/{id}/invitation": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Resend pending account invitation */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description User ID (UUID) */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Invitation sent */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description No pending invitation */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Admin role required */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description User not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/users/{id}/password": {
         parameters: {
             query?: never;
@@ -8858,6 +9000,128 @@ export interface paths {
                     };
                     content: {
                         "*/*": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/invitation-candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List parent invitation candidates */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Candidates */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["repository.InvitationCandidate"][];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Admin role required */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/users/invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Invite selected parents */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Parent IDs */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["InviteParentsRequest"];
+                };
+            };
+            responses: {
+                /** @description Result for each parent */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["InviteParentsResponse"];
+                    };
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Admin role required */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
                     };
                 };
             };
@@ -9524,6 +9788,16 @@ export interface components {
             /** @example 1 */
             totalPages: number;
         };
+        InvitationPasswordRequest: {
+            password: string;
+            token: string;
+        };
+        InviteParentsRequest: {
+            parentIds: string[];
+        };
+        InviteParentsResponse: {
+            results: components["schemas"]["service.InvitationResult"][];
+        };
         /** @description Ledger entry for a child */
         LedgerEntry: {
             /** @example 45.4 */
@@ -10104,6 +10378,7 @@ export interface components {
             /** @example Max */
             firstName?: string;
             id: string;
+            invitationPending: boolean;
             isActive: boolean;
             /** @example Mustermann */
             lastName?: string;
@@ -10769,6 +11044,13 @@ export interface components {
             parentId?: string;
             userId?: string;
         };
+        "repository.InvitationCandidate": {
+            ambiguous: boolean;
+            email: string;
+            firstName: string;
+            lastName: string;
+            parentId: string;
+        };
         "repository.ParentFeeRow": {
             amount: number;
             childId: string;
@@ -10872,6 +11154,12 @@ export interface components {
             mergeParents?: boolean;
             parent1?: components["schemas"]["service.ParentPreview"];
             parent2?: components["schemas"]["service.ParentPreview"];
+        };
+        "service.InvitationResult": {
+            email?: string;
+            error?: string;
+            parentId: string;
+            success: boolean;
         };
         "service.OwnChildInput": {
             birthDate: string;

@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { RouterLink } from 'vue-router';
 import { onMounted, onUnmounted, ref } from 'vue';
-import { KeyRound, Loader2, Pencil, Plus, VenetianMask } from 'lucide-vue-next';
+import { KeyRound, Loader2, MailPlus, Pencil, Plus, Send, VenetianMask } from 'lucide-vue-next';
 import { api } from '@/api';
 import type { UserAccount } from '@/api/types';
 import { useAuthStore } from '@/stores/auth';
@@ -9,6 +9,7 @@ import { formatDate } from '@/utils/format';
 import { userRoleLabel } from '@/utils/userRole';
 import UserFormDialog from '@/components/users/UserFormDialog.vue';
 import SetUserPasswordDialog from '@/components/users/SetUserPasswordDialog.vue';
+import InviteParentsDialog from '@/components/users/InviteParentsDialog.vue';
 
 const authStore = useAuthStore();
 
@@ -23,6 +24,8 @@ const impersonatingId = ref<string | null>(null);
 const showForm = ref(false);
 const formUser = ref<UserAccount | null>(null);
 const passwordUser = ref<UserAccount | null>(null);
+const showInvitations = ref(false);
+const resendingId = ref<string | null>(null);
 
 async function loadUsers() {
   isLoading.value = true;
@@ -38,6 +41,20 @@ async function loadUsers() {
 
 function displayName(user: UserAccount): string {
   return [user.firstName, user.lastName].filter(Boolean).join(' ') || '—';
+}
+
+function statusLabel(user: UserAccount): string {
+  if (user.invitationPending) return 'Einladung ausstehend';
+  return user.isActive ? 'Aktiv' : 'Deaktiviert';
+}
+
+function statusClass(user: UserAccount): string {
+  if (user.invitationPending) {
+    return 'bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300';
+  }
+  return user.isActive
+    ? 'bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-300'
+    : 'bg-muted text-muted-foreground';
 }
 
 function isSelf(user: UserAccount | null): boolean {
@@ -82,10 +99,24 @@ function onPasswordSaved() {
   passwordUser.value = null;
 }
 
+async function resendInvitation(user: UserAccount) {
+  actionError.value = null;
+  resendingId.value = user.id;
+  try {
+    await api.resendInvitation(user.id);
+    notice.value = `Einladung an ${user.email} erneut gesendet.`;
+  } catch (e) {
+    actionError.value = e instanceof Error ? e.message : 'Einladung konnte nicht gesendet werden.';
+  } finally {
+    resendingId.value = null;
+  }
+}
+
 function handleKeydown(e: KeyboardEvent) {
   if (e.key !== 'Escape') return;
   showForm.value = false;
   passwordUser.value = null;
+  showInvitations.value = false;
 }
 
 onMounted(() => {
@@ -105,13 +136,17 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown));
           laufende Sitzungen enden spätestens nach 15 Minuten.
         </p>
       </div>
-      <button
-        @click="openCreate"
-        class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90"
-      >
-        <Plus class="h-4 w-4" />
-        Benutzer anlegen
-      </button>
+      <div class="flex flex-wrap gap-2">
+        <button type="button" @click="showInvitations = true"
+          class="inline-flex items-center gap-2 rounded-lg border px-4 py-2 hover:bg-accent">
+          <MailPlus class="h-4 w-4" /> Eltern einladen
+        </button>
+        <button @click="openCreate"
+          class="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2
+            text-primary-foreground hover:bg-primary/90">
+          <Plus class="h-4 w-4" /> Benutzer anlegen
+        </button>
+      </div>
     </div>
 
     <div v-if="notice" class="mb-4 p-3 bg-green-50 dark:bg-green-950/40 border border-green-200 rounded-lg text-sm text-green-700 dark:text-green-300 flex justify-between gap-2">
@@ -159,9 +194,9 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown));
             <td class="px-4 py-3">
               <span
                 class="px-2 py-0.5 rounded-full text-xs font-medium"
-                :class="user.isActive ? 'bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-300' : 'bg-muted text-muted-foreground'"
+                :class="statusClass(user)"
               >
-                {{ user.isActive ? 'Aktiv' : 'Deaktiviert' }}
+                {{ statusLabel(user) }}
               </span>
             </td>
             <td class="px-4 py-3">{{ formatDate(user.createdAt) }}</td>
@@ -182,6 +217,12 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown));
                 >
                   <KeyRound class="h-4 w-4" />
                 </button>
+                <button v-if="user.invitationPending" type="button"
+                  class="rounded-lg border p-2 hover:bg-accent disabled:opacity-50"
+                  :disabled="resendingId !== null" @click="resendInvitation(user)"
+                  aria-label="Einladung erneut senden" title="Einladung erneut senden">
+                  <Send class="h-4 w-4" />
+                </button>
                 <button
                   v-if="canImpersonate(user)"
                   @click="impersonate(user)"
@@ -198,6 +239,8 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown));
       </table>
     </div>
 
+    <InviteParentsDialog v-if="showInvitations" @close="showInvitations = false"
+      @changed="loadUsers" />
     <UserFormDialog
       v-if="showForm"
       :user="formUser"

@@ -27,10 +27,11 @@ const apiPrefix = "/api/fees/v1"
 // Routes that answer without a bearer token. Everything else under the API
 // prefix must reject anonymous requests before a handler runs.
 var publicRoutes = map[string]bool{
-	"POST " + apiPrefix + "/auth/login":             true,
-	"POST " + apiPrefix + "/auth/refresh":           true,
-	"POST " + apiPrefix + "/auth/logout":            true,
-	"GET " + apiPrefix + "/childcare-fee/calculate": true,
+	"POST " + apiPrefix + "/auth/login":               true,
+	"POST " + apiPrefix + "/auth/refresh":             true,
+	"POST " + apiPrefix + "/auth/logout":              true,
+	"POST " + apiPrefix + "/auth/invitation-password": true,
+	"GET " + apiPrefix + "/childcare-fee/calculate":   true,
 }
 
 // Routes restricted to role ADMIN (RequireRole in router.go).
@@ -51,6 +52,9 @@ var adminRoutes = []string{
 	"DELETE /fee-schedules/{id}",
 	"GET /users/",
 	"POST /users/",
+	"GET /users/invitation-candidates",
+	"POST /users/invitations",
+	"POST /users/{id}/invitation",
 	"PUT /users/{id}",
 	"POST /users/{id}/password",
 	"POST /users/{id}/impersonate",
@@ -70,7 +74,12 @@ func testRouter(t *testing.T, importToken string) (http.Handler, *auth.JWTServic
 	cfg.Import.Token = importToken
 	workRepo := routerParentWorkRepo{}
 	workHandler := handler.NewParentWorkHandler(service.NewParentWorkService(workRepo))
-	return NewRouter(cfg, &Handlers{JWTService: jwtService, ParentWork: workHandler}), jwtService
+	invitation := handler.NewAccountInvitationHandler(nil,
+		auth.NewLoginLimiter(auth.DefaultLoginMaxPerAccount,
+			auth.DefaultLoginMaxPerIP, auth.DefaultLoginWindow))
+	return NewRouter(cfg, &Handlers{
+		JWTService: jwtService, ParentWork: workHandler, Invitation: invitation,
+	}), jwtService
 }
 
 type routerParentWorkRepo struct {
@@ -142,6 +151,17 @@ func TestRouter_AdminRoutesRejectUserRole(t *testing.T) {
 				t.Fatalf("status %d, want 403", rec.Code)
 			}
 		})
+	}
+}
+
+func TestRouter_InvitationPasswordIsPublic(t *testing.T) {
+	router, _ := testRouter(t, "")
+	req := httptest.NewRequest(http.MethodPost, apiPrefix+"/auth/invitation-password",
+		strings.NewReader("{"))
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("öffentliche Route: %d, erwartet 400", rec.Code)
 	}
 }
 

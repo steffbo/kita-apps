@@ -80,6 +80,7 @@ import type {
   FeeScheduleRequest,
   ChangePasswordRequest,
   UserAccount,
+  InvitationCandidate, InviteParentsResponse,
   UserAccountRequest,
   CreateUserAccountRequest,
   ParentWorkOverview, ParentWorkDetail, ParentWorkHouseholdOption,
@@ -96,7 +97,8 @@ import { todayISO } from '@/utils/format';
 const API_BASE = '/api/fees/v1';
 
 // Auth endpoints that must not trigger a refresh-and-retry on 401.
-const NO_REFRESH_PATHS = ['/auth/login', '/auth/refresh', '/auth/logout'];
+const NO_REFRESH_PATHS = ['/auth/login', '/auth/refresh', '/auth/logout',
+  '/auth/invitation-password'];
 
 class ApiClient {
   // Access token in memory only; the refresh token is an httpOnly cookie.
@@ -291,6 +293,26 @@ class ApiClient {
   // User management (admin)
   async getUsers(): Promise<UserAccount[]> {
     return (await this.request<UserAccount[] | null>('/users')) ?? [];
+  }
+
+  async getInvitationCandidates(): Promise<InvitationCandidate[]> {
+    return this.request<InvitationCandidate[]>('/users/invitation-candidates');
+  }
+
+  async inviteParents(parentIds: string[]): Promise<InviteParentsResponse> {
+    return this.request<InviteParentsResponse>('/users/invitations', {
+      method: 'POST', body: JSON.stringify({ parentIds }),
+    });
+  }
+
+  async resendInvitation(id: string): Promise<void> {
+    return this.request<void>(`/users/${encodeURIComponent(id)}/invitation`, { method: 'POST' });
+  }
+
+  async setInvitationPassword(token: string, password: string): Promise<void> {
+    return this.request<void>('/auth/invitation-password', {
+      method: 'POST', body: JSON.stringify({ token, password }),
+    });
   }
 
   async createUser(data: CreateUserAccountRequest): Promise<UserAccount> {

@@ -57,6 +57,8 @@ export function formatEmailType(type: string): string {
       return 'Vereinsbeitrag Erinnerung';
     case 'MEMBERSHIP_REMINDER_FINAL':
       return 'Vereinsbeitrag Mahnung';
+    case 'ACCOUNT_INVITATION':
+      return 'Kontoeinladung';
     case 'PASSWORD_RESET':
       return 'Passwort-Reset';
     default:

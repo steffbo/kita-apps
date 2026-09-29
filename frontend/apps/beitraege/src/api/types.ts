@@ -51,6 +51,8 @@ export type ChangePasswordRequest = Schema['ChangePasswordRequest'];
 
 // ── User management (admin) ──────────────────────────────────────────────────
 export type UserAccount = Schema['UserAccount'];
+export type InvitationCandidate = Schema['repository.InvitationCandidate'];
+export type InviteParentsResponse = Schema['InviteParentsResponse'];
 export type UserRole = UserAccount['role'];
 export type UserAccountRequest = Schema['UserAccountRequest'];
 export type CreateUserAccountRequest = Schema['CreateUserAccountRequest'];
@@ -132,6 +134,7 @@ export type EmailLogType =
   | 'MEMBERSHIP_REMINDER_INITIAL'
   | 'MEMBERSHIP_REMINDER_FINAL'
   | 'PASSWORD_RESET'
+  | 'ACCOUNT_INVITATION'
   | string;
 
 export interface EmailLog {

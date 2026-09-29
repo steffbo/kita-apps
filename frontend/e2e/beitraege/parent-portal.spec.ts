@@ -91,7 +91,7 @@ test('Eltern sehen nur die eigene Familie; Meldungen und Änderungen gehen an St
       await adminPage.getByLabel('Status').selectOption('DONE');
       await expect(reported).toContainText('Erledigt');
       await expect(reported).toContainText('E2E ist korrigiert');
-      await adminPage.goto('/beitraege/');
+      await adminPage.goto('/beitraege/aenderungen');
       await expect(adminPage.getByRole('listitem').filter({ hasText: 'E2E Bitte Kontaktdaten prüfen' }))
         .toContainText('erledigt');
       await page.goto('/beitraege/familie');

@@ -36,7 +36,7 @@ type SMTPConfig struct {
 	Username string
 	Password string
 	UseTLS   bool
-	BaseURL  string // Base URL for password reset links
+	BaseURL  string // Base URL for account links
 }
 
 // ServerConfig holds HTTP server configuration.
@@ -100,7 +100,7 @@ func Load() *Config {
 			Username: getEnv("SMTP_USERNAME", ""),
 			Password: getEnv("SMTP_PASSWORD", ""),
 			UseTLS:   getEnvBool("SMTP_USE_TLS", true),
-			BaseURL:  getEnv("APP_BASE_URL", "http://localhost:5175"),
+			BaseURL:  getEnv("APP_BASE_URL", "http://localhost:5175/beitraege"),
 		},
 		BankingSync: BankingSyncConfig{
 			BaseURL: getEnv("BANKING_SYNC_URL", ""),

@@ -11,6 +11,12 @@ const router = createRouter({
       meta: { requiresAuth: false },
     },
     {
+      path: '/passwort-setzen',
+      name: 'invitation-password',
+      component: () => import('@/pages/InvitationPasswordPage.vue'),
+      meta: { requiresAuth: false },
+    },
+    {
       path: '/',
       component: () => import('@/layouts/MainLayout.vue'),
       meta: { requiresAuth: true },
