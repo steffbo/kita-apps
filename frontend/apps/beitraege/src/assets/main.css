@@ -5,7 +5,8 @@
 @layer base {
   :root {
     color-scheme: light;
-    --background: 245 251 233;
+    /* Neutral page background so the white content surfaces stand out; green stays in header and accents. */
+    --background: 244 245 241;
     --foreground: 36 51 41;
     --card: 255 255 255;
     --card-foreground: 36 51 41;

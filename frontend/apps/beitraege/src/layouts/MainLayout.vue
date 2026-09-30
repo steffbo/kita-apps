@@ -69,7 +69,8 @@ function isActive(path: string) {
   if (path === '/elternstunden') {
     return route.path === path || route.path.startsWith('/elternstunden/familien/');
   }
-  return route.path.startsWith(path);
+  // Match whole path segments: '/eltern' must not light up on '/elternstunden'.
+  return route.path === path || route.path.startsWith(`${path}/`);
 }
 
 function groupActive(items: { to: string }[]) {

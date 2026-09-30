@@ -3,6 +3,22 @@
 Rolling change log of non-obvious implementation decisions. Newest first.
 Basics (ports, commands, layout) live in `AGENTS.md`.
 
+## Navigation, Seitenhintergrund, Meine Daten mit Familienadresse (2026-09-30)
+
+- **Navigation:** `isActive` vergleicht ganze Pfadsegmente (`/eltern` passt nicht mehr auf `/elternstunden`);
+  vorher leuchtete „Verwaltung“ auf der Elternstunden-Übersicht mit.
+- **Seitenhintergrund (hell):** `--background` ist ein neutrales Hellgrau (`244 245 241`) statt Hellgrün, damit
+  sich die weißen Karten und Tabellen abheben. Grün bleibt im Header, in Tabellenköpfen und Akzenten.
+- **Meine Daten:** Alle Felder in zwei gleich breiten Spalten (max. `2xl`) statt 12-Spalten-Raster mit
+  unterschiedlichen Breiten; Stammdaten der Kinder (Mitgliedsnummer, Eintritt …) als Liste untereinander.
+- **Familienadresse:** Die Adresse bleibt pro Elternteil und Kind gespeichert (kein Datenmodell-Umbau: Admin-Seiten,
+  Einstufung und Import arbeiten mit der Adresse pro Person). Haben alle Personen der Familie dieselbe, nicht leere
+  Adresse (Vergleich ohne Groß-/Kleinschreibung und Leerzeichen am Rand), zeigt die Seite sie einmal als
+  „Adresse der Familie“; Speichern schreibt sie über die bestehenden `/me/**`-Endpunkte an alle (jede Änderung
+  wird wie bisher in `fees.data_changes` protokolliert). „Abweichende Adresse für einzelne Personen“ blendet die
+  Felder pro Person wieder ein. Weichen Adressen ab, übernimmt „Adresse übernehmen“ die eigene Adresse in die
+  Karte des anderen Elternteils oder eines Kindes (Speichern bleibt ein eigener Schritt).
+
 ## Eltern-Ansicht: Beiträge, Meine Daten, Mahngebühr-Bezug (2026-09-29)
 
 - **E-Mail des anderen Elternteils** ist für Eltern immer schreibgeschützt, auch ohne dessen Login
