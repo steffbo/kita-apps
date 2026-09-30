@@ -101,7 +101,7 @@ async function handleLinkParent() {
         <h2 class="text-xl font-semibold">
           {{ parentDialogMode === 'create' ? 'Elternteil anlegen' : 'Elternteil verknüpfen' }}
         </h2>
-        <button @click="$emit('close')" class="p-1 hover:bg-accent rounded">
+        <button @click="$emit('close')" class="p-1 hover:bg-accent rounded" aria-label="Schließen">
           <X class="h-5 w-5" />
         </button>
       </div>

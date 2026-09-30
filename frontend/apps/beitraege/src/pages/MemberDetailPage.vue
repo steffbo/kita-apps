@@ -285,7 +285,7 @@ async function handleToggleActive() {
       <div class="bg-card rounded-xl shadow-xl w-full max-w-md mx-4 p-6 max-h-[90vh] overflow-y-auto">
         <div class="flex items-center justify-between mb-6">
           <h2 class="text-xl font-semibold">Mitglied bearbeiten</h2>
-          <button @click="showEditDialog = false" class="p-1 hover:bg-accent rounded">
+          <button @click="showEditDialog = false" class="p-1 hover:bg-accent rounded" aria-label="Schließen">
             <X class="h-5 w-5" />
           </button>
         </div>

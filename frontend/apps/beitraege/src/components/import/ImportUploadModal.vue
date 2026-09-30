@@ -178,7 +178,7 @@ function resetUpload(): void {
     <div class="bg-card rounded-xl shadow-xl max-w-3xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
       <div class="p-4 border-b flex items-center justify-between">
         <h2 class="text-lg font-semibold">CSV hochladen</h2>
-        <button @click="$emit('close')" class="text-muted-foreground hover:text-muted-foreground">
+        <button @click="$emit('close')" class="text-muted-foreground hover:text-muted-foreground" aria-label="Schließen">
           <XCircle class="h-5 w-5" />
         </button>
       </div>

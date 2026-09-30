@@ -232,7 +232,7 @@ onUnmounted(() => {
         <h2 class="text-xl font-semibold">
           {{ noteDialogMode === 'create' ? 'Notiz erstellen' : 'Notiz bearbeiten' }}
         </h2>
-        <button @click="showNoteDialog = false" class="p-1 hover:bg-accent rounded">
+        <button @click="showNoteDialog = false" class="p-1 hover:bg-accent rounded" aria-label="Schließen">
           <X class="h-5 w-5" />
         </button>
       </div>

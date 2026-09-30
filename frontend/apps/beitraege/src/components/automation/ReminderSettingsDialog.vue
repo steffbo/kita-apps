@@ -67,7 +67,7 @@ onMounted(loadReminderSettings);
     <div class="bg-card rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col">
       <div class="flex items-start justify-between gap-4 p-5 border-b">
         <h3 class="text-lg font-semibold text-foreground">Zahlungsdaten für QR-Code</h3>
-        <button type="button" class="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground" @click="$emit('close')">
+        <button type="button" class="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground" @click="$emit('close')" aria-label="Schließen">
           <X class="h-5 w-5" />
         </button>
       </div>

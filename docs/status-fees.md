@@ -3,6 +3,20 @@
 Rolling change log of non-obvious implementation decisions. Newest first.
 Basics (ports, commands, layout) live in `AGENTS.md`.
 
+## Esc schließt Dialoge, Dauer-Auswahl für Elternstunden (2026-09-30)
+
+- **Esc:** `utils/dialogEscape.ts` (in `main.ts` installiert) schließt app-weit den obersten offenen Dialog
+  (`aria-modal` oder Overlay `fixed inset-0`). Er klickt dessen Schließen-Element: `[data-dialog-close]`, einen
+  Button mit `aria-label` „Schließen“ oder einen Button „Abbrechen“/„Schließen“. Neue Dialoge brauchen eines davon.
+  Reine Icon-Buttons (X) zum Schließen haben dafür `aria-label="Schließen"` bekommen. Die älteren Esc-Handler
+  einzelner Seiten bleiben; der globale Handler läuft vorher und stoppt das Ereignis, damit nicht zwei Dialoge
+  auf einmal zugehen.
+- **Dauer:** `components/parent-work/DurationPicker.vue` ersetzt das Stunden-Zahlenfeld in „Stunden melden“
+  (Eltern) und „Stunden erfassen/bearbeiten“ (Verwaltung): Schnellwahl Stunden 0–8 (mehr per Zahlenfeld) und
+  Minuten 0/15/30/45, z. B. 2,5 h mit zwei Klicks („2“, „30“). Werte bleiben Minuten in Viertelstunden.
+- **Stunden melden (Eltern):** Die optionalen Felder Mitglied und Kind sind entfallen; die API akzeptiert sie
+  weiterhin, die Eltern-Oberfläche sendet sie nicht mehr.
+
 ## Einladung auch für bestehende Konten (vorübergehend), kompakte Bankabgleich-Tabelle (2026-09-30)
 
 - **Einladen mit bestehendem Konto (vorübergehend):** Damit Stefan die Einladung auf Production testen kann,

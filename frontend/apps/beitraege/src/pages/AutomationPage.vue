@@ -754,7 +754,7 @@ watch(
           <h3 class="text-lg font-semibold text-foreground">
             {{ stage === 'final' ? 'Mahnung senden?' : 'Erinnerung senden?' }}
           </h3>
-          <button type="button" class="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground" @click="showConfirmModal = false">
+          <button type="button" class="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground" @click="showConfirmModal = false" aria-label="Schließen">
             <X class="h-5 w-5" />
           </button>
         </div>

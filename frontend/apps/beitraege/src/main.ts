@@ -3,6 +3,7 @@ import { createPinia } from 'pinia';
 
 import App from './App.vue';
 import router from './router';
+import { installDialogEscape } from './utils/dialogEscape';
 import '@fontsource-variable/nunito';
 
 import './assets/main.css';
@@ -13,3 +14,4 @@ app.use(createPinia());
 app.use(router);
 
 app.mount('#app');
+installDialogEscape();

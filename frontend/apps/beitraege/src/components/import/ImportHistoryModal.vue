@@ -54,7 +54,7 @@ onMounted(loadHistory);
           <button @click="loadHistory" class="text-sm text-muted-foreground hover:text-foreground underline">
             Aktualisieren
           </button>
-          <button @click="$emit('close')" class="text-muted-foreground hover:text-muted-foreground">
+          <button @click="$emit('close')" class="text-muted-foreground hover:text-muted-foreground" aria-label="Schließen">
             <XCircle class="h-5 w-5" />
           </button>
         </div>

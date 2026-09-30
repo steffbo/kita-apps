@@ -43,7 +43,14 @@ test('Eltern sehen nur die eigene Familie; Meldungen und Änderungen gehen an St
       await page.getByRole('link', { name: 'Elternstunden' }).click();
       await page.getByRole('button', { name: 'Stunden melden' }).click();
       const form = page.getByRole('dialog', { name: 'Stunden melden' });
-      await form.getByLabel('Stunden').fill('2.5');
+      // Esc closes dialogs app-wide.
+      await page.keyboard.press('Escape');
+      await expect(form).toHaveCount(0);
+      await page.getByRole('button', { name: 'Stunden melden' }).click();
+      await expect(form.getByLabel('Kind (optional)')).toHaveCount(0);
+      await form.getByRole('group', { name: 'Stunden' }).getByRole('button', { name: '2', exact: true }).click();
+      await form.getByRole('group', { name: 'Minuten' }).getByRole('button', { name: '30', exact: true }).click();
+      await expect(form.getByText('Dauer: 2,5 h')).toBeVisible();
       await form.getByLabel('Anlass').fill('Sommerfest E2E');
       await form.getByRole('button', { name: 'Melden' }).click();
       await expect(page.getByText('Eingereicht')).toBeVisible();

@@ -768,7 +768,7 @@ const visiblePages = computed(() => {
       <div class="bg-card rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
         <div class="flex items-center justify-between mb-6">
           <h2 class="text-xl font-semibold">Kind hinzufügen</h2>
-          <button @click="showCreateDialog = false" class="p-1 hover:bg-accent rounded">
+          <button @click="showCreateDialog = false" class="p-1 hover:bg-accent rounded" aria-label="Schließen">
             <X class="h-5 w-5" />
           </button>
         </div>

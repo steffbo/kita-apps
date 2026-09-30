@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import { api } from '@/api';
-import type { OwnOverview, OwnWork, OwnWorkEntry } from '@/api/types';
+import type { OwnWork, OwnWorkEntry } from '@/api/types';
 import { formatCurrency, formatDate, formatHours, todayISO } from '@/utils/format';
 import ReportDialog from '@/components/family/ReportDialog.vue';
+import DurationPicker from '@/components/parent-work/DurationPicker.vue';
 const berlinDate = todayISO();
 const currentYear = Number(berlinDate.slice(0, 4));
 const year = ref(Number(berlinDate.slice(5, 7)) >= 8 ? currentYear : currentYear - 1);
@@ -11,17 +12,14 @@ const year = ref(Number(berlinDate.slice(5, 7)) >= 8 ? currentYear : currentYear
 const firstYear = 2025;
 const years = Array.from({ length: year.value + 2 - firstYear }, (_, i) => year.value + 1 - i);
 const work = ref<OwnWork | null>(null);
-const overview = ref<OwnOverview | null>(null);
 const error = ref('');
 const actionError = ref('');
 const showForm = ref(false);
 const withdraw = ref<OwnWorkEntry | null>(null);
 const reportId = ref<string | null>(null);
 const date = ref(todayISO());
-const hours = ref<number | null>(null);
+const minutes = ref<number | null>(null);
 const occasion = ref('');
-const memberName = ref('');
-const childName = ref('');
 const saving = ref(false);
 const progress = computed(() => work.value?.requiredMinutes
   ? Math.min(100, 100 * work.value.doneMinutes / work.value.requiredMinutes) : 0);
@@ -33,22 +31,15 @@ async function load() {
   try { work.value = await api.getOwnWork(year.value); }
   catch (e) { error.value = e instanceof Error ? e.message : 'Elternstunden konnten nicht geladen werden'; }
 }
-onMounted(async () => {
-  await load();
-  try { overview.value = await api.getOwnOverview(); } catch { /* Work page can still show the account. */ }
-});
+onMounted(load);
 watch(year, load);
 async function submit() {
-  const minutes = Math.round((hours.value ?? 0) * 60);
-  if (!hours.value || minutes % 15 || minutes / 60 !== hours.value) {
-    actionError.value = 'Bitte Stunden in Viertelstunden eingeben.'; return;
-  }
+  if (!minutes.value) { actionError.value = 'Bitte die Dauer wählen.'; return; }
   saving.value = true; actionError.value = '';
   try {
-    await api.submitOwnWork({ workDate: date.value, durationMinutes: minutes,
-      occasion: occasion.value.trim(), memberName: memberName.value || undefined,
-      childName: childName.value || undefined });
-    showForm.value = false; hours.value = null; occasion.value = ''; await load();
+    await api.submitOwnWork({ workDate: date.value, durationMinutes: minutes.value,
+      occasion: occasion.value.trim() });
+    showForm.value = false; minutes.value = null; occasion.value = ''; await load();
   } catch (e) { actionError.value = e instanceof Error ? e.message : 'Meldung fehlgeschlagen'; }
   finally { saving.value = false; }
 }
@@ -125,20 +116,10 @@ async function confirmWithdraw() {
         <h2 class="text-xl font-bold">Stunden melden</h2>
         <label class="block text-sm font-medium">Datum
           <input v-model="date" type="date" :max="todayISO()" required
-            class="mt-1 w-full rounded-lg border px-3 py-2" /></label>
-        <label class="block text-sm font-medium">Stunden
-          <input v-model.number="hours" type="number" min="0.25" step="0.25" required
-            class="mt-1 w-full rounded-lg border px-3 py-2" /></label>
+            class="mt-1 block w-full rounded-lg border px-3 py-2 sm:w-56" /></label>
+        <DurationPicker v-model="minutes" label="Dauer" />
         <label class="block text-sm font-medium">Anlass
           <input v-model="occasion" required class="mt-1 w-full rounded-lg border px-3 py-2" /></label>
-        <label class="block text-sm font-medium">Mitglied (optional)
-          <input v-model="memberName" class="mt-1 w-full rounded-lg border px-3 py-2" /></label>
-        <label class="block text-sm font-medium">Kind (optional)
-          <select v-model="childName" class="mt-1 w-full rounded-lg border px-3 py-2">
-            <option value="">Ohne Auswahl</option>
-            <option v-for="child in overview?.children ?? []" :key="child.id"
-              :value="`${child.firstName} ${child.lastName}`">{{ child.firstName }} {{ child.lastName }}</option>
-          </select></label>
         <p v-if="actionError" role="alert" class="text-red-700 dark:text-red-300">{{ actionError }}</p>
         <div class="flex justify-end gap-2"><button type="button" class="rounded-lg border px-4 py-2"
           @click="showForm = false">Abbrechen</button>

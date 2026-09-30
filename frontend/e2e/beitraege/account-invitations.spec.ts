@@ -29,8 +29,11 @@ test('admin selects parents and sees individual invitation results', async ({ ad
   });
 
   await page.goto('/beitraege/benutzer');
-  await page.getByRole('button', { name: 'Eltern einladen' }).click();
   const dialog = page.getByRole('dialog', { name: 'Eltern einladen' });
+  await page.getByRole('button', { name: 'Eltern einladen' }).click();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await page.getByRole('button', { name: 'Eltern einladen' }).click();
   await expect(dialog.getByRole('checkbox', { name: /doppelt@e2e.test/ })).toBeDisabled();
   await expect(dialog.getByText('Kinder: Ida Test, Ole Test')).toBeVisible();
   // Temporary: existing accounts are listed but not part of „Alle auswählen“.

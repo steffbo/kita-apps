@@ -195,7 +195,7 @@ const displayedFeeCandidates = computed<ScoredFee[]>(() => {
       <div class="p-4 border-b">
         <div class="flex items-center justify-between">
           <h2 class="text-lg font-semibold">Transaktion manuell zuordnen</h2>
-          <button @click="$emit('close')" class="text-muted-foreground hover:text-muted-foreground">
+          <button @click="$emit('close')" class="text-muted-foreground hover:text-muted-foreground" aria-label="Schließen">
             <XCircle class="h-5 w-5" />
           </button>
         </div>

@@ -62,7 +62,7 @@ async function confirmTransactionAction(): Promise<void> {
           </div>
           <h2 class="text-xl font-semibold">Transaktionsdetails</h2>
         </div>
-        <button @click="$emit('close')" class="p-1 hover:bg-accent rounded">
+        <button @click="$emit('close')" class="p-1 hover:bg-accent rounded" aria-label="Schließen">
           <X class="h-5 w-5" />
         </button>
       </div>

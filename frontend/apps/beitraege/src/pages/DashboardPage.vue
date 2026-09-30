@@ -619,6 +619,7 @@ function formatHoursLabel(hours: number | null | undefined): string {
             <button
               @click="showStichtagModal = false"
               class="p-2 text-muted-foreground hover:text-muted-foreground rounded-lg hover:bg-accent"
+              aria-label="Schließen"
             >
               <X class="h-5 w-5" />
             </button>
