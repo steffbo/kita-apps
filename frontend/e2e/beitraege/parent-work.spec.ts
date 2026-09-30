@@ -72,9 +72,8 @@ test('work entry reduces the open account and voiding restores it', async ({ adm
   await page.getByRole('button', { name: 'Stunden erfassen' }).click();
   const dialog = page.getByRole('dialog', { name: 'Stunden erfassen' });
   await expect(dialog).toContainText(`Familie: ${family.householdName}`);
-  await expect(dialog.getByText('Noch keine Dauer gewählt.')).toBeVisible();
-  await dialog.getByRole('group', { name: 'Stunden' }).getByRole('button', { name: '2', exact: true }).click();
-  await dialog.getByRole('group', { name: 'Minuten' }).getByRole('button', { name: '30', exact: true }).click();
+  await expect(dialog.getByLabel('Dauer *')).toHaveValue('');
+  await dialog.getByLabel('Dauer *').fill('2:30');
   await dialog.getByLabel('Anlass *').fill('E2E Gartenarbeit');
   await dialog.getByRole('button', { name: 'Speichern' }).click();
   await expect(dialog).toBeHidden();
@@ -194,7 +193,7 @@ test('overview: row button opens the entry form with the family preselected', as
   await expect(dialog).toContainText(`Familie: ${family.householdName}`);
   await expect(dialog.getByLabel('Mitglied')).toHaveCount(0);
   await expect(dialog.getByLabel('Kind')).toHaveCount(0);
-  await dialog.getByRole('group', { name: 'Stunden' }).getByRole('button', { name: '2', exact: true }).click();
+  await dialog.getByRole('button', { name: '2 Std.', exact: true }).click();
   await dialog.getByLabel('Anlass *').fill('E2E Zeilenbutton');
   await dialog.getByRole('button', { name: 'Speichern' }).click();
   await expect(dialog).toBeHidden();

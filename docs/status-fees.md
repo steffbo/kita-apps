@@ -3,7 +3,7 @@
 Rolling change log of non-obvious implementation decisions. Newest first.
 Basics (ports, commands, layout) live in `AGENTS.md`.
 
-## Esc schließt Dialoge, Dauer-Auswahl für Elternstunden (2026-09-30)
+## Esc schließt Dialoge, Dauer-Auswahl für Elternstunden, deutsche Validierung (2026-09-30)
 
 - **Esc:** `utils/dialogEscape.ts` (in `main.ts` installiert) schließt app-weit den obersten offenen Dialog
   (`aria-modal` oder Overlay `fixed inset-0`). Er klickt dessen Schließen-Element: `[data-dialog-close]`, einen
@@ -12,8 +12,15 @@ Basics (ports, commands, layout) live in `AGENTS.md`.
   einzelner Seiten bleiben; der globale Handler läuft vorher und stoppt das Ereignis, damit nicht zwei Dialoge
   auf einmal zugehen.
 - **Dauer:** `components/parent-work/DurationPicker.vue` ersetzt das Stunden-Zahlenfeld in „Stunden melden“
-  (Eltern) und „Stunden erfassen/bearbeiten“ (Verwaltung): Schnellwahl Stunden 0–8 (mehr per Zahlenfeld) und
-  Minuten 0/15/30/45, z. B. 2,5 h mit zwei Klicks („2“, „30“). Werte bleiben Minuten in Viertelstunden.
+  (Eltern) und „Stunden erfassen/bearbeiten“ (Verwaltung). Nach Rückmeldung (Stunden-/Minuten-Kacheln wirkten
+  unruhig) ist es ein Textfeld mit ±15-Minuten-Knöpfen, das „2,5“, „2:30“, „2h30“ oder „150 min“ versteht und
+  daneben „2 Std. 30 Min.“ ausschreibt, plus Schnellwahl-Chips 0,5/1/1,5/2/2,5/3/4 Std. (2,5 h = ein Klick).
+  Anlehnung an übliche Zeiterfassungs-Muster: ein freies Feld mit toleranter Eingabe statt getrennter
+  Stunden/Minuten-Picker. Werte bleiben Minuten in Viertelstunden (sonst Hinweis am Feld).
+- **Validierung auf Deutsch:** `utils/germanValidation.ts` (in `main.ts`) setzt für alle nativen
+  Pflichtfeld-/Format-Meldungen deutsche Texte („Bitte dieses Feld ausfüllen.“ usw.), weil die Browser sonst in
+  ihrer Oberflächensprache melden. Vor jedem Absenden werden die Meldungen zurückgesetzt, damit per Code gesetzte
+  Werte nicht blockieren.
 - **Stunden melden (Eltern):** Die optionalen Felder Mitglied und Kind sind entfallen; die API akzeptiert sie
   weiterhin, die Eltern-Oberfläche sendet sie nicht mehr.
 

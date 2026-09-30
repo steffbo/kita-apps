@@ -48,9 +48,12 @@ test('Eltern sehen nur die eigene Familie; Meldungen und Änderungen gehen an St
       await expect(form).toHaveCount(0);
       await page.getByRole('button', { name: 'Stunden melden' }).click();
       await expect(form.getByLabel('Kind (optional)')).toHaveCount(0);
-      await form.getByRole('group', { name: 'Stunden' }).getByRole('button', { name: '2', exact: true }).click();
-      await form.getByRole('group', { name: 'Minuten' }).getByRole('button', { name: '30', exact: true }).click();
-      await expect(form.getByText('Dauer: 2,5 h')).toBeVisible();
+      await form.getByRole('button', { name: '2,5 Std.' }).click();
+      await expect(form.getByText('2 Std. 30 Min.')).toBeVisible();
+      // Native validation bubbles speak German.
+      await form.getByRole('button', { name: 'Melden' }).click();
+      await expect.poll(() => form.getByLabel('Anlass').evaluate((el) => (el as HTMLInputElement).validationMessage))
+        .toBe('Bitte dieses Feld ausfüllen.');
       await form.getByLabel('Anlass').fill('Sommerfest E2E');
       await form.getByRole('button', { name: 'Melden' }).click();
       await expect(page.getByText('Eingereicht')).toBeVisible();
