@@ -111,13 +111,17 @@ func TestAccountInvitations(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(candidates) != 3 {
-		t.Fatalf("Kandidaten: %d, erwartet 3: %+v", len(candidates), candidates)
+	// Temporarily the own linked PARENT account is a candidate too (UserID set).
+	if len(candidates) != 4 {
+		t.Fatalf("Kandidaten: %d, erwartet 4: %+v", len(candidates), candidates)
 	}
 	var duplicateID uuid.UUID
 	for _, c := range candidates {
-		if c.ParentID == old.ID {
-			t.Error("bestehendes Konto als Kandidat")
+		if c.ParentID == old.ID && (c.UserID == nil || *c.UserID != existingUser.ID) {
+			t.Errorf("bestehendes Konto nicht markiert: %+v", c)
+		}
+		if c.ParentID != old.ID && c.UserID != nil {
+			t.Errorf("Konto bei %s gesetzt", c.FirstName)
 		}
 		if c.ParentID == former.ID {
 			t.Error("Elternteil ohne aktives Kind als Kandidat")
@@ -190,6 +194,21 @@ func TestAccountInvitations(t *testing.T) {
 	}
 	if err := svc.SetPassword(ctx, newToken, "new-password"); !errors.Is(err, service.ErrNotFound) {
 		t.Errorf("abgelaufener Token: %v", err)
+	}
+
+	// Existing account: new set-password link, old password stops working once pending.
+	results, err = svc.Invite(ctx, []uuid.UUID{old.ID}, existingUser.ID)
+	if err != nil || len(results) != 1 || !results[0].Success {
+		t.Fatalf("Einladung bestehendes Konto: %+v, %v", results, err)
+	}
+	if _, err := authSvc.Authenticate(ctx, existing, "password1"); !errors.Is(err, service.ErrUnauthorized) {
+		t.Errorf("Login mit altem Passwort: %v", err)
+	}
+	if err := svc.SetPassword(ctx, tokenFromMail(t, sender.bodies[3]), "renewed-pass"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := authSvc.Authenticate(ctx, existing, "renewed-pass"); err != nil {
+		t.Errorf("Login nach neuem Passwort: %v", err)
 	}
 }
 

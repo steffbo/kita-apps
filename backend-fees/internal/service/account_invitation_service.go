@@ -90,6 +90,9 @@ func (s *AccountInvitationService) inviteOne(ctx context.Context,
 	if s.sender == nil || !s.sender.IsEnabled() {
 		return "E-Mail-Versand ist nicht eingerichtet"
 	}
+	if c.UserID != nil {
+		return s.reinviteOne(ctx, c, actorID)
+	}
 	input := UserInput{Email: c.Email, FirstName: &c.FirstName, LastName: &c.LastName,
 		Role: domain.UserRolePARENT, IsActive: true}
 	if err := input.normalize(); err != nil {
@@ -111,6 +114,24 @@ func (s *AccountInvitationService) inviteOne(ctx context.Context,
 		return mapUserRepoError(err).Error()
 	}
 	if err := s.send(ctx, user, actorID); err != nil {
+		return err.Error()
+	}
+	return ""
+}
+
+// reinviteOne sends a new set-password link to an existing account (temporary, see
+// repository.InvitationCandidate). A failed mail restores the previous login.
+func (s *AccountInvitationService) reinviteOne(ctx context.Context,
+	c repository.InvitationCandidate, actorID uuid.UUID) string {
+	if err := s.invitations.Reopen(ctx, *c.UserID, c.ParentID); err != nil {
+		return mapUserRepoError(err).Error()
+	}
+	user, err := s.users.GetByID(ctx, *c.UserID)
+	if err == nil {
+		err = s.send(ctx, user, actorID)
+	}
+	if err != nil {
+		_ = s.invitations.Unreopen(ctx, *c.UserID)
 		return err.Error()
 	}
 	return ""

@@ -9973,6 +9973,9 @@ components:
           type: string
         parentId:
           type: string
+        userId:
+          description: UserID is the existing account of the parent (temporary, see above).
+          type: string
       required:
         - ambiguous
         - children

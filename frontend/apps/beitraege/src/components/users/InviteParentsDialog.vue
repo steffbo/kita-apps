@@ -10,7 +10,9 @@ const results = ref<InviteParentsResponse['results']>([]);
 const loading = ref(true);
 const sending = ref(false);
 const error = ref('');
-const selectable = computed(() => candidates.value.filter((item) => !item.ambiguous));
+// Temporary: parents with an existing account are listed too (new set-password link) but are
+// never part of „Alle auswählen“.
+const selectable = computed(() => candidates.value.filter((item) => !item.ambiguous && !item.userId));
 const allSelected = computed(() => selectable.value.length > 0 &&
   selectable.value.every((item) => selected.value.includes(item.parentId)));
 
@@ -80,6 +82,10 @@ onMounted(load);
               <span class="ml-2 break-all">{{ item.email }}</span>
               <span class="block text-xs text-muted-foreground">
                 {{ item.children.length === 1 ? 'Kind' : 'Kinder' }}: {{ item.children.join(', ') }}
+              </span>
+              <span v-if="item.userId" class="block text-xs text-amber-700 dark:text-amber-300">
+                Hat bereits ein Konto: Die Einladung setzt das Passwort zurück, Anmeldung erst nach
+                Setzen des neuen Passworts.
               </span>
               <span v-if="item.ambiguous" class="block text-xs">
                 Mehrere Elternteile haben diese E-Mail-Adresse.

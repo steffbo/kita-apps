@@ -724,7 +724,7 @@ function getWarningTypeColor(type: string): string {
           <thead class="bg-muted">
             <tr class="text-left text-sm text-muted-foreground">
               <th
-                class="px-4 py-3 font-medium cursor-pointer hover:bg-accent select-none"
+                class="px-3 py-3 font-medium cursor-pointer hover:bg-accent select-none"
                 @click="toggleSort('date')"
               >
                 <div class="flex items-center gap-1">
@@ -735,7 +735,7 @@ function getWarningTypeColor(type: string): string {
                 </div>
               </th>
               <th
-                class="px-4 py-3 font-medium cursor-pointer hover:bg-accent select-none"
+                class="px-3 py-3 font-medium cursor-pointer hover:bg-accent select-none"
                 @click="toggleSort('payer')"
               >
                 <div class="flex items-center gap-1">
@@ -746,7 +746,7 @@ function getWarningTypeColor(type: string): string {
                 </div>
               </th>
               <th
-                class="px-4 py-3 font-medium cursor-pointer hover:bg-accent select-none"
+                class="px-3 py-3 font-medium cursor-pointer hover:bg-accent select-none"
                 @click="toggleSort('description')"
               >
                 <div class="flex items-center gap-1">
@@ -757,7 +757,7 @@ function getWarningTypeColor(type: string): string {
                 </div>
               </th>
               <th
-                class="px-4 py-3 font-medium text-right cursor-pointer hover:bg-accent select-none"
+                class="px-3 py-3 font-medium text-right cursor-pointer hover:bg-accent select-none"
                 @click="toggleSort('amount')"
               >
                 <div class="flex items-center justify-end gap-1">
@@ -767,19 +767,19 @@ function getWarningTypeColor(type: string): string {
                   <ArrowUpDown v-else class="h-4 w-4 text-muted-foreground" />
                 </div>
               </th>
-              <th class="px-4 py-3 font-medium">Status</th>
-              <th class="px-4 py-3 font-medium text-right">Aktionen</th>
+              <th class="px-3 py-3 font-medium">Status</th>
+              <th class="px-3 py-3 font-medium text-right">Aktionen</th>
             </tr>
           </thead>
           <tbody>
             <template v-for="row in pagedRows" :key="row.key">
               <tr class="border-t hover:bg-accent">
-                <td class="px-4 py-3 text-muted-foreground whitespace-nowrap">
+                <td class="px-3 py-3 text-muted-foreground whitespace-nowrap">
                   {{ formatDate(row.tx.bookingDate) }}
                 </td>
-                <td class="px-4 py-3">
+                <td class="px-3 py-3">
                   <div class="font-medium">{{ row.tx.payerName || 'Unbekannt' }}</div>
-                  <div v-if="row.tx.payerIban" class="text-xs text-muted-foreground font-mono">
+                  <div v-if="row.tx.payerIban" class="text-xs text-muted-foreground font-mono whitespace-nowrap">
                     {{ row.tx.payerIban }}
                   </div>
                   <template v-for="warning in row.warnings" :key="warning.id">
@@ -792,18 +792,18 @@ function getWarningTypeColor(type: string): string {
                     </router-link>
                   </template>
                 </td>
-                <td class="px-4 py-3 text-muted-foreground truncate max-w-xs">
+                <td class="px-3 py-3 text-muted-foreground truncate max-w-[14rem]">
                   {{ row.tx.description }}
                 </td>
                 <td
                   :class="[
-                    'px-4 py-3 text-right font-medium whitespace-nowrap',
+                    'px-3 py-3 text-right font-medium whitespace-nowrap',
                     row.matched ? 'text-green-600 dark:text-green-300' : '',
                   ]"
                 >
                   {{ formatCurrency(row.tx.amount) }}
                 </td>
-                <td class="px-4 py-3">
+                <td class="px-3 py-3">
                   <div class="flex flex-col items-start gap-1.5">
                     <span
                       v-if="isPartiallyAllocated(row)"
@@ -853,10 +853,10 @@ function getWarningTypeColor(type: string): string {
                     </button>
                   </div>
                 </td>
-                <td class="px-4 py-3 text-right">
+                <td class="px-3 py-3 text-right">
                   <!-- Unmatched actions -->
                   <template v-if="!row.matched">
-                    <div v-if="dismissConfirmId === row.tx.id" class="flex items-center justify-end gap-2">
+                    <div v-if="dismissConfirmId === row.tx.id" class="flex flex-wrap items-center justify-end gap-1.5">
                       <span class="text-xs text-muted-foreground">Ignorieren?</span>
                       <button
                         @click="dismissTransaction(row.tx)"
@@ -871,7 +871,7 @@ function getWarningTypeColor(type: string): string {
                         Nein
                       </button>
                     </div>
-                    <div v-else-if="hideConfirmId === row.tx.id" class="flex items-center justify-end gap-2">
+                    <div v-else-if="hideConfirmId === row.tx.id" class="flex flex-wrap items-center justify-end gap-1.5">
                       <span class="text-xs text-muted-foreground">Ausblenden?</span>
                       <button
                         @click="hideTransaction(row.tx)"
@@ -886,7 +886,7 @@ function getWarningTypeColor(type: string): string {
                         Nein
                       </button>
                     </div>
-                    <div v-else class="flex items-center justify-end gap-2">
+                    <div v-else class="flex flex-col items-end gap-0.5">
                       <button
                         @click="openManualMatch(row.tx)"
                         class="inline-flex items-center gap-1 px-2 py-1 text-xs text-primary hover:text-primary/80 hover:bg-primary/10 rounded transition-colors"
@@ -920,7 +920,7 @@ function getWarningTypeColor(type: string): string {
 
                   <!-- Matched actions -->
                   <template v-else>
-                    <div v-if="unmatchConfirmId === row.tx.id" class="flex items-center justify-end gap-2">
+                    <div v-if="unmatchConfirmId === row.tx.id" class="flex flex-wrap items-center justify-end gap-1.5">
                       <span class="text-xs text-muted-foreground">Zuordnung aufheben?</span>
                       <button
                         @click="unmatchTransaction(row.tx)"
@@ -935,7 +935,7 @@ function getWarningTypeColor(type: string): string {
                         Nein
                       </button>
                     </div>
-                    <div v-else-if="deleteConfirmId === row.tx.id" class="flex items-center justify-end gap-2">
+                    <div v-else-if="deleteConfirmId === row.tx.id" class="flex flex-wrap items-center justify-end gap-1.5">
                       <span class="text-xs text-muted-foreground">Transaktion löschen?</span>
                       <button
                         @click="unmatchTransaction(row.tx, true)"
@@ -950,7 +950,7 @@ function getWarningTypeColor(type: string): string {
                         Nein
                       </button>
                     </div>
-                    <div v-else class="flex items-center justify-end gap-2">
+                    <div v-else class="flex flex-col items-end gap-0.5">
                       <button
                         @click="showUnmatchConfirm(row.tx.id)"
                         :disabled="isUnmatching === row.tx.id || isDeletingMatched === row.tx.id"

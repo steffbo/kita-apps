@@ -10998,6 +10998,8 @@ export interface components {
             firstName: string;
             lastName: string;
             parentId: string;
+            /** @description UserID is the existing account of the parent (temporary, see above). */
+            userId?: string;
         };
         "repository.ParentFeeRow": {
             amount: number;

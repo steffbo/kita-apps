@@ -3,6 +3,19 @@
 Rolling change log of non-obvious implementation decisions. Newest first.
 Basics (ports, commands, layout) live in `AGENTS.md`.
 
+## Einladung auch für bestehende Konten (vorübergehend), kompakte Bankabgleich-Tabelle (2026-09-30)
+
+- **Einladen mit bestehendem Konto (vorübergehend):** Damit Stefan die Einladung auf Production testen kann,
+  ohne Daten zu löschen, liefert `GET /users/invitation-candidates` auch Eltern mit aktivem Kind, deren eigenes
+  verknüpftes, aktives `PARENT`-Konto schon existiert (`userId` gesetzt). Andere Konten mit derselben E-Mail
+  oder Eltern-Verknüpfung schließen weiter aus. `POST /users/invitations` setzt für sie `invitation_pending`
+  wieder und schickt einen neuen Passwort-Link; bis das neue Passwort gesetzt ist, ist die Anmeldung gesperrt.
+  Schlägt der Mailversand fehl, wird `invitation_pending` zurückgesetzt, das alte Passwort gilt weiter. Im
+  Dialog steht ein Hinweis, und „Alle auswählen“ nimmt diese Eltern nicht mit. Nach dem Test wieder entfernen
+  (`Candidates` in `account_invitation_repository.go`, `reinviteOne` im Service).
+- **Bankabgleich:** Die Tabelle passt ab 1280 px ohne horizontales Scrollen: Aktionen stehen untereinander statt
+  nebeneinander, Zellen sind schmaler gepolstert, die Beschreibung wird früher gekürzt.
+
 ## Meine Daten nur lesbar bis auf E-Mail/Telefon, Frist bei Beiträgen, Einladungen nur aktive Familien (2026-09-30)
 
 - **Entscheidung (Stefan):** Eltern ändern selbst nur noch die eigene E-Mail (= Login, bleibt mit
