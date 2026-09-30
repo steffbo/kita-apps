@@ -40,6 +40,18 @@ function period(fee: FeeRow) {
   return getFeePeriodLabel({ year: fee.year, month: fee.month, reminderFor: fee.baseFeeType
     ? { feeType: fee.baseFeeType, year: fee.baseYear ?? fee.year, month: fee.baseMonth } : undefined });
 }
+// Days until the due date (negative when overdue), both as Berlin calendar dates.
+function daysUntil(dueDate: string) {
+  const day = (iso: string) => Date.UTC(+iso.slice(0, 4), +iso.slice(5, 7) - 1, +iso.slice(8, 10));
+  return Math.round((day(dueDate.slice(0, 10)) - day(todayISO())) / 86_400_000);
+}
+function deadline(dueDate: string) {
+  const days = daysUntil(dueDate);
+  if (days > 1) return `noch ${days} Tage`;
+  if (days === 1) return 'morgen fällig';
+  if (days === 0) return 'heute fällig';
+  return days === -1 ? 'seit 1 Tag überfällig' : `seit ${-days} Tagen überfällig`;
+}
 async function load() {
   error.value = '';
   try { fees.value = await api.getOwnFees(year.value); }
@@ -109,6 +121,9 @@ onMounted(load); watch(year, load);
                   {{ status[fee.status] ?? fee.status }}</span>
                 <span v-if="fee.paidAt" class="ml-2 text-xs text-muted-foreground">
                   am {{ formatDate(fee.paidAt) }}</span>
+                <span v-else-if="fee.status !== 'PAID'" class="ml-2 text-xs"
+                  :class="daysUntil(fee.dueDate) < 0 ? 'text-red-700 dark:text-red-300' : 'text-muted-foreground'">
+                  {{ deadline(fee.dueDate) }}</span>
               </td>
               <td class="px-2 py-2 text-right">
                 <button type="button" title="Fehler melden"

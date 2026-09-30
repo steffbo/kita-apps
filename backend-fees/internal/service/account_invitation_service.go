@@ -47,7 +47,7 @@ type InvitationResult struct {
 }
 
 func (s *AccountInvitationService) Candidates(ctx context.Context) ([]repository.InvitationCandidate, error) {
-	return s.invitations.Candidates(ctx)
+	return s.invitations.Candidates(ctx, util.Today())
 }
 
 func (s *AccountInvitationService) Invite(ctx context.Context, parentIDs []uuid.UUID,

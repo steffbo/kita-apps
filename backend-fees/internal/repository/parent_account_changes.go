@@ -99,7 +99,10 @@ func (r *ParentAccountRepository) saveContact(ctx context.Context, parentID, use
 		return ErrEmailRequired
 	}
 	for _, field := range []string{"email", "phone", "street", "street_no", "postal_code", "city"} {
-		value := fields[field]
+		value, provided := fields[field]
+		if !provided {
+			continue
+		}
 		before := previous[field]
 		if sameValue(before, value) {
 			continue
@@ -154,64 +157,6 @@ func (r *ParentAccountRepository) UpdateLinkedUser(ctx context.Context, user *do
 		util.Now())
 	if err != nil {
 		return mapUniqueViolation(err)
-	}
-	return tx.Commit()
-}
-
-func (r *ParentAccountRepository) SaveChild(ctx context.Context, child *domain.Child, parentID,
-	userID uuid.UUID) error {
-	tx, err := r.db.BeginTxx(ctx, nil)
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-	var old struct {
-		FirstName  string    `db:"first_name"`
-		LastName   string    `db:"last_name"`
-		BirthDate  time.Time `db:"birth_date"`
-		Street     *string   `db:"street"`
-		StreetNo   *string   `db:"street_no"`
-		PostalCode *string   `db:"postal_code"`
-		City       *string   `db:"city"`
-	}
-	err = tx.GetContext(ctx, &old,
-		`SELECT first_name,last_name,birth_date,street,street_no,postal_code,city FROM
-	fees.children WHERE id=$1 AND household_id=(SELECT household_id FROM fees.parents WHERE
-	id=$2) FOR UPDATE
-	`, child.ID, parentID)
-	if errors.Is(err, sql.ErrNoRows) {
-		return ErrNotFound
-	}
-	if err != nil {
-		return err
-	}
-	_, err = tx.ExecContext(ctx,
-		`UPDATE fees.children SET
-	first_name=$2,last_name=$3,birth_date=$4,street=$5,street_no=$6,postal_code=$7,city=$8,updated_at=$9
-	WHERE id=$1
-	`, child.ID, child.FirstName, child.LastName, child.BirthDate, child.Street, child.StreetNo, child.PostalCode, child.City, util.Now())
-	if err != nil {
-		return err
-	}
-	values := []struct {
-		field         string
-		before, after *string
-	}{
-		{"first_name", &old.FirstName, &child.FirstName}, {"last_name", &old.LastName, &child.LastName},
-		{"street", old.Street, child.Street}, {"street_no", old.StreetNo, child.StreetNo},
-		{"postal_code", old.PostalCode, child.PostalCode}, {"city", old.City, child.City}}
-	oldDate, newDate := old.BirthDate.Format("2006-01-02"), child.BirthDate.Format("2006-01-02")
-	values = append(values, struct {
-		field         string
-		before, after *string
-	}{"birth_date", &oldDate, &newDate})
-	for _, v := range values {
-		if !sameValue(v.before, v.after) {
-			if err = auditChange(ctx, tx, "CHILD", child.ID, &parentID, userID, v.field, v.before,
-				v.after); err != nil {
-				return err
-			}
-		}
 	}
 	return tx.Commit()
 }

@@ -42,6 +42,10 @@ Alle Seiten/Komponenten von festen `gray-*`/`white`-Klassen auf Tokens (`bg-card
   ebenfalls mit Audit-Log. Nur lesbar: Betreuungszeit, Rechtsanspruch, außerdem Mitgliedsnummer und
   Ein-/Austrittsdatum (Vertragsdaten, Annahme). Eltern können einen Fehler melden (Freitext, optional mit
   Bezug auf Kind/Beitrag/Elternstunden); Meldungen erscheinen im Admin-Feed und werden dort erledigt.
+- Nachtrag (2026-09-30, ersetzt die Nachträge zu Kinderdaten und Adressen): Eltern ändern selbst nur noch
+  ihre eigene E-Mail (= Login) und Telefonnummern (eigene und die des anderen Elternteils). Namen,
+  Geburtsdatum und Adressen von Eltern und Kindern sind nur lesbar; Korrekturen laufen über „Fehler melden“,
+  damit der Vorstand falsche Daten abfängt (Geburtsdatum bestimmt z. B. U3/Ü3).
 - E-Mail-Änderung ändert auch den Login: Kontakt-E-Mail des Elternteils und Login-E-Mail des verknüpften
   Kontos bleiben immer gleich (auch wenn der Admin die E-Mail des Elternteils ändert).
 - Eltern dürfen Elternstunden melden; gemeldete Stunden zählen erst nach Bestätigung (Tim/Admin).

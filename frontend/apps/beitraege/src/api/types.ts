@@ -67,7 +67,6 @@ export type ParentReport = Schema['repository.ParentReport'];
 export type ParentActivity = Schema['repository.Activity'];
 export type DataChange = Schema['repository.DataChange'];
 export type OwnContactRequest = Schema['handler.ownContactRequest'];
-export type OwnChildRequest = Schema['service.OwnChildInput'];
 export type ReportRequest = Schema['service.ReportInput'];
 
 // ── Reminder settings and runs ───────────────────────────────────────────────

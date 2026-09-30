@@ -6175,50 +6175,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/me/children/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Eigene Kinderdaten ändern */
-        put: {
-            parameters: {
-                query?: never;
-                header?: never;
-                path: {
-                    /** @description Kind */
-                    id: string;
-                };
-                cookie?: never;
-            };
-            /** @description Kinderdaten */
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["service.OwnChildInput"];
-                };
-            };
-            responses: {
-                /** @description OK */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "*/*": components["schemas"]["handler.ownChild"];
-                    };
-                };
-            };
-        };
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/me/contact": {
         parameters: {
             query?: never;
@@ -10910,12 +10866,8 @@ export interface components {
             streetNo?: string;
         };
         "handler.ownContactRequest": {
-            city?: string;
             email?: string;
             phone?: string;
-            postalCode?: string;
-            street?: string;
-            streetNo?: string;
         };
         "handler.ownFees": {
             items: components["schemas"]["repository.ParentFeeRow"][];
@@ -11040,6 +10992,8 @@ export interface components {
         };
         "repository.InvitationCandidate": {
             ambiguous: boolean;
+            /** @description Children lists the parent's active children ("Vorname Nachname"). */
+            children: string[];
             email: string;
             firstName: string;
             lastName: string;
@@ -11161,15 +11115,6 @@ export interface components {
             error?: string;
             parentId: string;
             success: boolean;
-        };
-        "service.OwnChildInput": {
-            birthDate: string;
-            city?: string;
-            firstName: string;
-            lastName: string;
-            postalCode?: string;
-            street?: string;
-            streetNo?: string;
         };
         "service.ParentDecision": {
             /** @description "create" or "link" */

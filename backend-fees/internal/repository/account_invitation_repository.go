@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
 )
@@ -19,6 +20,8 @@ type InvitationCandidate struct {
 	LastName  string    `json:"lastName" db:"last_name"`
 	Email     string    `json:"email" db:"email"`
 	Ambiguous bool      `json:"ambiguous" db:"ambiguous"`
+	// Children lists the parent's active children ("Vorname Nachname").
+	Children pq.StringArray `json:"children" db:"children" swaggertype:"array,string"`
 }
 
 // AccountInvitationRepository stores the one active invitation for each user.
@@ -28,10 +31,17 @@ func NewAccountInvitationRepository(db *sqlx.DB) *AccountInvitationRepository {
 	return &AccountInvitationRepository{db: db}
 }
 
-func (r *AccountInvitationRepository) Candidates(ctx context.Context) ([]InvitationCandidate, error) {
+// Candidates lists parents without an account who have at least one active child at today
+// (active flag set and no exit date before today).
+func (r *AccountInvitationRepository) Candidates(ctx context.Context,
+	today time.Time) ([]InvitationCandidate, error) {
 	result := []InvitationCandidate{}
 	err := r.db.SelectContext(ctx, &result, `
-        WITH parent_emails AS (
+        WITH active_children AS (
+            SELECT cp.parent_id, c.first_name || ' ' || c.last_name AS name, c.first_name, c.last_name
+            FROM fees.child_parents cp JOIN fees.children c ON c.id = cp.child_id
+            WHERE c.is_active AND (c.exit_date IS NULL OR c.exit_date >= $1)
+        ), parent_emails AS (
             SELECT p.id AS parent_id, p.first_name, p.last_name, p.email,
                 COUNT(*) OVER (PARTITION BY LOWER(p.email)) > 1 AS ambiguous
             FROM fees.parents p
@@ -42,9 +52,12 @@ func (r *AccountInvitationRepository) Candidates(ctx context.Context) ([]Invitat
             FROM parent_emails p
             WHERE NOT EXISTS (SELECT 1 FROM fees.users u WHERE u.parent_id = p.parent_id)
               AND NOT EXISTS (SELECT 1 FROM fees.users u WHERE LOWER(u.email) = LOWER(p.email))
+              AND EXISTS (SELECT 1 FROM active_children a WHERE a.parent_id = p.parent_id)
         )
-        SELECT parent_id, first_name, last_name, email, ambiguous
-        FROM possible WHERE row_no = 1 ORDER BY last_name, first_name, parent_id`)
+        SELECT p.parent_id, p.first_name, p.last_name, p.email, p.ambiguous,
+            ARRAY(SELECT a.name FROM active_children a WHERE a.parent_id = p.parent_id
+                ORDER BY a.last_name, a.first_name) AS children
+        FROM possible p WHERE p.row_no = 1 ORDER BY p.last_name, p.first_name, p.parent_id`, today)
 	return result, err
 }
 

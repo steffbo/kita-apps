@@ -70,30 +70,18 @@ test('Eltern sehen nur die eigene Familie; Meldungen und Änderungen gehen an St
       await expect(page.getByRole('status')).toContainText('gespeichert');
       const other = page.locator('form').filter({ hasText: 'Kontaktdaten von Max' });
       await expect(other.getByLabel('E-Mail')).toBeDisabled();
-      await other.getByLabel('Hausnummer').fill('7a');
+      await other.getByLabel('Telefon').fill('030 44444');
       await other.getByRole('button', { name: 'Kontaktdaten speichern' }).click();
       await expect(page.getByRole('status')).toContainText('Kontaktdaten von Max');
+      // Master data is read-only for parents; corrections go through „Fehler melden“.
+      const kid = page.locator('article').filter({ hasText: a.childName });
+      await expect(kid.getByRole('textbox')).toHaveCount(0);
+      await expect(kid).toContainText('Mitgliedsnummer');
       await adminPage.goto('/beitraege/');
       await expect(adminPage.getByText(/\d+ neue Änderungen? von Eltern/)).toBeVisible();
       await adminPage.goto('/beitraege/aenderungen');
       await expect(adminPage.getByText(/Telefon geändert: 030 11111 → 030 22222/)).toBeVisible();
-      await expect(adminPage.getByText(/hat bei Max .+ Hausnummer geändert: — → 7a/)).toBeVisible();
-
-      // Same address for everybody: take it over per card, then the page shows it once.
-      for (const [label, value] of [['Straße', 'E2E-Weg'], ['Hausnummer', '7a'], ['PLZ', '10115'], ['Ort', 'Berlin']]) {
-        await own.getByLabel(label).fill(value);
-      }
-      await own.getByRole('button', { name: 'Kontaktdaten speichern' }).click();
-      await expect(page.getByRole('status')).toContainText('gespeichert');
-      await other.getByRole('button', { name: 'Adresse übernehmen' }).click();
-      await other.getByRole('button', { name: 'Kontaktdaten speichern' }).click();
-      await expect(page.getByRole('status')).toContainText('Kontaktdaten von Max');
-      const kid = page.locator('form').filter({ hasText: a.childName });
-      await kid.getByRole('button', { name: 'Adresse übernehmen' }).click();
-      await kid.getByRole('button', { name: 'Speichern' }).click();
-      const shared = page.locator('form').filter({ hasText: 'Adresse der Familie' });
-      await expect(shared.getByLabel('Ort')).toHaveValue('Berlin');
-      await expect(own.getByLabel('Straße')).toHaveCount(0);
+      await expect(adminPage.getByText(/hat bei Max .+ Telefon geändert: 030 33333 → 030 44444/)).toBeVisible();
 
       await page.getByRole('button', { name: 'Fehler melden' }).first().click();
       const report = page.getByRole('dialog', { name: 'Fehler melden' });

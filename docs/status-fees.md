@@ -3,6 +3,27 @@
 Rolling change log of non-obvious implementation decisions. Newest first.
 Basics (ports, commands, layout) live in `AGENTS.md`.
 
+## Meine Daten nur lesbar bis auf E-Mail/Telefon, Frist bei Beiträgen, Einladungen nur aktive Familien (2026-09-30)
+
+- **Entscheidung (Stefan):** Eltern ändern selbst nur noch die eigene E-Mail (= Login, bleibt mit
+  `fees.users.email` synchron) und Telefonnummern (eigene und die des anderen Elternteils). Namen, Geburtsdatum
+  und Adressen von Eltern und Kindern sind nur lesbar; Korrekturen laufen über „Fehler melden“ (Kontakt ohne
+  Bezug, Kind mit Bezug). So landen keine falschen Stammdaten (z. B. Geburtsdatum → U3/Ü3) ungeprüft im System.
+- **Backend:** `PUT /me/children/{id}` ist entfernt. `PUT /me/contact` und `PUT /me/parents/{id}/contact`
+  akzeptieren nur `email` und `phone`; andere Felder → 400 „Unbekanntes Kontaktfeld“. Alte Kind-Änderungen in
+  `fees.data_changes` bleiben im Feed und in der Historie sichtbar.
+- **Meine Daten:** eine Karte pro Person, auf dem Desktop zwei nebeneinander (Eltern und Kinder). Hinweise
+  stehen direkt am E-Mail-Label („gleichzeitig dein Login!“ bzw. „kann nicht von dir geändert werden …“).
+  Gleiche Adresse aller Personen erscheint einmal als Karte „Adresse der Familie“, sonst je Person als Text.
+  Die Bearbeitung der Familienadresse und „Adresse übernehmen“ aus dem Eintrag darunter sind damit entfallen.
+- **Beiträge (Eltern):** Offene Beiträge zeigen neben dem Status die Frist („noch 5 Tage“, „heute fällig“,
+  „seit 3 Tagen überfällig“, überfällig in Rot), gerechnet mit dem Berliner Datum.
+- **Eltern einladen:** `GET /users/invitation-candidates` liefert nur Eltern mit mindestens einem aktiven Kind
+  (`is_active` und kein Austrittsdatum vor heute, Berliner Datum) und dazu `children` (Namen der aktiven Kinder),
+  die der Dialog unter jedem Elternteil zeigt. Eltern ehemaliger Kinder lassen sich damit auch per
+  `POST /users/invitations` nicht mehr einladen („Elternteil ist nicht verfügbar“).
+- **Bankabgleich:** Status-Chips der Transaktionen umbrechen nicht mehr („Nicht zugeordnet“ einzeilig).
+
 ## Navigation, Seitenhintergrund, Meine Daten mit Familienadresse (2026-09-30)
 
 - **Navigation:** `isActive` vergleicht ganze Pfadsegmente (`/eltern` passt nicht mehr auf `/elternstunden`);

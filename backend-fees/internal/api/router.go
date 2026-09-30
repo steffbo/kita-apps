@@ -83,7 +83,6 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 				r.Post("/parent-work/entries/{id}/withdraw", handlers.ParentAccount.WithdrawEntry)
 				r.Put("/contact", handlers.ParentAccount.Contact)
 				r.Put("/parents/{id}/contact", handlers.ParentAccount.ParentContact)
-				r.Put("/children/{id}", handlers.ParentAccount.UpdateChild)
 				r.Get("/reports", handlers.ParentAccount.OwnReports)
 				r.Post("/reports", handlers.ParentAccount.CreateReport)
 			})

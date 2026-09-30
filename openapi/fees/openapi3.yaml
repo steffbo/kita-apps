@@ -4041,34 +4041,6 @@ paths:
       summary: Eigene Familiendaten
       tags:
         - Parent account
-  "/me/children/{id}":
-    put:
-      parameters:
-        - description: Kind
-          in: path
-          name: id
-          required: true
-          schema:
-            type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/service.OwnChildInput"
-        description: Kinderdaten
-        required: true
-      responses:
-        "200":
-          description: OK
-          content:
-            "*/*":
-              schema:
-                $ref: "#/components/schemas/handler.ownChild"
-      security:
-        - BearerAuth: []
-      summary: Eigene Kinderdaten ändern
-      tags:
-        - Parent account
   /me/contact:
     put:
       requestBody:
@@ -9681,17 +9653,9 @@ components:
       type: object
     handler.ownContactRequest:
       properties:
-        city:
-          type: string
         email:
           type: string
         phone:
-          type: string
-        postalCode:
-          type: string
-        street:
-          type: string
-        streetNo:
           type: string
       type: object
     handler.ownFees:
@@ -9996,6 +9960,11 @@ components:
       properties:
         ambiguous:
           type: boolean
+        children:
+          description: Children lists the parent's active children ("Vorname Nachname").
+          items:
+            type: string
+          type: array
         email:
           type: string
         firstName:
@@ -10006,6 +9975,7 @@ components:
           type: string
       required:
         - ambiguous
+        - children
         - email
         - firstName
         - lastName
@@ -10303,27 +10273,6 @@ components:
       required:
         - parentId
         - success
-      type: object
-    service.OwnChildInput:
-      properties:
-        birthDate:
-          type: string
-        city:
-          type: string
-        firstName:
-          type: string
-        lastName:
-          type: string
-        postalCode:
-          type: string
-        street:
-          type: string
-        streetNo:
-          type: string
-      required:
-        - birthDate
-        - firstName
-        - lastName
       type: object
     service.ParentDecision:
       properties:

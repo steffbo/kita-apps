@@ -131,12 +131,8 @@ type ownWorkRequest struct {
 	ChildName       *string `json:"childName" binding:"optional"`
 }
 type ownContactRequest struct {
-	Email      *string `json:"email" binding:"optional"`
-	Phone      *string `json:"phone" binding:"optional"`
-	Street     *string `json:"street" binding:"optional"`
-	StreetNo   *string `json:"streetNo" binding:"optional"`
-	PostalCode *string `json:"postalCode" binding:"optional"`
-	City       *string `json:"city" binding:"optional"`
+	Email *string `json:"email" binding:"optional"`
+	Phone *string `json:"phone" binding:"optional"`
 }
 
 func ownParentFrom(p domain.Parent) ownParent {
@@ -366,36 +362,6 @@ func contactValues(w http.ResponseWriter, r *http.Request) (map[string]*string, 
 		values[key] = decoded
 	}
 	return values, true
-}
-
-// UpdateChild handles PUT /me/children/{id}.
-// @Summary Eigene Kinderdaten ändern
-// @Tags Parent account
-// @Security BearerAuth
-// @Param id path string true "Kind"
-// @Param request body service.OwnChildInput true "Kinderdaten"
-// @Success 200 {object} ownChild
-// @Router /me/children/{id} [put]
-func (h *ParentAccountHandler) UpdateChild(w http.ResponseWriter, r *http.Request) {
-	userID, ok := ownID(w, r)
-	if !ok {
-		return
-	}
-	id, ok := pathID(w, r)
-	if !ok {
-		return
-	}
-	var in service.OwnChildInput
-	if request.DecodeJSON(r, &in) != nil {
-		response.BadRequest(w, "Ungültige Anfrage")
-		return
-	}
-	v, err := h.svc.UpdateChild(r.Context(), userID, id, in)
-	if err != nil {
-		parentAccountError(w, err)
-		return
-	}
-	response.Success(w, ownChildFrom(*v))
 }
 
 // CreateReport handles POST /me/reports.

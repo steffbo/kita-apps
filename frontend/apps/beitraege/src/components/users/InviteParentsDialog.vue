@@ -56,13 +56,14 @@ onMounted(load);
       role="dialog" aria-modal="true" aria-labelledby="invite-title">
       <h2 id="invite-title" class="text-xl font-semibold">Eltern einladen</h2>
       <p class="mt-1 text-sm text-muted-foreground">
-        Eltern ohne Benutzerkonto auswählen. Jede Einladung enthält einen Link zum Setzen des Passworts.
+        Eltern mit aktivem Kind und ohne Benutzerkonto auswählen. Jede Einladung enthält einen Link zum
+        Setzen des Passworts.
       </p>
       <p v-if="error" class="mt-4 text-sm text-destructive" role="alert">{{ error }}</p>
       <p v-if="loading" class="mt-4 text-sm text-muted-foreground">Eltern werden geladen...</p>
       <template v-else>
         <div v-if="!candidates.length" class="mt-4 text-sm text-muted-foreground">
-          Keine Eltern mit E-Mail-Adresse ohne Benutzerkonto gefunden.
+          Keine Eltern mit aktivem Kind und E-Mail-Adresse ohne Benutzerkonto gefunden.
         </div>
         <div v-else class="mt-4 max-h-72 overflow-y-auto rounded-lg border">
           <label class="flex items-center gap-3 border-b bg-muted px-3 py-2 text-sm">
@@ -77,6 +78,9 @@ onMounted(load);
             <span class="min-w-0 flex-1">
               <span class="font-medium">{{ item.firstName }} {{ item.lastName }}</span>
               <span class="ml-2 break-all">{{ item.email }}</span>
+              <span class="block text-xs text-muted-foreground">
+                {{ item.children.length === 1 ? 'Kind' : 'Kinder' }}: {{ item.children.join(', ') }}
+              </span>
               <span v-if="item.ambiguous" class="block text-xs">
                 Mehrere Elternteile haben diese E-Mail-Adresse.
               </span>

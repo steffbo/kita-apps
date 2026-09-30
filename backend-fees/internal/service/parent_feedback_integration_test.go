@@ -34,6 +34,10 @@ func TestParentFeedbackOtherParentAndReview(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	street := "Musterstraße"
+	if _, err := testDB.Exec(`UPDATE fees.parents SET street=$2 WHERE id=$1`, partner, street); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := testDB.Exec(`INSERT INTO fees.users(id,email,password_hash,role,parent_id)
         SELECT $1,email,$2,'PARENT',id FROM fees.parents WHERE id=$3`, ownUser, hash, own); err != nil {
 		t.Fatal(err)
@@ -64,6 +68,14 @@ func TestParentFeedbackOtherParentAndReview(t *testing.T) {
 	if err != nil || got.Phone == nil || *got.Phone != phone || got.Email == nil {
 		t.Fatalf("partner without login: %+v %v", got, err)
 	}
+	if got.Street == nil || *got.Street != street {
+		t.Fatalf("phone update changed address: %+v", got)
+	}
+	newStreet := "Andere Straße"
+	if _, err = svc.ParentContact(ctx, ownUser, partner,
+		map[string]*string{"street": &newStreet}); !errors.Is(err, service.ErrInvalidInput) {
+		t.Fatalf("partner address update: %v", err)
+	}
 	partnerEmail := *got.Email
 	activity, err := svc.Activity(ctx, 100)
 	if err != nil {
@@ -89,9 +101,8 @@ func TestParentFeedbackOtherParentAndReview(t *testing.T) {
 		map[string]*string{"email": &other}); !errors.Is(err, service.ErrInvalidInput) {
 		t.Fatalf("partner login email: %v", err)
 	}
-	city := "Berlin"
 	if _, err = svc.ParentContact(ctx, ownUser, partner,
-		map[string]*string{"email": &partnerEmail, "city": &city}); err != nil {
+		map[string]*string{"email": &partnerEmail}); err != nil {
 		t.Fatalf("partner with login, same email: %v", err)
 	}
 

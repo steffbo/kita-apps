@@ -3,6 +3,7 @@ package service_test
 import (
 	"context"
 	"errors"
+	"fmt"
 	"regexp"
 	"strings"
 	"testing"
@@ -29,11 +30,29 @@ func (f *fakeInvitationSender) SendTextEmail(to, _, body string) error {
 	return nil
 }
 
-func invitationParent(t *testing.T, name string, email *string) *domain.Parent {
+// invitationParent creates a parent with one child; exited children do not make a parent a candidate.
+func invitationParent(t *testing.T, name string, email *string, exited ...bool) *domain.Parent {
 	t.Helper()
+	ctx := context.Background()
 	p := &domain.Parent{ID: uuid.New(), FirstName: name, LastName: "Einladung",
 		Email: email, IncomeStatus: domain.IncomeStatusUnknown}
-	if err := repository.NewPostgresParentRepository(testDB).Create(context.Background(), p); err != nil {
+	if err := repository.NewPostgresParentRepository(testDB).Create(ctx, p); err != nil {
+		t.Fatal(err)
+	}
+	gone := len(exited) > 0 && exited[0]
+	child := &domain.Child{ID: uuid.New(), MemberNumber: fmt.Sprintf("TI%d", time.Now().UnixNano()%1e7),
+		FirstName: "Kind" + name, LastName: "Einladung", BirthDate: time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC),
+		EntryDate: time.Date(2022, 1, 1, 0, 0, 0, 0, time.UTC), IsActive: !gone,
+		CreatedAt: time.Now(), UpdatedAt: time.Now()}
+	if gone {
+		exit := time.Date(2024, 7, 31, 0, 0, 0, 0, time.UTC)
+		child.ExitDate = &exit
+	}
+	children := repository.NewPostgresChildRepository(testDB)
+	if err := children.Create(ctx, child); err != nil {
+		t.Fatal(err)
+	}
+	if err := children.LinkParent(ctx, child.ID, p.ID, true); err != nil {
 		t.Fatal(err)
 	}
 	return p
@@ -54,6 +73,9 @@ func TestAccountInvitations(t *testing.T) {
 	testDB.Exec(`DELETE FROM fees.email_logs`)
 	t.Cleanup(func() {
 		testDB.Exec(`DELETE FROM fees.email_logs`)
+		testDB.Exec(`DELETE FROM fees.child_parents WHERE child_id IN
+			(SELECT id FROM fees.children WHERE last_name = 'Einladung')`)
+		testDB.Exec(`DELETE FROM fees.children WHERE last_name = 'Einladung'`)
 		testDB.Exec(`DELETE FROM fees.parents WHERE last_name = 'Einladung'`)
 	})
 	emailA, emailB := "invite-a@example.test", "invite-b@example.test"
@@ -68,6 +90,8 @@ func TestAccountInvitations(t *testing.T) {
 	invitationParent(t, "Doppel2", &sameUpper)
 	invitationParent(t, "Staffadresse", &unlinkedEmail)
 	old := invitationParent(t, "Vorhanden", &existing)
+	formerEmail := "former@example.test"
+	former := invitationParent(t, "Ehemalig", &formerEmail, true)
 	existingUser, err := userSvc.Create(ctx, service.UserInput{Email: existing,
 		Role: domain.UserRolePARENT, IsActive: true}, "password1")
 	if err != nil {
@@ -94,6 +118,12 @@ func TestAccountInvitations(t *testing.T) {
 	for _, c := range candidates {
 		if c.ParentID == old.ID {
 			t.Error("bestehendes Konto als Kandidat")
+		}
+		if c.ParentID == former.ID {
+			t.Error("Elternteil ohne aktives Kind als Kandidat")
+		}
+		if c.ParentID == a.ID && (len(c.Children) != 1 || c.Children[0] != "KindAnna Einladung") {
+			t.Errorf("Kinder von Anna: %v", c.Children)
 		}
 		if c.Email == same {
 			if !c.Ambiguous {

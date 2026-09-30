@@ -231,19 +231,19 @@ func TestParentAccountIsolationAndAudit(t *testing.T) {
 	}
 
 	accountSvc := service.NewParentAccountService(accountRepo, work)
-	if _, err := accountSvc.UpdateChild(ctx, users[0], children[1], service.OwnChildInput{
-		FirstName: "No", LastName: "Access", BirthDate: "2020-01-01"}); !errors.Is(err, service.ErrNotFound) {
-		t.Fatalf("foreign child: %v", err)
+	street := "Musterstraße"
+	if _, err := testDB.Exec(`UPDATE fees.parents SET street=$2 WHERE id=$1`, parents[0], street); err != nil {
+		t.Fatal(err)
 	}
-	changedChild, err := accountSvc.UpdateChild(ctx, users[0], children[0], service.OwnChildInput{
-		FirstName: "Updated", LastName: "Test", BirthDate: "2020-01-01"})
-	if err != nil || changedChild.FirstName != "Updated" || changedChild.CareHours != nil {
-		t.Fatalf("own child: %+v %v", changedChild, err)
+	newStreet := "Andere Straße"
+	if _, err := accountSvc.Contact(ctx, users[0],
+		map[string]*string{"street": &newStreet}); !errors.Is(err, service.ErrInvalidInput) {
+		t.Fatalf("address update: %v", err)
 	}
-	var childName string
-	if err := testDB.Get(&childName, `SELECT first_name FROM fees.children WHERE id=$1`,
-		children[0]); err != nil || childName != "Updated" {
-		t.Fatalf("child persisted: %q %v", childName, err)
+	phone = "030 12345"
+	updatedParent, err := accountSvc.Contact(ctx, users[0], map[string]*string{"phone": &phone})
+	if err != nil || updatedParent.Street == nil || *updatedParent.Street != street {
+		t.Fatalf("phone update changed address: %+v %v", updatedParent, err)
 	}
 	if _, err := accountSvc.CreateReport(ctx, users[0], service.ReportInput{Topic: "CHILD",
 		ReferenceID: &children[1], Message: "Wrong"}); !errors.Is(err, service.ErrNotFound) {
@@ -261,7 +261,7 @@ func TestParentAccountIsolationAndAudit(t *testing.T) {
 	for _, v := range activity {
 		seen[v.Type] = true
 	}
-	for _, kind := range []string{"CONTACT_CHANGED", "CHILD_CHANGED", "PARENT_WORK_SUBMITTED",
+	for _, kind := range []string{"CONTACT_CHANGED", "PARENT_WORK_SUBMITTED",
 		"REPORT_CREATED"} {
 		if !seen[kind] {
 			t.Fatalf("missing activity %s", kind)

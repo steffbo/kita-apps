@@ -32,7 +32,7 @@ Go services all follow: `cmd/server`, `cmd/migrate`, `internal/api` (handlers + 
 
 Router groups by role: fee routes `ADMIN`/`USER`, `/users` `ADMIN` (incl. `POST /users/{id}/impersonate` and parent invitations; public `POST /auth/invitation-password`; see `docs/status-fees.md`), `/parent-work/**` `ADMIN`/`PARENT_WORK`
 (rules write and board terms `ADMIN`), `/me/**` `PARENT`, `/activity`, `/parent-reports/**`, `/parents/{id}/changes` and `/children/{id}/changes` `ADMIN`.
-`PARENT` is linked by login email, uses `/familie/**`, and sees its own family (may edit the other parent's contact data except the email); linked contact and login emails stay synchronized. `PARENT_WORK` sees only `/beitraege/elternstunden/**` (no board page). Parent edits to contact and child data are audited in `fees.data_changes`; error reports live in `fees.parent_reports`.
+`PARENT` is linked by login email, uses `/familie/**`, and sees its own family (changes only its own email and the phones of both parents; names, birth dates and addresses are read-only, corrections go through error reports); linked contact and login emails stay synchronized. `PARENT_WORK` sees only `/beitraege/elternstunden/**` (no board page). Parent edits to contact data are audited in `fees.data_changes`; error reports live in `fees.parent_reports`.
 Parent work is booked per household
 (`fees.households`), stored in minutes (multiples of 15); rules (hours per child, rate per missing hour, carry-over cap)
 are versioned data in `fees.parent_work_rules`, board terms in `fees.board_terms`. Calculation:

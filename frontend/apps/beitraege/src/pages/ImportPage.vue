@@ -807,23 +807,23 @@ function getWarningTypeColor(type: string): string {
                   <div class="flex flex-col items-start gap-1.5">
                     <span
                       v-if="isPartiallyAllocated(row)"
-                      class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300"
+                      class="inline-flex items-center gap-1 whitespace-nowrap px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300"
                     >
-                      <AlertTriangle class="h-3 w-3" />
+                      <AlertTriangle class="h-3 w-3 shrink-0" />
                       Teilweise zugeordnet · Rest {{ formatCurrency(getTxRemaining(row.tx)) }}
                     </span>
                     <span
                       v-else-if="row.matched"
-                      class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-300"
+                      class="inline-flex items-center gap-1 whitespace-nowrap px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-300"
                     >
-                      <CheckCircle class="h-3 w-3" />
+                      <CheckCircle class="h-3 w-3 shrink-0" />
                       Zugeordnet
                     </span>
                     <span
                       v-else
-                      class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300"
+                      class="inline-flex items-center gap-1 whitespace-nowrap px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300"
                     >
-                      <AlertTriangle class="h-3 w-3" />
+                      <AlertTriangle class="h-3 w-3 shrink-0" />
                       Nicht zugeordnet
                     </span>
 

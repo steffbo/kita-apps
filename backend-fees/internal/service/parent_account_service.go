@@ -6,13 +6,11 @@ import (
 	"fmt"
 	"net/mail"
 	"strings"
-	"time"
 	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/repository"
-	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/util"
 )
 
 type ParentAccountService struct {
@@ -154,8 +152,7 @@ func (s *ParentAccountService) ParentContact(ctx context.Context, userID, parent
 	p := *target
 	fields := map[string]*string{"email": p.Email, "phone": p.Phone, "street": p.Street,
 		"street_no": p.StreetNo, "postal_code": p.PostalCode, "city": p.City}
-	names := map[string]string{"email": "email", "phone": "phone", "street": "street",
-		"streetNo": "street_no", "postalCode": "postal_code", "city": "city"}
+	names := map[string]string{"email": "email", "phone": "phone"}
 	for name, value := range updates {
 		key, ok := names[name]
 		if !ok {
@@ -186,54 +183,6 @@ func (s *ParentAccountService) ParentContact(ctx context.Context, userID, parent
 }
 
 func sameContact(a, b *string) bool { return a == nil && b == nil || a != nil && b != nil && *a == *b }
-
-type OwnChildInput struct {
-	FirstName  string  `json:"firstName"`
-	LastName   string  `json:"lastName"`
-	BirthDate  string  `json:"birthDate"`
-	Street     *string `json:"street" binding:"optional"`
-	StreetNo   *string `json:"streetNo" binding:"optional"`
-	PostalCode *string `json:"postalCode" binding:"optional"`
-	City       *string `json:"city" binding:"optional"`
-}
-
-func (s *ParentAccountService) UpdateChild(ctx context.Context, userID, childID uuid.UUID,
-	in OwnChildInput) (*domain.Child, error) {
-	account, err := s.Account(ctx, userID)
-	if err != nil {
-		return nil, err
-	}
-	if account.Household == nil {
-		return nil, ErrNotFound
-	}
-	children, err := s.accounts.Children(ctx, account.Parent)
-	if err != nil {
-		return nil, err
-	}
-	var child *domain.Child
-	for i := range children {
-		if children[i].ID == childID {
-			child = &children[i]
-			break
-		}
-	}
-	if child == nil {
-		return nil, ErrNotFound
-	}
-	in.FirstName = strings.TrimSpace(in.FirstName)
-	in.LastName = strings.TrimSpace(in.LastName)
-	birth, err := time.Parse("2006-01-02", in.BirthDate)
-	if in.FirstName == "" || in.LastName == "" || err != nil || birth.After(util.Today()) {
-		return nil, fmt.Errorf("%w: Pflichtfelder oder Geburtsdatum ungültig", ErrInvalidInput)
-	}
-	child.FirstName, child.LastName, child.BirthDate = in.FirstName, in.LastName, birth
-	child.Street, child.StreetNo, child.PostalCode, child.City = cleanContact(in.Street),
-		cleanContact(in.StreetNo), cleanContact(in.PostalCode), cleanContact(in.City)
-	if err = s.accounts.SaveChild(ctx, child, account.Parent.ID, userID); err != nil {
-		return nil, mapAccountError(err)
-	}
-	return child, nil
-}
 
 type ReportInput struct {
 	Topic       string     `json:"topic"`

@@ -88,7 +88,7 @@ import type {
   BoardTerm, BoardTermRequest, ParentWorkRule, ParentWorkRuleRequest,
   ParentWorkImportParseResult, ParentWorkImportPreviewRow, ParentWorkImportExecuteRow,
   ParentWorkImportExecuteResult,
-  OwnOverview, OwnFees, OwnWork, OwnWorkEntry, OwnWorkRequest, OwnChild, OwnChildRequest,
+  OwnOverview, OwnFees, OwnWork, OwnWorkEntry, OwnWorkRequest,
   OwnContactRequest, ParentReport, ParentActivity, DataChange, ReportRequest,
 } from './types';
 import { ReminderCaseConflictError } from './types';
@@ -259,9 +259,6 @@ class ApiClient {
   updateParentContact(parentId: string, data: OwnContactRequest): Promise<void> {
     return this.request(`/me/parents/${encodeURIComponent(parentId)}/contact`,
       { method: 'PUT', body: JSON.stringify(data) });
-  }
-  updateOwnChild(id: string, data: OwnChildRequest): Promise<OwnChild> {
-    return this.request(`/me/children/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(data) });
   }
   getOwnReports(): Promise<ParentReport[]> { return this.request('/me/reports'); }
   createOwnReport(data: ReportRequest): Promise<ParentReport> {

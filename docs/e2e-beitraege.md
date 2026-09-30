@@ -40,7 +40,7 @@ Nach dem Lauf beendet Playwright das Skript per SIGTERM, das Skript entfernt den
 - `fees-flow.spec.ts`: Kind und Elternteil anlegen, Monatsbeiträge generieren, Bank-CSV hochladen, automatische Zuordnung, Beitrag erscheint als bezahlt.
 - `banking-sync-import.spec.ts`: der tägliche Upload von banking-sync, ohne Login, nur `X-Import-Token` und Multipart-Feld `file` wie `banking-sync/upload.js`/`sync.js`: falsches Token → 401, Zahlung wird automatisch zugeordnet, erneuter Upload derselben Datei wird übersprungen.
 - `parent-portal.spec.ts`: zwei Familien, Eltern-Routing und Datentrennung, Stundenmeldung und Freigabe
-  (mit Prüfer), Telefon-Audit im Admin-Feed, Änderung am zweiten Elternteil, „Adresse übernehmen“ bis zur
-  gemeinsamen Familienadresse sowie Fehlermeldung mit
+  (mit Prüfer), Telefon-Audit im Admin-Feed, Telefon-Änderung am zweiten Elternteil, nur lesbare
+  Kinderdaten sowie Fehlermeldung mit
   Antwort, Haken im Feed und Anzeige der Antwort in der Eltern-Übersicht.
 - `parent-work.spec.ts` (Elternstunden): Rolle `PARENT_WORK` sieht nur den Elternstunden-Bereich (ohne Vorstand, mit Verwaltung) und bekommt 403 auf `/children` und `/parent-work/board-terms`; Eintrag erfassen senkt „Offen“, Stornieren stellt es wieder her; Vorstandsamt befreit die Familie; CSV-Vorschau (Seite Verwaltung) ordnet über das Kind zu und importiert einen Eintrag; CSV-Import mit abweichenden Spaltennamen (manuelle Zuordnung, ignorierte Spalten), Drag and Drop und Sammelwarnung für nicht zuordenbare Familien; Zeilen-Button öffnet den Dialog mit vorgewählter Familie; Karten filtern die Tabelle; Sortierung; Konto-Karten der Detailseite (Fehlbetrag nur für Admin, Amtszeiten nur mit Amtszeit); Regeltext zu Tertialen.
