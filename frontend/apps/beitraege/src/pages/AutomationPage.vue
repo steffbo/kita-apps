@@ -592,7 +592,6 @@ watch(
                         </td>
                         <td class="py-2 pr-3">
                           <div class="flex items-center gap-2" :class="{ 'pl-4': isNestedReminder(fee) }">
-                            <span v-if="isNestedReminder(fee)" class="text-muted-foreground" aria-hidden="true">↳</span>
                             <router-link
                               v-if="fee.clubMember"
                               :to="`/mitglieder/${fee.clubMember.id}`"

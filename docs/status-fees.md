@@ -18,13 +18,14 @@ Basics (ports, commands, layout) live in `AGENTS.md`.
   stellt jede Mahngebühr direkt hinter ihren offenen Grundbeitrag (`placeRemindersAfterBase`).
 - **UI Arbeitsliste:** Spalte „Kind/Mitglied · Beitrag“: Vereinsbeiträge (und ihre Mahngebühren) zeigen
   das Vereinsmitglied mit Link auf `/mitglieder/{id}` statt des Kindes; eine Mahngebühr unter ihrem
-  Grundbeitrag ist mit „↳“ eingerückt, Zeitraum zeigt „für Essensgeld 9/2026“.
+  Grundbeitrag ist eingerückt, Zeitraum zeigt „für Essensgeld 9/2026“.
   `plannedReminderFees[].baseLabel` enthält Zeitraum und Person, z. B. „Essensgeld September 2026 (Haily)“.
 - **Mailtext** (`familyReminderItemList`): ein Block pro Kind („Haily (Mitgliedsnr. 11090):“) und pro
   Vereinsmitglied („Vereinsmitglied Nadja Moritz:“, ohne M-Nummer, da die Bankzuordnung über die
   Kindernummer läuft); Mahngebühren eingerückt als „zzgl. Mahngebühr — 10,00 EUR“ unter ihrem
   Grundbeitrag, ohne ausgewählten Grundbeitrag als „Mahngebühr für Essensgeld September 2026“; am Ende
   „Gesamtbetrag“. Der SEPA-QR-Verwendungszweck bleibt unverändert (Kindernummern).
+  Der Hinweis „Wichtig: Bitte gebt als Empfänger genau … an“ ist aus allen Erinnerungsmails entfallen.
 - **Datenprüfung live (read-only):** alle offenen Vereinsbeiträge haben ein Mitglied; die 14
   Vereinsbeiträge 2026 ohne `member_id` gehören ausgetretenen Familien ohne Mitglieder und sind bezahlt.
   Jeder Haushalt mit aktivem Kind hat ein aktives Mitglied.

@@ -91,7 +91,6 @@ func buildFamilyReminderEmail(
 		builder.WriteString(fmt.Sprintf("BIC: %s\n", effectivePaymentSettings.BIC))
 	}
 	builder.WriteString("\n")
-	builder.WriteString(fmt.Sprintf("Wichtig: Bitte gebt als Empfänger genau \"%s\" an, damit das Matching bei eurer Bank korrekt funktioniert.\n\n", effectivePaymentSettings.RecipientName))
 	if isFinal {
 		builder.WriteString(fmt.Sprintf("Dies ist eine Mahnung. Bitte begleicht die offenen Beiträge spätestens bis zum %s.\n\n", deadlineStr))
 		builder.WriteString("Falls ihr die Zahlung bereits veranlasst habt, betrachtet diese Nachricht bitte als gegenstandslos.\n\n")
@@ -177,7 +176,6 @@ func buildFamilyMembershipReminderEmail(
 		builder.WriteString(fmt.Sprintf("BIC: %s\n", effectivePaymentSettings.BIC))
 	}
 	builder.WriteString("\n")
-	builder.WriteString(fmt.Sprintf("Wichtig: Bitte gebt als Empfänger genau \"%s\" an, damit das Matching bei eurer Bank korrekt funktioniert.\n\n", effectivePaymentSettings.RecipientName))
 	if isFinal {
 		builder.WriteString(fmt.Sprintf("Dies ist eine Mahnung. Bitte begleicht die offenen Vereinsbeiträge spätestens bis zum %s.\n\n", deadlineStr))
 		builder.WriteString("Falls ihr die Zahlung bereits veranlasst habt, betrachtet diese Nachricht bitte als gegenstandslos.\n\n")
@@ -413,7 +411,6 @@ func buildFamilyMixedReminderEmail(
 		builder.WriteString(fmt.Sprintf("BIC: %s\n", effectivePaymentSettings.BIC))
 	}
 	builder.WriteString("\n")
-	builder.WriteString(fmt.Sprintf("Wichtig: Bitte gebt als Empfänger genau \"%s\" an, damit das Matching bei eurer Bank korrekt funktioniert.\n\n", effectivePaymentSettings.RecipientName))
 	if isFinal {
 		builder.WriteString(fmt.Sprintf("Dies ist eine Mahnung. Bitte begleicht die offenen Beiträge spätestens bis zum %s.\n\n", deadlineStr))
 		builder.WriteString("Falls ihr die Zahlung bereits veranlasst habt, betrachtet diese Nachricht bitte als gegenstandslos.\n\n")
