@@ -586,7 +586,13 @@ watch(
                         </td>
                         <td class="py-2 pr-3">
                           <div class="flex items-center gap-2">
-                            <span>{{ fee.childName }}</span>
+                            <router-link
+                              :to="`/kinder/${fee.childId}`"
+                              class="text-primary hover:underline"
+                              title="Kind öffnen"
+                            >
+                              {{ fee.childName }}
+                            </router-link>
                             <span class="px-2 py-0.5 text-xs rounded-full font-medium" :class="feeChipClass(fee.feeType)">
                               {{ feeTypeLabel(fee.feeType) }}
                             </span>

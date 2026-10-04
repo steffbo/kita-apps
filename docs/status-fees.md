@@ -3,6 +3,11 @@
 Rolling change log of non-obvious implementation decisions. Newest first.
 Basics (ports, commands, layout) live in `AGENTS.md`.
 
+## Erinnerungen: Kind verlinkt (2026-10-04)
+
+- **Arbeitsliste:** In der Beitragstabelle des Familienfalls ist der Kindname jetzt ein Link auf
+  `/kinder/{childId}` (Kinddetail), wie auf der Notizen-Seite. `childId` lieferte `ReminderCaseFee` bereits.
+
 ## Esc schließt Dialoge, Dauer-Auswahl für Elternstunden, deutsche Validierung (2026-09-30)
 
 - **Esc:** `utils/dialogEscape.ts` (in `main.ts` installiert) schließt app-weit den obersten offenen Dialog
