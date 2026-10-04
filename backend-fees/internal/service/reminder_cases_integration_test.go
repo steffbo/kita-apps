@@ -369,6 +369,9 @@ func TestReminderCase_Preview_MixedTypesPlansFees(t *testing.T) {
 	}
 	foodFee := createCaseFee(t, feeRepo, child.ID, household.ID, domain.FeeTypeFood, 45.40, 2026, ptrInt(8), time.Date(2026, 9, 5, 0, 0, 0, 0, time.UTC))
 	membershipFee := createCaseFee(t, feeRepo, child.ID, household.ID, domain.FeeTypeMembership, 30, 2026, nil, time.Date(2026, 3, 31, 0, 0, 0, 0, time.UTC))
+	assignCaseClubMember(t, household.ID, membershipFee.ID, "Anna", "Mitglied")
+	// Reminded on 06.09.; the deadline (13.09.) has passed by the run date.
+	insertContactLog(t, repository.NewPostgresEmailLogRepository(testDB), household.ID, []uuid.UUID{foodFee.ID, membershipFee.ID}, "initial", time.Date(2026, 9, 6, 0, 0, 0, 0, time.UTC))
 
 	runDate := time.Date(2026, 9, 15, 0, 0, 0, 0, time.UTC)
 	preview, err := reminderService.PreviewReminderCase(ctx, household.ID, &service.ReminderCaseRequest{
@@ -405,18 +408,107 @@ func TestReminderCase_Preview_MixedTypesPlansFees(t *testing.T) {
 	if preview.Body == "" || preview.Recipients == nil {
 		t.Fatalf("expected mail preview content")
 	}
-	if preview.RecommendedStage != service.ReminderStageInitial {
-		t.Fatalf("expected recommendation initial for never-contacted fees, got %s", preview.RecommendedStage)
+	if preview.RecommendedStage != service.ReminderStageFinal {
+		t.Fatalf("expected recommendation final for reminded fees, got %s", preview.RecommendedStage)
 	}
-	foundWarning := false
-	for _, warning := range preview.Warnings {
-		if contains(warning, "wurde noch nicht erinnert") {
-			foundWarning = true
+	labels := map[uuid.UUID]string{}
+	for _, planned := range preview.PlannedReminderFees {
+		labels[planned.BaseFeeID] = planned.BaseLabel
+	}
+	if !contains(labels[foodFee.ID], "Essensgeld August 2026") {
+		t.Fatalf("expected period in food base label, got %q", labels[foodFee.ID])
+	}
+	if labels[membershipFee.ID] != "Vereinsbeitrag 2026 (Anna Mitglied)" {
+		t.Fatalf("expected club member in membership base label, got %q", labels[membershipFee.ID])
+	}
+	for _, want := range []string{
+		"- Essensgeld August 2026 — 45,40 EUR\n  zzgl. Mahngebühr — 10,00 EUR",
+		"Vereinsmitglied Anna Mitglied:\n- Vereinsbeitrag 2026 — 30,00 EUR\n  zzgl. Mahngebühr — 5,00 EUR",
+		"Gesamtbetrag: 90,40 EUR",
+	} {
+		if !contains(preview.Body, want) {
+			t.Fatalf("expected body to contain %q, got:\n%s", want, preview.Body)
 		}
 	}
-	if !foundWarning {
-		t.Fatalf("expected not-yet-reminded warning, got %v", preview.Warnings)
+	for _, fee := range preview.SelectedFees {
+		if fee.FeeID == membershipFee.ID && (fee.ClubMember == nil || fee.ClubMember.Name != "Anna Mitglied") {
+			t.Fatalf("expected club member on membership fee, got %+v", fee.ClubMember)
+		}
 	}
+}
+
+// A Mahnung only creates Mahngebühren for fees that were reminded before and
+// whose reminder deadline has passed; other selected fees are listed without
+// a fee and named in the warnings.
+func TestReminderCase_Preview_FinalStageSkipsFeesWithoutPriorReminder(t *testing.T) {
+	cleanupTestData()
+	defer cleanupTestData()
+	setReliableCutoff(t, "2026-01-01")
+
+	ctx := context.Background()
+	householdRepo := repository.NewPostgresHouseholdRepository(testDB)
+	childRepo := repository.NewPostgresChildRepository(testDB)
+	feeRepo := repository.NewPostgresFeeRepository(testDB)
+	reminderService := newReminderCaseService(&fakeReminderSender{})
+
+	household := createCaseHousehold(t, householdRepo, "TEST Final Without Reminder")
+	createCaseParent(t, repository.NewPostgresParentRepository(testDB), household.ID, "Anna")
+	child, err := createTestChild(childRepo, "FWR")
+	if err != nil {
+		t.Fatalf("failed to create child: %v", err)
+	}
+	reminded := createCaseFee(t, feeRepo, child.ID, household.ID, domain.FeeTypeFood, 45.40, 2026, ptrInt(8), time.Date(2026, 8, 5, 0, 0, 0, 0, time.UTC))
+	notReminded := createCaseFee(t, feeRepo, child.ID, household.ID, domain.FeeTypeFood, 45.40, 2026, ptrInt(9), time.Date(2026, 9, 5, 0, 0, 0, 0, time.UTC))
+	notDue := createCaseFee(t, feeRepo, child.ID, household.ID, domain.FeeTypeFood, 45.40, 2026, ptrInt(10), time.Date(2026, 10, 5, 0, 0, 0, 0, time.UTC))
+	insertContactLog(t, repository.NewPostgresEmailLogRepository(testDB), household.ID, []uuid.UUID{reminded.ID}, "initial", time.Date(2026, 8, 20, 0, 0, 0, 0, time.UTC))
+
+	preview, err := reminderService.PreviewReminderCase(ctx, household.ID, &service.ReminderCaseRequest{
+		Stage:   service.ReminderStageFinal,
+		RunDate: time.Date(2026, 10, 4, 0, 0, 0, 0, time.UTC),
+		FeeIDs:  []uuid.UUID{reminded.ID, notReminded.ID, notDue.ID},
+	})
+	if err != nil {
+		t.Fatalf("PreviewReminderCase failed: %v", err)
+	}
+	if len(preview.PlannedReminderFees) != 1 || preview.PlannedReminderFees[0].BaseFeeID != reminded.ID {
+		t.Fatalf("expected a single planned fee for the reminded fee, got %+v", preview.PlannedReminderFees)
+	}
+	if preview.TotalAmount != 146.20 {
+		t.Fatalf("expected total 146.20 (3 x 45.40 + 10), got %v", preview.TotalAmount)
+	}
+	for _, want := range []string{
+		"Essensgeld September 2026 wurde noch nicht erinnert – keine Mahngebühr",
+		"Essensgeld Oktober 2026 ist noch nicht fällig – keine Mahngebühr",
+	} {
+		found := false
+		for _, warning := range preview.Warnings {
+			if contains(warning, want) {
+				found = true
+			}
+		}
+		if !found {
+			t.Fatalf("expected warning %q, got %v", want, preview.Warnings)
+		}
+	}
+}
+
+// assignCaseClubMember creates a club member in the household and assigns the
+// membership fee to it; the member is removed after the test.
+func assignCaseClubMember(t *testing.T, householdID, feeID uuid.UUID, firstName, lastName string) uuid.UUID {
+	t.Helper()
+	memberID := uuid.New()
+	number := "TM" + memberID.String()[:6]
+	if _, err := testDB.Exec(`INSERT INTO fees.members (id, member_number, first_name, last_name, membership_start, household_id)
+		VALUES ($1, $2, $3, $4, '2020-01-01', $5)`, memberID, number, firstName, lastName, householdID); err != nil {
+		t.Fatalf("failed to create member: %v", err)
+	}
+	t.Cleanup(func() {
+		testDB.Exec(`DELETE FROM fees.members WHERE id = $1`, memberID)
+	})
+	if _, err := testDB.Exec(`UPDATE fees.fee_expectations SET member_id = $1 WHERE id = $2`, memberID, feeID); err != nil {
+		t.Fatalf("failed to assign member: %v", err)
+	}
+	return memberID
 }
 
 func TestReminderCase_Preview_InitialStagePlansNoFees(t *testing.T) {
@@ -475,6 +567,7 @@ func TestReminderCase_Send_CreatesFeesLogsAndPreventsDuplicates(t *testing.T) {
 	}
 	foodFee := createCaseFee(t, feeRepo, child.ID, household.ID, domain.FeeTypeFood, 45.40, 2026, ptrInt(8), time.Date(2026, 9, 5, 0, 0, 0, 0, time.UTC))
 	membershipFee := createCaseFee(t, feeRepo, child.ID, household.ID, domain.FeeTypeMembership, 30, 2026, nil, time.Date(2026, 3, 31, 0, 0, 0, 0, time.UTC))
+	insertContactLog(t, emailLogRepo, household.ID, []uuid.UUID{foodFee.ID, membershipFee.ID}, "initial", time.Date(2026, 9, 6, 0, 0, 0, 0, time.UTC))
 
 	runDate := time.Date(2026, 9, 15, 0, 0, 0, 0, time.UTC)
 	previewedAt := time.Now().UTC().Add(-time.Hour)
@@ -691,6 +784,7 @@ func TestReminderCase_Send_ConcurrentSendsCreateSingleReminderFee(t *testing.T) 
 		t.Fatalf("failed to create child: %v", err)
 	}
 	fee := createCaseFee(t, feeRepo, child.ID, household.ID, domain.FeeTypeFood, 45.40, 2026, ptrInt(8), time.Date(2026, 9, 5, 0, 0, 0, 0, time.UTC))
+	insertContactLog(t, repository.NewPostgresEmailLogRepository(testDB), household.ID, []uuid.UUID{fee.ID}, "initial", time.Date(2026, 9, 6, 0, 0, 0, 0, time.UTC))
 
 	previewedAt := time.Now().UTC().Add(-time.Hour)
 	send := func() error {
@@ -753,6 +847,7 @@ func TestReminderCase_Send_SMTPFailureCompensatesReminderFees(t *testing.T) {
 		t.Fatalf("failed to create child: %v", err)
 	}
 	fee := createCaseFee(t, feeRepo, child.ID, household.ID, domain.FeeTypeFood, 45.40, 2026, ptrInt(8), time.Date(2026, 9, 5, 0, 0, 0, 0, time.UTC))
+	insertContactLog(t, repository.NewPostgresEmailLogRepository(testDB), household.ID, []uuid.UUID{fee.ID}, "initial", time.Date(2026, 9, 6, 0, 0, 0, 0, time.UTC))
 
 	previewedAt := time.Now().UTC().Add(-time.Hour)
 	_, err = reminderService.SendReminderCase(ctx, household.ID, &service.ReminderCaseRequest{
@@ -892,4 +987,86 @@ func stringContains(haystack, needle string) bool {
 		}
 	}
 	return false
+}
+
+// An existing Mahngebühr carries its base fee reference, follows its base fee
+// in the case list and is nested under it in the mail.
+func TestReminderCase_ExistingReminderFeeReferencesBaseFee(t *testing.T) {
+	cleanupTestData()
+	defer cleanupTestData()
+	setReliableCutoff(t, "2026-01-01")
+
+	ctx := context.Background()
+	householdRepo := repository.NewPostgresHouseholdRepository(testDB)
+	childRepo := repository.NewPostgresChildRepository(testDB)
+	feeRepo := repository.NewPostgresFeeRepository(testDB)
+	reminderService := newReminderCaseService(&fakeReminderSender{})
+
+	household := createCaseHousehold(t, householdRepo, "TEST Existing Reminder")
+	createCaseParent(t, repository.NewPostgresParentRepository(testDB), household.ID, "Anna")
+	child, err := createTestChild(childRepo, "ERF")
+	if err != nil {
+		t.Fatalf("failed to create child: %v", err)
+	}
+	september := createCaseFee(t, feeRepo, child.ID, household.ID, domain.FeeTypeFood, 45.40, 2026, ptrInt(9), time.Date(2026, 9, 5, 0, 0, 0, 0, time.UTC))
+	october := createCaseFee(t, feeRepo, child.ID, household.ID, domain.FeeTypeFood, 45.40, 2026, ptrInt(10), time.Date(2026, 10, 5, 0, 0, 0, 0, time.UTC))
+	reminder := &domain.FeeExpectation{
+		ID:            uuid.New(),
+		ChildID:       child.ID,
+		HouseholdID:   &household.ID,
+		FeeType:       domain.FeeTypeReminder,
+		Year:          2026,
+		Amount:        10,
+		DueDate:       time.Date(2026, 9, 24, 0, 0, 0, 0, time.UTC),
+		CreatedAt:     time.Now().UTC(),
+		ReminderForID: &september.ID,
+	}
+	if err := feeRepo.Create(ctx, reminder); err != nil {
+		t.Fatalf("failed to create reminder fee: %v", err)
+	}
+
+	runDate := time.Date(2026, 10, 4, 0, 0, 0, 0, time.UTC)
+	result, err := reminderService.ListReminderCases(ctx, runDate, service.ReminderCasesScopeAll)
+	if err != nil {
+		t.Fatalf("ListReminderCases failed: %v", err)
+	}
+	var fees []service.ReminderCaseFee
+	for _, c := range result.Cases {
+		if c.HouseholdID == household.ID {
+			fees = c.Fees
+		}
+	}
+	if len(fees) != 3 || fees[0].FeeID != september.ID || fees[1].FeeID != reminder.ID || fees[2].FeeID != october.ID {
+		t.Fatalf("expected order September, its Mahngebühr, October; got %+v", fees)
+	}
+	ref := fees[1].ReminderFor
+	if ref == nil || ref.FeeType != domain.FeeTypeFood || ref.Month == nil || *ref.Month != 9 {
+		t.Fatalf("expected base fee reference Essensgeld 9/2026, got %+v", ref)
+	}
+
+	preview, err := reminderService.PreviewReminderCase(ctx, household.ID, &service.ReminderCaseRequest{
+		Stage:   service.ReminderStageInitial,
+		RunDate: runDate,
+		FeeIDs:  []uuid.UUID{september.ID, reminder.ID, october.ID},
+	})
+	if err != nil {
+		t.Fatalf("PreviewReminderCase failed: %v", err)
+	}
+	want := "- Essensgeld September 2026 — 45,40 EUR\n  zzgl. Mahngebühr — 10,00 EUR\n- Essensgeld Oktober 2026 — 45,40 EUR\n"
+	if !contains(preview.Body, want) {
+		t.Fatalf("expected nested reminder fee, got:\n%s", preview.Body)
+	}
+
+	// Without its base fee the Mahngebühr names the base fee itself.
+	preview, err = reminderService.PreviewReminderCase(ctx, household.ID, &service.ReminderCaseRequest{
+		Stage:   service.ReminderStageInitial,
+		RunDate: runDate,
+		FeeIDs:  []uuid.UUID{reminder.ID},
+	})
+	if err != nil {
+		t.Fatalf("PreviewReminderCase failed: %v", err)
+	}
+	if !contains(preview.Body, "- Mahngebühr für Essensgeld September 2026 — 10,00 EUR") {
+		t.Fatalf("expected standalone reminder fee with base reference, got:\n%s", preview.Body)
+	}
 }

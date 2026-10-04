@@ -50,6 +50,19 @@ type ReminderCaseFee struct {
 	ActionableAt time.Time             `json:"actionableAt"`
 	LastContact  *FeeContact           `json:"lastContact,omitempty" binding:"optional"`
 	HasReminder  bool                  `json:"hasReminder"`
+	// ReminderForID and ReminderFor name the base fee of a Mahngebühr.
+	ReminderForID *uuid.UUID     `json:"reminderForId,omitempty" binding:"optional"`
+	ReminderFor   *domain.FeeRef `json:"reminderFor,omitempty" binding:"optional"`
+	// ClubMember is the club member a membership fee (or its Mahngebühr)
+	// belongs to; membership fees are owed per member, not per child.
+	ClubMember *ReminderCaseMember `json:"clubMember,omitempty" binding:"optional"`
+}
+
+// ReminderCaseMember identifies the club member of a membership fee.
+type ReminderCaseMember struct {
+	ID           uuid.UUID `json:"id"`
+	MemberNumber string    `json:"memberNumber"`
+	Name         string    `json:"name"`
 }
 
 // ReminderCase is the family-level working item.
@@ -81,6 +94,8 @@ type ReminderCaseRequest struct {
 }
 
 // ReminderCasePlannedFee is a reminder fee that would be created on send.
+// BaseLabel names the base fee with period and person, e.g.
+// "Essensgeld September 2026 (Haily)".
 type ReminderCasePlannedFee struct {
 	BaseFeeID   uuid.UUID      `json:"baseFeeId"`
 	BaseFeeType domain.FeeType `json:"baseFeeType"`
@@ -260,6 +275,18 @@ func (s *ReminderService) loadCaseFees(ctx context.Context, householdID uuid.UUI
 			Remaining:    roundCent(remaining),
 			HasReminder:  hasReminder[row.ID],
 		}
+		if row.FeeType == domain.FeeTypeReminder && row.ReminderForID != nil && row.BaseFeeType != nil {
+			baseID := *row.ReminderForID
+			fee.ReminderForID = &baseID
+			fee.ReminderFor = &domain.FeeRef{FeeType: *row.BaseFeeType, Year: derefInt(row.BaseYear), Month: row.BaseMonth}
+		}
+		if row.ClubMemberID != nil {
+			fee.ClubMember = &ReminderCaseMember{
+				ID:           *row.ClubMemberID,
+				MemberNumber: derefString(row.ClubMemberNumber),
+				Name:         strings.TrimSpace(derefString(row.ClubMemberFirstName) + " " + derefString(row.ClubMemberLastName)),
+			}
+		}
 		fee.Status, fee.ActionableAt = feeWorkflowStatus(row.CreatedAt, row.DueDate, contacts[row.ID], cutoff, asOfStart)
 		if contact, ok := contacts[row.ID]; ok {
 			contactCopy := contact
@@ -275,7 +302,67 @@ func (s *ReminderService) loadCaseFees(ctx context.Context, householdID uuid.UUI
 		return fees[i].DueDate.Before(fees[j].DueDate)
 	})
 
-	return fees, nil
+	return placeRemindersAfterBase(fees), nil
+}
+
+// placeRemindersAfterBase moves each Mahngebühr directly behind its open base
+// fee so the pair reads together; reminders without an open base keep their
+// due-date position.
+func placeRemindersAfterBase(fees []ReminderCaseFee) []ReminderCaseFee {
+	open := make(map[uuid.UUID]bool, len(fees))
+	for _, fee := range fees {
+		open[fee.FeeID] = true
+	}
+	attached := make(map[uuid.UUID][]ReminderCaseFee)
+	for _, fee := range fees {
+		if fee.ReminderForID != nil && open[*fee.ReminderForID] {
+			attached[*fee.ReminderForID] = append(attached[*fee.ReminderForID], fee)
+		}
+	}
+	ordered := make([]ReminderCaseFee, 0, len(fees))
+	for _, fee := range fees {
+		if fee.ReminderForID != nil && open[*fee.ReminderForID] {
+			continue
+		}
+		ordered = append(ordered, fee)
+		ordered = append(ordered, attached[fee.FeeID]...)
+	}
+	return ordered
+}
+
+// caseFeeLabel names a fee with its period, e.g. "Essensgeld September 2026",
+// "Vereinsbeitrag 2026" or "Mahngebühr für Essensgeld September 2026".
+func caseFeeLabel(fee ReminderCaseFee) string {
+	if fee.FeeType == domain.FeeTypeReminder && fee.ReminderFor != nil {
+		return "Mahngebühr für " + feeRefLabel(fee.ReminderFor.FeeType, fee.ReminderFor.Year, derefInt(fee.ReminderFor.Month))
+	}
+	if fee.FeeType == domain.FeeTypeReminder {
+		return feeTypeLabel(fee.FeeType)
+	}
+	return feeRefLabel(fee.FeeType, fee.Year, fee.Month)
+}
+
+// caseFeePerson is the person a fee belongs to: the club member for
+// membership fees, otherwise the child.
+func caseFeePerson(fee ReminderCaseFee) string {
+	if fee.ClubMember != nil && fee.ClubMember.Name != "" {
+		return fee.ClubMember.Name
+	}
+	return fee.ChildName
+}
+
+func derefInt(value *int) int {
+	if value == nil {
+		return 0
+	}
+	return *value
+}
+
+func derefString(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
 }
 
 // feeWorkflowStatus derives the per-fee status and the next action date.
@@ -615,12 +702,14 @@ func (s *ReminderService) prepareCasePlan(ctx context.Context, householdID uuid.
 	}
 
 	// Planned reminder fees: only on the final stage (Mahnung), one per
-	// selected base fee without an existing reminder fee. Reminder fees
-	// themselves never get reminder fees.
+	// selected base fee that was reminded before and whose reminder deadline
+	// has passed (actionable_final), and that has no reminder fee yet.
+	// Other selected fees are listed in the Mahnung without a fee. Reminder
+	// fees themselves never get reminder fees.
 	planned := make([]ReminderCasePlannedFee, 0)
 	if req.Stage == ReminderStageFinal {
 		for _, fee := range selected {
-			if fee.FeeType == domain.FeeTypeReminder || existingReminders[fee.FeeID] {
+			if fee.FeeType == domain.FeeTypeReminder || existingReminders[fee.FeeID] || fee.Status != FeeStatusActionableFinal {
 				continue
 			}
 			amount := reminderFeeAmountFor(fee.FeeType)
@@ -630,7 +719,7 @@ func (s *ReminderService) prepareCasePlan(ctx context.Context, householdID uuid.
 			planned = append(planned, ReminderCasePlannedFee{
 				BaseFeeID:   fee.FeeID,
 				BaseFeeType: fee.FeeType,
-				BaseLabel:   feeTypeLabel(fee.FeeType),
+				BaseLabel:   fmt.Sprintf("%s (%s)", caseFeeLabel(fee), caseFeePerson(fee)),
 				Amount:      amount,
 				DueDate:     deadline,
 			})
@@ -642,32 +731,45 @@ func (s *ReminderService) prepareCasePlan(ctx context.Context, householdID uuid.
 	var totalCents int64
 	for _, fee := range selected {
 		totalCents += domain.Cents(fee.Remaining)
-		items = append(items, reminderItem{
-			FeeID:        fee.FeeID,
-			ChildID:      fee.ChildID,
-			ChildName:    fee.ChildName,
-			MemberNumber: fee.MemberNumber,
-			FeeType:      fee.FeeType,
-			Amount:       fee.Remaining,
-			Year:         fee.Year,
-			Month:        fee.Month,
-			DueDate:      fee.DueDate,
-		})
+		item := reminderItem{
+			FeeID:         fee.FeeID,
+			ChildID:       fee.ChildID,
+			ChildName:     fee.ChildName,
+			MemberNumber:  fee.MemberNumber,
+			FeeType:       fee.FeeType,
+			Amount:        fee.Remaining,
+			Year:          fee.Year,
+			Month:         fee.Month,
+			DueDate:       fee.DueDate,
+			ReminderForID: fee.ReminderForID,
+			ClubMember:    fee.ClubMember,
+		}
+		if fee.ReminderFor != nil {
+			baseType := fee.ReminderFor.FeeType
+			item.BaseFeeType = &baseType
+			item.BaseYear = fee.ReminderFor.Year
+			item.BaseMonth = derefInt(fee.ReminderFor.Month)
+		}
+		items = append(items, item)
 	}
 	for _, plannedFee := range planned {
 		totalCents += domain.Cents(plannedFee.Amount)
 		baseFee := feeByID[plannedFee.BaseFeeID]
 		baseType := plannedFee.BaseFeeType
+		baseID := plannedFee.BaseFeeID
 		items = append(items, reminderItem{
-			ChildID:     baseFee.ChildID,
-			ChildName:   baseFee.ChildName,
-			FeeType:     domain.FeeTypeReminder,
-			Amount:      plannedFee.Amount,
-			Year:        runDate.Year(),
-			BaseFeeType: &baseType,
-			BaseYear:    baseFee.Year,
-			BaseMonth:   baseFee.Month,
-			DueDate:     plannedFee.DueDate,
+			ChildID:       baseFee.ChildID,
+			ChildName:     baseFee.ChildName,
+			MemberNumber:  baseFee.MemberNumber,
+			FeeType:       domain.FeeTypeReminder,
+			Amount:        plannedFee.Amount,
+			Year:          runDate.Year(),
+			BaseFeeType:   &baseType,
+			BaseYear:      baseFee.Year,
+			BaseMonth:     baseFee.Month,
+			DueDate:       plannedFee.DueDate,
+			ReminderForID: &baseID,
+			ClubMember:    baseFee.ClubMember,
 		})
 	}
 
@@ -734,23 +836,33 @@ func recommendedStageFor(selected []ReminderCaseFee) ReminderStage {
 }
 
 // buildCaseWarnings creates concrete warnings for deviations from the
-// recommended flow.
+// recommended flow. On the final stage it also names every selected base fee
+// that is included without a new Mahngebühr because it was not reminded yet
+// or its reminder deadline is still running.
 func buildCaseWarnings(stage ReminderStage, selected []ReminderCaseFee, existingReminders map[uuid.UUID]bool) []string {
 	warnings := make([]string, 0)
 	for _, fee := range selected {
-		label := fmt.Sprintf("%s: %s", fee.ChildName, feeTypeLabel(fee.FeeType))
+		label := fmt.Sprintf("%s: %s", caseFeePerson(fee), caseFeeLabel(fee))
+		noFee := ""
+		if stage == ReminderStageFinal && fee.FeeType != domain.FeeTypeReminder && !existingReminders[fee.FeeID] {
+			noFee = " – keine Mahngebühr"
+		}
 		switch fee.Status {
+		case FeeStatusNeverContacted:
+			if noFee != "" {
+				warnings = append(warnings, fmt.Sprintf("%s ist noch nicht fällig%s", label, noFee))
+			}
 		case FeeStatusActionableInitial:
 			if stage == ReminderStageFinal {
-				warnings = append(warnings, fmt.Sprintf("%s wurde noch nicht erinnert", label))
+				warnings = append(warnings, fmt.Sprintf("%s wurde noch nicht erinnert%s", label, noFee))
 			}
 		case FeeStatusWaiting:
 			if fee.LastContact != nil {
 				deadline := defaultReminderDeadline(fee.LastContact.RunDate)
-				warnings = append(warnings, fmt.Sprintf("%s wurde erst am %s kontaktiert, die Frist läuft bis %s", label, fee.LastContact.RunDate.Format("02.01.2006"), deadline.Format("02.01.2006")))
+				warnings = append(warnings, fmt.Sprintf("%s wurde erst am %s kontaktiert, die Frist läuft bis %s%s", label, fee.LastContact.RunDate.Format("02.01.2006"), deadline.Format("02.01.2006"), noFee))
 			}
 		case FeeStatusHistoryUnknown:
-			warnings = append(warnings, fmt.Sprintf("Für %s gibt es keine zuordenbare Historie", label))
+			warnings = append(warnings, fmt.Sprintf("Für %s gibt es keine zuordenbare Historie%s", label, noFee))
 		}
 		if fee.FeeType != domain.FeeTypeReminder && existingReminders[fee.FeeID] {
 			warnings = append(warnings, fmt.Sprintf("Für %s existiert bereits eine Mahngebühr", label))

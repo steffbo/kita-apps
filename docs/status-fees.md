@@ -3,6 +3,32 @@
 Rolling change log of non-obvious implementation decisions. Newest first.
 Basics (ports, commands, layout) live in `AGENTS.md`.
 
+## Erinnerungen: Mahngebühren nur nach Erinnerung, Bezug sichtbar, Mail gruppiert (2026-10-04)
+
+- **Regel:** Eine Mahnung legt nur noch für Beiträge mit Status `actionable_final` eine Mahngebühr an,
+  also wenn vorher eine Erinnerung verschickt wurde und deren Frist abgelaufen ist (`prepareCasePlan`).
+  Weitere ausgewählte Beiträge stehen in der Mahnung, bekommen aber keine Gebühr; die Hinweise nennen
+  sie mit „– keine Mahngebühr“ (noch nicht fällig, noch nicht erinnert, Frist läuft, unbekannte Historie).
+  Auslöser: eine Mahnung mit dem noch nicht fälligen Essensgeld Oktober hätte dafür 10 € angelegt.
+  Beiträge mit unbekannter Historie (angelegt bis `reminder_history_reliable_from`) bekommen damit
+  ebenfalls keine automatische Mahngebühr mehr; erst erinnern, dann mahnen.
+- **Bezug der Mahngebühr:** `ListOpenByHousehold` lädt den Grundbeitrag (`base_fee_type/year/month`) und
+  das Vereinsmitglied (`COALESCE(fe.member_id, base.member_id)`) mit. `ReminderCaseFee` hat dafür
+  `reminderForId`, `reminderFor` (`domain.FeeRef`) und `clubMember {id, memberNumber, name}`; die Liste
+  stellt jede Mahngebühr direkt hinter ihren offenen Grundbeitrag (`placeRemindersAfterBase`).
+- **UI Arbeitsliste:** Spalte „Kind/Mitglied · Beitrag“: Vereinsbeiträge (und ihre Mahngebühren) zeigen
+  das Vereinsmitglied mit Link auf `/mitglieder/{id}` statt des Kindes; eine Mahngebühr unter ihrem
+  Grundbeitrag ist mit „↳“ eingerückt, Zeitraum zeigt „für Essensgeld 9/2026“.
+  `plannedReminderFees[].baseLabel` enthält Zeitraum und Person, z. B. „Essensgeld September 2026 (Haily)“.
+- **Mailtext** (`familyReminderItemList`): ein Block pro Kind („Haily (Mitgliedsnr. 11090):“) und pro
+  Vereinsmitglied („Vereinsmitglied Nadja Moritz:“, ohne M-Nummer, da die Bankzuordnung über die
+  Kindernummer läuft); Mahngebühren eingerückt als „zzgl. Mahngebühr — 10,00 EUR“ unter ihrem
+  Grundbeitrag, ohne ausgewählten Grundbeitrag als „Mahngebühr für Essensgeld September 2026“; am Ende
+  „Gesamtbetrag“. Der SEPA-QR-Verwendungszweck bleibt unverändert (Kindernummern).
+- **Datenprüfung live (read-only):** alle offenen Vereinsbeiträge haben ein Mitglied; die 14
+  Vereinsbeiträge 2026 ohne `member_id` gehören ausgetretenen Familien ohne Mitglieder und sind bezahlt.
+  Jeder Haushalt mit aktivem Kind hat ein aktives Mitglied.
+
 ## Erinnerungen: Kind verlinkt (2026-10-04)
 
 - **Arbeitsliste:** In der Beitragstabelle des Familienfalls ist der Kindname jetzt ein Link auf

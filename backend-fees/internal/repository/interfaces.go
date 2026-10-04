@@ -141,10 +141,19 @@ type FeeRepository interface {
 	GetReminderBaseIDsCreatedAfter(ctx context.Context, baseFeeIDs []uuid.UUID, after time.Time) (map[uuid.UUID]bool, error)
 }
 
-// OpenFeeRow is an open fee expectation joined with its matched amount.
+// OpenFeeRow is an open fee expectation joined with its matched amount, the
+// base fee of a Mahngebühr and the club member a membership fee belongs to
+// (for a Mahngebühr on a membership fee: the member of the base fee).
 type OpenFeeRow struct {
 	domain.FeeExpectation
-	Matched float64 `db:"matched_amount"`
+	Matched             float64         `db:"matched_amount"`
+	BaseFeeType         *domain.FeeType `db:"base_fee_type"`
+	BaseYear            *int            `db:"base_year"`
+	BaseMonth           *int            `db:"base_month"`
+	ClubMemberID        *uuid.UUID      `db:"club_member_id"`
+	ClubMemberNumber    *string         `db:"club_member_number"`
+	ClubMemberFirstName *string         `db:"club_member_first_name"`
+	ClubMemberLastName  *string         `db:"club_member_last_name"`
 }
 
 // SettingsRepository handles app settings persistence.

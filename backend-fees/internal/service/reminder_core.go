@@ -347,6 +347,10 @@ type reminderItem struct {
 	BaseFeeType  *domain.FeeType
 	BaseYear     int
 	BaseMonth    int
+	// Family workflow only: base fee of a Mahngebühr (for nesting in the
+	// mail) and the club member of a membership fee.
+	ReminderForID *uuid.UUID
+	ClubMember    *ReminderCaseMember
 }
 
 func (s *ReminderService) buildItemsWithChildren(ctx context.Context, fees []domain.FeeExpectation) ([]reminderItem, map[uuid.UUID]*domain.Child, error) {

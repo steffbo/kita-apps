@@ -51,6 +51,12 @@ const selectedCase = computed(() => {
   return cases.value.find((item) => item.householdId === selectedHouseholdId.value) ?? null;
 });
 
+// The backend lists a Mahngebühr directly after its open base fee; indent it there.
+function isNestedReminder(fee: ReminderCaseFee): boolean {
+  const baseId = fee.reminderForId;
+  return !!baseId && !!selectedCase.value?.fees.some((other) => other.feeId === baseId);
+}
+
 function lastContactOf(item: ReminderCase): string | null {
   let latest: string | null = null;
   for (const fee of item.fees) {
@@ -563,7 +569,7 @@ watch(
                     <thead>
                       <tr class="text-left text-muted-foreground border-b bg-muted">
                         <th class="w-8 py-2 pl-3"></th>
-                        <th class="py-2 pr-3 font-medium">Kind / Beitrag</th>
+                        <th class="py-2 pr-3 font-medium">Kind/Mitglied · Beitrag</th>
                         <th class="py-2 pr-3 font-medium">Zeitraum</th>
                         <th class="py-2 pr-3 font-medium">Fällig</th>
                         <th class="py-2 pr-3 font-medium text-right">Soll</th>
@@ -585,8 +591,18 @@ watch(
                           />
                         </td>
                         <td class="py-2 pr-3">
-                          <div class="flex items-center gap-2">
+                          <div class="flex items-center gap-2" :class="{ 'pl-4': isNestedReminder(fee) }">
+                            <span v-if="isNestedReminder(fee)" class="text-muted-foreground" aria-hidden="true">↳</span>
                             <router-link
+                              v-if="fee.clubMember"
+                              :to="`/mitglieder/${fee.clubMember.id}`"
+                              class="text-primary hover:underline"
+                              :title="`Vereinsmitglied ${fee.clubMember.memberNumber} öffnen`"
+                            >
+                              {{ fee.clubMember.name }}
+                            </router-link>
+                            <router-link
+                              v-else
                               :to="`/kinder/${fee.childId}`"
                               class="text-primary hover:underline"
                               title="Kind öffnen"

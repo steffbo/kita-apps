@@ -2,9 +2,17 @@
 import type { ReminderCase, ReminderCaseFee } from '@/api/types';
 import { getFeeTypeColor, getFeeTypeName } from '@/utils/fees';
 
+function periodLabel(year: number, month?: number): string {
+  if (month && month > 0) return `${month}/${year}`;
+  return String(year);
+}
+
+/** Period of a fee; a Mahngebühr names its base fee, e.g. "für Essensgeld 9/2026". */
 export function formatPeriod(fee: ReminderCaseFee): string {
-  if (fee.month > 0) return `${fee.month}/${fee.year}`;
-  return String(fee.year);
+  if (fee.reminderFor) {
+    return `für ${feeTypeLabel(fee.reminderFor.feeType)} ${periodLabel(fee.reminderFor.year, fee.reminderFor.month)}`;
+  }
+  return periodLabel(fee.year, fee.month);
 }
 
 export function feeTypeLabel(feeType: string): string {

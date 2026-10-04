@@ -11252,6 +11252,11 @@ export interface components {
             amount: number;
             childId: string;
             childName: string;
+            /**
+             * @description ClubMember is the club member a membership fee (or its Mahngebühr)
+             *     belongs to; membership fees are owed per member, not per child.
+             */
+            clubMember?: components["schemas"]["service.ReminderCaseMember"];
             dueDate: string;
             feeId: string;
             feeType: components["schemas"]["domain.FeeType"];
@@ -11260,11 +11265,19 @@ export interface components {
             memberNumber?: string;
             month: number;
             remaining: number;
+            reminderFor?: components["schemas"]["domain.FeeRef"];
+            /** @description ReminderForID and ReminderFor name the base fee of a Mahngebühr. */
+            reminderForId?: string;
             status: components["schemas"]["service.ReminderCaseFeeStatus"];
             year: number;
         };
         /** @enum {string} */
         "service.ReminderCaseFeeStatus": "never_contacted" | "waiting" | "actionable_initial" | "actionable_final" | "history_unknown";
+        "service.ReminderCaseMember": {
+            id: string;
+            memberNumber: string;
+            name: string;
+        };
         "service.ReminderCasePlannedFee": {
             amount: number;
             baseFeeId: string;

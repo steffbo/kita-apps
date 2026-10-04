@@ -752,14 +752,19 @@ func (r *PostgresFeeRepository) GetOverview(ctx context.Context, year int) (*dom
 func (r *PostgresFeeRepository) ListOpenByHousehold(ctx context.Context, householdID uuid.UUID) ([]OpenFeeRow, error) {
 	var rows []OpenFeeRow
 	err := conn(ctx, r.db).SelectContext(ctx, &rows, `
-		SELECT fe.id, fe.child_id, fe.household_id, fe.fee_type, fe.year, fe.month, fe.amount, fe.due_date, fe.created_at, fe.reminder_for_id, fe.reconciliation_year,
-		       COALESCE(pm_sum.matched_amount, 0) AS matched_amount
+		SELECT fe.id, fe.child_id, fe.household_id, fe.fee_type, fe.year, fe.month, fe.amount, fe.due_date, fe.created_at, fe.reminder_for_id, fe.reconciliation_year, fe.member_id,
+		       COALESCE(pm_sum.matched_amount, 0) AS matched_amount,
+		       base.fee_type AS base_fee_type, base.year AS base_year, base.month AS base_month,
+		       m.id AS club_member_id, m.member_number AS club_member_number,
+		       m.first_name AS club_member_first_name, m.last_name AS club_member_last_name
 		FROM fees.fee_expectations fe
 		LEFT JOIN (
 			SELECT expectation_id, COALESCE(SUM(amount), 0) AS matched_amount
 			FROM fees.payment_matches
 			GROUP BY expectation_id
 		) pm_sum ON fe.id = pm_sum.expectation_id
+		LEFT JOIN fees.fee_expectations base ON base.id = fe.reminder_for_id
+		LEFT JOIN fees.members m ON m.id = COALESCE(fe.member_id, base.member_id)
 		WHERE fe.household_id = $1
 		  AND COALESCE(pm_sum.matched_amount, 0) < fe.amount - 0.01
 		ORDER BY fe.due_date ASC, fe.created_at ASC

@@ -3,8 +3,11 @@ package service
 import (
 	"fmt"
 	"html"
+	"sort"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
 )
@@ -387,17 +390,15 @@ func buildFamilyMixedReminderEmail(
 		} else {
 			builder.WriteString("für eure Familie ist folgender Beitrag offen:\n\n")
 		}
-		builder.WriteString(reminderLine(items[0], true) + "\n")
 	} else {
 		if isFinal {
 			builder.WriteString("für eure Familie sind folgende offene Beiträge vermerkt:\n\n")
 		} else {
 			builder.WriteString("für eure Familie sind folgende Beiträge offen:\n\n")
 		}
-		for _, item := range items {
-			builder.WriteString("- " + reminderLine(item, true) + "\n")
-		}
 	}
+	builder.WriteString(familyReminderItemList(items))
+	builder.WriteString(fmt.Sprintf("\nGesamtbetrag: %s\n", formatCurrencyEUR(sumReminderItems(items))))
 
 	if isFinal {
 		builder.WriteString(fmt.Sprintf("\nBitte überweist den Gesamtbetrag spätestens bis zum %s auf folgendes Konto:\n\n", deadlineStr))
@@ -426,4 +427,131 @@ func buildFamilyMixedReminderEmail(
 	builder.WriteString("Diese E-Mail wurde automatisch erstellt. Fehler sind nicht ausgeschlossen — bei Fragen wendet euch gerne direkt an uns.\n")
 
 	return subject, builder.String()
+}
+
+// familyReminderGroup collects the mail lines of one person: a child (food,
+// childcare and their Mahngebühren) or a club member (membership fees).
+type familyReminderGroup struct {
+	header   string
+	isMember bool
+	sortName string
+	items    []reminderItem
+}
+
+// familyReminderItemList renders the items grouped per child and per club
+// member. Each Mahngebühr is nested under its base fee when that is listed
+// too; otherwise it stands alone with the base fee named.
+func familyReminderItemList(items []reminderItem) string {
+	groups := make(map[string]*familyReminderGroup)
+	order := make([]*familyReminderGroup, 0)
+	for _, item := range items {
+		key := "child:" + item.ChildID.String()
+		group := &familyReminderGroup{sortName: item.ChildName}
+		if item.MemberNumber != "" {
+			group.header = fmt.Sprintf("%s (Mitgliedsnr. %s):", item.ChildName, item.MemberNumber)
+		} else {
+			group.header = item.ChildName + ":"
+		}
+		if isMembershipItem(item) && item.ClubMember != nil {
+			key = "member:" + item.ClubMember.ID.String()
+			group = &familyReminderGroup{
+				header:   fmt.Sprintf("Vereinsmitglied %s:", item.ClubMember.Name),
+				isMember: true,
+				sortName: item.ClubMember.Name,
+			}
+		}
+		if existing, ok := groups[key]; ok {
+			group = existing
+		} else {
+			groups[key] = group
+			order = append(order, group)
+		}
+		group.items = append(group.items, item)
+	}
+
+	sort.SliceStable(order, func(i, j int) bool {
+		if order[i].isMember != order[j].isMember {
+			return !order[i].isMember
+		}
+		return order[i].sortName < order[j].sortName
+	})
+
+	var builder strings.Builder
+	for idx, group := range order {
+		if idx > 0 {
+			builder.WriteString("\n")
+		}
+		builder.WriteString(group.header + "\n")
+
+		listed := make(map[uuid.UUID]bool, len(group.items))
+		for _, item := range group.items {
+			if item.FeeType != domain.FeeTypeReminder && item.FeeID != uuid.Nil {
+				listed[item.FeeID] = true
+			}
+		}
+		nested := make(map[uuid.UUID][]reminderItem)
+		bases := make([]reminderItem, 0, len(group.items))
+		for _, item := range group.items {
+			if item.FeeType == domain.FeeTypeReminder && item.ReminderForID != nil && listed[*item.ReminderForID] {
+				nested[*item.ReminderForID] = append(nested[*item.ReminderForID], item)
+				continue
+			}
+			bases = append(bases, item)
+		}
+		sort.SliceStable(bases, func(i, j int) bool {
+			yi, mi := reminderItemPeriod(bases[i])
+			yj, mj := reminderItemPeriod(bases[j])
+			if yi != yj {
+				return yi < yj
+			}
+			return mi < mj
+		})
+		for _, item := range bases {
+			builder.WriteString(fmt.Sprintf("- %s — %s\n", reminderItemLabel(item), formatCurrencyEUR(item.Amount)))
+			for _, reminder := range nested[item.FeeID] {
+				builder.WriteString(fmt.Sprintf("  zzgl. Mahngebühr — %s\n", formatCurrencyEUR(reminder.Amount)))
+			}
+		}
+	}
+	return builder.String()
+}
+
+func isMembershipItem(item reminderItem) bool {
+	if item.FeeType == domain.FeeTypeMembership {
+		return true
+	}
+	return item.FeeType == domain.FeeTypeReminder && item.BaseFeeType != nil && *item.BaseFeeType == domain.FeeTypeMembership
+}
+
+// reminderItemPeriod is the sort period of an item; a Mahngebühr sorts by
+// its base fee.
+func reminderItemPeriod(item reminderItem) (int, int) {
+	if item.FeeType == domain.FeeTypeReminder && item.BaseFeeType != nil {
+		return item.BaseYear, item.BaseMonth
+	}
+	return item.Year, item.Month
+}
+
+// reminderItemLabel names an item without person and amount.
+func reminderItemLabel(item reminderItem) string {
+	if item.FeeType == domain.FeeTypeReminder {
+		if item.BaseFeeType != nil {
+			return "Mahngebühr für " + feeRefLabel(*item.BaseFeeType, item.BaseYear, item.BaseMonth)
+		}
+		return feeTypeLabel(item.FeeType)
+	}
+	return feeRefLabel(item.FeeType, item.Year, item.Month)
+}
+
+// feeRefLabel names a fee type with its period: "Essensgeld September 2026",
+// "Vereinsbeitrag 2026".
+func feeRefLabel(feeType domain.FeeType, year, month int) string {
+	label := feeTypeLabel(feeType)
+	if month > 0 {
+		return fmt.Sprintf("%s %s %d", label, germanMonthName(month), year)
+	}
+	if year > 0 {
+		return fmt.Sprintf("%s %d", label, year)
+	}
+	return label
 }

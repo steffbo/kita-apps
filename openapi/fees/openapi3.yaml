@@ -10646,6 +10646,12 @@ components:
           type: string
         childName:
           type: string
+        clubMember:
+          allOf:
+            - $ref: "#/components/schemas/service.ReminderCaseMember"
+          description: |-
+            ClubMember is the club member a membership fee (or its Mahngebühr)
+            belongs to; membership fees are owed per member, not per child.
         dueDate:
           type: string
         feeId:
@@ -10662,6 +10668,11 @@ components:
           type: integer
         remaining:
           type: number
+        reminderFor:
+          $ref: "#/components/schemas/domain.FeeRef"
+        reminderForId:
+          description: ReminderForID and ReminderFor name the base fee of a Mahngebühr.
+          type: string
         status:
           $ref: "#/components/schemas/service.ReminderCaseFeeStatus"
         year:
@@ -10694,6 +10705,19 @@ components:
         - FeeStatusActionableInitial
         - FeeStatusActionableFinal
         - FeeStatusHistoryUnknown
+    service.ReminderCaseMember:
+      properties:
+        id:
+          type: string
+        memberNumber:
+          type: string
+        name:
+          type: string
+      required:
+        - id
+        - memberNumber
+        - name
+      type: object
     service.ReminderCasePlannedFee:
       properties:
         amount:
