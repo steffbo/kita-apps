@@ -17,7 +17,6 @@ import (
 )
 
 const (
-	settingReminderAutoEnabled      = "reminder_auto_enabled"
 	settingReminderPaymentRecipient = "reminder_payment_recipient_name"
 	settingReminderPaymentIBAN      = "reminder_payment_iban"
 	settingReminderPaymentBIC       = "reminder_payment_bic"

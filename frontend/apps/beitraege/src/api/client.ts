@@ -28,7 +28,6 @@ import type {
   CreateFeeRequest,
   ReminderSettingsResponse,
   UpdateReminderSettingsRequest,
-  ReminderRunResponse,
   EmailLog,
   ChildLedger,
   FeeCoverage,
@@ -57,7 +56,6 @@ import type {
   ChildcareFeeResult,
   MatchSuggestion,
   BankingSyncStatus,
-  ReminderRunBody,
   ReminderCasesResult,
   ReminderCasePreview,
   ReminderCaseRequest,
@@ -686,28 +684,6 @@ class ApiClient {
     });
   }
 
-  async runReminders(params?: {
-    stage?: 'auto' | 'initial' | 'final';
-    date?: string;
-    dryRun?: boolean;
-    deadline?: string;
-    selectedHouseholdIds?: string[];
-    body?: ReminderRunBody;
-  }): Promise<ReminderRunResponse> {
-    return this.postReminderRun('/fees/reminders/run', params);
-  }
-
-  async runMembershipReminders(params?: {
-    stage?: 'initial' | 'final';
-    date?: string;
-    dryRun?: boolean;
-    deadline?: string;
-    selectedHouseholdIds?: string[];
-    body?: ReminderRunBody;
-  }): Promise<ReminderRunResponse> {
-    return this.postReminderRun('/fees/membership-reminders/run', params);
-  }
-
   async getReminderCases(params?: {
     asOf?: string;
     scope?: 'actionable' | 'all';
@@ -770,34 +746,6 @@ class ApiClient {
     return response.json();
   }
 
-  private async postReminderRun(
-    path: string,
-    params?: {
-      stage?: string;
-      date?: string;
-      dryRun?: boolean;
-      deadline?: string;
-      selectedHouseholdIds?: string[];
-      body?: ReminderRunBody;
-    }
-  ): Promise<ReminderRunResponse> {
-    const query = new URLSearchParams();
-    if (params?.stage) query.set('stage', params.stage);
-    if (params?.date) query.set('date', params.date);
-    if (typeof params?.dryRun === 'boolean') query.set('dryRun', params.dryRun ? 'true' : 'false');
-    if (params?.deadline) query.set('deadline', params.deadline);
-    if (params?.selectedHouseholdIds && params.selectedHouseholdIds.length > 0) {
-      query.set('selectedHouseholdIds', params.selectedHouseholdIds.join(','));
-    }
-    const queryString = query.toString();
-    const hasBody = !!params?.body && Object.keys(params.body).length > 0;
-    return this.request<ReminderRunResponse>(`${path}${queryString ? `?${queryString}` : ''}`, {
-      method: 'POST',
-      ...(hasBody
-        ? { headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(params?.body) }
-        : {}),
-    });
-  }
 
   async getEmailLogs(params?: {
     page?: number;

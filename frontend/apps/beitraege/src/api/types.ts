@@ -69,7 +69,7 @@ export type DataChange = Schema['repository.DataChange'];
 export type OwnContactRequest = Schema['handler.ownContactRequest'];
 export type ReportRequest = Schema['service.ReportInput'];
 
-// ── Reminder settings and runs ───────────────────────────────────────────────
+// ── Reminder settings ───────────────────────────────────────────────
 export type ReminderPaymentSettings = Schema['handler.ReminderPaymentSettingsPayload'];
 export type ReminderSettingsResponse = 
   Schema['ReminderSettingsResponse'] & {
@@ -77,24 +77,8 @@ export type ReminderSettingsResponse =
   }
 ;
 export interface UpdateReminderSettingsRequest {
-  autoEnabled: boolean;
   payment?: ReminderPaymentSettings;
 }
-export type ReminderRunStage = NonNullable<Schema['ReminderRunResponse']['stage']>;
-export type ReminderWarning = Schema['ReminderWarningResponse'];
-export type ReminderPreview = Schema['ReminderPreviewResponse'];
-export interface ReminderRunOverride {
-  subject?: string;
-  body?: string;
-}
-export interface ReminderRunBody {
-  includeQR?: boolean;
-  overrides?: Record<string, ReminderRunOverride>;
-}
-export type ReminderRunResponse = Omit<Schema['ReminderRunResponse'], 'warnings' | 'previews'> & {
-  warnings?: ReminderWarning[];
-  previews?: ReminderPreview[];
-};
 
 // ── Family reminder cases ────────────────────────────────────────────────────
 export type ReminderCaseFeeStatus = NonNullable<Schema['service.ReminderCaseFee']['status']>;
@@ -106,9 +90,10 @@ export type ReminderCasePlannedFee = Schema['service.ReminderCasePlannedFee'];
 export type ReminderCasePreview = Schema['service.ReminderCasePreview'];
 export type ReminderCaseSendResult = Schema['service.ReminderCaseSendResult'];
 export interface ReminderCaseRequest {
-  stage: ReminderCaseStage;
   runDate?: string;
   feeIds: string[];
+  /** Selected fees that get a Mahngebühr; each must be reminderFeeDue. */
+  reminderFeeIds?: string[];
   includeQR?: boolean;
   subject?: string;
   body?: string;

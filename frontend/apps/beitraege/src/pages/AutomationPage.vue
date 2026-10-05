@@ -7,7 +7,6 @@ import type {
   ReminderCaseFee,
   ReminderCasePreview,
   ReminderCaseSendResult,
-  ReminderCaseStage,
 } from '@/api/types';
 import { ReminderCaseConflictError } from '@/api/types';
 import { Eye, X, ArrowLeft, Settings, Mail, Clock, RefreshCw } from 'lucide-vue-next';
@@ -105,7 +104,8 @@ function openCase(householdId: string): void {
     .filter((fee) => fee.status === 'actionable_initial' || fee.status === 'actionable_final' || fee.status === 'history_unknown')
     .map((fee) => fee.feeId);
   selectedFeeIds.value = actionableIds;
-  stage.value = deriveRecommendedStage(actionableIds, item?.fees ?? []) ?? 'initial';
+  // Mahngebühren are never charged by default, even when due by the rules.
+  reminderFeeIds.value = [];
   sendResult.value = null;
   sendError.value = null;
   resetNotice.value = false;
@@ -121,7 +121,7 @@ function closeCase(): void {
 
 // ── Case detail state ────────────────────────────────────────────────────────
 const selectedFeeIds = ref<string[]>([]);
-const stage = ref<ReminderCaseStage>('initial');
+const reminderFeeIds = ref<string[]>([]);
 const includeQR = ref(true);
 const preview = ref<ReminderCasePreview | null>(null);
 const isPreviewLoading = ref(false);
@@ -141,43 +141,35 @@ let previewRequestedAt: string | null = null;
 let previewTimer: ReturnType<typeof setTimeout> | null = null;
 let previewRequestSeq = 0;
 
-// Derive the recommendation the way the backend does: initial only when every
-// selected fee is actionable_initial, final only when every one is
-// actionable_final.
-function deriveRecommendedStage(selectedIds: string[], fees: ReminderCaseFee[]): ReminderCaseStage | null {
-  if (selectedIds.length === 0) return null;
-  const byId = new Map<string, ReminderCaseFee>(fees.map((fee) => [fee.feeId, fee]));
-  const selected = selectedIds
-    .map((id) => byId.get(id))
-    .filter((fee): fee is ReminderCaseFee => !!fee);
-  if (selected.length === 0) return null;
-  const allInitial = selected.every((fee) => fee.status === 'actionable_initial');
-  const allFinal = selected.every((fee) => fee.status === 'actionable_final');
-  if (allInitial) return 'initial';
-  if (allFinal) return 'final';
-  return null;
-}
+// A mail that charges at least one Mahngebühr is a Mahnung, otherwise a
+// Zahlungserinnerung.
+const isMahnung = computed(() => reminderFeeIds.value.length > 0);
 
-const recommendedStage = computed<ReminderCaseStage | null>(() => {
-  if (!selectedCase.value) return null;
-  return deriveRecommendedStage(selectedFeeIds.value, selectedCase.value.fees);
-});
-
-const stageWarning = computed<string | null>(() => {
-  const recommended = recommendedStage.value;
-  if (!recommended || recommended === stage.value) return null;
-  if (stage.value === 'final') {
-    return 'Empfehlung: Erinnerung — mindestens ein ausgewählter Beitrag wurde noch nicht erinnert.';
-  }
-  return 'Empfehlung: Mahnung — alle ausgewählten Beiträge haben eine abgelaufene Frist.';
+// Fees whose Mahngebühr is due by the rules but not ticked.
+const untickedDueFeeCount = computed(() => {
+  if (!selectedCase.value) return 0;
+  return selectedCase.value.fees.filter(
+    (fee) => fee.reminderFeeDue && selectedFeeIds.value.includes(fee.feeId) && !reminderFeeIds.value.includes(fee.feeId),
+  ).length;
 });
 
 function toggleFee(feeId: string): void {
   const index = selectedFeeIds.value.indexOf(feeId);
   if (index >= 0) {
     selectedFeeIds.value.splice(index, 1);
+    const reminderIndex = reminderFeeIds.value.indexOf(feeId);
+    if (reminderIndex >= 0) reminderFeeIds.value.splice(reminderIndex, 1);
   } else {
     selectedFeeIds.value.push(feeId);
+  }
+}
+
+function toggleReminderFee(feeId: string): void {
+  const index = reminderFeeIds.value.indexOf(feeId);
+  if (index >= 0) {
+    reminderFeeIds.value.splice(index, 1);
+  } else {
+    reminderFeeIds.value.push(feeId);
   }
 }
 
@@ -197,9 +189,9 @@ async function refreshPreview(): Promise<void> {
   previewRequestedAt = new Date().toISOString();
   try {
     const result = await api.previewReminderCase(item.householdId, {
-      stage: stage.value,
       runDate: todayISO(),
       feeIds: selectedFeeIds.value,
+      reminderFeeIds: reminderFeeIds.value,
       includeQR: includeQR.value,
     });
     if (requestSeq !== previewRequestSeq) return;
@@ -246,11 +238,11 @@ watch(selectedFeeIds, () => {
   schedulePreviewRefresh();
 }, { deep: true });
 
-watch(stage, () => {
+watch(reminderFeeIds, () => {
   resetNotice.value = false;
   invalidatePreview();
   schedulePreviewRefresh();
-});
+}, { deep: true });
 
 watch(includeQR, () => {
   invalidatePreview();
@@ -292,9 +284,9 @@ async function confirmSend(): Promise<void> {
   conflictFeeCount.value = 0;
   try {
     const result = await api.sendReminderCase(item.householdId, {
-      stage: stage.value,
       runDate: todayISO(),
       feeIds: selectedFeeIds.value,
+      reminderFeeIds: reminderFeeIds.value,
       includeQR: includeQR.value,
       ...(subjectEdit.value.trim() !== '' && subjectEdit.value !== preview.value.subject ? { subject: subjectEdit.value } : {}),
       ...(bodyEdit.value !== preview.value.body ? { body: bodyEdit.value } : {}),
@@ -536,30 +528,19 @@ watch(
                 </div>
               </div>
 
-              <!-- Stage selector -->
               <div class="flex flex-wrap items-center gap-2 mb-3">
-                <button
-                  class="px-4 py-2 text-sm font-medium rounded-lg border transition-colors"
-                  :class="stage === 'initial' ? 'bg-primary text-primary-foreground border-primary' : 'border-border text-foreground hover:bg-accent'"
-                  @click="stage = 'initial'"
-                >
-                  Erinnerung
-                </button>
-                <button
-                  class="px-4 py-2 text-sm font-medium rounded-lg border transition-colors"
-                  :class="stage === 'final' ? 'bg-amber-600 text-white border-amber-600' : 'border-border text-foreground hover:bg-accent'"
-                  @click="stage = 'final'"
-                >
-                  Mahnung
-                </button>
-                <label class="inline-flex items-center gap-2 text-sm text-foreground ml-2">
+                <label class="inline-flex items-center gap-2 text-sm text-foreground">
                   <input type="checkbox" v-model="includeQR" />
                   QR-Code
                 </label>
               </div>
-              <p v-if="stageWarning" class="text-xs text-amber-700 dark:text-amber-300 mb-3">{{ stageWarning }}</p>
-              <p v-else-if="recommendedStage" class="text-xs text-muted-foreground mb-3">
-                Empfehlung: {{ recommendedStage === 'final' ? 'Mahnung' : 'Erinnerung' }}
+              <p
+                v-if="untickedDueFeeCount > 0"
+                class="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 rounded-lg text-xs text-amber-900 dark:text-amber-300 mb-3"
+              >
+                Für {{ untickedDueFeeCount === 1 ? 'einen ausgewählten Beitrag' : `${untickedDueFeeCount} ausgewählte Beiträge` }}
+                ist laut Regeln eine Mahngebühr fällig (erinnert, Frist abgelaufen). Sie wird nur erhoben, wenn du sie in der Spalte
+                „Mahngebühr“ ankreuzt — sonst geht eine Zahlungserinnerung raus.
               </p>
 
               <!-- Fee selection -->
@@ -575,6 +556,7 @@ watch(
                         <th class="py-2 pr-3 font-medium text-right">Soll</th>
                         <th class="py-2 pr-3 font-medium text-right">Offen</th>
                         <th class="py-2 pr-3 font-medium">Status</th>
+                        <th class="py-2 pr-3 font-medium">Mahngebühr</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -621,6 +603,28 @@ watch(
                           <span class="px-2 py-0.5 text-xs rounded-full font-medium whitespace-nowrap" :class="statusBadgeClass(fee.status)">
                             {{ statusLabel(fee.status) }}
                           </span>
+                        </td>
+                        <td class="py-2 pr-3 whitespace-nowrap">
+                          <label
+                            v-if="fee.reminderFeeDue"
+                            class="inline-flex items-center gap-2"
+                            :title="selectedFeeIds.includes(fee.feeId) ? 'Mahngebühr mit dieser Mail erheben' : 'Erst den Beitrag auswählen'"
+                          >
+                            <input
+                              type="checkbox"
+                              :checked="reminderFeeIds.includes(fee.feeId)"
+                              :disabled="!selectedFeeIds.includes(fee.feeId)"
+                              @change="toggleReminderFee(fee.feeId)"
+                            />
+                            <span
+                              v-if="!reminderFeeIds.includes(fee.feeId)"
+                              class="px-2 py-0.5 text-xs rounded-full font-medium bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-300"
+                            >
+                              fällig
+                            </span>
+                            <span v-else class="text-xs font-medium text-amber-700 dark:text-amber-300">wird erhoben</span>
+                          </label>
+                          <span v-else class="text-xs text-muted-foreground">—</span>
                         </td>
                       </tr>
                     </tbody>
@@ -692,7 +696,7 @@ watch(
                       class="w-full px-3 py-2 border border-border rounded-lg font-mono text-xs focus:ring-2 focus:ring-primary focus:border-transparent outline-none whitespace-pre-wrap bg-card"
                     ></textarea>
                     <p v-if="userEdited" class="mt-1 text-xs text-amber-700 dark:text-amber-300">
-                      Text angepasst — Änderungen an Auswahl oder Mahnstufe setzen ihn zurück.
+                      Text angepasst — Änderungen an der Auswahl oder den Mahngebühren setzen ihn zurück.
                     </p>
                   </div>
                   <div v-if="includeQR && preview.qrImageDataUrl" class="flex flex-col sm:flex-row gap-3">
@@ -723,7 +727,7 @@ watch(
                   :disabled="!preview || isPreviewLoading || isSending || selectedCase.recipients.length === 0"
                   @click="openSendConfirmation"
                 >
-                  {{ stage === 'final' ? 'Mahnung senden' : 'Erinnerung senden' }}
+                  {{ isMahnung ? 'Mahnung senden' : 'Erinnerung senden' }}
                 </button>
               </div>
 
@@ -773,7 +777,7 @@ watch(
       <div class="bg-card rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col">
         <div class="flex items-start justify-between gap-4 p-5 border-b">
           <h3 class="text-lg font-semibold text-foreground">
-            {{ stage === 'final' ? 'Mahnung senden?' : 'Erinnerung senden?' }}
+            {{ isMahnung ? 'Mahnung senden?' : 'Erinnerung senden?' }}
           </h3>
           <button type="button" class="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground" @click="showConfirmModal = false" aria-label="Schließen">
             <X class="h-5 w-5" />
@@ -825,7 +829,7 @@ watch(
           </button>
           <button
             class="px-4 py-2 rounded-lg text-white text-sm font-medium disabled:opacity-50"
-            :class="stage === 'final' ? 'bg-amber-600 hover:bg-amber-700' : 'bg-primary hover:bg-primary/90'"
+            :class="isMahnung ? 'bg-amber-600 hover:bg-amber-700' : 'bg-primary hover:bg-primary/90'"
             :disabled="isSending"
             @click="confirmSend"
           >

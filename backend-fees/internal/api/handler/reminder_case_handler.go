@@ -25,15 +25,15 @@ type ReminderCaseConflictResponse struct {
 }
 
 // ReminderCaseRequestDTO is the shared request body for preview and send.
-// @Description Stage selection, fee IDs and content overrides; the deadline is computed server-side as runDate + 7 days
+// @Description Fee IDs, the subset that gets a Mahngebühr, and content overrides; the deadline is computed server-side as runDate + 7 days
 type ReminderCaseRequestDTO struct {
-	Stage       string   `json:"stage" example:"initial" enums:"initial,final"`
-	RunDate     string   `json:"runDate,omitempty" example:"2026-09-15" binding:"optional"`
-	FeeIDs      []string `json:"feeIds"`
-	IncludeQR   *bool    `json:"includeQR,omitempty" example:"true" binding:"optional"`
-	Subject     string   `json:"subject,omitempty" binding:"optional"`
-	Body        string   `json:"body,omitempty" binding:"optional"`
-	PreviewedAt string   `json:"previewedAt,omitempty" example:"2026-09-15T10:00:00Z" binding:"optional"`
+	RunDate        string   `json:"runDate,omitempty" example:"2026-09-15" binding:"optional"`
+	FeeIDs         []string `json:"feeIds"`
+	ReminderFeeIDs []string `json:"reminderFeeIds,omitempty" binding:"optional"`
+	IncludeQR      *bool    `json:"includeQR,omitempty" example:"true" binding:"optional"`
+	Subject        string   `json:"subject,omitempty" binding:"optional"`
+	Body           string   `json:"body,omitempty" binding:"optional"`
+	PreviewedAt    string   `json:"previewedAt,omitempty" example:"2026-09-15T10:00:00Z" binding:"optional"`
 } //@name ReminderCaseRequest
 
 // GetReminderCases handles GET /fees/reminder-cases
@@ -80,7 +80,7 @@ func (h *FeeHandler) GetReminderCases(w http.ResponseWriter, r *http.Request) {
 
 // PreviewReminderCase handles POST /fees/reminder-cases/{householdId}/preview
 // @Summary Preview a family reminder email
-// @Description Builds the final mail content, QR data, planned reminder fees, recommendation and warnings without side effects
+// @Description Builds the final mail content, QR data, planned reminder fees, derived stage and warnings without side effects
 // @Tags Fees
 // @Accept json
 // @Produce json
@@ -190,13 +190,7 @@ func decodeReminderCaseRequest(w http.ResponseWriter, r *http.Request) (*service
 		return nil, false
 	}
 
-	stage, err := service.ParseReminderStage(dto.Stage)
-	if err != nil || (stage != service.ReminderStageInitial && stage != service.ReminderStageFinal) {
-		response.BadRequest(w, "invalid stage (expected initial, final)")
-		return nil, false
-	}
-
-	req := &service.ReminderCaseRequest{Stage: stage}
+	req := &service.ReminderCaseRequest{}
 
 	if strings.TrimSpace(dto.RunDate) != "" {
 		parsed, err := time.Parse("2006-01-02", dto.RunDate)
@@ -221,6 +215,14 @@ func decodeReminderCaseRequest(w http.ResponseWriter, r *http.Request) (*service
 		feeIDs = append(feeIDs, id)
 	}
 	req.FeeIDs = feeIDs
+	for _, raw := range dto.ReminderFeeIDs {
+		id, err := uuid.Parse(raw)
+		if err != nil {
+			response.BadRequest(w, "invalid reminderFeeId format")
+			return nil, false
+		}
+		req.ReminderFeeIDs = append(req.ReminderFeeIDs, id)
+	}
 	req.IncludeQR = dto.IncludeQR
 	req.Subject = dto.Subject
 	req.Body = dto.Body

@@ -39,8 +39,6 @@ var adminRoutes = []string{
 	"POST /banking-sync/run",
 	"GET /banking-sync/status",
 	"POST /banking-sync/cancel",
-	"POST /fees/reminders/run",
-	"POST /fees/membership-reminders/run",
 	"GET /fees/reminders/settings",
 	"PUT /fees/reminders/settings",
 	"GET /fees/email-logs",

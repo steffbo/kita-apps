@@ -2311,69 +2311,6 @@ paths:
       summary: Generate fees for a period
       tags:
         - Fees
-  /fees/membership-reminders/run:
-    post:
-      description: Sends reminder emails for unpaid Membership fees and optionally
-        creates 5 EUR reminder fees
-      parameters:
-        - description: Run date (YYYY-MM-DD, defaults to today)
-          in: query
-          name: date
-          schema:
-            type: string
-        - description: "Stage: initial, final"
-          in: query
-          name: stage
-          schema:
-            type: string
-            enum:
-              - initial
-              - final
-        - description: If true, don't send emails or create reminders
-          in: query
-          name: dryRun
-          schema:
-            type: boolean
-        - description: Payment deadline (YYYY-MM-DD), defaults to 31.03.<year>
-          in: query
-          name: deadline
-          schema:
-            type: string
-        - description: Optional comma-separated household IDs to process
-          in: query
-          name: selectedHouseholdIds
-          schema:
-            type: string
-      responses:
-        "200":
-          description: Reminder run result
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ReminderRunResponse"
-        "400":
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "401":
-          description: Not authenticated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "500":
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-      security:
-        - BearerAuth: []
-      summary: Run membership reminder checks
-      tags:
-        - Fees
   /fees/overview:
     get:
       description: Get an overview of fees with totals and monthly breakdown
@@ -2459,7 +2396,7 @@ paths:
   "/fees/reminder-cases/{householdId}/preview":
     post:
       description: Builds the final mail content, QR data, planned reminder fees,
-        recommendation and warnings without side effects
+        derived stage and warnings without side effects
       parameters:
         - description: Household UUID
           in: path
@@ -2562,65 +2499,6 @@ paths:
       security:
         - BearerAuth: []
       summary: Send a family reminder email
-      tags:
-        - Fees
-  /fees/reminders/run:
-    post:
-      description: Sends reminder emails for unpaid Food/Childcare fees and optionally
-        creates reminder fees
-      parameters:
-        - description: Run date (YYYY-MM-DD, defaults to today)
-          in: query
-          name: date
-          schema:
-            type: string
-        - description: "Stage: auto, initial, final"
-          in: query
-          name: stage
-          schema:
-            type: string
-            enum:
-              - auto
-              - initial
-              - final
-        - description: If true, don't send emails or create reminders
-          in: query
-          name: dryRun
-          schema:
-            type: boolean
-        - description: Optional comma-separated household IDs to process
-          in: query
-          name: selectedHouseholdIds
-          schema:
-            type: string
-      responses:
-        "200":
-          description: Reminder run result
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ReminderRunResponse"
-        "400":
-          description: Invalid request
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "401":
-          description: Not authenticated
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-        "500":
-          description: Internal server error
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/ErrorResponse"
-      security:
-        - BearerAuth: []
-      summary: Run payment reminder checks
       tags:
         - Fees
   /fees/reminders/settings:
@@ -7747,8 +7625,8 @@ components:
         - expiresAt
       type: object
     ReminderCaseRequest:
-      description: Stage selection, fee IDs and content overrides; the deadline is
-        computed server-side as runDate + 7 days
+      description: Fee IDs, the subset that gets a Mahngebühr, and content overrides;
+        the deadline is computed server-side as runDate + 7 days
       properties:
         body:
           type: string
@@ -7762,142 +7640,25 @@ components:
         previewedAt:
           example: 2026-09-15T10:00:00Z
           type: string
+        reminderFeeIds:
+          items:
+            type: string
+          type: array
         runDate:
           example: 2026-09-15
-          type: string
-        stage:
-          enum:
-            - initial
-            - final
-          example: initial
           type: string
         subject:
           type: string
       required:
         - feeIds
-        - stage
-      type: object
-    ReminderPreviewResponse:
-      properties:
-        body:
-          example: Hallo Anna,...
-          type: string
-        householdId:
-          example: 550e8400-e29b-41d4-a716-446655440000
-          type: string
-        householdName:
-          example: Schmidt
-          type: string
-        qrImageDataUrl:
-          type: string
-        qrPayload:
-          example: |-
-            BCD
-            002
-            1
-            SCT...
-          type: string
-        recipients:
-          example:
-            - '["anna@example.com"]'
-          items:
-            type: string
-          type: array
-        subject:
-          example: Kita Zahlungserinnerung April 2026
-          type: string
-      required:
-        - body
-        - householdId
-        - householdName
-        - recipients
-        - subject
-      type: object
-    ReminderRunResponse:
-      description: Ergebnis einer Erinnerungs-/Mahnungsprüfung
-      properties:
-        date:
-          example: 2026-02-05
-          type: string
-        dryRun:
-          example: false
-          type: boolean
-        emailSent:
-          example: true
-          type: boolean
-        familiesEmailed:
-          example: 5
-          type: integer
-        familiesProcessed:
-          example: 6
-          type: integer
-        familiesSkippedNoEmail:
-          example: 1
-          type: integer
-        message:
-          example: no unpaid fees for this period
-          type: string
-        previews:
-          items:
-            $ref: "#/components/schemas/ReminderPreviewResponse"
-          type: array
-        recipient:
-          description: "Deprecated: kept for backward compat"
-          type: string
-        reminderCreated:
-          type: integer
-        remindersCreated:
-          example: 8
-          type: integer
-        stage:
-          enum:
-            - auto
-            - initial
-            - final
-            - none
-          example: initial
-          type: string
-        unpaidCount:
-          example: 12
-          type: integer
-        warnings:
-          items:
-            $ref: "#/components/schemas/ReminderWarningResponse"
-          type: array
-      required:
-        - date
-        - dryRun
-        - emailSent
-        - familiesEmailed
-        - familiesProcessed
-        - familiesSkippedNoEmail
-        - remindersCreated
-        - stage
-        - unpaidCount
       type: object
     ReminderSettingsResponse:
-      description: Reminder settings
+      description: Reminder settings (payment data for mails and QR codes)
       properties:
-        autoEnabled:
-          example: false
-          type: boolean
         payment:
           $ref: "#/components/schemas/handler.ReminderPaymentSettingsPayload"
       required:
-        - autoEnabled
         - payment
-      type: object
-    ReminderWarningResponse:
-      properties:
-        householdName:
-          example: Müller
-          type: string
-        reason:
-          example: keine gültige E-Mail-Adresse
-          type: string
-      required:
-        - householdName
-        - reason
       type: object
     RescanResponse:
       description: Rescan result with new match suggestions
@@ -8284,13 +8045,8 @@ components:
     UpdateReminderSettingsRequest:
       description: Reminder settings update
       properties:
-        autoEnabled:
-          example: true
-          type: boolean
         payment:
           $ref: "#/components/schemas/handler.ReminderPaymentSettingsPayload"
-      required:
-        - autoEnabled
       type: object
     User:
       properties:
@@ -10668,6 +10424,15 @@ components:
           type: integer
         remaining:
           type: number
+        reminderFeeDue:
+          description: >-
+            ReminderFeeDue: a Mahngebühr is due by the rules (reminded before,
+            the
+
+            reminder deadline has passed, no Mahngebühr yet). It is only created
+
+            when the fee is listed in ReminderCaseRequest.ReminderFeeIDs.
+          type: boolean
         reminderFor:
           $ref: "#/components/schemas/domain.FeeRef"
         reminderForId:
@@ -10688,6 +10453,7 @@ components:
         - hasReminder
         - month
         - remaining
+        - reminderFeeDue
         - status
         - year
       type: object
@@ -10761,12 +10527,14 @@ components:
           items:
             type: string
           type: array
-        recommendedStage:
-          $ref: "#/components/schemas/service.ReminderStage"
         selectedFees:
           items:
             $ref: "#/components/schemas/service.ReminderCaseFee"
           type: array
+        stage:
+          allOf:
+            - $ref: "#/components/schemas/service.ReminderStage"
+          description: "Stage is derived: final (Mahnung) when Mahngebühren are planned."
         subject:
           type: string
         totalAmount:
@@ -10783,8 +10551,8 @@ components:
         - includeQR
         - plannedReminderFees
         - recipients
-        - recommendedStage
         - selectedFees
+        - stage
         - subject
         - totalAmount
       type: object
@@ -10831,16 +10599,12 @@ components:
       type: object
     service.ReminderStage:
       enum:
-        - auto
         - initial
         - final
-        - none
       type: string
       x-enum-varnames:
-        - ReminderStageAuto
         - ReminderStageInitial
         - ReminderStageFinal
-        - ReminderStageNone
     service.ReportInput:
       properties:
         message:

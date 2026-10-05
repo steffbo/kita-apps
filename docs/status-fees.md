@@ -3,6 +3,40 @@
 Rolling change log of non-obvious implementation decisions. Newest first.
 Basics (ports, commands, layout) live in `AGENTS.md`.
 
+## Erinnerungen: Erinnerung und Mahnung zusammengelegt, Mahngebühr nur per Häkchen (2026-10-05)
+
+- **Eine Aktion statt Erinnerung/Mahnung:** Die Stufenwahl entfällt (`ReminderCaseRequest.stage` und
+  `ReminderCasePreview.recommendedStage` sind entfernt). Jeder Beitrag kann beliebig oft erinnert werden.
+  Eine Mahngebühr entsteht nur noch für Beiträge in `reminderFeeIds` (Teilmenge von `feeIds`, Standard leer).
+  Nichts wird automatisch erhoben, auch wenn die Frist nach einer Erinnerung abgelaufen ist (Kulanz).
+- **Regel für das Häkchen:** `ReminderCaseFee.reminderFeeDue` ist wahr für Grundbeiträge mit Status
+  `actionable_final` (erinnert, Frist abgelaufen) ohne vorhandene Mahngebühr, auch keine bezahlte, und
+  mit konfiguriertem Gebührenbetrag. Mahngebühren selbst werden nicht gemahnt, und je Beitrag gibt es
+  höchstens eine Mahngebühr.
+  - Häkchen außerhalb der Auswahl → `400`.
+  - Häkchen an einem nicht fälligen Beitrag → `409` (`CaseConflictError`).
+- **Mailart:** Wird mindestens eine Mahngebühr angelegt, ist die Mail eine Mahnung (`preview.stage = final`,
+  Log `REMINDER_FINAL`), sonst eine Zahlungserinnerung (`initial`). Der Schlusssatz der Erinnerung lautet
+  neutral „Falls die Zahlung bis zum … nicht eingeht, können für die offenen Beiträge Mahngebühren
+  erhoben werden.“
+- **Hinweise:** Ist eine Mahngebühr fällig, aber nicht angekreuzt, nennt die Vorschau „<Kind>: <Beitrag> –
+  Mahngebühr laut Regeln fällig, wird nicht erhoben“.
+- **UI:**
+  - Die Tabelle hat eine Spalte „Mahngebühr“. Sie zeigt das Häkchen nur bei fälligen Beiträgen, mit einem
+    Badge „fällig“ bzw. „wird erhoben“. Das Häkchen ist nur aktiv, wenn der Beitrag ausgewählt ist.
+  - Ein Hinweisbalken erklärt nicht angekreuzte fällige Gebühren.
+  - Der Button heißt je nach Häkchen „Erinnerung senden“ oder „Mahnung senden“.
+  - Statuslabels: „Nicht erinnert“ (statt „Erinnerung fällig“) und „Frist abgelaufen“ (statt „Mahnung fällig“).
+- **Entfernt:**
+  - die ungenutzten Sammel-Endpunkte `POST /fees/reminders/run` und `/fees/membership-reminders/run`
+    samt `reminder_core.go`, Legacy-Mailbuildern, Repo-Methoden `ListUnpaidWithoutReminder*`/
+    `ListUnpaidByTypesDueOnOrBefore` und ihren Tests;
+  - die Einstellung `autoEnabled`; Migration `000044` löscht `reminder_auto_enabled`.
+  - Live war die Automatik aus, und kein Scheduler rief die Endpunkte auf.
+  - Erinnerungen laufen nur noch über `/fees/reminder-cases/{householdId}/preview|send`.
+- Die Regel „Mahngebühr erst nach Erinnerung“ aus dem Eintrag vom 2026-10-04 gilt weiter. Die Mahnung
+  wählt aber nicht mehr selbst aus, welche Beiträge eine Gebühr bekommen; das entscheidet das Häkchen.
+
 ## Erinnerungen: Mahngebühren nur nach Erinnerung, Bezug sichtbar, Mail gruppiert (2026-10-04)
 
 - **Regel:** Eine Mahnung legt nur noch für Beiträge mit Status `actionable_final` eine Mahngebühr an,

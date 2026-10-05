@@ -5,7 +5,6 @@ import { X } from 'lucide-vue-next';
 
 const emit = defineEmits<{ close: [] }>();
 
-const reminderAutoEnabled = ref(false);
 const reminderPaymentRecipientName = ref('');
 const reminderPaymentIBAN = ref('');
 const reminderPaymentBIC = ref('');
@@ -17,7 +16,6 @@ async function loadReminderSettings(): Promise<void> {
   reminderSettingsError.value = null;
   try {
     const settings = await api.getReminderSettings();
-    reminderAutoEnabled.value = settings.autoEnabled;
     reminderPaymentRecipientName.value = settings.payment?.recipientName ?? '';
     reminderPaymentIBAN.value = settings.payment?.iban ?? '';
     reminderPaymentBIC.value = settings.payment?.bic ?? '';
@@ -41,7 +39,6 @@ async function savePaymentSettings(): Promise<void> {
   reminderSettingsError.value = null;
   try {
     await api.updateReminderSettings({
-      autoEnabled: reminderAutoEnabled.value,
       payment: {
         recipientName: reminderPaymentRecipientName.value.trim(),
         iban: normalizeIBAN(reminderPaymentIBAN.value),

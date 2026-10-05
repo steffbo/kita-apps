@@ -3493,83 +3493,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/fees/membership-reminders/run": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Run membership reminder checks
-         * @description Sends reminder emails for unpaid Membership fees and optionally creates 5 EUR reminder fees
-         */
-        post: {
-            parameters: {
-                query?: {
-                    /** @description Run date (YYYY-MM-DD, defaults to today) */
-                    date?: string;
-                    /** @description Stage: initial, final */
-                    stage?: "initial" | "final";
-                    /** @description If true, don't send emails or create reminders */
-                    dryRun?: boolean;
-                    /** @description Payment deadline (YYYY-MM-DD), defaults to 31.03.<year> */
-                    deadline?: string;
-                    /** @description Optional comma-separated household IDs to process */
-                    selectedHouseholdIds?: string;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Reminder run result */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ReminderRunResponse"];
-                    };
-                };
-                /** @description Invalid request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ErrorResponse"];
-                    };
-                };
-                /** @description Not authenticated */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ErrorResponse"];
-                    };
-                };
-                /** @description Internal server error */
-                500: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ErrorResponse"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/fees/overview": {
         parameters: {
             query?: never;
@@ -3712,7 +3635,7 @@ export interface paths {
         put?: never;
         /**
          * Preview a family reminder email
-         * @description Builds the final mail content, QR data, planned reminder fees, recommendation and warnings without side effects
+         * @description Builds the final mail content, QR data, planned reminder fees, derived stage and warnings without side effects
          */
         post: {
             parameters: {
@@ -3852,81 +3775,6 @@ export interface paths {
                 };
                 /** @description Email service disabled */
                 503: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ErrorResponse"];
-                    };
-                };
-            };
-        };
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/fees/reminders/run": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Run payment reminder checks
-         * @description Sends reminder emails for unpaid Food/Childcare fees and optionally creates reminder fees
-         */
-        post: {
-            parameters: {
-                query?: {
-                    /** @description Run date (YYYY-MM-DD, defaults to today) */
-                    date?: string;
-                    /** @description Stage: auto, initial, final */
-                    stage?: "auto" | "initial" | "final";
-                    /** @description If true, don't send emails or create reminders */
-                    dryRun?: boolean;
-                    /** @description Optional comma-separated household IDs to process */
-                    selectedHouseholdIds?: string;
-                };
-                header?: never;
-                path?: never;
-                cookie?: never;
-            };
-            requestBody?: never;
-            responses: {
-                /** @description Reminder run result */
-                200: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ReminderRunResponse"];
-                    };
-                };
-                /** @description Invalid request */
-                400: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ErrorResponse"];
-                    };
-                };
-                /** @description Not authenticated */
-                401: {
-                    headers: {
-                        [name: string]: unknown;
-                    };
-                    content: {
-                        "application/json": components["schemas"]["ErrorResponse"];
-                    };
-                };
-                /** @description Internal server error */
-                500: {
                     headers: {
                         [name: string]: unknown;
                     };
@@ -10008,7 +9856,7 @@ export interface components {
             /** @example 2024-01-27T15:04:05Z */
             expiresAt: string;
         };
-        /** @description Stage selection, fee IDs and content overrides; the deadline is computed server-side as runDate + 7 days */
+        /** @description Fee IDs, the subset that gets a Mahngebühr, and content overrides; the deadline is computed server-side as runDate + 7 days */
         ReminderCaseRequest: {
             body?: string;
             feeIds: string[];
@@ -10016,81 +9864,14 @@ export interface components {
             includeQR?: boolean;
             /** @example 2026-09-15T10:00:00Z */
             previewedAt?: string;
+            reminderFeeIds?: string[];
             /** @example 2026-09-15 */
             runDate?: string;
-            /**
-             * @example initial
-             * @enum {string}
-             */
-            stage: "initial" | "final";
             subject?: string;
         };
-        ReminderPreviewResponse: {
-            /** @example Hallo Anna,... */
-            body: string;
-            /** @example 550e8400-e29b-41d4-a716-446655440000 */
-            householdId: string;
-            /** @example Schmidt */
-            householdName: string;
-            qrImageDataUrl?: string;
-            /**
-             * @example BCD
-             *     002
-             *     1
-             *     SCT...
-             */
-            qrPayload?: string;
-            /**
-             * @example [
-             *       "[\"anna@example.com\"]"
-             *     ]
-             */
-            recipients: string[];
-            /** @example Kita Zahlungserinnerung April 2026 */
-            subject: string;
-        };
-        /** @description Ergebnis einer Erinnerungs-/Mahnungsprüfung */
-        ReminderRunResponse: {
-            /** @example 2026-02-05 */
-            date: string;
-            /** @example false */
-            dryRun: boolean;
-            /** @example true */
-            emailSent: boolean;
-            /** @example 5 */
-            familiesEmailed: number;
-            /** @example 6 */
-            familiesProcessed: number;
-            /** @example 1 */
-            familiesSkippedNoEmail: number;
-            /** @example no unpaid fees for this period */
-            message?: string;
-            previews?: components["schemas"]["ReminderPreviewResponse"][];
-            /** @description Deprecated: kept for backward compat */
-            recipient?: string;
-            reminderCreated?: number;
-            /** @example 8 */
-            remindersCreated: number;
-            /**
-             * @example initial
-             * @enum {string}
-             */
-            stage: "auto" | "initial" | "final" | "none";
-            /** @example 12 */
-            unpaidCount: number;
-            warnings?: components["schemas"]["ReminderWarningResponse"][];
-        };
-        /** @description Reminder settings */
+        /** @description Reminder settings (payment data for mails and QR codes) */
         ReminderSettingsResponse: {
-            /** @example false */
-            autoEnabled: boolean;
             payment: components["schemas"]["handler.ReminderPaymentSettingsPayload"];
-        };
-        ReminderWarningResponse: {
-            /** @example Müller */
-            householdName: string;
-            /** @example keine gültige E-Mail-Adresse */
-            reason: string;
         };
         /** @description Rescan result with new match suggestions */
         RescanResponse: {
@@ -10308,8 +10089,6 @@ export interface components {
         };
         /** @description Reminder settings update */
         UpdateReminderSettingsRequest: {
-            /** @example true */
-            autoEnabled: boolean;
             payment?: components["schemas"]["handler.ReminderPaymentSettingsPayload"];
         };
         User: {
@@ -11265,6 +11044,12 @@ export interface components {
             memberNumber?: string;
             month: number;
             remaining: number;
+            /**
+             * @description ReminderFeeDue: a Mahngebühr is due by the rules (reminded before, the
+             *     reminder deadline has passed, no Mahngebühr yet). It is only created
+             *     when the fee is listed in ReminderCaseRequest.ReminderFeeIDs.
+             */
+            reminderFeeDue: boolean;
             reminderFor?: components["schemas"]["domain.FeeRef"];
             /** @description ReminderForID and ReminderFor name the base fee of a Mahngebühr. */
             reminderForId?: string;
@@ -11295,8 +11080,9 @@ export interface components {
             qrImageDataUrl?: string;
             qrPayload?: string;
             recipients: string[];
-            recommendedStage: components["schemas"]["service.ReminderStage"];
             selectedFees: components["schemas"]["service.ReminderCaseFee"][];
+            /** @description Stage is derived: final (Mahnung) when Mahngebühren are planned. */
+            stage: components["schemas"]["service.ReminderStage"];
             subject: string;
             totalAmount: number;
             warnings?: string[];
@@ -11315,7 +11101,7 @@ export interface components {
             scope: string;
         };
         /** @enum {string} */
-        "service.ReminderStage": "auto" | "initial" | "final" | "none";
+        "service.ReminderStage": "initial" | "final";
         "service.ReportInput": {
             message: string;
             referenceId?: string;

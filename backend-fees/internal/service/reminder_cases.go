@@ -50,6 +50,10 @@ type ReminderCaseFee struct {
 	ActionableAt time.Time             `json:"actionableAt"`
 	LastContact  *FeeContact           `json:"lastContact,omitempty" binding:"optional"`
 	HasReminder  bool                  `json:"hasReminder"`
+	// ReminderFeeDue: a Mahngebühr is due by the rules (reminded before, the
+	// reminder deadline has passed, no Mahngebühr yet). It is only created
+	// when the fee is listed in ReminderCaseRequest.ReminderFeeIDs.
+	ReminderFeeDue bool `json:"reminderFeeDue"`
 	// ReminderForID and ReminderFor name the base fee of a Mahngebühr.
 	ReminderForID *uuid.UUID     `json:"reminderForId,omitempty" binding:"optional"`
 	ReminderFor   *domain.FeeRef `json:"reminderFor,omitempty" binding:"optional"`
@@ -84,13 +88,16 @@ type ReminderCasesResult struct {
 
 // ReminderCaseRequest is the shared request for preview and send.
 type ReminderCaseRequest struct {
-	Stage       ReminderStage `json:"stage"`
-	RunDate     time.Time     `json:"runDate"`
-	FeeIDs      []uuid.UUID   `json:"feeIds"`
-	IncludeQR   *bool         `json:"includeQR,omitempty" binding:"optional"`
-	Subject     string        `json:"subject,omitempty" binding:"optional"`
-	Body        string        `json:"body,omitempty" binding:"optional"`
-	PreviewedAt *time.Time    `json:"previewedAt,omitempty" binding:"optional"`
+	RunDate time.Time   `json:"runDate"`
+	FeeIDs  []uuid.UUID `json:"feeIds"`
+	// ReminderFeeIDs are the selected fees that get a Mahngebühr on send.
+	// Each must be part of FeeIDs and have ReminderFeeDue set. With at least
+	// one, the mail is a Mahnung, otherwise a Zahlungserinnerung.
+	ReminderFeeIDs []uuid.UUID `json:"reminderFeeIds,omitempty" binding:"optional"`
+	IncludeQR      *bool       `json:"includeQR,omitempty" binding:"optional"`
+	Subject        string      `json:"subject,omitempty" binding:"optional"`
+	Body           string      `json:"body,omitempty" binding:"optional"`
+	PreviewedAt    *time.Time  `json:"previewedAt,omitempty" binding:"optional"`
 }
 
 // ReminderCasePlannedFee is a reminder fee that would be created on send.
@@ -118,8 +125,9 @@ type ReminderCasePreview struct {
 	QRPayload           string                   `json:"qrPayload,omitempty" binding:"optional"`
 	SelectedFees        []ReminderCaseFee        `json:"selectedFees"`
 	PlannedReminderFees []ReminderCasePlannedFee `json:"plannedReminderFees"`
-	RecommendedStage    ReminderStage            `json:"recommendedStage"`
-	Warnings            []string                 `json:"warnings,omitempty" binding:"optional"`
+	// Stage is derived: final (Mahnung) when Mahngebühren are planned.
+	Stage    ReminderStage `json:"stage"`
+	Warnings []string      `json:"warnings,omitempty" binding:"optional"`
 }
 
 // ReminderCaseSendResult reports a successful send.
@@ -213,10 +221,11 @@ func (s *ReminderService) loadCaseFees(ctx context.Context, householdID uuid.UUI
 		return nil, nil
 	}
 
+	// Base fees with any Mahngebühr, paid or open: a fee gets at most one.
 	baseIDs := make([]uuid.UUID, 0, len(rows))
 	for _, row := range rows {
-		if row.FeeType == domain.FeeTypeReminder && row.ReminderForID != nil {
-			baseIDs = append(baseIDs, *row.ReminderForID)
+		if row.FeeType != domain.FeeTypeReminder {
+			baseIDs = append(baseIDs, row.ID)
 		}
 	}
 	hasReminder, err := s.feeRepo.GetOpenReminderBaseIDs(ctx, baseIDs)
@@ -288,6 +297,8 @@ func (s *ReminderService) loadCaseFees(ctx context.Context, householdID uuid.UUI
 			}
 		}
 		fee.Status, fee.ActionableAt = feeWorkflowStatus(row.CreatedAt, row.DueDate, contacts[row.ID], cutoff, asOfStart)
+		fee.ReminderFeeDue = fee.FeeType != domain.FeeTypeReminder && !fee.HasReminder &&
+			fee.Status == FeeStatusActionableFinal && reminderFeeAmountFor(fee.FeeType) > 0
 		if contact, ok := contacts[row.ID]; ok {
 			contactCopy := contact
 			fee.LastContact = &contactCopy
@@ -433,7 +444,7 @@ func (s *ReminderService) PreviewReminderCase(ctx context.Context, householdID u
 		IncludeQR:           plan.includeQR,
 		SelectedFees:        plan.selectedFees,
 		PlannedReminderFees: plan.plannedFees,
-		RecommendedStage:    plan.recommendedStage,
+		Stage:               plan.stage,
 		Warnings:            plan.warnings,
 	}
 
@@ -581,30 +592,26 @@ func isUniqueReminderFeeViolation(err error) bool {
 
 // casePlan is the validated internal state shared by preview and send.
 type casePlan struct {
-	stage            ReminderStage
-	runDate          time.Time
-	deadline         time.Time
-	includeQR        bool
-	householdName    string
-	recipients       []string
-	firstNames       []string
-	selectedFees     []ReminderCaseFee
-	items            []reminderItem
-	plannedFees      []ReminderCasePlannedFee
-	childIDByFee     map[uuid.UUID]uuid.UUID
-	recommendedStage ReminderStage
-	warnings         []string
-	totalAmount      float64
+	stage         ReminderStage
+	runDate       time.Time
+	deadline      time.Time
+	includeQR     bool
+	householdName string
+	recipients    []string
+	firstNames    []string
+	selectedFees  []ReminderCaseFee
+	items         []reminderItem
+	plannedFees   []ReminderCasePlannedFee
+	childIDByFee  map[uuid.UUID]uuid.UUID
+	warnings      []string
+	totalAmount   float64
 }
 
 // prepareCasePlan loads and validates everything preview and send need.
 // Concurrency conflicts (paid fees, foreign fees, reminder fees created after
 // the preview) surface as CaseConflictError.
 func (s *ReminderService) prepareCasePlan(ctx context.Context, householdID uuid.UUID, req *ReminderCaseRequest) (*casePlan, error) {
-	if req == nil || (req.Stage != ReminderStageInitial && req.Stage != ReminderStageFinal) {
-		return nil, ErrInvalidInput
-	}
-	if len(req.FeeIDs) == 0 {
+	if req == nil || len(req.FeeIDs) == 0 {
 		return nil, ErrInvalidInput
 	}
 	seen := make(map[uuid.UUID]struct{}, len(req.FeeIDs))
@@ -615,6 +622,13 @@ func (s *ReminderService) prepareCasePlan(ctx context.Context, householdID uuid.
 		}
 		seen[id] = struct{}{}
 		feeIDs = append(feeIDs, id)
+	}
+	reminderFor := make(map[uuid.UUID]bool, len(req.ReminderFeeIDs))
+	for _, id := range req.ReminderFeeIDs {
+		if _, selected := seen[id]; !selected || reminderFor[id] {
+			return nil, ErrInvalidInput
+		}
+		reminderFor[id] = true
 	}
 
 	runDate := req.RunDate
@@ -701,29 +715,34 @@ func (s *ReminderService) prepareCasePlan(ctx context.Context, householdID uuid.
 		return nil, err
 	}
 
-	// Planned reminder fees: only on the final stage (Mahnung), one per
-	// selected base fee that was reminded before and whose reminder deadline
-	// has passed (actionable_final), and that has no reminder fee yet.
-	// Other selected fees are listed in the Mahnung without a fee. Reminder
-	// fees themselves never get reminder fees.
+	// Planned reminder fees: only for the fees the user ticked. Each must be
+	// due by the rules (reminded before, deadline passed, no Mahngebühr yet);
+	// a fee that lost this state since the preview is a conflict. Nothing is
+	// charged automatically, so reminders can be repeated as a courtesy.
 	planned := make([]ReminderCasePlannedFee, 0)
-	if req.Stage == ReminderStageFinal {
-		for _, fee := range selected {
-			if fee.FeeType == domain.FeeTypeReminder || existingReminders[fee.FeeID] || fee.Status != FeeStatusActionableFinal {
-				continue
-			}
-			amount := reminderFeeAmountFor(fee.FeeType)
-			if amount <= 0 {
-				continue
-			}
-			planned = append(planned, ReminderCasePlannedFee{
-				BaseFeeID:   fee.FeeID,
-				BaseFeeType: fee.FeeType,
-				BaseLabel:   fmt.Sprintf("%s (%s)", caseFeeLabel(fee), caseFeePerson(fee)),
-				Amount:      amount,
-				DueDate:     deadline,
-			})
+	var notDue []uuid.UUID
+	for _, fee := range selected {
+		if !reminderFor[fee.FeeID] {
+			continue
 		}
+		if !fee.ReminderFeeDue || existingReminders[fee.FeeID] {
+			notDue = append(notDue, fee.FeeID)
+			continue
+		}
+		planned = append(planned, ReminderCasePlannedFee{
+			BaseFeeID:   fee.FeeID,
+			BaseFeeType: fee.FeeType,
+			BaseLabel:   fmt.Sprintf("%s (%s)", caseFeeLabel(fee), caseFeePerson(fee)),
+			Amount:      reminderFeeAmountFor(fee.FeeType),
+			DueDate:     deadline,
+		})
+	}
+	if len(notDue) > 0 {
+		return nil, &CaseConflictError{FeeIDs: notDue, Reason: "a reminder fee is not due for the selected fees"}
+	}
+	stage := ReminderStageInitial
+	if len(planned) > 0 {
+		stage = ReminderStageFinal
 	}
 
 	// Mail/QR items: selected fees with remaining amounts plus planned fees.
@@ -786,20 +805,19 @@ func (s *ReminderService) prepareCasePlan(ctx context.Context, householdID uuid.
 	includeQR := req.IncludeQR == nil || *req.IncludeQR
 
 	return &casePlan{
-		stage:            req.Stage,
-		runDate:          runDate,
-		deadline:         deadline,
-		includeQR:        includeQR,
-		householdName:    household.Name,
-		recipients:       collectEmails(parents),
-		firstNames:       parentFirstNames(parents),
-		selectedFees:     selected,
-		items:            items,
-		plannedFees:      planned,
-		childIDByFee:     childIDByFee,
-		recommendedStage: recommendedStageFor(selected),
-		warnings:         buildCaseWarnings(req.Stage, selected, existingReminders),
-		totalAmount:      domain.Euros(totalCents),
+		stage:         stage,
+		runDate:       runDate,
+		deadline:      deadline,
+		includeQR:     includeQR,
+		householdName: household.Name,
+		recipients:    collectEmails(parents),
+		firstNames:    parentFirstNames(parents),
+		selectedFees:  selected,
+		items:         items,
+		plannedFees:   planned,
+		childIDByFee:  childIDByFee,
+		warnings:      buildCaseWarnings(selected, reminderFor),
+		totalAmount:   domain.Euros(totalCents),
 	}, nil
 }
 
@@ -810,62 +828,24 @@ func reminderFeeAmountFor(feeType domain.FeeType) float64 {
 	return domain.ReminderFeeAmount
 }
 
-// recommendedStageFor returns the stage recommendation for a fee selection.
-// Mixed stages or unknown history produce no recommendation.
-func recommendedStageFor(selected []ReminderCaseFee) ReminderStage {
-	if len(selected) == 0 {
-		return ReminderStageNone
-	}
-	allInitial := true
-	allFinal := true
-	for _, fee := range selected {
-		if fee.Status != FeeStatusActionableInitial {
-			allInitial = false
-		}
-		if fee.Status != FeeStatusActionableFinal {
-			allFinal = false
-		}
-	}
-	if allInitial {
-		return ReminderStageInitial
-	}
-	if allFinal {
-		return ReminderStageFinal
-	}
-	return ReminderStageNone
-}
-
-// buildCaseWarnings creates concrete warnings for deviations from the
-// recommended flow. On the final stage it also names every selected base fee
-// that is included without a new Mahngebühr because it was not reminded yet
-// or its reminder deadline is still running.
-func buildCaseWarnings(stage ReminderStage, selected []ReminderCaseFee, existingReminders map[uuid.UUID]bool) []string {
+// buildCaseWarnings names what the user should know before sending: due
+// Mahngebühren that are not charged, fees whose reminder deadline is still
+// running, and fees without assignable history (no Mahngebühr possible).
+func buildCaseWarnings(selected []ReminderCaseFee, reminderFor map[uuid.UUID]bool) []string {
 	warnings := make([]string, 0)
 	for _, fee := range selected {
 		label := fmt.Sprintf("%s: %s", caseFeePerson(fee), caseFeeLabel(fee))
-		noFee := ""
-		if stage == ReminderStageFinal && fee.FeeType != domain.FeeTypeReminder && !existingReminders[fee.FeeID] {
-			noFee = " – keine Mahngebühr"
+		if fee.ReminderFeeDue && !reminderFor[fee.FeeID] {
+			warnings = append(warnings, fmt.Sprintf("%s – Mahngebühr laut Regeln fällig, wird nicht erhoben", label))
 		}
 		switch fee.Status {
-		case FeeStatusNeverContacted:
-			if noFee != "" {
-				warnings = append(warnings, fmt.Sprintf("%s ist noch nicht fällig%s", label, noFee))
-			}
-		case FeeStatusActionableInitial:
-			if stage == ReminderStageFinal {
-				warnings = append(warnings, fmt.Sprintf("%s wurde noch nicht erinnert%s", label, noFee))
-			}
 		case FeeStatusWaiting:
 			if fee.LastContact != nil {
 				deadline := defaultReminderDeadline(fee.LastContact.RunDate)
-				warnings = append(warnings, fmt.Sprintf("%s wurde erst am %s kontaktiert, die Frist läuft bis %s%s", label, fee.LastContact.RunDate.Format("02.01.2006"), deadline.Format("02.01.2006"), noFee))
+				warnings = append(warnings, fmt.Sprintf("%s wurde erst am %s erinnert, die Frist läuft bis %s", label, fee.LastContact.RunDate.Format("02.01.2006"), deadline.Format("02.01.2006")))
 			}
 		case FeeStatusHistoryUnknown:
-			warnings = append(warnings, fmt.Sprintf("Für %s gibt es keine zuordenbare Historie%s", label, noFee))
-		}
-		if fee.FeeType != domain.FeeTypeReminder && existingReminders[fee.FeeID] {
-			warnings = append(warnings, fmt.Sprintf("Für %s existiert bereits eine Mahngebühr", label))
+			warnings = append(warnings, fmt.Sprintf("Für %s gibt es keine zuordenbare Historie – eine Mahngebühr ist erst nach einer Erinnerung möglich", label))
 		}
 	}
 	return warnings

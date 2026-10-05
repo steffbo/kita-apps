@@ -375,9 +375,9 @@ func TestReminderCase_Preview_MixedTypesPlansFees(t *testing.T) {
 
 	runDate := time.Date(2026, 9, 15, 0, 0, 0, 0, time.UTC)
 	preview, err := reminderService.PreviewReminderCase(ctx, household.ID, &service.ReminderCaseRequest{
-		Stage:   service.ReminderStageFinal,
-		RunDate: runDate,
-		FeeIDs:  []uuid.UUID{foodFee.ID, membershipFee.ID},
+		RunDate:        runDate,
+		FeeIDs:         []uuid.UUID{foodFee.ID, membershipFee.ID},
+		ReminderFeeIDs: []uuid.UUID{foodFee.ID, membershipFee.ID},
 	})
 	if err != nil {
 		t.Fatalf("PreviewReminderCase failed: %v", err)
@@ -408,8 +408,8 @@ func TestReminderCase_Preview_MixedTypesPlansFees(t *testing.T) {
 	if preview.Body == "" || preview.Recipients == nil {
 		t.Fatalf("expected mail preview content")
 	}
-	if preview.RecommendedStage != service.ReminderStageFinal {
-		t.Fatalf("expected recommendation final for reminded fees, got %s", preview.RecommendedStage)
+	if preview.Stage != service.ReminderStageFinal {
+		t.Fatalf("expected a Mahnung when reminder fees are planned, got %s", preview.Stage)
 	}
 	labels := map[uuid.UUID]string{}
 	for _, planned := range preview.PlannedReminderFees {
@@ -437,10 +437,11 @@ func TestReminderCase_Preview_MixedTypesPlansFees(t *testing.T) {
 	}
 }
 
-// A Mahnung only creates Mahngebühren for fees that were reminded before and
-// whose reminder deadline has passed; other selected fees are listed without
-// a fee and named in the warnings.
-func TestReminderCase_Preview_FinalStageSkipsFeesWithoutPriorReminder(t *testing.T) {
+// A Mahngebühr is never charged automatically: it is only planned for fees
+// the user ticks, and only fees reminded before whose deadline has passed may
+// be ticked. Without ticks the mail stays a Zahlungserinnerung and names the
+// due but uncharged Mahngebühr.
+func TestReminderCase_ReminderFeesOnlyWhenDueAndTicked(t *testing.T) {
 	cleanupTestData()
 	defer cleanupTestData()
 	setReliableCutoff(t, "2026-01-01")
@@ -451,7 +452,7 @@ func TestReminderCase_Preview_FinalStageSkipsFeesWithoutPriorReminder(t *testing
 	feeRepo := repository.NewPostgresFeeRepository(testDB)
 	reminderService := newReminderCaseService(&fakeReminderSender{})
 
-	household := createCaseHousehold(t, householdRepo, "TEST Final Without Reminder")
+	household := createCaseHousehold(t, householdRepo, "TEST Reminder Fee Ticks")
 	createCaseParent(t, repository.NewPostgresParentRepository(testDB), household.ID, "Anna")
 	child, err := createTestChild(childRepo, "FWR")
 	if err != nil {
@@ -462,13 +463,61 @@ func TestReminderCase_Preview_FinalStageSkipsFeesWithoutPriorReminder(t *testing
 	notDue := createCaseFee(t, feeRepo, child.ID, household.ID, domain.FeeTypeFood, 45.40, 2026, ptrInt(10), time.Date(2026, 10, 5, 0, 0, 0, 0, time.UTC))
 	insertContactLog(t, repository.NewPostgresEmailLogRepository(testDB), household.ID, []uuid.UUID{reminded.ID}, "initial", time.Date(2026, 8, 20, 0, 0, 0, 0, time.UTC))
 
+	runDate := time.Date(2026, 10, 4, 0, 0, 0, 0, time.UTC)
+	allFees := []uuid.UUID{reminded.ID, notReminded.ID, notDue.ID}
+
+	result, err := reminderService.ListReminderCases(ctx, runDate, service.ReminderCasesScopeAll)
+	if err != nil {
+		t.Fatalf("ListReminderCases failed: %v", err)
+	}
+	due := map[uuid.UUID]bool{}
+	for _, c := range result.Cases {
+		for _, fee := range c.Fees {
+			due[fee.FeeID] = fee.ReminderFeeDue
+		}
+	}
+	if !due[reminded.ID] || due[notReminded.ID] || due[notDue.ID] {
+		t.Fatalf("expected reminderFeeDue only for the reminded fee, got %v", due)
+	}
+
+	// Nothing ticked: Zahlungserinnerung without fees, due fee named.
 	preview, err := reminderService.PreviewReminderCase(ctx, household.ID, &service.ReminderCaseRequest{
-		Stage:   service.ReminderStageFinal,
-		RunDate: time.Date(2026, 10, 4, 0, 0, 0, 0, time.UTC),
-		FeeIDs:  []uuid.UUID{reminded.ID, notReminded.ID, notDue.ID},
+		RunDate: runDate,
+		FeeIDs:  allFees,
 	})
 	if err != nil {
 		t.Fatalf("PreviewReminderCase failed: %v", err)
+	}
+	if preview.Stage != service.ReminderStageInitial || len(preview.PlannedReminderFees) != 0 {
+		t.Fatalf("expected a Zahlungserinnerung without fees, got %s with %d fees", preview.Stage, len(preview.PlannedReminderFees))
+	}
+	if preview.Subject != "Kita Zahlungserinnerung: offene Beiträge" || !contains(preview.Body, "können für die offenen Beiträge Mahngebühren erhoben werden") {
+		t.Fatalf("unexpected reminder mail: %s\n%s", preview.Subject, preview.Body)
+	}
+	if contains(preview.Body, "Wichtig:") {
+		t.Fatalf("recipient-name hint must be gone, got:\n%s", preview.Body)
+	}
+	found := false
+	for _, warning := range preview.Warnings {
+		if contains(warning, "Essensgeld August 2026 – Mahngebühr laut Regeln fällig, wird nicht erhoben") {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatalf("expected warning for the due but uncharged Mahngebühr, got %v", preview.Warnings)
+	}
+
+	// Due fee ticked: Mahnung with exactly that fee.
+	preview, err = reminderService.PreviewReminderCase(ctx, household.ID, &service.ReminderCaseRequest{
+		RunDate:        runDate,
+		FeeIDs:         allFees,
+		ReminderFeeIDs: []uuid.UUID{reminded.ID},
+	})
+	if err != nil {
+		t.Fatalf("PreviewReminderCase failed: %v", err)
+	}
+	if preview.Stage != service.ReminderStageFinal || preview.Subject != "Kita Mahnung: offene Beiträge" {
+		t.Fatalf("expected a Mahnung, got %s / %s", preview.Stage, preview.Subject)
 	}
 	if len(preview.PlannedReminderFees) != 1 || preview.PlannedReminderFees[0].BaseFeeID != reminded.ID {
 		t.Fatalf("expected a single planned fee for the reminded fee, got %+v", preview.PlannedReminderFees)
@@ -476,19 +525,23 @@ func TestReminderCase_Preview_FinalStageSkipsFeesWithoutPriorReminder(t *testing
 	if preview.TotalAmount != 146.20 {
 		t.Fatalf("expected total 146.20 (3 x 45.40 + 10), got %v", preview.TotalAmount)
 	}
-	for _, want := range []string{
-		"Essensgeld September 2026 wurde noch nicht erinnert – keine Mahngebühr",
-		"Essensgeld Oktober 2026 ist noch nicht fällig – keine Mahngebühr",
-	} {
-		found := false
-		for _, warning := range preview.Warnings {
-			if contains(warning, want) {
-				found = true
-			}
-		}
-		if !found {
-			t.Fatalf("expected warning %q, got %v", want, preview.Warnings)
-		}
+
+	// Ticking a fee without prior reminder is refused.
+	_, err = reminderService.PreviewReminderCase(ctx, household.ID, &service.ReminderCaseRequest{
+		RunDate:        runDate,
+		FeeIDs:         allFees,
+		ReminderFeeIDs: []uuid.UUID{reminded.ID, notReminded.ID},
+	})
+	assertConflict(t, err, []uuid.UUID{notReminded.ID})
+
+	// A ticked fee must be part of the selection.
+	_, err = reminderService.PreviewReminderCase(ctx, household.ID, &service.ReminderCaseRequest{
+		RunDate:        runDate,
+		FeeIDs:         []uuid.UUID{notDue.ID},
+		ReminderFeeIDs: []uuid.UUID{reminded.ID},
+	})
+	if err != service.ErrInvalidInput {
+		t.Fatalf("expected ErrInvalidInput for a ticked fee outside the selection, got %v", err)
 	}
 }
 
@@ -531,7 +584,6 @@ func TestReminderCase_Preview_InitialStagePlansNoFees(t *testing.T) {
 	foodFee := createCaseFee(t, feeRepo, child.ID, household.ID, domain.FeeTypeFood, 45.40, 2026, ptrInt(8), time.Date(2026, 9, 5, 0, 0, 0, 0, time.UTC))
 
 	preview, err := reminderService.PreviewReminderCase(ctx, household.ID, &service.ReminderCaseRequest{
-		Stage:   service.ReminderStageInitial,
 		RunDate: time.Date(2026, 9, 15, 0, 0, 0, 0, time.UTC),
 		FeeIDs:  []uuid.UUID{foodFee.ID},
 	})
@@ -572,10 +624,10 @@ func TestReminderCase_Send_CreatesFeesLogsAndPreventsDuplicates(t *testing.T) {
 	runDate := time.Date(2026, 9, 15, 0, 0, 0, 0, time.UTC)
 	previewedAt := time.Now().UTC().Add(-time.Hour)
 	result, err := reminderService.SendReminderCase(ctx, household.ID, &service.ReminderCaseRequest{
-		Stage:       service.ReminderStageFinal,
-		RunDate:     runDate,
-		FeeIDs:      []uuid.UUID{foodFee.ID, membershipFee.ID},
-		PreviewedAt: &previewedAt,
+		RunDate:        runDate,
+		FeeIDs:         []uuid.UUID{foodFee.ID, membershipFee.ID},
+		ReminderFeeIDs: []uuid.UUID{foodFee.ID, membershipFee.ID},
+		PreviewedAt:    &previewedAt,
 	}, nil)
 	if err != nil {
 		t.Fatalf("SendReminderCase failed: %v", err)
@@ -598,12 +650,18 @@ func TestReminderCase_Send_CreatesFeesLogsAndPreventsDuplicates(t *testing.T) {
 		t.Fatalf("expected log household_id set")
 	}
 
-	// Second send (repeat dunning): a fresh preview happened after the first
-	// send created its fees, so the reminder fees no longer count as
-	// "created after the preview". Still sends, but no duplicate fees.
+	// Second send (repeated reminder): a fresh preview happened after the
+	// first send created its fees. A second Mahngebühr cannot be requested;
+	// without ticks the mail is sent and creates no fees.
 	previewedAt = time.Now().UTC()
+	_, err = reminderService.SendReminderCase(ctx, household.ID, &service.ReminderCaseRequest{
+		RunDate:        time.Date(2026, 9, 25, 0, 0, 0, 0, time.UTC),
+		FeeIDs:         []uuid.UUID{foodFee.ID, membershipFee.ID},
+		ReminderFeeIDs: []uuid.UUID{foodFee.ID},
+		PreviewedAt:    &previewedAt,
+	}, nil)
+	assertConflict(t, err, []uuid.UUID{foodFee.ID})
 	repeat, err := reminderService.SendReminderCase(ctx, household.ID, &service.ReminderCaseRequest{
-		Stage:       service.ReminderStageFinal,
 		RunDate:     time.Date(2026, 9, 25, 0, 0, 0, 0, time.UTC),
 		FeeIDs:      []uuid.UUID{foodFee.ID, membershipFee.ID},
 		PreviewedAt: &previewedAt,
@@ -644,7 +702,6 @@ func TestReminderCase_Send_ConflictsAndValidation(t *testing.T) {
 
 	// Missing previewedAt → invalid input (concurrency guard is mandatory).
 	_, err = reminderService.SendReminderCase(ctx, householdA.ID, &service.ReminderCaseRequest{
-		Stage:   service.ReminderStageInitial,
 		RunDate: time.Date(2026, 9, 15, 0, 0, 0, 0, time.UTC),
 		FeeIDs:  []uuid.UUID{feeA.ID},
 	}, nil)
@@ -655,7 +712,6 @@ func TestReminderCase_Send_ConflictsAndValidation(t *testing.T) {
 	// Foreign fee id → conflict.
 	previewedAtA := time.Now().UTC().Add(-time.Hour)
 	_, err = reminderService.SendReminderCase(ctx, householdA.ID, &service.ReminderCaseRequest{
-		Stage:       service.ReminderStageInitial,
 		RunDate:     time.Date(2026, 9, 15, 0, 0, 0, 0, time.UTC),
 		FeeIDs:      []uuid.UUID{feeB.ID},
 		PreviewedAt: &previewedAtA,
@@ -665,7 +721,6 @@ func TestReminderCase_Send_ConflictsAndValidation(t *testing.T) {
 	// Paid fee → conflict.
 	matchFeeFully(t, feeA)
 	_, err = reminderService.SendReminderCase(ctx, householdA.ID, &service.ReminderCaseRequest{
-		Stage:       service.ReminderStageInitial,
 		RunDate:     time.Date(2026, 9, 15, 0, 0, 0, 0, time.UTC),
 		FeeIDs:      []uuid.UUID{feeA.ID},
 		PreviewedAt: &previewedAtA,
@@ -675,7 +730,6 @@ func TestReminderCase_Send_ConflictsAndValidation(t *testing.T) {
 	// Duplicate ids → invalid input.
 	feeC := createCaseFee(t, feeRepo, childA.ID, householdA.ID, domain.FeeTypeFood, 45.40, 2026, ptrInt(9), time.Date(2026, 10, 5, 0, 0, 0, 0, time.UTC))
 	_, err = reminderService.SendReminderCase(ctx, householdA.ID, &service.ReminderCaseRequest{
-		Stage:       service.ReminderStageInitial,
 		RunDate:     time.Date(2026, 9, 15, 0, 0, 0, 0, time.UTC),
 		FeeIDs:      []uuid.UUID{feeC.ID, feeC.ID},
 		PreviewedAt: &previewedAtA,
@@ -702,7 +756,6 @@ func TestReminderCase_Send_ConflictsAndValidation(t *testing.T) {
 		t.Fatalf("failed to create concurrent reminder fee: %v", err)
 	}
 	_, err = reminderService.SendReminderCase(ctx, householdA.ID, &service.ReminderCaseRequest{
-		Stage:       service.ReminderStageFinal,
 		RunDate:     time.Date(2026, 9, 15, 0, 0, 0, 0, time.UTC),
 		FeeIDs:      []uuid.UUID{feeC.ID},
 		PreviewedAt: &previewedAt,
@@ -789,10 +842,10 @@ func TestReminderCase_Send_ConcurrentSendsCreateSingleReminderFee(t *testing.T) 
 	previewedAt := time.Now().UTC().Add(-time.Hour)
 	send := func() error {
 		_, err := reminderService.SendReminderCase(ctx, household.ID, &service.ReminderCaseRequest{
-			Stage:       service.ReminderStageFinal,
-			RunDate:     time.Date(2026, 9, 15, 0, 0, 0, 0, time.UTC),
-			FeeIDs:      []uuid.UUID{fee.ID},
-			PreviewedAt: &previewedAt,
+			RunDate:        time.Date(2026, 9, 15, 0, 0, 0, 0, time.UTC),
+			FeeIDs:         []uuid.UUID{fee.ID},
+			ReminderFeeIDs: []uuid.UUID{fee.ID},
+			PreviewedAt:    &previewedAt,
 		}, nil)
 		return err
 	}
@@ -851,10 +904,10 @@ func TestReminderCase_Send_SMTPFailureCompensatesReminderFees(t *testing.T) {
 
 	previewedAt := time.Now().UTC().Add(-time.Hour)
 	_, err = reminderService.SendReminderCase(ctx, household.ID, &service.ReminderCaseRequest{
-		Stage:       service.ReminderStageFinal,
-		RunDate:     time.Date(2026, 9, 15, 0, 0, 0, 0, time.UTC),
-		FeeIDs:      []uuid.UUID{fee.ID},
-		PreviewedAt: &previewedAt,
+		RunDate:        time.Date(2026, 9, 15, 0, 0, 0, 0, time.UTC),
+		FeeIDs:         []uuid.UUID{fee.ID},
+		ReminderFeeIDs: []uuid.UUID{fee.ID},
+		PreviewedAt:    &previewedAt,
 	}, nil)
 	if err == nil {
 		t.Fatalf("expected SMTP error, got none")
@@ -866,10 +919,10 @@ func TestReminderCase_Send_SMTPFailureCompensatesReminderFees(t *testing.T) {
 	// Retry with a working sender plans the reminder fee again.
 	sender.fail = false
 	result, err := reminderService.SendReminderCase(ctx, household.ID, &service.ReminderCaseRequest{
-		Stage:       service.ReminderStageFinal,
-		RunDate:     time.Date(2026, 9, 15, 0, 0, 0, 0, time.UTC),
-		FeeIDs:      []uuid.UUID{fee.ID},
-		PreviewedAt: &previewedAt,
+		RunDate:        time.Date(2026, 9, 15, 0, 0, 0, 0, time.UTC),
+		FeeIDs:         []uuid.UUID{fee.ID},
+		ReminderFeeIDs: []uuid.UUID{fee.ID},
+		PreviewedAt:    &previewedAt,
 	}, nil)
 	if err != nil {
 		t.Fatalf("retry SendReminderCase failed: %v", err)
@@ -1045,7 +1098,6 @@ func TestReminderCase_ExistingReminderFeeReferencesBaseFee(t *testing.T) {
 	}
 
 	preview, err := reminderService.PreviewReminderCase(ctx, household.ID, &service.ReminderCaseRequest{
-		Stage:   service.ReminderStageInitial,
 		RunDate: runDate,
 		FeeIDs:  []uuid.UUID{september.ID, reminder.ID, october.ID},
 	})
@@ -1059,7 +1111,6 @@ func TestReminderCase_ExistingReminderFeeReferencesBaseFee(t *testing.T) {
 
 	// Without its base fee the Mahngebühr names the base fee itself.
 	preview, err = reminderService.PreviewReminderCase(ctx, household.ID, &service.ReminderCaseRequest{
-		Stage:   service.ReminderStageInitial,
 		RunDate: runDate,
 		FeeIDs:  []uuid.UUID{reminder.ID},
 	})

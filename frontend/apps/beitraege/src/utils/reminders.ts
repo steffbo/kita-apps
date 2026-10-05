@@ -29,8 +29,8 @@ export function feeTypesIn(item: ReminderCase): string[] {
 }
 
 const statusLabels: Record<string, string> = {
-  actionable_initial: 'Erinnerung fällig',
-  actionable_final: 'Mahnung fällig',
+  actionable_initial: 'Nicht erinnert',
+  actionable_final: 'Frist abgelaufen',
   waiting: 'In Frist',
   never_contacted: 'Nicht fällig',
   history_unknown: 'Historie unbekannt',
