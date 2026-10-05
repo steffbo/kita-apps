@@ -22,8 +22,11 @@ Basics (ports, commands, layout) live in `AGENTS.md`.
 - **Hinweise:** Ist eine Mahngebühr fällig, aber nicht angekreuzt, nennt die Vorschau „<Kind>: <Beitrag> –
   Mahngebühr laut Regeln fällig, wird nicht erhoben“.
 - **UI:**
-  - Die Tabelle hat eine Spalte „Mahngebühr“. Sie zeigt das Häkchen nur bei fälligen Beiträgen, mit einem
-    Badge „fällig“ bzw. „wird erhoben“. Das Häkchen ist nur aktiv, wenn der Beitrag ausgewählt ist.
+  - Unter dem Status steht die Checkbox „Mahngebühr erheben“, aber nur bei fälligen Beiträgen. Sie ist nur
+    aktiv, wenn der Beitrag ausgewählt ist. Die zuerst gebaute eigene Spalte zeigte meist nur „—“ und
+    machte die Tabelle breiter als das Panel; sie ist entfallen.
+  - Eine Mahngebühr direkt unter ihrem Grundbeitrag hat keine Trennlinie zu ihm und wiederholt den Namen
+    nicht. Die Einrückung `pl-4` ist entfallen, weil sie Namen und Labels versetzt hat.
   - Ein Hinweisbalken erklärt nicht angekreuzte fällige Gebühren.
   - Der Button heißt je nach Häkchen „Erinnerung senden“ oder „Mahnung senden“.
   - Statuslabels: „Nicht erinnert“ (statt „Erinnerung fällig“) und „Frist abgelaufen“ (statt „Mahnung fällig“).

@@ -50,10 +50,17 @@ const selectedCase = computed(() => {
   return cases.value.find((item) => item.householdId === selectedHouseholdId.value) ?? null;
 });
 
-// The backend lists a Mahngebühr directly after its open base fee; indent it there.
+// The backend lists a Mahngebühr directly after its open base fee; that row
+// joins its base row (no divider, no repeated name).
 function isNestedReminder(fee: ReminderCaseFee): boolean {
   const baseId = fee.reminderForId;
   return !!baseId && !!selectedCase.value?.fees.some((other) => other.feeId === baseId);
+}
+
+function hasNestedReminderBelow(index: number): boolean {
+  const fees = selectedCase.value?.fees ?? [];
+  const next = fees[index + 1];
+  return !!next && next.reminderForId === fees[index]?.feeId;
 }
 
 function lastContactOf(item: ReminderCase): string | null {
@@ -540,7 +547,7 @@ watch(
               >
                 Für {{ untickedDueFeeCount === 1 ? 'einen ausgewählten Beitrag' : `${untickedDueFeeCount} ausgewählte Beiträge` }}
                 ist laut Regeln eine Mahngebühr fällig (erinnert, Frist abgelaufen). Sie wird nur erhoben, wenn du sie in der Spalte
-                „Mahngebühr“ ankreuzt — sonst geht eine Zahlungserinnerung raus.
+                „Mahngebühr erheben“ beim Status ankreuzt — sonst geht eine Zahlungserinnerung raus.
               </p>
 
               <!-- Fee selection -->
@@ -556,14 +563,13 @@ watch(
                         <th class="py-2 pr-3 font-medium text-right">Soll</th>
                         <th class="py-2 pr-3 font-medium text-right">Offen</th>
                         <th class="py-2 pr-3 font-medium">Status</th>
-                        <th class="py-2 pr-3 font-medium">Mahngebühr</th>
                       </tr>
                     </thead>
                     <tbody>
                       <tr
-                        v-for="fee in selectedCase.fees"
+                        v-for="(fee, index) in selectedCase.fees"
                         :key="fee.feeId"
-                        class="border-b last:border-0"
+                        :class="hasNestedReminderBelow(index) ? '' : 'border-b last:border-0'"
                       >
                         <td class="py-2 pl-3">
                           <input
@@ -573,19 +579,19 @@ watch(
                           />
                         </td>
                         <td class="py-2 pr-3">
-                          <div class="flex items-center gap-2" :class="{ 'pl-4': isNestedReminder(fee) }">
+                          <div class="flex items-center gap-2">
                             <router-link
-                              v-if="fee.clubMember"
+                              v-if="fee.clubMember && !isNestedReminder(fee)"
                               :to="`/mitglieder/${fee.clubMember.id}`"
-                              class="text-primary hover:underline"
+                              class="text-primary hover:underline whitespace-nowrap"
                               :title="`Vereinsmitglied ${fee.clubMember.memberNumber} öffnen`"
                             >
                               {{ fee.clubMember.name }}
                             </router-link>
                             <router-link
-                              v-else
+                              v-else-if="!isNestedReminder(fee)"
                               :to="`/kinder/${fee.childId}`"
-                              class="text-primary hover:underline"
+                              class="text-primary hover:underline whitespace-nowrap"
                               title="Kind öffnen"
                             >
                               {{ fee.childName }}
@@ -603,12 +609,11 @@ watch(
                           <span class="px-2 py-0.5 text-xs rounded-full font-medium whitespace-nowrap" :class="statusBadgeClass(fee.status)">
                             {{ statusLabel(fee.status) }}
                           </span>
-                        </td>
-                        <td class="py-2 pr-3 whitespace-nowrap">
                           <label
                             v-if="fee.reminderFeeDue"
-                            class="inline-flex items-center gap-2"
-                            :title="selectedFeeIds.includes(fee.feeId) ? 'Mahngebühr mit dieser Mail erheben' : 'Erst den Beitrag auswählen'"
+                            class="mt-1 flex items-center gap-1.5 text-xs whitespace-nowrap"
+                            :class="reminderFeeIds.includes(fee.feeId) ? 'text-amber-700 dark:text-amber-300 font-medium' : 'text-foreground'"
+                            :title="selectedFeeIds.includes(fee.feeId) ? 'Laut Regeln fällig – wird nur mit Häkchen erhoben' : 'Erst den Beitrag auswählen'"
                           >
                             <input
                               type="checkbox"
@@ -616,15 +621,8 @@ watch(
                               :disabled="!selectedFeeIds.includes(fee.feeId)"
                               @change="toggleReminderFee(fee.feeId)"
                             />
-                            <span
-                              v-if="!reminderFeeIds.includes(fee.feeId)"
-                              class="px-2 py-0.5 text-xs rounded-full font-medium bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-300"
-                            >
-                              fällig
-                            </span>
-                            <span v-else class="text-xs font-medium text-amber-700 dark:text-amber-300">wird erhoben</span>
+                            Mahngebühr erheben
                           </label>
-                          <span v-else class="text-xs text-muted-foreground">—</span>
                         </td>
                       </tr>
                     </tbody>
