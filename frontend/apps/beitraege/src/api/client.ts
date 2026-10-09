@@ -66,6 +66,8 @@ import type {
   UpdateEinstufungRequest,
   CreateFollowUpEinstufungRequest,
   CreateFollowUpEinstufungResponse,
+  IncomeDetails,
+  CalculateIncomeResponse,
   ChildNote,
   CreateChildNoteRequest,
   UpdateChildNoteRequest,
@@ -1026,6 +1028,13 @@ class ApiClient {
   async deleteEinstufung(id: string): Promise<void> {
     return this.request<void>(`/einstufungen/${id}`, {
       method: 'DELETE',
+    });
+  }
+
+  async calculateIncome(parent1: IncomeDetails, parent2: IncomeDetails): Promise<CalculateIncomeResponse> {
+    return this.request<CalculateIncomeResponse>('/einstufungen/calculate-income', {
+      method: 'POST',
+      body: JSON.stringify({ parent1, parent2 }),
     });
   }
 

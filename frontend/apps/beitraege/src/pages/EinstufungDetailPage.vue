@@ -84,42 +84,43 @@ function emptyIncome(): IncomeDetails {
 const parent1Income = ref<IncomeDetails>(emptyIncome());
 const parent2Income = ref<IncomeDetails>(emptyIncome());
 
-// Income calculation (local, no API call needed)
-function calcOtherIncome(i: IncomeDetails): number {
-  return i.minijobIncome + i.unemploymentBenefit + i.capitalIncome + i.rentalIncome + i.otherIncome;
-}
-function calcEmployeeNet(i: IncomeDetails): number {
-  return i.grossIncome + calcOtherIncome(i) - i.socialSecurityShare - i.privateInsurance - i.tax - i.advertisingCosts;
-}
-function calcSelfEmployedNet(i: IncomeDetails): number {
-  return i.profit - i.welfareExpense - i.selfEmployedTax;
-}
-function calcFeeRelevantBenefits(i: IncomeDetails): number {
-  return i.parentalBenefit + i.parentalBenefitPlus + i.maternityBenefit - i.insurances;
-}
-function calcFeeRelevant(i: IncomeDetails): number {
-  return calcEmployeeNet(i) + calcSelfEmployedNet(i) + calcFeeRelevantBenefits(i) - i.maintenanceToPay + i.maintenanceReceived;
-}
-function calcNetIncome(i: IncomeDetails): number {
-  return calcEmployeeNet(i) + calcSelfEmployedNet(i) + i.parentalBenefit + i.parentalBenefitPlus + i.maternityBenefit - i.insurances - i.maintenanceToPay + i.maintenanceReceived;
-}
-function round2(v: number): number {
-  return Math.round(v * 100) / 100;
-}
+const incomePreview = ref<CalculateIncomeResponse | null>(null);
+const incomePreviewError = ref<string | null>(null);
+let incomePreviewSequence = 0;
 
-const incomePreview = computed<CalculateIncomeResponse | null>(() => {
-  if (highestRateVoluntary.value) return null;
-  const p1 = parent1Income.value;
-  const p2 = parent2Income.value;
-  return {
-    parent1NetIncome: round2(calcNetIncome(p1)),
-    parent2NetIncome: round2(calcNetIncome(p2)),
-    parent1FeeRelevantIncome: round2(calcFeeRelevant(p1)),
-    parent2FeeRelevantIncome: round2(calcFeeRelevant(p2)),
-    householdFeeIncome: round2(calcFeeRelevant(p1) + calcFeeRelevant(p2)),
-    householdFullIncome: round2(calcNetIncome(p1) + calcNetIncome(p2)),
-  };
-});
+watch(
+  [parent1Income, parent2Income, highestRateVoluntary],
+  ([parent1, parent2, highestRate], _previous, onCleanup) => {
+    const sequence = ++incomePreviewSequence;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    onCleanup(() => {
+      ++incomePreviewSequence;
+      if (timer !== undefined) clearTimeout(timer);
+    });
+
+    incomePreviewError.value = null;
+    if (highestRate) {
+      incomePreview.value = null;
+      return;
+    }
+
+    const p1 = { ...parent1 };
+    const p2 = { ...parent2 };
+    timer = setTimeout(async () => {
+      try {
+        const result = await api.calculateIncome(p1, p2);
+        if (sequence !== incomePreviewSequence) return;
+        incomePreview.value = result;
+      } catch (e) {
+        if (sequence !== incomePreviewSequence) return;
+        incomePreviewError.value = e instanceof Error
+          ? e.message
+          : 'Einkommensvorschau konnte nicht geladen werden';
+      }
+    }, 300);
+  },
+  { deep: true, immediate: true, flush: 'sync' },
+);
 
 // Reference data
 const children = ref<Child[]>([]);
@@ -624,12 +625,13 @@ watch(defaultEmailBody, (next) => {
         </div>
 
         <!-- Calculation preview -->
-        <div v-if="incomePreview" class="mt-6 p-4 bg-blue-50 dark:bg-blue-950/40 rounded-lg border border-blue-100">
+        <div v-if="incomePreview || incomePreviewError"
+          class="mt-6 p-4 bg-blue-50 dark:bg-blue-950/40 rounded-lg border border-blue-100">
           <h4 class="text-sm font-semibold text-blue-900 dark:text-blue-300 mb-3 flex items-center gap-2">
             <Euro class="h-4 w-4" />
             Einkommensvorschau
           </h4>
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+          <div v-if="incomePreview" class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
             <div>
               <span class="text-blue-600 dark:text-blue-300">Elternteil 1 (Netto)</span>
               <p class="font-semibold text-blue-900 dark:text-blue-300">{{ formatCurrency(incomePreview.parent1NetIncome) }}</p>
@@ -646,6 +648,7 @@ watch(defaultEmailBody, (next) => {
               <span class="text-xs text-blue-500 dark:text-blue-400">Gesamt inkl. Leistungen: {{ formatCurrency(incomePreview.householdFullIncome) }}</span>
             </div>
           </div>
+          <p v-if="incomePreviewError" class="mt-2 text-xs text-destructive">{{ incomePreviewError }}</p>
         </div>
       </div>
 
