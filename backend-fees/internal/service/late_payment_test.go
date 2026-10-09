@@ -164,7 +164,7 @@ func TestLatePayment_Late_After15th(t *testing.T) {
 	}
 
 	if !foundLateWarning {
-		t.Skip("Late payment detection not yet implemented - expected LATE_PAYMENT warning")
+		t.Fatal("expected LATE_PAYMENT warning")
 	}
 }
 
@@ -295,7 +295,7 @@ func TestLatePayment_PreviousMonthFee(t *testing.T) {
 	}
 
 	if !foundLateWarning {
-		t.Skip("Late payment detection not yet implemented - expected LATE_PAYMENT warning for previous month payment")
+		t.Fatal("expected LATE_PAYMENT warning for previous month payment")
 	}
 }
 
@@ -426,7 +426,7 @@ func TestLatePayment_Childcare_IsMonthly(t *testing.T) {
 	}
 
 	if !foundLateWarning {
-		t.Skip("Late payment detection not yet implemented - expected LATE_PAYMENT warning for childcare fee")
+		t.Fatal("expected LATE_PAYMENT warning for childcare fee")
 	}
 }
 
