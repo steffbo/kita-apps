@@ -1,108 +1,77 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
-import { api } from '@/api';
-import type {
-  EmailLog,
-  ReminderCase,
-  ReminderCaseFee,
-  ReminderCasePreview,
-  ReminderCaseSendResult,
-} from '@/api/types';
-import { ReminderCaseConflictError } from '@/api/types';
-import { Eye, X, ArrowLeft, Settings, Mail, Clock, RefreshCw } from 'lucide-vue-next';
+import AutomationSendPreview from '@/components/automation/AutomationSendPreview.vue';
+import AutomationFamilyList from '@/components/automation/AutomationFamilyList.vue';
+import AutomationWorklist from '@/components/automation/AutomationWorklist.vue';
+import AutomationChronology from '@/components/automation/AutomationChronology.vue';
+import { ref } from 'vue';
+import { useAutomationWorklist } from '@/composables/useAutomationWorklist';
+import { useAutomationSending } from '@/composables/useAutomationSending';
+import { useAutomationChronology } from '@/composables/useAutomationChronology';
+import { X, ArrowLeft, Settings } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/auth';
-import { formatCurrency, formatDate, formatDateTime, formatDueIn, todayISO } from '@/utils/format';
-import {
-  feeChipClass,
-  feeTypeLabel,
-  feeTypesIn,
-  formatEmailType,
-  formatPeriod,
-  statusBadgeClass,
-  statusLabel,
-} from '@/utils/reminders';
+import { formatCurrency, formatDate } from '@/utils/format';
 import EmailLogTab from '@/components/automation/EmailLogTab.vue';
 import EmailLogModal from '@/components/automation/EmailLogModal.vue';
 import ReminderSettingsDialog from '@/components/automation/ReminderSettingsDialog.vue';
-import SearchInput from '@/components/SearchInput.vue';
 
 const authStore = useAuthStore();
 
 // ── Page tabs ────────────────────────────────────────────────────────────────
 const activeTab = ref<'worklist' | 'log'>('worklist');
+const {
+  scope,
+  cases,
+  isCasesLoading,
+  casesError,
+  caseSearch,
+  selectedHouseholdId,
+  filteredCases,
+  selectedCase,
+  isNestedReminder,
+  hasNestedReminderBelow,
+  lastContactOf,
+  hasBlockedEmail,
+  loadCases,
+} = useAutomationWorklist();
 
-// ── Worklist state ───────────────────────────────────────────────────────────
-const scope = ref<'actionable' | 'all'>('actionable');
-const cases = ref<ReminderCase[]>([]);
-const isCasesLoading = ref(false);
-const casesError = ref<string | null>(null);
-const caseSearch = ref('');
-const selectedHouseholdId = ref<string | null>(null);
+const {
+  chronology,
+  isChronologyLoading,
+  selectedChronologyLog,
+  loadChronology,
+} = useAutomationChronology(selectedCase, selectedHouseholdId);
 
-const filteredCases = computed(() => {
-  const term = caseSearch.value.trim().toLowerCase();
-  if (!term) return cases.value;
-  return cases.value.filter((item) => item.householdName.toLowerCase().includes(term));
-});
+const {
+  selectedFeeIds,
+  reminderFeeIds,
+  includeQR,
+  preview,
+  isPreviewLoading,
+  previewError,
+  subjectEdit,
+  bodyEdit,
+  userEdited,
+  resetNotice,
+  isSending,
+  sendError,
+  conflictFeeCount,
+  sendResult,
+  showConfirmModal,
+  isMahnung,
+  untickedDueFeeCount,
+  toggleFee,
+  toggleReminderFee,
+  invalidatePreview,
+  onSubjectInput,
+  onBodyInput,
+  resetEdits,
+  openSendConfirmation,
+  confirmSend,
+} = useAutomationSending(
+  selectedCase, selectedHouseholdId, cases, loadCases, openCase,
+);
 
-const selectedCase = computed(() => {
-  if (!selectedHouseholdId.value) return null;
-  return cases.value.find((item) => item.householdId === selectedHouseholdId.value) ?? null;
-});
-
-// The backend lists a Mahngebühr directly after its open base fee; that row
-// joins its base row (no divider, no repeated name).
-function isNestedReminder(fee: ReminderCaseFee): boolean {
-  const baseId = fee.reminderForId;
-  return !!baseId && !!selectedCase.value?.fees.some((other) => other.feeId === baseId);
-}
-
-function hasNestedReminderBelow(index: number): boolean {
-  const fees = selectedCase.value?.fees ?? [];
-  const next = fees[index + 1];
-  return !!next && next.reminderForId === fees[index]?.feeId;
-}
-
-function lastContactOf(item: ReminderCase): string | null {
-  let latest: string | null = null;
-  for (const fee of item.fees) {
-    const at = fee.lastContact?.lastContactAt;
-    if (at && (!latest || at > latest)) latest = at;
-  }
-  return latest;
-}
-
-function hasBlockedEmail(item: ReminderCase): boolean {
-  return !item.recipients || item.recipients.length === 0;
-}
-
-let casesRequestSeq = 0;
-
-async function loadCases(selectId: string | null = null): Promise<void> {
-  if (!authStore.isAdmin) return;
-  // Correlate responses with requests: a slow response for an outdated scope
-  // (e.g. the initial load) must not overwrite a newer scope's result.
-  const requestSeq = ++casesRequestSeq;
-  isCasesLoading.value = true;
-  casesError.value = null;
-  try {
-    const result = await api.getReminderCases({ scope: scope.value });
-    if (requestSeq !== casesRequestSeq) return;
-    cases.value = result.cases;
-    if (selectId && cases.value.some((item) => item.householdId === selectId)) {
-      selectedHouseholdId.value = selectId;
-    } else if (selectedHouseholdId.value && !cases.value.some((item) => item.householdId === selectedHouseholdId.value)) {
-      selectedHouseholdId.value = null;
-    }
-  } catch (e) {
-    if (requestSeq !== casesRequestSeq) return;
-    casesError.value = e instanceof Error ? e.message : 'Familien konnten nicht geladen werden';
-  } finally {
-    if (requestSeq === casesRequestSeq) {
-      isCasesLoading.value = false;
-    }
-  }
-}
+const showSettingsDialog = ref(false);
 
 function openCase(householdId: string): void {
   selectedHouseholdId.value = householdId;
@@ -126,256 +95,6 @@ function closeCase(): void {
   invalidatePreview();
 }
 
-// ── Case detail state ────────────────────────────────────────────────────────
-const selectedFeeIds = ref<string[]>([]);
-const reminderFeeIds = ref<string[]>([]);
-const includeQR = ref(true);
-const preview = ref<ReminderCasePreview | null>(null);
-const isPreviewLoading = ref(false);
-const previewError = ref<string | null>(null);
-const subjectEdit = ref('');
-const bodyEdit = ref('');
-const userEdited = ref(false);
-const resetNotice = ref(false);
-const isSending = ref(false);
-const sendError = ref<string | null>(null);
-const conflictFeeCount = ref(0);
-const sendResult = ref<ReminderCaseSendResult | null>(null);
-const showConfirmModal = ref(false);
-const showSettingsDialog = ref(false);
-
-let previewRequestedAt: string | null = null;
-let previewTimer: ReturnType<typeof setTimeout> | null = null;
-let previewRequestSeq = 0;
-
-// A mail that charges at least one Mahngebühr is a Mahnung, otherwise a
-// Zahlungserinnerung.
-const isMahnung = computed(() => reminderFeeIds.value.length > 0);
-
-// Fees whose Mahngebühr is due by the rules but not ticked.
-const untickedDueFeeCount = computed(() => {
-  if (!selectedCase.value) return 0;
-  return selectedCase.value.fees.filter(
-    (fee) => fee.reminderFeeDue && selectedFeeIds.value.includes(fee.feeId) && !reminderFeeIds.value.includes(fee.feeId),
-  ).length;
-});
-
-function toggleFee(feeId: string): void {
-  const index = selectedFeeIds.value.indexOf(feeId);
-  if (index >= 0) {
-    selectedFeeIds.value.splice(index, 1);
-    const reminderIndex = reminderFeeIds.value.indexOf(feeId);
-    if (reminderIndex >= 0) reminderFeeIds.value.splice(reminderIndex, 1);
-  } else {
-    selectedFeeIds.value.push(feeId);
-  }
-}
-
-function toggleReminderFee(feeId: string): void {
-  const index = reminderFeeIds.value.indexOf(feeId);
-  if (index >= 0) {
-    reminderFeeIds.value.splice(index, 1);
-  } else {
-    reminderFeeIds.value.push(feeId);
-  }
-}
-
-async function refreshPreview(): Promise<void> {
-  const item = selectedCase.value;
-  if (!item || selectedFeeIds.value.length === 0) {
-    preview.value = null;
-    return;
-  }
-  if (previewTimer) clearTimeout(previewTimer);
-  // Correlate responses with requests: only the latest request may update the
-  // preview, otherwise a slow older response could overwrite a newer one with
-  // wrong amounts or texts.
-  const requestSeq = ++previewRequestSeq;
-  isPreviewLoading.value = true;
-  previewError.value = null;
-  previewRequestedAt = new Date().toISOString();
-  try {
-    const result = await api.previewReminderCase(item.householdId, {
-      runDate: todayISO(),
-      feeIds: selectedFeeIds.value,
-      reminderFeeIds: reminderFeeIds.value,
-      includeQR: includeQR.value,
-    });
-    if (requestSeq !== previewRequestSeq) return;
-    const hadEdits = userEdited.value;
-    preview.value = result;
-    subjectEdit.value = result.subject;
-    bodyEdit.value = result.body;
-    if (hadEdits) {
-      resetNotice.value = true;
-    }
-    userEdited.value = false;
-  } catch (e) {
-    if (requestSeq !== previewRequestSeq) return;
-    previewError.value = e instanceof Error ? e.message : 'Vorschau konnte nicht geladen werden';
-  } finally {
-    if (requestSeq === previewRequestSeq) {
-      isPreviewLoading.value = false;
-    }
-  }
-}
-
-function invalidatePreview(): void {
-  if (previewTimer) clearTimeout(previewTimer);
-  // Invalidate synchronously on every input change: a response that is still
-  // in flight during the debounce window carries the current sequence number
-  // and would otherwise overwrite the UI with the previous selection's
-  // amounts/text.
-  previewRequestSeq++;
-  preview.value = null;
-  isPreviewLoading.value = false;
-  previewError.value = null;
-}
-
-function schedulePreviewRefresh(): void {
-  if (previewTimer) clearTimeout(previewTimer);
-  previewTimer = setTimeout(() => {
-    void refreshPreview();
-  }, 250);
-}
-
-watch(selectedFeeIds, () => {
-  resetNotice.value = false;
-  invalidatePreview();
-  schedulePreviewRefresh();
-}, { deep: true });
-
-watch(reminderFeeIds, () => {
-  resetNotice.value = false;
-  invalidatePreview();
-  schedulePreviewRefresh();
-}, { deep: true });
-
-watch(includeQR, () => {
-  invalidatePreview();
-  schedulePreviewRefresh();
-});
-
-function onSubjectInput(): void {
-  userEdited.value = true;
-  resetNotice.value = false;
-}
-
-function onBodyInput(): void {
-  userEdited.value = true;
-  resetNotice.value = false;
-}
-
-function resetEdits(): void {
-  if (!preview.value) return;
-  subjectEdit.value = preview.value.subject;
-  bodyEdit.value = preview.value.body;
-  userEdited.value = false;
-  resetNotice.value = false;
-}
-
-async function openSendConfirmation(): Promise<void> {
-  // Do not confirm against a preview that is still loading: the shown text
-  // may not match the current selection yet.
-  if (!preview.value || isPreviewLoading.value) return;
-  sendError.value = null;
-  conflictFeeCount.value = 0;
-  showConfirmModal.value = true;
-}
-
-async function confirmSend(): Promise<void> {
-  const item = selectedCase.value;
-  if (!item || !preview.value) return;
-  isSending.value = true;
-  sendError.value = null;
-  conflictFeeCount.value = 0;
-  try {
-    const result = await api.sendReminderCase(item.householdId, {
-      runDate: todayISO(),
-      feeIds: selectedFeeIds.value,
-      reminderFeeIds: reminderFeeIds.value,
-      includeQR: includeQR.value,
-      ...(subjectEdit.value.trim() !== '' && subjectEdit.value !== preview.value.subject ? { subject: subjectEdit.value } : {}),
-      ...(bodyEdit.value !== preview.value.body ? { body: bodyEdit.value } : {}),
-      ...(previewRequestedAt ? { previewedAt: previewRequestedAt } : {}),
-    });
-    sendResult.value = result;
-    showConfirmModal.value = false;
-    preview.value = null;
-    await loadCases();
-    // Open the next actionable family, if any.
-    const next = cases.value.find((entry) => entry.householdId !== item.householdId);
-    if (next) {
-      openCase(next.householdId);
-    } else {
-      selectedHouseholdId.value = null;
-    }
-  } catch (e) {
-    showConfirmModal.value = false;
-    if (e instanceof ReminderCaseConflictError) {
-      conflictFeeCount.value = e.feeIds.length;
-      sendError.value = `Zustand hat sich geändert (${e.message}). Bitte Vorschau neu prüfen.`;
-      await loadCases(item.householdId);
-      await refreshPreview();
-    } else {
-      sendError.value = e instanceof Error ? e.message : 'Versand fehlgeschlagen';
-    }
-  } finally {
-    isSending.value = false;
-  }
-}
-
-// ── Family chronology ────────────────────────────────────────────────────────
-const chronology = ref<EmailLog[]>([]);
-const isChronologyLoading = ref(false);
-const selectedChronologyLog = ref<EmailLog | null>(null);
-let chronologyRequestSeq = 0;
-
-async function loadChronology(): Promise<void> {
-  const item = selectedCase.value;
-  if (!item) return;
-  // Correlate responses with the selected household: a slow response for a
-  // previously selected family must never render under another family.
-  const requestSeq = ++chronologyRequestSeq;
-  const householdId = item.householdId;
-  isChronologyLoading.value = true;
-  try {
-    const result = await api.getEmailLogs({ householdId, perPage: 20, sortDir: 'desc' });
-    if (requestSeq !== chronologyRequestSeq || selectedHouseholdId.value !== householdId) return;
-    chronology.value = result.data;
-  } catch {
-    if (requestSeq !== chronologyRequestSeq) return;
-    chronology.value = [];
-  } finally {
-    if (requestSeq === chronologyRequestSeq) {
-      isChronologyLoading.value = false;
-    }
-  }
-}
-
-watch(scope, () => {
-  void loadCases();
-});
-
-// ── Lifecycle ────────────────────────────────────────────────────────────────
-onMounted(() => {
-  if (authStore.isAdmin) {
-    loadCases();
-  }
-});
-
-onUnmounted(() => {
-  if (previewTimer) clearTimeout(previewTimer);
-});
-
-watch(
-  () => authStore.isAdmin,
-  (isAdmin) => {
-    if (isAdmin) {
-      loadCases();
-    }
-  }
-);
 </script>
 
 <template>
@@ -415,86 +134,27 @@ watch(
 
     <!-- ════════════════════ Worklist ════════════════════ -->
     <div v-if="activeTab === 'worklist'" v-show="authStore.isAdmin">
-      <!-- Scope + search -->
-      <div class="flex flex-col sm:flex-row sm:items-center gap-2 mb-4">
-        <div class="inline-flex rounded-lg border overflow-hidden">
-          <button
-            class="px-4 py-2 text-sm font-medium transition-colors"
-            :class="scope === 'actionable' ? 'bg-primary text-primary-foreground' : 'bg-card text-muted-foreground hover:bg-accent'"
-            @click="scope = 'actionable'"
-          >
-            Handlungsbedarf
-          </button>
-          <button
-            class="px-4 py-2 text-sm font-medium transition-colors"
-            :class="scope === 'all' ? 'bg-primary text-primary-foreground' : 'bg-card text-muted-foreground hover:bg-accent'"
-            @click="scope = 'all'"
-          >
-            Alle offenen
-          </button>
-        </div>
-        <SearchInput v-model="caseSearch" placeholder="Familie suchen..." class="flex-1 min-w-[200px]" />
-        <button
-          class="inline-flex items-center gap-1.5 text-sm text-primary hover:underline disabled:opacity-50"
-          :disabled="isCasesLoading"
-          @click="loadCases()"
-        >
-          <RefreshCw class="h-4 w-4" :class="isCasesLoading ? 'animate-spin' : ''" />
-          Neu laden
-        </button>
-      </div>
-
-      <div v-if="casesError" class="mb-4 text-sm text-red-600 dark:text-red-300">{{ casesError }}</div>
-      <div v-if="isCasesLoading && cases.length === 0" class="text-sm text-muted-foreground">Familien werden geladen...</div>
-      <div v-else-if="filteredCases.length === 0" class="text-sm text-muted-foreground py-8 text-center">
-        Keine offenen Fälle in dieser Ansicht.
-      </div>
+      <AutomationWorklist
+        v-model:scope="scope"
+        :cases="cases"
+        :isCasesLoading="isCasesLoading"
+        :casesError="casesError"
+        v-model:caseSearch="caseSearch"
+        :filteredCases="filteredCases"
+        :loadCases="loadCases"
+      />
 
       <!-- Master-detail -->
       <div :class="selectedCase ? 'lg:grid lg:grid-cols-[minmax(300px,2fr)_minmax(0,3fr)] lg:gap-6' : ''">
         <!-- Family list -->
-        <div :class="selectedCase ? 'hidden lg:block' : ''">
-          <ul class="space-y-2">
-            <li v-for="item in filteredCases" :key="item.householdId">
-              <button
-                class="w-full text-left p-4 border rounded-xl bg-card transition-colors hover:bg-accent"
-                :class="item.householdId === selectedHouseholdId ? 'border-primary ring-1 ring-primary' : 'border-border'"
-                @click="openCase(item.householdId)"
-              >
-                <div class="flex items-center justify-between gap-3">
-                  <span class="font-medium text-foreground">{{ item.householdName }}</span>
-                  <span class="font-semibold text-foreground whitespace-nowrap">{{ formatCurrency(item.totalRemaining) }}</span>
-                </div>
-                <div class="flex flex-wrap items-center gap-1.5 mt-2">
-                  <span
-                    v-for="feeType in feeTypesIn(item)"
-                    :key="feeType"
-                    class="px-2 py-0.5 text-xs rounded-full font-medium"
-                    :class="feeChipClass(feeType)"
-                  >
-                    {{ feeTypeLabel(feeType) }}
-                  </span>
-                  <span
-                    v-if="hasBlockedEmail(item)"
-                    class="px-2 py-0.5 text-xs rounded-full font-medium bg-red-600 text-white"
-                  >
-                    Keine E-Mail
-                  </span>
-                </div>
-                <div class="flex flex-wrap items-center gap-4 mt-2 text-xs text-muted-foreground">
-                  <span class="inline-flex items-center gap-1" :title="formatDate(item.nextActionAt)">
-                    <Clock class="h-3.5 w-3.5" />
-                    Nächste Aktion: {{ formatDueIn(item.nextActionAt) }}
-                  </span>
-                  <span v-if="lastContactOf(item)" class="inline-flex items-center gap-1">
-                    <Mail class="h-3.5 w-3.5" />
-                    Letzter Kontakt: {{ formatDate(lastContactOf(item) ?? undefined) }}
-                  </span>
-                </div>
-              </button>
-            </li>
-          </ul>
-        </div>
+        <AutomationFamilyList
+          :selectedHouseholdId="selectedHouseholdId"
+          :filteredCases="filteredCases"
+          :selectedCase="selectedCase"
+          :lastContactOf="lastContactOf"
+          :hasBlockedEmail="hasBlockedEmail"
+          :openCase="openCase"
+        />
 
         <!-- Detail panel (desktop) / full view (mobile) -->
         <div v-if="selectedCase" class="mt-6 lg:mt-0">
@@ -550,204 +210,38 @@ watch(
                 „Mahngebühr erheben“ beim Status ankreuzt — sonst geht eine Zahlungserinnerung raus.
               </p>
 
-              <!-- Fee selection -->
-              <div class="border rounded-lg overflow-hidden mb-4">
-                <div class="overflow-x-auto">
-                  <table class="w-full text-sm">
-                    <thead>
-                      <tr class="text-left text-muted-foreground border-b bg-muted">
-                        <th class="w-8 py-2 pl-3"></th>
-                        <th class="py-2 pr-3 font-medium">Kind/Mitglied · Beitrag</th>
-                        <th class="py-2 pr-3 font-medium">Zeitraum</th>
-                        <th class="py-2 pr-3 font-medium">Fällig</th>
-                        <th class="py-2 pr-3 font-medium text-right">Soll</th>
-                        <th class="py-2 pr-3 font-medium text-right">Offen</th>
-                        <th class="py-2 pr-3 font-medium">Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <tr
-                        v-for="(fee, index) in selectedCase.fees"
-                        :key="fee.feeId"
-                        :class="hasNestedReminderBelow(index) ? '' : 'border-b last:border-0'"
-                      >
-                        <td class="py-2 pl-3">
-                          <input
-                            type="checkbox"
-                            :checked="selectedFeeIds.includes(fee.feeId)"
-                            @change="toggleFee(fee.feeId)"
-                          />
-                        </td>
-                        <td class="py-2 pr-3">
-                          <div class="flex items-center gap-2">
-                            <router-link
-                              v-if="fee.clubMember && !isNestedReminder(fee)"
-                              :to="`/mitglieder/${fee.clubMember.id}`"
-                              class="text-primary hover:underline whitespace-nowrap"
-                              :title="`Vereinsmitglied ${fee.clubMember.memberNumber} öffnen`"
-                            >
-                              {{ fee.clubMember.name }}
-                            </router-link>
-                            <router-link
-                              v-else-if="!isNestedReminder(fee)"
-                              :to="`/kinder/${fee.childId}`"
-                              class="text-primary hover:underline whitespace-nowrap"
-                              title="Kind öffnen"
-                            >
-                              {{ fee.childName }}
-                            </router-link>
-                            <span class="px-2 py-0.5 text-xs rounded-full font-medium" :class="feeChipClass(fee.feeType)">
-                              {{ feeTypeLabel(fee.feeType) }}
-                            </span>
-                          </div>
-                        </td>
-                        <td class="py-2 pr-3 whitespace-nowrap">{{ formatPeriod(fee) }}</td>
-                        <td class="py-2 pr-3 whitespace-nowrap">{{ formatDate(fee.dueDate) }}</td>
-                        <td class="py-2 pr-3 text-right whitespace-nowrap">{{ formatCurrency(fee.amount) }}</td>
-                        <td class="py-2 pr-3 text-right font-medium whitespace-nowrap">{{ formatCurrency(fee.remaining) }}</td>
-                        <td class="py-2 pr-3">
-                          <span class="px-2 py-0.5 text-xs rounded-full font-medium whitespace-nowrap" :class="statusBadgeClass(fee.status)">
-                            {{ statusLabel(fee.status) }}
-                          </span>
-                          <label
-                            v-if="fee.reminderFeeDue"
-                            class="mt-1 flex items-center gap-1.5 text-xs whitespace-nowrap"
-                            :class="reminderFeeIds.includes(fee.feeId) ? 'text-amber-700 dark:text-amber-300 font-medium' : 'text-foreground'"
-                            :title="selectedFeeIds.includes(fee.feeId) ? 'Laut Regeln fällig – wird nur mit Häkchen erhoben' : 'Erst den Beitrag auswählen'"
-                          >
-                            <input
-                              type="checkbox"
-                              :checked="reminderFeeIds.includes(fee.feeId)"
-                              :disabled="!selectedFeeIds.includes(fee.feeId)"
-                              @change="toggleReminderFee(fee.feeId)"
-                            />
-                            Mahngebühr erheben
-                          </label>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+              <AutomationSendPreview
+                :selectedCase="selectedCase"
+                :isNestedReminder="isNestedReminder"
+                :hasNestedReminderBelow="hasNestedReminderBelow"
+                :selectedFeeIds="selectedFeeIds"
+                :reminderFeeIds="reminderFeeIds"
+                :includeQR="includeQR"
+                :preview="preview"
+                :isPreviewLoading="isPreviewLoading"
+                :previewError="previewError"
+                v-model:subjectEdit="subjectEdit"
+                v-model:bodyEdit="bodyEdit"
+                :userEdited="userEdited"
+                :resetNotice="resetNotice"
+                :isSending="isSending"
+                :sendError="sendError"
+                :conflictFeeCount="conflictFeeCount"
+                :isMahnung="isMahnung"
+                :toggleFee="toggleFee"
+                :toggleReminderFee="toggleReminderFee"
+                :onSubjectInput="onSubjectInput"
+                :onBodyInput="onBodyInput"
+                :resetEdits="resetEdits"
+                :openSendConfirmation="openSendConfirmation"
+              />
 
-              <!-- Warnings -->
-              <div
-                v-if="preview && preview.warnings && preview.warnings.length > 0"
-                class="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 rounded-lg text-sm text-amber-900 dark:text-amber-300 mb-4"
-              >
-                <p class="font-semibold mb-1">Hinweise</p>
-                <ul class="space-y-0.5">
-                  <li v-for="(warning, index) in preview.warnings" :key="index">· {{ warning }}</li>
-                </ul>
-              </div>
-
-              <!-- Send error -->
-              <div v-if="sendError" class="p-3 bg-red-50 dark:bg-red-950/40 border border-red-300 rounded-lg text-sm text-red-800 dark:text-red-300 mb-4">
-                {{ sendError }}
-                <span v-if="conflictFeeCount > 0" class="block text-xs mt-1">
-                  Betroffene Beiträge: {{ conflictFeeCount }} — bitte Auswahl prüfen.
-                </span>
-              </div>
-
-              <!-- Preview -->
-              <div v-if="selectedFeeIds.length === 0" class="text-sm text-muted-foreground mb-4">
-                Bitte mindestens einen Beitrag auswählen.
-              </div>
-              <div v-else-if="isPreviewLoading && !preview" class="text-sm text-muted-foreground mb-4">Vorschau wird erstellt...</div>
-              <div v-else-if="previewError" class="text-sm text-red-600 dark:text-red-300 mb-4">{{ previewError }}</div>
-              <div v-else-if="preview" class="border rounded-lg p-4 mb-4 bg-muted">
-                <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
-                  <p class="text-sm font-medium text-foreground">
-                    Vorschau · Frist: <span class="font-semibold">{{ formatDate(preview.deadline) }}</span>
-                    · Gesamtbetrag: <span class="font-semibold">{{ formatCurrency(preview.totalAmount) }}</span>
-                  </p>
-                  <p v-if="resetNotice" class="text-xs text-amber-700 dark:text-amber-300">Manuelle Textänderungen wurden zurückgesetzt.</p>
-                </div>
-
-                <!-- Planned reminder fees -->
-                <div v-if="preview.plannedReminderFees.length > 0" class="mb-3 p-3 bg-card border rounded-lg text-sm">
-                  <p class="font-medium text-foreground mb-1">Neu entstehende Mahngebühren</p>
-                  <ul class="space-y-0.5 text-foreground">
-                    <li v-for="planned in preview.plannedReminderFees" :key="planned.baseFeeId" class="flex justify-between gap-3">
-                      <span>Mahngebühr für {{ planned.baseLabel }}</span>
-                      <span class="font-medium">{{ formatCurrency(planned.amount) }}</span>
-                    </li>
-                  </ul>
-                </div>
-
-                <div class="space-y-2">
-                  <div>
-                    <label class="block text-xs text-muted-foreground mb-1">Betreff</label>
-                    <input
-                      type="text"
-                      v-model="subjectEdit"
-                      @input="onSubjectInput"
-                      class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-card"
-                    />
-                  </div>
-                  <div>
-                    <label class="block text-xs text-muted-foreground mb-1">Text</label>
-                    <textarea
-                      v-model="bodyEdit"
-                      @input="onBodyInput"
-                      rows="14"
-                      class="w-full px-3 py-2 border border-border rounded-lg font-mono text-xs focus:ring-2 focus:ring-primary focus:border-transparent outline-none whitespace-pre-wrap bg-card"
-                    ></textarea>
-                    <p v-if="userEdited" class="mt-1 text-xs text-amber-700 dark:text-amber-300">
-                      Text angepasst — Änderungen an der Auswahl oder den Mahngebühren setzen ihn zurück.
-                    </p>
-                  </div>
-                  <div v-if="includeQR && preview.qrImageDataUrl" class="flex flex-col sm:flex-row gap-3">
-                    <div class="shrink-0">
-                      <p class="text-xs text-muted-foreground mb-1">SEPA-QR-Code</p>
-                      <img :src="preview.qrImageDataUrl" alt="SEPA QR-Code" class="w-full max-w-[220px] border rounded bg-card p-2" />
-                    </div>
-                    <div v-if="preview.qrPayload" class="flex-1 min-w-0 flex flex-col">
-                      <p class="text-xs text-muted-foreground mb-1">Im QR-Code enthalten</p>
-                      <pre class="flex-1 whitespace-pre-wrap break-all font-mono text-xs text-muted-foreground bg-card border rounded p-3">{{ preview.qrPayload }}</pre>
-                    </div>
-                  </div>
-                  <p v-else-if="!includeQR" class="text-xs text-muted-foreground">QR-Code ist deaktiviert und wird nicht angehängt.</p>
-                </div>
-              </div>
-
-              <!-- Actions -->
-              <div class="flex flex-wrap justify-end gap-3">
-                <button
-                  class="px-4 py-2 rounded-lg border text-sm font-medium hover:bg-accent"
-                  @click="resetEdits"
-                  v-if="preview && userEdited"
-                >
-                  Text zurücksetzen
-                </button>
-                <button
-                  class="px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
-                  :disabled="!preview || isPreviewLoading || isSending || selectedCase.recipients.length === 0"
-                  @click="openSendConfirmation"
-                >
-                  {{ isMahnung ? 'Mahnung senden' : 'Erinnerung senden' }}
-                </button>
-              </div>
-
-              <!-- Family chronology -->
-              <div class="mt-6 pt-4 border-t">
-                <h3 class="text-sm font-semibold text-foreground mb-2">Chronik dieser Familie</h3>
-                <div v-if="isChronologyLoading" class="text-xs text-muted-foreground">Wird geladen...</div>
-                <div v-else-if="chronology.length === 0" class="text-xs text-muted-foreground">Noch keine E-Mails an diese Familie gesendet.</div>
-                <ul v-else class="divide-y">
-                  <li v-for="log in chronology" :key="log.id" class="py-2 flex items-center justify-between gap-3 text-sm">
-                    <div class="min-w-0">
-                      <span class="text-foreground">{{ formatDateTime(log.sentAt) }}</span>
-                      <span class="text-muted-foreground"> · {{ formatEmailType(log.emailType) }}</span>
-                      <span class="block truncate text-muted-foreground">{{ log.subject }}</span>
-                    </div>
-                    <button class="text-primary hover:underline shrink-0 inline-flex items-center gap-1" @click="selectedChronologyLog = log">
-                      <Eye class="h-4 w-4" />
-                      Anzeigen
-                    </button>
-                  </li>
-                </ul>
-              </div>
+      <!-- Family chronology -->
+              <AutomationChronology
+                :chronology="chronology"
+                :isChronologyLoading="isChronologyLoading"
+                v-model:selectedChronologyLog="selectedChronologyLog"
+              />
             </div>
           </div>
         </div>
