@@ -7,10 +7,8 @@
 //
 // swag runs with --requiredByDefault: every JSON field is required unless the
 // Go struct tag says `binding:"optional"`, which backend-fees sets on all
-// `omitempty` and pointer fields. So the generated optionality mirrors what
-// the API actually sends; a few fields are narrowed or widened (`| null`)
-// below where the UI relies on it. Request payloads stay hand-written because
-// the backend validates them manually.
+// `omitempty` and pointer fields. Generated optionality therefore mirrors
+// what the API sends; requests and responses use schema aliases where possible.
 import type { components } from './schema';
 
 type Schema = components['schemas'];
@@ -86,16 +84,7 @@ export type ReminderCase = Schema['service.ReminderCase'];
 export type ReminderCasesResult = Schema['service.ReminderCasesResult'];
 export type ReminderCasePreview = Schema['service.ReminderCasePreview'];
 export type ReminderCaseSendResult = Schema['service.ReminderCaseSendResult'];
-export interface ReminderCaseRequest {
-  runDate?: string;
-  feeIds: string[];
-  /** Selected fees that get a Mahngebühr; each must be reminderFeeDue. */
-  reminderFeeIds?: string[];
-  includeQR?: boolean;
-  subject?: string;
-  body?: string;
-  previewedAt?: string;
-}
+export type ReminderCaseRequest = Schema['ReminderCaseRequest'];
 interface ReminderCaseConflict {
   message: string;
   feeIds: string[];
@@ -109,62 +98,19 @@ export class ReminderCaseConflictError extends Error {
   }
 }
 
-export type EmailLogType =
-  | 'REMINDER_INITIAL'
-  | 'REMINDER_FINAL'
-  | 'MEMBERSHIP_REMINDER_INITIAL'
-  | 'MEMBERSHIP_REMINDER_FINAL'
-  | 'PASSWORD_RESET'
-  | 'ACCOUNT_INVITATION'
-  | string;
-
-export interface EmailLog {
-  id: string;
-  sentAt: string;
-  toEmail: string;
-  subject: string;
-  body?: string | null;
-  emailType: EmailLogType;
-  sentBy?: string | null;
-}
+export type EmailLogType = Schema['EmailLogResponse']['emailType'];
+export type EmailLog = Schema['EmailLogResponse'];
 
 // ── Children ─────────────────────────────────────────────────────────────────
-export type Child = Omit<Schema['domain.Child'], 'legalHours' | 'careHours'> & {
-  legalHours?: number | null;
-  careHours?: number | null;
-};
+export type Child = Schema['domain.Child'];
 export type NextMemberNumberResponse = Schema['NextMemberNumberResponse'];
-export interface CreateChildRequest {
-  memberNumber: string;
-  firstName: string;
-  lastName: string;
-  birthDate: string;
-  entryDate: string;
-  exitDate?: string;
-  street?: string;
-  streetNo?: string;
-  postalCode?: string;
-  city?: string;
-  legalHours?: number | null;
-  legalHoursUntil?: string;
-  careHours?: number | null;
-}
-export interface UpdateChildRequest {
-  firstName?: string;
-  lastName?: string;
-  birthDate?: string;
-  entryDate?: string;
-  exitDate?: string;
-  street?: string;
-  streetNo?: string;
-  postalCode?: string;
-  city?: string;
-  legalHours?: number | null;
-  legalHoursUntil?: string;
-  careHours?: number | null;
-  isActive?: boolean;
-  householdId?: string;
-}
+// The generated schema includes fields from another create-child DTO; this
+// endpoint's handler request struct only accepts the fields listed here.
+export type CreateChildRequest = Omit<
+  Schema['CreateChildRequest'],
+  'membershipParentId' | 'name'
+>;
+export type UpdateChildRequest = Schema['UpdateChildRequest'];
 export type CareHoursHistoryEntry = Omit<
   Schema['CareHoursHistoryEntry'],
   'careHours' | 'effectiveUntil'
@@ -211,20 +157,7 @@ export interface UpdateHouseholdRequest {
 
 // ── Members (Vereinsmitglieder - can exist independently of children) ───────
 export type Member = Schema['domain.Member'];
-export interface CreateMemberRequest {
-  memberNumber?: string; // Auto-generated if not provided
-  firstName: string;
-  lastName: string;
-  email?: string;
-  phone?: string;
-  street?: string;
-  streetNo?: string;
-  postalCode?: string;
-  city?: string;
-  householdId?: string;
-  membershipStart: string;
-  membershipEnd?: string;
-}
+export type CreateMemberRequest = Schema['CreateMemberRequest'];
 export interface UpdateMemberRequest {
   firstName?: string;
   lastName?: string;
@@ -312,25 +245,8 @@ export type ImportBatch = Omit<Schema['domain.ImportBatch'], 'errors'> & {
   errors?: ImportError[];
 };
 
-export type BankingSyncStatusType =
-  | 'idle'
-  | 'running'
-  | 'waiting_for_2fa'
-  | 'success'
-  | 'error'
-  | 'cancelled';
-export interface BankingSyncStatus {
-  status: BankingSyncStatusType;
-  runId?: string | null;
-  startedAt?: string | null;
-  finishedAt?: string | null;
-  lastError?: string | null;
-  lastMessage?: string | null;
-  downloadPath?: string | null;
-  uploadResult?: unknown;
-  logs?: string[];
-  updatedAt?: string;
-}
+export type BankingSyncStatusType = Schema['BankingSyncStatus']['status'];
+export type BankingSyncStatus = Schema['BankingSyncStatus'];
 
 // ── Pagination envelope (response.Paginated; not generic in the spec) ────────
 export interface PaginatedResponse<T> {
