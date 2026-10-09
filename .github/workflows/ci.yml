@@ -45,6 +45,11 @@ jobs:
 
       - uses: oven-sh/setup-bun@v2
 
+      - uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('frontend/bun.lock') }}
+
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
@@ -65,6 +70,11 @@ jobs:
           cache-dependency-path: backend-fees/go.sum
 
       - uses: oven-sh/setup-bun@v2
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('frontend/bun.lock') }}
 
       # Keep in sync with SWAG_VERSION in scripts/generate-api.sh.
       - name: Install swag
@@ -106,6 +116,11 @@ jobs:
           cache-dependency-path: backend-fees/go.sum
 
       - uses: oven-sh/setup-bun@v2
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: ${{ runner.os }}-bun-${{ hashFiles('frontend/bun.lock') }}
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
