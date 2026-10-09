@@ -21,9 +21,8 @@ import (
 
 type ParentAccountHandler struct{ svc *service.ParentAccountService }
 
-func NewParentAccountHandler(accounts *repository.ParentAccountRepository,
-	work *service.ParentWorkService) *ParentAccountHandler {
-	return &ParentAccountHandler{svc: service.NewParentAccountService(accounts, work)}
+func NewParentAccountHandler(svc *service.ParentAccountService) *ParentAccountHandler {
+	return &ParentAccountHandler{svc: svc}
 }
 func parentAccountError(w http.ResponseWriter, err error) {
 	switch {

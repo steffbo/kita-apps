@@ -347,7 +347,7 @@ func TestParentAccountIsolationAndAudit(t *testing.T) {
 
 	jwt := auth.NewJWTService("parent-account-test", time.Minute, time.Hour, "test")
 	router := api.NewRouter(&config.Config{}, &api.Handlers{JWTService: jwt,
-		ParentAccount: handler.NewParentAccountHandler(accountRepo, work)})
+		ParentAccount: handler.NewParentAccountHandler(service.NewParentAccountService(accountRepo, work))})
 	tokens, err := jwt.GenerateTokenPair(users[0], "parent@example.org", "PARENT")
 	if err != nil {
 		t.Fatal(err)

@@ -88,7 +88,7 @@ func TestImpersonation(t *testing.T) {
 		JWTService:    jwt,
 		Auth:          handler.NewAuthHandler(authSvc, jwt, auth.NewLoginLimiter(3, 10, time.Minute)),
 		User:          handler.NewUserHandler(service.NewUserService(users, tokens), jwt),
-		ParentAccount: handler.NewParentAccountHandler(accountRepo, work),
+		ParentAccount: handler.NewParentAccountHandler(service.NewParentAccountService(accountRepo, work)),
 	})
 	call := func(method, path, token, body string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest(method, "/api/fees/v1"+path, strings.NewReader(body))

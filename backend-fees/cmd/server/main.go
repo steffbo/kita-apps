@@ -144,6 +144,7 @@ func main() {
 	childNoteService := service.NewChildNoteService(childNoteRepo, childService)
 	feeScheduleService := service.NewFeeScheduleService(feeScheduleRepo)
 	parentWorkService := service.NewParentWorkService(parentWorkRepo, txManager)
+	parentAccountService := service.NewParentAccountService(accountRepo, parentWorkService)
 
 	// Initialize handlers
 	handlers := &api.Handlers{
@@ -163,11 +164,10 @@ func main() {
 		Import:      handler.NewImportHandler(importService),
 		BankingSync: handler.NewBankingSyncHandler(cfg.BankingSync.BaseURL, cfg.BankingSync.Token,
 			cfg.BankingSync.Timeout),
-		Einstufung:  handler.NewEinstufungHandler(einstufungService),
-		FeeSchedule: handler.NewFeeScheduleHandler(feeScheduleService),
-		ParentWork:  handler.NewParentWorkHandler(parentWorkService),
-		ParentAccount: handler.NewParentAccountHandler(
-			accountRepo, parentWorkService),
+		Einstufung:       handler.NewEinstufungHandler(einstufungService),
+		FeeSchedule:      handler.NewFeeScheduleHandler(feeScheduleService),
+		ParentWork:       handler.NewParentWorkHandler(parentWorkService),
+		ParentAccount:    handler.NewParentAccountHandler(parentAccountService),
 		Stichtagsmeldung: handler.NewStichtagsmeldungHandler(stichtagService),
 		JWTService:       jwtService,
 	}
