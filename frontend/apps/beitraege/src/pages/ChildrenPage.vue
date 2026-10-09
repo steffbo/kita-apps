@@ -27,16 +27,11 @@ import {
 import { formatDate, todayISO } from '@/utils/format';
 import { calculateAge, isUnderThree } from '@/utils/child';
 import SearchInput from '@/components/SearchInput.vue';
+import { usePagedList } from '@/composables/usePagedList';
 
 const router = useRouter();
 const route = useRoute();
 const authStore = useAuthStore();
-
-// Data
-const children = ref<Child[]>([]);
-const total = ref(0);
-const isLoading = ref(true);
-const error = ref<string | null>(null);
 
 // Filters
 const searchQuery = ref('');
@@ -46,8 +41,6 @@ const showOnlyWarnings = ref(false);
 const showOnlyOpenFees = ref(false);
 
 // Pagination
-const currentPage = ref(1);
-const pageSize = ref(25);
 const pageSizeOptions = [10, 25, 50, 100];
 
 // Sorting
@@ -56,8 +49,34 @@ type SortDirection = 'asc' | 'desc';
 const sortField = ref<SortField>('lastName');
 const sortDirection = ref<SortDirection>('asc');
 
+const {
+  items: children,
+  total,
+  isLoading,
+  error,
+  currentPage,
+  pageSize,
+  selectedIds,
+  totalPages,
+  offset,
+  load: loadChildren,
+  goToFirstPageAndLoad,
+  handleSearchInput,
+} = usePagedList<Child>({
+  fetchPage: ({ page, perPage }) => api.getChildren({
+    activeOnly: !showInactive.value,
+    u3Only: showOnlyU3.value,
+    hasWarnings: showOnlyWarnings.value,
+    hasOpenFees: showOnlyOpenFees.value,
+    search: searchQuery.value || undefined,
+    sortBy: sortField.value,
+    sortDir: sortDirection.value,
+    page,
+    perPage,
+  }),
+});
+
 // Bulk selection
-const selectedIds = ref<Set<string>>(new Set());
 const isAllSelected = computed(() => {
   if (children.value.length === 0) return false;
   return children.value.every(c => selectedIds.value.has(c.id));
@@ -86,69 +105,6 @@ const createForm = ref<CreateChildRequest>({
 const isCreating = ref(false);
 const createError = ref<string | null>(null);
 
-// Computed
-const totalPages = computed(() => Math.ceil(total.value / pageSize.value));
-const offset = computed(() => (currentPage.value - 1) * pageSize.value);
-
-let loadChildrenSeq = 0;
-async function loadChildren() {
-  const seq = ++loadChildrenSeq;
-  isLoading.value = true;
-  error.value = null;
-  try {
-    const response = await api.getChildren({
-      activeOnly: !showInactive.value,
-      u3Only: showOnlyU3.value,
-      hasWarnings: showOnlyWarnings.value,
-      hasOpenFees: showOnlyOpenFees.value,
-      search: searchQuery.value || undefined,
-      sortBy: sortField.value,
-      sortDir: sortDirection.value,
-      page: currentPage.value,
-      perPage: pageSize.value,
-    });
-    if (seq !== loadChildrenSeq) return; // a newer request superseded this one
-    children.value = response.data;
-    total.value = response.total;
-
-    // If the current page ran empty (e.g. after deletes), fall back to the last valid page
-    if (response.data.length === 0 && currentPage.value > 1 && response.total > 0) {
-      currentPage.value = Math.max(1, Math.ceil(response.total / pageSize.value));
-      return;
-    }
-
-    // Clear selection if items no longer exist
-    const currentIds = new Set(response.data.map(c => c.id));
-    selectedIds.value = new Set([...selectedIds.value].filter(id => currentIds.has(id)));
-  } catch (e) {
-    if (seq !== loadChildrenSeq) return;
-    error.value = e instanceof Error ? e.message : 'Fehler beim Laden';
-  } finally {
-    if (seq === loadChildrenSeq) isLoading.value = false;
-  }
-}
-
-// Debounce timer for search
-function goToFirstPageAndLoad() {
-  if (currentPage.value !== 1) {
-    currentPage.value = 1; // pagination watcher performs the reload
-  } else {
-    loadChildren();
-  }
-}
-
-let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
-
-// Explicit handlers for search and filter changes (more reliable than watch for Playwright tests)
-function handleSearchInput() {
-  // Clear any pending debounce
-  if (searchDebounceTimer) {
-    clearTimeout(searchDebounceTimer);
-  }
-  // Debounce search to avoid too many API calls
-  searchDebounceTimer = setTimeout(() => goToFirstPageAndLoad(), 150);
-}
-
 function handleInactiveChange() {
   goToFirstPageAndLoad();
 }
@@ -164,12 +120,6 @@ function handleWarningsChange() {
 function handleOpenFeesChange() {
   goToFirstPageAndLoad();
 }
-
-// Reload when pagination changes (filters/search use explicit handlers above,
-// so each interaction triggers exactly one load)
-watch([currentPage, pageSize], () => {
-  loadChildren();
-});
 
 // Sort changes restart at page 1
 watch([sortField, sortDirection], () => {

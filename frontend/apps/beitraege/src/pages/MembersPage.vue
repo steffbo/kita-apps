@@ -26,15 +26,10 @@ import {
 } from 'lucide-vue-next';
 import { formatDate, todayISO } from '@/utils/format';
 import SearchInput from '@/components/SearchInput.vue';
+import { usePagedList } from '@/composables/usePagedList';
 
 const router = useRouter();
 const authStore = useAuthStore();
-
-// Data
-const members = ref<Member[]>([]);
-const total = ref(0);
-const isLoading = ref(true);
-const error = ref<string | null>(null);
 
 // Children of the household linked to each member (for the Kinder column)
 const childNamesByHousehold = ref<Record<string, string[]>>({});
@@ -44,8 +39,6 @@ const searchQuery = ref('');
 const showInactive = ref(false);
 
 // Pagination
-const currentPage = ref(1);
-const pageSize = ref(25);
 const pageSizeOptions = [10, 25, 50, 100];
 
 // Sorting
@@ -54,8 +47,34 @@ type SortDirection = 'asc' | 'desc';
 const sortField = ref<SortField>('lastName');
 const sortDirection = ref<SortDirection>('asc');
 
+const {
+  items: members,
+  total,
+  isLoading,
+  error,
+  currentPage,
+  pageSize,
+  selectedIds,
+  totalPages,
+  offset,
+  load: loadMembers,
+  goToFirstPageAndLoad,
+  handleSearchInput,
+} = usePagedList<Member>({
+  fetchPage: ({ page, perPage }) => api.getMembers({
+    activeOnly: !showInactive.value,
+    search: searchQuery.value || undefined,
+    sortBy: sortField.value,
+    sortDir: sortDirection.value,
+    page,
+    perPage,
+  }),
+  onLoaded: (memberList) => {
+    loadChildrenNames(memberList);
+  },
+});
+
 // Bulk selection
-const selectedIds = ref<Set<string>>(new Set());
 const isAllSelected = computed(() => {
   if (members.value.length === 0) return false;
   return members.value.every(m => selectedIds.value.has(m.id));
@@ -89,74 +108,9 @@ const createForm = ref<CreateMemberRequest>({
 const isCreating = ref(false);
 const createError = ref<string | null>(null);
 
-// Computed
-const totalPages = computed(() => Math.ceil(total.value / pageSize.value));
-const offset = computed(() => (currentPage.value - 1) * pageSize.value);
-
-let loadMembersSeq = 0;
-async function loadMembers() {
-  const seq = ++loadMembersSeq;
-  isLoading.value = true;
-  error.value = null;
-  try {
-    const response = await api.getMembers({
-      activeOnly: !showInactive.value,
-      search: searchQuery.value || undefined,
-      sortBy: sortField.value,
-      sortDir: sortDirection.value,
-      page: currentPage.value,
-      perPage: pageSize.value,
-    });
-    if (seq !== loadMembersSeq) return; // a newer request superseded this one
-    members.value = response.data;
-    total.value = response.total;
-
-    // If the current page ran empty (e.g. after deletes), fall back to the last valid page
-    if (response.data.length === 0 && currentPage.value > 1 && response.total > 0) {
-      currentPage.value = Math.max(1, Math.ceil(response.total / pageSize.value));
-      return;
-    }
-
-    // Clear selection if items no longer exist
-    const currentIds = new Set(response.data.map(m => m.id));
-    selectedIds.value = new Set([...selectedIds.value].filter(id => currentIds.has(id)));
-
-    loadChildrenNames(response.data);
-  } catch (e) {
-    if (seq !== loadMembersSeq) return;
-    error.value = e instanceof Error ? e.message : 'Fehler beim Laden';
-  } finally {
-    if (seq === loadMembersSeq) isLoading.value = false;
-  }
-}
-
-// Debounce timer for search
-function goToFirstPageAndLoad() {
-  if (currentPage.value !== 1) {
-    currentPage.value = 1; // pagination watcher performs the reload
-  } else {
-    loadMembers();
-  }
-}
-
-let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
-
-function handleSearchInput() {
-  if (searchDebounceTimer) {
-    clearTimeout(searchDebounceTimer);
-  }
-  searchDebounceTimer = setTimeout(() => goToFirstPageAndLoad(), 150);
-}
-
 function handleInactiveChange() {
   goToFirstPageAndLoad();
 }
-
-// Filters/search use the explicit handlers above so each interaction
-// triggers exactly one load
-watch([currentPage, pageSize], () => {
-  loadMembers();
-});
 
 // Sort changes restart at page 1
 watch([sortField, sortDirection], () => {
