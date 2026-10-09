@@ -19,15 +19,6 @@ func Euros(cents int64) float64 {
 	return float64(cents) / 100
 }
 
-// SumCents adds euro amounts exactly and returns the total in cents.
-func SumCents(amounts ...float64) int64 {
-	var total int64
-	for _, a := range amounts {
-		total += Cents(a)
-	}
-	return total
-}
-
 // IsPaid reports whether matched covers amount within PaymentToleranceCents.
 func IsPaid(matched, amount float64) bool {
 	return Cents(matched) >= Cents(amount)-PaymentToleranceCents

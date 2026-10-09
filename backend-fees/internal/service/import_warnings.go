@@ -104,14 +104,6 @@ func (s *ImportService) GetWarnings(ctx context.Context, offset, limit int) ([]d
 	return warnings, total, nil
 }
 
-// GetWarningByID returns a warning by its ID.
-func (s *ImportService) GetWarningByID(ctx context.Context, id uuid.UUID) (*domain.TransactionWarning, error) {
-	if s.warningRepo == nil {
-		return nil, ErrNotFound
-	}
-	return s.warningRepo.GetByID(ctx, id)
-}
-
 // DismissWarning dismisses a warning with a note.
 func (s *ImportService) DismissWarning(ctx context.Context, id uuid.UUID, userID uuid.UUID, note string) error {
 	if s.warningRepo == nil {

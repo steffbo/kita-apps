@@ -501,9 +501,9 @@ func TestResolveWarning_WithLateFee(t *testing.T) {
 	}
 
 	// Verify warning is resolved
-	resolvedWarning, err := importService.GetWarningByID(context.Background(), warning.ID)
+	resolvedWarning, err := warningRepo.GetByID(context.Background(), warning.ID)
 	if err != nil {
-		t.Fatalf("GetWarningByID failed: %v", err)
+		t.Fatalf("GetByID failed: %v", err)
 	}
 	if !resolvedWarning.IsResolved() {
 		t.Errorf("Warning should be resolved after creating late fee")

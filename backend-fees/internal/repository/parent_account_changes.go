@@ -165,9 +165,6 @@ func (r *ParentAccountRepository) Changes(ctx context.Context, entityType string
 	`, entityType, id)
 	return out, err
 }
-func (r *ParentAccountRepository) ContactChanges(ctx context.Context, id uuid.UUID) ([]ContactChange, error) {
-	return r.Changes(ctx, "PARENT", id)
-}
 
 type Activity struct {
 	Type            string     `json:"type" db:"type"`

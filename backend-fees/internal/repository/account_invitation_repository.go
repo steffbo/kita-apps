@@ -136,15 +136,3 @@ func (r *AccountInvitationRepository) Consume(ctx context.Context, tokenHash, pa
 	}
 	return err
 }
-
-func (r *AccountInvitationRepository) Valid(ctx context.Context, tokenHash string) (bool, error) {
-	var valid bool
-	err := r.db.GetContext(ctx, &valid, `
-        SELECT EXISTS (
-            SELECT 1 FROM fees.account_invitations i
-            JOIN fees.users u ON u.id = i.user_id
-            WHERE i.token_hash = $1 AND i.expires_at > NOW()
-                AND u.invitation_pending AND u.is_active AND u.role = 'PARENT'
-        )`, tokenHash)
-	return valid, err
-}

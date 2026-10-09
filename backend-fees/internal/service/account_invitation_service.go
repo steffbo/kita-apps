@@ -195,13 +195,6 @@ Knirpsenstadt Beitrag`, greeting, link, user.Email)
 	return nil
 }
 
-func (s *AccountInvitationService) Valid(ctx context.Context, token string) (bool, error) {
-	if len(token) != 64 {
-		return false, nil
-	}
-	return s.invitations.Valid(ctx, hashToken(token))
-}
-
 func (s *AccountInvitationService) SetPassword(ctx context.Context, token, password string) error {
 	if err := validatePassword(password); err != nil {
 		return err

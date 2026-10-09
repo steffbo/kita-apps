@@ -213,7 +213,7 @@ func TestParentAccountIsolationAndAudit(t *testing.T) {
 		"city": &city}); err != nil {
 		t.Fatal(err)
 	}
-	changes, err := accountRepo.ContactChanges(ctx, parents[0])
+	changes, err := accountRepo.Changes(ctx, "PARENT", parents[0])
 	if err != nil || len(changes) != 2 {
 		t.Fatalf("changes: %+v %v", changes, err)
 	}

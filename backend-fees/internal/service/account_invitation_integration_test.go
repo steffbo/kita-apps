@@ -154,10 +154,6 @@ func TestAccountInvitations(t *testing.T) {
 		t.Errorf("Login vor Passwort: %v", err)
 	}
 	token := tokenFromMail(t, sender.bodies[0])
-	valid, err := svc.Valid(ctx, token)
-	if err != nil || !valid {
-		t.Fatalf("Token gültig: %v, %v", valid, err)
-	}
 	if err := svc.SetPassword(ctx, token, "new-password"); err != nil {
 		t.Fatal(err)
 	}
