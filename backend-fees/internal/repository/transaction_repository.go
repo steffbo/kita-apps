@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -136,13 +137,19 @@ func buildSearchFilter(baseWhereClause, search string, startArgIdx int) (string,
 	argIdx := startArgIdx
 
 	if search != "" {
-		whereClause += fmt.Sprintf(" AND (bt.payer_name ILIKE $%d OR bt.description ILIKE $%d)", argIdx, argIdx+1)
+		whereClause += fmt.Sprintf(" AND (bt.payer_name ILIKE $%d OR bt.description ILIKE $%d OR bt.payer_iban ILIKE $%d)",
+			argIdx, argIdx+1, argIdx+2)
 		searchPattern := "%" + search + "%"
-		args = append(args, searchPattern, searchPattern)
-		argIdx += 2
+		args = append(args, searchPattern, searchPattern, searchPattern)
+		argIdx += 3
 	}
 
 	return whereClause, args, argIdx
+}
+
+// literalTransactionSearch preserves substring semantics for UI searches.
+func literalTransactionSearch(search string) string {
+	return strings.NewReplacer(`\`, `\\`, "%", `\%`, "_", `\_`).Replace(search)
 }
 
 // buildOrderByClause builds the ORDER BY clause based on sortBy and sortDir parameters.
@@ -164,7 +171,7 @@ func buildOrderByClause(sortBy, sortDir string) string {
 		orderDirection = "ASC"
 	}
 
-	return fmt.Sprintf("%s %s", orderColumn, orderDirection)
+	return fmt.Sprintf("%s %s, bt.id ASC", orderColumn, orderDirection)
 }
 
 // listUnmatchedCondition matches transactions that are not fully allocated yet.
@@ -179,10 +186,42 @@ const listMatchedAmountExpr = `COALESCE((SELECT SUM(pm.amount) FROM fees.payment
 // Transactions with partial allocations are included (with their matched amount),
 // so the remainder can still be assigned.
 func (r *PostgresTransactionRepository) ListUnmatched(ctx context.Context, search, sortBy, sortDir string, offset, limit int) ([]domain.BankTransaction, int64, error) {
+	return r.listTransactions(ctx, listUnmatchedCondition, search, sortBy, sortDir, offset, limit)
+}
+
+const listHasMatches = `EXISTS (
+ SELECT 1 FROM fees.payment_matches pm WHERE pm.transaction_id = bt.id
+)`
+
+const listHasWarnings = `EXISTS (
+ SELECT 1 FROM fees.transaction_warnings w WHERE w.transaction_id = bt.id
+ AND w.resolved_at IS NULL AND w.warning_type != 'MULTIPLE_OPEN_FEES'
+)`
+
+// ListTransactions applies the unified bank reconciliation status before pagination.
+// A partial allocation belongs to the matched tab, as in the merged UI list.
+func (r *PostgresTransactionRepository) ListTransactions(
+	ctx context.Context, status, search, sortBy, sortDir string, offset, limit int,
+) ([]domain.BankTransaction, int64, error) {
+	condition := "(" + listUnmatchedCondition + ") OR " + listHasMatches + " OR " + listHasWarnings
+	switch status {
+	case "offen":
+		condition = "((" + listUnmatchedCondition + ") OR " + listHasWarnings + ") AND NOT " + listHasMatches
+	case "zugeordnet":
+		condition = listHasMatches
+	case "warnungen":
+		condition = listHasWarnings
+	}
+	return r.listTransactions(ctx, condition, literalTransactionSearch(search), sortBy, sortDir, offset, limit)
+}
+
+func (r *PostgresTransactionRepository) listTransactions(
+	ctx context.Context, condition, search, sortBy, sortDir string, offset, limit int,
+) ([]domain.BankTransaction, int64, error) {
 	var transactions []domain.BankTransaction
 	var total int64
 
-	whereClause, args, argIdx := buildSearchFilter(listUnmatchedCondition, search, 1)
+	whereClause, args, argIdx := buildSearchFilter("("+condition+")", search, 1)
 
 	// Count total unmatched with search filter
 	countQuery := fmt.Sprintf(`

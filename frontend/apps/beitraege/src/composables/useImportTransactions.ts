@@ -1,4 +1,5 @@
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onScopeDispose, type Ref } from 'vue';
+import { api } from '@/api';
 import type { BankTransaction, TransactionWarning } from '@/api/types';
 
 export type StatusFilter = 'offen' | 'warnungen' | 'zugeordnet' | 'alle';
@@ -21,23 +22,102 @@ export function getTxRemaining(tx: BankTransaction): number {
   return remaining > 0 ? remaining : 0;
 }
 
-export function useImportTransactions() {
+export function useImportTransactions(uploadError: Ref<string | null>) {
   const activeFilter = ref<StatusFilter>('offen');
-  // Transactions state (unified list)
-  const unmatchedTransactions = ref<BankTransaction[]>([]);
-  const unmatchedTotal = ref(0);
-  const matchedTransactions = ref<BankTransaction[]>([]);
-  const matchedTotal = ref(0);
+  const transactions = ref<BankTransaction[]>([]);
   const warnings = ref<TransactionWarning[]>([]);
   const warningsTotal = ref(0);
+  const totalRows = ref(0);
+  const allTotal = ref(0);
+  const offenCount = ref(0);
+  const warnungenCount = ref(0);
+  const zugeordnetCount = ref(0);
   const isLoadingTransactions = ref(true);
-
-  // Search, sort and pagination (client-side over the loaded sets)
   const transactionSearch = ref('');
+  const search = ref('');
   const sortField = ref<SortField>('date');
   const sortDirection = ref<SortDirection>('desc');
   const page = ref(1);
   const pageSize = 50;
+  let sequence = 0;
+  let searchTimer: ReturnType<typeof setTimeout> | undefined;
+
+  async function loadTransactions(): Promise<void> {
+    const requestSequence = ++sequence;
+    isLoadingTransactions.value = true;
+    try {
+      const [result, open, matched, warned, all] = await Promise.all([
+        api.getUnmatchedTransactions({
+          status: activeFilter.value, search: search.value, sortBy: sortField.value,
+          sortDir: sortDirection.value, page: page.value, perPage: pageSize,
+        }),
+        api.getUnmatchedTransactions({ status: 'offen', perPage: 1 }),
+        api.getUnmatchedTransactions({ status: 'zugeordnet', perPage: 1 }),
+        api.getUnmatchedTransactions({ status: 'warnungen', perPage: 1 }),
+        api.getUnmatchedTransactions({ status: 'alle', perPage: 1 }),
+      ]);
+      if (requestSequence !== sequence) return;
+      const lastPage = Math.max(1, result.totalPages);
+      if (page.value > lastPage) {
+        page.value = lastPage;
+        return;
+      }
+      const pageWarnings: TransactionWarning[] = [];
+      let warningCount = 0;
+      if (result.data.length) {
+        const params = { transactionIds: result.data.map(tx => tx.id) };
+        let warningPage = 1;
+        let warningPages = 1;
+        do {
+          const warningResult = await api.getWarnings(warningPage, 100, params);
+          if (requestSequence !== sequence) return;
+          pageWarnings.push(...warningResult.data);
+          warningCount = warningResult.total;
+          warningPages = warningResult.totalPages;
+          warningPage++;
+        } while (warningPage <= warningPages);
+      }
+      if (requestSequence !== sequence) return;
+      transactions.value = result.data;
+      warnings.value = pageWarnings;
+      warningsTotal.value = warningCount;
+      totalRows.value = result.total;
+      allTotal.value = all.total;
+      offenCount.value = open.total;
+      warnungenCount.value = warned.total;
+      zugeordnetCount.value = matched.total;
+    } catch (error) {
+      if (requestSequence !== sequence) return;
+      console.error('Failed to load transactions:', error);
+      uploadError.value = error instanceof Error ? error.message : 'Transaktionen konnten nicht geladen werden';
+    } finally {
+      if (requestSequence === sequence) isLoadingTransactions.value = false;
+    }
+  }
+
+  function resetPageAndLoad(): void {
+    sequence++;
+    if (page.value !== 1) page.value = 1;
+    else void loadTransactions();
+  }
+
+  watch(transactionSearch, value => {
+    sequence++;
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(() => {
+      search.value = value.trim();
+      resetPageAndLoad();
+    }, 300);
+  }, { flush: 'sync' });
+  watch([activeFilter, sortField, sortDirection, page], () => {
+    sequence++;
+  }, { flush: 'sync' });
+  watch([activeFilter, sortField, sortDirection], resetPageAndLoad);
+  watch(page, () => { void loadTransactions(); });
+  onScopeDispose(() => {
+    sequence++;
+    clearTimeout(searchTimer);
+  });
 
   function toggleSort(field: SortField): void {
     if (sortField.value === field) {
@@ -48,81 +128,14 @@ export function useImportTransactions() {
     }
   }
 
-  watch([activeFilter, transactionSearch], () => {
-    page.value = 1;
-  });
+  const pagedRows = computed<TxRow[]>(() => transactions.value.map(tx => ({
+    key: tx.id,
+    tx,
+    matched: (tx.matches?.length ?? 0) > 0,
+    warnings: warnings.value.filter(warning => warning.transactionId === tx.id),
+  })));
 
-  // Unified rows: merge matched, unmatched and open warnings by transaction id
-  const transactionRows = computed<TxRow[]>(() => {
-    const map = new Map<string, TxRow>();
-    for (const tx of unmatchedTransactions.value) {
-      map.set(tx.id, { key: tx.id, tx, matched: false, warnings: [] });
-    }
-    for (const tx of matchedTransactions.value) {
-      const existing = map.get(tx.id);
-      if (existing) {
-        existing.matched = true;
-      } else {
-        map.set(tx.id, { key: tx.id, tx, matched: true, warnings: [] });
-      }
-    }
-    for (const warning of warnings.value) {
-      let row = warning.transactionId ? map.get(warning.transactionId) : undefined;
-      if (!row && warning.transaction && !map.has(warning.transaction.id)) {
-        const tx = warning.transaction;
-        row = { key: tx.id || warning.id, tx, matched: false, warnings: [] };
-        map.set(row.key, row);
-      }
-      if (row) {
-        row.warnings.push(warning);
-      }
-    }
-    return [...map.values()];
-  });
-
-  const offenCount = computed(() => transactionRows.value.filter(r => !r.matched).length);
-  const warnungenCount = computed(() => transactionRows.value.filter(r => r.warnings.length > 0).length);
-  const zugeordnetCount = computed(() => matchedTotal.value);
-
-  const filteredRows = computed<TxRow[]>(() => {
-    let rows = transactionRows.value;
-    if (activeFilter.value === 'offen') {
-      rows = rows.filter(r => !r.matched);
-    } else if (activeFilter.value === 'warnungen') {
-      rows = rows.filter(r => r.warnings.length > 0);
-    } else if (activeFilter.value === 'zugeordnet') {
-      rows = rows.filter(r => r.matched);
-    }
-
-    const search = transactionSearch.value.trim().toLowerCase();
-    if (search) {
-      rows = rows.filter(
-        r =>
-          (r.tx.payerName || '').toLowerCase().includes(search) ||
-          (r.tx.description || '').toLowerCase().includes(search) ||
-          (r.tx.payerIban || '').toLowerCase().includes(search)
-      );
-    }
-    return rows;
-  });
-
-  const sortedRows = computed<TxRow[]>(() => {
-    const dir = sortDirection.value === 'asc' ? 1 : -1;
-    return [...filteredRows.value].sort((a, b) => {
-      switch (sortField.value) {
-        case 'payer':
-          return dir * (a.tx.payerName || '').localeCompare(b.tx.payerName || '');
-        case 'description':
-          return dir * (a.tx.description || '').localeCompare(b.tx.description || '');
-        case 'amount':
-          return dir * (a.tx.amount - b.tx.amount);
-        default:
-          return dir * (new Date(a.tx.bookingDate).getTime() - new Date(b.tx.bookingDate).getTime());
-      }
-    });
-  });
-
-  const totalPages = computed(() => Math.max(1, Math.ceil(sortedRows.value.length / pageSize)));
+  const totalPages = computed(() => Math.max(1, Math.ceil(totalRows.value / pageSize)));
 
   const visiblePages = computed<number[]>(() => {
     const total = totalPages.value;
@@ -133,38 +146,14 @@ export function useImportTransactions() {
     return Array.from({ length: 7 }, (_, i) => start + i);
   });
 
-  const pagedRows = computed<TxRow[]>(() =>
-    sortedRows.value.slice((page.value - 1) * pageSize, page.value * pageSize)
-  );
-
   function goToPage(target: number): void {
     page.value = Math.min(Math.max(1, target), totalPages.value);
   }
 
   return {
-    transactionRows,
-    activeFilter,
-    unmatchedTransactions,
-    unmatchedTotal,
-    matchedTransactions,
-    matchedTotal,
-    warnings,
-    warningsTotal,
-    isLoadingTransactions,
-    transactionSearch,
-    sortField,
-    sortDirection,
-    page,
-    pageSize,
-    toggleSort,
-    offenCount,
-    warnungenCount,
-    zugeordnetCount,
-    filteredRows,
-    sortedRows,
-    totalPages,
-    visiblePages,
-    pagedRows,
-    goToPage,
+    activeFilter, warnings, warningsTotal, isLoadingTransactions,
+    transactionSearch, sortField, sortDirection, page, toggleSort,
+    offenCount, warnungenCount, zugeordnetCount, totalRows, allTotal,
+    totalPages, visiblePages, pagedRows, goToPage, loadTransactions,
   };
 }

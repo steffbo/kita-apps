@@ -35,7 +35,7 @@ const props = defineProps<{
   sortDirection: 'asc' | 'desc';
   page: number;
   toggleSort: (field: SortField) => void;
-  sortedRows: TxRow[];
+  totalRows: number;
   totalPages: number;
   visiblePages: number[];
   pagedRows: TxRow[];
@@ -80,7 +80,7 @@ const {
   sortDirection,
   page,
   toggleSort,
-  sortedRows,
+  totalRows,
   totalPages,
   visiblePages,
   pagedRows,
@@ -537,7 +537,7 @@ const dismissNote = computed({
     <!-- Pagination -->
     <div v-if="totalPages > 1" class="flex items-center justify-between px-4 py-3 border-t bg-muted">
       <div class="text-sm text-muted-foreground">
-        Seite {{ page }} von {{ totalPages }} ({{ sortedRows.length }} Einträge)
+        Seite {{ page }} von {{ totalPages }} ({{ totalRows }} Einträge)
       </div>
       <div class="flex items-center gap-2">
         <button

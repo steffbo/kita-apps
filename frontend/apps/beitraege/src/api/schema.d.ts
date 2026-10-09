@@ -4818,12 +4818,14 @@ export interface paths {
                     page?: number;
                     /** @description Items per page */
                     perPage?: number;
-                    /** @description Search by payer name or description */
+                    /** @description Search by payer name, description or IBAN */
                     search?: string;
                     /** @description Sort field: date, payer, description, amount */
                     sortBy?: string;
                     /** @description Sort direction: asc, desc */
                     sortDir?: string;
+                    /** @description Unified list status: offen, zugeordnet, warnungen, alle; omitted: legacy unmatched */
+                    status?: string;
                 };
                 header?: never;
                 path?: never;
@@ -4838,6 +4840,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["TransactionList"];
+                    };
+                };
+                /** @description Invalid status */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
                     };
                 };
                 /** @description Not authenticated */
@@ -5286,7 +5297,7 @@ export interface paths {
                     page?: number;
                     /** @description Items per page */
                     perPage?: number;
-                    /** @description Search by payer name or description */
+                    /** @description Search by payer name, description or IBAN */
                     search?: string;
                     /** @description Sort field: date, payer, description, amount */
                     sortBy?: string;
@@ -5784,6 +5795,14 @@ export interface paths {
                     page?: number;
                     /** @description Items per page */
                     perPage?: number;
+                    /** @description Search by payer name, description or IBAN */
+                    search?: string;
+                    /** @description Sort field: date, payer, description, amount; omitted: creation date */
+                    sortBy?: string;
+                    /** @description Sort direction: asc, desc */
+                    sortDir?: string;
+                    /** @description Comma-separated transaction UUIDs */
+                    transactionIds?: string;
                 };
                 header?: never;
                 path?: never;
@@ -5798,6 +5817,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["WarningList"];
+                    };
+                };
+                /** @description Invalid transaction IDs */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
                     };
                 };
                 /** @description Not authenticated */

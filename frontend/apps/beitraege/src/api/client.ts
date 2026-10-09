@@ -781,7 +781,8 @@ class ApiClient {
     perPage?: number;
     search?: string;
     sortBy?: string;
-    sortDir?: string;
+    sortDir?: 'asc' | 'desc';
+    status?: 'offen' | 'warnungen' | 'zugeordnet' | 'alle';
   }): Promise<PaginatedResponse<BankTransaction>> {
     const query = new URLSearchParams();
     if (params?.page) query.set('page', String(params.page));
@@ -789,6 +790,7 @@ class ApiClient {
     if (params?.search) query.set('search', params.search);
     if (params?.sortBy) query.set('sortBy', params.sortBy);
     if (params?.sortDir) query.set('sortDir', params.sortDir);
+    if (params?.status) query.set('status', params.status);
     const queryString = query.toString();
     const response = await this.request<PaginatedResponse<BankTransaction>>(`/import/transactions${queryString ? `?${queryString}` : ''}`);
     return this.normalizePaginated(response);
@@ -897,10 +899,19 @@ class ApiClient {
   }
 
   // Warnings endpoints
-  async getWarnings(page?: number, perPage?: number): Promise<PaginatedResponse<TransactionWarning>> {
+  async getWarnings(page?: number, perPage?: number, params?: {
+    search?: string;
+    sortBy?: 'date' | 'payer' | 'description' | 'amount';
+    sortDir?: 'asc' | 'desc';
+    transactionIds?: string[];
+  }): Promise<PaginatedResponse<TransactionWarning>> {
     const query = new URLSearchParams();
     if (page) query.set('page', String(page));
     if (perPage) query.set('perPage', String(perPage));
+    if (params?.search) query.set('search', params.search);
+    if (params?.sortBy) query.set('sortBy', params.sortBy);
+    if (params?.sortDir) query.set('sortDir', params.sortDir);
+    if (params?.transactionIds?.length) query.set('transactionIds', params.transactionIds.join(','));
     const queryString = query.toString();
     const response = await this.request<PaginatedResponse<TransactionWarning>>(`/import/warnings${queryString ? `?${queryString}` : ''}`);
     return this.normalizePaginated(response);

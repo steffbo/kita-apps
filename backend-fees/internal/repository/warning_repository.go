@@ -4,6 +4,9 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
+
+	"github.com/lib/pq"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -70,36 +73,47 @@ func (r *PostgresWarningRepository) GetByTransactionID(ctx context.Context, tran
 	return &warning, nil
 }
 
-// ListUnresolved retrieves all unresolved warnings with pagination.
-// Excludes MULTIPLE_OPEN_FEES warnings as they are not actionable.
-func (r *PostgresWarningRepository) ListUnresolved(ctx context.Context, offset, limit int) ([]domain.TransactionWarning, int64, error) {
-	var warnings []domain.TransactionWarning
+// WarningListOptions filters unresolved warnings by their bank transaction.
+type WarningListOptions struct {
+	Search         string
+	SortBy         string
+	SortDir        string
+	TransactionIDs []uuid.UUID
+}
+
+// ListUnresolved excludes non-actionable MULTIPLE_OPEN_FEES warnings.
+func (r *PostgresWarningRepository) ListUnresolved(
+	ctx context.Context, offset, limit int, options ...WarningListOptions,
+) ([]domain.TransactionWarning, int64, error) {
+	var option WarningListOptions
+	if len(options) > 0 {
+		option = options[0]
+	}
+	condition := "w.resolved_at IS NULL AND w.warning_type != 'MULTIPLE_OPEN_FEES'"
+	where, args, idx := buildSearchFilter(condition, literalTransactionSearch(option.Search), 1)
+	if option.TransactionIDs != nil {
+		where += fmt.Sprintf(" AND w.transaction_id = ANY($%d)", idx)
+		args = append(args, pq.Array(option.TransactionIDs))
+		idx++
+	}
+	from := " FROM fees.transaction_warnings w JOIN fees.bank_transactions bt ON bt.id = w.transaction_id"
 	var total int64
-
-	// Count total unresolved (excluding MULTIPLE_OPEN_FEES)
-	err := conn(ctx, r.db).GetContext(ctx, &total, `
-		SELECT COUNT(*) FROM fees.transaction_warnings 
-		WHERE resolved_at IS NULL 
-		AND warning_type != 'MULTIPLE_OPEN_FEES'
-	`)
-	if err != nil {
+	if err := conn(ctx, r.db).GetContext(ctx, &total, "SELECT COUNT(*)"+from+" WHERE "+where, args...); err != nil {
 		return nil, 0, err
 	}
-
-	// Fetch with pagination (excluding MULTIPLE_OPEN_FEES)
-	err = conn(ctx, r.db).SelectContext(ctx, &warnings, `
-		SELECT w.id, w.transaction_id, w.warning_type, w.message, w.expected_amount, w.actual_amount,
-			   w.child_id, w.matched_fee_id, w.resolved_at, w.resolved_by, w.resolution_type, w.resolution_note, w.created_at
-		FROM fees.transaction_warnings w
-		WHERE w.resolved_at IS NULL
-		AND w.warning_type != 'MULTIPLE_OPEN_FEES'
-		ORDER BY w.created_at DESC
-		LIMIT $1 OFFSET $2
-	`, limit, offset)
-	if err != nil {
+	order := "w.created_at DESC, w.id ASC"
+	if option.SortBy != "" {
+		order = buildOrderByClause(option.SortBy, option.SortDir) + ", w.id ASC"
+	}
+	query := `SELECT w.id, w.transaction_id, w.warning_type, w.message, w.expected_amount, w.actual_amount,
+  w.child_id, w.matched_fee_id, w.resolved_at, w.resolved_by, w.resolution_type,
+  w.resolution_note, w.created_at` + from + " WHERE " + where + " ORDER BY " + order +
+		fmt.Sprintf(" LIMIT $%d OFFSET $%d", idx, idx+1)
+	args = append(args, limit, offset)
+	var warnings []domain.TransactionWarning
+	if err := conn(ctx, r.db).SelectContext(ctx, &warnings, query, args...); err != nil {
 		return nil, 0, err
 	}
-
 	return warnings, total, nil
 }
 

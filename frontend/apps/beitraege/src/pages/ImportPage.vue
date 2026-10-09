@@ -28,13 +28,9 @@ import SearchInput from '@/components/SearchInput.vue';
 
 const route = useRoute();
 const authStore = useAuthStore();
+const uploadError = ref<string | null>(null);
 const {
-  transactionRows,
   activeFilter,
-  unmatchedTransactions,
-  unmatchedTotal,
-  matchedTransactions,
-  matchedTotal,
   warnings,
   warningsTotal,
   isLoadingTransactions,
@@ -46,13 +42,14 @@ const {
   offenCount,
   warnungenCount,
   zugeordnetCount,
-  filteredRows,
-  sortedRows,
   totalPages,
   visiblePages,
   pagedRows,
+  totalRows,
+  allTotal,
+  loadTransactions,
   goToPage,
-} = useImportTransactions();
+} = useImportTransactions(uploadError);
 
 // Modals (each loads and resets its own state)
 const showUploadModal = ref(false);
@@ -62,8 +59,6 @@ const manualMatchTransaction = ref<BankTransaction | null>(null);
 // Batch whose errors the history modal expands on open
 const expandedBatchId = ref<string | null>(null);
 
-// Page-level error banner
-const uploadError = ref<string | null>(null);
 const {
   isResolvingWarning,
   dismissWarningId,
@@ -72,7 +67,7 @@ const {
   cancelWarningDismiss,
   dismissWarning,
   resolveLateFee,
-} = useImportWarningActions(warnings, warningsTotal, uploadError);
+} = useImportWarningActions(warnings, warningsTotal, uploadError, loadTransactions);
 
 // Most recent import (usually the automated banking sync), to surface its errors.
 const latestImportBatch = ref<ImportBatch | null>(null);
@@ -99,28 +94,6 @@ function toggleWarnings(key: string): void {
     expandedWarnings.value.delete(key);
   } else {
     expandedWarnings.value.add(key);
-  }
-}
-
-async function loadTransactions(): Promise<void> {
-  isLoadingTransactions.value = true;
-  try {
-    const [unmatchedRes, matchedRes, warningsRes] = await Promise.all([
-      api.getUnmatchedTransactions({ page: 1, perPage: 500 }),
-      api.getMatchedTransactions({ page: 1, perPage: 1000 }),
-      api.getWarnings(1, 200),
-    ]);
-    unmatchedTransactions.value = unmatchedRes.data;
-    unmatchedTotal.value = unmatchedRes.total;
-    matchedTransactions.value = matchedRes.data;
-    matchedTotal.value = matchedRes.total;
-    warnings.value = warningsRes.data;
-    warningsTotal.value = warningsRes.total;
-  } catch (error) {
-    console.error('Failed to load transactions:', error);
-    uploadError.value = error instanceof Error ? error.message : 'Transaktionen konnten nicht geladen werden';
-  } finally {
-    isLoadingTransactions.value = false;
   }
 }
 
@@ -500,8 +473,8 @@ function getWarningTypeColor(type: string): string {
 
       <div class="flex flex-wrap items-center justify-between gap-3 pt-1 border-t text-sm">
         <p class="text-muted-foreground pt-2">
-          {{ sortedRows.length }} Transaktionen
-          <span v-if="filteredRows.length !== transactionRows.length"> (gefiltert von {{ transactionRows.length }})</span>
+          {{ totalRows }} Transaktionen
+          <span v-if="totalRows !== allTotal"> (gefiltert von {{ allTotal }})</span>
         </p>
         <div class="flex items-center gap-4 pt-2">
           <button
@@ -545,7 +518,7 @@ function getWarningTypeColor(type: string): string {
       :sortDirection="sortDirection"
       :page="page"
       :toggleSort="toggleSort"
-      :sortedRows="sortedRows"
+      :totalRows="totalRows"
       :totalPages="totalPages"
       :visiblePages="visiblePages"
       :pagedRows="pagedRows"

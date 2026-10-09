@@ -177,6 +177,7 @@ type TransactionRepository interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.BankTransaction, error)
 	GetByIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]*domain.BankTransaction, error)
 	Exists(ctx context.Context, bookingDate time.Time, payerIBAN *string, amount float64, description *string) (bool, error)
+	ListTransactions(ctx context.Context, status, search, sortBy, sortDir string, offset, limit int) ([]domain.BankTransaction, int64, error)
 	ListUnmatched(ctx context.Context, search, sortBy, sortDir string, offset, limit int) ([]domain.BankTransaction, int64, error)
 	ListMatched(ctx context.Context, search, sortBy, sortDir string, offset, limit int) ([]domain.BankTransaction, int64, error)
 	GetBatches(ctx context.Context, offset, limit int) ([]domain.ImportBatch, int64, error)
@@ -247,7 +248,7 @@ type WarningRepository interface {
 	Create(ctx context.Context, warning *domain.TransactionWarning) error
 	GetByID(ctx context.Context, id uuid.UUID) (*domain.TransactionWarning, error)
 	GetByTransactionID(ctx context.Context, transactionID uuid.UUID) (*domain.TransactionWarning, error)
-	ListUnresolved(ctx context.Context, offset, limit int) ([]domain.TransactionWarning, int64, error)
+	ListUnresolved(ctx context.Context, offset, limit int, options ...WarningListOptions) ([]domain.TransactionWarning, int64, error)
 	Resolve(ctx context.Context, id uuid.UUID, resolvedBy uuid.UUID, resolutionType domain.ResolutionType, note string) error
 	ResolveByTransactionID(ctx context.Context, transactionID uuid.UUID, resolutionType domain.ResolutionType, note string) error
 	Delete(ctx context.Context, id uuid.UUID) error

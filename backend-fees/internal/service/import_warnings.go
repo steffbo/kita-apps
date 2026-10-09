@@ -8,16 +8,17 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/repository"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/util"
 )
 
 // GetWarnings returns all unresolved transaction warnings with related entities.
-func (s *ImportService) GetWarnings(ctx context.Context, offset, limit int) ([]domain.TransactionWarning, int64, error) {
+func (s *ImportService) GetWarnings(ctx context.Context, offset, limit int, options ...repository.WarningListOptions) ([]domain.TransactionWarning, int64, error) {
 	if s.warningRepo == nil {
 		return nil, 0, nil
 	}
 
-	warnings, total, err := s.warningRepo.ListUnresolved(ctx, offset, limit)
+	warnings, total, err := s.warningRepo.ListUnresolved(ctx, offset, limit, options...)
 	if err != nil {
 		return nil, 0, err
 	}

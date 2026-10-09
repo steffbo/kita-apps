@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
@@ -10,6 +11,7 @@ import (
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/api/request"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/api/response"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/repository"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/service"
 )
 
@@ -31,6 +33,11 @@ type WarningListResponse struct {
 // @Security BearerAuth
 // @Param page query int false "Page number" default(1)
 // @Param perPage query int false "Items per page" default(20)
+// @Param search query string false "Search by payer name, description or IBAN"
+// @Param sortBy query string false "Sort field: date, payer, description, amount; omitted: creation date"
+// @Param sortDir query string false "Sort direction: asc, desc" default(desc)
+// @Param transactionIds query string false "Comma-separated transaction UUIDs"
+// @Failure 400 {object} response.ErrorBody "Invalid transaction IDs"
 // @Success 200 {object} WarningListResponse "Import warnings"
 // @Failure 401 {object} response.ErrorBody "Not authenticated"
 // @Failure 500 {object} response.ErrorBody "Internal server error"
@@ -38,7 +45,24 @@ type WarningListResponse struct {
 func (h *ImportHandler) GetWarnings(w http.ResponseWriter, r *http.Request) {
 	pagination := request.GetPagination(r)
 
-	warnings, total, err := h.importService.GetWarnings(r.Context(), pagination.Offset, pagination.PerPage)
+	option := repository.WarningListOptions{
+		Search:  r.URL.Query().Get("search"),
+		SortBy:  r.URL.Query().Get("sortBy"),
+		SortDir: r.URL.Query().Get("sortDir"),
+	}
+	if ids := r.URL.Query().Get("transactionIds"); ids != "" {
+		for _, value := range strings.Split(ids, ",") {
+			id, err := uuid.Parse(value)
+			if err != nil {
+				response.BadRequest(w, "invalid transaction IDs")
+				return
+			}
+			option.TransactionIDs = append(option.TransactionIDs, id)
+		}
+	}
+	warnings, total, err := h.importService.GetWarnings(
+		r.Context(), pagination.Offset, pagination.PerPage, option,
+	)
 	if err != nil {
 		response.InternalError(w, "failed to get warnings")
 		return

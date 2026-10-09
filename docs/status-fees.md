@@ -3,6 +3,29 @@
 Rolling change log of non-obvious implementation decisions. Newest first.
 Basics (ports, commands, layout) live in `AGENTS.md`.
 
+## Bankabgleich: serverseitige Listen (2026-10-09)
+
+- `GET /import/transactions?status=offen|zugeordnet|warnungen|alle` bildet die bisherige
+  zusammengeführte Liste vor Suche, Sortierung und Pagination in SQL ab. Ohne Status bleibt die
+  bisherige Restbetragsliste erhalten; Teilzuordnungen gehören in der UI weiterhin zu „Zugeordnet“.
+- Suche umfasst Zahler, Verwendungszweck und IBAN. Sortierfelder sind fest zugelassen;
+  die Transaktions-ID stabilisiert die Seiten bei gleichen Sortierwerten.
+- Warnungen unterstützen Suche, Sortierung und `transactionIds`; die UI lädt alle Warnungsseiten
+  für die aktuelle Transaktionsseite. Statuszähler und Gesamtzahlen stammen vom Server.
+- Suche wird um 300 ms entprellt; veraltete Antworten werden verworfen, leere Folgeseiten korrigiert.
+  Integrationstests decken Suche, Sortierung, Pagination und überlappende Status ab.
+- OpenAPI und Frontend-Schema werden im nachfolgenden Generierungsschritt aktualisiert.
+
+## Einkommensvorschau über das Backend (2026-10-09)
+
+- Die Einstufungsseite berechnet die Einkommensvorschau über `POST /einstufungen/calculate-income`;
+  Eingabeänderungen werden um 300 ms entprellt. Die Backend-Ergebnisse inklusive der abweichenden
+  Rundung sind maßgeblich; eine zusätzliche Rundung im Frontend entfällt.
+- Der letzte Vorschauwert bleibt während neuer Anfragen und bei Fehlern sichtbar. Fehler erscheinen
+  inline im Vorschau-Block, auch wenn noch kein Ergebnis vorliegt. Veraltete Antworten werden verworfen;
+  beim Verlassen der Seite werden ausstehende Timer und Antworten ungültig.
+- Bei freiwilligem Höchstsatz entfällt die Vorschau weiterhin. Speichern und PDF bleiben unverändert.
+
 ## Fälligkeitsanzeige nach Berliner Datum (2026-10-09)
 
 - Die Beitragslisten und Kinddetails vergleichen den Datumsanteil des Fälligkeitsdatums mit

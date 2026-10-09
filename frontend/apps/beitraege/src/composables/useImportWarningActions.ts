@@ -6,6 +6,7 @@ export function useImportWarningActions(
   warnings: Ref<TransactionWarning[]>,
   warningsTotal: Ref<number>,
   uploadError: Ref<string | null>,
+  reload: () => Promise<void>,
 ) {
   // Warning actions state
   const isResolvingWarning = ref<string | null>(null);
@@ -30,6 +31,7 @@ export function useImportWarningActions(
       warningsTotal.value = Math.max(0, warningsTotal.value - 1);
       dismissWarningId.value = null;
       dismissNote.value = '';
+      await reload();
     } catch (error) {
       console.error('Failed to dismiss warning:', error);
       uploadError.value = error instanceof Error ? error.message : 'Warnung konnte nicht verworfen werden';
@@ -44,6 +46,7 @@ export function useImportWarningActions(
       await api.resolveLateFee(warning.id);
       warnings.value = warnings.value.filter(w => w.id !== warning.id);
       warningsTotal.value = Math.max(0, warningsTotal.value - 1);
+      await reload();
     } catch (error) {
       console.error('Failed to resolve late fee:', error);
       uploadError.value = error instanceof Error ? error.message : 'Mahngebuhr konnte nicht erstellt werden';

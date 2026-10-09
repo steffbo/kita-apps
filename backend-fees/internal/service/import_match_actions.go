@@ -514,6 +514,26 @@ func (s *ImportService) GetMatchedTransactions(ctx context.Context, search, sort
 		return nil, 0, err
 	}
 
+	return s.enrichTransactionMatches(ctx, transactions, total)
+}
+
+// GetTransactions returns one globally sorted page of the unified reconciliation list.
+func (s *ImportService) GetTransactions(
+	ctx context.Context, status, search, sortBy, sortDir string, offset, limit int,
+) ([]domain.BankTransaction, int64, error) {
+	transactions, total, err := s.transactionRepo.ListTransactions(
+		ctx, status, search, sortBy, sortDir, offset, limit,
+	)
+	if err != nil {
+		return nil, 0, err
+	}
+	return s.enrichTransactionMatches(ctx, transactions, total)
+}
+
+func (s *ImportService) enrichTransactionMatches(
+	ctx context.Context, transactions []domain.BankTransaction, total int64,
+) ([]domain.BankTransaction, int64, error) {
+	var err error
 	// If no transactions, return early
 	if len(transactions) == 0 {
 		return transactions, total, nil

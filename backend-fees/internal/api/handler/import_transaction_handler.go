@@ -32,9 +32,11 @@ type TransactionListResponse struct {
 // @Security BearerAuth
 // @Param page query int false "Page number" default(1)
 // @Param perPage query int false "Items per page" default(20)
-// @Param search query string false "Search by payer name or description"
+// @Param search query string false "Search by payer name, description or IBAN"
 // @Param sortBy query string false "Sort field: date, payer, description, amount" default(date)
 // @Param sortDir query string false "Sort direction: asc, desc" default(desc)
+// @Param status query string false "Unified list status: offen, zugeordnet, warnungen, alle; omitted: legacy unmatched"
+// @Failure 400 {object} response.ErrorBody "Invalid status"
 // @Success 200 {object} TransactionListResponse "Unmatched transactions"
 // @Failure 401 {object} response.ErrorBody "Not authenticated"
 // @Failure 500 {object} response.ErrorBody "Internal server error"
@@ -45,7 +47,25 @@ func (h *ImportHandler) UnmatchedTransactions(w http.ResponseWriter, r *http.Req
 	sortBy := r.URL.Query().Get("sortBy")
 	sortDir := r.URL.Query().Get("sortDir")
 
-	transactions, total, err := h.importService.GetUnmatchedTransactions(r.Context(), search, sortBy, sortDir, pagination.Offset, pagination.PerPage)
+	var transactions []domain.BankTransaction
+	var total int64
+	var err error
+	status := r.URL.Query().Get("status")
+	if status == "" {
+		transactions, total, err = h.importService.GetUnmatchedTransactions(
+			r.Context(), search, sortBy, sortDir, pagination.Offset, pagination.PerPage,
+		)
+	} else {
+		switch status {
+		case "offen", "zugeordnet", "warnungen", "alle":
+		default:
+			response.BadRequest(w, "invalid transaction status")
+			return
+		}
+		transactions, total, err = h.importService.GetTransactions(
+			r.Context(), status, search, sortBy, sortDir, pagination.Offset, pagination.PerPage,
+		)
+	}
 	if err != nil {
 		response.InternalError(w, "failed to get unmatched transactions")
 		return
@@ -462,7 +482,7 @@ func (h *ImportHandler) ChildUnmatchedSuggestions(w http.ResponseWriter, r *http
 // @Security BearerAuth
 // @Param page query int false "Page number" default(1)
 // @Param perPage query int false "Items per page" default(20)
-// @Param search query string false "Search by payer name or description"
+// @Param search query string false "Search by payer name, description or IBAN"
 // @Param sortBy query string false "Sort field: date, payer, description, amount" default(date)
 // @Param sortDir query string false "Sort direction: asc, desc" default(desc)
 // @Success 200 {object} TransactionListResponse "Matched transactions"
