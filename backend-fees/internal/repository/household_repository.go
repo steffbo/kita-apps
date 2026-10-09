@@ -5,13 +5,13 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/lib/pq"
 
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/util"
 )
 
 // PostgresHouseholdRepository is the PostgreSQL implementation of HouseholdRepository.
@@ -136,7 +136,7 @@ func (r *PostgresHouseholdRepository) Create(ctx context.Context, household *dom
 	if household.ID == uuid.Nil {
 		household.ID = uuid.New()
 	}
-	now := time.Now()
+	now := util.Now()
 	household.CreatedAt = now
 	household.UpdatedAt = now
 
@@ -150,7 +150,7 @@ func (r *PostgresHouseholdRepository) Create(ctx context.Context, household *dom
 
 // Update updates an existing household.
 func (r *PostgresHouseholdRepository) Update(ctx context.Context, household *domain.Household) error {
-	household.UpdatedAt = time.Now()
+	household.UpdatedAt = util.Now()
 	_, err := conn(ctx, r.db).ExecContext(ctx, `
 		UPDATE fees.households
 		SET name = $2, annual_household_income = $3, income_status = $4, membership_parent_id = $5, membership_assignment_status = $6, children_count_for_fees = $7, updated_at = $8

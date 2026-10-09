@@ -11,6 +11,7 @@ import (
 	"github.com/lib/pq"
 
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/util"
 )
 
 // PostgresFeeScheduleRepository stores fee regulation versions.
@@ -64,7 +65,7 @@ func (r *PostgresFeeScheduleRepository) Create(ctx context.Context, schedule *do
 	if schedule.ID == uuid.Nil {
 		schedule.ID = uuid.New()
 	}
-	now := time.Now()
+	now := util.Now()
 	schedule.CreatedAt = now
 	schedule.UpdatedAt = now
 	_, err := conn(ctx, r.db).ExecContext(ctx, `
@@ -76,7 +77,7 @@ func (r *PostgresFeeScheduleRepository) Create(ctx context.Context, schedule *do
 
 // Update changes a version.
 func (r *PostgresFeeScheduleRepository) Update(ctx context.Context, schedule *domain.FeeSchedule) error {
-	schedule.UpdatedAt = time.Now()
+	schedule.UpdatedAt = util.Now()
 	result, err := conn(ctx, r.db).ExecContext(ctx, `
 		UPDATE fees.fee_schedules SET valid_from = $2, name = $3, config = $4, updated_at = $5 WHERE id = $1
 	`, schedule.ID, schedule.ValidFrom, schedule.Name, schedule.Config, schedule.UpdatedAt)

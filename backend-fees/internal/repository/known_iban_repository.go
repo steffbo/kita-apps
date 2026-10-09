@@ -4,12 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/util"
 )
 
 // PostgresKnownIBANRepository is the PostgreSQL implementation of KnownIBANRepository.
@@ -24,7 +24,7 @@ func NewPostgresKnownIBANRepository(db *sqlx.DB) *PostgresKnownIBANRepository {
 
 // Create creates or updates a known IBAN entry.
 func (r *PostgresKnownIBANRepository) Create(ctx context.Context, iban *domain.KnownIBAN) error {
-	now := time.Now()
+	now := util.Now()
 	iban.CreatedAt = now
 	iban.UpdatedAt = now
 

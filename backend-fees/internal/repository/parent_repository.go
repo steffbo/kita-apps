@@ -5,12 +5,12 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/util"
 )
 
 // PostgresParentRepository is the PostgreSQL implementation of ParentRepository.
@@ -151,7 +151,7 @@ func (r *PostgresParentRepository) Create(ctx context.Context, parent *domain.Pa
 
 // Update updates an existing parent.
 func (r *PostgresParentRepository) Update(ctx context.Context, parent *domain.Parent) error {
-	parent.UpdatedAt = time.Now()
+	parent.UpdatedAt = util.Now()
 	_, err := conn(ctx, r.db).ExecContext(ctx, `
 		UPDATE fees.parents
 		SET household_id = $2, member_id = $3, first_name = $4, last_name = $5, birth_date = $6, email = $7, phone = $8,

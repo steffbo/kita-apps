@@ -11,6 +11,7 @@ import (
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/csvparser"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/repository"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/util"
 )
 
 // ChildUnmatchedSuggestionsResult represents likely unmatched transactions for a child.
@@ -231,7 +232,7 @@ func (s *ImportService) matchFeeExpectation(ctx context.Context, tx domain.BankT
 					Message:       fmt.Sprintf("Mehrere offene Vereinsbeiträge (%d) für diesen Haushalt gefunden - manuelle Zuordnung erforderlich", count),
 					ActualAmount:  &tx.Amount,
 					ChildID:       &childID,
-					CreatedAt:     time.Now(),
+					CreatedAt:     util.Now(),
 				}
 			}
 
@@ -276,7 +277,7 @@ func (s *ImportService) matchFeeExpectation(ctx context.Context, tx domain.BankT
 			Message:       fmt.Sprintf("Mehrere offene Beiträge (%d) für dieses Kind gefunden - manuelle Zuordnung erforderlich", count),
 			ActualAmount:  &tx.Amount,
 			ChildID:       &childID,
-			CreatedAt:     time.Now(),
+			CreatedAt:     util.Now(),
 		}
 	}
 
@@ -351,7 +352,7 @@ func (s *ImportService) checkForWarning(ctx context.Context, tx domain.BankTrans
 		TransactionID: tx.ID,
 		ActualAmount:  &tx.Amount,
 		ChildID:       knownIBAN.ChildID,
-		CreatedAt:     time.Now(),
+		CreatedAt:     util.Now(),
 	}
 
 	// If we have a linked child, check what fees are open

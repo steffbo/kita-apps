@@ -8,6 +8,7 @@ import (
 
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/repository"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/util"
 )
 
 // MemberService handles member-related business logic.
@@ -86,8 +87,8 @@ func (s *MemberService) Create(ctx context.Context, input CreateMemberInput) (*d
 		MembershipStart: input.MembershipStart,
 		MembershipEnd:   input.MembershipEnd,
 		IsActive:        true,
-		CreatedAt:       time.Now(),
-		UpdatedAt:       time.Now(),
+		CreatedAt:       util.Now(),
+		UpdatedAt:       util.Now(),
 	}
 
 	if err := s.memberRepo.Create(ctx, member); err != nil {

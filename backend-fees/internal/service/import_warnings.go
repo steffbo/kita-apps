@@ -164,7 +164,7 @@ func (s *ImportService) checkLatePaymentAndCreateWarning(ctx context.Context, tr
 		ActualAmount:  &tx.Amount,
 		ChildID:       &fee.ChildID,
 		MatchedFeeID:  &fee.ID,
-		CreatedAt:     time.Now(),
+		CreatedAt:     util.Now(),
 	}
 
 	return s.warningRepo.Create(ctx, warning)
@@ -235,7 +235,7 @@ func (s *ImportService) resolveWarningWithLateFee(ctx context.Context, warningID
 		Month:         originalFee.Month, // Same month as original fee
 		Amount:        domain.ReminderFeeAmount,
 		DueDate:       util.Today().AddDate(0, 0, 14), // Due in 14 days
-		CreatedAt:     time.Now(),
+		CreatedAt:     util.Now(),
 		ReminderForID: &originalFee.ID, // Link to original fee
 	}
 

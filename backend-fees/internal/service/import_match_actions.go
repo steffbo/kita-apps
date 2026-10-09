@@ -4,13 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/repository"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/util"
 )
 
 // MatchConfirmation represents a match to confirm.
@@ -73,7 +73,7 @@ func (s *ImportService) ConfirmMatches(ctx context.Context, matches []MatchConfi
 			ExpectationID: m.ExpectationID,
 			Amount:        fee.Amount,
 			MatchType:     domain.MatchTypeManual,
-			MatchedAt:     time.Now(),
+			MatchedAt:     util.Now(),
 			MatchedBy:     &userID,
 		}
 
@@ -119,7 +119,7 @@ func (s *ImportService) CreateManualMatch(ctx context.Context, transactionID, ex
 		ExpectationID: expectationID,
 		Amount:        fee.Amount,
 		MatchType:     domain.MatchTypeManual,
-		MatchedAt:     time.Now(),
+		MatchedAt:     util.Now(),
 		MatchedBy:     &userID,
 	}
 
@@ -152,7 +152,7 @@ func (s *ImportService) autoConfirmMatch(ctx context.Context, suggestion *domain
 					Amount:        fee.Amount,
 					MatchType:     domain.MatchTypeAuto,
 					Confidence:    &suggestion.Confidence,
-					MatchedAt:     time.Now(),
+					MatchedAt:     util.Now(),
 					MatchedBy:     nil,
 				}
 				if err := s.matchRepo.Create(ctx, match); err != nil {
@@ -185,7 +185,7 @@ func (s *ImportService) autoConfirmMatch(ctx context.Context, suggestion *domain
 			Amount:        suggestion.Expectation.Amount,
 			MatchType:     domain.MatchTypeAuto,
 			Confidence:    &suggestion.Confidence,
-			MatchedAt:     time.Now(),
+			MatchedAt:     util.Now(),
 			MatchedBy:     nil,
 		}
 		childID := suggestion.Expectation.ChildID
@@ -412,7 +412,7 @@ func (s *ImportService) allocateTransaction(ctx context.Context, transactionID, 
 			ExpectationID: alloc.ExpectationID,
 			Amount:        alloc.Amount,
 			MatchType:     domain.MatchTypeManual,
-			MatchedAt:     time.Now(),
+			MatchedAt:     util.Now(),
 			MatchedBy:     &userID,
 		}
 

@@ -12,6 +12,7 @@ import (
 	"github.com/lib/pq"
 
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/util"
 )
 
 // PostgresTransactionRepository is the PostgreSQL implementation of TransactionRepository.
@@ -30,7 +31,7 @@ func (r *PostgresTransactionRepository) Create(ctx context.Context, tx *domain.B
 		tx.ID = uuid.New()
 	}
 	if tx.ImportedAt.IsZero() {
-		tx.ImportedAt = time.Now()
+		tx.ImportedAt = util.Now()
 	}
 
 	result, err := conn(ctx, r.db).ExecContext(ctx, `

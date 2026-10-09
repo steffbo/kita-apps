@@ -12,6 +12,7 @@ import (
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/csvparser"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/repository"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/util"
 )
 
 // ChildImportService handles CSV import for children
@@ -632,8 +633,8 @@ func (s *ChildImportService) Execute(ctx context.Context, req *ExecuteRequest) (
 				PostalCode:   stringPtr(row.Child.PostalCode),
 				City:         stringPtr(row.Child.City),
 				IsActive:     true,
-				CreatedAt:    time.Now(),
-				UpdatedAt:    time.Now(),
+				CreatedAt:    util.Now(),
+				UpdatedAt:    util.Now(),
 			}
 
 			if row.Child.LegalHours != nil {
@@ -756,8 +757,8 @@ func (s *ChildImportService) handleParent(ctx context.Context, rowIndex, parentI
 		LastName:  parent.LastName,
 		Email:     stringPtr(parent.Email),
 		Phone:     stringPtr(parent.Phone),
-		CreatedAt: time.Now(),
-		UpdatedAt: time.Now(),
+		CreatedAt: util.Now(),
+		UpdatedAt: util.Now(),
 	}
 
 	err := s.parentRepo.Create(ctx, newParent)

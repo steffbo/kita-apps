@@ -4,12 +4,12 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/util"
 )
 
 // PostgresWarningRepository is the PostgreSQL implementation of WarningRepository.
@@ -109,7 +109,7 @@ func (r *PostgresWarningRepository) Resolve(ctx context.Context, id uuid.UUID, r
 		UPDATE fees.transaction_warnings
 		SET resolved_at = $2, resolved_by = $3, resolution_type = $4, resolution_note = $5
 		WHERE id = $1 AND resolved_at IS NULL
-	`, id, time.Now(), resolvedBy, resolutionType, note)
+	`, id, util.Now(), resolvedBy, resolutionType, note)
 	if err != nil {
 		return err
 	}
@@ -131,7 +131,7 @@ func (r *PostgresWarningRepository) ResolveByTransactionID(ctx context.Context, 
 		UPDATE fees.transaction_warnings
 		SET resolved_at = $2, resolution_type = $3, resolution_note = $4
 		WHERE transaction_id = $1 AND resolved_at IS NULL
-	`, transactionID, time.Now(), resolutionType, note)
+	`, transactionID, util.Now(), resolutionType, note)
 	return err
 }
 

@@ -136,8 +136,8 @@ func (s *ParentService) Create(ctx context.Context, input CreateParentInput) (*d
 		City:                  input.City,
 		AnnualHouseholdIncome: input.AnnualHouseholdIncome,
 		IncomeStatus:          domain.IncomeStatus(stringOrEmpty(input.IncomeStatus)),
-		CreatedAt:             time.Now(),
-		UpdatedAt:             time.Now(),
+		CreatedAt:             util.Now(),
+		UpdatedAt:             util.Now(),
 	}
 
 	if err := s.parentRepo.Create(ctx, parent); err != nil {
@@ -267,8 +267,8 @@ func (s *ParentService) CreateMemberFromParent(ctx context.Context, parentID uui
 		HouseholdID:     parent.HouseholdID,
 		MembershipStart: membershipStart,
 		IsActive:        true,
-		CreatedAt:       time.Now(),
-		UpdatedAt:       time.Now(),
+		CreatedAt:       util.Now(),
+		UpdatedAt:       util.Now(),
 	}
 
 	if err := s.memberRepo.Create(ctx, member); err != nil {

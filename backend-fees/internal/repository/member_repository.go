@@ -11,6 +11,7 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/util"
 )
 
 // PostgresMemberRepository is the PostgreSQL implementation of MemberRepository.
@@ -140,7 +141,7 @@ func (r *PostgresMemberRepository) Create(ctx context.Context, member *domain.Me
 	if member.ID == uuid.Nil {
 		member.ID = uuid.New()
 	}
-	now := time.Now()
+	now := util.Now()
 	member.CreatedAt = now
 	member.UpdatedAt = now
 
@@ -157,7 +158,7 @@ func (r *PostgresMemberRepository) Create(ctx context.Context, member *domain.Me
 
 // Update updates an existing member.
 func (r *PostgresMemberRepository) Update(ctx context.Context, member *domain.Member) error {
-	member.UpdatedAt = time.Now()
+	member.UpdatedAt = util.Now()
 	_, err := conn(ctx, r.db).ExecContext(ctx, `
 		UPDATE fees.members
 		SET member_number = $2, first_name = $3, last_name = $4, email = $5, phone = $6,

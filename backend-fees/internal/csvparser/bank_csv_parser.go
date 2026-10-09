@@ -15,6 +15,7 @@ import (
 	"golang.org/x/text/transform"
 
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/util"
 )
 
 const estimatedFullNameParts = 4
@@ -140,7 +141,7 @@ func parseRow(record []string) (*domain.BankTransaction, error) {
 		Description: description,
 		Amount:      amount,
 		Currency:    currency,
-		ImportedAt:  time.Now(),
+		ImportedAt:  util.Now(),
 	}, nil
 }
 

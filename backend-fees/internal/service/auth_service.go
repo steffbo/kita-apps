@@ -13,6 +13,7 @@ import (
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/auth"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/repository"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/util"
 )
 
 // BootstrapAdminID is the ID of the admin created from USER_NAME/USER_PASSWORD.
@@ -114,14 +115,14 @@ func (s *AuthService) GetUserByID(ctx context.Context, id uuid.UUID) (*domain.Us
 // StoreRefreshToken stores a refresh token hash.
 func (s *AuthService) StoreRefreshToken(ctx context.Context, userID uuid.UUID, token string) error {
 	hash := hashToken(token)
-	expiresAt := time.Now().Add(s.refreshExpiry)
+	expiresAt := util.Now().Add(s.refreshExpiry)
 
 	return s.refreshTokenRepo.Create(ctx, &domain.RefreshToken{
 		ID:        uuid.New(),
 		UserID:    userID,
 		TokenHash: hash,
 		ExpiresAt: expiresAt,
-		CreatedAt: time.Now(),
+		CreatedAt: util.Now(),
 	})
 }
 

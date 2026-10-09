@@ -8,6 +8,7 @@ import (
 
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/repository"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/util"
 )
 
 // ChildService handles child-related business logic.
@@ -208,8 +209,8 @@ func (s *ChildService) Create(ctx context.Context, input CreateChildInput) (*dom
 		LegalHoursUntil: legalHoursUntil,
 		CareHours:       input.CareHours,
 		IsActive:        true,
-		CreatedAt:       time.Now(),
-		UpdatedAt:       time.Now(),
+		CreatedAt:       util.Now(),
+		UpdatedAt:       util.Now(),
 	}
 
 	if err := s.childRepo.Create(ctx, child); err != nil {
@@ -410,8 +411,8 @@ func (s *ChildService) LinkParent(ctx context.Context, childID, parentID uuid.UU
 					ID:               uuid.New(),
 					Name:             "Familie " + householdName,
 					MembershipStatus: domain.MembershipAssignmentStatusAssumed,
-					CreatedAt:        time.Now(),
-					UpdatedAt:        time.Now(),
+					CreatedAt:        util.Now(),
+					UpdatedAt:        util.Now(),
 				}
 
 				// Migrate income from parent to household if available

@@ -11,6 +11,7 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/util"
 )
 
 const einstufungColumns = `id, child_id, household_id, year, valid_from, valid_until,
@@ -39,7 +40,7 @@ func (r *PostgresEinstufungRepository) Create(ctx context.Context, e *domain.Ein
 	if e.EffectiveFromMonth.IsZero() {
 		e.EffectiveFromMonth = e.ValidFrom
 	}
-	now := time.Now()
+	now := util.Now()
 	e.CreatedAt = now
 	e.UpdatedAt = now
 
@@ -79,7 +80,7 @@ func (r *PostgresEinstufungRepository) CreateFollowUp(ctx context.Context, sourc
 	if e.EffectiveFromMonth.IsZero() {
 		e.EffectiveFromMonth = e.ValidFrom
 	}
-	now := time.Now()
+	now := util.Now()
 	e.CreatedAt = now
 	e.UpdatedAt = now
 
@@ -151,7 +152,7 @@ func (r *PostgresEinstufungRepository) GetByChildAndYear(ctx context.Context, ch
 
 // Update updates an existing Einstufung.
 func (r *PostgresEinstufungRepository) Update(ctx context.Context, e *domain.Einstufung) error {
-	e.UpdatedAt = time.Now()
+	e.UpdatedAt = util.Now()
 	tx, err := beginTx(ctx, r.db)
 	if err != nil {
 		return err

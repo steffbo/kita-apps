@@ -5,12 +5,12 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/util"
 )
 
 const childNoteColumns = `id, child_id, text, created_at, updated_at`
@@ -30,7 +30,7 @@ func (r *PostgresChildNoteRepository) Create(ctx context.Context, note *domain.C
 	if note.ID == uuid.Nil {
 		note.ID = uuid.New()
 	}
-	now := time.Now()
+	now := util.Now()
 	note.CreatedAt = now
 	note.UpdatedAt = now
 
@@ -43,7 +43,7 @@ func (r *PostgresChildNoteRepository) Create(ctx context.Context, note *domain.C
 
 // Update updates the text of an existing child note.
 func (r *PostgresChildNoteRepository) Update(ctx context.Context, note *domain.ChildNote) error {
-	note.UpdatedAt = time.Now()
+	note.UpdatedAt = util.Now()
 	result, err := conn(ctx, r.db).ExecContext(ctx, `
 		UPDATE fees.child_notes SET text = $2, updated_at = $3 WHERE id = $1
 	`, note.ID, note.Text, note.UpdatedAt)

@@ -362,7 +362,7 @@ func (r *PostgresChildRepository) Create(ctx context.Context, child *domain.Chil
 
 // Update updates an existing child.
 func (r *PostgresChildRepository) Update(ctx context.Context, child *domain.Child) error {
-	child.UpdatedAt = time.Now()
+	child.UpdatedAt = util.Now()
 	tx, err := beginTx(ctx, r.db)
 	if err != nil {
 		return err
@@ -825,7 +825,7 @@ func (r *PostgresChildRepository) upsertCareHoursHistoryTx(ctx context.Context, 
 		return err
 	}
 
-	now := time.Now()
+	now := util.Now()
 	for _, row := range rows {
 		id := row.ID
 		if id == uuid.Nil {
@@ -930,7 +930,7 @@ func (r *PostgresChildRepository) upsertLegalHoursHistoryTx(ctx context.Context,
 		return err
 	}
 
-	now := time.Now()
+	now := util.Now()
 	for _, row := range rows {
 		id := row.ID
 		if id == uuid.Nil {

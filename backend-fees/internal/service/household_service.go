@@ -4,12 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/repository"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/util"
 )
 
 // HouseholdService handles household-related business logic.
@@ -75,8 +75,8 @@ func (s *HouseholdService) Create(ctx context.Context, input CreateHouseholdInpu
 		Name:                  input.Name,
 		AnnualHouseholdIncome: input.AnnualHouseholdIncome,
 		IncomeStatus:          input.IncomeStatus,
-		CreatedAt:             time.Now(),
-		UpdatedAt:             time.Now(),
+		CreatedAt:             util.Now(),
+		UpdatedAt:             util.Now(),
 	}
 	if input.MembershipParentID != nil {
 		household.MembershipParentID = input.MembershipParentID

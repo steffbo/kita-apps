@@ -339,7 +339,7 @@ func (s *FeeService) createFeeIfNotExists(ctx context.Context, childID uuid.UUID
 		Month:       month,
 		Amount:      amount,
 		DueDate:     dueDate,
-		CreatedAt:   time.Now(),
+		CreatedAt:   util.Now(),
 	}
 
 	if err := s.feeRepo.Create(ctx, fee); err != nil {
@@ -381,7 +381,7 @@ func (s *FeeService) SyncChildcareExpectationsFrom(ctx context.Context, childID 
 				Month:       &month,
 				Amount:      amount,
 				DueDate:     dueDate,
-				CreatedAt:   time.Now(),
+				CreatedAt:   util.Now(),
 			}
 			if err := s.feeRepo.Create(ctx, created); err != nil {
 				return nil, err
@@ -569,7 +569,7 @@ func (s *FeeService) createMembershipFee(ctx context.Context, childID, household
 		Year:        year,
 		Amount:      amount,
 		DueDate:     dueDate,
-		CreatedAt:   time.Now(),
+		CreatedAt:   util.Now(),
 	})
 }
 
@@ -760,7 +760,7 @@ func (s *FeeService) Create(ctx context.Context, input CreateFeeInput) (*domain.
 		Month:              input.Month,
 		Amount:             amount,
 		DueDate:            dueDate,
-		CreatedAt:          time.Now(),
+		CreatedAt:          util.Now(),
 		ReconciliationYear: input.ReconciliationYear,
 	}
 
