@@ -113,27 +113,31 @@ async function loadParents() {
 }
 
 // Debounce timer for search
+function goToFirstPageAndLoad() {
+  if (currentPage.value !== 1) {
+    currentPage.value = 1;
+  } else {
+    loadParents();
+  }
+}
+
 let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
 function handleSearchInput() {
   if (searchDebounceTimer) {
     clearTimeout(searchDebounceTimer);
   }
-  searchDebounceTimer = setTimeout(() => {
-    currentPage.value = 1;
-    loadParents();
-  }, 150);
+  searchDebounceTimer = setTimeout(() => goToFirstPageAndLoad(), 150);
 }
 
-// Watch for pagination changes
+// Search uses an explicit handler so each interaction triggers exactly one load
 watch([currentPage, pageSize], () => {
   loadParents();
 });
 
 // Reload when sort changes
 watch([sortField, sortDirection], () => {
-  currentPage.value = 1;
-  loadParents();
+  goToFirstPageAndLoad();
 });
 
 onMounted(loadParents);
