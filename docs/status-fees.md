@@ -3,6 +3,12 @@
 Rolling change log of non-obvious implementation decisions. Newest first.
 Basics (ports, commands, layout) live in `AGENTS.md`.
 
+## Fälligkeitsanzeige nach Berliner Datum (2026-10-09)
+
+- Die Beitragslisten und Kinddetails vergleichen den Datumsanteil des Fälligkeitsdatums mit
+  `todayISO()`. Ein Beitrag gilt am Fälligkeitstag selbst noch nicht als überfällig; maßgeblich ist
+  der Kalendertag in Europe/Berlin.
+
 ## Kinderimport: atomare CSV-Zeilen (2026-10-09)
 
 - Jede Importzeile läuft über `TxManager.WithTx`; Fehler rollen Kind, Eltern, Verknüpfungen und
