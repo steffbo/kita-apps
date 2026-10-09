@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"runtime"
+	"testing"
 	"time"
 
 	"github.com/golang-migrate/migrate/v4"
@@ -25,6 +26,13 @@ var (
 	testDB      *sqlx.DB
 	pgContainer *postgres.PostgresContainer
 )
+
+func requireTestDatabase(t *testing.T) {
+	t.Helper()
+	if testing.Short() {
+		t.Skip("requires PostgreSQL; skipped in -short mode")
+	}
+}
 
 // setupTestContainer starts a PostgreSQL container and runs migrations.
 // This is called once per test suite from TestMain.

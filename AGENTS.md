@@ -60,6 +60,7 @@ cd docker && docker compose up db -d
 # Backend
 cd backend-fees && go run cmd/migrate/main.go && go run cmd/server/main.go
 cd backend-fees && go test ./...    # integration tests use testcontainers (Docker)
+cd backend-fees && go test -short ./...    # skips database tests; runs without Docker
 
 # Frontend
 cd frontend && bun install

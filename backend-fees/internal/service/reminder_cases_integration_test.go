@@ -158,6 +158,7 @@ func insertContactLog(t *testing.T, emailLogRepo repository.EmailLogRepository, 
 }
 
 func TestReminderCases_GroupingStatusesAndScope(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 	setReliableCutoff(t, "2026-01-01")
@@ -242,6 +243,7 @@ func TestReminderCases_GroupingStatusesAndScope(t *testing.T) {
 }
 
 func TestReminderCases_WaitingHiddenFromActionable(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 	setReliableCutoff(t, "2026-01-01")
@@ -312,6 +314,7 @@ func TestReminderCases_WaitingHiddenFromActionable(t *testing.T) {
 }
 
 func TestReminderCases_PartialPaymentRemaining(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 	setReliableCutoff(t, "2026-01-01")
@@ -351,6 +354,7 @@ func TestReminderCases_PartialPaymentRemaining(t *testing.T) {
 }
 
 func TestReminderCase_Preview_MixedTypesPlansFees(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 	setReliableCutoff(t, "2026-01-01")
@@ -442,6 +446,7 @@ func TestReminderCase_Preview_MixedTypesPlansFees(t *testing.T) {
 // be ticked. Without ticks the mail stays a Zahlungserinnerung and names the
 // due but uncharged Mahngebühr.
 func TestReminderCase_ReminderFeesOnlyWhenDueAndTicked(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 	setReliableCutoff(t, "2026-01-01")
@@ -565,6 +570,7 @@ func assignCaseClubMember(t *testing.T, householdID, feeID uuid.UUID, firstName,
 }
 
 func TestReminderCase_Preview_InitialStagePlansNoFees(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 	setReliableCutoff(t, "2026-01-01")
@@ -599,6 +605,7 @@ func TestReminderCase_Preview_InitialStagePlansNoFees(t *testing.T) {
 }
 
 func TestReminderCase_Send_CreatesFeesLogsAndPreventsDuplicates(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 	setReliableCutoff(t, "2026-01-01")
@@ -675,6 +682,7 @@ func TestReminderCase_Send_CreatesFeesLogsAndPreventsDuplicates(t *testing.T) {
 }
 
 func TestReminderCase_Send_ConflictsAndValidation(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 	setReliableCutoff(t, "2026-01-01")
@@ -820,6 +828,7 @@ func countReminderFeesForBase(t *testing.T, baseFeeID uuid.UUID) int {
 // Two concurrent final sends of the same base fee must produce exactly one
 // reminder fee; the loser surfaces as a conflict instead of a duplicate fee.
 func TestReminderCase_Send_ConcurrentSendsCreateSingleReminderFee(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 	setReliableCutoff(t, "2026-01-01")
@@ -882,6 +891,7 @@ func TestReminderCase_Send_ConcurrentSendsCreateSingleReminderFee(t *testing.T) 
 // A failing SMTP send must not leave orphaned reminder fees behind; a retry
 // afterwards plans them again.
 func TestReminderCase_Send_SMTPFailureCompensatesReminderFees(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 	setReliableCutoff(t, "2026-01-01")
@@ -938,6 +948,7 @@ func TestReminderCase_Send_SMTPFailureCompensatesReminderFees(t *testing.T) {
 // A not-yet-due fee stays never_contacted even when it was contacted early;
 // actionability is defined by the due date alone.
 func TestReminderCase_NotDueFeeWithContactStaysNeverContacted(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 
@@ -981,6 +992,7 @@ func TestReminderCase_NotDueFeeWithContactStaysNeverContacted(t *testing.T) {
 // Fees created on the reliability cutoff day itself have no assignable
 // history (calendar-day comparison, not exact timestamps).
 func TestReminderCase_FeeCreatedOnCutoffDayIsHistoryUnknown(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 
@@ -1045,6 +1057,7 @@ func stringContains(haystack, needle string) bool {
 // An existing Mahngebühr carries its base fee reference, follows its base fee
 // in the case list and is nested under it in the mail.
 func TestReminderCase_ExistingReminderFeeReferencesBaseFee(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 	setReliableCutoff(t, "2026-01-01")

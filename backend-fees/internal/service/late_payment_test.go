@@ -21,6 +21,7 @@ import (
 
 // TestLatePayment_OnTime_Within15th tests that a payment on or before the 15th is NOT late.
 func TestLatePayment_OnTime_Within15th(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 
@@ -94,6 +95,7 @@ func TestLatePayment_OnTime_Within15th(t *testing.T) {
 
 // TestLatePayment_Late_After15th tests that a payment after the 15th IS late.
 func TestLatePayment_Late_After15th(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 
@@ -170,6 +172,7 @@ func TestLatePayment_Late_After15th(t *testing.T) {
 
 // TestLatePayment_Boundary_Exactly15th tests that payment on exactly the 15th is on-time.
 func TestLatePayment_Boundary_Exactly15th(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 
@@ -233,6 +236,7 @@ func TestLatePayment_Boundary_Exactly15th(t *testing.T) {
 
 // TestLatePayment_PreviousMonthFee tests that paying a previous month's fee is late.
 func TestLatePayment_PreviousMonthFee(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 
@@ -301,6 +305,7 @@ func TestLatePayment_PreviousMonthFee(t *testing.T) {
 
 // TestLatePayment_OnlyMonthlyFees tests that MEMBERSHIP fees don't trigger late payment.
 func TestLatePayment_OnlyMonthlyFees(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 
@@ -364,6 +369,7 @@ func TestLatePayment_OnlyMonthlyFees(t *testing.T) {
 
 // TestLatePayment_Childcare_IsMonthly tests that CHILDCARE fees do trigger late payment.
 func TestLatePayment_Childcare_IsMonthly(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 
@@ -432,6 +438,7 @@ func TestLatePayment_Childcare_IsMonthly(t *testing.T) {
 
 // TestResolveWarning_WithLateFee tests resolving a late payment warning by creating a late fee.
 func TestResolveWarning_WithLateFee(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 

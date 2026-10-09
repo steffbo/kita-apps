@@ -20,6 +20,7 @@ import (
 )
 
 func TestParentAccountLinking(t *testing.T) {
+	requireTestDatabase(t)
 	ctx := context.Background()
 	users := repository.NewPostgresUserRepository(testDB)
 	tokens := repository.NewPostgresRefreshTokenRepository(testDB)
@@ -72,6 +73,7 @@ func TestParentAccountLinking(t *testing.T) {
 }
 
 func TestParentAccountIsolationAndAudit(t *testing.T) {
+	requireTestDatabase(t)
 	ctx := context.Background()
 	accountRepo := repository.NewParentAccountRepository(testDB)
 	work := service.NewParentWorkService(repository.NewPostgresParentWorkRepository(testDB))

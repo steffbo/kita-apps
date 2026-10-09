@@ -2,6 +2,7 @@ package service_test
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"os"
 	"strings"
@@ -17,6 +18,11 @@ import (
 
 // TestMain sets up and tears down the test database using testcontainers
 func TestMain(m *testing.M) {
+	flag.Parse()
+	if testing.Short() {
+		os.Exit(m.Run())
+	}
+
 	// Setup testcontainer
 	if err := setupTestContainer(); err != nil {
 		fmt.Printf("Failed to setup test container: %v\n", err)
@@ -34,6 +40,7 @@ func TestMain(m *testing.M) {
 
 // TestImportService_BlacklistFiltering tests that blacklisted IBANs are filtered during import
 func TestImportService_BlacklistFiltering(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 
@@ -80,6 +87,7 @@ Test;DE1234;BIC;Bank;02.01.2026;02.01.2026;Blocked Payer;TESTDE123456789012;BIC;
 
 // TestImportService_TrustedIBANOnMatch tests that IBANs are marked as trusted when matched
 func TestImportService_TrustedIBANOnMatch(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 
@@ -130,6 +138,7 @@ func TestImportService_TrustedIBANOnMatch(t *testing.T) {
 }
 
 func TestImportService_TrustedIBAN_SiblingMemberNumberOverridesLinkedChild(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 
@@ -242,6 +251,7 @@ func TestImportService_TrustedIBAN_SiblingMemberNumberOverridesLinkedChild(t *te
 
 // TestImportService_DismissTransaction tests dismissing a transaction and blacklisting IBAN
 func TestImportService_DismissTransaction(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 
@@ -319,6 +329,7 @@ func TestImportService_DismissTransaction(t *testing.T) {
 
 // TestImportService_Rescan tests rescanning unmatched transactions
 func TestImportService_Rescan(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 
@@ -382,6 +393,7 @@ func TestImportService_Rescan(t *testing.T) {
 
 // TestImportService_RemoveFromBlacklist tests removing an IBAN from blacklist
 func TestImportService_RemoveFromBlacklist(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 
@@ -425,6 +437,7 @@ func TestImportService_RemoveFromBlacklist(t *testing.T) {
 
 // TestImportService_LinkIBANToChild tests linking a trusted IBAN to a child
 func TestImportService_LinkIBANToChild(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 
@@ -492,6 +505,7 @@ func TestImportService_LinkIBANToChild(t *testing.T) {
 // Note: With the new logic, multiple unpaid fees do NOT auto-match (they create a warning instead).
 // This test verifies the sequential payment scenario works correctly.
 func TestImportService_OldestFeeMatchedFirst(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 
@@ -597,6 +611,7 @@ func TestImportService_OldestFeeMatchedFirst(t *testing.T) {
 // TestImportService_OldestFeeMatchedFirst_DifferentAmounts tests that amount matching
 // still works correctly - a transaction should only match fees with the same amount.
 func TestImportService_OldestFeeMatchedFirst_DifferentAmounts(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 
@@ -664,6 +679,7 @@ func TestImportService_OldestFeeMatchedFirst_DifferentAmounts(t *testing.T) {
 // TestImportService_CombinedFeeAndReminderMatch tests that a transaction amount of 55.40
 // (food fee 45.40 + reminder 10.00) correctly matches both fees.
 func TestImportService_CombinedFeeAndReminderMatch(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 
@@ -766,6 +782,7 @@ func TestImportService_CombinedFeeAndReminderMatch(t *testing.T) {
 // TestImportService_CombinedMatch_PreferExactMatch tests that exact amount matches
 // are preferred over combined matches when both are possible.
 func TestImportService_CombinedMatch_PreferExactMatch(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 
@@ -834,6 +851,7 @@ func TestImportService_CombinedMatch_PreferExactMatch(t *testing.T) {
 // but the transaction only covers the original fee amount, only the fee is matched
 // and the reminder remains unpaid.
 func TestImportService_PartialPayment_FeeOnlyNotReminder(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 
@@ -957,6 +975,7 @@ func TestImportService_PartialPayment_FeeOnlyNotReminder(t *testing.T) {
 
 // TestImportService_GetBlacklistAndTrusted tests listing blacklisted and trusted IBANs
 func TestImportService_GetBlacklistAndTrusted(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 
@@ -1025,6 +1044,7 @@ func TestImportService_GetBlacklistAndTrusted(t *testing.T) {
 
 // TestWarningFromTrustedIBAN tests warning generation for trusted IBANs with no matching fee.
 func TestWarningFromTrustedIBAN(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 
@@ -1130,6 +1150,7 @@ func TestWarningFromTrustedIBAN(t *testing.T) {
 // TestImportService_MultipleOpenFees_NoAutoMatch tests that when multiple unpaid fees
 // of the same type exist for a child, no auto-match occurs and a warning is created.
 func TestImportService_MultipleOpenFees_NoAutoMatch(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 
@@ -1221,6 +1242,7 @@ func TestImportService_MultipleOpenFees_NoAutoMatch(t *testing.T) {
 // TestImportService_SingleOpenFee_AutoMatch tests that when only one unpaid fee
 // of a type exists, the transaction is auto-matched normally.
 func TestImportService_SingleOpenFee_AutoMatch(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 
@@ -1287,6 +1309,7 @@ func TestImportService_SingleOpenFee_AutoMatch(t *testing.T) {
 // TestImportService_ProcessCSV_AutoMatch tests that ProcessCSV auto-confirms
 // high-confidence matches (member number + single open fee).
 func TestImportService_ProcessCSV_AutoMatch(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 
@@ -1357,6 +1380,7 @@ Test;DE1234;BIC;Bank;02.01.2026;02.01.2026;Test Zahler;TESTDE111222333444;BIC;Tr
 
 // TestWarningAutoResolveOnMatch tests that warnings are auto-resolved when a transaction is matched.
 func TestWarningAutoResolveOnMatch(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 

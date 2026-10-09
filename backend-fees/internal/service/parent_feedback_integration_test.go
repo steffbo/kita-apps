@@ -14,6 +14,7 @@ import (
 )
 
 func TestParentFeedbackOtherParentAndReview(t *testing.T) {
+	requireTestDatabase(t)
 	ctx := context.Background()
 	accountRepo := repository.NewParentAccountRepository(testDB)
 	work := service.NewParentWorkService(repository.NewPostgresParentWorkRepository(testDB))

@@ -69,6 +69,7 @@ func assertSameChildcareFee(t *testing.T, calc func(domain.ChildcareFeeInput) *d
 // 000035) must reproduce the formerly hard-coded calculation exactly, for every
 // date before any new version.
 func TestSeededFeeSchedule_MatchesLegacyCalculation(t *testing.T) {
+	requireTestDatabase(t)
 	repo := repository.NewPostgresFeeScheduleRepository(testDB)
 	if _, err := repo.GetAt(context.Background(), time.Date(2024, 12, 31, 0, 0, 0, 0, time.UTC)); !errors.Is(err, domain.ErrNoFeeSchedule) {
 		t.Fatalf("GetAt(2024-12-31) = %v, want ErrNoFeeSchedule", err)

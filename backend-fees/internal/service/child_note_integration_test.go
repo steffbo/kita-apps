@@ -23,6 +23,7 @@ func createTestChildNote(noteRepo repository.ChildNoteRepository, childID uuid.U
 }
 
 func TestChildNoteRepo_CRUD(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 
@@ -83,6 +84,7 @@ func TestChildNoteRepo_CRUD(t *testing.T) {
 }
 
 func TestChildNoteRepo_ListByChildPaginationAndOrder(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 
@@ -149,6 +151,7 @@ func TestChildNoteRepo_ListByChildPaginationAndOrder(t *testing.T) {
 }
 
 func TestChildNoteRepo_ListAllWithChildName(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 
@@ -195,6 +198,7 @@ func TestChildNoteRepo_ListAllWithChildName(t *testing.T) {
 }
 
 func TestChildNoteRepo_CascadeDeleteWithChild(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 

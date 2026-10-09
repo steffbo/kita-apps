@@ -14,6 +14,7 @@ import (
 )
 
 func TestStichtagsmeldungReport_UsesExitDateAndCareHoursHistory(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 
@@ -104,6 +105,7 @@ func TestStichtagsmeldungReport_UsesExitDateAndCareHoursHistory(t *testing.T) {
 }
 
 func TestChildService_AddCareHoursHistory_SplitsAndUpdatesExistingStart(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 

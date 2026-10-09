@@ -13,6 +13,7 @@ import (
 )
 
 func TestParentWorkAccountIntegration(t *testing.T) {
+	requireTestDatabase(t)
 	ctx := context.Background()
 	repo := repository.NewPostgresParentWorkRepository(testDB)
 	svc := service.NewParentWorkService(repo)
@@ -151,6 +152,7 @@ func TestParentWorkAccountIntegration(t *testing.T) {
 }
 
 func TestParentWorkImportIntegration(t *testing.T) {
+	requireTestDatabase(t)
 	ctx := context.Background()
 	repo := repository.NewPostgresParentWorkRepository(testDB)
 	svc := service.NewParentWorkService(repo, repository.NewTxManager(testDB))

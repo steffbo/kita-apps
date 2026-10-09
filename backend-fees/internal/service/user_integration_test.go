@@ -15,6 +15,7 @@ import (
 
 func newUserServices(t *testing.T) (*service.AuthService, *service.UserService) {
 	t.Helper()
+	requireTestDatabase(t)
 	cleanupUsers := func() {
 		testDB.Exec(`DELETE FROM fees.refresh_tokens`)
 		testDB.Exec(`DELETE FROM fees.users`)

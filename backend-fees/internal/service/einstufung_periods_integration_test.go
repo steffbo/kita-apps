@@ -13,6 +13,7 @@ import (
 )
 
 func TestEinstufungPeriods_AllowConsecutiveRejectOverlapping(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 
@@ -61,6 +62,7 @@ func TestEinstufungPeriods_AllowConsecutiveRejectOverlapping(t *testing.T) {
 }
 
 func TestEinstufungPeriods_UpdateFollowUpMovesSourceBoundary(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 
@@ -118,6 +120,7 @@ func TestEinstufungPeriods_UpdateFollowUpMovesSourceBoundary(t *testing.T) {
 }
 
 func TestEinstufungPeriods_DeleteFollowUpReopensSource(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 
@@ -168,6 +171,7 @@ func TestEinstufungPeriods_DeleteFollowUpReopensSource(t *testing.T) {
 }
 
 func TestEinstufungMonthlyTableUsesChildCareHoursHistory(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 

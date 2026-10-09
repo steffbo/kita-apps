@@ -73,6 +73,7 @@ func createEmailLog(t *testing.T, emailLogRepo repository.EmailLogRepository, em
 }
 
 func TestEmailLogBackfill_MapsSingleHousehold(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 
@@ -114,6 +115,7 @@ func TestEmailLogBackfill_MapsSingleHousehold(t *testing.T) {
 }
 
 func TestEmailLogBackfill_SkipsAmbiguousAndUnresolvable(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 
@@ -165,6 +167,7 @@ func TestEmailLogBackfill_SkipsAmbiguousAndUnresolvable(t *testing.T) {
 }
 
 func TestEmailLogHistory_NewLogsCarryHousehold(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 
@@ -246,6 +249,7 @@ func TestResolveFeeContacts_NewestLogWins(t *testing.T) {
 }
 
 func TestGetHistoryReliableFrom_SetByMigration(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 

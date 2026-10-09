@@ -13,6 +13,7 @@ import (
 // A fee due on 1 Oct is overdue once 2 Oct has started in Berlin, even though
 // it is still 1 Oct in UTC. Uses 2031 so fees left by other tests don't interfere.
 func TestFeeOverview_OverdueFollowsBerlinCalendar(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 

@@ -14,6 +14,7 @@ import (
 )
 
 func TestChildService_LinkParentRejectsDifferentHouseholds(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 
@@ -44,6 +45,7 @@ func TestChildService_LinkParentRejectsDifferentHouseholds(t *testing.T) {
 }
 
 func TestChildService_LinkParentAssignsChildToExistingParentHousehold(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 
@@ -71,6 +73,7 @@ func TestChildService_LinkParentAssignsChildToExistingParentHousehold(t *testing
 }
 
 func TestChildParentHouseholdTriggerRejectsDirectMismatch(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 

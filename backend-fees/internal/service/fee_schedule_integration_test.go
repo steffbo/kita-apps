@@ -13,6 +13,7 @@ import (
 )
 
 func TestFeeScheduleService_Rules(t *testing.T) {
+	requireTestDatabase(t)
 	ctx := context.Background()
 	restore := util.SetClock(func() time.Time { return time.Date(2031, 5, 10, 12, 0, 0, 0, time.UTC) })
 	defer restore()
@@ -65,6 +66,7 @@ func TestFeeScheduleService_Rules(t *testing.T) {
 // A new version changes generated fees from its start month on, and leaves
 // earlier months untouched.
 func TestFeeSchedule_NewVersionAppliesFromValidFrom(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 	ctx := context.Background()

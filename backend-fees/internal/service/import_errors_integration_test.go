@@ -38,6 +38,7 @@ func (failingBlacklistRepo) GetBlacklistedIBANs(context.Context) (map[string]boo
 }
 
 func TestImportService_ProcessCSV_ReportsAndStoresRowErrors(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 
@@ -82,6 +83,7 @@ func TestImportService_ProcessCSV_ReportsAndStoresRowErrors(t *testing.T) {
 }
 
 func TestImportService_ProcessCSV_FailsWhenReferenceDataUnavailable(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 
@@ -116,6 +118,7 @@ func TestImportService_ProcessCSV_FailsWhenReferenceDataUnavailable(t *testing.T
 }
 
 func TestTransactionRepository_CreateRejectsDuplicateBooking(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 

@@ -21,6 +21,7 @@ import (
 )
 
 func TestImpersonation(t *testing.T) {
+	requireTestDatabase(t)
 	ctx := context.Background()
 	authSvc, userSvc := newUserServices(t)
 	users := repository.NewPostgresUserRepository(testDB)

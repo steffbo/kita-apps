@@ -25,6 +25,7 @@ func (failingResolveWarningRepo) ResolveByTransactionID(context.Context, uuid.UU
 // A failing follow-up action must roll back the match and the trusted IBAN,
 // instead of leaving a half-applied assignment behind.
 func TestImportService_MatchIsAtomicWithFollowUpActions(t *testing.T) {
+	requireTestDatabase(t)
 	ctx := context.Background()
 	childRepo := repository.NewPostgresChildRepository(testDB)
 	feeRepo := repository.NewPostgresFeeRepository(testDB)

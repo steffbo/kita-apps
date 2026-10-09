@@ -13,6 +13,7 @@ import (
 )
 
 func TestTxManager_WithTx(t *testing.T) {
+	requireTestDatabase(t)
 	ctx := context.Background()
 	txm := repository.NewTxManager(testDB)
 	childRepo := repository.NewPostgresChildRepository(testDB)

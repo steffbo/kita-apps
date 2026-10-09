@@ -15,6 +15,7 @@ import (
 // The hours exposed on domain.Child are derived from the history tables. These tests pin
 // that behavior after removing the denormalized fees.children hour columns.
 func TestChildHours_DerivedFromHistoryWithoutWrites(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 
@@ -90,6 +91,7 @@ func TestChildHours_DerivedFromHistoryWithoutWrites(t *testing.T) {
 // A child that has not started yet has no currently effective period, so the derived value
 // is empty while the future period is still recorded and used for fee calculation.
 func TestChildHours_FuturePeriodIsNotCurrentButDrivesFees(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 
@@ -150,6 +152,7 @@ func TestChildHours_FuturePeriodIsNotCurrentButDrivesFees(t *testing.T) {
 // Children whose hours only start in the future are fully documented and must not be
 // reported as missing master data.
 func TestChildHours_WarningsUseHistoryNotCurrentPeriod(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 

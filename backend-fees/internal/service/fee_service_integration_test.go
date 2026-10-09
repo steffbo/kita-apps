@@ -14,6 +14,7 @@ import (
 )
 
 func TestFeeService_Generate_UsesEnrollmentPeriodForMonthlyFees(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 
@@ -74,6 +75,7 @@ func TestFeeService_Generate_UsesEnrollmentPeriodForMonthlyFees(t *testing.T) {
 }
 
 func TestFeeService_GetByID_PartialMatch(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 
@@ -132,6 +134,7 @@ func TestFeeService_GetByID_PartialMatch(t *testing.T) {
 }
 
 func TestFeeService_GetByID_FullMatch(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 
@@ -187,6 +190,7 @@ func TestFeeService_GetByID_FullMatch(t *testing.T) {
 }
 
 func TestFeeService_SyncChildcareExpectationsFrom_AdjustsPaidIncrease(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 
@@ -245,6 +249,7 @@ func TestFeeService_SyncChildcareExpectationsFrom_AdjustsPaidIncrease(t *testing
 }
 
 func TestFeeService_SyncChildcareExpectationsFrom_ReportsCreditReviewForDecrease(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 

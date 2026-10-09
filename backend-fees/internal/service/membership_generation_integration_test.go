@@ -13,6 +13,7 @@ import (
 )
 
 func TestFeeService_GenerateYearly_CreatesOneMembershipFeePerMember(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 
@@ -129,6 +130,7 @@ func TestFeeService_GenerateYearly_CreatesOneMembershipFeePerMember(t *testing.T
 }
 
 func TestImportService_MembershipPaymentSettlesFeeOfNamedChild(t *testing.T) {
+	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
 

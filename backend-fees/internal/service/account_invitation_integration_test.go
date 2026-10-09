@@ -68,6 +68,7 @@ func tokenFromMail(t *testing.T, body string) string {
 }
 
 func TestAccountInvitations(t *testing.T) {
+	requireTestDatabase(t)
 	ctx := context.Background()
 	authSvc, userSvc := newUserServices(t)
 	testDB.Exec(`DELETE FROM fees.email_logs`)
@@ -209,6 +210,7 @@ func TestAccountInvitations(t *testing.T) {
 }
 
 func TestAccountInvitations_PartialMailFailure(t *testing.T) {
+	requireTestDatabase(t)
 	ctx := context.Background()
 	authSvc, _ := newUserServices(t)
 	if _, err := authSvc.BootstrapAdmin(ctx, "invite-admin@example.test", "password1"); err != nil {
