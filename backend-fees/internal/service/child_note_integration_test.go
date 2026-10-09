@@ -102,16 +102,27 @@ func TestChildNoteRepo_ListByChildPaginationAndOrder(t *testing.T) {
 	}
 
 	// Create notes with distinct creation times; note a must sort last.
+	baseCreatedAt := time.Unix(0, 0).UTC()
+	setCreatedAt := func(id uuid.UUID, createdAt time.Time) {
+		t.Helper()
+		if _, err := testDB.ExecContext(ctx, `
+			UPDATE fees.child_notes SET created_at = $1 WHERE id = $2
+		`, createdAt, id); err != nil {
+			t.Fatalf("failed to set note creation time: %v", err)
+		}
+	}
+
 	noteA, err := createTestChildNote(noteRepo, child.ID, "a")
 	if err != nil {
 		t.Fatalf("Create failed: %v", err)
 	}
-	time.Sleep(10 * time.Millisecond)
-	for _, text := range []string{"b", "c", "d"} {
-		if _, err := createTestChildNote(noteRepo, child.ID, text); err != nil {
+	setCreatedAt(noteA.ID, baseCreatedAt)
+	for i, text := range []string{"b", "c", "d"} {
+		note, err := createTestChildNote(noteRepo, child.ID, text)
+		if err != nil {
 			t.Fatalf("Create failed: %v", err)
 		}
-		time.Sleep(10 * time.Millisecond)
+		setCreatedAt(note.ID, baseCreatedAt.Add(time.Duration(i+1)*time.Second))
 	}
 	if _, err := createTestChildNote(noteRepo, other.ID, "other"); err != nil {
 		t.Fatalf("Create failed: %v", err)
