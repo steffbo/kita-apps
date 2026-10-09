@@ -5,7 +5,8 @@
   "main": "sync.js",
   "scripts": {
     "sync": "bun sync.js",
-    "test": "bun sync.js --test",
+    "test": "bun test",
+    "test:live": "bun sync.js --test",
     "upload": "bun upload.js",
     "server": "bun server.js"
   },

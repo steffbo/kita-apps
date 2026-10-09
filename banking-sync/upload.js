@@ -1,15 +1,9 @@
 const { Blob } = require('buffer');
 const fs = require('fs');
 const path = require('path');
+const { createConfig, createUploadRequest, readUploadResponse } = require('./lib');
 
-const CONFIG = {
-  apiUrl: process.env.API_URL || 'http://localhost:8081/api/fees/v1',
-  apiToken: process.env.CRON_API_TOKEN,
-};
-
-function joinUrl(base, suffix) {
-  return `${base.replace(/\/$/, '')}${suffix}`;
-}
+const CONFIG = createConfig();
 
 function getFilePath() {
   const argPath = process.argv.find(arg => arg.startsWith('--file='));
@@ -37,20 +31,9 @@ async function uploadFile(filePath) {
   const form = new FormData();
   form.append('file', new Blob([fileBuffer], { type: 'text/csv' }), path.basename(resolvedPath));
 
-  const response = await fetch(joinUrl(CONFIG.apiUrl, '/import/upload'), {
-    method: 'POST',
-    headers: {
-      'X-Import-Token': CONFIG.apiToken,
-    },
-    body: form,
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`API upload failed: ${response.status} ${error}`);
-  }
-
-  const result = await response.json();
+  const request = createUploadRequest(CONFIG, form);
+  const response = await fetch(request.url, request.options);
+  const result = await readUploadResponse(response);
   console.log('✅ Upload successful:', result);
   return result;
 }

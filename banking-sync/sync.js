@@ -2,43 +2,17 @@ const { chromium } = require('playwright');
 const { Blob } = require('buffer');
 const fs = require('fs');
 const path = require('path');
+const {
+  appendQueryParams,
+  createConfig,
+  createUploadRequest,
+  formatTimestamp,
+  getDownloadRetryPolicy,
+  readUploadResponse,
+  shouldRetryDownload,
+} = require('./lib');
 
-// Configuration from environment
-const CONFIG = {
-  bankUrl:
-    process.env.BANK_URL ||
-    'https://www.sozialbank-onlinebanking.de/services_cloud/portal/',
-  username: process.env.BANK_USERNAME,
-  password: process.env.BANK_PASSWORD,
-  apiUrl: process.env.API_URL || 'http://localhost:8081/api/fees/v1',
-  apiToken: process.env.CRON_API_TOKEN,
-  uptimeKumaPushUrl: process.env.UPTIME_KUMA_PUSH_URL || '',
-  headless: process.env.HEADLESS !== 'false',
-  downloadDir: process.env.DOWNLOAD_DIR || path.resolve(__dirname, 'output'),
-  userDataDir: process.env.USER_DATA_DIR || path.resolve(__dirname, 'profile'),
-  usePersistentContext: process.env.USE_PERSISTENT_CONTEXT === 'true',
-  twoFaTimeoutMs: Number(process.env.TWO_FA_TIMEOUT_SECONDS || 600) * 1000,
-  loginTimeoutMs: Number(process.env.LOGIN_TIMEOUT_SECONDS || 30) * 1000,
-  loginOutcomeTimeoutMs: Number(process.env.LOGIN_OUTCOME_TIMEOUT_SECONDS || 45) * 1000,
-  waitProgressIntervalMs: Number(process.env.WAIT_PROGRESS_INTERVAL_SECONDS || 10) * 1000,
-  debugDir: process.env.DEBUG_DIR || path.join(process.env.DOWNLOAD_DIR || path.resolve(__dirname, 'output'), 'debug'),
-  userAgent:
-    process.env.USER_AGENT ||
-    'Mozilla/5.0 (Macintosh; Intel Mac OS X 13_6_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
-  // Global timeout for entire sync operation (default 15 minutes)
-  globalTimeoutMs: Number(process.env.GLOBAL_TIMEOUT_SECONDS || 900) * 1000,
-  // Timeout for API upload request (default 2 minutes)
-  uploadTimeoutMs: Number(process.env.UPLOAD_TIMEOUT_SECONDS || 120) * 1000,
-  // Timeout for the browser download event after clicking export (default 2 minutes)
-  downloadTimeoutMs: Number(process.env.DOWNLOAD_TIMEOUT_SECONDS || 120) * 1000,
-  // Total attempts for the bank CSV download flow. Retries restart the browser session.
-  downloadRetryAttempts: Number(process.env.DOWNLOAD_RETRY_ATTEMPTS || 3),
-  downloadRetryDelayMs: Number(process.env.DOWNLOAD_RETRY_DELAY_SECONDS || 30) * 1000,
-  // Timeout for browser/context shutdown (default 20 seconds)
-  browserCloseTimeoutMs: Number(process.env.BROWSER_CLOSE_TIMEOUT_SECONDS || 20) * 1000,
-};
-
-const UPTIME_KUMA_PING_TIMEOUT_MS = Number(process.env.UPTIME_KUMA_TIMEOUT_SECONDS || 10) * 1000;
+const CONFIG = createConfig();
 
 // Global state for cancellation
 let abortController = null;
@@ -67,7 +41,7 @@ function ensureDir(dirPath) {
 }
 
 function createDebugFileName(label, extension) {
-  const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const timestamp = formatTimestamp();
   const safeLabel = String(label || 'debug').replace(/[^a-zA-Z0-9_-]/g, '_');
   return `${timestamp}_${safeLabel}.${extension}`;
 }
@@ -118,35 +92,6 @@ function sleep(ms, signal = null) {
       );
     }
   });
-}
-
-function getDownloadRetryAttempts() {
-  if (!Number.isFinite(CONFIG.downloadRetryAttempts) || CONFIG.downloadRetryAttempts < 1) {
-    return 1;
-  }
-  return Math.floor(CONFIG.downloadRetryAttempts);
-}
-
-function getDownloadRetryDelayMs() {
-  if (!Number.isFinite(CONFIG.downloadRetryDelayMs) || CONFIG.downloadRetryDelayMs < 0) {
-    return 0;
-  }
-  return CONFIG.downloadRetryDelayMs;
-}
-
-function shouldRetryDownload(error) {
-  const message = error && error.message ? error.message : String(error);
-  return !/Sync cancelled by user|BANK_USERNAME and BANK_PASSWORD required/i.test(message);
-}
-
-function appendQueryParams(rawUrl, params) {
-  const url = new URL(rawUrl);
-  for (const [key, value] of Object.entries(params)) {
-    if (value !== undefined && value !== null && value !== '') {
-      url.searchParams.set(key, value);
-    }
-  }
-  return url.toString();
 }
 
 function getRootUrl(root) {
@@ -605,7 +550,7 @@ async function downloadCSV(options = {}) {
     await confirmExportButton.click();
     const download = await downloadPromise;
 
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const timestamp = formatTimestamp();
     const fileName = `sozialbank_${timestamp}_${download.suggestedFilename()}`;
     const targetPath = path.join(CONFIG.downloadDir, fileName);
     await download.saveAs(targetPath);
@@ -652,8 +597,7 @@ async function downloadCSV(options = {}) {
 async function downloadCSVWithRetries(options = {}) {
   const { onLog, signal } = options;
   const log = createLogger(onLog);
-  const attempts = getDownloadRetryAttempts();
-  const retryDelayMs = getDownloadRetryDelayMs();
+  const { attempts, delayMs: retryDelayMs } = getDownloadRetryPolicy(CONFIG);
   let lastError = null;
 
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
@@ -700,13 +644,9 @@ async function uploadToAPI(csvPath, options = {}) {
   }, CONFIG.uploadTimeoutMs);
 
   let response;
+  const request = createUploadRequest(CONFIG, form, controller.signal);
   try {
-    response = await fetch(CONFIG.apiUrl.replace(/\/$/, '') + '/import/upload', {
-      method: 'POST',
-      headers: { 'X-Import-Token': CONFIG.apiToken },
-      body: form,
-      signal: controller.signal,
-    });
+    response = await fetch(request.url, request.options);
   } catch (error) {
     if (controller.signal.aborted) {
       throw new Error(`API upload timed out after ${CONFIG.uploadTimeoutMs}ms`);
@@ -716,12 +656,7 @@ async function uploadToAPI(csvPath, options = {}) {
     clearTimeout(timeoutId);
   }
 
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`API upload failed: ${response.status} ${error}`);
-  }
-
-  const result = await response.json();
+  const result = await readUploadResponse(response);
   log(`✅ Upload successful: ${JSON.stringify(result)}`);
   return result;
 }
@@ -741,7 +676,7 @@ async function pingUptimeKuma(status = 'up', message = 'OK', options = {}) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => {
     controller.abort();
-  }, UPTIME_KUMA_PING_TIMEOUT_MS);
+  }, CONFIG.uptimeKumaPingTimeoutMs);
 
   try {
     const pushUrl = appendQueryParams(CONFIG.uptimeKumaPushUrl, {

@@ -14,7 +14,7 @@ RUN bun install
 RUN bunx playwright install --with-deps chromium
 
 # Copy app files
-COPY sync.js upload.js server.js ./
+COPY lib.js sync.js upload.js server.js ./
 COPY entrypoint.sh ./
 
 # Make entrypoint executable

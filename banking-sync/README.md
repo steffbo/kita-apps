@@ -64,16 +64,27 @@ Automatische CSV-Exporte von der SozialBank via Browser-Automatisierung (Playwri
 - Uptime Kuma wird per Push-URL mit `status=up` nach erfolgreichem Upload und mit `status=down` bei Sync-Fehlern benachrichtigt. Die Push-URL muss im Runtime-Environment wirklich an den Container durchgereicht sein; wenn sie fehlt, schreibt der Runner einmalig `UPTIME_KUMA_PUSH_URL not set`.
 - Die Docker-Basis wurde von `oven/bun:1.1.29` auf `oven/bun:1` umgestellt, nachdem die Produktivlogs auf `infra-dev` mehrfach Bun-Segfaults des alten Runners gezeigt hatten.
 
-## Lokal testen (sichtbar)
+## Unit-Tests
+
+Die lokalen Unit-Tests laufen ohne Browser und Netzwerkzugriffe:
+
+```bash
+cd banking-sync
+bun install
+bun test
+```
+
+## Live-Download testen (sichtbar)
 
 ```bash
 cd banking-sync
 bun install
 bunx playwright install chromium
-HEADLESS=false BANK_USERNAME=... BANK_PASSWORD=... CRON_API_TOKEN=... bun sync.js --test
+HEADLESS=false BANK_USERNAME=... BANK_PASSWORD=... CRON_API_TOKEN=... bun run test:live
 ```
 
-`--test` lädt die CSV herunter und zeigt einen Preview-Output, **ohne** Upload und **ohne** Uptime-Kuma-Ping.
+`test:live` lädt die CSV herunter und zeigt einen Preview-Output, **ohne** Upload und **ohne**
+Uptime-Kuma-Ping. Entspricht weiterhin `bun sync.js --test`.
 
 ## CSV später importieren (manueller Upload)
 
