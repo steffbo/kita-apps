@@ -17,7 +17,7 @@ type CareHoursHistoryResponse struct {
 	EffectiveUntil *string `json:"effectiveUntil,omitempty" example:"2026-03-31" binding:"optional"`
 	CreatedAt      string  `json:"createdAt" example:"2026-01-01T10:00:00Z"`
 	UpdatedAt      string  `json:"updatedAt" example:"2026-01-01T10:00:00Z"`
-}
+} //@name CareHoursHistoryEntry
 
 // LegalHoursHistoryResponse represents one legal hours history period.
 type LegalHoursHistoryResponse struct {
@@ -28,19 +28,19 @@ type LegalHoursHistoryResponse struct {
 	EffectiveUntil *string `json:"effectiveUntil,omitempty" example:"2026-03-31" binding:"optional"`
 	CreatedAt      string  `json:"createdAt" example:"2026-01-01T10:00:00Z"`
 	UpdatedAt      string  `json:"updatedAt" example:"2026-01-01T10:00:00Z"`
-}
+} //@name LegalHoursHistoryEntry
 
 // CreateCareHoursHistoryRequest represents a new care hours history entry.
 type CreateCareHoursHistoryRequest struct {
 	CareHours *int   `json:"careHours" binding:"optional"`
 	ValidFrom string `json:"validFrom" example:"2026-01-01"`
-}
+} //@name CreateCareHoursHistoryRequest
 
 // CreateLegalHoursHistoryRequest represents a new legal hours history entry.
 type CreateLegalHoursHistoryRequest struct {
 	LegalHours *int   `json:"legalHours" binding:"optional"`
 	ValidFrom  string `json:"validFrom" example:"2026-01-01"`
-}
+} //@name CreateLegalHoursHistoryRequest
 
 // GetCareHoursHistory returns the care hours history for a child.
 // @Summary Get child care hours history

@@ -13,7 +13,7 @@ import (
 type LinkParentRequest struct {
 	ParentID  string `json:"parentId" example:"550e8400-e29b-41d4-a716-446655440000"`
 	IsPrimary bool   `json:"isPrimary" example:"true"`
-}
+} //@name LinkParentRequest
 
 // LinkParent links a parent to a child
 // @Summary Link parent to child
@@ -109,7 +109,7 @@ type LedgerEntryResponse struct {
 	Balance     float64 `json:"balance" example:"45.40"`
 	IsPaid      bool    `json:"isPaid,omitempty" example:"false" binding:"optional"`
 	PaidAt      *string `json:"paidAt,omitempty" example:"2024-01-10" binding:"optional"`
-}
+} //@name LedgerEntry
 
 // LedgerSummaryResponse provides totals for the ledger.
 // @Description Summary totals for the ledger
@@ -120,7 +120,7 @@ type LedgerSummaryResponse struct {
 	OpenFeesCount  int     `json:"openFeesCount" example:"2"`
 	PaidFeesCount  int     `json:"paidFeesCount" example:"8"`
 	TotalFeesCount int     `json:"totalFeesCount" example:"10"`
-}
+} //@name LedgerSummary
 
 // ChildLedgerResponse represents the complete payment ledger for a child.
 // @Description Payment ledger for a child
@@ -129,7 +129,7 @@ type ChildLedgerResponse struct {
 	Child   interface{}           `json:"child,omitempty" binding:"optional"`
 	Entries []LedgerEntryResponse `json:"entries"`
 	Summary LedgerSummaryResponse `json:"summary"`
-}
+} //@name ChildLedger
 
 // GetLedger returns the payment ledger for a child
 // @Summary Get child payment ledger

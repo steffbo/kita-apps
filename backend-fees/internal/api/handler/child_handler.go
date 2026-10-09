@@ -32,13 +32,13 @@ type ChildListResponse struct {
 	Page       int            `json:"page" example:"1"`
 	PerPage    int            `json:"perPage" example:"20"`
 	TotalPages int            `json:"totalPages" example:"5"`
-}
+} //@name ChildList
 
 // NextMemberNumberResponse represents the next available member number.
 // @Description Next available member number
 type NextMemberNumberResponse struct {
 	MemberNumber string `json:"memberNumber" example:"12002"`
-}
+} //@name NextMemberNumberResponse
 
 // CreateChildRequest represents a request to create a child.
 // @Description Request body for creating a new child
@@ -56,7 +56,7 @@ type CreateChildRequest struct {
 	LegalHours      *int    `json:"legalHours,omitempty" example:"35" binding:"optional"`
 	LegalHoursUntil *string `json:"legalHoursUntil,omitempty" example:"2024-12-31" binding:"optional"`
 	CareHours       *int    `json:"careHours,omitempty" example:"40" binding:"optional"`
-}
+} //@name CreateChildRequest
 
 // List returns all children with pagination and filtering
 // @Summary List all children
@@ -231,7 +231,7 @@ type UpdateChildRequest struct {
 	LegalHoursUntil *string `json:"legalHoursUntil,omitempty" example:"2024-12-31" binding:"optional"`
 	CareHours       *int    `json:"careHours,omitempty" example:"40" binding:"optional"`
 	IsActive        *bool   `json:"isActive,omitempty" example:"true" binding:"optional"`
-}
+} //@name UpdateChildRequest
 
 // Update updates a child
 // @Summary Update child
