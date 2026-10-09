@@ -1,7 +1,7 @@
 import { computed, ref, type Ref } from 'vue';
 
-export type SortValue = string | number | null | undefined;
-export type SortDir = 'asc' | 'desc';
+type SortValue = string | number | null | undefined;
+type SortDir = 'asc' | 'desc';
 
 export function useTableSort<T>(
   rows: Ref<T[]>,

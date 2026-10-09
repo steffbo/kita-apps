@@ -16,7 +16,6 @@ import type {
   CreateParentRequest,
   UpdateParentRequest,
   Household,
-  CreateHouseholdRequest,
   UpdateHouseholdRequest,
   Member,
   CreateMemberRequest,
@@ -29,8 +28,6 @@ import type {
   ReminderSettingsResponse,
   UpdateReminderSettingsRequest,
   EmailLog,
-  ChildLedger,
-  FeeCoverage,
   ImportResult,
   MatchConfirmation,
   ConfirmResult,
@@ -69,8 +66,6 @@ import type {
   UpdateEinstufungRequest,
   CreateFollowUpEinstufungRequest,
   CreateFollowUpEinstufungResponse,
-  IncomeDetails,
-  CalculateIncomeResponse,
   ChildNote,
   CreateChildNoteRequest,
   UpdateChildNoteRequest,
@@ -427,20 +422,6 @@ class ApiClient {
     });
   }
 
-  async getChildLedger(childId: string, year?: number): Promise<ChildLedger> {
-    const query = year ? `?year=${year}` : '';
-    const response = await this.request<ChildLedger>(`/children/${childId}/ledger${query}`);
-    return {
-      ...response,
-      entries: response.entries ?? [],
-    };
-  }
-
-  async getChildTimeline(childId: string, year?: number): Promise<FeeCoverage[]> {
-    const query = year ? `?year=${year}` : '';
-    return this.request<FeeCoverage[]>(`/children/${childId}/timeline${query}`);
-  }
-
   // Parents endpoints
   async getParents(params?: {
     search?: string;
@@ -520,35 +501,10 @@ class ApiClient {
     return this.request<Household>(`/households/${id}`);
   }
 
-  async createHousehold(data: CreateHouseholdRequest): Promise<Household> {
-    return this.request<Household>('/households', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    });
-  }
-
   async updateHousehold(id: string, data: UpdateHouseholdRequest): Promise<Household> {
     return this.request<Household>(`/households/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
-    });
-  }
-
-  async deleteHousehold(id: string): Promise<void> {
-    return this.request<void>(`/households/${id}`, { method: 'DELETE' });
-  }
-
-  async linkParentToHousehold(householdId: string, parentId: string): Promise<void> {
-    return this.request<void>(`/households/${householdId}/parents`, {
-      method: 'POST',
-      body: JSON.stringify({ parentId }),
-    });
-  }
-
-  async linkChildToHousehold(householdId: string, childId: string): Promise<void> {
-    return this.request<void>(`/households/${householdId}/children`, {
-      method: 'POST',
-      body: JSON.stringify({ childId }),
     });
   }
 
@@ -653,13 +609,6 @@ class ApiClient {
     return this.request<FeeExpectation>('/fees', {
       method: 'POST',
       body: JSON.stringify(data),
-    });
-  }
-
-  async updateFee(id: string, amount: number): Promise<FeeExpectation> {
-    return this.request<FeeExpectation>(`/fees/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify({ amount }),
     });
   }
 
@@ -941,30 +890,8 @@ class ApiClient {
     });
   }
 
-  async getTrustedIBANs(page?: number, perPage?: number): Promise<PaginatedResponse<KnownIBAN>> {
-    const query = new URLSearchParams();
-    if (page) query.set('page', String(page));
-    if (perPage) query.set('perPage', String(perPage));
-    const queryString = query.toString();
-    const response = await this.request<PaginatedResponse<KnownIBAN>>(`/import/trusted${queryString ? `?${queryString}` : ''}`);
-    return this.normalizePaginated(response);
-  }
-
   async getChildTrustedIBANs(childId: string): Promise<KnownIBANSummary[]> {
     return this.request<KnownIBANSummary[]>(`/import/trusted/child/${childId}`);
-  }
-
-  async linkIBANToChild(iban: string, childId: string): Promise<void> {
-    return this.request<void>(`/import/trusted/${encodeURIComponent(iban)}/link`, {
-      method: 'POST',
-      body: JSON.stringify({ childId }),
-    });
-  }
-
-  async unlinkIBANFromChild(iban: string): Promise<void> {
-    return this.request<void>(`/import/trusted/${encodeURIComponent(iban)}/link`, {
-      method: 'DELETE',
-    });
   }
 
   // Warnings endpoints
@@ -1099,13 +1026,6 @@ class ApiClient {
   async deleteEinstufung(id: string): Promise<void> {
     return this.request<void>(`/einstufungen/${id}`, {
       method: 'DELETE',
-    });
-  }
-
-  async calculateIncome(parent1: IncomeDetails, parent2: IncomeDetails): Promise<CalculateIncomeResponse> {
-    return this.request<CalculateIncomeResponse>('/einstufungen/calculate-income', {
-      method: 'POST',
-      body: JSON.stringify({ parent1, parent2 }),
     });
   }
 

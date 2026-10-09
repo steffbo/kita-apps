@@ -681,7 +681,7 @@ export function useChildImportWizard() {
   };
 }
 
-export type ChildImportWizard = ReturnType<typeof useChildImportWizard>;
+type ChildImportWizard = ReturnType<typeof useChildImportWizard>;
 
 export const childImportWizardKey: InjectionKey<ChildImportWizard> = Symbol('childImportWizard');
 

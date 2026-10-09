@@ -1,6 +1,6 @@
 import { ref } from 'vue';
 
-export type ThemeMode = 'system' | 'light' | 'dark';
+type ThemeMode = 'system' | 'light' | 'dark';
 
 const key = 'kita-theme';
 let saved: string | null = null;

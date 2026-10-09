@@ -93,7 +93,7 @@ function toBerlinISODate(value: string): string | null {
 }
 
 /** Berlin calendar days from today to the given date (negative = past), or null when empty/invalid. */
-export function daysFromToday(value: string | null | undefined): number | null {
+function daysFromToday(value: string | null | undefined): number | null {
   const iso = value ? toBerlinISODate(value) : null;
   return iso ? Math.round((Date.parse(iso) - Date.parse(todayISO())) / 86_400_000) : null;
 }

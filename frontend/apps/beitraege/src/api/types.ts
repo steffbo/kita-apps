@@ -81,12 +81,9 @@ export interface UpdateReminderSettingsRequest {
 }
 
 // ── Family reminder cases ────────────────────────────────────────────────────
-export type ReminderCaseFeeStatus = NonNullable<Schema['service.ReminderCaseFee']['status']>;
-export type ReminderCaseStage = 'initial' | 'final';
 export type ReminderCaseFee = Schema['service.ReminderCaseFee'];
 export type ReminderCase = Schema['service.ReminderCase'];
 export type ReminderCasesResult = Schema['service.ReminderCasesResult'];
-export type ReminderCasePlannedFee = Schema['service.ReminderCasePlannedFee'];
 export type ReminderCasePreview = Schema['service.ReminderCasePreview'];
 export type ReminderCaseSendResult = Schema['service.ReminderCaseSendResult'];
 export interface ReminderCaseRequest {
@@ -99,7 +96,7 @@ export interface ReminderCaseRequest {
   body?: string;
   previewedAt?: string;
 }
-export interface ReminderCaseConflict {
+interface ReminderCaseConflict {
   message: string;
   feeIds: string[];
 }
@@ -205,11 +202,6 @@ export interface UpdateChildNoteRequest {
 // ── Households ───────────────────────────────────────────────────────────────
 export type IncomeStatus = Schema['domain.IncomeStatus'] | '';
 export type Household = Schema['domain.Household'];
-export interface CreateHouseholdRequest {
-  name: string;
-  annualHouseholdIncome?: number;
-  incomeStatus?: IncomeStatus;
-}
 export interface UpdateHouseholdRequest {
   name?: string;
   annualHouseholdIncome?: number;
@@ -279,12 +271,9 @@ export interface UpdateParentRequest {
 
 // ── Fees ─────────────────────────────────────────────────────────────────────
 export type FeeType = Schema['domain.FeeType'];
-export type FeeStatus = 'OPEN' | 'PAID' | 'OVERDUE';
-
 export type FeeExpectation = Schema['domain.FeeExpectation'];
 export type PaymentMatch = Schema['domain.PaymentMatch'];
 export type FeeOverview = Schema['domain.FeeOverview'];
-export type MonthSummary = Schema['domain.MonthSummary'];
 export interface GenerateFeeRequest {
   year: number;
   month?: number;
@@ -352,14 +341,7 @@ export interface PaginatedResponse<T> {
   totalPages: number;
 }
 
-// ── API Error ────────────────────────────────────────────────────────────────
-export interface ApiError {
-  error: string;
-  message?: string;
-}
-
 // ── Known IBANs (IBAN Learning System) ───────────────────────────────────────
-export type KnownIBANStatus = Schema['domain.KnownIBANStatus'];
 export type KnownIBAN = Schema['domain.KnownIBAN'];
 export type KnownIBANSummary = Schema['ChildTrustedIBANsResponse'];
 export type RescanResult = Omit<Schema['RescanResponse'], 'errors'> & {
@@ -378,8 +360,6 @@ export interface AllocationInput {
 export type AllocateTransactionResult = Schema['AllocateTransactionResponse'];
 
 // ── Transaction Warnings ─────────────────────────────────────────────────────
-export type WarningType = Schema['domain.WarningType'];
-export type ResolutionType = Schema['domain.ResolutionType'];
 export type TransactionWarning = Omit<Schema['domain.TransactionWarning'], 'expectedAmount' | 'actualAmount'> & {
   expectedAmount?: number | null;
   actualAmount?: number | null;
@@ -409,7 +389,7 @@ export interface ChildPreview {
   legalHours?: number | null;
   careHours?: number | null;
 }
-export interface ParentMatch {
+interface ParentMatch {
   id: string;
   firstName: string;
   lastName: string;
@@ -488,50 +468,16 @@ export interface SystemField {
 }
 
 // ── Childcare Fee Calculation ────────────────────────────────────────────────
-export type ChildAgeType = 'krippe' | 'kindergarten';
-
-export interface ChildcareFeeInput {
-  childAgeType?: ChildAgeType;
-  income: number;
-  siblingsCount?: number;
-  careHours?: number;
-  highestRate?: boolean;
-  fosterFamily?: boolean;
-}
-
 export type ChildcareFeeResult = Schema['domain.ChildcareFeeResult'];
-
-// ── Ledger ───────────────────────────────────────────────────────────────────
-export type LedgerEntry = Schema['LedgerEntry'];
-export type LedgerSummary = Schema['LedgerSummary'];
-export type ChildLedger = Schema['ChildLedger'];
 
 // ── Stichtagsmeldung ─────────────────────────────────────────────────────────
 export type StichtagsmeldungStats = Schema['StichtagsmeldungStats'];
 export type MemberCountAsOf = Schema['MemberCountAsOf'];
 export type StichtagsmeldungReport = Schema['StichtagsmeldungReport'];
-export type U3IncomeBreakdown = Schema['U3IncomeBreakdown'];
-export type CareHoursBreakdownItem = Omit<
-  Schema['CareHoursBreakdownItem'],
-  'careHours'
-> & {
-  careHours?: number | null;
-};
-export type LegalHoursBreakdownItem = Omit<
-  Schema['LegalHoursBreakdownItem'],
-  'legalHours'
-> & {
-  legalHours?: number | null;
-};
 export type U3ChildDetail = Omit<Schema['handler.U3ChildDetailResponse'], 'householdIncome' | 'incomeStatus'> & {
   householdIncome: number | null;
   incomeStatus: string | null;
 };
-
-// ── Fee Coverage Timeline ────────────────────────────────────────────────────
-export type CoverageStatus = NonNullable<Schema['handler.FeeCoverageResponse']['status']>;
-export type CoveredTransaction = Schema['handler.CoveredTransactionResponse'];
-export type FeeCoverage = Schema['handler.FeeCoverageResponse'];
 
 // ── Einstufung (Fee Classification) ──────────────────────────────────────────
 export interface IncomeDetails {
@@ -592,7 +538,6 @@ export interface CreateFollowUpEinstufungRequest {
   childrenCount: number;
   notes?: string;
 }
-export type CreditReviewPeriod = Schema['CreditReviewPeriod'];
 export type ChildcareExpectationSyncResult = Schema['ChildcareExpectationSyncResult'];
 export type CreateFollowUpEinstufungResponse = Omit<Schema['CreateFollowUpEinstufungResponse'], 'einstufung' | 'expectationChanges'> & {
   einstufung: Einstufung;
