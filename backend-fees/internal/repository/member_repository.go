@@ -170,12 +170,6 @@ func (r *PostgresMemberRepository) Update(ctx context.Context, member *domain.Me
 	return err
 }
 
-// Delete deletes a member.
-func (r *PostgresMemberRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	_, err := conn(ctx, r.db).ExecContext(ctx, `DELETE FROM fees.members WHERE id = $1`, id)
-	return err
-}
-
 // ListActiveAt retrieves all members that are active at a given date.
 func (r *PostgresMemberRepository) ListActiveAt(ctx context.Context, date time.Time) ([]domain.Member, error) {
 	var members []domain.Member

@@ -51,11 +51,6 @@ func (s *StichtagsmeldungService) GetReport(ctx context.Context, reportDate time
 	return report, nil
 }
 
-// GetU3Children returns details of U3 children for the Stichtagsmeldung modal.
-func (s *StichtagsmeldungService) GetU3Children(ctx context.Context) ([]domain.U3ChildDetail, error) {
-	return s.GetU3ChildrenForDate(ctx, nil)
-}
-
 // GetU3ChildrenForDate returns U3 child details for the provided report date.
 func (s *StichtagsmeldungService) GetU3ChildrenForDate(ctx context.Context, reportDate *time.Time) ([]domain.U3ChildDetail, error) {
 	if reportDate != nil {

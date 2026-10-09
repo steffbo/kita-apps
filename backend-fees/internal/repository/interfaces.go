@@ -238,7 +238,6 @@ type MemberRepository interface {
 	GetByMemberNumber(ctx context.Context, memberNumber string) (*domain.Member, error)
 	Create(ctx context.Context, member *domain.Member) error
 	Update(ctx context.Context, member *domain.Member) error
-	Delete(ctx context.Context, id uuid.UUID) error
 	ListActiveAt(ctx context.Context, date time.Time) ([]domain.Member, error)
 	GetNextMemberNumber(ctx context.Context) (string, error)
 }

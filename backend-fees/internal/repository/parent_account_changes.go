@@ -53,22 +53,17 @@ func auditChange(ctx context.Context, tx *sqlx.Tx, entityType string, entityID u
 // SaveContact writes changed fields and the linked login email atomically.
 func (r *ParentAccountRepository) SaveContact(ctx context.Context, parentID, userID uuid.UUID,
 	fields map[string]*string) error {
-	return r.saveContact(ctx, parentID, userID, &parentID, fields)
+	return r.saveContact(ctx, parentID, userID, parentID, fields)
 }
 
 // SaveContactAs lets a parent edit another parent of the same household (actor is the editing parent).
 func (r *ParentAccountRepository) SaveContactAs(ctx context.Context, parentID, userID,
 	actorParentID uuid.UUID, fields map[string]*string) error {
-	return r.saveContact(ctx, parentID, userID, &actorParentID, fields)
-}
-
-func (r *ParentAccountRepository) SaveStaffContact(ctx context.Context, parentID, userID uuid.UUID,
-	fields map[string]*string) error {
-	return r.saveContact(ctx, parentID, userID, nil, fields)
+	return r.saveContact(ctx, parentID, userID, actorParentID, fields)
 }
 
 func (r *ParentAccountRepository) saveContact(ctx context.Context, parentID, userID uuid.UUID,
-	actorParentID *uuid.UUID, fields map[string]*string) error {
+	actorParentID uuid.UUID, fields map[string]*string) error {
 	tx, err := r.db.BeginTxx(ctx, nil)
 	if err != nil {
 		return err
@@ -117,7 +112,7 @@ func (r *ParentAccountRepository) saveContact(ctx context.Context, parentID, use
 			parentID, value, util.Now()); err != nil {
 			return err
 		}
-		if err = auditChange(ctx, tx, "PARENT", parentID, actorParentID, userID, field, before,
+		if err = auditChange(ctx, tx, "PARENT", parentID, &actorParentID, userID, field, before,
 			value); err != nil {
 			return err
 		}

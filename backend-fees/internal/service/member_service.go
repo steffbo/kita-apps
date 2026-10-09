@@ -175,16 +175,6 @@ func (s *MemberService) Delete(ctx context.Context, id uuid.UUID) error {
 	return s.memberRepo.Update(ctx, member)
 }
 
-// HardDelete permanently deletes a member.
-func (s *MemberService) HardDelete(ctx context.Context, id uuid.UUID) error {
-	_, err := s.memberRepo.GetByID(ctx, id)
-	if err != nil {
-		return ErrNotFound
-	}
-
-	return s.memberRepo.Delete(ctx, id)
-}
-
 // ListActiveAt returns all members active at a given date.
 func (s *MemberService) ListActiveAt(ctx context.Context, date time.Time) ([]domain.Member, error) {
 	return s.memberRepo.ListActiveAt(ctx, date)
