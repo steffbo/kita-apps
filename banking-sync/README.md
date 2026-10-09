@@ -27,30 +27,35 @@ Automatische CSV-Exporte von der SozialBank via Browser-Automatisierung (Playwri
 
 | Variable | Pflicht | Default | Bedeutung |
 |---|---|---|---|
-| `BANK_URL` | optional | SozialBank Portal URL | Login URL |
+| `BANK_URL` | optional | `https://www.sozialbank-onlinebanking.de/services_cloud/portal/` | Login URL |
 | `BANK_USERNAME` | ja | - | NetKey/Username |
 | `BANK_PASSWORD` | ja | - | Passwort |
 | `API_URL` | optional | `http://localhost:8081/api/fees/v1` | Fees-API Base |
 | `CRON_API_TOKEN` | ja | - | Import-Token für `/import/upload` |
-| `UPTIME_KUMA_PUSH_URL` | optional | - | Vollständige Uptime Kuma Push-URL für Success-Status |
-| `USER_DATA_DIR` | optional | `./profile` | Persistentes Browser-Profil |
+| `UPTIME_KUMA_PUSH_URL` | optional | leer | Uptime Kuma Push-URL |
+| `HEADLESS` | optional | `true` | Browser im Headless-Modus; `false` zeigt ihn an |
 | `DOWNLOAD_DIR` | optional | `./output` | CSV Download-Ordner |
-| `DATE_RANGE_DAYS` | optional | `90` | Zeitraum (Tage) |
-| `HEADLESS` | optional | `true` | Browser sichtbar machen |
+| `USER_DATA_DIR` | optional | `./profile` | Persistentes Browser-Profil |
+| `USE_PERSISTENT_CONTEXT` | optional | `false` | Persistenten Browser-Kontext verwenden |
 | `TWO_FA_TIMEOUT_SECONDS` | optional | `600` | Timeout für 2FA-Freigabe |
-| `DOWNLOAD_TIMEOUT_SECONDS` | optional | `120` | Timeout für das eigentliche CSV-Download-Event nach Klick auf Export |
-| `DOWNLOAD_RETRY_ATTEMPTS` | optional | `3` | Gesamtzahl der Bank-Download-Versuche; jeder Retry startet eine neue Browser-Session |
-| `DOWNLOAD_RETRY_DELAY_SECONDS` | optional | `30` | Wartezeit zwischen Bank-Download-Retries |
+| `LOGIN_TIMEOUT_SECONDS` | optional | `30` | Timeout für Login-Elemente |
+| `LOGIN_OUTCOME_TIMEOUT_SECONDS` | optional | `45` | Timeout zur Erkennung des Login-Ergebnisses |
+| `WAIT_PROGRESS_INTERVAL_SECONDS` | optional | `10` | Intervall für Fortschrittsmeldungen beim Warten |
+| `DEBUG_DIR` | optional | `./output/debug` | Debug-Screenshots und HTML-Snapshots; folgt `DOWNLOAD_DIR` |
+| `USER_AGENT` | optional | Chrome 121 UA | User-Agent Override |
 | `GLOBAL_TIMEOUT_SECONDS` | optional | `900` | Gesamttimeout für einen Browser-Sync-Versuch |
 | `UPLOAD_TIMEOUT_SECONDS` | optional | `120` | Timeout für den Upload ans Fees-Backend |
+| `DOWNLOAD_TIMEOUT_SECONDS` | optional | `120` | Timeout für das CSV-Download-Event nach Export-Klick |
+| `DOWNLOAD_RETRY_ATTEMPTS` | optional | `3` | Anzahl Versuche; jeder startet eine neue Browser-Session |
+| `DOWNLOAD_RETRY_DELAY_SECONDS` | optional | `30` | Wartezeit zwischen Bank-Download-Retries |
+| `BROWSER_CLOSE_TIMEOUT_SECONDS` | optional | `20` | Timeout für das Schließen von Browser und Kontext |
 | `UPTIME_KUMA_TIMEOUT_SECONDS` | optional | `10` | Timeout für den Uptime-Kuma-Push |
 | `PORT` | optional | `3333` | Port für Runner-API |
-| `SYNC_API_TOKEN` | optional | - | Token für Runner-API (Header `X-Sync-Token`) |
+| `SYNC_API_TOKEN` | optional | leer | Token für Runner-API (Header `X-Sync-Token`) |
 | `STATE_DIR` | optional | `./state` | Status/Log-Ordner für Runner-API |
 | `LOG_LINES` | optional | `200` | Anzahl Logzeilen im Status |
-| `SCREENSHOT_DIR` | optional | `./output` | Ordner für Debug-Screenshots |
-| `DEBUG_SCREENSHOTS` | optional | `false` | Immer einen Screenshot/HTML Snapshot beim Login erzeugen |
-| `USER_AGENT` | optional | Chrome UA | User-Agent Override (Anti-Bot) |
+| `RUN_SYNC_TIMEOUT_SECONDS` | optional | `1200` | Sicherheits-Timeout für einen Runner-Sync-Lauf |
+| `CSV_PATH` | optional | - | CSV-Dateipfad für `upload.js`, falls kein Pfadargument übergeben wird |
 
 ## Aktueller Betriebsstand
 
@@ -94,37 +99,7 @@ Endpoints:
 
 ## Docker (Run-Once)
 
-`docker-compose` Service ist auf Run-Once ausgelegt. Beispiel (siehe auch `docker-compose.integration.yml`):
-
-```yaml
-  banking-sync:
-    build:
-      context: ../banking-sync
-      dockerfile: Dockerfile
-    container_name: kita-banking-sync
-    environment:
-      BANK_URL: https://banking.sozialbank.de
-      BANK_USERNAME: ${BANK_USERNAME}
-      BANK_PASSWORD: ${BANK_PASSWORD}
-      API_URL: http://backend-fees:8081/api/fees/v1
-      CRON_API_TOKEN: ${CRON_API_TOKEN}
-      UPTIME_KUMA_PUSH_URL: ${UPTIME_KUMA_PUSH_URL}
-      USER_DATA_DIR: /data/profile
-      DOWNLOAD_DIR: /data/downloads
-      DATE_RANGE_DAYS: "90"
-      HEADLESS: "true"
-      DOWNLOAD_TIMEOUT_SECONDS: "120"
-      DOWNLOAD_RETRY_ATTEMPTS: "3"
-      DOWNLOAD_RETRY_DELAY_SECONDS: "30"
-    volumes:
-      - banking_sync_data:/data
-    depends_on:
-      - backend-fees
-    profiles: ["banking-sync"]
-
-volumes:
-  banking_sync_data:
-```
+Compose-Beispiele: [`docker-compose.example.yml`](docker-compose.example.yml).
 
 ### Run-Once ausführen
 

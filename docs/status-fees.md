@@ -7,8 +7,8 @@ Basics (ports, commands, layout) live in `AGENTS.md`.
 
 - Jede Importzeile läuft über `TxManager.WithTx`; Fehler rollen Kind, Eltern, Verknüpfungen und
   Stundenhistorien dieser Zeile zurück. Andere Zeilen werden weiterverarbeitet.
-- Bestehende Ergebniszähler und Fehlermeldungen bleiben erhalten: Die Zähler enthalten weiterhin
-  ausgeführte Schritte einer später fehlgeschlagenen Zeile, auch wenn deren Daten zurückgerollt werden.
+- Fehlermeldungen bleiben erhalten. Die Ergebniszähler (angelegt/aktualisiert/verknüpft) zählen nur
+  übernommene Zeilen; Schritte einer zurückgerollten Zeile zählen nicht mit.
 - Repositoryinterne Transaktionen übernehmen die Transaktion aus dem Kontext. Verschachteltes
   `WithTx` übernimmt ebenfalls die äußere Transaktion, ohne Savepoint oder eigenen Commit.
 - Integrationstest: Nicht vorhandene Eltern-ID erzwingt einen Linkfehler nach Kind- und Elternanlage;

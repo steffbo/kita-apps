@@ -16,7 +16,6 @@
       UPTIME_KUMA_PUSH_URL: ${UPTIME_KUMA_PUSH_URL}
       USER_DATA_DIR: /data/profile
       DOWNLOAD_DIR: /data/downloads
-      DATE_RANGE_DAYS: "90"
       HEADLESS: "true"
     volumes:
       - banking_sync_data:/data
@@ -46,7 +45,6 @@
       UPTIME_KUMA_PUSH_URL: ${UPTIME_KUMA_PUSH_URL}
       USER_DATA_DIR: /data/profile
       DOWNLOAD_DIR: /data/downloads
-      DATE_RANGE_DAYS: "90"
       HEADLESS: "true"
       SYNC_API_TOKEN: ${SYNC_API_TOKEN}
       STATE_DIR: /data/state
