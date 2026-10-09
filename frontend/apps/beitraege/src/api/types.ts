@@ -106,10 +106,7 @@ export type Child = Schema['domain.Child'];
 export type NextMemberNumberResponse = Schema['NextMemberNumberResponse'];
 // The generated schema includes fields from another create-child DTO; this
 // endpoint's handler request struct only accepts the fields listed here.
-export type CreateChildRequest = Omit<
-  Schema['CreateChildRequest'],
-  'membershipParentId' | 'name'
->;
+export type CreateChildRequest = Schema['CreateChildRequest'];
 export type UpdateChildRequest = Schema['UpdateChildRequest'];
 export type CareHoursHistoryEntry = Omit<
   Schema['CareHoursHistoryEntry'],
