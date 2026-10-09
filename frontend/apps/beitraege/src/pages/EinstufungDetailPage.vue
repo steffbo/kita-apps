@@ -27,7 +27,7 @@ import {
 } from 'lucide-vue-next';
 import IncomeForm from '@/components/IncomeForm.vue';
 import EinstufungPDF from '@/components/EinstufungPDF.vue';
-import { formatCurrency, formatMonthYear, todayISO } from '@/utils/format';
+import { formatCurrency, formatEuroAmount, formatMonthYear, todayISO } from '@/utils/format';
 
 const route = useRoute();
 const router = useRouter();
@@ -160,6 +160,10 @@ const effectiveFromMonthPreview = computed(() => {
   return calculateEffectiveFromMonth(validFrom.value);
 });
 
+function formatEffectiveFromMonth(value: string): string {
+  return formatMonthYear(Number(value.slice(0, 4)), Number(value.slice(5, 7)));
+}
+
 const BANK_DETAILS = `Knirpsenstadt e.V.
 IBAN: DE33 3702 0500 0003 3214 00
 BIC: BFSWDE33XXX
@@ -195,26 +199,24 @@ const greetingLine = computed(() => {
   return 'Hallo,';
 });
 
-function formatCurrencyEuroWord(amount: number): string {
-  return amount.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' Euro';
-}
-
 const shortSummary = computed(() => {
   if (!einstufung.value) return '$zusammenfassungDerEinstufung';
   const e = einstufung.value;
   const childcareFeeText = e.monthlyChildcareFee > 0
-    ? formatCurrencyEuroWord(e.monthlyChildcareFee)
-    : `${formatCurrencyEuroWord(0)} (beitragsfrei)`;
+    ? formatEuroAmount(e.monthlyChildcareFee, 'Euro')
+    : `${formatEuroAmount(0, 'Euro')} (beitragsfrei)`;
   return `Kurz:
 Platzgeld ${childcareFeeText}
-Essensgeld ${formatCurrencyEuroWord(e.monthlyFoodFee)}`;
+Essensgeld ${formatEuroAmount(e.monthlyFoodFee, 'Euro')}`;
 });
 
 const membershipLine = computed(() => {
   if (!einstufung.value) return '$anweisungFürMitgliedsbeitrag';
   const fee = einstufung.value.annualMembershipFee;
   if (fee > 0) {
-    return `Außerdem einmal pro Jahr die Mitgliedsgebühr für den Verein von ${formatCurrencyEuroWord(fee)}.`;
+    return `Außerdem einmal pro Jahr die Mitgliedsgebühr für den Verein von ${
+      formatEuroAmount(fee, 'Euro')
+    }.`;
   }
   return 'Aktuell fällt keine jährliche Mitgliedsgebühr für den Verein an.';
 });
@@ -524,7 +526,7 @@ watch(defaultEmailBody, (next) => {
               required
             />
             <p v-if="isFollowUpMode" class="mt-1 text-xs text-muted-foreground">
-              Wirksam ab {{ new Date(effectiveFromMonthPreview).toLocaleDateString('de-DE', { month: 'long', year: 'numeric' }) }}
+              Wirksam ab {{ formatEffectiveFromMonth(effectiveFromMonthPreview) }}
             </p>
           </div>
 

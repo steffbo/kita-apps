@@ -9,6 +9,11 @@ const dateFormat = new Intl.DateTimeFormat('de-DE', {
   year: 'numeric',
   timeZone: TIME_ZONE,
 });
+const longDateFormat = new Intl.DateTimeFormat('de-DE', {
+  day: '2-digit',
+  month: 'long',
+  year: 'numeric',
+});
 const dateTimeFormat = new Intl.DateTimeFormat('de-DE', {
   day: '2-digit',
   month: '2-digit',
@@ -24,6 +29,12 @@ const wholeCurrencyFormat = new Intl.NumberFormat('de-DE', {
   currency: 'EUR',
   maximumFractionDigits: 0,
 });
+const decimalFormat = new Intl.NumberFormat('de-DE');
+const decimalTwoPlacesFormat = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 2 });
+const fixedCentsFormat = new Intl.NumberFormat('de-DE', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
 
 /** Formats a date (`YYYY-MM-DD` or ISO timestamp) as `TT.MM.JJJJ`; empty values yield the fallback. */
 export function formatDate(value: string | null | undefined, fallback = '—'): string {
@@ -33,6 +44,11 @@ export function formatDate(value: string | null | undefined, fallback = '—'): 
   if (match) return `${match[3]}.${match[2]}.${match[1]}`;
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? fallback : dateFormat.format(date);
+}
+
+/** Formats a date as `TT. Monat JJJJ`. */
+export function formatDateLong(date: Date): string {
+  return longDateFormat.format(date);
 }
 
 /** Formats a timestamp in Berlin time as `TT.MM.JJJJ, hh:mm:ss`. */
@@ -52,9 +68,21 @@ export function formatCurrency(amount: number): string {
   return currencyFormat.format(amount);
 }
 
+/** Formats an amount with fixed cents and the requested euro suffix. */
+export function formatEuroAmount(amount: number, suffix: '€' | 'Euro' = '€'): string {
+  return `${fixedCentsFormat.format(amount)} ${suffix}`;
+}
+
+/** Formats a number with German separators and up to the requested decimal places. */
+export function formatDecimalNumber(value: number, maximumFractionDigits?: 2): string {
+  return maximumFractionDigits === undefined
+    ? decimalFormat.format(value)
+    : decimalTwoPlacesFormat.format(value);
+}
+
 /** Whole minutes as decimal hours, with a German comma. */
 export function formatHours(minutes: number): string {
-  return `${new Intl.NumberFormat('de-DE', { maximumFractionDigits: 2 }).format(minutes / 60)} h`;
+  return `${formatDecimalNumber(minutes / 60, 2)} h`;
 }
 
 /** Formats an amount in whole euros (incomes); empty values yield the fallback. */

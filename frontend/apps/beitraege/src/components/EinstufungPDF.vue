@@ -4,7 +4,7 @@ import type { Einstufung, Child } from '@/api/types';
 import { FileDown, Loader2 } from 'lucide-vue-next';
 import printStyles from './EinstufungPDF.css?raw';
 import logoUrl from '@/assets/knirpsenstadt-logo.png';
-import { formatDate } from '@/utils/format';
+import { formatDate, formatDateLong, formatEuroAmount, formatMonthYear } from '@/utils/format';
 
 const props = defineProps<{
   einstufung: Einstufung;
@@ -157,13 +157,13 @@ const documentDateFormatted = computed(() => {
   const raw = props.einstufung.createdAt;
   const date = raw ? new Date(raw) : new Date();
   const value = Number.isNaN(date.getTime()) ? new Date() : date;
-  return value.toLocaleDateString('de-DE', { day: '2-digit', month: 'long', year: 'numeric' });
+  return formatDateLong(value);
 });
 
 const validFromFormatted = computed(() => {
   const start = parseMonthStart(props.einstufung.effectiveFromMonth || props.einstufung.validFrom);
   if (!start) return '—';
-  return start.toLocaleDateString('de-DE', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+  return formatMonthYear(start.getUTCFullYear(), start.getUTCMonth() + 1);
 });
 
 const memberNumber = computed(() => child.value?.memberNumber ?? '—');
@@ -190,7 +190,7 @@ const feeRuleText = computed(() => {
 });
 
 function formatEur(amount: number): string {
-  return amount.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+  return formatEuroAmount(amount);
 }
 
 let inlineLogoPromise: Promise<string> | null = null;

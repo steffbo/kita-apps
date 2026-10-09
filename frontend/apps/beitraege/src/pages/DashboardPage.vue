@@ -22,6 +22,7 @@ import {
 } from 'lucide-vue-next';
 import { useRouter } from 'vue-router';
 import { formatCurrency, formatCurrencyWhole, formatDate, formatDateTime, formatMonthName, todayISO } from '@/utils/format';
+import { formatCareHours } from '@/utils/child';
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -246,10 +247,6 @@ function formatAge(birthDateStr: string): string {
   return `${years}J ${months}M`;
 }
 
-function formatHoursLabel(hours: number | null | undefined): string {
-  if (hours === null || hours === undefined) return 'Unbekannt';
-  return `${hours} Std./Woche`;
-}
 </script>
 
 <template>
@@ -691,7 +688,7 @@ function formatHoursLabel(hours: number | null | undefined): string {
                         </thead>
                         <tbody class="divide-y">
                           <tr v-for="item in report.legalHoursBreakdown" :key="item.legalHours ?? 'unknown'">
-                            <td class="px-4 py-3 text-foreground">{{ formatHoursLabel(item.legalHours) }}</td>
+                            <td class="px-4 py-3 text-foreground">{{ formatCareHours(item.legalHours) }}</td>
                             <td class="px-4 py-3 text-right font-semibold text-sky-900">{{ item.u3Count }}</td>
                             <td class="px-4 py-3 text-right font-semibold text-amber-900 dark:text-amber-300">{{ item.ue3Count }}</td>
                             <td class="px-4 py-3 text-right font-semibold text-foreground">{{ item.count }}</td>
@@ -719,7 +716,7 @@ function formatHoursLabel(hours: number | null | undefined): string {
                         </thead>
                         <tbody class="divide-y">
                           <tr v-for="item in report.careHoursBreakdown" :key="item.careHours ?? 'unknown'">
-                            <td class="px-4 py-3 text-foreground">{{ formatHoursLabel(item.careHours) }}</td>
+                            <td class="px-4 py-3 text-foreground">{{ formatCareHours(item.careHours) }}</td>
                             <td class="px-4 py-3 text-right font-semibold text-sky-900">{{ item.u3Count }}</td>
                             <td class="px-4 py-3 text-right font-semibold text-amber-900 dark:text-amber-300">{{ item.ue3Count }}</td>
                             <td class="px-4 py-3 text-right font-semibold text-foreground">{{ item.count }}</td>

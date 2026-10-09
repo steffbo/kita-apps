@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, useId, watch } from 'vue';
 import { Minus, Plus } from 'lucide-vue-next';
+import { formatDecimalNumber } from '@/utils/format';
 
 // Duration in minutes (multiples of 15). One text field that accepts „2,5“, „2:30“, „2h30“ or „150 min“,
 // ±15-minute steppers and quick picks for the usual values (2,5 h is one click).
@@ -12,7 +13,7 @@ const text = ref(format(model.value));
 const touched = ref(false);
 
 function format(minutes: number | null): string {
-  return minutes ? new Intl.NumberFormat('de-DE', { maximumFractionDigits: 2 }).format(minutes / 60) : '';
+  return minutes ? formatDecimalNumber(minutes / 60, 2) : '';
 }
 function parse(raw: string): number | null {
   const s = raw.trim().toLowerCase().replace(/\s+/g, ' ');

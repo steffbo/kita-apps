@@ -43,7 +43,7 @@ import ParentFormDialog from '@/components/child/ParentFormDialog.vue';
 import TransactionDetailModal from '@/components/child/TransactionDetailModal.vue';
 import AllocationModal from '@/components/child/AllocationModal.vue';
 import ParentDetailModal from '@/components/child/ParentDetailModal.vue';
-import { formatCurrency, formatCurrencyWhole, formatDate, formatMonthName } from '@/utils/format';
+import { formatCurrency, formatCurrencyWhole, formatDate, formatMonthName, todayISO } from '@/utils/format';
 import {
   formatConfidence,
   formatMatchedBy,
@@ -534,7 +534,7 @@ async function saveHouseholdEdit() {
 // Reminder functions
 function canCreateReminder(fee: FeeExpectation): boolean {
   // Can create reminder if: past due date, not paid, not already a REMINDER type, no existing reminder
-  const isPastDue = new Date(fee.dueDate) < new Date();
+  const isPastDue = fee.dueDate.slice(0, 10) < todayISO();
   const isUnpaid = !fee.isPaid;
   const isNotReminder = fee.feeType !== 'REMINDER';
   const hasNoReminder = !fees.value.some(f => f.reminderForId === fee.id);
@@ -1098,7 +1098,7 @@ async function createReminder() {
               >
                 <div class="flex items-center gap-3">
                   <AlertTriangle
-                    v-if="new Date(group.fee.dueDate) < new Date()"
+                    v-if="group.fee.dueDate.slice(0, 10) < todayISO()"
                     :class="group.fee.feeType === 'REMINDER' ? 'h-5 w-5 text-red-500 dark:text-red-400' : 'h-5 w-5 text-red-500 dark:text-red-400'"
                   />
                   <Clock v-else :class="group.fee.feeType === 'REMINDER' ? 'h-5 w-5 text-red-500 dark:text-red-400' : 'h-5 w-5 text-amber-500 dark:text-amber-400'" />

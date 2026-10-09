@@ -19,7 +19,7 @@ import {
   ChevronLeft,
   ChevronRight,
 } from 'lucide-vue-next';
-import { formatCurrency, formatDate } from '@/utils/format';
+import { formatCurrency, formatDate, todayISO } from '@/utils/format';
 import { getFeePeriodLabel, getFeeTypeColor, getFeeTypeName } from '@/utils/fees';
 import GenerateFeesDialog from '@/components/fees/GenerateFeesDialog.vue';
 import CreateFeeDialog from '@/components/fees/CreateFeeDialog.vue';
@@ -257,7 +257,7 @@ function getStatusInfo(fee: FeeExpectation) {
   if (fee.isPaid) {
     return { icon: CheckCircle, color: 'text-green-500 dark:text-green-400', label: 'Bezahlt', bg: 'bg-green-50 dark:bg-green-950/40' };
   }
-  const isOverdue = new Date(fee.dueDate) < new Date();
+  const isOverdue = fee.dueDate.slice(0, 10) < todayISO();
   if (isOverdue) {
     return { icon: AlertTriangle, color: 'text-red-500 dark:text-red-400', label: 'Überfällig', bg: 'bg-red-50 dark:bg-red-950/40' };
   }
@@ -345,7 +345,7 @@ async function deleteSelectedFees() {
 function canCreateReminder(fee: FeeExpectation): boolean {
   if (fee.isPaid) return false;
   if (fee.feeType === 'REMINDER') return false;
-  const isOverdue = new Date(fee.dueDate) < new Date();
+  const isOverdue = fee.dueDate.slice(0, 10) < todayISO();
   if (!isOverdue) return false;
   // Check if there's already a reminder for this fee
   const hasReminder = fees.value.some(f => f.reminderForId === fee.id);

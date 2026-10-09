@@ -4,6 +4,7 @@ import { RouterLink } from 'vue-router';
 import { api } from '@/api';
 import type { ParentActivity } from '@/api/types';
 import { activitySeenAt, markActivitySeen } from '@/composables/useActivitySeen';
+import { formatDecimalNumber } from '@/utils/format';
 const props = withDefaults(defineProps<{ limit?: number }>(), { limit: 100 });
 const activity = ref<ParentActivity[]>([]);
 const error = ref('');
@@ -37,7 +38,7 @@ function text(item: ParentActivity) {
       + `${item.oldValue || '—'} → ${item.newValue || '—'}`;
   }
   if (item.type === 'PARENT_WORK_SUBMITTED') {
-    return `${who} hat ${((item.durationMinutes ?? 0) / 60).toLocaleString('de-DE')} h gemeldet`
+    return `${who} hat ${formatDecimalNumber((item.durationMinutes ?? 0) / 60)} h gemeldet`
       + ` (${item.occasion ?? 'Elternstunden'})`;
   }
   return `${who} hat einen Fehler gemeldet: ${item.message ?? ''}`;
