@@ -72,14 +72,16 @@ func (s *ChildImportService) Execute(ctx context.Context, req *ExecuteRequest) (
 			}
 			return nil
 		})
-		if rowResult != nil {
+		if rowResult != nil && err == nil {
 			result.ChildrenCreated += rowResult.ChildrenCreated
 			result.ChildrenUpdated += rowResult.ChildrenUpdated
 			result.ParentsCreated += rowResult.ParentsCreated
 			result.ParentsLinked += rowResult.ParentsLinked
-			result.Errors = append(result.Errors, rowResult.Errors...)
 		}
-		if err != nil && (rowResult == nil || len(rowResult.Errors) == 0) {
+		switch {
+		case rowResult != nil && len(rowResult.Errors) > 0:
+			result.Errors = append(result.Errors, rowResult.Errors...)
+		case err != nil:
 			result.Errors = append(result.Errors, ImportError{RowIndex: row.Index, Error: err.Error()})
 		}
 	}

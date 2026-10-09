@@ -58,9 +58,9 @@ func TestChildImport_RollsBackFailedRowAndContinues(t *testing.T) {
 		!strings.HasPrefix(result.Errors[0].Error, "Fehler beim Verknüpfen von Elternteil 2: ") {
 		t.Fatalf("unexpected import errors: %+v", result.Errors)
 	}
-	// Counters retain their existing meaning, including completed steps of failed rows.
-	if result.ChildrenCreated != 3 || result.ChildrenUpdated != 0 ||
-		result.ParentsCreated != 2 || result.ParentsLinked != 0 {
+	// Counters only include committed rows.
+	if result.ChildrenCreated != 2 || result.ChildrenUpdated != 0 ||
+		result.ParentsCreated != 1 || result.ParentsLinked != 0 {
 		t.Fatalf("unexpected counters: %+v", result)
 	}
 
