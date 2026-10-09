@@ -10,8 +10,7 @@ export default {
       fontFamily: { sans: ['Nunito Variable', 'sans-serif'] },
       colors: {
         brand: {
-          50: '#f5fbe9', 100: '#eaf6d3', 200: '#d4ecc0', 400: '#a8d98a',
-          600: '#86c06a', 700: '#5d9847', 800: '#4a7a3a',
+          50: '#f5fbe9', 200: '#d4ecc0', 800: '#4a7a3a',
         },
         header: { DEFAULT: 'rgb(var(--header) / <alpha-value>)', foreground: 'rgb(var(--header-foreground) / <alpha-value>)' },
         border: 'rgb(var(--border) / <alpha-value>)',
@@ -63,5 +62,5 @@ export default {
       },
     },
   },
-  plugins: [require('tailwindcss-animate')],
+  plugins: [],
 };

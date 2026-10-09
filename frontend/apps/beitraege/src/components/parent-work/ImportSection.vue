@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { RouterLink } from 'vue-router';
 import { AlertTriangle, FileSpreadsheet, Upload } from 'lucide-vue-next';
-import api from '@/api/client';
+import { api } from '@/api/client';
 import type { ParentWorkHouseholdOption, ParentWorkImportPreviewRow, ParentWorkImportExecuteRow } from '@/api/types';
 import { formatDate, formatHours } from '@/utils/format';
 import HouseholdPicker from '@/components/parent-work/HouseholdPicker.vue';

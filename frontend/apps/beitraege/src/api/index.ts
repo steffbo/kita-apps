@@ -1,2 +1,2 @@
 export * from './types';
-export { api, default } from './client';
+export { api } from './client';
