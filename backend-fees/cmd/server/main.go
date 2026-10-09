@@ -136,7 +136,7 @@ func main() {
 	feeService := service.NewFeeService(feeRepo, childRepo, householdRepo, matchRepo, transactionRepo, feeScheduleRepo)
 	txManager := repository.NewTxManager(db)
 	importService := service.NewImportService(transactionRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, warningRepo, txManager, feeScheduleRepo)
-	childImportService := service.NewChildImportService(childRepo, parentRepo)
+	childImportService := service.NewChildImportService(childRepo, parentRepo, txManager)
 	coverageService := service.NewCoverageService(feeRepo, childRepo, transactionRepo, matchRepo)
 	reminderService := service.NewReminderService(feeRepo, childRepo, householdRepo, settingsRepo, emailLogRepo, emailService)
 	stichtagService := service.NewStichtagsmeldungService(childRepo)

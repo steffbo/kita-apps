@@ -19,13 +19,17 @@ import (
 type ChildImportService struct {
 	childRepo  repository.ChildRepository
 	parentRepo repository.ParentRepository
+	txm        *repository.TxManager
 }
 
 // NewChildImportService creates a new child import service
-func NewChildImportService(childRepo repository.ChildRepository, parentRepo repository.ParentRepository) *ChildImportService {
+func NewChildImportService(
+	childRepo repository.ChildRepository, parentRepo repository.ParentRepository, txm *repository.TxManager,
+) *ChildImportService {
 	return &ChildImportService{
 		childRepo:  childRepo,
 		parentRepo: parentRepo,
+		txm:        txm,
 	}
 }
 
@@ -527,202 +531,227 @@ func (s *ChildImportService) Execute(ctx context.Context, req *ExecuteRequest) (
 	}
 
 	for _, row := range req.Rows {
-		var childID uuid.UUID
-		var isExistingChild bool
-
-		// Check if this is an update/merge for an existing child
-		if row.ExistingChildID != nil && *row.ExistingChildID != "" {
-			existingID, err := uuid.Parse(*row.ExistingChildID)
-			if err != nil {
-				result.Errors = append(result.Errors, ImportError{
-					RowIndex: row.Index,
-					Error:    "Ungültige Kind-ID",
-				})
-				continue
+		var rowResult *ExecuteResult
+		err := s.txm.WithTx(ctx, func(txctx context.Context) error {
+			rowResult = s.executeRow(txctx, row, parentDecisionMap)
+			if len(rowResult.Errors) > 0 {
+				return fmt.Errorf("%s", rowResult.Errors[0].Error)
 			}
+			return nil
+		})
+		if rowResult != nil {
+			result.ChildrenCreated += rowResult.ChildrenCreated
+			result.ChildrenUpdated += rowResult.ChildrenUpdated
+			result.ParentsCreated += rowResult.ParentsCreated
+			result.ParentsLinked += rowResult.ParentsLinked
+			result.Errors = append(result.Errors, rowResult.Errors...)
+		}
+		if err != nil && (rowResult == nil || len(rowResult.Errors) == 0) {
+			result.Errors = append(result.Errors, ImportError{RowIndex: row.Index, Error: err.Error()})
+		}
+	}
 
-			// Get existing child
-			existingChild, err := s.childRepo.GetByID(ctx, existingID)
-			if err != nil {
-				result.Errors = append(result.Errors, ImportError{
-					RowIndex: row.Index,
-					Error:    fmt.Sprintf("Kind nicht gefunden: %v", err),
-				})
-				continue
-			}
+	return result, nil
+}
 
-			childID = existingID
-			isExistingChild = true
+func (s *ChildImportService) executeRow(
+	ctx context.Context, row ImportRow, parentDecisionMap map[string]ParentDecision,
+) *ExecuteResult {
+	result := &ExecuteResult{Errors: []ImportError{}}
+	var childID uuid.UUID
+	var isExistingChild bool
 
-			// If not just merging parents, update child fields
-			if !row.MergeParents && len(row.FieldUpdates) > 0 {
-				// Apply field updates
-				updated := false
-				for field, value := range row.FieldUpdates {
-					switch field {
-					case "firstName":
-						existingChild.FirstName = value
+	// Check if this is an update/merge for an existing child
+	if row.ExistingChildID != nil && *row.ExistingChildID != "" {
+		existingID, err := uuid.Parse(*row.ExistingChildID)
+		if err != nil {
+			result.Errors = append(result.Errors, ImportError{
+				RowIndex: row.Index,
+				Error:    "Ungültige Kind-ID",
+			})
+			return result
+		}
+
+		// Get existing child
+		existingChild, err := s.childRepo.GetByID(ctx, existingID)
+		if err != nil {
+			result.Errors = append(result.Errors, ImportError{
+				RowIndex: row.Index,
+				Error:    fmt.Sprintf("Kind nicht gefunden: %v", err),
+			})
+			return result
+		}
+
+		childID = existingID
+		isExistingChild = true
+
+		// If not just merging parents, update child fields
+		if !row.MergeParents && len(row.FieldUpdates) > 0 {
+			// Apply field updates
+			updated := false
+			for field, value := range row.FieldUpdates {
+				switch field {
+				case "firstName":
+					existingChild.FirstName = value
+					updated = true
+				case "lastName":
+					existingChild.LastName = value
+					updated = true
+				case "birthDate":
+					if t, err := time.Parse("2006-01-02", value); err == nil {
+						existingChild.BirthDate = t
 						updated = true
-					case "lastName":
-						existingChild.LastName = value
+					}
+				case "entryDate":
+					if t, err := time.Parse("2006-01-02", value); err == nil {
+						existingChild.EntryDate = t
 						updated = true
-					case "birthDate":
-						if t, err := time.Parse("2006-01-02", value); err == nil {
-							existingChild.BirthDate = t
-							updated = true
-						}
-					case "entryDate":
-						if t, err := time.Parse("2006-01-02", value); err == nil {
-							existingChild.EntryDate = t
-							updated = true
-						}
-					case "legalHours":
-						if hours, err := csvparser.ParseInt(value); err == nil {
-							existingChild.LegalHours = &hours
-							updated = true
-						}
-					case "careHours":
-						if hours, err := csvparser.ParseInt(value); err == nil {
-							existingChild.CareHours = &hours
-							updated = true
-						}
+					}
+				case "legalHours":
+					if hours, err := csvparser.ParseInt(value); err == nil {
+						existingChild.LegalHours = &hours
+						updated = true
+					}
+				case "careHours":
+					if hours, err := csvparser.ParseInt(value); err == nil {
+						existingChild.CareHours = &hours
+						updated = true
 					}
 				}
-
-				if updated {
-					err = s.childRepo.Update(ctx, existingChild)
-					if err != nil {
-						result.Errors = append(result.Errors, ImportError{
-							RowIndex: row.Index,
-							Error:    fmt.Sprintf("Fehler beim Aktualisieren: %v", err),
-						})
-						continue
-					}
-					result.ChildrenUpdated++
-				}
 			}
+
+			if updated {
+				err = s.childRepo.Update(ctx, existingChild)
+				if err != nil {
+					result.Errors = append(result.Errors, ImportError{
+						RowIndex: row.Index,
+						Error:    fmt.Sprintf("Fehler beim Aktualisieren: %v", err),
+					})
+					return result
+				}
+				result.ChildrenUpdated++
+			}
+		}
+	} else {
+		// Create new child
+		birthDate, err := time.Parse("2006-01-02", row.Child.BirthDate)
+		if err != nil {
+			result.Errors = append(result.Errors, ImportError{
+				RowIndex: row.Index,
+				Error:    "Ungültiges Geburtsdatum",
+			})
+			return result
+		}
+
+		entryDate, err := time.Parse("2006-01-02", row.Child.EntryDate)
+		if err != nil {
+			result.Errors = append(result.Errors, ImportError{
+				RowIndex: row.Index,
+				Error:    "Ungültiges Eintrittsdatum",
+			})
+			return result
+		}
+
+		child := &domain.Child{
+			ID:           uuid.New(),
+			MemberNumber: row.Child.MemberNumber,
+			FirstName:    row.Child.FirstName,
+			LastName:     row.Child.LastName,
+			BirthDate:    birthDate,
+			EntryDate:    entryDate,
+			Street:       stringPtr(row.Child.Street),
+			StreetNo:     stringPtr(row.Child.StreetNo),
+			PostalCode:   stringPtr(row.Child.PostalCode),
+			City:         stringPtr(row.Child.City),
+			IsActive:     true,
+			CreatedAt:    util.Now(),
+			UpdatedAt:    util.Now(),
+		}
+
+		if row.Child.LegalHours != nil {
+			child.LegalHours = row.Child.LegalHours
+		}
+		if row.Child.CareHours != nil {
+			child.CareHours = row.Child.CareHours
+		}
+
+		err = s.childRepo.Create(ctx, child)
+		if err != nil {
+			result.Errors = append(result.Errors, ImportError{
+				RowIndex: row.Index,
+				Error:    fmt.Sprintf("Fehler beim Erstellen: %v", err),
+			})
+			return result
+		}
+
+		childID = child.ID
+		result.ChildrenCreated++
+	}
+
+	// Handle parent 1
+	if row.Parent1 != nil && row.Parent1.FirstName != "" && row.Parent1.LastName != "" {
+		// Skip if already linked
+		if row.Parent1.AlreadyLinked {
+			// Parent already linked, nothing to do
 		} else {
-			// Create new child
-			birthDate, err := time.Parse("2006-01-02", row.Child.BirthDate)
+			parentID, created, err := s.handleParent(ctx, row.Index, 1, row.Parent1, parentDecisionMap)
 			if err != nil {
 				result.Errors = append(result.Errors, ImportError{
 					RowIndex: row.Index,
-					Error:    "Ungültiges Geburtsdatum",
+					Error:    fmt.Sprintf("Fehler bei Elternteil 1: %v", err),
 				})
-				continue
-			}
-
-			entryDate, err := time.Parse("2006-01-02", row.Child.EntryDate)
-			if err != nil {
-				result.Errors = append(result.Errors, ImportError{
-					RowIndex: row.Index,
-					Error:    "Ungültiges Eintrittsdatum",
-				})
-				continue
-			}
-
-			child := &domain.Child{
-				ID:           uuid.New(),
-				MemberNumber: row.Child.MemberNumber,
-				FirstName:    row.Child.FirstName,
-				LastName:     row.Child.LastName,
-				BirthDate:    birthDate,
-				EntryDate:    entryDate,
-				Street:       stringPtr(row.Child.Street),
-				StreetNo:     stringPtr(row.Child.StreetNo),
-				PostalCode:   stringPtr(row.Child.PostalCode),
-				City:         stringPtr(row.Child.City),
-				IsActive:     true,
-				CreatedAt:    util.Now(),
-				UpdatedAt:    util.Now(),
-			}
-
-			if row.Child.LegalHours != nil {
-				child.LegalHours = row.Child.LegalHours
-			}
-			if row.Child.CareHours != nil {
-				child.CareHours = row.Child.CareHours
-			}
-
-			err = s.childRepo.Create(ctx, child)
-			if err != nil {
-				result.Errors = append(result.Errors, ImportError{
-					RowIndex: row.Index,
-					Error:    fmt.Sprintf("Fehler beim Erstellen: %v", err),
-				})
-				continue
-			}
-
-			childID = child.ID
-			result.ChildrenCreated++
-		}
-
-		// Handle parent 1
-		if row.Parent1 != nil && row.Parent1.FirstName != "" && row.Parent1.LastName != "" {
-			// Skip if already linked
-			if row.Parent1.AlreadyLinked {
-				// Parent already linked, nothing to do
-			} else {
-				parentID, created, err := s.handleParent(ctx, row.Index, 1, row.Parent1, parentDecisionMap)
+			} else if parentID != uuid.Nil {
+				// Link parent to child
+				isPrimary := !isExistingChild // First parent is primary only for new children
+				err = s.childRepo.LinkParent(ctx, childID, parentID, isPrimary)
 				if err != nil {
 					result.Errors = append(result.Errors, ImportError{
 						RowIndex: row.Index,
-						Error:    fmt.Sprintf("Fehler bei Elternteil 1: %v", err),
+						Error:    fmt.Sprintf("Fehler beim Verknüpfen von Elternteil 1: %v", err),
 					})
-				} else if parentID != uuid.Nil {
-					// Link parent to child
-					isPrimary := !isExistingChild // First parent is primary only for new children
-					err = s.childRepo.LinkParent(ctx, childID, parentID, isPrimary)
-					if err != nil {
-						result.Errors = append(result.Errors, ImportError{
-							RowIndex: row.Index,
-							Error:    fmt.Sprintf("Fehler beim Verknüpfen von Elternteil 1: %v", err),
-						})
+				} else {
+					if created {
+						result.ParentsCreated++
 					} else {
-						if created {
-							result.ParentsCreated++
-						} else {
-							result.ParentsLinked++
-						}
-					}
-				}
-			}
-		}
-
-		// Handle parent 2
-		if row.Parent2 != nil && row.Parent2.FirstName != "" && row.Parent2.LastName != "" {
-			// Skip if already linked
-			if row.Parent2.AlreadyLinked {
-				// Parent already linked, nothing to do
-			} else {
-				parentID, created, err := s.handleParent(ctx, row.Index, 2, row.Parent2, parentDecisionMap)
-				if err != nil {
-					result.Errors = append(result.Errors, ImportError{
-						RowIndex: row.Index,
-						Error:    fmt.Sprintf("Fehler bei Elternteil 2: %v", err),
-					})
-				} else if parentID != uuid.Nil {
-					// Link parent to child
-					isPrimary := false // Second parent is not primary
-					err = s.childRepo.LinkParent(ctx, childID, parentID, isPrimary)
-					if err != nil {
-						result.Errors = append(result.Errors, ImportError{
-							RowIndex: row.Index,
-							Error:    fmt.Sprintf("Fehler beim Verknüpfen von Elternteil 2: %v", err),
-						})
-					} else {
-						if created {
-							result.ParentsCreated++
-						} else {
-							result.ParentsLinked++
-						}
+						result.ParentsLinked++
 					}
 				}
 			}
 		}
 	}
 
-	return result, nil
+	// Handle parent 2
+	if row.Parent2 != nil && row.Parent2.FirstName != "" && row.Parent2.LastName != "" {
+		// Skip if already linked
+		if row.Parent2.AlreadyLinked {
+			// Parent already linked, nothing to do
+		} else {
+			parentID, created, err := s.handleParent(ctx, row.Index, 2, row.Parent2, parentDecisionMap)
+			if err != nil {
+				result.Errors = append(result.Errors, ImportError{
+					RowIndex: row.Index,
+					Error:    fmt.Sprintf("Fehler bei Elternteil 2: %v", err),
+				})
+			} else if parentID != uuid.Nil {
+				// Link parent to child
+				isPrimary := false // Second parent is not primary
+				err = s.childRepo.LinkParent(ctx, childID, parentID, isPrimary)
+				if err != nil {
+					result.Errors = append(result.Errors, ImportError{
+						RowIndex: row.Index,
+						Error:    fmt.Sprintf("Fehler beim Verknüpfen von Elternteil 2: %v", err),
+					})
+				} else {
+					if created {
+						result.ParentsCreated++
+					} else {
+						result.ParentsLinked++
+					}
+				}
+			}
+		}
+	}
+	return result
 }
 
 func (s *ChildImportService) handleParent(ctx context.Context, rowIndex, parentIndex int, parent *ParentPreview, decisions map[string]ParentDecision) (uuid.UUID, bool, error) {
