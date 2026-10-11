@@ -3,6 +3,7 @@ module github.com/knirpsenstadt/kita-apps/backend-fees
 go 1.25.6
 
 require (
+	codeberg.org/go-pdf/fpdf v0.12.0
 	github.com/go-chi/chi/v5 v5.2.4
 	github.com/go-chi/cors v1.2.2
 	github.com/golang-jwt/jwt/v5 v5.3.0

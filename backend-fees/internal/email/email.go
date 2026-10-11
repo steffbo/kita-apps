@@ -8,6 +8,7 @@ import (
 	"io"
 	"mime"
 	"mime/multipart"
+	"mime/quotedprintable"
 	"net/smtp"
 	"net/textproto"
 	"strings"
@@ -29,6 +30,13 @@ type Config struct {
 type Service struct {
 	config  Config
 	enabled bool
+}
+
+// Attachment is a file sent with an email.
+type Attachment struct {
+	Filename    string // may contain non-ASCII characters, e.g. "Einstufung_Görs_Simeon.pdf"
+	ContentType string // e.g. "application/pdf"
+	Data        []byte
 }
 
 // NewService creates a new email service.
@@ -63,6 +71,25 @@ func (s *Service) SendTextEmailMulti(to []string, subject, body string) error {
 	}
 
 	return s.sendMulti(to, subject, body)
+}
+
+// SendTextEmailWithAttachments sends a plain text email with file attachments.
+func (s *Service) SendTextEmailWithAttachments(
+	to []string,
+	subject, body string,
+	attachments []Attachment,
+) error {
+	if !s.enabled {
+		log.Info().Strs("to", to).Str("subject", subject).Msg("Email sending disabled, skipping email")
+		return nil
+	}
+
+	msg, err := buildTextEmailWithAttachments(s.config.From, to, subject, body, attachments)
+	if err != nil {
+		return err
+	}
+
+	return s.sendRawMulti(to, subject, msg)
 }
 
 // SendTextAndHTMLEmailMulti sends a multipart email (text + html) with an optional inline PNG image.
@@ -139,6 +166,72 @@ func (s *Service) sendMulti(to []string, subject, body string) error {
 // MIME body charsets do not apply to headers such as Subject.
 func encodeHeader(value string) string {
 	return mime.QEncoding.Encode("UTF-8", value)
+}
+
+func buildTextEmailWithAttachments(
+	from string,
+	to []string,
+	subject, body string,
+	attachments []Attachment,
+) ([]byte, error) {
+	var multipartBody bytes.Buffer
+	writer := multipart.NewWriter(&multipartBody)
+
+	textHeader := textproto.MIMEHeader{}
+	textHeader.Set("Content-Type", "text/plain; charset=UTF-8")
+	textHeader.Set("Content-Transfer-Encoding", "quoted-printable")
+	textPart, err := writer.CreatePart(textHeader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create text part: %w", err)
+	}
+	quotedWriter := quotedprintable.NewWriter(textPart)
+	if _, err := io.WriteString(quotedWriter, body); err != nil {
+		return nil, fmt.Errorf("failed to write text part: %w", err)
+	}
+	if err := quotedWriter.Close(); err != nil {
+		return nil, fmt.Errorf("failed to finalize text part: %w", err)
+	}
+
+	for _, attachment := range attachments {
+		contentType := attachment.ContentType
+		if contentType == "" {
+			contentType = "application/octet-stream"
+		}
+
+		contentTypeHeader := mime.FormatMediaType(contentType, map[string]string{
+			"name": attachment.Filename,
+		})
+		attachmentHeader := textproto.MIMEHeader{}
+		attachmentHeader.Set("Content-Type", contentTypeHeader)
+		attachmentHeader.Set("Content-Transfer-Encoding", "base64")
+		attachmentHeader.Set("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{
+			"filename": attachment.Filename,
+		}))
+		part, err := writer.CreatePart(attachmentHeader)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create attachment part: %w", err)
+		}
+		if err := writeBase64Lines(part, attachment.Data); err != nil {
+			return nil, fmt.Errorf("failed to write attachment %q: %w", attachment.Filename, err)
+		}
+	}
+
+	if err := writer.Close(); err != nil {
+		return nil, fmt.Errorf("failed to finalize multipart message: %w", err)
+	}
+
+	var message bytes.Buffer
+	fmt.Fprintf(&message, "From: %s\r\n", from)
+	fmt.Fprintf(&message, "To: %s\r\n", strings.Join(to, ", "))
+	fmt.Fprintf(&message, "Subject: %s\r\n", encodeHeader(subject))
+	fmt.Fprintf(&message, "MIME-Version: 1.0\r\n")
+	fmt.Fprintf(&message, "Content-Type: multipart/mixed; boundary=%q\r\n", writer.Boundary())
+	fmt.Fprintf(&message, "\r\n")
+	if _, err := message.Write(multipartBody.Bytes()); err != nil {
+		return nil, fmt.Errorf("failed to write multipart body: %w", err)
+	}
+
+	return message.Bytes(), nil
 }
 
 func (s *Service) sendRawMulti(to []string, subject string, msg []byte) error {

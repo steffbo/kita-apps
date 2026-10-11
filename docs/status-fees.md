@@ -3,6 +3,16 @@
 Rolling change log of non-obvious implementation decisions. Newest first.
 Basics (ports, commands, layout) live in `AGENTS.md`.
 
+## Einstufungsbrief als Server-PDF, Mail-Anhänge (2026-10-11)
+
+- Neues Paket `internal/letter`: rendert den Einstufungsbrief mit `codeberg.org/go-pdf/fpdf` nach der Vorlage
+  `EinstufungPDF.vue` (A4, eingebettete Liberation Serif mit Lizenz, Logo). Es rechnet nichts: Zeiträume
+  (`BuildFeePeriods` fasst gleiche Monate zusammen), Grundlagentext, Vorstand und Bankdaten kommen vom
+  Aufrufer. Blocksatz ohne Silbentrennung: Zeilen, die zu weite Wortabstände bekämen, bleiben flatternd.
+  Beispielbrief: `LETTER_SAMPLE_OUT=/tmp/brief.pdf go test ./internal/letter -run TestWriteSampleLetter`.
+- `email.Service.SendTextEmailWithAttachments` verschickt Text-Mails mit Anhängen (multipart/mixed).
+- Noch nicht angebunden: Endpunkte für Download und Versand folgen.
+
 ## Einstufung: Kindersuche und Vorbelegung (2026-10-11)
 
 - Das Kind wird über ein Suchfeld gewählt (`ChildSearchSelect.vue`): ab zwei Zeichen Treffer aus Vorname,
