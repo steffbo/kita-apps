@@ -3,6 +3,15 @@
 Rolling change log of non-obvious implementation decisions. Newest first.
 Basics (ports, commands, layout) live in `AGENTS.md`.
 
+## Backup-Wiederherstellung geprüft (2026-10-11)
+
+- Die frühere Doku („kein App-Dump, VM zurückspielen“) war falsch: Der homelab-B2-Job sichert zweimal täglich
+  einen validierten `pg_dump` der `kita`-DB; das Postgres-Datenverzeichnis ist vom Backup ausgeschlossen.
+- Probe-Wiederherstellung des neuesten Snapshots aus B2 in einen isolierten Wegwerf-Container: erfolgreich,
+  Zeilenzahlen und Migrationsstand wie live (bis auf einen Bankimport nach dem Snapshot). Live-DB nur gelesen,
+  Container, Volume und Staging-Dateien danach gelöscht. Ablauf in `docs/deployment-homelab.md`; die
+  Wiederherstellung in die Produktions-DB ist beschrieben, aber noch nicht geübt.
+
 ## Bankabgleich: serverseitige Listen (2026-10-09)
 
 - `GET /import/transactions?status=offen|zugeordnet|warnungen|alle` bildet die bisherige

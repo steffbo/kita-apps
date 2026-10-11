@@ -108,7 +108,51 @@ There is intentionally no quick deploy that bypasses the commit-pinned CI gate o
 
 ## Backups
 
-There is no app-level DB dump. The whole `infra-dev` VM (including the `kita-db` volume) is backed up twice daily to Backblaze by the homelab VM backup. Restoring means restoring the VM (or its disk) from that backup, not a `pg_restore`.
+The homelab B2 job for `vm-infra-dev` (configured in the homelab repo: `ansible/playbooks/install-b2-restic-backup.yml`, described in `docs/backup.md`) runs daily at 06:30 and 18:30 Europe/Berlin. It writes a custom-format `pg_dump` of the whole `kita` database to `/srv/homelab-data/kita/restic-db/kita.dump` (validated with `pg_restore --list`, root-only), then uploads it Restic-encrypted to the B2 repository `homelab-restic-vm-infra-dev` (EU Central). Retention: 14 daily, 8 weekly, 12 monthly snapshots.
+
+The physical Postgres data directory (`/srv/homelab-data/kita/postgres`) is **excluded**. Restoring the VM files alone does not bring the database back; recovery always goes through `kita.dump` and `pg_restore`. Data written after the last dump (up to 12 h) is lost and must be re-entered.
+
+Access needs root on `vm-infra-dev` (`/srv/homelab/backup-b2-vm-infra-dev.env`) or the homelab AGE key (`ansible/secrets/backblaze-b2.env.enc`). Both are currently held only by the operator.
+
+### Restore drill (verified 2026-10-11)
+
+Restores the latest snapshot from B2 into an isolated throwaway container; the live database is only read. Snapshot `00a700f4` (06:30) restored in about a second; all 28 tables matched the live row counts except one bank import made after the snapshot, and `fees.schema_migrations` (version 44), routines and indexes were identical.
+
+```bash
+ssh vm-infra-dev
+sudo -i
+set -a; source /srv/homelab/backup-b2-vm-infra-dev.env; set +a
+export RESTIC_REPOSITORY=s3:https://s3.eu-central-003.backblazeb2.com/homelab-restic-vm-infra-dev
+restic --no-lock snapshots
+mkdir -m 700 /var/tmp/restore-kita
+restic --no-lock restore latest --target /var/tmp/restore-kita --include /srv/homelab-data/kita/restic-db
+DUMP=/var/tmp/restore-kita/srv/homelab-data/kita/restic-db/kita.dump
+
+docker run -d --name kita-restore-drill --network none \
+  -e POSTGRES_USER=kita -e POSTGRES_DB=kita -e POSTGRES_HOST_AUTH_METHOD=trust postgres:16-alpine
+docker exec kita-restore-drill pg_isready -U kita -d kita   # repeat until ready
+docker exec -i kita-restore-drill pg_restore -U kita -d kita --exit-on-error < "$DUMP"
+docker exec kita-restore-drill psql -U kita -d kita -c 'SELECT version, dirty FROM fees.schema_migrations;'
+# compare row counts with kita-db (read-only), then clean up:
+docker rm -f -v kita-restore-drill   # -v removes the anonymous data volume with family data
+rm -rf /var/tmp/restore-kita
+```
+
+Use a snapshot ID from `restic snapshots` instead of `latest` for an older state. Without `-v`, `docker rm` leaves an anonymous volume holding the restored data; check `docker volume ls -f dangling=true`.
+
+### Restoring production (not yet exercised)
+
+Only with explicit authorization, after the drill above has succeeded with the chosen snapshot. The current database is renamed, not dropped, so the step is reversible.
+
+```bash
+docker stop kita-backend-fees kita-banking-sync-scheduler
+docker exec kita-db psql -U kita -d postgres -c 'ALTER DATABASE kita RENAME TO kita_before_restore;'
+docker exec kita-db createdb -U kita kita
+docker exec -i kita-db pg_restore -U kita -d kita --exit-on-error < "$DUMP"
+docker start kita-backend-fees kita-banking-sync-scheduler
+```
+
+Check that the running image's latest migration is not older than `fees.schema_migrations` in the dump, then verify `/health` and the Beiträge UI. Drop `kita_before_restore` only once the restored state is confirmed.
 
 ## Troubleshooting
 
