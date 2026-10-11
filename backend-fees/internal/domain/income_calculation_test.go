@@ -162,3 +162,21 @@ func TestIncomeCalculation_ZeroIncome(t *testing.T) {
 	assert.InDelta(t, 0.0, household.CalculateAnnualNetIncome(), 0.01)
 	assert.InDelta(t, 0.0, household.CalculateFullNetIncome(), 0.01)
 }
+
+func TestIncomeCalculation_AdvertisingCostsCappedAtGrossWages(t *testing.T) {
+	// Only the WK-Pauschale entered (old form default): no deduction, no negative income.
+	onlyDefault := domain.IncomeDetails{AdvertisingCosts: 1500}
+	assert.InDelta(t, 0.0, onlyDefault.AppliedAdvertisingCosts(), 0.01)
+	assert.InDelta(t, 0.0, onlyDefault.CalculateFeeRelevantIncome(), 0.01)
+	assert.False(t, onlyDefault.HasIncomeData())
+
+	// Small wages: the Pauschale is capped at the gross wages.
+	minor := domain.IncomeDetails{GrossIncome: 900, AdvertisingCosts: 1230, ParentalBenefit: 3000}
+	assert.InDelta(t, 900.0, minor.AppliedAdvertisingCosts(), 0.01)
+	assert.InDelta(t, 3000.0, minor.CalculateFeeRelevantIncome(), 0.01)
+	assert.True(t, minor.HasIncomeData())
+
+	household := domain.HouseholdIncomeCalculation{Parent1: onlyDefault, Parent2: onlyDefault}
+	assert.InDelta(t, 0.0, household.CalculateAnnualNetIncome(), 0.01)
+	assert.False(t, household.HasIncomeData())
+}

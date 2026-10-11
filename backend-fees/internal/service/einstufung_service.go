@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -17,42 +19,47 @@ type EinstufungService struct {
 	householdRepo  repository.HouseholdRepository
 	childRepo      repository.ChildRepository
 	feeService     *FeeService
+	txm            *repository.TxManager
 }
 
-// NewEinstufungService creates a new Einstufung service.
+// NewEinstufungService creates a new Einstufung service. txm may be nil in tests.
 func NewEinstufungService(
 	einstufungRepo repository.EinstufungRepository,
 	householdRepo repository.HouseholdRepository,
 	childRepo repository.ChildRepository,
 	feeService *FeeService,
+	txm *repository.TxManager,
 ) *EinstufungService {
 	return &EinstufungService{
 		einstufungRepo: einstufungRepo,
 		householdRepo:  householdRepo,
 		childRepo:      childRepo,
 		feeService:     feeService,
+		txm:            txm,
 	}
 }
 
 // CreateInput defines input for creating an Einstufung.
 type CreateEinstufungInput struct {
-	ChildID              uuid.UUID                         `json:"childId"`
-	Year                 int                               `json:"year"`
-	ValidFrom            time.Time                         `json:"validFrom"`
-	IncomeCalculation    domain.HouseholdIncomeCalculation `json:"incomeCalculation"`
-	HighestRateVoluntary bool                              `json:"highestRateVoluntary"`
-	CareHoursPerWeek     int                               `json:"careHoursPerWeek"`
-	ChildrenCount        int                               `json:"childrenCount"`
-	Notes                string                            `json:"notes"`
+	ChildID           uuid.UUID                         `json:"childId"`
+	Year              int                               `json:"year"`
+	IncomeCalculation domain.HouseholdIncomeCalculation `json:"incomeCalculation"`
+	// IncomeBasis may be empty; it is then derived from HighestRateVoluntary.
+	IncomeBasis          domain.IncomeBasis `json:"incomeBasis"`
+	HighestRateVoluntary bool               `json:"highestRateVoluntary"`
+	ChildrenCount        int                `json:"childrenCount"`
+	Provisional          bool               `json:"provisional"`
+	Notes                string             `json:"notes"`
 }
 
 // CreateFollowUpEinstufungInput defines input for creating a follow-up Einstufung.
 type CreateFollowUpEinstufungInput struct {
 	ChangeDate           time.Time                         `json:"changeDate"`
 	IncomeCalculation    domain.HouseholdIncomeCalculation `json:"incomeCalculation"`
+	IncomeBasis          domain.IncomeBasis                `json:"incomeBasis"`
 	HighestRateVoluntary bool                              `json:"highestRateVoluntary"`
-	CareHoursPerWeek     int                               `json:"careHoursPerWeek"`
 	ChildrenCount        int                               `json:"childrenCount"`
+	Provisional          bool                              `json:"provisional"`
 	Notes                string                            `json:"notes"`
 }
 
@@ -62,26 +69,230 @@ type CreateFollowUpEinstufungResult struct {
 	ExpectationChanges *ChildcareExpectationSyncResult `json:"expectationChanges" binding:"optional"`
 }
 
-// Create creates a new Einstufung, computing the fee from the income calculation.
-// This is the main entry point for the Einstufung process:
-// 1. Calculate fee-relevant household income from parent line items
-// 2. Determine care type (Krippe/Kindergarten) from child age
-// 3. Calculate childcare fee using existing fee tables
-// 4. Store the complete classification record
-// 5. Update household income on the household record
-func (s *EinstufungService) Create(ctx context.Context, input CreateEinstufungInput) (*domain.Einstufung, error) {
-	// Validate child exists and get household
-	child, err := s.childRepo.GetByID(ctx, input.ChildID)
-	if err != nil {
-		return nil, ErrNotFound
+// UpdateInput defines input for updating an Einstufung.
+type UpdateEinstufungInput struct {
+	IncomeCalculation    *domain.HouseholdIncomeCalculation `json:"incomeCalculation,omitempty" binding:"optional"`
+	IncomeBasis          *domain.IncomeBasis                `json:"incomeBasis,omitempty" binding:"optional"`
+	HighestRateVoluntary *bool                              `json:"highestRateVoluntary,omitempty" binding:"optional"`
+	ChildrenCount        *int                               `json:"childrenCount,omitempty" binding:"optional"`
+	Provisional          *bool                              `json:"provisional,omitempty" binding:"optional"`
+	ValidFrom            *time.Time                         `json:"validFrom,omitempty" binding:"optional"`
+	Notes                *string                            `json:"notes,omitempty" binding:"optional"`
+}
+
+// PreviewEinstufungInput describes an unsaved Einstufung form. EinstufungID
+// previews an edit, SourceEinstufungID a follow-up, otherwise a new Einstufung
+// for ChildID and Year.
+type PreviewEinstufungInput struct {
+	EinstufungID       *uuid.UUID
+	SourceEinstufungID *uuid.UUID
+	ChildID            uuid.UUID
+	Year               int
+	ChangeDate         *time.Time
+	IncomeCalculation  domain.HouseholdIncomeCalculation
+	IncomeBasis        domain.IncomeBasis
+	ChildrenCount      int
+	Provisional        bool
+}
+
+// EinstufungPreview is the computed, unsaved result of an Einstufung form.
+type EinstufungPreview struct {
+	Einstufung *domain.Einstufung
+	Income     IncomeBreakdown
+	// Warnings need a confirmation before saving.
+	Warnings []string
+	// Notices are informational.
+	Notices []string
+}
+
+// IncomeBreakdown shows how the household income was derived.
+type IncomeBreakdown struct {
+	Parent1NetIncome         float64
+	Parent2NetIncome         float64
+	Parent1FeeRelevantIncome float64
+	Parent2FeeRelevantIncome float64
+	// Applied WK-Pauschale after the cap at the gross wages.
+	Parent1AdvertisingCosts float64
+	Parent2AdvertisingCosts float64
+	HouseholdFeeIncome      float64
+	HouseholdFullIncome     float64
+}
+
+// CalculateIncomeBreakdown derives the income figures of an income calculation sheet.
+func CalculateIncomeBreakdown(calc domain.HouseholdIncomeCalculation) IncomeBreakdown {
+	return IncomeBreakdown{
+		Parent1NetIncome:         calc.Parent1.CalculateNetIncome(),
+		Parent2NetIncome:         calc.Parent2.CalculateNetIncome(),
+		Parent1FeeRelevantIncome: calc.Parent1.CalculateFeeRelevantIncome(),
+		Parent2FeeRelevantIncome: calc.Parent2.CalculateFeeRelevantIncome(),
+		Parent1AdvertisingCosts:  calc.Parent1.AppliedAdvertisingCosts(),
+		Parent2AdvertisingCosts:  calc.Parent2.AppliedAdvertisingCosts(),
+		HouseholdFeeIncome:       calc.CalculateAnnualNetIncome(),
+		HouseholdFullIncome:      calc.CalculateFullNetIncome(),
 	}
-	if child.HouseholdID == nil {
-		return nil, ErrInvalidInput
+}
+
+// einstufungDraft is an Einstufung with the records needed to compute it.
+type einstufungDraft struct {
+	einstufung *domain.Einstufung
+	child      *domain.Child
+	household  *domain.Household
+	// source is the closed predecessor of a new follow-up.
+	source *domain.Einstufung
+}
+
+// Create creates a new Einstufung, computing the fee from the income basis and
+// mirroring it on the household.
+func (s *EinstufungService) Create(ctx context.Context, input CreateEinstufungInput) (*domain.Einstufung, error) {
+	draft, err := s.draftNew(ctx, input)
+	if err != nil {
+		return nil, err
+	}
+	err = s.withTx(ctx, func(ctx context.Context) error {
+		if err := s.einstufungRepo.Create(ctx, draft.einstufung); err != nil {
+			return mapEinstufungRepoError(err)
+		}
+		return s.applyToHousehold(ctx, draft.household, draft.einstufung)
+	})
+	if err != nil {
+		return nil, err
+	}
+	s.populateMonthlyTable(ctx, draft.einstufung)
+	return draft.einstufung, nil
+}
+
+// CreateFollowUp creates a follow-up Einstufung, closes the source period, and syncs CHILDCARE expectations.
+func (s *EinstufungService) CreateFollowUp(ctx context.Context, sourceID uuid.UUID, input CreateFollowUpEinstufungInput) (*CreateFollowUpEinstufungResult, error) {
+	draft, err := s.draftFollowUp(ctx, sourceID, input)
+	if err != nil {
+		return nil, err
+	}
+	e := draft.einstufung
+	var changes *ChildcareExpectationSyncResult
+	err = s.withTx(ctx, func(ctx context.Context) error {
+		sourceValidUntil := e.EffectiveFromMonth.AddDate(0, 0, -1)
+		if err := s.einstufungRepo.CreateFollowUp(ctx, draft.source.ID, sourceValidUntil, e); err != nil {
+			return mapEinstufungRepoError(err)
+		}
+		if err := s.applyToHousehold(ctx, draft.household, e); err != nil {
+			return err
+		}
+		changes, err = s.feeService.SyncChildcareExpectationsFrom(ctx, draft.child.ID, draft.child.HouseholdID, e.EffectiveFromMonth, e.MonthlyChildcareFee, draft.child.ExitDate)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	s.populateMonthlyTable(ctx, e)
+	return &CreateFollowUpEinstufungResult{
+		Einstufung:         e,
+		ExpectationChanges: changes,
+	}, nil
+}
+
+// Update recalculates and updates an existing Einstufung.
+func (s *EinstufungService) Update(ctx context.Context, id uuid.UUID, input UpdateEinstufungInput) (*domain.Einstufung, error) {
+	draft, err := s.draftUpdate(ctx, id, input)
+	if err != nil {
+		return nil, err
+	}
+	err = s.withTx(ctx, func(ctx context.Context) error {
+		if err := s.einstufungRepo.Update(ctx, draft.einstufung); err != nil {
+			return mapEinstufungRepoError(err)
+		}
+		return s.applyToHousehold(ctx, draft.household, draft.einstufung)
+	})
+	if err != nil {
+		return nil, err
+	}
+	s.populateMonthlyTable(ctx, draft.einstufung)
+	return draft.einstufung, nil
+}
+
+// Preview computes an Einstufung form like Create, CreateFollowUp or Update
+// would, without saving anything.
+func (s *EinstufungService) Preview(ctx context.Context, input PreviewEinstufungInput) (*EinstufungPreview, error) {
+	var draft *einstufungDraft
+	var err error
+	switch {
+	case input.EinstufungID != nil:
+		calc := input.IncomeCalculation
+		basis := input.IncomeBasis
+		childrenCount := input.ChildrenCount
+		provisional := input.Provisional
+		draft, err = s.draftUpdate(ctx, *input.EinstufungID, UpdateEinstufungInput{
+			IncomeCalculation: &calc,
+			IncomeBasis:       &basis,
+			ChildrenCount:     &childrenCount,
+			Provisional:       &provisional,
+			ValidFrom:         input.ChangeDate,
+		})
+	case input.SourceEinstufungID != nil:
+		if input.ChangeDate == nil {
+			return nil, newValidationError("Bitte ein Änderungsdatum angeben.")
+		}
+		draft, err = s.draftFollowUp(ctx, *input.SourceEinstufungID, CreateFollowUpEinstufungInput{
+			ChangeDate:        *input.ChangeDate,
+			IncomeCalculation: input.IncomeCalculation,
+			IncomeBasis:       input.IncomeBasis,
+			ChildrenCount:     input.ChildrenCount,
+			Provisional:       input.Provisional,
+		})
+	default:
+		draft, err = s.draftNew(ctx, CreateEinstufungInput{
+			ChildID:           input.ChildID,
+			Year:              input.Year,
+			IncomeCalculation: input.IncomeCalculation,
+			IncomeBasis:       input.IncomeBasis,
+			ChildrenCount:     input.ChildrenCount,
+			Provisional:       input.Provisional,
+		})
+	}
+	if err != nil {
+		return nil, err
 	}
 
-	household, err := s.householdRepo.GetWithMembers(ctx, *child.HouseholdID)
+	e := draft.einstufung
+	s.populateMonthlyTable(ctx, e)
+	preview := &EinstufungPreview{
+		Einstufung: e,
+		Income:     CalculateIncomeBreakdown(input.IncomeCalculation),
+		Warnings:   []string{},
+		Notices:    []string{},
+	}
+	if e.IncomeBasis == domain.IncomeBasisIncome && e.CareType == domain.ChildAgeTypeKrippe {
+		if !input.IncomeCalculation.HasIncomeData() {
+			preview.Warnings = append(preview.Warnings,
+				"Keine Einkommensangaben eingetragen: Das Einkommen wird mit 0 € angesetzt. "+
+					"Ohne Nachweise bitte „Höchstsatz“ wählen oder die Einstufung als vorläufig markieren.")
+		} else if *e.AnnualNetIncome < 0 {
+			preview.Warnings = append(preview.Warnings, fmt.Sprintf(
+				"Das berechnete Einkommen ist negativ (%s). Bitte die Angaben prüfen.", formatCurrencyEUR(*e.AnnualNetIncome)))
+		}
+	}
+	if e.CareType == domain.ChildAgeTypeKindergarten && e.IncomeBasis != domain.IncomeBasisNotRequired {
+		preview.Notices = append(preview.Notices,
+			"Das Kind ist ab Beginn Kindergartenkind, die Betreuung ist beitragsfrei. "+
+				"Einkommensangaben sind nicht erforderlich.")
+	}
+	if e.IncomeBasis == domain.IncomeBasisIncome {
+		for i, parent := range []domain.IncomeDetails{input.IncomeCalculation.Parent1, input.IncomeCalculation.Parent2} {
+			if parent.AdvertisingCosts > 0 && parent.AppliedAdvertisingCosts() < parent.AdvertisingCosts {
+				preview.Notices = append(preview.Notices, fmt.Sprintf(
+					"Elternteil %d: Werbungskosten-Pauschale auf das Bruttoeinkommen begrenzt (%s statt %s).",
+					i+1, formatCurrencyEUR(parent.AppliedAdvertisingCosts()), formatCurrencyEUR(parent.AdvertisingCosts)))
+			}
+		}
+	}
+	return preview, nil
+}
+
+// draftNew builds an unsaved initial Einstufung. It starts on January 1 of the
+// year or on the child's entry date.
+func (s *EinstufungService) draftNew(ctx context.Context, input CreateEinstufungInput) (*einstufungDraft, error) {
+	child, household, err := s.childWithHousehold(ctx, input.ChildID)
 	if err != nil {
-		return nil, ErrNotFound
+		return nil, err
 	}
 
 	classificationYear := input.Year
@@ -95,104 +306,51 @@ func (s *EinstufungService) Create(ctx context.Context, input CreateEinstufungIn
 		effectiveFromMonth = firstDayOfMonth(child.EntryDate)
 	}
 
-	// Determine care type from child age at the billing-effective month
-	careType := domain.ChildAgeTypeKrippe
-	if !child.IsUnderThreeForEntireMonth(effectiveFromMonth.Year(), effectiveFromMonth.Month()) {
-		careType = domain.ChildAgeTypeKindergarten
-	}
-
-	// Calculate fee-relevant household income
-	annualNetIncome := input.IncomeCalculation.CalculateAnnualNetIncome()
-
-	// Care hours are child data and are always resolved from the history.
-	startMonth := int(effectiveFromMonth.Month())
-	careHours := s.feeService.ResolveCareHours(ctx, child, effectiveFromMonth.Year(), &startMonth)
-
-	// Default children count
 	childrenCount := input.ChildrenCount
 	if childrenCount == 0 {
-		// Count children enrolled at the Einstufung date
-		enrolledCount := 0
+		childrenCount = 0
 		for _, c := range household.Children {
 			if c.IsEnrolledAt(effectiveFromMonth) {
-				enrolledCount++
+				childrenCount++
 			}
 		}
-		if enrolledCount > 0 {
-			childrenCount = enrolledCount
-		} else {
+		if childrenCount == 0 {
 			childrenCount = 1
 		}
 	}
 
-	// Calculate childcare fee with the fee schedule valid in the first month
-	schedule, err := s.feeService.ScheduleAt(ctx, effectiveFromMonth)
+	basis, err := resolveIncomeBasis(input.IncomeBasis, input.HighestRateVoluntary)
 	if err != nil {
 		return nil, err
 	}
-	feeResult := schedule.Config.CalculateChildcareFee(domain.ChildcareFeeInput{
-		ChildAgeType:  careType,
-		NetIncome:     annualNetIncome,
-		SiblingsCount: childrenCount,
-		CareHours:     careHours,
-		HighestRate:   input.HighestRateVoluntary,
-		FosterFamily:  household.IncomeStatus == domain.IncomeStatusFosterFamily,
-	})
-
-	// Build the Einstufung record
-	einstufung := &domain.Einstufung{
-		ID:                   uuid.New(),
-		ChildID:              input.ChildID,
-		HouseholdID:          *child.HouseholdID,
-		Year:                 effectiveFromMonth.Year(),
-		ValidFrom:            effectiveFromMonth,
-		ChangeDate:           &changeDate,
-		EffectiveFromMonth:   effectiveFromMonth,
-		IncomeCalculation:    input.IncomeCalculation,
-		AnnualNetIncome:      annualNetIncome,
-		HighestRateVoluntary: input.HighestRateVoluntary,
-		CareHoursPerWeek:     careHours,
-		CareType:             careType,
-		ChildrenCount:        childrenCount,
-		MonthlyChildcareFee:  feeResult.Fee,
-		MonthlyFoodFee:       schedule.Config.MonthlyFoodFee,
-		AnnualMembershipFee:  schedule.Config.AnnualMembershipFee,
-		FeeRule:              feeResult.Rule,
-		DiscountPercent:      feeResult.DiscountPercent,
-		DiscountFactor:       feeResult.DiscountFactor,
-		BaseFee:              feeResult.BaseFee,
-		Notes:                input.Notes,
+	draft := &einstufungDraft{
+		child:     child,
+		household: household,
+		einstufung: &domain.Einstufung{
+			ID:                 uuid.New(),
+			ChildID:            child.ID,
+			HouseholdID:        household.ID,
+			Year:               effectiveFromMonth.Year(),
+			ValidFrom:          effectiveFromMonth,
+			ChangeDate:         &changeDate,
+			EffectiveFromMonth: effectiveFromMonth,
+			IncomeCalculation:  input.IncomeCalculation,
+			IncomeBasis:        basis,
+			ChildrenCount:      childrenCount,
+			Provisional:        input.Provisional,
+			Notes:              input.Notes,
+		},
 	}
-
-	if err := s.einstufungRepo.Create(ctx, einstufung); err != nil {
+	if err := s.calculate(ctx, draft); err != nil {
 		return nil, err
 	}
-
-	// Update household with calculated income
-	income := annualNetIncome
-	household.AnnualHouseholdIncome = &income
-	if !input.HighestRateVoluntary {
-		household.IncomeStatus = domain.IncomeStatusProvided
-	} else {
-		household.IncomeStatus = domain.IncomeStatusMaxAccepted
-	}
-	if input.ChildrenCount > 0 {
-		household.ChildrenCountForFees = &input.ChildrenCount
-	}
-	if err := s.householdRepo.Update(ctx, household); err != nil {
-		return nil, err
-	}
-
-	// Load relations and the month-specific contribution timeline for response.
-	einstufung.Child = child
-	einstufung.Household = household
-	s.populateMonthlyTable(ctx, einstufung)
-
-	return einstufung, nil
+	draft.einstufung.AnnualMembershipFee = s.membershipFee(ctx, effectiveFromMonth)
+	return draft, nil
 }
 
-// CreateFollowUp creates a follow-up Einstufung, closes the source period, and syncs CHILDCARE expectations.
-func (s *EinstufungService) CreateFollowUp(ctx context.Context, sourceID uuid.UUID, input CreateFollowUpEinstufungInput) (*CreateFollowUpEinstufungResult, error) {
+// draftFollowUp builds an unsaved follow-up of sourceID. The change date is
+// subject to the 14th/15th cut-off rule.
+func (s *EinstufungService) draftFollowUp(ctx context.Context, sourceID uuid.UUID, input CreateFollowUpEinstufungInput) (*einstufungDraft, error) {
 	source, err := s.einstufungRepo.GetByID(ctx, sourceID)
 	if err != nil {
 		return nil, ErrNotFound
@@ -200,198 +358,261 @@ func (s *EinstufungService) CreateFollowUp(ctx context.Context, sourceID uuid.UU
 
 	effectiveFromMonth := CalculateEffectiveFromMonth(input.ChangeDate)
 	if !source.EffectiveFromMonth.IsZero() && !effectiveFromMonth.After(source.EffectiveFromMonth) {
-		return nil, ErrInvalidInput
+		return nil, newValidationError("Die Folgeeinstufung muss nach dem Beginn der bisherigen Einstufung (%s) wirksam werden.",
+			formatMonthYear(source.EffectiveFromMonth))
 	}
 	if source.ValidUntil != nil && effectiveFromMonth.After(*source.ValidUntil) {
-		return nil, ErrInvalidInput
+		return nil, newValidationError("Die bisherige Einstufung endet bereits am %s.", source.ValidUntil.Format("02.01.2006"))
 	}
 
-	child, err := s.childRepo.GetByID(ctx, source.ChildID)
+	child, household, err := s.childWithHousehold(ctx, source.ChildID)
 	if err != nil {
-		return nil, ErrNotFound
-	}
-	if child.HouseholdID == nil {
-		return nil, ErrInvalidInput
-	}
-	household, err := s.householdRepo.GetWithMembers(ctx, *child.HouseholdID)
-	if err != nil {
-		return nil, ErrNotFound
+		return nil, err
 	}
 
-	changeMonth := int(effectiveFromMonth.Month())
-	careHours := s.feeService.ResolveCareHours(ctx, child, effectiveFromMonth.Year(), &changeMonth)
 	childrenCount := input.ChildrenCount
 	if childrenCount == 0 {
 		childrenCount = source.ChildrenCount
 	}
-
-	careType := domain.ChildAgeTypeKrippe
-	if !child.IsUnderThreeForEntireMonth(effectiveFromMonth.Year(), effectiveFromMonth.Month()) {
-		careType = domain.ChildAgeTypeKindergarten
-	}
-	annualNetIncome := input.IncomeCalculation.CalculateAnnualNetIncome()
-	schedule, err := s.feeService.ScheduleAt(ctx, effectiveFromMonth)
+	basis, err := resolveIncomeBasis(input.IncomeBasis, input.HighestRateVoluntary)
 	if err != nil {
 		return nil, err
 	}
-	feeResult := schedule.Config.CalculateChildcareFee(domain.ChildcareFeeInput{
-		ChildAgeType:  careType,
-		NetIncome:     annualNetIncome,
-		SiblingsCount: childrenCount,
-		CareHours:     careHours,
-		HighestRate:   input.HighestRateVoluntary,
-		FosterFamily:  household.IncomeStatus == domain.IncomeStatusFosterFamily,
-	})
-
-	einstufung := &domain.Einstufung{
-		ID:                   uuid.New(),
-		ChildID:              source.ChildID,
-		HouseholdID:          source.HouseholdID,
-		Year:                 effectiveFromMonth.Year(),
-		ValidFrom:            effectiveFromMonth,
-		SourceEinstufungID:   &source.ID,
-		ChangeDate:           &input.ChangeDate,
-		EffectiveFromMonth:   effectiveFromMonth,
-		IncomeCalculation:    input.IncomeCalculation,
-		AnnualNetIncome:      annualNetIncome,
-		HighestRateVoluntary: input.HighestRateVoluntary,
-		CareHoursPerWeek:     careHours,
-		CareType:             careType,
-		ChildrenCount:        childrenCount,
-		MonthlyChildcareFee:  feeResult.Fee,
-		MonthlyFoodFee:       schedule.Config.MonthlyFoodFee,
-		AnnualMembershipFee:  0,
-		FeeRule:              feeResult.Rule,
-		DiscountPercent:      feeResult.DiscountPercent,
-		DiscountFactor:       feeResult.DiscountFactor,
-		BaseFee:              feeResult.BaseFee,
-		Notes:                input.Notes,
+	changeDate := input.ChangeDate
+	draft := &einstufungDraft{
+		child:     child,
+		household: household,
+		source:    source,
+		einstufung: &domain.Einstufung{
+			ID:                 uuid.New(),
+			ChildID:            source.ChildID,
+			HouseholdID:        source.HouseholdID,
+			Year:               effectiveFromMonth.Year(),
+			ValidFrom:          effectiveFromMonth,
+			SourceEinstufungID: &source.ID,
+			ChangeDate:         &changeDate,
+			EffectiveFromMonth: effectiveFromMonth,
+			IncomeCalculation:  input.IncomeCalculation,
+			IncomeBasis:        basis,
+			ChildrenCount:      childrenCount,
+			Provisional:        input.Provisional,
+			Notes:              input.Notes,
+		},
 	}
-
-	sourceValidUntil := effectiveFromMonth.AddDate(0, 0, -1)
-	if err := s.einstufungRepo.CreateFollowUp(ctx, source.ID, sourceValidUntil, einstufung); err != nil {
+	if err := s.calculate(ctx, draft); err != nil {
 		return nil, err
 	}
-
-	income := annualNetIncome
-	household.AnnualHouseholdIncome = &income
-	if !input.HighestRateVoluntary {
-		household.IncomeStatus = domain.IncomeStatusProvided
-	} else {
-		household.IncomeStatus = domain.IncomeStatusMaxAccepted
-	}
-	household.ChildrenCountForFees = &childrenCount
-	if err := s.householdRepo.Update(ctx, household); err != nil {
-		return nil, err
-	}
-
-	changes, err := s.feeService.SyncChildcareExpectationsFrom(ctx, child.ID, child.HouseholdID, effectiveFromMonth, einstufung.MonthlyChildcareFee, child.ExitDate)
-	if err != nil {
-		return nil, err
-	}
-
-	einstufung.Child = child
-	einstufung.Household = household
-	s.populateMonthlyTable(ctx, einstufung)
-	return &CreateFollowUpEinstufungResult{
-		Einstufung:         einstufung,
-		ExpectationChanges: changes,
-	}, nil
+	return draft, nil
 }
 
-// UpdateInput defines input for updating an Einstufung.
-type UpdateEinstufungInput struct {
-	IncomeCalculation    *domain.HouseholdIncomeCalculation `json:"incomeCalculation,omitempty" binding:"optional"`
-	HighestRateVoluntary *bool                              `json:"highestRateVoluntary,omitempty" binding:"optional"`
-	CareHoursPerWeek     *int                               `json:"careHoursPerWeek,omitempty" binding:"optional"`
-	ChildrenCount        *int                               `json:"childrenCount,omitempty" binding:"optional"`
-	ValidFrom            *time.Time                         `json:"validFrom,omitempty" binding:"optional"`
-	Notes                *string                            `json:"notes,omitempty" binding:"optional"`
-}
-
-// Update recalculates and updates an existing Einstufung.
-func (s *EinstufungService) Update(ctx context.Context, id uuid.UUID, input UpdateEinstufungInput) (*domain.Einstufung, error) {
+// draftUpdate applies input to a stored Einstufung and recalculates it.
+func (s *EinstufungService) draftUpdate(ctx context.Context, id uuid.UUID, input UpdateEinstufungInput) (*einstufungDraft, error) {
 	existing, err := s.einstufungRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, ErrNotFound
 	}
 
-	// Apply updates
 	if input.IncomeCalculation != nil {
 		existing.IncomeCalculation = *input.IncomeCalculation
 	}
-	if input.HighestRateVoluntary != nil {
-		existing.HighestRateVoluntary = *input.HighestRateVoluntary
+	switch {
+	case input.IncomeBasis != nil && *input.IncomeBasis != "":
+		existing.IncomeBasis = *input.IncomeBasis
+	case input.HighestRateVoluntary != nil && *input.HighestRateVoluntary:
+		existing.IncomeBasis = domain.IncomeBasisHighestRate
+	case input.HighestRateVoluntary != nil && existing.IncomeBasis == domain.IncomeBasisHighestRate:
+		existing.IncomeBasis = domain.IncomeBasisIncome
+	}
+	if !existing.IncomeBasis.Valid() {
+		return nil, newValidationError("Unbekannte Einkommensgrundlage „%s“.", existing.IncomeBasis)
 	}
 	if input.ChildrenCount != nil {
 		existing.ChildrenCount = *input.ChildrenCount
 	}
+	if input.Provisional != nil {
+		existing.Provisional = *input.Provisional
+	}
 	if input.ValidFrom != nil && existing.SourceEinstufungID != nil {
-		existing.ChangeDate = input.ValidFrom
-		existing.EffectiveFromMonth = CalculateEffectiveFromMonth(*input.ValidFrom)
+		changeDate := *input.ValidFrom
+		existing.ChangeDate = &changeDate
+		existing.EffectiveFromMonth = CalculateEffectiveFromMonth(changeDate)
 		existing.ValidFrom = existing.EffectiveFromMonth
 		existing.Year = existing.EffectiveFromMonth.Year()
 	}
 	if input.Notes != nil {
 		existing.Notes = *input.Notes
 	}
+	if existing.ChildrenCount < 1 {
+		return nil, newValidationError("Die Anzahl der Kinder muss mindestens 1 sein.")
+	}
 
-	// Recalculate
-	existing.AnnualNetIncome = existing.IncomeCalculation.CalculateAnnualNetIncome()
-
-	// Get child to check care type
 	child, err := s.childRepo.GetByID(ctx, existing.ChildID)
 	if err != nil {
 		return nil, ErrNotFound
 	}
-
-	careType := domain.ChildAgeTypeKrippe
-	if !child.IsUnderThreeForEntireMonth(existing.EffectiveFromMonth.Year(), existing.EffectiveFromMonth.Month()) {
-		careType = domain.ChildAgeTypeKindergarten
-	}
-	existing.CareType = careType
-	startMonth := int(existing.EffectiveFromMonth.Month())
-	existing.CareHoursPerWeek = s.feeService.ResolveCareHours(ctx, child, existing.EffectiveFromMonth.Year(), &startMonth)
-
-	household, err := s.householdRepo.GetByID(ctx, existing.HouseholdID)
+	household, err := s.householdRepo.GetWithMembers(ctx, existing.HouseholdID)
 	if err != nil {
 		return nil, ErrNotFound
 	}
+	draft := &einstufungDraft{einstufung: existing, child: child, household: household}
+	if err := s.calculate(ctx, draft); err != nil {
+		return nil, err
+	}
+	return draft, nil
+}
 
-	schedule, err := s.feeService.ScheduleAt(ctx, existing.EffectiveFromMonth)
+// calculate derives care type, care hours, income and fees of a draft from its
+// income basis, child data and the fee schedule valid in the first month.
+func (s *EinstufungService) calculate(ctx context.Context, d *einstufungDraft) error {
+	e := d.einstufung
+	start := e.EffectiveFromMonth
+
+	e.CareType = domain.ChildAgeTypeKrippe
+	if !d.child.IsUnderThreeForEntireMonth(start.Year(), start.Month()) {
+		e.CareType = domain.ChildAgeTypeKindergarten
+	}
+	if e.IncomeBasis == domain.IncomeBasisNotRequired && e.CareType != domain.ChildAgeTypeKindergarten {
+		return newValidationError("„Einkommen nicht erforderlich“ gilt nur für Kinder, die ab %s Kindergartenkinder sind. "+
+			"Für Krippenkinder bitte Einkommen oder Höchstsatz wählen.", formatMonthYear(start))
+	}
+	if e.ChildrenCount < 1 {
+		return newValidationError("Die Anzahl der Kinder muss mindestens 1 sein.")
+	}
+
+	// Care hours are child data and are always resolved from the history.
+	startMonth := int(start.Month())
+	e.CareHoursPerWeek = s.feeService.ResolveCareHours(ctx, d.child, start.Year(), &startMonth)
+
+	e.HighestRateVoluntary = e.IncomeBasis == domain.IncomeBasisHighestRate
+	e.AnnualNetIncome = nil
+	if e.IncomeBasis == domain.IncomeBasisIncome {
+		income := e.IncomeCalculation.CalculateAnnualNetIncome()
+		e.AnnualNetIncome = &income
+	} else {
+		// Income is not part of the decision; do not keep stale form values.
+		e.IncomeCalculation = domain.HouseholdIncomeCalculation{}
+	}
+
+	schedule, err := s.feeService.ScheduleAt(ctx, start)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	feeResult := schedule.Config.CalculateChildcareFee(domain.ChildcareFeeInput{
-		ChildAgeType:  existing.CareType,
-		NetIncome:     existing.AnnualNetIncome,
-		SiblingsCount: existing.ChildrenCount,
-		CareHours:     existing.CareHoursPerWeek,
-		HighestRate:   existing.HighestRateVoluntary,
-		FosterFamily:  household.IncomeStatus == domain.IncomeStatusFosterFamily,
-	})
+	feeResult := schedule.Config.CalculateChildcareFee(einstufungFeeInput(e, d.household, e.CareType, e.CareHoursPerWeek))
+	e.MonthlyChildcareFee = feeResult.Fee
+	e.MonthlyFoodFee = schedule.Config.MonthlyFoodFee
+	e.FeeRule = feeResult.Rule
+	e.DiscountPercent = feeResult.DiscountPercent
+	e.DiscountFactor = feeResult.DiscountFactor
+	e.BaseFee = feeResult.BaseFee
 
-	existing.MonthlyChildcareFee = feeResult.Fee
-	existing.FeeRule = feeResult.Rule
-	existing.DiscountPercent = feeResult.DiscountPercent
-	existing.DiscountFactor = feeResult.DiscountFactor
-	existing.BaseFee = feeResult.BaseFee
+	e.Child = d.child
+	e.Household = d.household
+	return nil
+}
 
-	if err := s.einstufungRepo.Update(ctx, existing); err != nil {
-		return nil, err
+// einstufungFeeInput is the fee calculation input of e for one month.
+func einstufungFeeInput(e *domain.Einstufung, household *domain.Household, careType domain.ChildAgeType, careHours int) domain.ChildcareFeeInput {
+	input := domain.ChildcareFeeInput{
+		ChildAgeType:  careType,
+		SiblingsCount: e.ChildrenCount,
+		CareHours:     careHours,
+		HighestRate:   e.IncomeBasis == domain.IncomeBasisHighestRate || e.HighestRateVoluntary,
+		FosterFamily:  household != nil && household.IncomeStatus == domain.IncomeStatusFosterFamily,
 	}
+	if e.AnnualNetIncome != nil {
+		input.NetIncome = *e.AnnualNetIncome
+	}
+	return input
+}
 
-	// Update household income and children count
-	income := existing.AnnualNetIncome
-	household.AnnualHouseholdIncome = &income
-	household.ChildrenCountForFees = &existing.ChildrenCount
-	_ = s.householdRepo.Update(ctx, household)
+func (s *EinstufungService) membershipFee(ctx context.Context, month time.Time) float64 {
+	schedule, err := s.feeService.ScheduleAt(ctx, month)
+	if err != nil {
+		return 0
+	}
+	return schedule.Config.AnnualMembershipFee
+}
 
-	existing.Child = child
-	existing.Household = household
-	s.populateMonthlyTable(ctx, existing)
+func (s *EinstufungService) childWithHousehold(ctx context.Context, childID uuid.UUID) (*domain.Child, *domain.Household, error) {
+	child, err := s.childRepo.GetByID(ctx, childID)
+	if err != nil {
+		return nil, nil, ErrNotFound
+	}
+	if child.HouseholdID == nil {
+		return nil, nil, newValidationError("%s %s ist keinem Haushalt zugeordnet.", child.FirstName, child.LastName)
+	}
+	household, err := s.householdRepo.GetWithMembers(ctx, *child.HouseholdID)
+	if err != nil {
+		return nil, nil, ErrNotFound
+	}
+	return child, household, nil
+}
 
-	return existing, nil
+// applyToHousehold mirrors an open Einstufung on its household. The household
+// status and income drive fee generation for months without an Einstufung.
+// Closed (historic) Einstufungen leave the household alone; foster families
+// keep their status.
+func (s *EinstufungService) applyToHousehold(ctx context.Context, household *domain.Household, e *domain.Einstufung) error {
+	if e.ValidUntil != nil {
+		return nil
+	}
+	childrenCount := e.ChildrenCount
+	household.ChildrenCountForFees = &childrenCount
+	if household.IncomeStatus != domain.IncomeStatusFosterFamily {
+		switch e.IncomeBasis {
+		case domain.IncomeBasisIncome:
+			income := *e.AnnualNetIncome
+			household.IncomeStatus = domain.IncomeStatusProvided
+			household.AnnualHouseholdIncome = &income
+		case domain.IncomeBasisHighestRate:
+			household.IncomeStatus = domain.IncomeStatusMaxAccepted
+			household.AnnualHouseholdIncome = nil
+		case domain.IncomeBasisNotRequired:
+			// Siblings may still need the household income; only replace an unknown status.
+			switch household.IncomeStatus {
+			case domain.IncomeStatusUnknown, domain.IncomeStatusPending, domain.IncomeStatusNotRequired:
+				household.IncomeStatus = domain.IncomeStatusNotRequired
+				household.AnnualHouseholdIncome = nil
+			}
+		}
+	}
+	return s.householdRepo.Update(ctx, household)
+}
+
+func (s *EinstufungService) withTx(ctx context.Context, fn func(ctx context.Context) error) error {
+	return s.txm.WithTx(ctx, fn)
+}
+
+// resolveIncomeBasis accepts the explicit basis or derives it from the
+// deprecated highestRateVoluntary flag.
+func resolveIncomeBasis(basis domain.IncomeBasis, highestRate bool) (domain.IncomeBasis, error) {
+	if basis == "" {
+		if highestRate {
+			return domain.IncomeBasisHighestRate, nil
+		}
+		return domain.IncomeBasisIncome, nil
+	}
+	if !basis.Valid() {
+		return "", newValidationError("Unbekannte Einkommensgrundlage „%s“.", basis)
+	}
+	return basis, nil
+}
+
+func mapEinstufungRepoError(err error) error {
+	switch {
+	case errors.Is(err, repository.ErrEinstufungOverlap):
+		return newValidationError("Für dieses Kind gibt es in diesem Zeitraum bereits eine Einstufung. " +
+			"Bitte stattdessen eine Folgeeinstufung erstellen.")
+	case errors.Is(err, repository.ErrEinstufungHasSuccessor):
+		return newValidationError("Die Einstufung hat eine Folgeeinstufung. Bitte zuerst die Folgeeinstufung löschen.")
+	case errors.Is(err, repository.ErrNotFound):
+		return ErrNotFound
+	}
+	return err
+}
+
+func formatMonthYear(t time.Time) string {
+	return fmt.Sprintf("%s %d", germanMonthName(int(t.Month())), t.Year())
 }
 
 // GetByID returns an Einstufung by ID with loaded relations.
@@ -438,9 +659,30 @@ func (s *EinstufungService) ListByYear(ctx context.Context, year int, offset, li
 	return results, total, nil
 }
 
-// Delete deletes an Einstufung.
+// Delete deletes an Einstufung. Deleting a follow-up reopens its source, which
+// then again describes the household.
 func (s *EinstufungService) Delete(ctx context.Context, id uuid.UUID) error {
-	return s.einstufungRepo.Delete(ctx, id)
+	existing, err := s.einstufungRepo.GetByID(ctx, id)
+	if err != nil {
+		return ErrNotFound
+	}
+	return s.withTx(ctx, func(ctx context.Context) error {
+		if err := s.einstufungRepo.Delete(ctx, id); err != nil {
+			return mapEinstufungRepoError(err)
+		}
+		if existing.SourceEinstufungID == nil || existing.ValidUntil != nil {
+			return nil
+		}
+		source, err := s.einstufungRepo.GetByID(ctx, *existing.SourceEinstufungID)
+		if err != nil {
+			return mapEinstufungRepoError(err)
+		}
+		household, err := s.householdRepo.GetByID(ctx, source.HouseholdID)
+		if err != nil {
+			return ErrNotFound
+		}
+		return s.applyToHousehold(ctx, household, source)
+	})
 }
 
 // GetLatestForChild returns the most recent Einstufung for a child.
@@ -515,14 +757,7 @@ func (s *EinstufungService) populateMonthlyTable(ctx context.Context, e *domain.
 		if !e.Child.IsUnderThreeForEntireMonth(current.Year(), current.Month()) {
 			careType = domain.ChildAgeTypeKindergarten
 		}
-		feeResult := schedule.Config.CalculateChildcareFee(domain.ChildcareFeeInput{
-			ChildAgeType:  careType,
-			NetIncome:     e.AnnualNetIncome,
-			SiblingsCount: e.ChildrenCount,
-			CareHours:     careHours,
-			HighestRate:   e.HighestRateVoluntary,
-			FosterFamily:  e.Household.IncomeStatus == domain.IncomeStatusFosterFamily,
-		})
+		feeResult := schedule.Config.CalculateChildcareFee(einstufungFeeInput(e, e.Household, careType, careHours))
 		row := domain.EinstufungMonthRow{
 			Month:            month,
 			Year:             current.Year(),

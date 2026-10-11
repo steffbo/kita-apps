@@ -140,7 +140,7 @@ func main() {
 	coverageService := service.NewCoverageService(feeRepo, childRepo, transactionRepo, matchRepo)
 	reminderService := service.NewReminderService(feeRepo, childRepo, householdRepo, settingsRepo, emailLogRepo, emailService)
 	stichtagService := service.NewStichtagsmeldungService(childRepo)
-	einstufungService := service.NewEinstufungService(einstufungRepo, householdRepo, childRepo, feeService)
+	einstufungService := service.NewEinstufungService(einstufungRepo, householdRepo, childRepo, feeService, txManager)
 	childNoteService := service.NewChildNoteService(childNoteRepo, childService)
 	feeScheduleService := service.NewFeeScheduleService(feeScheduleRepo)
 	parentWorkService := service.NewParentWorkService(parentWorkRepo, txManager)

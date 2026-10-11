@@ -39,8 +39,10 @@ type EinstufungResponse struct {
 	ChangeDate           *string                           `json:"changeDate,omitempty" binding:"optional"`
 	EffectiveFromMonth   string                            `json:"effectiveFromMonth"`
 	IncomeCalculation    domain.HouseholdIncomeCalculation `json:"incomeCalculation"`
-	AnnualNetIncome      float64                           `json:"annualNetIncome"`
-	HighestRateVoluntary bool                              `json:"highestRateVoluntary"`
+	AnnualNetIncome      *float64                          `json:"annualNetIncome,omitempty" binding:"optional"` // Only set for incomeBasis INCOME.
+	IncomeBasis          string                            `json:"incomeBasis" enums:"INCOME,HIGHEST_RATE,NOT_REQUIRED"`
+	HighestRateVoluntary bool                              `json:"highestRateVoluntary"` // true exactly for incomeBasis HIGHEST_RATE
+	Provisional          bool                              `json:"provisional"`          // Vorläufig: income proofs are still missing
 	CareHoursPerWeek     int                               `json:"careHoursPerWeek"`
 	CareType             string                            `json:"careType"`
 	ChildrenCount        int                               `json:"childrenCount"`
@@ -74,10 +76,12 @@ type EinstufungListResponse struct {
 type CreateEinstufungRequest struct {
 	ChildID              string                            `json:"childId"`
 	Year                 int                               `json:"year"`
-	ValidFrom            string                            `json:"validFrom"` // Deprecated: Ignored for initial classifications; validity is derived from year and child entry date.
+	ValidFrom            string                            `json:"validFrom,omitempty" binding:"optional"` // Deprecated: Ignored; validity is derived from year and child entry date. Only used as year fallback.
 	IncomeCalculation    domain.HouseholdIncomeCalculation `json:"incomeCalculation"`
-	HighestRateVoluntary bool                              `json:"highestRateVoluntary"`
-	CareHoursPerWeek     int                               `json:"careHoursPerWeek"` // Deprecated: Ignored; resolved from the child's care-hours history.
+	IncomeBasis          string                            `json:"incomeBasis,omitempty" enums:"INCOME,HIGHEST_RATE,NOT_REQUIRED" binding:"optional"` // Defaults to HIGHEST_RATE or INCOME from highestRateVoluntary.
+	HighestRateVoluntary bool                              `json:"highestRateVoluntary,omitempty" binding:"optional"`                                 // Deprecated: Use incomeBasis HIGHEST_RATE.
+	Provisional          bool                              `json:"provisional,omitempty" binding:"optional"`
+	CareHoursPerWeek     int                               `json:"careHoursPerWeek,omitempty" binding:"optional"` // Deprecated: Ignored; resolved from the child's care-hours history.
 	ChildrenCount        int                               `json:"childrenCount"`
 	Notes                string                            `json:"notes"`
 } //@name CreateEinstufungRequest
@@ -86,7 +90,9 @@ type CreateEinstufungRequest struct {
 // @Description Request body for updating a fee classification
 type UpdateEinstufungRequest struct {
 	IncomeCalculation    *domain.HouseholdIncomeCalculation `json:"incomeCalculation,omitempty" binding:"optional"`
-	HighestRateVoluntary *bool                              `json:"highestRateVoluntary,omitempty" binding:"optional"`
+	IncomeBasis          *string                            `json:"incomeBasis,omitempty" enums:"INCOME,HIGHEST_RATE,NOT_REQUIRED" binding:"optional"`
+	HighestRateVoluntary *bool                              `json:"highestRateVoluntary,omitempty" binding:"optional"` // Deprecated: Use incomeBasis HIGHEST_RATE.
+	Provisional          *bool                              `json:"provisional,omitempty" binding:"optional"`
 	CareHoursPerWeek     *int                               `json:"careHoursPerWeek,omitempty" binding:"optional"` // Deprecated: Ignored; resolved from the child's care-hours history.
 	ChildrenCount        *int                               `json:"childrenCount,omitempty" binding:"optional"`
 	ValidFrom            *string                            `json:"validFrom,omitempty" binding:"optional"` // Only used for follow-up income classifications; ignored for initial classifications.
@@ -98,8 +104,10 @@ type UpdateEinstufungRequest struct {
 type CreateFollowUpEinstufungRequest struct {
 	ChangeDate           string                            `json:"changeDate"` // ISO date, cut-off: 1st-14th same month, 15th+ next month
 	IncomeCalculation    domain.HouseholdIncomeCalculation `json:"incomeCalculation"`
-	HighestRateVoluntary bool                              `json:"highestRateVoluntary"`
-	CareHoursPerWeek     int                               `json:"careHoursPerWeek"` // Deprecated: Ignored; resolved from the child's care-hours history at the effective month.
+	IncomeBasis          string                            `json:"incomeBasis,omitempty" enums:"INCOME,HIGHEST_RATE,NOT_REQUIRED" binding:"optional"` // Defaults to HIGHEST_RATE or INCOME from highestRateVoluntary.
+	HighestRateVoluntary bool                              `json:"highestRateVoluntary,omitempty" binding:"optional"`                                 // Deprecated: Use incomeBasis HIGHEST_RATE.
+	Provisional          bool                              `json:"provisional,omitempty" binding:"optional"`
+	CareHoursPerWeek     int                               `json:"careHoursPerWeek,omitempty" binding:"optional"` // Deprecated: Ignored; resolved from the child's care-hours history at the effective month.
 	ChildrenCount        int                               `json:"childrenCount"`
 	Notes                string                            `json:"notes"`
 } //@name CreateFollowUpEinstufungRequest
@@ -148,9 +156,35 @@ type CalculateIncomeResponse struct {
 	Parent2NetIncome         float64 `json:"parent2NetIncome"`
 	Parent1FeeRelevantIncome float64 `json:"parent1FeeRelevantIncome"`
 	Parent2FeeRelevantIncome float64 `json:"parent2FeeRelevantIncome"`
+	Parent1AdvertisingCosts  float64 `json:"parent1AdvertisingCosts"` // Applied WK-Pauschale, capped at the gross wages
+	Parent2AdvertisingCosts  float64 `json:"parent2AdvertisingCosts"` // Applied WK-Pauschale, capped at the gross wages
 	HouseholdFeeIncome       float64 `json:"householdFeeIncome"`
 	HouseholdFullIncome      float64 `json:"householdFullIncome"`
 } //@name CalculateIncomeResponse
+
+// PreviewEinstufungRequest is an unsaved Einstufung form. einstufungId previews
+// an edit, sourceEinstufungId a follow-up, otherwise childId and year a new one.
+// @Description Unsaved Einstufung form for the live preview
+type PreviewEinstufungRequest struct {
+	EinstufungID       string                            `json:"einstufungId,omitempty" binding:"optional"`
+	SourceEinstufungID string                            `json:"sourceEinstufungId,omitempty" binding:"optional"`
+	ChildID            string                            `json:"childId,omitempty" binding:"optional"`
+	Year               int                               `json:"year,omitempty" binding:"optional"`
+	ChangeDate         string                            `json:"changeDate,omitempty" binding:"optional"` // Follow-ups and edits of follow-ups, YYYY-MM-DD
+	IncomeCalculation  domain.HouseholdIncomeCalculation `json:"incomeCalculation"`
+	IncomeBasis        string                            `json:"incomeBasis" enums:"INCOME,HIGHEST_RATE,NOT_REQUIRED"`
+	ChildrenCount      int                               `json:"childrenCount"`
+	Provisional        bool                              `json:"provisional,omitempty" binding:"optional"`
+} //@name PreviewEinstufungRequest
+
+// EinstufungPreviewResponse is the computed, unsaved result of a form.
+// @Description Live preview of an Einstufung; nothing is saved
+type EinstufungPreviewResponse struct {
+	Einstufung EinstufungResponse      `json:"einstufung"`
+	Income     CalculateIncomeResponse `json:"income"`
+	Warnings   []string                `json:"warnings"` // Need a confirmation before saving
+	Notices    []string                `json:"notices"`
+} //@name EinstufungPreview
 
 // Create handles POST /einstufungen
 // @Summary Create a fee classification
@@ -177,24 +211,23 @@ func (h *EinstufungHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	validFrom, err := time.Parse("2006-01-02", req.ValidFrom)
-	if err != nil {
-		response.BadRequest(w, "invalid validFrom date (expected YYYY-MM-DD)")
-		return
-	}
-
-	if req.Year == 0 {
+	if req.Year == 0 && req.ValidFrom != "" {
+		validFrom, err := time.Parse("2006-01-02", req.ValidFrom)
+		if err != nil {
+			response.BadRequest(w, "invalid validFrom date (expected YYYY-MM-DD)")
+			return
+		}
 		req.Year = validFrom.Year()
 	}
 
 	result, err := h.einstufungService.Create(r.Context(), service.CreateEinstufungInput{
 		ChildID:              childID,
 		Year:                 req.Year,
-		ValidFrom:            validFrom,
 		IncomeCalculation:    req.IncomeCalculation,
+		IncomeBasis:          domain.IncomeBasis(req.IncomeBasis),
 		HighestRateVoluntary: req.HighestRateVoluntary,
-		CareHoursPerWeek:     req.CareHoursPerWeek,
 		ChildrenCount:        req.ChildrenCount,
+		Provisional:          req.Provisional,
 		Notes:                req.Notes,
 	})
 	if err != nil {
@@ -260,9 +293,13 @@ func (h *EinstufungHandler) Update(w http.ResponseWriter, r *http.Request) {
 	input := service.UpdateEinstufungInput{
 		IncomeCalculation:    req.IncomeCalculation,
 		HighestRateVoluntary: req.HighestRateVoluntary,
-		CareHoursPerWeek:     req.CareHoursPerWeek,
 		ChildrenCount:        req.ChildrenCount,
+		Provisional:          req.Provisional,
 		Notes:                req.Notes,
+	}
+	if req.IncomeBasis != nil {
+		basis := domain.IncomeBasis(*req.IncomeBasis)
+		input.IncomeBasis = &basis
 	}
 
 	if req.ValidFrom != nil {
@@ -318,9 +355,10 @@ func (h *EinstufungHandler) CreateFollowUp(w http.ResponseWriter, r *http.Reques
 	result, err := h.einstufungService.CreateFollowUp(r.Context(), sourceID, service.CreateFollowUpEinstufungInput{
 		ChangeDate:           changeDate,
 		IncomeCalculation:    req.IncomeCalculation,
+		IncomeBasis:          domain.IncomeBasis(req.IncomeBasis),
 		HighestRateVoluntary: req.HighestRateVoluntary,
-		CareHoursPerWeek:     req.CareHoursPerWeek,
 		ChildrenCount:        req.ChildrenCount,
+		Provisional:          req.Provisional,
 		Notes:                req.Notes,
 	})
 	if err != nil {
@@ -340,6 +378,7 @@ func (h *EinstufungHandler) CreateFollowUp(w http.ResponseWriter, r *http.Reques
 // @Tags Einstufungen
 // @Param id path string true "Einstufung ID"
 // @Success 204
+// @Failure 400 {object} response.ErrorBody
 // @Failure 404 {object} response.ErrorBody
 // @Security BearerAuth
 // @Router /einstufungen/{id} [delete]
@@ -351,7 +390,7 @@ func (h *EinstufungHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.einstufungService.Delete(r.Context(), id); err != nil {
-		response.NotFound(w, "Einstufung not found")
+		handleEinstufungError(w, err)
 		return
 	}
 
@@ -484,19 +523,96 @@ func (h *EinstufungHandler) CalculateIncome(w http.ResponseWriter, r *http.Reque
 		return
 	}
 
-	household := domain.HouseholdIncomeCalculation{
+	response.Success(w, toCalculateIncomeResponse(service.CalculateIncomeBreakdown(domain.HouseholdIncomeCalculation{
 		Parent1: req.Parent1,
 		Parent2: req.Parent2,
+	})))
+}
+
+// Preview handles POST /einstufungen/preview
+// @Summary Preview a fee classification
+// @Description Computes an unsaved Einstufung form exactly like create, follow-up or update would, including the monthly table. Nothing is saved.
+// @Tags Einstufungen
+// @Accept json
+// @Produce json
+// @Param body body PreviewEinstufungRequest true "Form data"
+// @Success 200 {object} EinstufungPreviewResponse
+// @Failure 400 {object} response.ErrorBody
+// @Failure 404 {object} response.ErrorBody
+// @Security BearerAuth
+// @Router /einstufungen/preview [post]
+func (h *EinstufungHandler) Preview(w http.ResponseWriter, r *http.Request) {
+	var req PreviewEinstufungRequest
+	if err := request.DecodeJSON(r, &req); err != nil {
+		response.BadRequest(w, "invalid request body")
+		return
 	}
 
-	response.Success(w, CalculateIncomeResponse{
-		Parent1NetIncome:         req.Parent1.CalculateNetIncome(),
-		Parent2NetIncome:         req.Parent2.CalculateNetIncome(),
-		Parent1FeeRelevantIncome: req.Parent1.CalculateFeeRelevantIncome(),
-		Parent2FeeRelevantIncome: req.Parent2.CalculateFeeRelevantIncome(),
-		HouseholdFeeIncome:       household.CalculateAnnualNetIncome(),
-		HouseholdFullIncome:      household.CalculateFullNetIncome(),
+	input := service.PreviewEinstufungInput{
+		Year:              req.Year,
+		IncomeCalculation: req.IncomeCalculation,
+		IncomeBasis:       domain.IncomeBasis(req.IncomeBasis),
+		ChildrenCount:     req.ChildrenCount,
+		Provisional:       req.Provisional,
+	}
+	parseID := func(value, field string, target **uuid.UUID) bool {
+		if value == "" {
+			return true
+		}
+		id, err := uuid.Parse(value)
+		if err != nil {
+			response.BadRequest(w, "invalid "+field)
+			return false
+		}
+		*target = &id
+		return true
+	}
+	var childID *uuid.UUID
+	if !parseID(req.EinstufungID, "einstufungId", &input.EinstufungID) ||
+		!parseID(req.SourceEinstufungID, "sourceEinstufungId", &input.SourceEinstufungID) ||
+		!parseID(req.ChildID, "childId", &childID) {
+		return
+	}
+	if childID != nil {
+		input.ChildID = *childID
+	} else if input.EinstufungID == nil && input.SourceEinstufungID == nil {
+		response.BadRequest(w, "childId, sourceEinstufungId or einstufungId is required")
+		return
+	}
+	if req.ChangeDate != "" {
+		changeDate, err := time.Parse("2006-01-02", req.ChangeDate)
+		if err != nil {
+			response.BadRequest(w, "invalid changeDate date (expected YYYY-MM-DD)")
+			return
+		}
+		input.ChangeDate = &changeDate
+	}
+
+	preview, err := h.einstufungService.Preview(r.Context(), input)
+	if err != nil {
+		handleEinstufungError(w, err)
+		return
+	}
+
+	response.Success(w, EinstufungPreviewResponse{
+		Einstufung: toEinstufungResponse(preview.Einstufung),
+		Income:     toCalculateIncomeResponse(preview.Income),
+		Warnings:   preview.Warnings,
+		Notices:    preview.Notices,
 	})
+}
+
+func toCalculateIncomeResponse(b service.IncomeBreakdown) CalculateIncomeResponse {
+	return CalculateIncomeResponse{
+		Parent1NetIncome:         b.Parent1NetIncome,
+		Parent2NetIncome:         b.Parent2NetIncome,
+		Parent1FeeRelevantIncome: b.Parent1FeeRelevantIncome,
+		Parent2FeeRelevantIncome: b.Parent2FeeRelevantIncome,
+		Parent1AdvertisingCosts:  b.Parent1AdvertisingCosts,
+		Parent2AdvertisingCosts:  b.Parent2AdvertisingCosts,
+		HouseholdFeeIncome:       b.HouseholdFeeIncome,
+		HouseholdFullIncome:      b.HouseholdFullIncome,
+	}
 }
 
 // toEinstufungResponse converts a domain Einstufung to API response.
@@ -510,7 +626,9 @@ func toEinstufungResponse(e *domain.Einstufung) EinstufungResponse {
 		EffectiveFromMonth:   e.EffectiveFromMonth.Format("2006-01-02"),
 		IncomeCalculation:    e.IncomeCalculation,
 		AnnualNetIncome:      e.AnnualNetIncome,
+		IncomeBasis:          string(e.IncomeBasis),
 		HighestRateVoluntary: e.HighestRateVoluntary,
+		Provisional:          e.Provisional,
 		CareHoursPerWeek:     e.CareHoursPerWeek,
 		CareType:             string(e.CareType),
 		ChildrenCount:        e.ChildrenCount,
@@ -587,11 +705,15 @@ func handleEinstufungError(w http.ResponseWriter, err error) {
 	if writeNoFeeScheduleError(w, err) {
 		return
 	}
-	if errors.Is(err, service.ErrNotFound) {
-		response.NotFound(w, "Kind oder Haushalt nicht gefunden")
-	} else if errors.Is(err, service.ErrInvalidInput) {
-		response.BadRequest(w, "Kind muss einem Haushalt zugeordnet sein")
-	} else {
+	var validation *service.ValidationError
+	switch {
+	case errors.As(err, &validation):
+		response.BadRequest(w, validation.Message)
+	case errors.Is(err, service.ErrNotFound):
+		response.NotFound(w, "Einstufung, Kind oder Haushalt nicht gefunden")
+	case errors.Is(err, service.ErrInvalidInput):
+		response.BadRequest(w, "Ungültige Eingabe")
+	default:
 		response.InternalError(w, err.Error())
 	}
 }

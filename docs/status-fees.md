@@ -3,6 +3,39 @@
 Rolling change log of non-obvious implementation decisions. Newest first.
 Basics (ports, commands, layout) live in `AGENTS.md`.
 
+## Einstufung: Einkommensgrundlage, vorläufig, Live-Vorschau (2026-10-11)
+
+- Neues Feld `income_basis` (`INCOME` | `HIGHEST_RATE` | `NOT_REQUIRED`) ersetzt die Bedeutung von
+  `highest_rate_voluntary` (bleibt als abgeleitetes Feld, wahr genau bei `HIGHEST_RATE`; die API akzeptiert es
+  noch als Fallback). `annual_net_income` ist nullable und nur bei `INCOME` gesetzt (CHECK-Constraints).
+  „Nicht erforderlich“ ist nur zulässig, wenn das Kind ab dem Wirksamkeitsmonat Kindergartenkind ist.
+  Bei Nicht-`INCOME` wird die Einkommensaufstellung geleert.
+- `provisional` („Vorläufig – Nachweise fehlen“): reine Kennzeichnung, ändert keinen Betrag; Liste und
+  Ergebnis zeigen ein Badge, der Druck-Text erwähnt es.
+- Werbungskosten-Pauschale wird höchstens bis zum Bruttolohn angerechnet (analog § 9a EStG; ohne
+  Lohneinkommen keine negativen Einkünfte mehr). `calculate-income` liefert die angerechneten Beträge.
+- Haushalt folgt der offenen Einstufung (ohne `validUntil`): `INCOME` → `PROVIDED` + Einkommen,
+  `HIGHEST_RATE` → `MAX_ACCEPTED` ohne Einkommen, `NOT_REQUIRED` → `NOT_REQUIRED` ohne Einkommen, aber nur aus
+  leerem, `PENDING` oder `NOT_REQUIRED` (Geschwister mit Einkommen behalten ihren Status). Pflegefamilien
+  behalten ihren Status. Änderungen an abgeschlossenen Einstufungen lassen den Haushalt unberührt; Löschen
+  einer offenen Folgeeinstufung wendet die Vorgängerin wieder an. Alles läuft in einer Transaktion.
+- `POST /einstufungen/preview` rechnet ein ungespeichertes Formular exakt wie Speichern (neu: `childId` +
+  `year`; Folge: `sourceEinstufungId` + `changeDate`; Bearbeiten: `einstufungId`) und liefert Einstufung inkl.
+  Monatstabelle, Einkommensaufschlüsselung, `warnings` (Krippe ohne Einkommensangaben oder mit negativem
+  Einkommen; vor dem Speichern muss bestätigt werden) und `notices` (Kindergartenkind mit Einkommen, gekappte
+  WK-Pauschale). Die Seite fragt entprellt (400 ms) nach und zeigt „Vorschau – noch nicht gespeichert“, sobald
+  das Formular vom gespeicherten Stand abweicht; der Aufruf von `calculate-income` aus der Seite entfällt.
+- Fachliche Fehler kommen als `service.ValidationError` mit deutscher Meldung (400): Überschneidung
+  (`ex_einstufungen_child_period`), Löschen mit Folgeeinstufung, ungültiges Folgedatum, Kind ohne Haushalt.
+  `validFrom` und `careHoursPerWeek` im Create-Request sind veraltet: Beginn und Stunden kommen aus dem Kind.
+- Migration `000045` korrigiert Bestandsdaten: Höchstsatz-Einstufungen → `HIGHEST_RATE` ohne Einkommen
+  (bisher −3.000 € aus der WK-Pauschale), Kindergarten-Einstufungen ohne Einkommensangaben → `NOT_REQUIRED`
+  mit Bemerkung „Einkommen unbekannt – nicht abgefragt (Kindergartenkind, beitragsfrei)“; Haushalte
+  `MAX_ACCEPTED` ohne Einkommen, `PROVIDED` mit Einkommen ≤ 0 und nur `NOT_REQUIRED`-Einstufungen →
+  `NOT_REQUIRED`. Kein Beitrag ändert sich (Höchstsatz ignoriert das Einkommen, betroffene Kinder sind
+  beitragsfrei; Sollstellungen bleiben unberührt). Probelauf auf der Live-Kopie: 7 Höchstsatz, 5 nicht
+  erforderlich, 6 mit Einkommen. Die Down-Migration stellt die Spalten, nicht die alten Werte wieder her.
+
 ## Einstufungsbrief als Server-PDF, Mail-Anhänge (2026-10-11)
 
 - Neues Paket `internal/letter`: rendert den Einstufungsbrief mit `codeberg.org/go-pdf/fpdf` nach der Vorlage

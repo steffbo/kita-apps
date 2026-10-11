@@ -221,8 +221,13 @@ onMounted(() => loadEinstufungen());
               <span class="text-sm text-muted-foreground">{{ formatCareType(e.careType) }} · {{ e.careHoursPerWeek }}h</span>
             </td>
             <td class="px-4 py-3 whitespace-nowrap text-right">
-              <span v-if="e.highestRateVoluntary" class="text-sm text-muted-foreground italic">Höchstsatz</span>
-              <span v-else class="text-sm text-foreground">{{ formatCurrency(e.annualNetIncome) }}</span>
+              <span v-if="e.incomeBasis === 'HIGHEST_RATE'" class="text-sm text-muted-foreground italic">Höchstsatz</span>
+              <span v-else-if="e.incomeBasis === 'NOT_REQUIRED'" class="text-sm text-muted-foreground italic">nicht erforderlich</span>
+              <span v-else class="text-sm text-foreground">{{ formatCurrency(e.annualNetIncome ?? 0) }}</span>
+              <span
+                v-if="e.provisional"
+                class="ml-2 inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
+              >vorläufig</span>
             </td>
             <td class="px-4 py-3 whitespace-nowrap">
               <span

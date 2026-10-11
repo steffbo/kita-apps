@@ -180,7 +180,7 @@ func TestEinstufungMonthlyTableUsesChildCareHoursHistory(t *testing.T) {
 	householdRepo := repository.NewPostgresHouseholdRepository(testDB)
 	einstufungRepo := repository.NewPostgresEinstufungRepository(testDB)
 	feeService := service.NewFeeService(nil, childRepo, householdRepo, nil, nil, repository.NewPostgresFeeScheduleRepository(testDB))
-	einstufungService := service.NewEinstufungService(einstufungRepo, householdRepo, childRepo, feeService)
+	einstufungService := service.NewEinstufungService(einstufungRepo, householdRepo, childRepo, feeService, nil)
 
 	household := &domain.Household{
 		ID:               uuid.New(),
@@ -210,7 +210,9 @@ func TestEinstufungMonthlyTableUsesChildCareHoursHistory(t *testing.T) {
 	}
 
 	e := testEinstufung(child.ID, household.ID, time.Date(2026, time.August, 1, 0, 0, 0, 0, time.UTC))
+	e.IncomeBasis = domain.IncomeBasisHighestRate
 	e.HighestRateVoluntary = true
+	e.AnnualNetIncome = nil
 	e.ChildrenCount = 2
 	if err := einstufungRepo.Create(ctx, e); err != nil {
 		t.Fatal(err)
@@ -240,6 +242,7 @@ func TestEinstufungMonthlyTableUsesChildCareHoursHistory(t *testing.T) {
 
 func testEinstufung(childID uuid.UUID, householdID uuid.UUID, start time.Time) *domain.Einstufung {
 	changeDate := start
+	income := 50000.0
 	return &domain.Einstufung{
 		ID:                   uuid.New(),
 		ChildID:              childID,
@@ -249,7 +252,8 @@ func testEinstufung(childID uuid.UUID, householdID uuid.UUID, start time.Time) *
 		ChangeDate:           &changeDate,
 		EffectiveFromMonth:   start,
 		IncomeCalculation:    domain.HouseholdIncomeCalculation{},
-		AnnualNetIncome:      50000,
+		AnnualNetIncome:      &income,
+		IncomeBasis:          domain.IncomeBasisIncome,
 		HighestRateVoluntary: false,
 		CareHoursPerWeek:     45,
 		CareType:             domain.ChildAgeTypeKrippe,

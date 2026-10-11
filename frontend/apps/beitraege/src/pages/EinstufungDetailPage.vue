@@ -4,14 +4,17 @@ import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api';
 import type {
   Einstufung,
+  EinstufungPreview,
   Child,
   Household,
+  IncomeBasis,
   IncomeDetails,
   HouseholdIncomeCalculation,
-  CalculateIncomeResponse,
   ChildcareExpectationSyncResult,
+  PreviewEinstufungRequest,
 } from '@/api/types';
 import {
+  AlertTriangle,
   ArrowLeft,
   Calculator,
   Loader2,
@@ -57,7 +60,8 @@ const yearOptions = computed(() =>
   [...new Set([currentYear - 1, currentYear, currentYear + 1, selectedYear.value])].sort((a, b) => a - b));
 const validFrom = ref(`${new Date().getFullYear()}-01-01`);
 const childrenCount = ref(1);
-const highestRateVoluntary = ref(false);
+const incomeBasis = ref<IncomeBasis>('INCOME');
+const provisional = ref(false);
 const notes = ref('');
 
 // Income form
@@ -88,44 +92,6 @@ function emptyIncome(): IncomeDetails {
 const parent1Income = ref<IncomeDetails>(emptyIncome());
 const parent2Income = ref<IncomeDetails>(emptyIncome());
 
-const incomePreview = ref<CalculateIncomeResponse | null>(null);
-const incomePreviewError = ref<string | null>(null);
-let incomePreviewSequence = 0;
-
-watch(
-  [parent1Income, parent2Income, highestRateVoluntary],
-  ([parent1, parent2, highestRate], _previous, onCleanup) => {
-    const sequence = ++incomePreviewSequence;
-    let timer: ReturnType<typeof setTimeout> | undefined;
-    onCleanup(() => {
-      ++incomePreviewSequence;
-      if (timer !== undefined) clearTimeout(timer);
-    });
-
-    incomePreviewError.value = null;
-    if (highestRate) {
-      incomePreview.value = null;
-      return;
-    }
-
-    const p1 = { ...parent1 };
-    const p2 = { ...parent2 };
-    timer = setTimeout(async () => {
-      try {
-        const result = await api.calculateIncome(p1, p2);
-        if (sequence !== incomePreviewSequence) return;
-        incomePreview.value = result;
-      } catch (e) {
-        if (sequence !== incomePreviewSequence) return;
-        incomePreviewError.value = e instanceof Error
-          ? e.message
-          : 'Einkommensvorschau konnte nicht geladen werden';
-      }
-    }, 300);
-  },
-  { deep: true, immediate: true, flush: 'sync' },
-);
-
 // Reference data
 const children = ref<Child[]>([]);
 const households = ref<Household[]>([]);
@@ -155,8 +121,13 @@ function defaultYearFor(child: Child): number {
   return entryYear > currentYear ? entryYear : currentYear;
 }
 
-// Mirrors the backend: a new Einstufung starts on 1 January of its year or in the entry month.
+// Mirrors the backend: a new Einstufung starts on 1 January of its year or in the entry month,
+// a follow-up in the month given by the 14th/15th cut-off of the change date.
 const periodStartMonth = computed(() => {
+  if (!isNew.value && einstufung.value) {
+    return (einstufung.value.effectiveFromMonth || einstufung.value.validFrom).slice(0, 7);
+  }
+  if (isFollowUpMode.value) return calculateEffectiveFromMonth(validFrom.value).slice(0, 7);
   const entry = selectedChild.value?.entryDate.split('T')[0];
   const yearStart = `${selectedYear.value}-01-01`;
   return (entry && entry > yearStart ? entry : yearStart).slice(0, 7);
@@ -174,6 +145,27 @@ const feeFreeFromMonth = computed(() => {
 const isKindergartenAtStart = computed(() =>
   !!feeFreeFromMonth.value && feeFreeFromMonth.value <= periodStartMonth.value);
 
+const incomeBasisOptions = computed(() => [
+  { value: 'INCOME' as const, label: 'Einkommen', hint: 'nach Einkommensnachweisen', disabled: false },
+  { value: 'HIGHEST_RATE' as const, label: 'Höchstsatz', hint: 'freiwillig anerkannt, ohne Nachweise', disabled: false },
+  {
+    value: 'NOT_REQUIRED' as const,
+    label: 'Nicht erforderlich',
+    hint: isKindergartenAtStart.value ? 'Kindergartenkind, beitragsfrei' : 'nur für Kindergartenkinder',
+    disabled: !isKindergartenAtStart.value,
+  },
+]);
+
+const INCOME_BASIS_LABELS: Record<IncomeBasis, string> = {
+  INCOME: 'Einkommen',
+  HIGHEST_RATE: 'Höchstsatz (freiwillig)',
+  NOT_REQUIRED: 'Einkommen nicht erforderlich',
+};
+
+watch(isKindergartenAtStart, (kindergarten) => {
+  if (isNew.value && !kindergarten && incomeBasis.value === 'NOT_REQUIRED') incomeBasis.value = 'INCOME';
+});
+
 function hasIncomeData(e: Einstufung): boolean {
   return [e.incomeCalculation.parent1, e.incomeCalculation.parent2].some((parent) =>
     Object.entries(parent).some(([key, value]) => key !== 'advertisingCosts' && Number(value) !== 0));
@@ -181,7 +173,8 @@ function hasIncomeData(e: Einstufung): boolean {
 
 function resetIncomeForm() {
   childrenCount.value = 1;
-  highestRateVoluntary.value = false;
+  incomeBasis.value = 'INCOME';
+  provisional.value = false;
   parent1Income.value = emptyIncome();
   parent2Income.value = emptyIncome();
 }
@@ -200,7 +193,9 @@ async function applyChildDefaults() {
 
   // Every known child of the household counts; parents may have further dependants.
   childrenCount.value = Math.max(1, householdChildren.value.length, household.childrenCountForFees ?? 0);
-  highestRateVoluntary.value = household.incomeStatus === 'MAX_ACCEPTED';
+  // Kindergarten children are free; their parents are not asked for income.
+  if (isKindergartenAtStart.value) incomeBasis.value = 'NOT_REQUIRED';
+  else if (household.incomeStatus === 'MAX_ACCEPTED') incomeBasis.value = 'HIGHEST_RATE';
 
   isPrefilling.value = true;
   try {
@@ -209,12 +204,14 @@ async function applyChildDefaults() {
     existingOpenEinstufung.value =
       householdEinstufungen.find((e) => e.childId === child.id && !e.validUntil) ?? null;
     // Newest first: the latest decision with income data or an accepted highest rate.
-    const source = householdEinstufungen.find((e) => e.highestRateVoluntary || hasIncomeData(e));
+    const source = householdEinstufungen.find((e) =>
+      e.incomeBasis === 'HIGHEST_RATE' || (e.incomeBasis === 'INCOME' && hasIncomeData(e)));
     if (!source) return;
     prefillSource.value = source;
     childrenCount.value = Math.max(childrenCount.value, source.childrenCount);
-    highestRateVoluntary.value = source.highestRateVoluntary;
-    if (!source.highestRateVoluntary) {
+    if (incomeBasis.value === 'NOT_REQUIRED') return;
+    incomeBasis.value = source.incomeBasis;
+    if (source.incomeBasis === 'INCOME') {
       parent1Income.value = { ...emptyIncome(), ...source.incomeCalculation.parent1 };
       parent2Income.value = { ...emptyIncome(), ...source.incomeCalculation.parent2 };
     }
@@ -234,11 +231,19 @@ function onChildSelected() {
 
 // Keeps the household defaults (children count) and only drops the copied decision.
 function discardPrefill() {
-  if (prefillSource.value?.highestRateVoluntary) highestRateVoluntary.value = false;
+  if (prefillSource.value?.incomeBasis === 'HIGHEST_RATE' && incomeBasis.value === 'HIGHEST_RATE') {
+    incomeBasis.value = 'INCOME';
+  }
   prefillSource.value = null;
   parent1Income.value = emptyIncome();
   parent2Income.value = emptyIncome();
 }
+
+const prefillSummary = computed(() => {
+  if (incomeBasis.value === 'NOT_REQUIRED') return 'Kinderzahl übernommen';
+  const what = prefillSource.value?.incomeBasis === 'HIGHEST_RATE' ? 'Höchstsatz-Anerkennung' : 'Einkommensangaben';
+  return `${what} und Kinderzahl übernommen`;
+});
 
 function einstufungLabel(e: Einstufung): string {
   const name = e.child ? `${e.child.firstName} ${e.child.lastName}` : 'Geschwisterkind';
@@ -274,6 +279,86 @@ const effectiveFromMonthPreview = computed(() => {
 
 function formatEffectiveFromMonth(value: string): string {
   return formatMonthYear(Number(value.slice(0, 4)), Number(value.slice(5, 7)));
+}
+
+// Live preview: the backend computes the unsaved form exactly like saving would.
+const preview = ref<EinstufungPreview | null>(null);
+const previewError = ref<string | null>(null);
+const isPreviewing = ref(false);
+let previewSequence = 0;
+
+function incomeCalculation(): HouseholdIncomeCalculation {
+  return { parent1: parent1Income.value, parent2: parent2Income.value };
+}
+
+const previewRequest = computed<PreviewEinstufungRequest | null>(() => {
+  if (!selectedChildId.value || childMissingHousehold.value) return null;
+  const form = {
+    incomeCalculation: incomeCalculation(),
+    incomeBasis: incomeBasis.value,
+    childrenCount: Number(childrenCount.value) || 0,
+    provisional: provisional.value,
+  };
+  if (!isNew.value) return einstufungId.value ? { ...form, einstufungId: einstufungId.value } : null;
+  if (isFollowUpMode.value) {
+    return sourceEinstufung.value && validFrom.value
+      ? { ...form, sourceEinstufungId: sourceEinstufung.value.id, changeDate: validFrom.value }
+      : null;
+  }
+  if (isPrefilling.value || existingOpenEinstufung.value) return null;
+  return { ...form, childId: selectedChildId.value, year: selectedYear.value };
+});
+
+// Calculation inputs as last loaded or saved; the result card shows the stored
+// Einstufung until the form differs from it.
+const savedFormSnapshot = ref<string | null>(null);
+const formSnapshot = computed(() => {
+  const request = previewRequest.value;
+  return request
+    ? JSON.stringify([request.incomeCalculation, request.incomeBasis, request.childrenCount, request.provisional])
+    : null;
+});
+const hasUnsavedCalculation = computed(() => isNew.value || formSnapshot.value !== savedFormSnapshot.value);
+
+watch(
+  () => (previewRequest.value && hasUnsavedCalculation.value ? JSON.stringify(previewRequest.value) : null),
+  (payload, _previous, onCleanup) => {
+    const sequence = ++previewSequence;
+    previewError.value = null;
+    if (!payload) {
+      preview.value = null;
+      isPreviewing.value = false;
+      return;
+    }
+    isPreviewing.value = true;
+    const timer = setTimeout(async () => {
+      try {
+        const result = await api.previewEinstufung(JSON.parse(payload) as PreviewEinstufungRequest);
+        if (sequence !== previewSequence) return;
+        preview.value = result;
+      } catch (e) {
+        if (sequence !== previewSequence) return;
+        preview.value = null;
+        previewError.value = e instanceof Error ? e.message : 'Vorschau konnte nicht berechnet werden';
+      } finally {
+        if (sequence === previewSequence) isPreviewing.value = false;
+      }
+    }, 400);
+    onCleanup(() => clearTimeout(timer));
+  },
+  { immediate: true },
+);
+
+const shownResult = computed(() =>
+  hasUnsavedCalculation.value ? preview.value?.einstufung ?? null : einstufung.value);
+
+// Saving needs a confirmation while the current form produces warnings.
+async function confirmPreviewWarnings(): Promise<boolean> {
+  const request = previewRequest.value;
+  if (!request) return true;
+  const result = await api.previewEinstufung(request);
+  if (!result.warnings.length) return true;
+  return confirm(`${result.warnings.join('\n\n')}\n\nTrotzdem speichern?`);
 }
 
 const BANK_DETAILS = `Knirpsenstadt e.V.
@@ -426,10 +511,12 @@ async function loadData() {
       // normalized billing-month boundary and must not replace that date.
       validFrom.value = (e.changeDate || e.validFrom).split('T')[0];
       childrenCount.value = e.childrenCount;
-      highestRateVoluntary.value = e.highestRateVoluntary;
+      incomeBasis.value = e.incomeBasis;
+      provisional.value = e.provisional;
       notes.value = e.notes || '';
       parent1Income.value = { ...emptyIncome(), ...e.incomeCalculation.parent1 };
       parent2Income.value = { ...emptyIncome(), ...e.incomeCalculation.parent2 };
+      savedFormSnapshot.value = formSnapshot.value;
     } else if (isFollowUpMode.value) {
       let source: Einstufung | null = null;
       if (route.query.sourceId) {
@@ -445,7 +532,8 @@ async function loadData() {
       selectedYear.value = new Date(calculateEffectiveFromMonth(todayISO())).getUTCFullYear();
       validFrom.value = todayISO();
       childrenCount.value = source.childrenCount;
-      highestRateVoluntary.value = source.highestRateVoluntary;
+      incomeBasis.value = source.incomeBasis;
+      provisional.value = false;
       notes.value = source.notes || '';
       parent1Income.value = { ...emptyIncome(), ...source.incomeCalculation.parent1 };
       parent2Income.value = { ...emptyIncome(), ...source.incomeCalculation.parent2 };
@@ -481,12 +569,16 @@ async function handleSubmit() {
   error.value = null;
   saveSuccess.value = false;
 
-  const incomeCalculation: HouseholdIncomeCalculation = {
-    parent1: parent1Income.value,
-    parent2: parent2Income.value,
+  const form = {
+    incomeCalculation: incomeCalculation(),
+    incomeBasis: incomeBasis.value,
+    provisional: provisional.value,
+    childrenCount: childrenCount.value,
+    notes: notes.value || undefined,
   };
 
   try {
+    if (!(await confirmPreviewWarnings())) return;
     if (isNew.value) {
       let created: Einstufung;
       if (isFollowUpMode.value) {
@@ -494,25 +586,16 @@ async function handleSubmit() {
           throw new Error('Keine bestehende Einstufung als Vorlage gefunden.');
         }
         const result = await api.createFollowUpEinstufung(sourceEinstufung.value.id, {
+          ...form,
           changeDate: validFrom.value,
-          incomeCalculation,
-          highestRateVoluntary: highestRateVoluntary.value,
-          careHoursPerWeek: 0,
-          childrenCount: childrenCount.value,
-          notes: notes.value || undefined,
         });
         created = result.einstufung;
         expectationChanges.value = result.expectationChanges;
       } else {
         created = await api.createEinstufung({
+          ...form,
           childId: selectedChildId.value,
           year: selectedYear.value,
-          validFrom: selectedChild.value?.entryDate?.split('T')[0] ?? `${selectedYear.value}-01-01`,
-          incomeCalculation,
-          highestRateVoluntary: highestRateVoluntary.value,
-          careHoursPerWeek: 0,
-          childrenCount: childrenCount.value,
-          notes: notes.value || undefined,
         });
       }
       // Stay on page: show result + PDF immediately
@@ -521,13 +604,9 @@ async function handleSubmit() {
       saveSuccess.value = true;
       setTimeout(() => (saveSuccess.value = false), 3000);
     } else {
-      const updated = await api.updateEinstufung(einstufungId.value!, {
-        incomeCalculation,
-        highestRateVoluntary: highestRateVoluntary.value,
-        childrenCount: childrenCount.value,
-        notes: notes.value || undefined,
-      });
+      const updated = await api.updateEinstufung(einstufungId.value!, form);
       einstufung.value = updated;
+      savedFormSnapshot.value = formSnapshot.value;
       saveSuccess.value = true;
       setTimeout(() => (saveSuccess.value = false), 3000);
     }
@@ -666,18 +745,44 @@ watch(defaultEmailBody, (next) => {
             </p>
           </div>
 
-          <!-- Highest rate voluntary -->
-          <div class="flex items-center gap-2 self-end pb-2">
-            <input
-              type="checkbox"
-              v-model="highestRateVoluntary"
-              id="highestRateVoluntary"
-              class="h-4 w-4 text-primary rounded focus:ring-primary/20"
-            />
-            <label for="highestRateVoluntary" class="text-sm text-foreground">
-              Freiwillige Anerkennung des Höchstsatzes
-            </label>
-          </div>
+          <fieldset class="md:col-span-2 lg:col-span-3">
+            <legend class="block text-sm font-medium text-foreground mb-2">Einkommensgrundlage *</legend>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <label
+                v-for="option in incomeBasisOptions"
+                :key="option.value"
+                :class="[
+                  'flex items-start gap-2 rounded-lg border px-3 py-2 text-sm transition-colors',
+                  option.disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-accent',
+                  incomeBasis === option.value ? 'border-primary bg-primary/5' : '',
+                ]"
+              >
+                <input
+                  type="radio"
+                  name="incomeBasis"
+                  :value="option.value"
+                  v-model="incomeBasis"
+                  :disabled="option.disabled"
+                  class="mt-0.5 h-4 w-4 text-primary focus:ring-primary/20"
+                />
+                <span>
+                  <span class="font-medium text-foreground">{{ option.label }}</span>
+                  <span class="block text-xs text-muted-foreground">{{ option.hint }}</span>
+                </span>
+              </label>
+            </div>
+            <div class="mt-3 flex items-center gap-2">
+              <input
+                type="checkbox"
+                v-model="provisional"
+                id="provisional"
+                class="h-4 w-4 text-primary rounded focus:ring-primary/20"
+              />
+              <label for="provisional" class="text-sm text-foreground">
+                Vorläufig – Nachweise fehlen noch
+              </label>
+            </div>
+          </fieldset>
         </div>
 
         <!-- Household info -->
@@ -728,8 +833,7 @@ watch(defaultEmailBody, (next) => {
           <div v-else-if="prefillSource" class="mt-4 p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-100 rounded-lg flex items-start gap-2 text-sm text-blue-800 dark:text-blue-300">
             <Info class="h-4 w-4 mt-0.5 shrink-0" />
             <div class="flex-1">
-              {{ prefillSource.highestRateVoluntary ? 'Höchstsatz-Anerkennung' : 'Einkommensangaben' }}
-              und Kinderzahl übernommen aus der Einstufung von {{ einstufungLabel(prefillSource) }}.
+              {{ prefillSummary }} aus der Einstufung von {{ einstufungLabel(prefillSource) }}.
               Bitte prüfen, ob die Angaben noch aktuell sind.
             </div>
             <button type="button" class="shrink-0 text-xs font-medium underline" @click="discardPrefill">
@@ -760,7 +864,7 @@ watch(defaultEmailBody, (next) => {
       </div>
 
       <!-- Income Calculation Card -->
-      <div v-if="!highestRateVoluntary" class="bg-card rounded-lg border shadow-sm p-6">
+      <div v-if="incomeBasis === 'INCOME'" class="bg-card rounded-lg border shadow-sm p-6">
         <h2 class="text-lg font-semibold text-foreground mb-1 flex items-center gap-2">
           <Calculator class="h-5 w-5 text-muted-foreground" />
           Einkommensberechnung
@@ -787,36 +891,40 @@ watch(defaultEmailBody, (next) => {
           </section>
         </div>
 
-        <!-- Calculation preview -->
-        <div v-if="incomePreview || incomePreviewError"
-          class="mt-6 p-4 bg-blue-50 dark:bg-blue-950/40 rounded-lg border border-blue-100">
+        <!-- Income from the live preview -->
+        <div v-if="preview" class="mt-6 p-4 bg-blue-50 dark:bg-blue-950/40 rounded-lg border border-blue-100">
           <h4 class="text-sm font-semibold text-blue-900 dark:text-blue-300 mb-3 flex items-center gap-2">
             <Euro class="h-4 w-4" />
             Einkommensvorschau
           </h4>
-          <div v-if="incomePreview" class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
             <div>
               <span class="text-blue-600 dark:text-blue-300">Elternteil 1 (Netto)</span>
-              <p class="font-semibold text-blue-900 dark:text-blue-300">{{ formatCurrency(incomePreview.parent1NetIncome) }}</p>
-              <span class="text-xs text-blue-500 dark:text-blue-400">Beitragsrelevant: {{ formatCurrency(incomePreview.parent1FeeRelevantIncome) }}</span>
+              <p class="font-semibold text-blue-900 dark:text-blue-300">{{ formatCurrency(preview.income.parent1NetIncome) }}</p>
+              <span class="block text-xs text-blue-500 dark:text-blue-400">Beitragsrelevant: {{ formatCurrency(preview.income.parent1FeeRelevantIncome) }}</span>
+              <span v-if="preview.income.parent1AdvertisingCosts > 0" class="block text-xs text-blue-500 dark:text-blue-400">
+                WK-Pauschale angerechnet: {{ formatCurrency(preview.income.parent1AdvertisingCosts) }}
+              </span>
             </div>
             <div>
               <span class="text-blue-600 dark:text-blue-300">Elternteil 2 (Netto)</span>
-              <p class="font-semibold text-blue-900 dark:text-blue-300">{{ formatCurrency(incomePreview.parent2NetIncome) }}</p>
-              <span class="text-xs text-blue-500 dark:text-blue-400">Beitragsrelevant: {{ formatCurrency(incomePreview.parent2FeeRelevantIncome) }}</span>
+              <p class="font-semibold text-blue-900 dark:text-blue-300">{{ formatCurrency(preview.income.parent2NetIncome) }}</p>
+              <span class="block text-xs text-blue-500 dark:text-blue-400">Beitragsrelevant: {{ formatCurrency(preview.income.parent2FeeRelevantIncome) }}</span>
+              <span v-if="preview.income.parent2AdvertisingCosts > 0" class="block text-xs text-blue-500 dark:text-blue-400">
+                WK-Pauschale angerechnet: {{ formatCurrency(preview.income.parent2AdvertisingCosts) }}
+              </span>
             </div>
             <div>
               <span class="text-blue-600 dark:text-blue-300">Haushaltseinkommen (beitragsrelevant)</span>
-              <p class="text-lg font-bold text-blue-900 dark:text-blue-300">{{ formatCurrency(incomePreview.householdFeeIncome) }}</p>
-              <span class="text-xs text-blue-500 dark:text-blue-400">Gesamt inkl. Leistungen: {{ formatCurrency(incomePreview.householdFullIncome) }}</span>
+              <p class="text-lg font-bold text-blue-900 dark:text-blue-300">{{ formatCurrency(preview.income.householdFeeIncome) }}</p>
+              <span class="text-xs text-blue-500 dark:text-blue-400">Gesamt inkl. Leistungen: {{ formatCurrency(preview.income.householdFullIncome) }}</span>
             </div>
           </div>
-          <p v-if="incomePreviewError" class="mt-2 text-xs text-destructive">{{ incomePreviewError }}</p>
         </div>
       </div>
 
       <!-- Highest rate notice -->
-      <div v-if="highestRateVoluntary" class="bg-orange-50 dark:bg-orange-950/40 border border-orange-200 rounded-lg p-4 flex items-start gap-3">
+      <div v-if="incomeBasis === 'HIGHEST_RATE'" class="bg-orange-50 dark:bg-orange-950/40 border border-orange-200 rounded-lg p-4 flex items-start gap-3">
         <Info class="h-5 w-5 text-orange-500 dark:text-orange-400 mt-0.5 shrink-0" />
         <div class="text-sm text-orange-800 dark:text-orange-300">
           <strong>Freiwillige Anerkennung des Höchstsatzes</strong>
@@ -827,15 +935,27 @@ watch(defaultEmailBody, (next) => {
         </div>
       </div>
 
-      <!-- Result preview (edit mode) -->
-      <div v-if="einstufung" class="bg-card rounded-lg border shadow-sm p-6">
+      <div v-if="incomeBasis === 'NOT_REQUIRED'" class="bg-green-50 dark:bg-green-950/40 border border-green-200 rounded-lg p-4 flex items-start gap-3">
+        <Info class="h-5 w-5 text-green-600 dark:text-green-400 mt-0.5 shrink-0" />
+        <div class="text-sm text-green-800 dark:text-green-300">
+          <strong>Einkommen nicht erforderlich</strong>
+          <p class="mt-1">
+            Das Kind ist im Kindergartenalter, die Betreuung ist beitragsfrei. Ein Einkommen wird nicht
+            erfasst; in Einstufung und Haushalt bleibt es leer.
+          </p>
+        </div>
+      </div>
+
+      <!-- Result: the stored Einstufung, or the live preview while the form differs from it -->
+      <div v-if="shownResult || isPreviewing || previewError || preview?.warnings.length" class="bg-card rounded-lg border shadow-sm p-6">
         <div class="flex items-center justify-between gap-3 mb-4">
           <h2 class="text-lg font-semibold text-foreground flex items-center gap-2">
             <FileText class="h-5 w-5 text-muted-foreground" />
-            Ergebnis
+            {{ hasUnsavedCalculation ? 'Vorschau – noch nicht gespeichert' : 'Ergebnis' }}
+            <Loader2 v-if="isPreviewing" class="h-4 w-4 animate-spin text-muted-foreground" />
           </h2>
           <button
-            v-if="!isNew && !successorEinstufung"
+            v-if="einstufung && !isNew && !successorEinstufung && !hasUnsavedCalculation"
             type="button"
             @click="router.push(`/einstufungen/neu?sourceId=${einstufung.id}`)"
             class="inline-flex items-center gap-2 px-3 py-2 text-xs text-primary-foreground bg-primary rounded-lg hover:bg-primary/90 transition-colors"
@@ -843,57 +963,92 @@ watch(defaultEmailBody, (next) => {
             Folgeeinstufung erstellen
           </button>
         </div>
-        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div>
-            <span class="text-sm text-muted-foreground">Platzgeld</span>
-            <p class="text-xl font-bold text-foreground">{{ formatCurrency(einstufung.monthlyChildcareFee) }}</p>
-            <span class="text-xs text-muted-foreground">monatlich</span>
+
+        <p v-if="previewError" class="mb-4 text-sm text-destructive">{{ previewError }}</p>
+
+        <div v-if="hasUnsavedCalculation && preview && (preview.warnings.length || preview.notices.length)" class="mb-4 space-y-2">
+          <div
+            v-for="warning in preview.warnings"
+            :key="warning"
+            class="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 rounded-lg flex items-start gap-2 text-sm text-amber-800 dark:text-amber-300"
+          >
+            <AlertTriangle class="h-4 w-4 mt-0.5 shrink-0" />
+            {{ warning }}
           </div>
-          <div>
-            <span class="text-sm text-muted-foreground">Essengeld</span>
-            <p class="text-xl font-bold text-foreground">{{ formatCurrency(einstufung.monthlyFoodFee) }}</p>
-            <span class="text-xs text-muted-foreground">monatlich</span>
-          </div>
-          <div>
-            <span class="text-sm text-muted-foreground">Vereinsbeitrag</span>
-            <p class="text-xl font-bold text-foreground">{{ formatCurrency(einstufung.annualMembershipFee) }}</p>
-            <span class="text-xs text-muted-foreground">jährlich</span>
-          </div>
-          <div>
-            <span class="text-sm text-muted-foreground">Regel</span>
-            <p class="text-lg font-semibold text-foreground">{{ einstufung.feeRule }}</p>
-            <span v-if="einstufung.discountPercent > 0" class="text-xs text-green-600 dark:text-green-300">
-              {{ einstufung.discountPercent }}% Geschwisterrabatt
-            </span>
+          <div
+            v-for="notice in preview.notices"
+            :key="notice"
+            class="p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-100 rounded-lg flex items-start gap-2 text-sm text-blue-800 dark:text-blue-300"
+          >
+            <Info class="h-4 w-4 mt-0.5 shrink-0" />
+            {{ notice }}
           </div>
         </div>
 
-        <!-- Monthly table -->
-        <div v-if="einstufung.monthlyTable && einstufung.monthlyTable.length" class="mt-6">
-          <h3 class="text-sm font-medium text-foreground mb-2">Monatsübersicht</h3>
-          <table class="min-w-full divide-y divide-border text-sm">
-            <thead class="bg-muted">
-              <tr>
-                <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Monat</th>
-                <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Bereich</th>
-                <th class="px-3 py-2 text-right text-xs font-medium text-muted-foreground uppercase">Platzgeld</th>
-                <th class="px-3 py-2 text-right text-xs font-medium text-muted-foreground uppercase">Essengeld</th>
-                <th class="px-3 py-2 text-right text-xs font-medium text-muted-foreground uppercase">Vereinsbeitrag</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-border">
-              <tr v-for="row in einstufung.monthlyTable" :key="`${row.year}-${row.month}`">
-                <td class="px-3 py-2 text-foreground">
-                  {{ formatMonthYear(row.year, row.month) }}
-                </td>
-                <td class="px-3 py-2 text-muted-foreground">{{ row.careType }} · {{ row.careHoursPerWeek }}h</td>
-                <td class="px-3 py-2 text-right font-medium">{{ formatCurrency(row.childcareFee) }}</td>
-                <td class="px-3 py-2 text-right">{{ formatCurrency(row.foodFee) }}</td>
-                <td class="px-3 py-2 text-right">{{ row.membershipFee > 0 ? formatCurrency(row.membershipFee) : '—' }}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+        <template v-if="shownResult">
+          <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div>
+              <span class="text-sm text-muted-foreground">Platzgeld</span>
+              <p class="text-xl font-bold text-foreground">{{ formatCurrency(shownResult.monthlyChildcareFee) }}</p>
+              <span class="text-xs text-muted-foreground">monatlich</span>
+            </div>
+            <div>
+              <span class="text-sm text-muted-foreground">Essengeld</span>
+              <p class="text-xl font-bold text-foreground">{{ formatCurrency(shownResult.monthlyFoodFee) }}</p>
+              <span class="text-xs text-muted-foreground">monatlich</span>
+            </div>
+            <div>
+              <span class="text-sm text-muted-foreground">Vereinsbeitrag</span>
+              <p class="text-xl font-bold text-foreground">{{ formatCurrency(shownResult.annualMembershipFee) }}</p>
+              <span class="text-xs text-muted-foreground">jährlich</span>
+            </div>
+            <div>
+              <span class="text-sm text-muted-foreground">Regel</span>
+              <p class="text-lg font-semibold text-foreground">{{ shownResult.feeRule }}</p>
+              <span v-if="shownResult.discountPercent > 0" class="text-xs text-green-600 dark:text-green-300">
+                {{ shownResult.discountPercent }}% Geschwisterrabatt
+              </span>
+            </div>
+          </div>
+
+          <div class="mt-4 flex flex-wrap gap-2 text-xs">
+            <span class="px-2 py-1 rounded-full bg-muted text-muted-foreground">
+              {{ INCOME_BASIS_LABELS[shownResult.incomeBasis] }}<template
+                v-if="shownResult.incomeBasis === 'INCOME' && shownResult.annualNetIncome != null">:
+                {{ formatCurrency(shownResult.annualNetIncome) }} / Jahr</template>
+            </span>
+            <span v-if="shownResult.provisional" class="px-2 py-1 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
+              Vorläufig – Nachweise fehlen
+            </span>
+          </div>
+
+          <!-- Monthly table -->
+          <div v-if="shownResult.monthlyTable && shownResult.monthlyTable.length" class="mt-6">
+            <h3 class="text-sm font-medium text-foreground mb-2">Monatsübersicht</h3>
+            <table class="min-w-full divide-y divide-border text-sm">
+              <thead class="bg-muted">
+                <tr>
+                  <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Monat</th>
+                  <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Bereich</th>
+                  <th class="px-3 py-2 text-right text-xs font-medium text-muted-foreground uppercase">Platzgeld</th>
+                  <th class="px-3 py-2 text-right text-xs font-medium text-muted-foreground uppercase">Essengeld</th>
+                  <th class="px-3 py-2 text-right text-xs font-medium text-muted-foreground uppercase">Vereinsbeitrag</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-border">
+                <tr v-for="row in shownResult.monthlyTable" :key="`${row.year}-${row.month}`">
+                  <td class="px-3 py-2 text-foreground">
+                    {{ formatMonthYear(row.year, row.month) }}
+                  </td>
+                  <td class="px-3 py-2 text-muted-foreground">{{ row.careType }} · {{ row.careHoursPerWeek }}h</td>
+                  <td class="px-3 py-2 text-right font-medium">{{ formatCurrency(row.childcareFee) }}</td>
+                  <td class="px-3 py-2 text-right">{{ formatCurrency(row.foodFee) }}</td>
+                  <td class="px-3 py-2 text-right">{{ row.membershipFee > 0 ? formatCurrency(row.membershipFee) : '—' }}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </template>
       </div>
 
       <div v-if="expectationChanges" class="bg-card rounded-lg border shadow-sm p-6">

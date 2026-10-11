@@ -6,6 +6,23 @@ import (
 	"github.com/google/uuid"
 )
 
+// IncomeBasis states what the childcare fee of an Einstufung is based on.
+type IncomeBasis string
+
+const (
+	// IncomeBasisIncome uses the household income proven by the parents.
+	IncomeBasisIncome IncomeBasis = "INCOME"
+	// IncomeBasisHighestRate is the voluntary acceptance of the highest rate without income proofs.
+	IncomeBasisHighestRate IncomeBasis = "HIGHEST_RATE"
+	// IncomeBasisNotRequired is used for Kindergarten children, whose care is free; income is not asked.
+	IncomeBasisNotRequired IncomeBasis = "NOT_REQUIRED"
+)
+
+// Valid reports whether b is a known income basis.
+func (b IncomeBasis) Valid() bool {
+	return b == IncomeBasisIncome || b == IncomeBasisHighestRate || b == IncomeBasisNotRequired
+}
+
 // Einstufung represents a yearly fee classification for a child.
 // It is created when parents submit income proofs and the Elternarbeitsamt calculates
 // the monthly fees. The resulting document (Sheet 1) is sent to parents as a signed PDF.
@@ -25,11 +42,13 @@ type Einstufung struct {
 	// Income calculation details (stored as JSONB for audit trail)
 	IncomeCalculation HouseholdIncomeCalculation `json:"incomeCalculation" db:"income_calculation"`
 
-	// Computed results
-	AnnualNetIncome float64 `json:"annualNetIncome" db:"annual_net_income"` // Fee-relevant household income (Gesamt Jahresnettoeinkommen)
+	// Computed results. AnnualNetIncome is nil unless IncomeBasis is INCOME.
+	AnnualNetIncome *float64 `json:"annualNetIncome,omitempty" db:"annual_net_income" binding:"optional"` // Fee-relevant household income (Gesamt Jahresnettoeinkommen)
 
 	// Classification parameters
-	HighestRateVoluntary bool         `json:"highestRateVoluntary" db:"highest_rate_voluntary"` // Freiwillige Anerkennung des Höchstsatzes
+	IncomeBasis          IncomeBasis  `json:"incomeBasis" db:"income_basis"`
+	HighestRateVoluntary bool         `json:"highestRateVoluntary" db:"highest_rate_voluntary"` // Freiwillige Anerkennung des Höchstsatzes; true exactly for IncomeBasisHighestRate
+	Provisional          bool         `json:"provisional" db:"provisional"`                     // Vorläufig: income proofs are still missing
 	CareHoursPerWeek     int          `json:"careHoursPerWeek" db:"care_hours_per_week"`        // Betreuungszeit in Wochenstunden (30,35,40,45,50,55)
 	CareType             ChildAgeType `json:"careType" db:"care_type"`                          // krippe / kindergarten
 	ChildrenCount        int          `json:"childrenCount" db:"children_count"`                // Anzahl unterhaltspflichtiger Kinder

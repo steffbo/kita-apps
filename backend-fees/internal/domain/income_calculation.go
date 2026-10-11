@@ -50,7 +50,21 @@ type IncomeDetails struct {
 
 // CalculateEmployeeNet returns the net employee income portion.
 func (i IncomeDetails) CalculateEmployeeNet() float64 {
-	return i.GrossIncome + i.CalculateOtherIncome() - i.SocialSecurityShare - i.PrivateInsurance - i.Tax - i.AdvertisingCosts
+	return i.GrossIncome + i.CalculateOtherIncome() - i.SocialSecurityShare - i.PrivateInsurance - i.Tax - i.AppliedAdvertisingCosts()
+}
+
+// AppliedAdvertisingCosts returns the deductible WK-Pauschale. Like the
+// Arbeitnehmer-Pauschbetrag (§ 9a EStG) it is capped at the gross wages, so a
+// parent without wages gets no deduction instead of a negative income.
+func (i IncomeDetails) AppliedAdvertisingCosts() float64 {
+	return math.Max(0, math.Min(i.AdvertisingCosts, i.GrossIncome))
+}
+
+// HasIncomeData reports whether any value besides the WK-Pauschale was entered.
+func (i IncomeDetails) HasIncomeData() bool {
+	withoutAdvertisingCosts := i
+	withoutAdvertisingCosts.AdvertisingCosts = 0
+	return withoutAdvertisingCosts != IncomeDetails{}
 }
 
 // CalculateOtherIncome returns the sum of non-salary income components.
@@ -98,6 +112,11 @@ func (i IncomeDetails) CalculateFeeRelevantIncome() float64 {
 type HouseholdIncomeCalculation struct {
 	Parent1 IncomeDetails `json:"parent1"`
 	Parent2 IncomeDetails `json:"parent2"`
+}
+
+// HasIncomeData reports whether any income value besides the WK-Pauschale was entered.
+func (h HouseholdIncomeCalculation) HasIncomeData() bool {
+	return h.Parent1.HasIncomeData() || h.Parent2.HasIncomeData()
 }
 
 // CalculateAnnualNetIncome computes the fee-relevant Jahresnettoeinkommen for the household.

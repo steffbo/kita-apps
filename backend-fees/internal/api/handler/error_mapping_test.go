@@ -61,7 +61,8 @@ func TestHandleEinstufungError(t *testing.T) {
 	runErrorCases(t, handleEinstufungError, []errorCase{
 		{name: "no fee schedule", err: fmt.Errorf("x: %w", domain.ErrNoFeeSchedule), wantStatus: http.StatusBadRequest, wantMessage: "keine Beitragsordnung"},
 		{name: "not found", err: fmt.Errorf("x: %w", service.ErrNotFound), wantStatus: http.StatusNotFound},
-		{name: "invalid input", err: service.ErrInvalidInput, wantStatus: http.StatusBadRequest, wantMessage: "Haushalt"},
+		{name: "validation message", err: fmt.Errorf("x: %w", &service.ValidationError{Message: "Kind ohne Haushalt"}), wantStatus: http.StatusBadRequest, wantMessage: "Kind ohne Haushalt"},
+		{name: "invalid input", err: service.ErrInvalidInput, wantStatus: http.StatusBadRequest, wantMessage: "Ungültige Eingabe"},
 		{name: "unexpected", err: errors.New("db down"), wantStatus: http.StatusInternalServerError},
 	})
 }

@@ -17,6 +17,12 @@ var (
 	// ErrDuplicate is returned when an insert hits a unique constraint that
 	// marks the row as already present (e.g. a re-imported bank booking).
 	ErrDuplicate = errors.New("duplicate")
+	// ErrEinstufungOverlap is returned when an Einstufung period overlaps
+	// another one of the same child.
+	ErrEinstufungOverlap = errors.New("einstufung period overlaps")
+	// ErrEinstufungHasSuccessor is returned when deleting an Einstufung that
+	// a follow-up still refers to.
+	ErrEinstufungHasSuccessor = errors.New("einstufung has a successor")
 )
 
 // UserRepository handles user account persistence.

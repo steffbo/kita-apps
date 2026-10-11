@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
+	"github.com/lib/pq"
 
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/util"
@@ -16,11 +17,36 @@ import (
 
 const einstufungColumns = `id, child_id, household_id, year, valid_from, valid_until,
 	source_einstufung_id, change_date, effective_from_month,
-	income_calculation, annual_net_income,
+	income_calculation, annual_net_income, income_basis, provisional,
 	highest_rate_voluntary, care_hours_per_week, care_type, children_count,
 	monthly_childcare_fee, monthly_food_fee, annual_membership_fee,
 	fee_rule, discount_percent, discount_factor, base_fee,
 	notes, created_at, updated_at`
+
+const insertEinstufung = `
+	INSERT INTO fees.einstufungen (` + einstufungColumns + `)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)`
+
+func insertEinstufungArgs(e *domain.Einstufung) []interface{} {
+	return []interface{}{
+		e.ID, e.ChildID, e.HouseholdID, e.Year, e.ValidFrom, e.ValidUntil,
+		e.SourceEinstufungID, e.ChangeDate, e.EffectiveFromMonth,
+		e.IncomeCalculation, e.AnnualNetIncome, e.IncomeBasis, e.Provisional,
+		e.HighestRateVoluntary, e.CareHoursPerWeek, e.CareType, e.ChildrenCount,
+		e.MonthlyChildcareFee, e.MonthlyFoodFee, e.AnnualMembershipFee,
+		e.FeeRule, e.DiscountPercent, e.DiscountFactor, e.BaseFee,
+		e.Notes, e.CreatedAt, e.UpdatedAt,
+	}
+}
+
+// mapEinstufungOverlap turns a violation of ex_einstufungen_child_period into ErrEinstufungOverlap.
+func mapEinstufungOverlap(err error) error {
+	var pqErr *pq.Error
+	if errors.As(err, &pqErr) && pqErr.Code == "23P01" {
+		return ErrEinstufungOverlap
+	}
+	return err
+}
 
 // PostgresEinstufungRepository is the PostgreSQL implementation of EinstufungRepository.
 type PostgresEinstufungRepository struct {
@@ -44,26 +70,8 @@ func (r *PostgresEinstufungRepository) Create(ctx context.Context, e *domain.Ein
 	e.CreatedAt = now
 	e.UpdatedAt = now
 
-	_, err := conn(ctx, r.db).ExecContext(ctx, `
-		INSERT INTO fees.einstufungen (
-			id, child_id, household_id, year, valid_from, valid_until,
-			source_einstufung_id, change_date, effective_from_month,
-			income_calculation, annual_net_income,
-			highest_rate_voluntary, care_hours_per_week, care_type, children_count,
-			monthly_childcare_fee, monthly_food_fee, annual_membership_fee,
-			fee_rule, discount_percent, discount_factor, base_fee,
-			notes, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)
-	`,
-		e.ID, e.ChildID, e.HouseholdID, e.Year, e.ValidFrom, e.ValidUntil,
-		e.SourceEinstufungID, e.ChangeDate, e.EffectiveFromMonth,
-		e.IncomeCalculation, e.AnnualNetIncome,
-		e.HighestRateVoluntary, e.CareHoursPerWeek, e.CareType, e.ChildrenCount,
-		e.MonthlyChildcareFee, e.MonthlyFoodFee, e.AnnualMembershipFee,
-		e.FeeRule, e.DiscountPercent, e.DiscountFactor, e.BaseFee,
-		e.Notes, e.CreatedAt, e.UpdatedAt,
-	)
-	return err
+	_, err := conn(ctx, r.db).ExecContext(ctx, insertEinstufung, insertEinstufungArgs(e)...)
+	return mapEinstufungOverlap(err)
 }
 
 // CreateFollowUp creates a follow-up Einstufung and closes the source period atomically.
@@ -92,26 +100,8 @@ func (r *PostgresEinstufungRepository) CreateFollowUp(ctx context.Context, sourc
 		return err
 	}
 
-	if _, err := tx.ExecContext(ctx, `
-		INSERT INTO fees.einstufungen (
-			id, child_id, household_id, year, valid_from, valid_until,
-			source_einstufung_id, change_date, effective_from_month,
-			income_calculation, annual_net_income,
-			highest_rate_voluntary, care_hours_per_week, care_type, children_count,
-			monthly_childcare_fee, monthly_food_fee, annual_membership_fee,
-			fee_rule, discount_percent, discount_factor, base_fee,
-			notes, created_at, updated_at
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)
-	`,
-		e.ID, e.ChildID, e.HouseholdID, e.Year, e.ValidFrom, e.ValidUntil,
-		e.SourceEinstufungID, e.ChangeDate, e.EffectiveFromMonth,
-		e.IncomeCalculation, e.AnnualNetIncome,
-		e.HighestRateVoluntary, e.CareHoursPerWeek, e.CareType, e.ChildrenCount,
-		e.MonthlyChildcareFee, e.MonthlyFoodFee, e.AnnualMembershipFee,
-		e.FeeRule, e.DiscountPercent, e.DiscountFactor, e.BaseFee,
-		e.Notes, e.CreatedAt, e.UpdatedAt,
-	); err != nil {
-		return err
+	if _, err := tx.ExecContext(ctx, insertEinstufung, insertEinstufungArgs(e)...); err != nil {
+		return mapEinstufungOverlap(err)
 	}
 
 	return tx.Commit()
@@ -177,7 +167,7 @@ func (r *PostgresEinstufungRepository) Update(ctx context.Context, e *domain.Ein
 		UPDATE fees.einstufungen SET
 			child_id = $2, household_id = $3, year = $4, valid_from = $5, valid_until = $6,
 			source_einstufung_id = $7, change_date = $8, effective_from_month = $9,
-			income_calculation = $10, annual_net_income = $11,
+			income_calculation = $10, annual_net_income = $11, income_basis = $25, provisional = $26,
 			highest_rate_voluntary = $12, care_hours_per_week = $13, care_type = $14, children_count = $15,
 			monthly_childcare_fee = $16, monthly_food_fee = $17, annual_membership_fee = $18,
 			fee_rule = $19, discount_percent = $20, discount_factor = $21, base_fee = $22,
@@ -190,9 +180,9 @@ func (r *PostgresEinstufungRepository) Update(ctx context.Context, e *domain.Ein
 			e.HighestRateVoluntary, e.CareHoursPerWeek, e.CareType, e.ChildrenCount,
 			e.MonthlyChildcareFee, e.MonthlyFoodFee, e.AnnualMembershipFee,
 			e.FeeRule, e.DiscountPercent, e.DiscountFactor, e.BaseFee,
-			e.Notes, e.UpdatedAt,
+			e.Notes, e.UpdatedAt, e.IncomeBasis, e.Provisional,
 		)
-		return err
+		return mapEinstufungOverlap(err)
 	}
 	updateSourceEnd := func() error {
 		if stored.SourceEinstufungID == nil {
@@ -242,6 +232,9 @@ func (r *PostgresEinstufungRepository) Delete(ctx context.Context, id uuid.UUID)
 		WHERE id = $1
 		FOR UPDATE
 	`, id); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
 		return err
 	}
 
@@ -252,7 +245,7 @@ func (r *PostgresEinstufungRepository) Delete(ctx context.Context, id uuid.UUID)
 		return err
 	}
 	if successors > 0 {
-		return fmt.Errorf("cannot delete Einstufung with a successor")
+		return ErrEinstufungHasSuccessor
 	}
 
 	if _, err := tx.ExecContext(ctx, `DELETE FROM fees.einstufungen WHERE id = $1`, id); err != nil {

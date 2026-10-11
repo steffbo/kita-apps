@@ -177,16 +177,22 @@ const einstufungYear = computed(() => props.einstufung.year);
 
 const feeRuleText = computed(() => {
   const e = props.einstufung;
-  if (e.highestRateVoluntary) {
-    return 'Die Einstufung erfolgte aufgrund der freiwilligen Anerkennung des Höchstsatzes.';
+  const provisional = e.provisional
+    ? ' Die Einstufung ist vorläufig, bis die fehlenden Nachweise vorliegen.'
+    : '';
+  if (e.incomeBasis === 'HIGHEST_RATE') {
+    return `Die Einstufung erfolgte aufgrund der freiwilligen Anerkennung des Höchstsatzes.${provisional}`;
   }
-  if (e.feeRule === 'beitragsfrei') {
-    return `Die Einstufung wurde aufgrund der eingereichten Einkommensnachweise vorgenommen. Gemäß Elternentlastungsgesetz ist der Beitrag beitragsfrei. Bei Änderungen informiert uns bitte umgehend.`;
+  if (e.incomeBasis === 'NOT_REQUIRED') {
+    return `Die Betreuung im Kindergarten ist beitragsfrei; Einkommensnachweise sind dafür nicht erforderlich.${provisional}`;
+  }
+  if (e.feeRule.startsWith('Beitragsfrei')) {
+    return `Die Einstufung wurde aufgrund der eingereichten Einkommensnachweise vorgenommen. Gemäß Elternentlastungsgesetz ist der Beitrag beitragsfrei.${provisional} Bei Änderungen informiert uns bitte umgehend.`;
   }
   const ruleRef = e.feeRule.includes('Entlastung')
     ? 'nach dem Elternentlastungsgesetz 2023/2024'
     : 'nach der Elternbeitragssatzung';
-  return `Die Einstufung wurde aufgrund der eingereichten Einkommensnachweise und ${ruleRef} vorgenommen. Bei Änderungen informiert uns bitte umgehend.`;
+  return `Die Einstufung wurde aufgrund der eingereichten Einkommensnachweise und ${ruleRef} vorgenommen.${provisional} Bei Änderungen informiert uns bitte umgehend.`;
 });
 
 function formatEur(amount: number): string {

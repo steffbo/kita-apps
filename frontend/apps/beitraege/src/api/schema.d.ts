@@ -2437,6 +2437,15 @@ export interface paths {
                     };
                     content?: never;
                 };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["ErrorResponse"];
+                    };
+                };
                 /** @description Not Found */
                 404: {
                     headers: {
@@ -2652,6 +2661,68 @@ export interface paths {
         };
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/einstufungen/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Preview a fee classification
+         * @description Computes an unsaved Einstufung form exactly like create, follow-up or update would, including the monthly table. Nothing is saved.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Form data */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["PreviewEinstufungRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EinstufungPreview"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
         delete?: never;
         options?: never;
         head?: never;
@@ -9021,8 +9092,12 @@ export interface components {
         CalculateIncomeResponse: {
             householdFeeIncome: number;
             householdFullIncome: number;
+            /** @description Applied WK-Pauschale, capped at the gross wages */
+            parent1AdvertisingCosts: number;
             parent1FeeRelevantIncome: number;
             parent1NetIncome: number;
+            /** @description Applied WK-Pauschale, capped at the gross wages */
+            parent2AdvertisingCosts: number;
             parent2FeeRelevantIncome: number;
             parent2NetIncome: number;
         };
@@ -9195,14 +9270,21 @@ export interface components {
         /** @description Request body for creating a fee classification */
         CreateEinstufungRequest: {
             /** @description Deprecated: Ignored; resolved from the child's care-hours history. */
-            careHoursPerWeek: number;
+            careHoursPerWeek?: number;
             childId: string;
             childrenCount: number;
-            highestRateVoluntary: boolean;
+            /** @description Deprecated: Use incomeBasis HIGHEST_RATE. */
+            highestRateVoluntary?: boolean;
+            /**
+             * @description Defaults to HIGHEST_RATE or INCOME from highestRateVoluntary.
+             * @enum {string}
+             */
+            incomeBasis?: "INCOME" | "HIGHEST_RATE" | "NOT_REQUIRED";
             incomeCalculation: components["schemas"]["domain.HouseholdIncomeCalculation"];
             notes: string;
-            /** @description Deprecated: Ignored for initial classifications; validity is derived from year and child entry date. */
-            validFrom: string;
+            provisional?: boolean;
+            /** @description Deprecated: Ignored; validity is derived from year and child entry date. Only used as year fallback. */
+            validFrom?: string;
             year: number;
         };
         /** @description Request body for creating a single fee */
@@ -9228,13 +9310,20 @@ export interface components {
         /** @description Request body for creating a follow-up fee classification */
         CreateFollowUpEinstufungRequest: {
             /** @description Deprecated: Ignored; resolved from the child's care-hours history at the effective month. */
-            careHoursPerWeek: number;
+            careHoursPerWeek?: number;
             /** @description ISO date, cut-off: 1st-14th same month, 15th+ next month */
             changeDate: string;
             childrenCount: number;
-            highestRateVoluntary: boolean;
+            /** @description Deprecated: Use incomeBasis HIGHEST_RATE. */
+            highestRateVoluntary?: boolean;
+            /**
+             * @description Defaults to HIGHEST_RATE or INCOME from highestRateVoluntary.
+             * @enum {string}
+             */
+            incomeBasis?: "INCOME" | "HIGHEST_RATE" | "NOT_REQUIRED";
             incomeCalculation: components["schemas"]["domain.HouseholdIncomeCalculation"];
             notes: string;
+            provisional?: boolean;
         };
         /** @description Follow-up Einstufung creation result */
         CreateFollowUpEinstufungResponse: {
@@ -9367,7 +9456,8 @@ export interface components {
         /** @description Fee classification for a child */
         Einstufung: {
             annualMembershipFee: number;
-            annualNetIncome: number;
+            /** @description Only set for incomeBasis INCOME. */
+            annualNetIncome?: number;
             baseFee: number;
             careHoursPerWeek: number;
             careType: string;
@@ -9380,15 +9470,20 @@ export interface components {
             discountPercent: number;
             effectiveFromMonth: string;
             feeRule: string;
+            /** @description true exactly for incomeBasis HIGHEST_RATE */
             highestRateVoluntary: boolean;
             household?: unknown;
             householdId: string;
             id: string;
+            /** @enum {string} */
+            incomeBasis: "INCOME" | "HIGHEST_RATE" | "NOT_REQUIRED";
             incomeCalculation: components["schemas"]["domain.HouseholdIncomeCalculation"];
             monthlyChildcareFee: number;
             monthlyFoodFee: number;
             monthlyTable?: components["schemas"]["domain.EinstufungMonthRow"][];
             notes?: string;
+            /** @description Vorläufig: income proofs are still missing */
+            provisional: boolean;
             sourceEinstufungId?: string;
             updatedAt: string;
             validFrom: string;
@@ -9402,6 +9497,14 @@ export interface components {
             perPage: number;
             total: number;
             totalPages: number;
+        };
+        /** @description Live preview of an Einstufung; nothing is saved */
+        EinstufungPreview: {
+            einstufung: components["schemas"]["Einstufung"];
+            income: components["schemas"]["CalculateIncomeResponse"];
+            notices: string[];
+            /** @description Need a confirmation before saving */
+            warnings: string[];
         };
         /** @description Paginated list of email logs */
         EmailLogListResponse: {
@@ -9878,6 +9981,20 @@ export interface components {
             /** @example 3 */
             totalPages: number;
         };
+        /** @description Unsaved Einstufung form for the live preview */
+        PreviewEinstufungRequest: {
+            /** @description Follow-ups and edits of follow-ups, YYYY-MM-DD */
+            changeDate?: string;
+            childId?: string;
+            childrenCount: number;
+            einstufungId?: string;
+            /** @enum {string} */
+            incomeBasis: "INCOME" | "HIGHEST_RATE" | "NOT_REQUIRED";
+            incomeCalculation: components["schemas"]["domain.HouseholdIncomeCalculation"];
+            provisional?: boolean;
+            sourceEinstufungId?: string;
+            year?: number;
+        };
         RefreshResponse: {
             /** @example eyJhbGciOiJIUzI1NiIs... */
             accessToken: string;
@@ -10028,9 +10145,13 @@ export interface components {
             /** @description Deprecated: Ignored; resolved from the child's care-hours history. */
             careHoursPerWeek?: number;
             childrenCount?: number;
+            /** @description Deprecated: Use incomeBasis HIGHEST_RATE. */
             highestRateVoluntary?: boolean;
+            /** @enum {string} */
+            incomeBasis?: "INCOME" | "HIGHEST_RATE" | "NOT_REQUIRED";
             incomeCalculation?: components["schemas"]["domain.HouseholdIncomeCalculation"];
             notes?: string;
+            provisional?: boolean;
             /** @description Only used for follow-up income classifications; ignored for initial classifications. */
             validFrom?: string;
         };

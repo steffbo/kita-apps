@@ -1505,6 +1505,12 @@ paths:
       responses:
         "204":
           description: No Content
+        "400":
+          description: Bad Request
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "404":
           description: Not Found
           content:
@@ -1702,6 +1708,41 @@ paths:
       security:
         - BearerAuth: []
       summary: List Einstufungen for a household
+      tags:
+        - Einstufungen
+  /einstufungen/preview:
+    post:
+      description: Computes an unsaved Einstufung form exactly like create, follow-up
+        or update would, including the monthly table. Nothing is saved.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PreviewEinstufungRequest"
+        description: Form data
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EinstufungPreview"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Preview a fee classification
       tags:
         - Einstufungen
   /fee-schedules:
@@ -5961,9 +6002,15 @@ components:
           type: number
         householdFullIncome:
           type: number
+        parent1AdvertisingCosts:
+          description: Applied WK-Pauschale, capped at the gross wages
+          type: number
         parent1FeeRelevantIncome:
           type: number
         parent1NetIncome:
+          type: number
+        parent2AdvertisingCosts:
+          description: Applied WK-Pauschale, capped at the gross wages
           type: number
         parent2FeeRelevantIncome:
           type: number
@@ -5972,8 +6019,10 @@ components:
       required:
         - householdFeeIncome
         - householdFullIncome
+        - parent1AdvertisingCosts
         - parent1FeeRelevantIncome
         - parent1NetIncome
+        - parent2AdvertisingCosts
         - parent2FeeRelevantIncome
         - parent2NetIncome
       type: object
@@ -6317,25 +6366,32 @@ components:
         childrenCount:
           type: integer
         highestRateVoluntary:
+          description: "Deprecated: Use incomeBasis HIGHEST_RATE."
           type: boolean
+        incomeBasis:
+          description: Defaults to HIGHEST_RATE or INCOME from highestRateVoluntary.
+          enum:
+            - INCOME
+            - HIGHEST_RATE
+            - NOT_REQUIRED
+          type: string
         incomeCalculation:
           $ref: "#/components/schemas/domain.HouseholdIncomeCalculation"
         notes:
           type: string
+        provisional:
+          type: boolean
         validFrom:
-          description: "Deprecated: Ignored for initial classifications; validity is
-            derived from year and child entry date."
+          description: "Deprecated: Ignored; validity is derived from year and child entry
+            date. Only used as year fallback."
           type: string
         year:
           type: integer
       required:
-        - careHoursPerWeek
         - childId
         - childrenCount
-        - highestRateVoluntary
         - incomeCalculation
         - notes
-        - validFrom
         - year
       type: object
     CreateFeeRequest:
@@ -6385,16 +6441,24 @@ components:
         childrenCount:
           type: integer
         highestRateVoluntary:
+          description: "Deprecated: Use incomeBasis HIGHEST_RATE."
           type: boolean
+        incomeBasis:
+          description: Defaults to HIGHEST_RATE or INCOME from highestRateVoluntary.
+          enum:
+            - INCOME
+            - HIGHEST_RATE
+            - NOT_REQUIRED
+          type: string
         incomeCalculation:
           $ref: "#/components/schemas/domain.HouseholdIncomeCalculation"
         notes:
           type: string
+        provisional:
+          type: boolean
       required:
-        - careHoursPerWeek
         - changeDate
         - childrenCount
-        - highestRateVoluntary
         - incomeCalculation
         - notes
       type: object
@@ -6638,6 +6702,7 @@ components:
         annualMembershipFee:
           type: number
         annualNetIncome:
+          description: Only set for incomeBasis INCOME.
           type: number
         baseFee:
           type: number
@@ -6663,11 +6728,18 @@ components:
         feeRule:
           type: string
         highestRateVoluntary:
+          description: true exactly for incomeBasis HIGHEST_RATE
           type: boolean
         household: {}
         householdId:
           type: string
         id:
+          type: string
+        incomeBasis:
+          enum:
+            - INCOME
+            - HIGHEST_RATE
+            - NOT_REQUIRED
           type: string
         incomeCalculation:
           $ref: "#/components/schemas/domain.HouseholdIncomeCalculation"
@@ -6681,6 +6753,9 @@ components:
           type: array
         notes:
           type: string
+        provisional:
+          description: "Vorläufig: income proofs are still missing"
+          type: boolean
         sourceEinstufungId:
           type: string
         updatedAt:
@@ -6693,7 +6768,6 @@ components:
           type: integer
       required:
         - annualMembershipFee
-        - annualNetIncome
         - baseFee
         - careHoursPerWeek
         - careType
@@ -6707,9 +6781,11 @@ components:
         - highestRateVoluntary
         - householdId
         - id
+        - incomeBasis
         - incomeCalculation
         - monthlyChildcareFee
         - monthlyFoodFee
+        - provisional
         - updatedAt
         - validFrom
         - year
@@ -6735,6 +6811,28 @@ components:
         - perPage
         - total
         - totalPages
+      type: object
+    EinstufungPreview:
+      description: Live preview of an Einstufung; nothing is saved
+      properties:
+        einstufung:
+          $ref: "#/components/schemas/Einstufung"
+        income:
+          $ref: "#/components/schemas/CalculateIncomeResponse"
+        notices:
+          items:
+            type: string
+          type: array
+        warnings:
+          description: Need a confirmation before saving
+          items:
+            type: string
+          type: array
+      required:
+        - einstufung
+        - income
+        - notices
+        - warnings
       type: object
     EmailLogListResponse:
       description: Paginated list of email logs
@@ -7652,6 +7750,37 @@ components:
         - total
         - totalPages
       type: object
+    PreviewEinstufungRequest:
+      description: Unsaved Einstufung form for the live preview
+      properties:
+        changeDate:
+          description: Follow-ups and edits of follow-ups, YYYY-MM-DD
+          type: string
+        childId:
+          type: string
+        childrenCount:
+          type: integer
+        einstufungId:
+          type: string
+        incomeBasis:
+          enum:
+            - INCOME
+            - HIGHEST_RATE
+            - NOT_REQUIRED
+          type: string
+        incomeCalculation:
+          $ref: "#/components/schemas/domain.HouseholdIncomeCalculation"
+        provisional:
+          type: boolean
+        sourceEinstufungId:
+          type: string
+        year:
+          type: integer
+      required:
+        - childrenCount
+        - incomeBasis
+        - incomeCalculation
+      type: object
     RefreshResponse:
       properties:
         accessToken:
@@ -7949,11 +8078,20 @@ components:
         childrenCount:
           type: integer
         highestRateVoluntary:
+          description: "Deprecated: Use incomeBasis HIGHEST_RATE."
           type: boolean
+        incomeBasis:
+          enum:
+            - INCOME
+            - HIGHEST_RATE
+            - NOT_REQUIRED
+          type: string
         incomeCalculation:
           $ref: "#/components/schemas/domain.HouseholdIncomeCalculation"
         notes:
           type: string
+        provisional:
+          type: boolean
         validFrom:
           description: Only used for follow-up income classifications; ignored for initial
             classifications.

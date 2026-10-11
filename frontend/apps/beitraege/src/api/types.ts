@@ -419,6 +419,8 @@ export interface HouseholdIncomeCalculation {
   parent2: IncomeDetails;
 }
 export type EinstufungMonthRow = Schema['domain.EinstufungMonthRow'];
+/** What the childcare fee is based on; `annualNetIncome` is only set for INCOME. */
+export type IncomeBasis = NonNullable<Schema['Einstufung']['incomeBasis']>;
 export type Einstufung = Omit<Schema['Einstufung'], 'incomeCalculation' | 'monthlyTable' | 'child' | 'household'> & {
   incomeCalculation: HouseholdIncomeCalculation;
   monthlyTable?: EinstufungMonthRow[];
@@ -428,17 +430,16 @@ export type Einstufung = Omit<Schema['Einstufung'], 'incomeCalculation' | 'month
 export interface CreateEinstufungRequest {
   childId: string;
   year: number;
-  validFrom: string;
   incomeCalculation: HouseholdIncomeCalculation;
-  highestRateVoluntary: boolean;
-  careHoursPerWeek: number;
+  incomeBasis: IncomeBasis;
+  provisional: boolean;
   childrenCount: number;
   notes?: string;
 }
 export interface UpdateEinstufungRequest {
   incomeCalculation?: HouseholdIncomeCalculation;
-  highestRateVoluntary?: boolean;
-  careHoursPerWeek?: number;
+  incomeBasis?: IncomeBasis;
+  provisional?: boolean;
   childrenCount?: number;
   validFrom?: string;
   notes?: string;
@@ -446,11 +447,26 @@ export interface UpdateEinstufungRequest {
 export interface CreateFollowUpEinstufungRequest {
   changeDate: string;
   incomeCalculation: HouseholdIncomeCalculation;
-  highestRateVoluntary: boolean;
-  careHoursPerWeek: number;
+  incomeBasis: IncomeBasis;
+  provisional: boolean;
   childrenCount: number;
   notes?: string;
 }
+/** Unsaved form: `einstufungId` = edit, `sourceEinstufungId` = follow-up, otherwise `childId` + `year`. */
+export interface PreviewEinstufungRequest {
+  einstufungId?: string;
+  sourceEinstufungId?: string;
+  childId?: string;
+  year?: number;
+  changeDate?: string;
+  incomeCalculation: HouseholdIncomeCalculation;
+  incomeBasis: IncomeBasis;
+  childrenCount: number;
+  provisional: boolean;
+}
+export type EinstufungPreview = Omit<Schema['EinstufungPreview'], 'einstufung'> & {
+  einstufung: Einstufung;
+};
 export type ChildcareExpectationSyncResult = Schema['ChildcareExpectationSyncResult'];
 export type CreateFollowUpEinstufungResponse = Omit<Schema['CreateFollowUpEinstufungResponse'], 'einstufung' | 'expectationChanges'> & {
   einstufung: Einstufung;
