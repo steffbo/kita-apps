@@ -68,6 +68,9 @@ bun run dev:beitraege
 bun run --filter @kita/beitraege typecheck
 bun run test:e2e         # Playwright, Beiträge; starts its own stack (Docker, Go, Bun) — docs/e2e-beitraege.md
 
+# Local stack on a read-only copy of the live DB (port 18090, no mail; `down` deletes the copy)
+scripts/live-copy.sh up|restart|refresh|down|status
+
 # OpenAPI spec + frontend types (swag → swagger2openapi → schema.d.ts).
 # Go annotations are the source of truth; rerun after API changes and commit
 # both outputs — CI job `openapi-drift` fails on stale files.

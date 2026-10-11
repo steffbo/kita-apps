@@ -36,6 +36,15 @@ Basics (ports, commands, layout) live in `AGENTS.md`.
   beitragsfrei; Sollstellungen bleiben unberührt). Probelauf auf der Live-Kopie: 7 Höchstsatz, 5 nicht
   erforderlich, 6 mit Einkommen. Die Down-Migration stellt die Spalten, nicht die alten Werte wieder her.
 
+## Lokale Live-Kopie zum Testen (2026-10-11)
+
+- `scripts/live-copy.sh up|restart|refresh|down|status` startet den aktuellen Checkout (Frontend eingebettet)
+  auf Port 18090 gegen eine Kopie der Live-DB in einem Wegwerf-Container (`kita-live-copy-db`,
+  127.0.0.1:55490). Die Live-DB wird nur per `pg_dump` über SSH gelesen; die Migrationen des Checkouts laufen
+  gegen die Kopie. Ohne SMTP- und Banking-Sync-Konfiguration (Server startet mit `env -i`), also kein Versand.
+  Anmeldung mit dem normalen Live-Konto; JWT-Secret und Log unter `~/.local/state/kita-live-copy/`.
+  `down` löscht die Kopie. Die Kopie enthält echte Familiendaten: nur im LAN, nicht weitergeben.
+
 ## Einstufungsbrief als Server-PDF, Mail-Anhänge (2026-10-11)
 
 - Neues Paket `internal/letter`: rendert den Einstufungsbrief mit `codeberg.org/go-pdf/fpdf` nach der Vorlage
