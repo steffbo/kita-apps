@@ -3,6 +3,27 @@
 Rolling change log of non-obvious implementation decisions. Newest first.
 Basics (ports, commands, layout) live in `AGENTS.md`.
 
+## Einstufung: Kindersuche und Vorbelegung (2026-10-11)
+
+- Das Kind wird über ein Suchfeld gewählt (`ChildSearchSelect.vue`): ab zwei Zeichen Treffer aus Vorname,
+  Nachname und Mitgliedsnummer, mehrere Suchwörter müssen alle vorkommen; ausgetretene Kinder stehen gedämpft
+  am Ende. Gesucht wird clientseitig in der ohnehin geladenen Kinderliste; Pfeiltasten und Enter wählen.
+- Bei Auswahl (auch über `?childId=`) wird das Formular neu vorbelegt: Jahr (Eintrittsjahr, wenn es in der
+  Zukunft liegt), Kinderzahl = Maximum aus allen bekannten Kindern des Haushalts, `childrenCountForFees` und
+  der Quell-Einstufung (Eltern können weitere unterhaltspflichtige Kinder haben; Hinweis im Formular),
+  Höchstsatz bei Haushaltsstatus `MAX_ACCEPTED`. Quelle für Einkommen bzw. Höchstsatz ist die neueste
+  Einstufung des Haushalts mit Einkommensangaben oder Höchstsatz; ein Banner nennt sie, „Verwerfen“ leert
+  die übernommenen Werte. Bemerkungen werden nie übernommen.
+- Hat das Kind schon eine offene Einstufung (`validUntil` leer), ist Speichern gesperrt; der Hinweis verlinkt
+  die bestehende Einstufung und die Folgeeinstufung (die DB-Sperre `ex_einstufungen_child_period` würde eine
+  zweite offene Periode ohnehin ablehnen). Ist das Kind ab Beginn im Kindergartenalter, weist die Seite auf die
+  Beitragsfreiheit hin.
+- Der Speichern-Knopf heißt jetzt „Einstufung speichern“ / „Folgeeinstufung speichern“ / „Änderungen
+  speichern“: Er speichert sofort (inklusive Haushaltseinkommen, -status und Kinderzahl); einen zweiten
+  Speicherschritt gibt es nicht. Jahresauswahl: Vorjahr bis Folgejahr relativ zum aktuellen Jahr.
+- Einkommensfelder tragen ihre Beschriftung als `aria-label`, die Elternteil-Spalten sind Regionen
+  („Elternteil 1/2“). E2E: `einstufung.spec.ts`.
+
 ## Backup-Wiederherstellung geprüft (2026-10-11)
 
 - Die frühere Doku („kein App-Dump, VM zurückspielen“) war falsch: Der homelab-B2-Job sichert zweimal täglich

@@ -66,6 +66,7 @@ function updateField(key: keyof IncomeDetails, event: Event) {
             step="0.01"
             min="0"
             :value="model[field.key]"
+            :aria-label="field.label"
             @input="updateField(field.key, $event)"
             class="w-32 border rounded px-2 py-1 text-sm text-right focus:ring-2 focus:ring-primary/20 focus:border-primary"
           />
@@ -85,6 +86,7 @@ function updateField(key: keyof IncomeDetails, event: Event) {
             step="0.01"
             min="0"
             :value="model[field.key]"
+            :aria-label="field.label"
             @input="updateField(field.key, $event)"
             class="w-32 border rounded px-2 py-1 text-sm text-right focus:ring-2 focus:ring-primary/20 focus:border-primary"
           />
@@ -104,6 +106,7 @@ function updateField(key: keyof IncomeDetails, event: Event) {
             step="0.01"
             min="0"
             :value="model[field.key]"
+            :aria-label="field.label"
             @input="updateField(field.key, $event)"
             class="w-32 border rounded px-2 py-1 text-sm text-right focus:ring-2 focus:ring-primary/20 focus:border-primary"
           />
@@ -126,6 +129,7 @@ function updateField(key: keyof IncomeDetails, event: Event) {
             step="0.01"
             min="0"
             :value="model[field.key]"
+            :aria-label="field.label"
             @input="updateField(field.key, $event)"
             class="w-32 border rounded px-2 py-1 text-sm text-right focus:ring-2 focus:ring-primary/20 focus:border-primary"
           />
@@ -145,6 +149,7 @@ function updateField(key: keyof IncomeDetails, event: Event) {
             step="0.01"
             min="0"
             :value="model[field.key]"
+            :aria-label="field.label"
             @input="updateField(field.key, $event)"
             class="w-32 border rounded px-2 py-1 text-sm text-right focus:ring-2 focus:ring-primary/20 focus:border-primary"
           />

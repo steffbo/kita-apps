@@ -27,7 +27,8 @@ import {
 } from 'lucide-vue-next';
 import IncomeForm from '@/components/IncomeForm.vue';
 import EinstufungPDF from '@/components/EinstufungPDF.vue';
-import { formatCurrency, formatEuroAmount, formatMonthYear, todayISO } from '@/utils/format';
+import ChildSearchSelect from '@/components/ChildSearchSelect.vue';
+import { formatCurrency, formatDate, formatEuroAmount, formatMonthYear, todayISO } from '@/utils/format';
 
 const route = useRoute();
 const router = useRouter();
@@ -49,8 +50,11 @@ const previousEinstufung = ref<Einstufung | null>(null);
 const successorEinstufung = ref<Einstufung | null>(null);
 
 // Form data
+const currentYear = new Date().getFullYear();
 const selectedChildId = ref('');
-const selectedYear = ref(new Date().getFullYear());
+const selectedYear = ref(currentYear);
+const yearOptions = computed(() =>
+  [...new Set([currentYear - 1, currentYear, currentYear + 1, selectedYear.value])].sort((a, b) => a - b));
 const validFrom = ref(`${new Date().getFullYear()}-01-01`);
 const childrenCount = ref(1);
 const highestRateVoluntary = ref(false);
@@ -134,6 +138,113 @@ const selectedHousehold = computed(() => {
 });
 const childMissingHousehold = computed(() => !!selectedChildId.value && !!selectedChild.value && !selectedChild.value.householdId);
 const householdParents = computed(() => selectedHousehold.value?.parents ?? []);
+
+// Defaults for a new (non follow-up) Einstufung, derived from the selected child,
+// its household and the household's existing Einstufungen.
+const householdChildren = computed(() => {
+  const householdId = selectedChild.value?.householdId;
+  return householdId ? children.value.filter((c) => c.householdId === householdId) : [];
+});
+const existingOpenEinstufung = ref<Einstufung | null>(null);
+const prefillSource = ref<Einstufung | null>(null);
+const isPrefilling = ref(false);
+let prefillSequence = 0;
+
+function defaultYearFor(child: Child): number {
+  const entryYear = Number(child.entryDate.slice(0, 4));
+  return entryYear > currentYear ? entryYear : currentYear;
+}
+
+// Mirrors the backend: a new Einstufung starts on 1 January of its year or in the entry month.
+const periodStartMonth = computed(() => {
+  const entry = selectedChild.value?.entryDate.split('T')[0];
+  const yearStart = `${selectedYear.value}-01-01`;
+  return (entry && entry > yearStart ? entry : yearStart).slice(0, 7);
+});
+
+// The child completes its third year the day before the third birthday (§ 188 Abs. 2 BGB);
+// childcare is free from that month on.
+const feeFreeFromMonth = computed(() => {
+  const birth = selectedChild.value?.birthDate.split('T')[0];
+  if (!birth) return null;
+  const [year, month, day] = birth.split('-').map(Number);
+  const completes = new Date(Date.UTC(year + 3, month - 1, day - 1));
+  return completes.toISOString().slice(0, 7);
+});
+const isKindergartenAtStart = computed(() =>
+  !!feeFreeFromMonth.value && feeFreeFromMonth.value <= periodStartMonth.value);
+
+function hasIncomeData(e: Einstufung): boolean {
+  return [e.incomeCalculation.parent1, e.incomeCalculation.parent2].some((parent) =>
+    Object.entries(parent).some(([key, value]) => key !== 'advertisingCosts' && Number(value) !== 0));
+}
+
+function resetIncomeForm() {
+  childrenCount.value = 1;
+  highestRateVoluntary.value = false;
+  parent1Income.value = emptyIncome();
+  parent2Income.value = emptyIncome();
+}
+
+async function applyChildDefaults() {
+  const sequence = ++prefillSequence;
+  existingOpenEinstufung.value = null;
+  prefillSource.value = null;
+  resetIncomeForm();
+
+  const child = selectedChild.value;
+  if (!child) return;
+  selectedYear.value = defaultYearFor(child);
+  const household = selectedHousehold.value;
+  if (!child.householdId || !household) return;
+
+  // Every known child of the household counts; parents may have further dependants.
+  childrenCount.value = Math.max(1, householdChildren.value.length, household.childrenCountForFees ?? 0);
+  highestRateVoluntary.value = household.incomeStatus === 'MAX_ACCEPTED';
+
+  isPrefilling.value = true;
+  try {
+    const householdEinstufungen = await api.getEinstufungenForHousehold(child.householdId);
+    if (sequence !== prefillSequence) return;
+    existingOpenEinstufung.value =
+      householdEinstufungen.find((e) => e.childId === child.id && !e.validUntil) ?? null;
+    // Newest first: the latest decision with income data or an accepted highest rate.
+    const source = householdEinstufungen.find((e) => e.highestRateVoluntary || hasIncomeData(e));
+    if (!source) return;
+    prefillSource.value = source;
+    childrenCount.value = Math.max(childrenCount.value, source.childrenCount);
+    highestRateVoluntary.value = source.highestRateVoluntary;
+    if (!source.highestRateVoluntary) {
+      parent1Income.value = { ...emptyIncome(), ...source.incomeCalculation.parent1 };
+      parent2Income.value = { ...emptyIncome(), ...source.incomeCalculation.parent2 };
+    }
+  } catch (e) {
+    if (sequence !== prefillSequence) return;
+    error.value = e instanceof Error
+      ? `Bestehende Einstufungen konnten nicht geladen werden: ${e.message}`
+      : 'Bestehende Einstufungen konnten nicht geladen werden';
+  } finally {
+    if (sequence === prefillSequence) isPrefilling.value = false;
+  }
+}
+
+function onChildSelected() {
+  if (isNew.value && !isFollowUpMode.value) void applyChildDefaults();
+}
+
+// Keeps the household defaults (children count) and only drops the copied decision.
+function discardPrefill() {
+  if (prefillSource.value?.highestRateVoluntary) highestRateVoluntary.value = false;
+  prefillSource.value = null;
+  parent1Income.value = emptyIncome();
+  parent2Income.value = emptyIncome();
+}
+
+function einstufungLabel(e: Einstufung): string {
+  const name = e.child ? `${e.child.firstName} ${e.child.lastName}` : 'Geschwisterkind';
+  const start = (e.effectiveFromMonth || e.validFrom).slice(0, 7);
+  return `${name}, gültig ab ${formatMonthYear(Number(start.slice(0, 4)), Number(start.slice(5, 7)))}`;
+}
 const emailRecipients = computed(() => {
   const seen = new Set<string>();
   const recipients: string[] = [];
@@ -288,6 +399,10 @@ async function loadData() {
   previousEinstufung.value = null;
   successorEinstufung.value = null;
   expectationChanges.value = null;
+  ++prefillSequence;
+  existingOpenEinstufung.value = null;
+  prefillSource.value = null;
+  isPrefilling.value = false;
   try {
     const [childRes, householdRes] = await Promise.all([
       api.getChildren({ perPage: 2000 }),
@@ -347,6 +462,7 @@ async function loadData() {
           // Child not found, ignore
         }
       }
+      void applyChildDefaults();
     }
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Fehler beim Laden';
@@ -486,20 +602,16 @@ watch(defaultEmailBody, (next) => {
         </h2>
 
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <!-- Child select -->
+          <!-- Child search -->
           <div>
             <label class="block text-sm font-medium text-foreground mb-1">Kind *</label>
-            <select
+            <ChildSearchSelect
               v-model="selectedChildId"
-              :disabled="!isNew"
-              class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:bg-muted disabled:text-muted-foreground"
-              required
-            >
-              <option value="">— Kind auswählen —</option>
-              <option v-for="c in children" :key="c.id" :value="c.id">
-                {{ c.firstName }} {{ c.lastName }} ({{ c.memberNumber }})
-              </option>
-            </select>
+              :children="children"
+              :households="households"
+              :disabled="!isNew || isFollowUpMode"
+              @update:model-value="onChildSelected"
+            />
           </div>
 
           <!-- Year -->
@@ -511,7 +623,7 @@ watch(defaultEmailBody, (next) => {
               class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:bg-muted"
               required
             >
-              <option v-for="y in [selectedYear - 1, selectedYear, selectedYear + 1]" :key="y" :value="y">
+              <option v-for="y in yearOptions" :key="y" :value="y">
                 {{ y }}
               </option>
             </select>
@@ -537,8 +649,9 @@ watch(defaultEmailBody, (next) => {
 
           <!-- Children count -->
           <div>
-            <label class="block text-sm font-medium text-foreground mb-1">Anzahl unterhaltspflichtiger Kinder *</label>
+            <label for="childrenCount" class="block text-sm font-medium text-foreground mb-1">Anzahl unterhaltspflichtiger Kinder *</label>
             <input
+              id="childrenCount"
               type="number"
               v-model.number="childrenCount"
               min="1"
@@ -546,6 +659,11 @@ watch(defaultEmailBody, (next) => {
               class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary"
               required
             />
+            <p v-if="isNew && !isFollowUpMode && householdChildren.length" class="mt-1 text-xs text-muted-foreground">
+              Im Haushalt bekannt: {{ householdChildren.map((c) => c.firstName).join(', ') }}<template
+                v-if="selectedHousehold?.childrenCountForFees"> · zuletzt erfasst: {{ selectedHousehold.childrenCountForFees }}</template>.
+              Weitere unterhaltspflichtige Kinder (z. B. Schulkinder) bitte hinzuzählen.
+            </p>
           </div>
 
           <!-- Highest rate voluntary -->
@@ -584,6 +702,51 @@ watch(defaultEmailBody, (next) => {
           </div>
         </div>
 
+        <template v-if="isNew && !isFollowUpMode && selectedChild">
+          <div v-if="isPrefilling" class="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 class="h-4 w-4 animate-spin" />
+            Bestehende Einstufungen des Haushalts werden geladen …
+          </div>
+
+          <div v-if="existingOpenEinstufung" class="mt-4 p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 rounded-lg flex items-start gap-2 text-sm text-amber-800 dark:text-amber-300">
+            <Info class="h-4 w-4 text-amber-500 dark:text-amber-400 mt-0.5 shrink-0" />
+            <div>
+              <strong>Für {{ selectedChild.firstName }} gibt es bereits eine gültige Einstufung</strong>
+              ({{ einstufungLabel(existingOpenEinstufung) }}). Bei geändertem Einkommen bitte eine
+              Folgeeinstufung anlegen.
+              <span class="mt-1 flex flex-wrap gap-3">
+                <router-link :to="`/einstufungen/${existingOpenEinstufung.id}`" class="underline font-medium">
+                  Einstufung öffnen →
+                </router-link>
+                <router-link :to="`/einstufungen/neu?sourceId=${existingOpenEinstufung.id}`" class="underline font-medium">
+                  Folgeeinstufung erstellen →
+                </router-link>
+              </span>
+            </div>
+          </div>
+
+          <div v-else-if="prefillSource" class="mt-4 p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-100 rounded-lg flex items-start gap-2 text-sm text-blue-800 dark:text-blue-300">
+            <Info class="h-4 w-4 mt-0.5 shrink-0" />
+            <div class="flex-1">
+              {{ prefillSource.highestRateVoluntary ? 'Höchstsatz-Anerkennung' : 'Einkommensangaben' }}
+              und Kinderzahl übernommen aus der Einstufung von {{ einstufungLabel(prefillSource) }}.
+              Bitte prüfen, ob die Angaben noch aktuell sind.
+            </div>
+            <button type="button" class="shrink-0 text-xs font-medium underline" @click="discardPrefill">
+              Verwerfen
+            </button>
+          </div>
+
+          <div v-if="isKindergartenAtStart" class="mt-4 p-3 bg-green-50 dark:bg-green-950/40 border border-green-200 rounded-lg flex items-start gap-2 text-sm text-green-800 dark:text-green-300">
+            <Info class="h-4 w-4 mt-0.5 shrink-0" />
+            <div>
+              {{ selectedChild.firstName }} ist ab Beginn der Einstufung im Kindergartenalter (geb.
+              {{ formatDate(selectedChild.birthDate) }}). Die Betreuung ist beitragsfrei, das Einkommen
+              hat keinen Einfluss auf den Beitrag.
+            </div>
+          </div>
+        </template>
+
         <!-- Notes -->
         <div class="mt-4">
           <label class="block text-sm font-medium text-foreground mb-1">Bemerkungen</label>
@@ -608,20 +771,20 @@ watch(defaultEmailBody, (next) => {
 
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <!-- Parent 1 -->
-          <div>
+          <section aria-label="Elternteil 1">
             <h3 class="font-medium text-foreground mb-3 pb-2 border-b">
               Elternteil 1 (Mutter / Sorgeberechtigte/r)
             </h3>
             <IncomeForm v-model="parent1Income" />
-          </div>
+          </section>
 
           <!-- Parent 2 -->
-          <div>
+          <section aria-label="Elternteil 2">
             <h3 class="font-medium text-foreground mb-3 pb-2 border-b">
               Elternteil 2 (Vater / Sorgeberechtigte/r)
             </h3>
             <IncomeForm v-model="parent2Income" />
-          </div>
+          </section>
         </div>
 
         <!-- Calculation preview -->
@@ -869,12 +1032,12 @@ watch(defaultEmailBody, (next) => {
         </button>
         <button
           type="submit"
-          :disabled="isSaving || childMissingHousehold"
+          :disabled="isSaving || isPrefilling || childMissingHousehold || (isNew && !!existingOpenEinstufung)"
           class="inline-flex items-center gap-2 px-6 py-2 text-sm text-primary-foreground bg-primary rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
         >
           <Loader2 v-if="isSaving" class="h-4 w-4 animate-spin" />
           <Save v-else class="h-4 w-4" />
-          {{ isFollowUpMode ? 'Folgeeinstufung erstellen' : isNew ? 'Einstufung erstellen' : 'Speichern' }}
+          {{ isFollowUpMode ? 'Folgeeinstufung speichern' : isNew ? 'Einstufung speichern' : 'Änderungen speichern' }}
         </button>
         </div>
       </div>

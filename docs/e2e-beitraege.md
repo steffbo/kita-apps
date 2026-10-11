@@ -38,6 +38,7 @@ Nach dem Lauf beendet Playwright das Skript per SIGTERM, das Skript entfernt den
 - `auth.spec.ts`: falsches Passwort, Session im httpOnly-Cookie (kein Token im `localStorage`, Cookie-Attribute), Reload, Logout, Deep-Link-Redirect, Login-Bremse.
 - `users.spec.ts`: Benutzer anlegen, Nicht-Admin ohne Zugriff auf „Benutzer“, eigenes Passwort ändern (andere Sitzungen enden), Deaktivieren, Selbstschutz.
 - `fees-flow.spec.ts`: Kind und Elternteil anlegen, Monatsbeiträge generieren, Bank-CSV hochladen, automatische Zuordnung, Beitrag erscheint als bezahlt.
+- `einstufung.spec.ts`: neue Einstufung, Kind per Suche (Mindestlänge, Mehrwortsuche), Vorbelegung von Einkommen und Kinderzahl aus der Einstufung des Geschwisterkinds, Speichern; zweite offene Einstufung für dasselbe Kind gesperrt mit Link zur Folgeeinstufung.
 - `banking-sync-import.spec.ts`: der tägliche Upload von banking-sync, ohne Login, nur `X-Import-Token` und Multipart-Feld `file` wie `banking-sync/upload.js`/`sync.js`: falsches Token → 401, Zahlung wird automatisch zugeordnet, erneuter Upload derselben Datei wird übersprungen.
 - `parent-portal.spec.ts`: zwei Familien, Eltern-Routing und Datentrennung, Stundenmeldung und Freigabe
   (mit Prüfer), Telefon-Audit im Admin-Feed, Telefon-Änderung am zweiten Elternteil, nur lesbare
