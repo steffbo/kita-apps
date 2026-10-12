@@ -50,6 +50,12 @@ const isSaving = ref(false);
 const error = ref<string | null>(null);
 const saveSuccess = ref(false);
 const expectationChanges = ref<ChildcareExpectationSyncResult | null>(null);
+// Keeps the fee changes of a just created Einstufung across the reload after navigating to it.
+let keepChangesFor: string | null = null;
+const showExpectationChanges = computed(() => {
+  const c = expectationChanges.value;
+  return !!c && (c.created + c.updated + c.removed > 0 || c.creditReviewRequired.length > 0);
+});
 
 // Loaded einstufung (edit mode)
 const einstufung = ref<Einstufung | null>(null);
@@ -579,7 +585,8 @@ async function loadData() {
   sourceEinstufung.value = null;
   previousEinstufung.value = null;
   successorEinstufung.value = null;
-  expectationChanges.value = null;
+  if (einstufungId.value !== keepChangesFor) expectationChanges.value = null;
+  keepChangesFor = null;
   ++prefillSequence;
   existingOpenEinstufung.value = null;
   prefillSource.value = null;
@@ -693,7 +700,9 @@ async function handleSubmit() {
           childId: selectedChildId.value,
           year: selectedYear.value,
         });
+        expectationChanges.value = created.expectationChanges ?? null;
       }
+      keepChangesFor = created.id;
       // Stay on page: show result + PDF immediately
       einstufung.value = created;
       router.replace(`/einstufungen/${created.id}`);
@@ -702,6 +711,7 @@ async function handleSubmit() {
     } else {
       const updated = await api.updateEinstufung(einstufungId.value!, form);
       einstufung.value = updated;
+      expectationChanges.value = updated.expectationChanges ?? null;
       savedFormSnapshot.value = formSnapshot.value;
       saveSuccess.value = true;
       setTimeout(() => (saveSuccess.value = false), 3000);
@@ -1153,12 +1163,16 @@ watch(defaultEmailBody, (next) => {
         </template>
       </div>
 
-      <div v-if="expectationChanges" class="bg-card rounded-lg border shadow-sm p-6">
+      <div v-if="expectationChanges && showExpectationChanges" data-testid="expectation-changes" class="bg-card rounded-lg border shadow-sm p-6">
         <h2 class="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
           <CheckCircle class="h-5 w-5 text-muted-foreground" />
           Beitragsanpassung
         </h2>
-        <div class="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
+        <p class="text-sm text-muted-foreground mb-4">
+          Bereits erzeugte Platzgeld-Monate wurden an die Einstufung angepasst. Bezahlte Monate werden nicht gesenkt,
+          sondern zur Gutschrift-Prüfung aufgeführt; spätere Monate entstehen bei der Beitragserzeugung.
+        </p>
+        <div class="grid grid-cols-2 md:grid-cols-6 gap-4 text-sm">
           <div>
             <span class="text-muted-foreground">Neu angelegt</span>
             <p class="text-xl font-bold text-foreground">{{ expectationChanges.created }}</p>
@@ -1166,6 +1180,10 @@ watch(defaultEmailBody, (next) => {
           <div>
             <span class="text-muted-foreground">Aktualisiert</span>
             <p class="text-xl font-bold text-foreground">{{ expectationChanges.updated }}</p>
+          </div>
+          <div>
+            <span class="text-muted-foreground">Entfernt</span>
+            <p class="text-xl font-bold text-foreground">{{ expectationChanges.removed }}</p>
           </div>
           <div>
             <span class="text-muted-foreground">Übersprungen</span>

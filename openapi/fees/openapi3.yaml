@@ -1460,7 +1460,8 @@ paths:
       tags:
         - Einstufungen
     post:
-      description: Creates a new Einstufung by calculating fees from income proofs
+      description: Creates a new Einstufung by calculating fees from income proofs and
+        aligns already generated CHILDCARE expectations of its months
       requestBody:
         content:
           application/json:
@@ -1550,7 +1551,8 @@ paths:
       tags:
         - Einstufungen
     put:
-      description: Updates an existing Einstufung and recalculates fees
+      description: Updates an existing Einstufung, recalculates fees and aligns
+        already generated CHILDCARE expectations of its months
       parameters:
         - description: Einstufung ID
           in: path
@@ -1592,8 +1594,8 @@ paths:
   "/einstufungen/{id}/follow-ups":
     post:
       description: Creates a follow-up Einstufung, applies the monthly cut-off rule,
-        closes the source period, and syncs open CHILDCARE expectations from the
-        effective month.
+        closes the source period, and aligns already generated CHILDCARE
+        expectations from the effective month.
       parameters:
         - description: Source Einstufung ID
           in: path
@@ -6391,7 +6393,7 @@ components:
         - suggestions
       type: object
     ChildcareExpectationSyncResult:
-      description: Result of synchronizing CHILDCARE expectations after a follow-up
+      description: Result of aligning generated CHILDCARE expectations with an Einstufung
       properties:
         created:
           type: integer
@@ -6401,6 +6403,8 @@ components:
           type: array
         deltaOpen:
           type: number
+        removed:
+          type: integer
         skipped:
           type: integer
         updated:
@@ -6409,6 +6413,7 @@ components:
         - created
         - creditReviewRequired
         - deltaOpen
+        - removed
         - skipped
         - updated
       type: object
@@ -6873,6 +6878,10 @@ components:
           type: integer
         effectiveFromMonth:
           type: string
+        expectationChanges:
+          allOf:
+            - $ref: "#/components/schemas/ChildcareExpectationSyncResult"
+          description: CHILDCARE expectations aligned by this save (create/update only)
         feeRule:
           type: string
         highestRateVoluntary:

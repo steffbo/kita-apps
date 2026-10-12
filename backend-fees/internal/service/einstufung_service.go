@@ -141,24 +141,28 @@ type einstufungDraft struct {
 	source *domain.Einstufung
 }
 
-// Create creates a new Einstufung, computing the fee from the income basis and
-// mirroring it on the household.
-func (s *EinstufungService) Create(ctx context.Context, input CreateEinstufungInput) (*domain.Einstufung, error) {
+// Create creates a new Einstufung, computing the fee from the income basis,
+// mirroring it on the household and aligning generated CHILDCARE expectations.
+func (s *EinstufungService) Create(ctx context.Context, input CreateEinstufungInput) (*domain.Einstufung, *ChildcareExpectationSyncResult, error) {
 	draft, err := s.draftNew(ctx, input)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
+	var changes *ChildcareExpectationSyncResult
 	err = s.withTx(ctx, func(ctx context.Context) error {
 		if err := s.einstufungRepo.Create(ctx, draft.einstufung); err != nil {
 			return mapEinstufungRepoError(err)
 		}
-		return s.applyToHousehold(ctx, draft.household, draft.einstufung)
+		if err := s.applyToHousehold(ctx, draft.household, draft.einstufung); err != nil {
+			return err
+		}
+		changes, err = s.syncFees(ctx, draft.einstufung)
+		return err
 	})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	s.populateMonthlyTable(ctx, draft.einstufung)
-	return draft.einstufung, nil
+	return draft.einstufung, changes, nil
 }
 
 // CreateFollowUp creates a follow-up Einstufung, closes the source period, and syncs CHILDCARE expectations.
@@ -177,36 +181,59 @@ func (s *EinstufungService) CreateFollowUp(ctx context.Context, sourceID uuid.UU
 		if err := s.applyToHousehold(ctx, draft.household, e); err != nil {
 			return err
 		}
-		changes, err = s.feeService.SyncChildcareExpectationsFrom(ctx, draft.child.ID, draft.child.HouseholdID, e.EffectiveFromMonth, e.MonthlyChildcareFee, draft.child.ExitDate)
+		changes, err = s.syncFees(ctx, e)
 		return err
 	})
 	if err != nil {
 		return nil, err
 	}
-	s.populateMonthlyTable(ctx, e)
 	return &CreateFollowUpEinstufungResult{
 		Einstufung:         e,
 		ExpectationChanges: changes,
 	}, nil
 }
 
-// Update recalculates and updates an existing Einstufung.
-func (s *EinstufungService) Update(ctx context.Context, id uuid.UUID, input UpdateEinstufungInput) (*domain.Einstufung, error) {
+// Update recalculates and updates an existing Einstufung and aligns generated
+// CHILDCARE expectations of its period.
+func (s *EinstufungService) Update(ctx context.Context, id uuid.UUID, input UpdateEinstufungInput) (*domain.Einstufung, *ChildcareExpectationSyncResult, error) {
 	draft, err := s.draftUpdate(ctx, id, input)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
+	var changes *ChildcareExpectationSyncResult
 	err = s.withTx(ctx, func(ctx context.Context) error {
 		if err := s.einstufungRepo.Update(ctx, draft.einstufung); err != nil {
 			return mapEinstufungRepoError(err)
 		}
-		return s.applyToHousehold(ctx, draft.household, draft.einstufung)
+		if err := s.applyToHousehold(ctx, draft.household, draft.einstufung); err != nil {
+			return err
+		}
+		changes, err = s.syncFees(ctx, draft.einstufung)
+		return err
 	})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	s.populateMonthlyTable(ctx, draft.einstufung)
-	return draft.einstufung, nil
+	return draft.einstufung, changes, nil
+}
+
+// syncFees fills the monthly table of e and aligns the generated CHILDCARE
+// expectations of its months with it. Months from the third birthday on owe no
+// childcare fee. e needs Child and Household.
+func (s *EinstufungService) syncFees(ctx context.Context, e *domain.Einstufung) (*ChildcareExpectationSyncResult, error) {
+	s.populateMonthlyTable(ctx, e)
+	if e.MonthlyTable == nil {
+		return nil, fmt.Errorf("Monatstabelle der Einstufung konnte nicht berechnet werden")
+	}
+	months := make([]ChildcareMonth, 0, len(e.MonthlyTable))
+	for _, row := range e.MonthlyTable {
+		amount := 0.0
+		if row.CareType == formatEinstufungCareType(domain.ChildAgeTypeKrippe) {
+			amount = row.ChildcareFee
+		}
+		months = append(months, ChildcareMonth{Year: row.Year, Month: row.Month, Amount: amount})
+	}
+	return s.feeService.SyncChildcareExpectations(ctx, e.ChildID, e.Child.HouseholdID, months)
 }
 
 // Preview computes an Einstufung form like Create, CreateFollowUp or Update
@@ -681,7 +708,20 @@ func (s *EinstufungService) Delete(ctx context.Context, id uuid.UUID) error {
 		if err != nil {
 			return ErrNotFound
 		}
-		return s.applyToHousehold(ctx, household, source)
+		if err := s.applyToHousehold(ctx, household, source); err != nil {
+			return err
+		}
+		// The reopened source covers the follow-up's months again.
+		s.loadRelations(ctx, source)
+		changes, err := s.syncFees(ctx, source)
+		if err != nil {
+			return err
+		}
+		if len(changes.CreditReviewRequired) > 0 {
+			log.Warn().Str("einstufungId", source.ID.String()).Int("months", len(changes.CreditReviewRequired)).
+				Msg("deleting follow-up Einstufung leaves paid months for credit review")
+		}
+		return nil
 	})
 }
 

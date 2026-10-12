@@ -319,6 +319,25 @@ func (r *PostgresEinstufungRepository) ListByYear(ctx context.Context, year int,
 	return results, total, nil
 }
 
+// GetForChildAt returns the Einstufung of the child that is valid in the month
+// starting at monthStart.
+func (r *PostgresEinstufungRepository) GetForChildAt(ctx context.Context, childID uuid.UUID, monthStart time.Time) (*domain.Einstufung, error) {
+	var e domain.Einstufung
+	err := conn(ctx, r.db).GetContext(ctx, &e, fmt.Sprintf(`
+		SELECT %s FROM fees.einstufungen
+		WHERE child_id = $1 AND effective_from_month <= $2 AND (valid_until IS NULL OR valid_until >= $2)
+		ORDER BY effective_from_month DESC, created_at DESC
+		LIMIT 1
+	`, einstufungSelectColumns), childID, monthStart)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	return &e, nil
+}
+
 // GetLatestForChild retrieves the most recent Einstufung for a child.
 func (r *PostgresEinstufungRepository) GetLatestForChild(ctx context.Context, childID uuid.UUID) (*domain.Einstufung, error) {
 	var e domain.Einstufung

@@ -2,36 +2,49 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/repository"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/util"
+	"github.com/rs/zerolog/log"
 	"sort"
 	"time"
 )
 
-// SyncChildcareExpectationsFrom updates CHILDCARE expectations from the effective month through year-end.
-func (s *FeeService) SyncChildcareExpectationsFrom(ctx context.Context, childID uuid.UUID, householdID *uuid.UUID, effectiveFromMonth time.Time, amount float64, exitDate *time.Time) (*ChildcareExpectationSyncResult, error) {
-	result := &ChildcareExpectationSyncResult{}
-	effectiveFromMonth = firstDayOfMonth(effectiveFromMonth)
-	endMonth := time.December
-	if exitDate != nil && exitDate.Year() == effectiveFromMonth.Year() && exitDate.Month() < endMonth {
-		endMonth = exitDate.Month()
-	}
+// ChildcareMonth is the CHILDCARE amount owed for one month.
+type ChildcareMonth struct {
+	Year   int
+	Month  int
+	Amount float64
+}
 
-	for m := effectiveFromMonth.Month(); m <= endMonth; m++ {
-		year := effectiveFromMonth.Year()
-		month := int(m)
-		dueDate := time.Date(year, m, 5, 0, 0, 0, 0, time.UTC)
-		fee, err := s.feeRepo.GetByChildFeePeriod(ctx, childID, domain.FeeTypeChildcare, year, month)
+// SyncChildcareExpectations aligns the CHILDCARE expectations of already
+// generated months with the given amounts. A month counts as generated when the
+// child has a CHILDCARE or FOOD expectation for it; later months are left to
+// fee generation. Paid months that would become overpaid are not changed but
+// reported for a credit review; unpaid expectations without an amount are removed.
+func (s *FeeService) SyncChildcareExpectations(ctx context.Context, childID uuid.UUID, householdID *uuid.UUID, months []ChildcareMonth) (*ChildcareExpectationSyncResult, error) {
+	result := &ChildcareExpectationSyncResult{CreditReviewRequired: []CreditReviewPeriod{}}
+	for _, m := range months {
+		month := m.Month
+		amount := roundToTwoDecimals(m.Amount)
+		dueDate := time.Date(m.Year, time.Month(month), 5, 0, 0, 0, 0, time.UTC)
+		fee, err := s.feeRepo.GetByChildFeePeriod(ctx, childID, domain.FeeTypeChildcare, m.Year, month)
 		if err != nil {
 			return nil, err
 		}
 
 		if fee == nil {
 			if amount <= 0 {
-				result.Skipped++
+				continue
+			}
+			generated, err := s.feeRepo.Exists(ctx, childID, domain.FeeTypeFood, m.Year, &month)
+			if err != nil {
+				return nil, err
+			}
+			if !generated {
 				continue
 			}
 			created := &domain.FeeExpectation{
@@ -39,7 +52,7 @@ func (s *FeeService) SyncChildcareExpectationsFrom(ctx context.Context, childID 
 				ChildID:     childID,
 				HouseholdID: householdID,
 				FeeType:     domain.FeeTypeChildcare,
-				Year:        year,
+				Year:        m.Year,
 				Month:       &month,
 				Amount:      amount,
 				DueDate:     dueDate,
@@ -81,6 +94,15 @@ func (s *FeeService) SyncChildcareExpectationsFrom(ctx context.Context, childID 
 			continue
 		}
 
+		if amount <= 0 && matchedAmount == 0 {
+			if err := s.feeRepo.Delete(ctx, fee.ID); err != nil {
+				return nil, err
+			}
+			result.Removed++
+			result.DeltaOpen = roundToTwoDecimals(result.DeltaOpen - oldRemaining)
+			continue
+		}
+
 		fee.Amount = amount
 		fee.DueDate = dueDate
 		if err := s.feeRepo.Update(ctx, fee); err != nil {
@@ -95,6 +117,29 @@ func (s *FeeService) SyncChildcareExpectationsFrom(ctx context.Context, childID 
 	}
 
 	return result, nil
+}
+
+// einstufungChildcareFee is the monthly childcare fee of a U3 child from the
+// Einstufung valid in the month, before the entry-month rule. ok is false when
+// no Einstufung covers the month; household data then decides.
+func (s *FeeService) einstufungChildcareFee(ctx context.Context, schedule *domain.FeeSchedule, child *domain.Child, year int, month time.Month) (fee float64, ok bool) {
+	if s.einstufungRepo == nil {
+		return 0, false
+	}
+	e, err := s.einstufungRepo.GetForChildAt(ctx, child.ID, time.Date(year, month, 1, 0, 0, 0, 0, time.UTC))
+	if err != nil {
+		if !errors.Is(err, repository.ErrNotFound) {
+			log.Warn().Err(err).Str("childId", child.ID.String()).Msg("cannot load Einstufung for fee calculation")
+		}
+		return 0, false
+	}
+	var household *domain.Household
+	if s.householdRepo != nil {
+		household, _ = s.householdRepo.GetByID(ctx, e.HouseholdID)
+	}
+	m := int(month)
+	careHours := s.ResolveCareHours(ctx, child, year, &m)
+	return schedule.Config.CalculateChildcareFee(einstufungFeeInput(e, household, domain.ChildAgeTypeKrippe, careHours)).Fee, true
 }
 
 // calculateChildcareFeeForChild calculates the childcare fee for a specific child.
@@ -112,6 +157,19 @@ func (s *FeeService) calculateChildcareFeeForChild(ctx context.Context, schedule
 		}
 	}
 
+	billed := util.Today()
+	if month != nil {
+		billed = time.Date(year, time.Month(*month), 1, 0, 0, 0, 0, time.UTC)
+	}
+	if fee, ok := s.einstufungChildcareFee(ctx, schedule, child, billed.Year(), billed.Month()); ok {
+		return fee
+	}
+	return s.householdChildcareFee(ctx, schedule, child, year, month)
+}
+
+// householdChildcareFee calculates the childcare fee from household data, for
+// months without an Einstufung.
+func (s *FeeService) householdChildcareFee(ctx context.Context, schedule *domain.FeeSchedule, child *domain.Child, year int, month *int) float64 {
 	info := s.getIncomeInfo(ctx, child)
 
 	// Care hours effective in the billed month (falls back to the default when unknown)

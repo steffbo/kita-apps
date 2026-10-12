@@ -189,7 +189,7 @@ func TestFeeService_GetByID_FullMatch(t *testing.T) {
 	}
 }
 
-func TestFeeService_SyncChildcareExpectationsFrom_AdjustsPaidIncrease(t *testing.T) {
+func TestFeeService_SyncChildcareExpectations_AdjustsPaidIncrease(t *testing.T) {
 	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
@@ -224,10 +224,10 @@ func TestFeeService_SyncChildcareExpectationsFrom_AdjustsPaidIncrease(t *testing
 	}
 
 	feeService := service.NewFeeService(feeRepo, childRepo, householdRepo, matchRepo, txRepo, repository.NewPostgresFeeScheduleRepository(testDB))
-	exitDate := time.Date(2026, 6, 30, 0, 0, 0, 0, time.UTC)
-	result, err := feeService.SyncChildcareExpectationsFrom(context.Background(), child.ID, child.HouseholdID, time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC), 150, &exitDate)
+	result, err := feeService.SyncChildcareExpectations(context.Background(), child.ID, child.HouseholdID,
+		[]service.ChildcareMonth{{Year: 2026, Month: 6, Amount: 150}})
 	if err != nil {
-		t.Fatalf("SyncChildcareExpectationsFrom failed: %v", err)
+		t.Fatalf("SyncChildcareExpectations failed: %v", err)
 	}
 
 	if result.Updated != 1 {
@@ -248,7 +248,7 @@ func TestFeeService_SyncChildcareExpectationsFrom_AdjustsPaidIncrease(t *testing
 	}
 }
 
-func TestFeeService_SyncChildcareExpectationsFrom_ReportsCreditReviewForDecrease(t *testing.T) {
+func TestFeeService_SyncChildcareExpectations_ReportsCreditReviewForDecrease(t *testing.T) {
 	requireTestDatabase(t)
 	cleanupTestData()
 	defer cleanupTestData()
@@ -283,10 +283,10 @@ func TestFeeService_SyncChildcareExpectationsFrom_ReportsCreditReviewForDecrease
 	}
 
 	feeService := service.NewFeeService(feeRepo, childRepo, householdRepo, matchRepo, txRepo, repository.NewPostgresFeeScheduleRepository(testDB))
-	exitDate := time.Date(2026, 6, 30, 0, 0, 0, 0, time.UTC)
-	result, err := feeService.SyncChildcareExpectationsFrom(context.Background(), child.ID, child.HouseholdID, time.Date(2026, 6, 1, 0, 0, 0, 0, time.UTC), 100, &exitDate)
+	result, err := feeService.SyncChildcareExpectations(context.Background(), child.ID, child.HouseholdID,
+		[]service.ChildcareMonth{{Year: 2026, Month: 6, Amount: 100}})
 	if err != nil {
-		t.Fatalf("SyncChildcareExpectationsFrom failed: %v", err)
+		t.Fatalf("SyncChildcareExpectations failed: %v", err)
 	}
 
 	if len(result.CreditReviewRequired) != 1 {

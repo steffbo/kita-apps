@@ -24,7 +24,7 @@ Monorepo for the Kita Knirpsenstadt fee management (Beiträge): Go backend, Vue 
 
 Removed in 2026-09 (Dienstplan/Zeiterfassung `backend-management` + apps, portal skeleton `backend-portal` + app, `packages/shared`, legacy Docker/Caddy/OpenAPI files, `docs/portal`, `docs/archive`, finished plan docs): last state in git tag `archive/pre-cleanup-2026-09`. Do not restore pieces from there without a decision.
 
-In `backend-fees`, fee amounts (brackets, tables, sibling factors, food/membership fee) are versioned data in `fees.fee_schedules` (UI: Beitragsordnung), not code; pick the version valid at the relevant date. Business dates follow Europe/Berlin: use `util.Today()` (Berlin date as UTC midnight, like scanned `DATE` columns) for date comparisons and `util.Now()` for year/month and timestamps — never bare `time.Now()`.
+In `backend-fees`, fee amounts (brackets, tables, sibling factors, food/membership fee) are versioned data in `fees.fee_schedules` (UI: Beitragsordnung), not code; pick the version valid at the relevant date. Monthly childcare fees (CHILDCARE) come from the Einstufung valid in the month (`fees.einstufungen`); household income data is only the fallback for months without one. Business dates follow Europe/Berlin: use `util.Today()` (Berlin date as UTC midnight, like scanned `DATE` columns) for date comparisons and `util.Now()` for year/month and timestamps — never bare `time.Now()`.
 
 Go services all follow: `cmd/server`, `cmd/migrate`, `internal/api` (handlers + router), `internal/service` (business logic), `internal/repository` (SQL), `migrations/`.
 

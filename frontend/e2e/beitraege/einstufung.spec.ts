@@ -150,3 +150,35 @@ test('Einstufungsbrief als PDF laden und per E-Mail senden', async ({ adminApi, 
   await history.getByRole('button', { name: `${download.suggestedFilename()} herunterladen` }).click();
   expect((await storedDownload).suggestedFilename()).toBe(download.suggestedFilename());
 });
+
+test('Gespeicherte Einstufung passt erzeugtes Platzgeld an', async ({ adminApi, adminPage: page }) => {
+  const suffix = uniq();
+  const today = berlinToday();
+  const lastName = `Platz${suffix}`;
+  const parent = await adminApi.post<{ id: string }>('/parents', { firstName: 'Eva', lastName });
+  const child = await adminApi.post<{ id: string }>('/children', {
+    memberNumber: memberNumber(), firstName: 'Mia', lastName,
+    birthDate: `${today.year - 1}-06-01`, entryDate: `${today.year}-01-01`,
+  });
+  await adminApi.post(`/children/${child.id}/parents`, { parentId: parent.id, isPrimary: true });
+  const created = await adminApi.post<{ id: string; monthlyTable: { month: number; childcareFee: number }[] }>(
+    '/einstufungen', {
+      childId: child.id, year: today.year, incomeBasis: 'HIGHEST_RATE', childrenCount: 1,
+      incomeCalculation: { parent1: {}, parent2: {} },
+    });
+  // Without an amount the fee is taken from the Einstufung valid in the month.
+  const fee = await adminApi.post<{ id: string; amount: number }>('/fees', {
+    childId: child.id, feeType: 'CHILDCARE', year: today.year, month: 2,
+  });
+  expect(fee.amount).toBe(created.monthlyTable.find((row) => row.month === 2)?.childcareFee);
+
+  await page.goto(`/beitraege/einstufungen/${created.id}`);
+  await page.getByLabel('Anzahl unterhaltspflichtiger Kinder').fill('2');
+  await page.getByRole('button', { name: 'Änderungen speichern' }).click();
+  const changes = page.getByTestId('expectation-changes');
+  await expect(changes.getByRole('heading', { name: 'Beitragsanpassung' })).toBeVisible();
+  await expect(changes.getByText('Aktualisiert').locator('..')).toContainText('1');
+
+  const updated = await adminApi.get<{ amount: number }>(`/fees/${fee.id}`);
+  expect(updated.amount).toBeLessThan(fee.amount);
+});

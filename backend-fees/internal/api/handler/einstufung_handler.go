@@ -61,7 +61,8 @@ type EinstufungResponse struct {
 	MonthlyTable         []domain.EinstufungMonthRow       `json:"monthlyTable,omitempty" binding:"optional"`
 	CreatedAt            string                            `json:"createdAt"`
 	UpdatedAt            string                            `json:"updatedAt"`
-	LetterSentAt         *string                           `json:"letterSentAt,omitempty" binding:"optional"` // Last time the letter was emailed from the app
+	LetterSentAt         *string                           `json:"letterSentAt,omitempty" binding:"optional"`       // Last time the letter was emailed from the app
+	ExpectationChanges   *ChildcareExpectationSyncResponse `json:"expectationChanges,omitempty" binding:"optional"` // CHILDCARE expectations aligned by this save (create/update only)
 	Child                interface{}                       `json:"child,omitempty" binding:"optional"`
 	Household            interface{}                       `json:"household,omitempty" binding:"optional"`
 } //@name Einstufung
@@ -130,10 +131,11 @@ type CreditReviewPeriodResponse struct {
 } //@name CreditReviewPeriod
 
 // ChildcareExpectationSyncResponse describes automatic expectation updates.
-// @Description Result of synchronizing CHILDCARE expectations after a follow-up
+// @Description Result of aligning generated CHILDCARE expectations with an Einstufung
 type ChildcareExpectationSyncResponse struct {
 	Created              int                          `json:"created"`
 	Updated              int                          `json:"updated"`
+	Removed              int                          `json:"removed"`
 	Skipped              int                          `json:"skipped"`
 	DeltaOpen            float64                      `json:"deltaOpen"`
 	CreditReviewRequired []CreditReviewPeriodResponse `json:"creditReviewRequired"`
@@ -193,7 +195,7 @@ type EinstufungPreviewResponse struct {
 
 // Create handles POST /einstufungen
 // @Summary Create a fee classification
-// @Description Creates a new Einstufung by calculating fees from income proofs
+// @Description Creates a new Einstufung by calculating fees from income proofs and aligns already generated CHILDCARE expectations of its months
 // @Tags Einstufungen
 // @Accept json
 // @Produce json
@@ -225,7 +227,7 @@ func (h *EinstufungHandler) Create(w http.ResponseWriter, r *http.Request) {
 		req.Year = validFrom.Year()
 	}
 
-	result, err := h.einstufungService.Create(r.Context(), service.CreateEinstufungInput{
+	result, changes, err := h.einstufungService.Create(r.Context(), service.CreateEinstufungInput{
 		ChildID:              childID,
 		Year:                 req.Year,
 		IncomeCalculation:    req.IncomeCalculation,
@@ -240,7 +242,9 @@ func (h *EinstufungHandler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.Created(w, toEinstufungResponse(result))
+	resp := toEinstufungResponse(result)
+	resp.ExpectationChanges = syncResponse(changes)
+	response.Created(w, resp)
 }
 
 // Get handles GET /einstufungen/{id}
@@ -271,7 +275,7 @@ func (h *EinstufungHandler) Get(w http.ResponseWriter, r *http.Request) {
 
 // Update handles PUT /einstufungen/{id}
 // @Summary Update a fee classification
-// @Description Updates an existing Einstufung and recalculates fees
+// @Description Updates an existing Einstufung, recalculates fees and aligns already generated CHILDCARE expectations of its months
 // @Tags Einstufungen
 // @Accept json
 // @Produce json
@@ -316,18 +320,20 @@ func (h *EinstufungHandler) Update(w http.ResponseWriter, r *http.Request) {
 		input.ValidFrom = &t
 	}
 
-	result, err := h.einstufungService.Update(r.Context(), id, input)
+	result, changes, err := h.einstufungService.Update(r.Context(), id, input)
 	if err != nil {
 		handleEinstufungError(w, err)
 		return
 	}
 
-	response.Success(w, toEinstufungResponse(result))
+	resp := toEinstufungResponse(result)
+	resp.ExpectationChanges = syncResponse(changes)
+	response.Success(w, resp)
 }
 
 // CreateFollowUp handles POST /einstufungen/{id}/follow-ups
 // @Summary Create a follow-up fee classification
-// @Description Creates a follow-up Einstufung, applies the monthly cut-off rule, closes the source period, and syncs open CHILDCARE expectations from the effective month.
+// @Description Creates a follow-up Einstufung, applies the monthly cut-off rule, closes the source period, and aligns already generated CHILDCARE expectations from the effective month.
 // @Tags Einstufungen
 // @Accept json
 // @Produce json
@@ -685,6 +691,14 @@ func toEinstufungResponse(e *domain.Einstufung) EinstufungResponse {
 	return resp
 }
 
+func syncResponse(result *service.ChildcareExpectationSyncResult) *ChildcareExpectationSyncResponse {
+	if result == nil {
+		return nil
+	}
+	resp := toChildcareExpectationSyncResponse(result)
+	return &resp
+}
+
 func toChildcareExpectationSyncResponse(result *service.ChildcareExpectationSyncResult) ChildcareExpectationSyncResponse {
 	if result == nil {
 		return ChildcareExpectationSyncResponse{}
@@ -704,6 +718,7 @@ func toChildcareExpectationSyncResponse(result *service.ChildcareExpectationSync
 	return ChildcareExpectationSyncResponse{
 		Created:              result.Created,
 		Updated:              result.Updated,
+		Removed:              result.Removed,
 		Skipped:              result.Skipped,
 		DeltaOpen:            result.DeltaOpen,
 		CreditReviewRequired: creditReview,

@@ -42,7 +42,7 @@ func TestEinstufungLetter_PDFAndSend(t *testing.T) {
 	}
 	t.Cleanup(func() { testDB.Exec("DELETE FROM fees.email_logs WHERE household_id = $1", household.ID) })
 
-	created, err := f.service.Create(f.ctx, service.CreateEinstufungInput{
+	created, _, err := f.service.Create(f.ctx, service.CreateEinstufungInput{
 		ChildID: child.ID, Year: 2026, IncomeBasis: domain.IncomeBasisHighestRate, ChildrenCount: 1,
 	})
 	if err != nil {
@@ -125,7 +125,7 @@ func TestEinstufungLetter_PDFAndSend(t *testing.T) {
 
 	// The stored letter stays unchanged when the Einstufung changes later.
 	childrenCount := 2
-	if _, err := f.service.Update(f.ctx, created.ID, service.UpdateEinstufungInput{ChildrenCount: &childrenCount}); err != nil {
+	if _, _, err := f.service.Update(f.ctx, created.ID, service.UpdateEinstufungInput{ChildrenCount: &childrenCount}); err != nil {
 		t.Fatal(err)
 	}
 	again, err := letters.SentLetter(f.ctx, history[0].ID)

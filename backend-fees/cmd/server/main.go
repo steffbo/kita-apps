@@ -134,6 +134,7 @@ func main() {
 	householdService := service.NewHouseholdService(householdRepo, parentRepo, childRepo)
 	memberService := service.NewMemberService(memberRepo, householdRepo)
 	feeService := service.NewFeeService(feeRepo, childRepo, householdRepo, matchRepo, transactionRepo, feeScheduleRepo)
+	feeService.UseEinstufungen(einstufungRepo)
 	txManager := repository.NewTxManager(db)
 	importService := service.NewImportService(transactionRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, warningRepo, txManager, feeScheduleRepo)
 	childImportService := service.NewChildImportService(childRepo, parentRepo, txManager)

@@ -3,6 +3,27 @@
 Rolling change log of non-obvious implementation decisions. Newest first.
 Basics (ports, commands, layout) live in `AGENTS.md`.
 
+## Platzgeld aus der gültigen Einstufung (2026-10-12)
+
+- Beitragserzeugung (`POST /fees/generate`) und `POST /fees` ohne Betrag nehmen das Platzgeld eines U3-Kinds aus
+  der Einstufung, die im Monat gilt (`effective_from_month <= Monat <= valid_until`), mit deren Kinderzahl und
+  Grundlage, Betreuungsstunden des Monats und der Beitragsordnung des Monats – genau wie die Monatstabelle der
+  Einstufung. Nur Monate ohne Einstufung rechnen weiter mit den Haushaltsdaten. `FeeService.UseEinstufungen`
+  schaltet das ein (in `main.go`); Tests ohne den Aufruf rechnen nur mit Haushaltsdaten.
+- Speichern, Ändern und Folgeeinstufung gleichen die schon erzeugten CHILDCARE-Erwartungen ihrer Monate an
+  (`FeeService.SyncChildcareExpectations`, in derselben Transaktion). Ein Monat gilt als erzeugt, wenn es für
+  das Kind CHILDCARE oder FOOD gibt; spätere Monate legt die Beitragserzeugung an (vorher legte die
+  Folgeeinstufung CHILDCARE bis Jahresende im Voraus an). Bezahlte Monate werden nicht gesenkt, sondern als
+  „Gutschrift prüfen“ gemeldet; unbezahlte Monate ohne Platzgeld (ab dem 3. Geburtstag) werden gelöscht
+  (`removed`). Löschen einer Folgeeinstufung gleicht die Monate an die wieder offene Quelle an (Gutschrift-
+  Fälle nur im Log); Löschen einer Einstufung ohne Quelle lässt die Beiträge stehen.
+- API: `EinstufungResponse.expectationChanges` bei Anlegen und Ändern, `ChildcareExpectationSyncResult.removed`.
+  Frontend: Karte „Beitragsanpassung“ nach jedem Speichern, wenn sich etwas geändert hat (blieb nach einer
+  Folgeeinstufung vorher wegen des Neuladens nicht stehen).
+- Abgleich auf der Live-Kopie: Alle erzeugten Monate stimmen mit den Einstufungen überein, bis auf zwei bezahlte
+  August-Beiträge (zwei Kinder, Platzgeld vor der Einstufung aus Haushaltsdaten erzeugt, einmal mit anderen
+  Betreuungsstunden); diese würden beim nächsten Speichern der Einstufung nur als Gutschrift-Prüfung gemeldet.
+
 ## Einstufungsbrief: versendete PDFs speichern, Versandhistorie (2026-10-12)
 
 - Neue Tabelle `fees.einstufung_letters` (Migration `000047`): pro versendeter Mail das PDF genau wie

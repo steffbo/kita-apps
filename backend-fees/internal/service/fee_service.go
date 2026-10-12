@@ -17,6 +17,7 @@ type FeeService struct {
 	matchRepo       repository.MatchRepository
 	transactionRepo repository.TransactionRepository
 	scheduleRepo    repository.FeeScheduleRepository
+	einstufungRepo  repository.EinstufungRepository
 }
 
 // NewFeeService creates a new fee service.
@@ -66,10 +67,17 @@ type GenerateResult struct {
 	Skipped int `json:"skipped"`
 }
 
+// UseEinstufungen makes childcare fees follow the Einstufung valid in the
+// billed month. Without it, fees are calculated from household data only.
+func (s *FeeService) UseEinstufungen(repo repository.EinstufungRepository) {
+	s.einstufungRepo = repo
+}
+
 // ChildcareExpectationSyncResult describes automatic expectation changes after a follow-up classification.
 type ChildcareExpectationSyncResult struct {
 	Created              int                  `json:"created"`
 	Updated              int                  `json:"updated"`
+	Removed              int                  `json:"removed"`
 	Skipped              int                  `json:"skipped"`
 	DeltaOpen            float64              `json:"deltaOpen"`
 	CreditReviewRequired []CreditReviewPeriod `json:"creditReviewRequired"`
@@ -283,24 +291,16 @@ func (s *FeeService) Generate(ctx context.Context, year int, month *int) (*Gener
 		// Childcare fee (only U3)
 		// If child turns 3 at any point during the month, no childcare fee is charged
 		if child.IsUnderThreeForEntireMonth(year, time.Month(*month)) {
-			info := s.getIncomeInfo(ctx, &child)
-
-			// Care hours effective in the billed month (falls back to the default when unknown)
-			careHours := s.ResolveCareHours(ctx, &child, year, month)
-
-			feeResult := schedule.Config.CalculateChildcareFee(domain.ChildcareFeeInput{
-				ChildAgeType:  domain.ChildAgeTypeKrippe,
-				NetIncome:     info.Income,
-				SiblingsCount: info.SiblingsCount,
-				CareHours:     careHours,
-				HighestRate:   info.IsHighestRate,
-				FosterFamily:  info.IsFosterFamily,
-			})
-			if feeResult.Fee <= 0 {
+			// The Einstufung valid in the month decides; household data only without one.
+			fee, ok := s.einstufungChildcareFee(ctx, schedule, &child, year, time.Month(*month))
+			if !ok {
+				fee = s.householdChildcareFee(ctx, schedule, &child, year, month)
+			}
+			if fee <= 0 {
 				// Beitrag frei: kein Platzgeld erzeugen
 				continue
 			}
-			childcareAmount := domain.ContributionAmountForMonth(feeResult.Fee, child.EntryDate, year, time.Month(*month))
+			childcareAmount := domain.ContributionAmountForMonth(fee, child.EntryDate, year, time.Month(*month))
 			created, err := s.createFeeIfNotExists(ctx, child.ID, child.HouseholdID, domain.FeeTypeChildcare, year, month, childcareAmount, dueDate)
 			if err != nil {
 				return nil, err

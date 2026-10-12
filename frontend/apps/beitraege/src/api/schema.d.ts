@@ -2269,7 +2269,7 @@ export interface paths {
         put?: never;
         /**
          * Create a fee classification
-         * @description Creates a new Einstufung by calculating fees from income proofs
+         * @description Creates a new Einstufung by calculating fees from income proofs and aligns already generated CHILDCARE expectations of its months
          */
         post: {
             parameters: {
@@ -2365,7 +2365,7 @@ export interface paths {
         };
         /**
          * Update a fee classification
-         * @description Updates an existing Einstufung and recalculates fees
+         * @description Updates an existing Einstufung, recalculates fees and aligns already generated CHILDCARE expectations of its months
          */
         put: {
             parameters: {
@@ -2473,7 +2473,7 @@ export interface paths {
         put?: never;
         /**
          * Create a follow-up fee classification
-         * @description Creates a follow-up Einstufung, applies the monthly cut-off rule, closes the source period, and syncs open CHILDCARE expectations from the effective month.
+         * @description Creates a follow-up Einstufung, applies the monthly cut-off rule, closes the source period, and aligns already generated CHILDCARE expectations from the effective month.
          */
         post: {
             parameters: {
@@ -9442,11 +9442,12 @@ export interface components {
             scanned: number;
             suggestions: components["schemas"]["domain.MatchSuggestion"][];
         };
-        /** @description Result of synchronizing CHILDCARE expectations after a follow-up */
+        /** @description Result of aligning generated CHILDCARE expectations with an Einstufung */
         ChildcareExpectationSyncResult: {
             created: number;
             creditReviewRequired: components["schemas"]["CreditReviewPeriod"][];
             deltaOpen: number;
+            removed: number;
             skipped: number;
             updated: number;
         };
@@ -9702,6 +9703,8 @@ export interface components {
             discountFactor: number;
             discountPercent: number;
             effectiveFromMonth: string;
+            /** @description CHILDCARE expectations aligned by this save (create/update only) */
+            expectationChanges?: components["schemas"]["ChildcareExpectationSyncResult"];
             feeRule: string;
             /** @description true exactly for incomeBasis HIGHEST_RATE */
             highestRateVoluntary: boolean;

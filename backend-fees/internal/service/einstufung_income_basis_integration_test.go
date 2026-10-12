@@ -19,6 +19,7 @@ type einstufungFixture struct {
 	childRepo      *repository.PostgresChildRepository
 	householdRepo  *repository.PostgresHouseholdRepository
 	einstufungRepo *repository.PostgresEinstufungRepository
+	fees           *service.FeeService
 	service        *service.EinstufungService
 }
 
@@ -36,11 +37,13 @@ func newEinstufungFixture(t *testing.T) *einstufungFixture {
 		repository.NewPostgresMatchRepository(testDB), repository.NewPostgresTransactionRepository(testDB),
 		repository.NewPostgresFeeScheduleRepository(testDB),
 	)
+	feeService.UseEinstufungen(einstufungRepo)
 	return &einstufungFixture{
 		ctx:            context.Background(),
 		childRepo:      childRepo,
 		householdRepo:  householdRepo,
 		einstufungRepo: einstufungRepo,
+		fees:           feeService,
 		service: service.NewEinstufungService(einstufungRepo, householdRepo, childRepo, feeService,
 			repository.NewTxManager(testDB)),
 	}
@@ -103,13 +106,13 @@ func TestEinstufungIncomeBasis_NotRequiredOnlyForKindergartenChildren(t *testing
 	f := newEinstufungFixture(t)
 
 	krippe, _ := f.child(t, "TIBK", domain.IncomeStatusUnknown, date(2025, time.March, 1), date(2026, time.January, 1))
-	_, err := f.service.Create(f.ctx, service.CreateEinstufungInput{
+	_, _, err := f.service.Create(f.ctx, service.CreateEinstufungInput{
 		ChildID: krippe.ID, Year: 2026, IncomeBasis: domain.IncomeBasisNotRequired, ChildrenCount: 1,
 	})
 	requireValidationError(t, err, "Kindergartenkinder")
 
 	kita, household := f.child(t, "TIBG", domain.IncomeStatusUnknown, date(2021, time.March, 1), date(2026, time.January, 1))
-	created, err := f.service.Create(f.ctx, service.CreateEinstufungInput{
+	created, _, err := f.service.Create(f.ctx, service.CreateEinstufungInput{
 		ChildID: kita.ID, Year: 2026, IncomeBasis: domain.IncomeBasisNotRequired, ChildrenCount: 1,
 		IncomeCalculation: domain.HouseholdIncomeCalculation{Parent1: domain.IncomeDetails{AdvertisingCosts: 1500}},
 	})
@@ -133,7 +136,7 @@ func TestEinstufungIncomeBasis_HouseholdMirrorsOpenEinstufung(t *testing.T) {
 	f := newEinstufungFixture(t)
 	child, household := f.child(t, "TIBH", domain.IncomeStatusUnknown, date(2025, time.March, 1), date(2026, time.January, 1))
 
-	created, err := f.service.Create(f.ctx, service.CreateEinstufungInput{
+	created, _, err := f.service.Create(f.ctx, service.CreateEinstufungInput{
 		ChildID: child.ID, Year: 2026, IncomeBasis: domain.IncomeBasisHighestRate, ChildrenCount: 2,
 	})
 	if err != nil {
@@ -155,7 +158,7 @@ func TestEinstufungIncomeBasis_HouseholdMirrorsOpenEinstufung(t *testing.T) {
 		Parent1: domain.IncomeDetails{GrossIncome: 40000, Tax: 5000, AdvertisingCosts: 1230},
 		Parent2: domain.IncomeDetails{AdvertisingCosts: 1230, ParentalBenefit: 6000},
 	}
-	updated, err := f.service.Update(f.ctx, created.ID, service.UpdateEinstufungInput{IncomeBasis: &basis, IncomeCalculation: &calc})
+	updated, _, err := f.service.Update(f.ctx, created.ID, service.UpdateEinstufungInput{IncomeBasis: &basis, IncomeCalculation: &calc})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -176,7 +179,7 @@ func TestEinstufungIncomeBasis_HouseholdMirrorsOpenEinstufung(t *testing.T) {
 		t.Fatal(err)
 	}
 	notes := "nachträglich korrigiert"
-	if _, err := f.service.Update(f.ctx, created.ID, service.UpdateEinstufungInput{Notes: &notes}); err != nil {
+	if _, _, err := f.service.Update(f.ctx, created.ID, service.UpdateEinstufungInput{Notes: &notes}); err != nil {
 		t.Fatal(err)
 	}
 	reloaded = f.household(t, household.ID)
@@ -205,7 +208,7 @@ func TestEinstufungIncomeBasis_FosterFamilyAndSiblingStatusKept(t *testing.T) {
 	f := newEinstufungFixture(t)
 
 	foster, fosterHousehold := f.child(t, "TIBF", domain.IncomeStatusFosterFamily, date(2025, time.March, 1), date(2026, time.January, 1))
-	if _, err := f.service.Create(f.ctx, service.CreateEinstufungInput{
+	if _, _, err := f.service.Create(f.ctx, service.CreateEinstufungInput{
 		ChildID: foster.ID, Year: 2026, IncomeBasis: domain.IncomeBasisHighestRate, ChildrenCount: 1,
 	}); err != nil {
 		t.Fatal(err)
@@ -221,7 +224,7 @@ func TestEinstufungIncomeBasis_FosterFamilyAndSiblingStatusKept(t *testing.T) {
 	if err := f.householdRepo.Update(f.ctx, household); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := f.service.Create(f.ctx, service.CreateEinstufungInput{
+	if _, _, err := f.service.Create(f.ctx, service.CreateEinstufungInput{
 		ChildID: older.ID, Year: 2026, IncomeBasis: domain.IncomeBasisNotRequired, ChildrenCount: 2,
 	}); err != nil {
 		t.Fatal(err)
@@ -266,7 +269,7 @@ func TestEinstufungPreview_ComputesWithoutSaving(t *testing.T) {
 	}
 
 	// The saved Einstufung matches the preview; a second one for the same period is rejected.
-	created, err := f.service.Create(f.ctx, service.CreateEinstufungInput{
+	created, _, err := f.service.Create(f.ctx, service.CreateEinstufungInput{
 		ChildID: child.ID, Year: 2026, IncomeBasis: domain.IncomeBasisIncome, ChildrenCount: 1,
 		IncomeCalculation: domain.HouseholdIncomeCalculation{Parent1: domain.IncomeDetails{AdvertisingCosts: 1230}},
 	})
@@ -276,7 +279,7 @@ func TestEinstufungPreview_ComputesWithoutSaving(t *testing.T) {
 	if created.MonthlyChildcareFee != e.MonthlyChildcareFee || created.FeeRule != e.FeeRule {
 		t.Fatalf("created %.2f/%s, preview %.2f/%s", created.MonthlyChildcareFee, created.FeeRule, e.MonthlyChildcareFee, e.FeeRule)
 	}
-	_, err = f.service.Create(f.ctx, service.CreateEinstufungInput{
+	_, _, err = f.service.Create(f.ctx, service.CreateEinstufungInput{
 		ChildID: child.ID, Year: 2026, IncomeBasis: domain.IncomeBasisHighestRate, ChildrenCount: 1,
 	})
 	requireValidationError(t, err, "bereits eine Einstufung")
