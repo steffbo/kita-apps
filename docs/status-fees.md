@@ -3,6 +3,16 @@
 Rolling change log of non-obvious implementation decisions. Newest first.
 Basics (ports, commands, layout) live in `AGENTS.md`.
 
+## Eltern sehen ihre Einstufungsbriefe (2026-10-12)
+
+- `GET /me/einstufung-letters` (PARENT): die per E-Mail versendeten Briefe für die eigenen Kinder (wie bei
+  den übrigen `/me`-Daten über `ParentAccountRepository.Children`), neueste zuerst, nur Kind-Vorname, Datum,
+  Betreff, Dateiname. `GET /me/einstufung-letters/{id}/pdf` liefert das gespeicherte PDF; fremde Briefe 404.
+- Bewusst nur versendete Briefe, keine Einstufungen selbst: Eltern sehen damit genau, was ihnen mitgeteilt
+  wurde, keine Entwürfe, kein Einkommen, keine Notizen. Briefe aus der Zeit vor der Speicherung fehlen.
+- Frontend: Abschnitt „Einstufungsbriefe“ auf `/familie/beitraege` (unabhängig vom gewählten Jahr) mit
+  PDF-Download.
+
 ## Platzgeld aus der gültigen Einstufung (2026-10-12)
 
 - Beitragserzeugung (`POST /fees/generate`) und `POST /fees` ohne Betrag nehmen das Platzgeld eines U3-Kinds aus

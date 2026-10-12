@@ -88,7 +88,7 @@ import type {
   BoardTerm, BoardTermRequest, ParentWorkRule, ParentWorkRuleRequest,
   ParentWorkImportParseResult, ParentWorkImportPreviewRow, ParentWorkImportExecuteRow,
   ParentWorkImportExecuteResult,
-  OwnOverview, OwnFees, OwnWork, OwnWorkEntry, OwnWorkRequest,
+  OwnOverview, OwnFees, OwnEinstufungLetter, OwnWork, OwnWorkEntry, OwnWorkRequest,
   OwnContactRequest, ParentReport, ParentActivity, DataChange, ReportRequest,
 } from './types';
 import { ReminderCaseConflictError } from './types';
@@ -288,6 +288,8 @@ class ApiClient {
   // Elternkonto und Admin-Prüfung
   getOwnOverview(): Promise<OwnOverview> { return this.request('/me'); }
   getOwnFees(year: number): Promise<OwnFees> { return this.request(`/me/fees?year=${year}`); }
+  getOwnEinstufungLetters(): Promise<OwnEinstufungLetter[]> { return this.request('/me/einstufung-letters'); }
+  getOwnEinstufungLetter(id: string): Promise<DownloadedFile> { return this.requestFile(`/me/einstufung-letters/${id}/pdf`); }
   getOwnWork(year?: number): Promise<OwnWork> {
     return this.request(`/me/parent-work${year ? `?year=${year}` : ''}`);
   }

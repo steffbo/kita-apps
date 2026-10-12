@@ -58,6 +58,7 @@ export type CreateUserAccountRequest = Schema['CreateUserAccountRequest'];
 export type OwnOverview = Schema['handler.ownOverview'];
 export type OwnChild = Schema['handler.ownChild'];
 export type OwnFees = Schema['handler.ownFees'];
+export type OwnEinstufungLetter = Schema['handler.ownEinstufungLetter'];
 export type OwnWork = Schema['handler.ownWork'];
 export type OwnWorkEntry = Schema['handler.ownWorkEntry'];
 export type OwnWorkRequest = Schema['handler.ownWorkRequest'];

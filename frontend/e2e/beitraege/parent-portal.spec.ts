@@ -150,5 +150,21 @@ test('Beiträge der Familie: Mahngebühr direkt am Beitrag, Filter auf offene', 
     await expect(rows.filter({ hasText: 'Mahngebühr' })).toHaveCount(1);
     await page.getByRole('button', { name: 'Alle anzeigen' }).click();
     await expect(page.getByRole('button', { name: 'Alle anzeigen' })).toHaveCount(0);
+
+    // No letters were emailed for this family (the e2e stack has no SMTP).
+    await expect(page.getByText('Hier erscheinen die Einstufungen, die wir euch per E-Mail schicken.')).toBeVisible();
+    const filename = `Einstufung_${year}_Test.pdf`;
+    await page.route('**/api/fees/v1/me/einstufung-letters', (route) => route.fulfill({ json: [{
+      id: 'own-letter', childFirstName: 'KindFee', sentAt: new Date().toISOString(),
+      subject: `Einstufung Elternbeiträge ${year}`, filename }] }));
+    await page.route('**/api/fees/v1/me/einstufung-letters/own-letter/pdf', (route) => route.fulfill({
+      body: '%PDF-1.4 own', contentType: 'application/pdf',
+      headers: { 'Content-Disposition': `attachment; filename="${filename}"` } }));
+    await page.reload();
+    const letters = page.getByRole('region', { name: 'Einstufungsbriefe' });
+    await expect(letters).toContainText(`Einstufung Elternbeiträge ${year}`);
+    const download = page.waitForEvent('download');
+    await letters.getByRole('button', { name: `${filename} herunterladen` }).click();
+    expect((await download).suggestedFilename()).toBe(filename);
   } finally { await context.close(); }
 });

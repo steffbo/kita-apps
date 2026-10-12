@@ -270,6 +270,33 @@ func TestParentAccountIsolationAndAudit(t *testing.T) {
 		}
 	}
 
+	// Parents see and download only the letters sent for their own children.
+	letterRepo := repository.NewEinstufungLetterRepository(testDB)
+	letterIDs := []uuid.UUID{}
+	for i, child := range children[:2] {
+		letter := &domain.EinstufungLetter{ID: uuid.New(), ChildID: child, SentAt: time.Now().Add(time.Duration(i) * time.Minute),
+			Recipients: "x@example.test", Subject: "Einstufung", Filename: "Einstufung.pdf", PDF: []byte("%PDF-own")}
+		if err := letterRepo.Create(ctx, letter); err != nil {
+			t.Fatal(err)
+		}
+		letterIDs = append(letterIDs, letter.ID)
+	}
+	ownLetters, err := accountSvc.EinstufungLetters(ctx, users[0])
+	if err != nil || len(ownLetters) != 0 {
+		t.Fatalf("letters without repository: %+v %v", ownLetters, err)
+	}
+	accountSvc.UseEinstufungLetters(letterRepo)
+	ownLetters, err = accountSvc.EinstufungLetters(ctx, users[0])
+	if err != nil || len(ownLetters) != 1 || ownLetters[0].ID != letterIDs[0] || ownLetters[0].ChildFirstName == "" {
+		t.Fatalf("own letters: %+v %v", ownLetters, err)
+	}
+	if file, err := accountSvc.EinstufungLetter(ctx, users[0], letterIDs[0]); err != nil || string(file.Data) != "%PDF-own" {
+		t.Fatalf("own letter pdf: %v", err)
+	}
+	if _, err := accountSvc.EinstufungLetter(ctx, users[0], letterIDs[1]); !errors.Is(err, service.ErrNotFound) {
+		t.Fatalf("foreign letter: %v", err)
+	}
+
 	userRepo := repository.NewPostgresUserRepository(testDB)
 	current, err := userRepo.GetByID(ctx, users[0])
 	if err != nil {

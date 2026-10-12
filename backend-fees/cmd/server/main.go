@@ -146,6 +146,8 @@ func main() {
 	feeScheduleService := service.NewFeeScheduleService(feeScheduleRepo)
 	parentWorkService := service.NewParentWorkService(parentWorkRepo, txManager)
 	parentAccountService := service.NewParentAccountService(accountRepo, parentWorkService)
+	einstufungLetterRepo := repository.NewEinstufungLetterRepository(db)
+	parentAccountService.UseEinstufungLetters(einstufungLetterRepo)
 
 	// Initialize handlers
 	handlers := &api.Handlers{
@@ -167,7 +169,7 @@ func main() {
 			cfg.BankingSync.Timeout),
 		Einstufung: handler.NewEinstufungHandler(einstufungService, service.NewEinstufungLetterService(
 			einstufungService, einstufungRepo, parentWorkRepo, settingsRepo, emailLogRepo,
-			repository.NewEinstufungLetterRepository(db), emailService)),
+			einstufungLetterRepo, emailService)),
 		FeeSchedule:      handler.NewFeeScheduleHandler(feeScheduleService),
 		ParentWork:       handler.NewParentWorkHandler(parentWorkService),
 		ParentAccount:    handler.NewParentAccountHandler(parentAccountService),

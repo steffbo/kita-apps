@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
-import { CornerDownRight, MessageSquareWarning } from 'lucide-vue-next';
+import { CornerDownRight, Download, Loader2, MessageSquareWarning } from 'lucide-vue-next';
 import { api } from '@/api';
-import type { OwnFees } from '@/api/types';
+import type { OwnEinstufungLetter, OwnFees } from '@/api/types';
 import { formatCurrency, formatDate, formatMonthName, todayISO } from '@/utils/format';
 import { getFeePeriodLabel, getFeeTypeColor, getFeeTypeName } from '@/utils/fees';
 import ReportDialog from '@/components/family/ReportDialog.vue';
@@ -58,6 +58,33 @@ async function load() {
   catch (e) { error.value = e instanceof Error ? e.message : 'Beiträge konnten nicht geladen werden'; }
 }
 onMounted(load); watch(year, load);
+
+// Einstufung letters as emailed; independent of the selected year.
+const letters = ref<OwnEinstufungLetter[]>([]);
+const lettersError = ref('');
+const downloading = ref<string | null>(null);
+async function loadLetters() {
+  try { letters.value = await api.getOwnEinstufungLetters(); }
+  catch (e) { lettersError.value = e instanceof Error ? e.message : 'Einstufungsbriefe konnten nicht geladen werden'; }
+}
+async function downloadLetter(letter: OwnEinstufungLetter) {
+  downloading.value = letter.id;
+  lettersError.value = '';
+  try {
+    const file = await api.getOwnEinstufungLetter(letter.id);
+    const url = URL.createObjectURL(file.blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = file.filename ?? letter.filename;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  } catch (e) {
+    lettersError.value = e instanceof Error ? e.message : 'PDF konnte nicht geladen werden';
+  } finally {
+    downloading.value = null;
+  }
+}
+onMounted(loadLetters);
 </script>
 <template>
   <div class="space-y-5">
@@ -137,6 +164,28 @@ onMounted(load); watch(year, load);
         </tbody>
       </table>
     </div>
+    <section class="space-y-2" aria-labelledby="letters-heading">
+      <h2 id="letters-heading" class="text-lg font-semibold">Einstufungsbriefe</h2>
+      <p v-if="lettersError" role="alert" class="text-red-700 dark:text-red-300">{{ lettersError }}</p>
+      <p v-if="!letters.length" class="text-sm text-muted-foreground">
+        Hier erscheinen die Einstufungen, die wir euch per E-Mail schicken.</p>
+      <ul v-else class="divide-y rounded-2xl border bg-card">
+        <li v-for="letter in letters" :key="letter.id"
+          class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm">
+          <div>
+            <p class="font-medium">{{ letter.subject }}</p>
+            <p class="text-muted-foreground">{{ letter.childFirstName }} · per E-Mail am {{ formatDate(letter.sentAt) }}</p>
+          </div>
+          <button type="button" :disabled="downloading !== null"
+            class="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 font-medium hover:bg-muted disabled:opacity-50"
+            :aria-label="`${letter.filename} herunterladen`" @click="downloadLetter(letter)">
+            <Loader2 v-if="downloading === letter.id" class="h-4 w-4 animate-spin" />
+            <Download v-else class="h-4 w-4" />
+            PDF
+          </button>
+        </li>
+      </ul>
+    </section>
     <ReportDialog v-if="reportId" topic="FEE" :reference-id="reportId"
       @close="reportId = null" @saved="reportId = null" />
   </div>

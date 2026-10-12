@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/mail"
+	"sort"
 	"strings"
 	"unicode/utf8"
 
@@ -16,6 +17,7 @@ import (
 type ParentAccountService struct {
 	accounts *repository.ParentAccountRepository
 	work     *ParentWorkService
+	letters  *repository.EinstufungLetterRepository
 }
 
 func NewParentAccountService(accounts *repository.ParentAccountRepository,
@@ -72,6 +74,71 @@ func (s *ParentAccountService) Fees(ctx context.Context, userID uuid.UUID,
 	}
 	return rows, domain.Euros(open), domain.Euros(paid), nil
 }
+
+// UseEinstufungLetters lets parents see the Einstufung letters emailed for
+// their children.
+func (s *ParentAccountService) UseEinstufungLetters(letters *repository.EinstufungLetterRepository) {
+	s.letters = letters
+}
+
+// OwnEinstufungLetter is a letter emailed for one of the parent's children.
+type OwnEinstufungLetter struct {
+	domain.EinstufungLetter
+	ChildFirstName string
+}
+
+// EinstufungLetters lists the letters emailed for the parent's children, newest first.
+func (s *ParentAccountService) EinstufungLetters(ctx context.Context, userID uuid.UUID) ([]OwnEinstufungLetter, error) {
+	children, err := s.ownChildren(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	out := []OwnEinstufungLetter{}
+	if s.letters == nil {
+		return out, nil
+	}
+	for _, child := range children {
+		letters, err := s.letters.ListByChild(ctx, child.ID)
+		if err != nil {
+			return nil, err
+		}
+		for _, l := range letters {
+			out = append(out, OwnEinstufungLetter{EinstufungLetter: l, ChildFirstName: child.FirstName})
+		}
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].SentAt.After(out[j].SentAt) })
+	return out, nil
+}
+
+// EinstufungLetter returns a letter PDF emailed for one of the parent's children.
+func (s *ParentAccountService) EinstufungLetter(ctx context.Context, userID, letterID uuid.UUID) (*LetterFile, error) {
+	children, err := s.ownChildren(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	if s.letters == nil {
+		return nil, ErrNotFound
+	}
+	l, err := s.letters.Get(ctx, letterID)
+	if err != nil {
+		return nil, mapAccountError(err)
+	}
+	for _, child := range children {
+		if child.ID == l.ChildID {
+			return &LetterFile{Filename: l.Filename, Data: l.PDF}, nil
+		}
+	}
+	return nil, ErrNotFound
+}
+
+func (s *ParentAccountService) ownChildren(ctx context.Context, userID uuid.UUID) ([]domain.Child, error) {
+	account, err := s.Account(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	return s.accounts.Children(ctx, account.Parent)
+}
+
 func (s *ParentAccountService) Work(ctx context.Context, userID uuid.UUID, year int) (*ParentWorkDetail,
 	error) {
 	account, err := s.Account(ctx, userID)

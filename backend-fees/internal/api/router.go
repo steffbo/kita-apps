@@ -78,6 +78,8 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 				r.Use(customMiddleware.RequireRole(string(domain.UserRolePARENT)))
 				r.Get("/", handlers.ParentAccount.Me)
 				r.Get("/fees", handlers.ParentAccount.Fees)
+				r.Get("/einstufung-letters", handlers.ParentAccount.EinstufungLetters)
+				r.Get("/einstufung-letters/{id}/pdf", handlers.ParentAccount.EinstufungLetterPDF)
 				r.Get("/parent-work", handlers.ParentAccount.ParentWork)
 				r.Post("/parent-work/entries", handlers.ParentAccount.SubmitEntry)
 				r.Post("/parent-work/entries/{id}/withdraw", handlers.ParentAccount.WithdrawEntry)

@@ -4166,6 +4166,58 @@ paths:
       summary: Eigene Kontaktdaten ändern
       tags:
         - Parent account
+  /me/einstufung-letters:
+    get:
+      description: Briefe, die für die eigenen Kinder per E-Mail versendet wurden,
+        neueste zuerst
+      responses:
+        "200":
+          description: OK
+          content:
+            "*/*":
+              schema:
+                items:
+                  $ref: "#/components/schemas/handler.ownEinstufungLetter"
+                type: array
+      security:
+        - BearerAuth: []
+      summary: Eigene Einstufungsbriefe
+      tags:
+        - Parent account
+  "/me/einstufung-letters/{id}/pdf":
+    get:
+      description: Das PDF genau so, wie es per E-Mail versendet wurde
+      parameters:
+        - description: Brief-ID
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - description: Im Browser anzeigen statt herunterladen
+          in: query
+          name: inline
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: OK
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Not Found
+          content:
+            application/pdf:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Eigenen Einstufungsbrief herunterladen
+      tags:
+        - Parent account
   /me/fees:
     get:
       parameters:
@@ -9801,6 +9853,25 @@ components:
           type: string
         phone:
           type: string
+      type: object
+    handler.ownEinstufungLetter:
+      properties:
+        childFirstName:
+          type: string
+        filename:
+          type: string
+        id:
+          type: string
+        sentAt:
+          type: string
+        subject:
+          type: string
+      required:
+        - childFirstName
+        - filename
+        - id
+        - sentAt
+        - subject
       type: object
     handler.ownFees:
       properties:

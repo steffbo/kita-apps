@@ -6391,6 +6391,99 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/me/einstufung-letters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Eigene Einstufungsbriefe
+         * @description Briefe, die für die eigenen Kinder per E-Mail versendet wurden, neueste zuerst
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["handler.ownEinstufungLetter"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/einstufung-letters/{id}/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Eigenen Einstufungsbrief herunterladen
+         * @description Das PDF genau so, wie es per E-Mail versendet wurde
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Im Browser anzeigen statt herunterladen */
+                    inline?: boolean;
+                };
+                header?: never;
+                path: {
+                    /** @description Brief-ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/pdf": string;
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/pdf": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/me/fees": {
         parameters: {
             query?: never;
@@ -11054,6 +11147,13 @@ export interface components {
         "handler.ownContactRequest": {
             email?: string;
             phone?: string;
+        };
+        "handler.ownEinstufungLetter": {
+            childFirstName: string;
+            filename: string;
+            id: string;
+            sentAt: string;
+            subject: string;
         };
         "handler.ownFees": {
             items: components["schemas"]["repository.ParentFeeRow"][];

@@ -99,6 +99,13 @@ type ownFees struct {
 	OpenTotal float64                   `json:"openTotal"`
 	PaidTotal float64                   `json:"paidTotal"`
 }
+type ownEinstufungLetter struct {
+	ID             uuid.UUID `json:"id"`
+	ChildFirstName string    `json:"childFirstName"`
+	SentAt         time.Time `json:"sentAt"`
+	Subject        string    `json:"subject"`
+	Filename       string    `json:"filename"`
+}
 type ownWorkEntry struct {
 	ID              uuid.UUID `json:"id"`
 	WorkDate        time.Time `json:"workDate"`
@@ -199,6 +206,59 @@ func (h *ParentAccountHandler) Fees(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	response.Success(w, ownFees{rows, open, paid})
+}
+
+// EinstufungLetters handles GET /me/einstufung-letters.
+// @Summary Eigene Einstufungsbriefe
+// @Description Briefe, die für die eigenen Kinder per E-Mail versendet wurden, neueste zuerst
+// @Tags Parent account
+// @Security BearerAuth
+// @Success 200 {array} ownEinstufungLetter
+// @Router /me/einstufung-letters [get]
+func (h *ParentAccountHandler) EinstufungLetters(w http.ResponseWriter, r *http.Request) {
+	id, ok := ownID(w, r)
+	if !ok {
+		return
+	}
+	letters, err := h.svc.EinstufungLetters(r.Context(), id)
+	if err != nil {
+		parentAccountError(w, err)
+		return
+	}
+	out := make([]ownEinstufungLetter, 0, len(letters))
+	for _, l := range letters {
+		out = append(out, ownEinstufungLetter{ID: l.ID, ChildFirstName: l.ChildFirstName, SentAt: l.SentAt,
+			Subject: l.Subject, Filename: l.Filename})
+	}
+	response.Success(w, out)
+}
+
+// EinstufungLetterPDF handles GET /me/einstufung-letters/{id}/pdf.
+// @Summary Eigenen Einstufungsbrief herunterladen
+// @Description Das PDF genau so, wie es per E-Mail versendet wurde
+// @Tags Parent account
+// @Security BearerAuth
+// @Produce application/pdf
+// @Param id path string true "Brief-ID"
+// @Param inline query bool false "Im Browser anzeigen statt herunterladen"
+// @Success 200 {file} binary
+// @Failure 404 {object} response.ErrorBody
+// @Router /me/einstufung-letters/{id}/pdf [get]
+func (h *ParentAccountHandler) EinstufungLetterPDF(w http.ResponseWriter, r *http.Request) {
+	userID, ok := ownID(w, r)
+	if !ok {
+		return
+	}
+	letterID, ok := pathID(w, r)
+	if !ok {
+		return
+	}
+	file, err := h.svc.EinstufungLetter(r.Context(), userID, letterID)
+	if err != nil {
+		parentAccountError(w, err)
+		return
+	}
+	writeLetterPDF(w, r, file)
 }
 
 // ParentWork handles GET /me/parent-work.
