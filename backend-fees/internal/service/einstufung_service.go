@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/repository"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/util"
 )
 
 // EinstufungService handles Einstufung-related business logic.
@@ -674,9 +676,12 @@ func (s *EinstufungService) ListByHousehold(ctx context.Context, householdID uui
 	return results, nil
 }
 
-// ListByYear returns Einstufungen for a year with pagination.
-func (s *EinstufungService) ListByYear(ctx context.Context, year int, offset, limit int) ([]domain.Einstufung, int64, error) {
-	results, total, err := s.einstufungRepo.ListByYear(ctx, year, offset, limit)
+// ListByYear returns the Einstufungen of a year matching the filter, with pagination.
+func (s *EinstufungService) ListByYear(ctx context.Context, filter repository.EinstufungListFilter, offset, limit int) ([]domain.Einstufung, int64, error) {
+	if !slices.Contains(repository.EinstufungListStatuses, filter.Status) {
+		return nil, 0, newValidationError("Unbekannter Status „%s“.", filter.Status)
+	}
+	results, total, err := s.einstufungRepo.ListByYear(ctx, filter, offset, limit)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -684,6 +689,44 @@ func (s *EinstufungService) ListByYear(ctx context.Context, year int, offset, li
 		s.loadRelations(ctx, &results[i])
 	}
 	return results, total, nil
+}
+
+// MissingEinstufung is a child that owes childcare fees in Month but has no
+// Einstufung for it.
+type MissingEinstufung struct {
+	ChildID       uuid.UUID
+	FirstName     string
+	LastName      string
+	MemberNumber  string
+	HouseholdName *string
+	EntryDate     time.Time
+	Month         time.Time
+	// PreviousUntil is the end of the child's last Einstufung, if any.
+	PreviousUntil *time.Time
+}
+
+// missingLookahead is how far ahead children starting later are listed.
+const missingLookahead = 3
+
+// ListMissing lists U3 children without an Einstufung for the current month,
+// or for their entry month when they start within the next three months.
+func (s *EinstufungService) ListMissing(ctx context.Context) ([]MissingEinstufung, error) {
+	currentMonth := firstDayOfMonth(util.Today())
+	rows, err := s.einstufungRepo.ListWithoutEinstufung(ctx, currentMonth, currentMonth.AddDate(0, missingLookahead+1, 0))
+	if err != nil {
+		return nil, err
+	}
+	out := []MissingEinstufung{}
+	for _, row := range rows {
+		child := domain.Child{BirthDate: row.BirthDate}
+		if !child.IsUnderThreeForEntireMonth(row.ReferenceMonth.Year(), row.ReferenceMonth.Month()) {
+			continue
+		}
+		out = append(out, MissingEinstufung{ChildID: row.ChildID, FirstName: row.FirstName, LastName: row.LastName,
+			MemberNumber: row.MemberNumber, HouseholdName: row.HouseholdName, EntryDate: row.EntryDate,
+			Month: row.ReferenceMonth, PreviousUntil: row.LatestValidTo})
+	}
+	return out, nil
 }
 
 // Delete deletes an Einstufung. Deleting a follow-up reopens its source, which

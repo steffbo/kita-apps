@@ -14,6 +14,7 @@ import (
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/api/request"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/api/response"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/repository"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/service"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/util"
 )
@@ -410,10 +411,12 @@ func (h *EinstufungHandler) Delete(w http.ResponseWriter, r *http.Request) {
 
 // ListByYear handles GET /einstufungen?year=2026
 // @Summary List fee classifications
-// @Description Returns Einstufungen for a year with pagination
+// @Description Returns Einstufungen for a year with pagination, optionally filtered
 // @Tags Einstufungen
 // @Produce json
 // @Param year query int true "Year"
+// @Param search query string false "Child name, member number or household name"
+// @Param status query string false "current (open-ended), provisional, unsent (never emailed or changed since)" Enums(current, provisional, unsent)
 // @Param page query int false "Page number" default(1)
 // @Param perPage query int false "Items per page" default(20)
 // @Success 200 {object} EinstufungListResponse
@@ -431,9 +434,11 @@ func (h *EinstufungHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	pag := request.GetPagination(r)
-	results, total, err := h.einstufungService.ListByYear(r.Context(), year, pag.Offset, pag.PerPage)
+	results, total, err := h.einstufungService.ListByYear(r.Context(), repository.EinstufungListFilter{
+		Year: year, Search: r.URL.Query().Get("search"), Status: r.URL.Query().Get("status"),
+	}, pag.Offset, pag.PerPage)
 	if err != nil {
-		response.InternalError(w, "failed to list Einstufungen")
+		handleEinstufungError(w, err)
 		return
 	}
 
@@ -443,6 +448,46 @@ func (h *EinstufungHandler) List(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response.Paginated(w, data, total, pag.Page, pag.PerPage)
+}
+
+// MissingEinstufungResponse is a U3 child without an Einstufung for Month.
+type MissingEinstufungResponse struct {
+	ChildID       string  `json:"childId"`
+	FirstName     string  `json:"firstName"`
+	LastName      string  `json:"lastName"`
+	MemberNumber  string  `json:"memberNumber"`
+	HouseholdName *string `json:"householdName,omitempty" binding:"optional"`
+	EntryDate     string  `json:"entryDate"`
+	Month         string  `json:"month"`                                      // First day of the month without Einstufung (YYYY-MM-DD)
+	PreviousUntil *string `json:"previousUntil,omitempty" binding:"optional"` // End of the child's last Einstufung
+} //@name MissingEinstufung
+
+// ListMissing handles GET /einstufungen/missing
+// @Summary List U3 children without Einstufung
+// @Description Children under three for the whole month without an Einstufung for the current month, or for their entry month when they start within the next three months
+// @Tags Einstufungen
+// @Produce json
+// @Success 200 {array} MissingEinstufungResponse
+// @Security BearerAuth
+// @Router /einstufungen/missing [get]
+func (h *EinstufungHandler) ListMissing(w http.ResponseWriter, r *http.Request) {
+	missing, err := h.einstufungService.ListMissing(r.Context())
+	if err != nil {
+		handleEinstufungError(w, err)
+		return
+	}
+	out := make([]MissingEinstufungResponse, 0, len(missing))
+	for _, m := range missing {
+		item := MissingEinstufungResponse{ChildID: m.ChildID.String(), FirstName: m.FirstName, LastName: m.LastName,
+			MemberNumber: m.MemberNumber, HouseholdName: m.HouseholdName, EntryDate: m.EntryDate.Format("2006-01-02"),
+			Month: m.Month.Format("2006-01-02")}
+		if m.PreviousUntil != nil {
+			until := m.PreviousUntil.Format("2006-01-02")
+			item.PreviousUntil = &until
+		}
+		out = append(out, item)
+	}
+	response.Success(w, out)
 }
 
 // GetForChild handles GET /einstufungen/child/{childId}?year=2026

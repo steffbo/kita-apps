@@ -3,6 +3,18 @@
 Rolling change log of non-obvious implementation decisions. Newest first.
 Basics (ports, commands, layout) live in `AGENTS.md`.
 
+## Einstufungen: Arbeitsliste fehlender Einstufungen, Suche und Status (2026-10-12)
+
+- `GET /einstufungen/missing` (ADMIN/USER): aktive Kinder, die im aktuellen Monat (bzw. im Eintrittsmonat,
+  wenn der Eintritt in den nächsten 3 Monaten liegt) den ganzen Monat unter drei sind und für diesen Monat
+  keine gültige Einstufung haben; mit Ende der letzten Einstufung, falls es eine gab. Für sie kommt das
+  Platzgeld aus den Haushaltsdaten (Fallback). Live-Kopie am 12.10.: 3 Kinder ohne jede Einstufung.
+- `GET /einstufungen` nimmt zusätzlich `search` (Kindname in beiden Reihenfolgen, Mitgliedsnummer,
+  Haushaltsname; ILIKE) und `status` (`current` = heute gültig, `provisional`, `unsent` = nie oder vor der
+  letzten Änderung versendet); unbekannter Status → 400.
+- Frontend `/einstufungen`: Kasten „Einstufung fehlt“ mit Link „Einstufung anlegen“
+  (`/einstufungen/neu?childId=…`, Kind vorbelegt), Suchfeld (300 ms entprellt) und Statusauswahl.
+
 ## Eltern sehen ihre Einstufungsbriefe (2026-10-12)
 
 - `GET /me/einstufung-letters` (PARENT): die per E-Mail versendeten Briefe für die eigenen Kinder (wie bei

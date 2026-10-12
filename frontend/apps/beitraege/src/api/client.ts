@@ -73,6 +73,8 @@ import type {
   SendEinstufungLetterRequest,
   SendEinstufungLetterResponse,
   EinstufungLetter,
+  MissingEinstufung,
+  EinstufungListStatus,
   ChildNote,
   CreateChildNoteRequest,
   UpdateChildNoteRequest,
@@ -1036,11 +1038,15 @@ class ApiClient {
   // Einstufung (Fee Classification) endpoints
   async getEinstufungen(params?: {
     year?: number;
+    search?: string;
+    status?: EinstufungListStatus;
     page?: number;
     perPage?: number;
   }): Promise<PaginatedResponse<Einstufung>> {
     const query = new URLSearchParams();
     if (params?.year) query.set('year', String(params.year));
+    if (params?.search?.trim()) query.set('search', params.search.trim());
+    if (params?.status) query.set('status', params.status);
     if (params?.page) query.set('page', String(params.page));
     if (params?.perPage) query.set('perPage', String(params.perPage));
     const queryString = query.toString();
@@ -1057,6 +1063,10 @@ class ApiClient {
   async getEinstufungForChild(childId: string, year?: number): Promise<Einstufung> {
     const query = year ? `?year=${year}` : '';
     return this.request<Einstufung>(`/einstufungen/child/${childId}${query}`);
+  }
+
+  async getMissingEinstufungen(): Promise<MissingEinstufung[]> {
+    return this.request<MissingEinstufung[]>('/einstufungen/missing');
   }
 
   async getEinstufungenForHousehold(householdId: string): Promise<Einstufung[]> {

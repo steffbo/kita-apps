@@ -1427,7 +1427,7 @@ paths:
         - Children
   /einstufungen:
     get:
-      description: Returns Einstufungen for a year with pagination
+      description: Returns Einstufungen for a year with pagination, optionally filtered
       parameters:
         - description: Year
           in: query
@@ -1435,6 +1435,21 @@ paths:
           required: true
           schema:
             type: integer
+        - description: Child name, member number or household name
+          in: query
+          name: search
+          schema:
+            type: string
+        - description: current (open-ended), provisional, unsent (never emailed or changed
+            since)
+          in: query
+          name: status
+          schema:
+            type: string
+            enum:
+              - current
+              - provisional
+              - unsent
         - description: Page number
           in: query
           name: page
@@ -1858,6 +1873,25 @@ paths:
       security:
         - BearerAuth: []
       summary: Download a sent Einstufung letter
+      tags:
+        - Einstufungen
+  /einstufungen/missing:
+    get:
+      description: Children under three for the whole month without an Einstufung for
+        the current month, or for their entry month when they start within the
+        next three months
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/MissingEinstufung"
+                type: array
+      security:
+        - BearerAuth: []
+      summary: List U3 children without Einstufung
       tags:
         - Einstufungen
   /einstufungen/preview:
@@ -7881,6 +7915,34 @@ components:
         - perPage
         - total
         - totalPages
+      type: object
+    MissingEinstufung:
+      properties:
+        childId:
+          type: string
+        entryDate:
+          type: string
+        firstName:
+          type: string
+        householdName:
+          type: string
+        lastName:
+          type: string
+        memberNumber:
+          type: string
+        month:
+          description: First day of the month without Einstufung (YYYY-MM-DD)
+          type: string
+        previousUntil:
+          description: End of the child's last Einstufung
+          type: string
+      required:
+        - childId
+        - entryDate
+        - firstName
+        - lastName
+        - memberNumber
+        - month
       type: object
     NextMemberNumberResponse:
       description: Next available member number

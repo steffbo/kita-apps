@@ -1,6 +1,7 @@
 package service_test
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -9,6 +10,7 @@ import (
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/repository"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/service"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/util"
 )
 
 func childcareFee(t *testing.T, childID uuid.UUID, month int) *domain.FeeExpectation {
@@ -143,5 +145,80 @@ func TestEinstufungFees_SaveAlignsGeneratedMonths(t *testing.T) {
 	}
 	if fee := childcareFee(t, child.ID, 1); fee.Amount != paid.Amount {
 		t.Fatalf("January = %.2f, want %.2f", fee.Amount, paid.Amount)
+	}
+}
+
+func TestEinstufungWorklist_FiltersAndMissing(t *testing.T) {
+	f := newEinstufungFixture(t)
+	restore := util.SetClock(func() time.Time { return time.Date(2026, 10, 12, 10, 0, 0, 0, time.UTC) })
+	defer restore()
+
+	covered, _ := f.child(t, "TEWA", domain.IncomeStatusUnknown, date(2025, time.March, 1), date(2026, time.January, 1))
+	uncovered, _ := f.child(t, "TEWB", domain.IncomeStatusUnknown, date(2025, time.April, 1), date(2026, time.February, 1))
+	f.child(t, "TEWC", domain.IncomeStatusUnknown, date(2025, time.May, 1), date(2026, time.December, 15))
+	f.child(t, "TEWD", domain.IncomeStatusUnknown, date(2025, time.June, 1), date(2027, time.June, 1))       // starts too late
+	f.child(t, "TEWE", domain.IncomeStatusUnknown, date(2023, time.January, 1), date(2025, time.January, 1)) // Kindergarten
+
+	if _, _, err := f.service.Create(f.ctx, service.CreateEinstufungInput{
+		ChildID: covered.ID, Year: 2026, IncomeBasis: domain.IncomeBasisHighestRate, ChildrenCount: 1, Provisional: true,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	// Ended in June: the child needs a new Einstufung for October.
+	ended, _, err := f.service.Create(f.ctx, service.CreateEinstufungInput{
+		ChildID: uncovered.ID, Year: 2026, IncomeBasis: domain.IncomeBasisHighestRate, ChildrenCount: 1,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := testDB.Exec(`UPDATE fees.einstufungen SET valid_until = '2026-06-30' WHERE id = $1`, ended.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	missing, err := f.service.ListMissing(f.ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]string{}
+	for _, m := range missing {
+		if strings.HasPrefix(m.MemberNumber, "TEW") {
+			got[m.MemberNumber] = m.Month.Format("2006-01")
+		}
+	}
+	if len(got) != 2 || got["TEWB"] != "2026-10" || got["TEWC"] != "2026-12" {
+		t.Fatalf("missing = %v", got)
+	}
+
+	list := func(search, status string) int64 {
+		t.Helper()
+		_, total, err := f.service.ListByYear(f.ctx, repository.EinstufungListFilter{Year: 2026, Search: search, Status: status}, 0, 50)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return total
+	}
+	if n := list("", ""); n != 2 {
+		t.Fatalf("all = %d", n)
+	}
+	if n := list("tewa test", ""); n != 1 {
+		t.Fatalf("search by name = %d", n)
+	}
+	if n := list("TEWB", "provisional"); n != 0 {
+		t.Fatalf("search and status = %d", n)
+	}
+	if n := list("%", ""); n != 0 {
+		t.Fatalf("wildcard search = %d", n)
+	}
+	if n := list("", "provisional"); n != 1 {
+		t.Fatalf("provisional = %d", n)
+	}
+	if n := list("", "current"); n != 1 {
+		t.Fatalf("current = %d", n)
+	}
+	if n := list("", "unsent"); n != 2 {
+		t.Fatalf("unsent = %d", n)
+	}
+	if _, _, err := f.service.ListByYear(f.ctx, repository.EinstufungListFilter{Year: 2026, Status: "bogus"}, 0, 50); err == nil {
+		t.Fatal("unknown status accepted")
 	}
 }

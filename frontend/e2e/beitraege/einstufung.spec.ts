@@ -182,3 +182,40 @@ test('Gespeicherte Einstufung passt erzeugtes Platzgeld an', async ({ adminApi, 
   const updated = await adminApi.get<{ amount: number }>(`/fees/${fee.id}`);
   expect(updated.amount).toBeLessThan(fee.amount);
 });
+
+test('Einstufungsliste: fehlende Einstufungen, Suche und Statusfilter', async ({ adminApi, adminPage: page }) => {
+  const suffix = uniq();
+  const today = berlinToday();
+  const lastName = `Liste${suffix}`;
+  const parent = await adminApi.post<{ id: string }>('/parents', { firstName: 'Eva', lastName });
+  const ids: Record<string, string> = {};
+  for (const firstName of ['Ben', 'Pia']) {
+    const child = await adminApi.post<{ id: string }>('/children', {
+      memberNumber: memberNumber(), firstName, lastName,
+      birthDate: `${today.year - 1}-06-01`, entryDate: `${today.year}-01-01`,
+    });
+    await adminApi.post(`/children/${child.id}/parents`, { parentId: parent.id, isPrimary: true });
+    ids[firstName] = child.id;
+  }
+  await adminApi.post('/einstufungen', {
+    childId: ids.Pia, year: today.year, incomeBasis: 'HIGHEST_RATE', childrenCount: 1,
+    incomeCalculation: { parent1: {}, parent2: {} },
+  });
+
+  await page.goto('/beitraege/einstufungen');
+  const missing = page.getByRole('region', { name: /Einstufung fehlt/ });
+  const ben = missing.getByRole('listitem').filter({ hasText: `Ben ${lastName}` });
+  await expect(ben).toBeVisible();
+  await expect(missing.getByText(`Pia ${lastName}`)).toHaveCount(0);
+
+  await page.getByLabel('Einstufungen durchsuchen').fill(`pia ${lastName.toLowerCase()}`);
+  await expect(page.getByRole('row', { name: new RegExp(`Pia ${lastName}`) })).toBeVisible();
+  await page.getByLabel('Status').selectOption('provisional');
+  await expect(page.getByText('Keine Einstufungen für')).toBeVisible();
+  await page.getByLabel('Status').selectOption('unsent');
+  await expect(page.getByRole('row', { name: new RegExp(`Pia ${lastName}`) })).toBeVisible();
+
+  await ben.getByRole('link', { name: 'Einstufung anlegen' }).click();
+  await expect(page).toHaveURL(new RegExp(`/einstufungen/neu\\?childId=${ids.Ben}`));
+  await expect(page.getByText(`Ben ${lastName} (`)).toBeVisible();
+});

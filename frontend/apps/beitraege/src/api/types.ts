@@ -477,6 +477,8 @@ export type CalculateIncomeResponse = Schema['CalculateIncomeResponse'];
 export type SendEinstufungLetterRequest = Schema['SendEinstufungLetterRequest'];
 export type SendEinstufungLetterResponse = Schema['SendEinstufungLetterResponse'];
 export type EinstufungLetter = Schema['EinstufungLetter'];
+export type MissingEinstufung = Schema['MissingEinstufung'];
+export type EinstufungListStatus = '' | 'current' | 'provisional' | 'unsent';
 
 // ── Fee schedules (Beitragsordnung) ──────────────────────────────────────────
 export type FeeTableRow = Schema['FeeTableRow'];

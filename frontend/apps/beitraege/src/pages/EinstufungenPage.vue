@@ -2,7 +2,7 @@
 import { ref, computed, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { api } from '@/api';
-import type { Einstufung } from '@/api/types';
+import type { Einstufung, EinstufungListStatus, MissingEinstufung } from '@/api/types';
 import {
   Plus,
   Loader2,
@@ -13,8 +13,10 @@ import {
   Trash2,
   User,
   Home,
+  Search,
+  AlertTriangle,
 } from 'lucide-vue-next';
-import { formatCurrency, formatDate } from '@/utils/format';
+import { formatCurrency, formatDate, formatMonthYear } from '@/utils/format';
 
 const router = useRouter();
 
@@ -24,6 +26,25 @@ const isLoading = ref(true);
 const error = ref<string | null>(null);
 
 const selectedYear = ref(new Date().getFullYear());
+const search = ref('');
+const status = ref<EinstufungListStatus>('');
+const statusOptions: { value: EinstufungListStatus; label: string }[] = [
+  { value: '', label: 'Alle' },
+  { value: 'current', label: 'Aktuell gültig' },
+  { value: 'provisional', label: 'Vorläufig' },
+  { value: 'unsent', label: 'Nicht versendet' },
+];
+const isFiltered = computed(() => !!search.value.trim() || !!status.value);
+
+// U3 children that owe childcare fees without an Einstufung.
+const missing = ref<MissingEinstufung[]>([]);
+async function loadMissing() {
+  try {
+    missing.value = await api.getMissingEinstufungen();
+  } catch {
+    missing.value = [];
+  }
+}
 const currentPage = ref(1);
 const pageSize = ref(25);
 
@@ -42,6 +63,8 @@ async function loadEinstufungen() {
   try {
     const response = await api.getEinstufungen({
       year: selectedYear.value,
+      search: search.value,
+      status: status.value,
       page: currentPage.value,
       perPage: pageSize.value,
     });
@@ -106,10 +129,26 @@ async function handleDelete() {
     showDeleteDialog.value = false;
     deleteTarget.value = null;
     loadEinstufungen();
+    loadMissing();
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Fehler beim Löschen';
   } finally {
     isDeleting.value = false;
+  }
+}
+
+let searchTimer: ReturnType<typeof setTimeout> | undefined;
+watch(search, () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(reloadFromFirstPage, 300);
+});
+watch(status, reloadFromFirstPage);
+
+function reloadFromFirstPage() {
+  if (currentPage.value !== 1) {
+    currentPage.value = 1; // pagination watcher performs the reload
+  } else {
+    loadEinstufungen();
   }
 }
 
@@ -125,7 +164,10 @@ watch([currentPage, pageSize], () => {
   loadEinstufungen();
 });
 
-onMounted(() => loadEinstufungen());
+onMounted(() => {
+  loadEinstufungen();
+  loadMissing();
+});
 </script>
 
 <template>
@@ -148,14 +190,67 @@ onMounted(() => loadEinstufungen());
       </button>
     </div>
 
-    <!-- Year filter -->
-    <div class="mb-4 flex items-center gap-3">
+    <!-- Work list: children without Einstufung -->
+    <section
+      v-if="missing.length"
+      aria-labelledby="missing-heading"
+      class="mb-6 rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/30 p-4"
+    >
+      <h2 id="missing-heading" class="flex items-center gap-2 text-sm font-semibold text-amber-900 dark:text-amber-200">
+        <AlertTriangle class="h-4 w-4" />
+        Einstufung fehlt ({{ missing.length }})
+      </h2>
+      <p class="mt-1 text-xs text-amber-900/80 dark:text-amber-200/80">
+        Krippenkinder ohne Einstufung für den genannten Monat; ihr Platzgeld wird bis dahin aus den Haushaltsdaten berechnet.
+      </p>
+      <ul class="mt-3 divide-y divide-amber-200/70">
+        <li v-for="m in missing" :key="m.childId" class="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+          <div>
+            <span class="font-medium text-foreground">{{ m.firstName }} {{ m.lastName }}</span>
+            <span class="text-muted-foreground"> · {{ m.householdName || 'kein Haushalt' }}</span>
+            <span class="block text-xs text-muted-foreground">
+              ab {{ formatMonthYear(Number(m.month.slice(0, 4)), Number(m.month.slice(5, 7))) }}
+              <template v-if="m.previousUntil"> · letzte Einstufung bis {{ formatDate(m.previousUntil) }}</template>
+              <template v-else-if="m.entryDate > m.month"> · Eintritt {{ formatDate(m.entryDate) }}</template>
+            </span>
+          </div>
+          <RouterLink
+            :to="{ path: '/einstufungen/neu', query: { childId: m.childId } }"
+            class="inline-flex items-center gap-1 rounded-lg border bg-card px-3 py-1.5 text-sm font-medium hover:bg-accent"
+          >
+            <Plus class="h-4 w-4" />
+            Einstufung anlegen
+          </RouterLink>
+        </li>
+      </ul>
+    </section>
+
+    <!-- Filters -->
+    <div class="mb-4 flex flex-wrap items-center gap-3">
       <Calendar class="h-4 w-4 text-muted-foreground" />
       <select
         v-model="selectedYear"
+        aria-label="Jahr"
         class="border rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary"
       >
         <option v-for="y in years" :key="y" :value="y">{{ y }}</option>
+      </select>
+      <div class="relative">
+        <Search class="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <input
+          v-model="search"
+          type="search"
+          aria-label="Einstufungen durchsuchen"
+          placeholder="Kind, Mitgliedsnr. oder Haushalt"
+          class="w-64 border rounded-lg pl-8 pr-3 py-1.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary"
+        />
+      </div>
+      <select
+        v-model="status"
+        aria-label="Status"
+        class="border rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary"
+      >
+        <option v-for="o in statusOptions" :key="o.value" :value="o.value">{{ o.label }}</option>
       </select>
     </div>
 
@@ -173,8 +268,10 @@ onMounted(() => loadEinstufungen());
     <div v-else-if="einstufungen.length === 0" class="text-center py-20">
       <FileText class="h-12 w-12 text-muted-foreground/60 mx-auto mb-4" />
       <h3 class="text-lg font-medium text-foreground mb-1">Keine Einstufungen</h3>
-      <p class="text-muted-foreground mb-4">Für {{ selectedYear }} wurden noch keine Einstufungen erstellt.</p>
+      <p v-if="isFiltered" class="text-muted-foreground mb-4">Keine Einstufungen für {{ selectedYear }} passen zum Filter.</p>
+      <p v-else class="text-muted-foreground mb-4">Für {{ selectedYear }} wurden noch keine Einstufungen erstellt.</p>
       <button
+        v-if="!isFiltered"
         @click="router.push('/einstufungen/neu')"
         class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90"
       >

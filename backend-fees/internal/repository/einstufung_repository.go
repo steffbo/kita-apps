@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -295,12 +296,43 @@ func (r *PostgresEinstufungRepository) ListByHousehold(ctx context.Context, hous
 	return results, nil
 }
 
-// ListByYear retrieves all Einstufungen for a given year with pagination.
-func (r *PostgresEinstufungRepository) ListByYear(ctx context.Context, year int, offset, limit int) ([]domain.Einstufung, int64, error) {
+// likeEscaper escapes LIKE wildcards in user search terms.
+var likeEscaper = strings.NewReplacer(`\`, `\\`, "%", `\%`, "_", `\_`)
+
+// EinstufungListFilter narrows the Einstufung list of a year.
+type EinstufungListFilter struct {
+	Year int
+	// Search matches child name, member number or household name.
+	Search string
+	// Status: "" (all), "current" (open-ended), "provisional", "unsent"
+	// (never emailed or changed since).
+	Status string
+}
+
+// EinstufungListStatuses are the accepted EinstufungListFilter.Status values.
+var EinstufungListStatuses = []string{"", "current", "provisional", "unsent"}
+
+// ListByYear retrieves the Einstufungen of a year matching the filter, with pagination.
+func (r *PostgresEinstufungRepository) ListByYear(ctx context.Context, filter EinstufungListFilter, offset, limit int) ([]domain.Einstufung, int64, error) {
+	where := `year = $1
+		AND ($2 = '' OR EXISTS (
+			SELECT 1 FROM fees.children c LEFT JOIN fees.households h ON h.id = einstufungen.household_id
+			WHERE c.id = einstufungen.child_id AND (
+				c.first_name || ' ' || c.last_name ILIKE $2 OR c.last_name || ' ' || c.first_name ILIKE $2
+				OR c.member_number ILIKE $2 OR h.name ILIKE $2)))
+		AND CASE $3
+			WHEN 'current' THEN valid_until IS NULL
+			WHEN 'provisional' THEN provisional
+			WHEN 'unsent' THEN letter_sent_at IS NULL OR updated_at > letter_sent_at
+			ELSE TRUE END`
+	search := ""
+	if term := strings.TrimSpace(filter.Search); term != "" {
+		search = "%" + likeEscaper.Replace(term) + "%"
+	}
+	args := []interface{}{filter.Year, search, filter.Status}
+
 	var total int64
-	err := conn(ctx, r.db).GetContext(ctx, &total, `
-		SELECT COUNT(*) FROM fees.einstufungen WHERE year = $1
-	`, year)
+	err := conn(ctx, r.db).GetContext(ctx, &total, `SELECT COUNT(*) FROM fees.einstufungen WHERE `+where, args...)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -308,15 +340,56 @@ func (r *PostgresEinstufungRepository) ListByYear(ctx context.Context, year int,
 	var results []domain.Einstufung
 	err = conn(ctx, r.db).SelectContext(ctx, &results, fmt.Sprintf(`
 		SELECT %s FROM fees.einstufungen
-		WHERE year = $1
+		WHERE %s
 		ORDER BY effective_from_month DESC, created_at DESC
-		LIMIT $2 OFFSET $3
-	`, einstufungSelectColumns), year, limit, offset)
+		LIMIT $4 OFFSET $5
+	`, einstufungSelectColumns, where), append(args, limit, offset)...)
 	if err != nil {
 		return nil, 0, err
 	}
 
 	return results, total, nil
+}
+
+// MissingEinstufungRow is a child that owes childcare fees in its reference
+// month but has no Einstufung for it.
+type MissingEinstufungRow struct {
+	ChildID        uuid.UUID  `db:"child_id"`
+	FirstName      string     `db:"first_name"`
+	LastName       string     `db:"last_name"`
+	MemberNumber   string     `db:"member_number"`
+	BirthDate      time.Time  `db:"birth_date"`
+	EntryDate      time.Time  `db:"entry_date"`
+	HouseholdName  *string    `db:"household_name"`
+	ReferenceMonth time.Time  `db:"reference_month"`
+	LatestValidTo  *time.Time `db:"latest_valid_until"`
+}
+
+// ListWithoutEinstufung returns active children entering before enteringBefore
+// that have no Einstufung for their reference month: currentMonth, or the entry
+// month when the child starts later. Whether a fee is owed (under three) is
+// left to the caller.
+func (r *PostgresEinstufungRepository) ListWithoutEinstufung(ctx context.Context, currentMonth, enteringBefore time.Time) ([]MissingEinstufungRow, error) {
+	var rows []MissingEinstufungRow
+	err := conn(ctx, r.db).SelectContext(ctx, &rows, `
+		WITH candidates AS (
+			SELECT c.id, c.first_name, c.last_name, c.member_number, c.birth_date, c.entry_date, c.household_id,
+				GREATEST($1::date, date_trunc('month', c.entry_date)::date) AS reference_month
+			FROM fees.children c
+			WHERE c.is_active AND c.entry_date < $2 AND (c.exit_date IS NULL OR c.exit_date >= $1)
+		)
+		SELECT c.id AS child_id, c.first_name, c.last_name, c.member_number, c.birth_date, c.entry_date,
+			h.name AS household_name, c.reference_month,
+			(SELECT MAX(e.valid_until) FROM fees.einstufungen e WHERE e.child_id = c.id) AS latest_valid_until
+		FROM candidates c
+		LEFT JOIN fees.households h ON h.id = c.household_id
+		WHERE NOT EXISTS (
+			SELECT 1 FROM fees.einstufungen e
+			WHERE e.child_id = c.id AND e.effective_from_month <= c.reference_month
+				AND (e.valid_until IS NULL OR e.valid_until >= c.reference_month))
+		ORDER BY c.reference_month, c.last_name, c.first_name
+	`, currentMonth, enteringBefore)
+	return rows, err
 }
 
 // GetForChildAt returns the Einstufung of the child that is valid in the month

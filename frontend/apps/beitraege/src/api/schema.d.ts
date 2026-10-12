@@ -2237,13 +2237,17 @@ export interface paths {
         };
         /**
          * List fee classifications
-         * @description Returns Einstufungen for a year with pagination
+         * @description Returns Einstufungen for a year with pagination, optionally filtered
          */
         get: {
             parameters: {
                 query: {
                     /** @description Year */
                     year: number;
+                    /** @description Child name, member number or household name */
+                    search?: string;
+                    /** @description current (open-ended), provisional, unsent (never emailed or changed since) */
+                    status?: "current" | "provisional" | "unsent";
                     /** @description Page number */
                     page?: number;
                     /** @description Items per page */
@@ -2888,6 +2892,45 @@ export interface paths {
                     };
                     content: {
                         "application/pdf": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/einstufungen/missing": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List U3 children without Einstufung
+         * @description Children under three for the whole month without an Einstufung for the current month, or for their entry month when they start within the next three months
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["MissingEinstufung"][];
                     };
                 };
             };
@@ -10262,6 +10305,18 @@ export interface components {
             total: number;
             /** @example 3 */
             totalPages: number;
+        };
+        MissingEinstufung: {
+            childId: string;
+            entryDate: string;
+            firstName: string;
+            householdName?: string;
+            lastName: string;
+            memberNumber: string;
+            /** @description First day of the month without Einstufung (YYYY-MM-DD) */
+            month: string;
+            /** @description End of the child's last Einstufung */
+            previousUntil?: string;
         };
         /** @description Next available member number */
         NextMemberNumberResponse: {
