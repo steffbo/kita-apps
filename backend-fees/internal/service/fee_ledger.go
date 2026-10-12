@@ -20,14 +20,23 @@ type ChildcareMonth struct {
 	Amount float64
 }
 
+// LedgerStartMonth is the first month the app keeps complete fee records for
+// (all children). Earlier expectations are single entries booked afterwards for
+// late payments; the amounts owed then were settled outside the app.
+var LedgerStartMonth = time.Date(2025, time.November, 1, 0, 0, 0, 0, time.UTC)
+
 // SyncChildcareExpectations aligns the CHILDCARE expectations of already
 // generated months with the given amounts. A month counts as generated when the
 // child has a CHILDCARE or FOOD expectation for it; later months are left to
 // fee generation. Paid months that would become overpaid are not changed but
 // reported for a credit review; unpaid expectations without an amount are removed.
+// Months before LedgerStartMonth are never changed.
 func (s *FeeService) SyncChildcareExpectations(ctx context.Context, childID uuid.UUID, householdID *uuid.UUID, months []ChildcareMonth) (*ChildcareExpectationSyncResult, error) {
 	result := &ChildcareExpectationSyncResult{CreditReviewRequired: []CreditReviewPeriod{}}
 	for _, m := range months {
+		if time.Date(m.Year, time.Month(m.Month), 1, 0, 0, 0, 0, time.UTC).Before(LedgerStartMonth) {
+			continue
+		}
 		month := m.Month
 		amount := roundToTwoDecimals(m.Amount)
 		dueDate := time.Date(m.Year, time.Month(month), 5, 0, 0, 0, 0, time.UTC)

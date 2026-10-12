@@ -303,3 +303,48 @@ func TestFeeService_SyncChildcareExpectations_ReportsCreditReviewForDecrease(t *
 		t.Fatalf("expected original amount to remain 120.00, got %.2f", loaded.Amount)
 	}
 }
+
+func TestFeeService_SyncChildcareExpectations_KeepsMonthsBeforeLedgerStart(t *testing.T) {
+	requireTestDatabase(t)
+	cleanupTestData()
+	defer cleanupTestData()
+
+	childRepo := repository.NewPostgresChildRepository(testDB)
+	feeRepo := repository.NewPostgresFeeRepository(testDB)
+	householdRepo := repository.NewPostgresHouseholdRepository(testDB)
+	matchRepo := repository.NewPostgresMatchRepository(testDB)
+	txRepo := repository.NewPostgresTransactionRepository(testDB)
+
+	child, err := createTestChild(childRepo, "SL")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// A late payment booked afterwards for the month before the ledger start.
+	before, err := createTestFee(feeRepo, child.ID, domain.FeeTypeChildcare, 105, 2025, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, err := createTestFee(feeRepo, child.ID, domain.FeeTypeChildcare, 105, 2025, 11)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	feeService := service.NewFeeService(feeRepo, childRepo, householdRepo, matchRepo, txRepo, repository.NewPostgresFeeScheduleRepository(testDB))
+	result, err := feeService.SyncChildcareExpectations(context.Background(), child.ID, child.HouseholdID,
+		[]service.ChildcareMonth{{Year: 2025, Month: 10, Amount: 210}, {Year: 2025, Month: 11, Amount: 210}})
+	if err != nil {
+		t.Fatalf("SyncChildcareExpectations failed: %v", err)
+	}
+	if result.Updated != 1 {
+		t.Fatalf("expected only the ledger start month updated, got %d", result.Updated)
+	}
+	for id, want := range map[uuid.UUID]float64{before.ID: 105, first.ID: 210} {
+		loaded, err := feeService.GetByID(context.Background(), id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if loaded.Amount != want {
+			t.Fatalf("%d/%d: expected %.2f, got %.2f", *loaded.Month, loaded.Year, want, loaded.Amount)
+		}
+	}
+}

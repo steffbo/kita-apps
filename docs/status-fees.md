@@ -13,11 +13,21 @@ Basics (ports, commands, layout) live in `AGENTS.md`.
   Folgeeinstufung, sonst die letzte frühere Einstufung des Kinds) und aufgezählt, was sich geändert hat
   (Bereich, Betreuungszeit, Grundlage, Jahresnettoeinkommen, Anzahl Kinder), dazu Platzgeld neu vs. bisher.
   „Danke für eure Unterlagen.“ nur bei Grundlage Einkommen.
-- Live nachgetragen (über die API, ohne Brief/Mail): Einstufungen 2025 für 11089 (Höchstsatz, 2 Kinder,
-  343,53 €) und 11097 (Festsetzung 2024 inkl. Eltern-/Mutterschaftsgeld, 40.637,43 € → 110 €); erzeugtes
-  Platzgeld unverändert, Herkunft in den Notizen. 11099 offen: In der Buchhaltung ist Oktober 2025 der
-  halbe Monat (Brief: September halb, Oktober voll); eine Einstufung ab September würde Oktober auf 210 €
-  heben. Die App halbiert Eintritte erst nach dem 15. (Eintritte am 15.08./15.09.2026 wurden voll bezahlt).
+- Live nachgetragen (über die API, ohne Brief/Mail): Einstufungen 2025 für 11089 (Höchstsatz, 2 Kinder),
+  11097 (Festsetzung 2024 inkl. Eltern-/Mutterschaftsgeld, 40.637,43 € → 110 €) und 11099 (54.000 € aus den
+  Haushaltsdaten als Gesamtbetrag, 210 €; September 2025 aus Kulanz halbiert, siehe Notiz). 11089:
+  Betreuungszeit 50 h bis 31.08.2025, 45 h ab 01.09.2025. 11099: Zahlungen vom 03.11.2025/02.02.2026 von
+  Feb 2026/Nov 2025 auf Nov 2025/Feb 2026 umgehängt. Erzeugtes Platzgeld blieb überall unverändert.
+
+## Beitragsbuchhaltung beginnt mit November 2025 (2026-10-12)
+
+- Die App führt Beiträge vollständig erst ab November 2025 (erster voller Monat für alle Kinder).
+  Ältere Erwartungen sind einzelne Nachbuchungen für spät eingegangene Zahlungen; was damals geschuldet war,
+  wurde außerhalb der App abgerechnet (der Bankimport beginnt praktisch Ende Oktober 2025).
+- `service.LedgerStartMonth` (2025-11-01): `SyncChildcareExpectations` ändert keine Monate davor. Eine
+  nachträglich erfasste Einstufung ab z. B. September 2025 lässt diese Nachbuchungen damit stehen.
+- Auffällig, nicht korrigiert: 22 FOOD- und 2 CHILDCARE-Zahlungen sind zwischen November 2025 und Februar
+  2026 vertauscht zugeordnet (Zahlung aus Februar auf November und umgekehrt); Beträge gleich, offen 0.
 
 ## Kinddaten ändern gleicht Einstufung und Platzgeld an; Brief-Einleitung nach Grundlage (2026-10-12)
 
