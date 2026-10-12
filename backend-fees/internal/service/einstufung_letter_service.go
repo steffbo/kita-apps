@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -35,6 +36,7 @@ type EinstufungLetterService struct {
 	board          BoardTermLister
 	settings       repository.SettingsRepository
 	logs           repository.EmailLogRepository
+	letters        *repository.EinstufungLetterRepository
 	sender         LetterEmailSender
 }
 
@@ -45,9 +47,10 @@ func NewEinstufungLetterService(
 	board BoardTermLister,
 	settings repository.SettingsRepository,
 	logs repository.EmailLogRepository,
+	letters *repository.EinstufungLetterRepository,
 	sender LetterEmailSender,
 ) *EinstufungLetterService {
-	return &EinstufungLetterService{einstufungs, einstufungRepo, board, settings, logs, sender}
+	return &EinstufungLetterService{einstufungs, einstufungRepo, board, settings, logs, letters, sender}
 }
 
 // LetterFile is a rendered letter.
@@ -115,20 +118,52 @@ func (s *EinstufungLetterService) Send(ctx context.Context, id, actorID uuid.UUI
 
 	// The mail is out; failures below must not invite a second send.
 	result := &SendEinstufungLetterResult{Recipients: recipients, SentAt: sentAt, Filename: file.Filename}
-	if err := s.einstufungRepo.MarkLetterSent(ctx, e.ID, sentAt); err != nil {
-		return result, fmt.Errorf("E-Mail gesendet, Versanddatum aber nicht gespeichert: %w", err)
-	}
 	payload, _ := json.Marshal(map[string]string{"einstufungId": e.ID.String(), "attachment": file.Filename})
 	raw := json.RawMessage(payload)
-	householdID := e.HouseholdID
-	if err := s.logs.Create(ctx, &domain.EmailLog{
+	householdID, einstufungID := e.HouseholdID, e.ID
+	logEntry := &domain.EmailLog{
 		ID: uuid.New(), SentAt: sentAt, ToEmail: strings.Join(recipients, ", "), Subject: subject,
 		Body: &body, EmailType: domain.EmailLogTypeEinstufung, Payload: &raw,
 		SentBy: &actorID, HouseholdID: &householdID,
-	}); err != nil {
-		return result, fmt.Errorf("E-Mail gesendet, Protokoll aber nicht gespeichert: %w", err)
+	}
+	err = s.einstufungs.withTx(ctx, func(ctx context.Context) error {
+		if err := s.logs.Create(ctx, logEntry); err != nil {
+			return err
+		}
+		if err := s.letters.Create(ctx, &domain.EinstufungLetter{
+			ID: uuid.New(), EinstufungID: &einstufungID, ChildID: e.ChildID, HouseholdID: &householdID,
+			EmailLogID: &logEntry.ID, SentAt: sentAt, SentBy: &actorID, Recipients: logEntry.ToEmail,
+			Subject: subject, Filename: file.Filename, PDF: file.Data,
+		}); err != nil {
+			return err
+		}
+		return s.einstufungRepo.MarkLetterSent(ctx, e.ID, sentAt)
+	})
+	if err != nil {
+		return result, fmt.Errorf("E-Mail gesendet, aber Protokoll und Brief konnten nicht gespeichert werden: %w", err)
 	}
 	return result, nil
+}
+
+// ListLetters returns all letters sent for the Einstufung's child, newest first.
+func (s *EinstufungLetterService) ListLetters(ctx context.Context, einstufungID uuid.UUID) ([]domain.EinstufungLetter, error) {
+	e, err := s.einstufungRepo.GetByID(ctx, einstufungID)
+	if err != nil {
+		return nil, ErrNotFound
+	}
+	return s.letters.ListByChild(ctx, e.ChildID)
+}
+
+// SentLetter returns a sent letter with the PDF exactly as it was attached.
+func (s *EinstufungLetterService) SentLetter(ctx context.Context, letterID uuid.UUID) (*LetterFile, error) {
+	l, err := s.letters.Get(ctx, letterID)
+	if err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			return nil, ErrNotFound
+		}
+		return nil, err
+	}
+	return &LetterFile{Filename: l.Filename, Data: l.PDF}, nil
 }
 
 // letterDate is the send date while the Einstufung is unchanged since sending, else today.

@@ -112,6 +112,7 @@ test('Einstufungsbrief als PDF laden und per E-Mail senden', async ({ adminApi, 
 
   await page.goto(`/beitraege/einstufungen/${created.id}`);
   await expect(page.getByText('Noch nicht per E-Mail versendet.')).toBeVisible();
+  await expect(page.getByText('Für dieses Kind wurde noch kein Brief aus der App versendet.')).toBeVisible();
   const downloadPromise = page.waitForEvent('download');
   await page.getByRole('button', { name: 'PDF herunterladen' }).click();
   const download = await downloadPromise;
@@ -128,10 +129,24 @@ test('Einstufungsbrief als PDF laden und per E-Mail senden', async ({ adminApi, 
     sentBody = route.request().postDataJSON();
     await route.fulfill({ json: { recipients: [address], sentAt, filename: download.suggestedFilename() } });
   });
+  // The history is reloaded after sending; serve the stored letter from the mocked send.
+  await page.route(`**/api/fees/v1/einstufungen/${created.id}/letters`, (route) =>
+    route.fulfill({ json: [{ id: 'stored-letter', einstufungId: created.id, sentAt, sentByName: 'E2E Admin',
+      recipients: address, subject: `Einstufung Elternbeiträge ${today.year} – ${lastName}`,
+      filename: download.suggestedFilename() }] }));
+  await page.route('**/api/fees/v1/einstufungen/letters/stored-letter/pdf', (route) =>
+    route.fulfill({ body: '%PDF-1.4 stored', contentType: 'application/pdf',
+      headers: { 'Content-Disposition': `attachment; filename="${download.suggestedFilename()}"` } }));
   page.once('dialog', (dialog) => void dialog.accept());
   await page.getByRole('button', { name: 'E-Mail mit PDF senden' }).click();
   await expect(page.getByText(new RegExp(`gesendet\\.$`))).toContainText(address);
   await expect(page.getByText(/Zuletzt per E-Mail versendet am/)).toBeVisible();
   expect(sentBody.subject).toBe(`Einstufung Elternbeiträge ${today.year} – ${lastName}`);
   expect(sentBody.body).toContain('Im Anhang findet ihr die Einstufung');
+
+  const history = page.getByTestId('sent-letters');
+  await expect(history.getByRole('row', { name: /E2E Admin/ })).toContainText('diese Einstufung');
+  const storedDownload = page.waitForEvent('download');
+  await history.getByRole('button', { name: `${download.suggestedFilename()} herunterladen` }).click();
+  expect((await storedDownload).suggestedFilename()).toBe(download.suggestedFilename());
 });

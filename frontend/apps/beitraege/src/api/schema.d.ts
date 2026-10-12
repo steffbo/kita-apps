@@ -2527,6 +2527,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/einstufungen/{id}/letters": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List sent Einstufung letters
+         * @description Lists all letters emailed for the Einstufung's child, newest first, without the PDF data.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Einstufung ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["EinstufungLetter"][];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/einstufungen/{id}/pdf": {
         parameters: {
             query?: never;
@@ -2783,6 +2834,60 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["Einstufung"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/einstufungen/letters/{letterId}/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download a sent Einstufung letter
+         * @description Returns the PDF exactly as it was attached to the email.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Show in the browser instead of downloading */
+                    inline?: boolean;
+                };
+                header?: never;
+                path: {
+                    /** @description Letter ID */
+                    letterId: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/pdf": string;
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/pdf": components["schemas"]["ErrorResponse"];
                     };
                 };
             };
@@ -9619,6 +9724,15 @@ export interface components {
             validFrom: string;
             validUntil?: string;
             year: number;
+        };
+        EinstufungLetter: {
+            einstufungId?: string;
+            filename: string;
+            id: string;
+            recipients: string;
+            sentAt: string;
+            sentByName?: string;
+            subject: string;
         };
         /** @description Paginated list of fee classifications */
         EinstufungList: {

@@ -72,6 +72,7 @@ import type {
   EinstufungPreview,
   SendEinstufungLetterRequest,
   SendEinstufungLetterResponse,
+  EinstufungLetter,
   ChildNote,
   CreateChildNoteRequest,
   UpdateChildNoteRequest,
@@ -1099,6 +1100,14 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify(data),
     });
+  }
+
+  async listEinstufungLetters(id: string): Promise<EinstufungLetter[]> {
+    return this.request<EinstufungLetter[]>(`/einstufungen/${id}/letters`);
+  }
+
+  async getSentEinstufungLetter(letterId: string): Promise<DownloadedFile> {
+    return this.requestFile(`/einstufungen/letters/${letterId}/pdf`);
   }
 
   async previewEinstufung(data: PreviewEinstufungRequest): Promise<EinstufungPreview> {

@@ -249,6 +249,8 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 					r.Put("/{id}", handlers.Einstufung.Update)
 					r.Get("/{id}/pdf", handlers.Einstufung.LetterPDF)
 					r.Post("/{id}/send", handlers.Einstufung.SendLetter)
+					r.Get("/{id}/letters", handlers.Einstufung.ListLetters)
+					r.Get("/letters/{letterId}/pdf", handlers.Einstufung.SentLetterPDF)
 					r.Post("/{id}/follow-ups", handlers.Einstufung.CreateFollowUp)
 					r.Delete("/{id}", handlers.Einstufung.Delete)
 				})

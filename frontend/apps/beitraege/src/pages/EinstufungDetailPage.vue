@@ -12,7 +12,9 @@ import type {
   HouseholdIncomeCalculation,
   ChildcareExpectationSyncResult,
   PreviewEinstufungRequest,
+  EinstufungLetter,
 } from '@/api/types';
+import type { DownloadedFile } from '@/api/client';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -377,6 +379,9 @@ const mailError = ref<string | null>(null);
 const mailSuccess = ref<string | null>(null);
 const isSending = ref(false);
 const letterAction = ref<'view' | 'download' | null>(null);
+const sentLetters = ref<EinstufungLetter[]>([]);
+const sentLettersError = ref<string | null>(null);
+const sentLetterAction = ref<string | null>(null);
 
 const einstufungChild = computed(() => einstufung.value?.child ?? selectedChild.value ?? null);
 const childMemberNumber = computed(() => einstufungChild.value?.memberNumber || '—');
@@ -468,31 +473,68 @@ function resetEmailDraft() {
   mailError.value = null;
 }
 
-async function openLetter(mode: 'view' | 'download') {
-  const target = einstufungForPdf.value;
-  if (!target) return;
+// showFile opens a PDF in a new tab or downloads it. The tab is opened
+// synchronously before loading so the popup blocker allows it.
+async function showFile(mode: 'view' | 'download', load: () => Promise<DownloadedFile>, fallbackName: string) {
   mailError.value = null;
-  // Open the tab synchronously so the popup blocker allows it.
   const tab = mode === 'view' ? window.open('', '_blank') : null;
-  letterAction.value = mode;
   try {
-    const file = await api.getEinstufungLetter(target.id);
+    const file = await load();
     const url = URL.createObjectURL(file.blob);
     if (tab) {
       tab.location.href = url;
     } else {
       const link = document.createElement('a');
       link.href = url;
-      link.download = file.filename ?? `Einstufung_${target.year}.pdf`;
+      link.download = file.filename ?? fallbackName;
       link.click();
     }
     setTimeout(() => URL.revokeObjectURL(url), 60_000);
   } catch (e) {
     tab?.close();
-    mailError.value = e instanceof Error ? e.message : 'PDF konnte nicht erstellt werden';
+    mailError.value = e instanceof Error ? e.message : 'PDF konnte nicht geladen werden';
+  }
+}
+
+async function openLetter(mode: 'view' | 'download') {
+  const target = einstufungForPdf.value;
+  if (!target) return;
+  letterAction.value = mode;
+  try {
+    await showFile(mode, () => api.getEinstufungLetter(target.id), `Einstufung_${target.year}.pdf`);
   } finally {
     letterAction.value = null;
   }
+}
+
+async function openSentLetter(letter: EinstufungLetter, mode: 'view' | 'download') {
+  sentLetterAction.value = `${letter.id}:${mode}`;
+  try {
+    await showFile(mode, () => api.getSentEinstufungLetter(letter.id), letter.filename);
+  } finally {
+    sentLetterAction.value = null;
+  }
+}
+
+async function loadSentLetters(einstufungId: string | undefined) {
+  sentLettersError.value = null;
+  if (!einstufungId) {
+    sentLetters.value = [];
+    return;
+  }
+  try {
+    const letters = await api.listEinstufungLetters(einstufungId);
+    if (einstufungForPdf.value?.id === einstufungId) sentLetters.value = letters;
+  } catch (e) {
+    sentLettersError.value = e instanceof Error ? e.message : 'Versandhistorie konnte nicht geladen werden';
+  }
+}
+
+function sentLetterEinstufungLabel(letter: EinstufungLetter) {
+  if (!letter.einstufungId) return 'gelöschte Einstufung';
+  if (letter.einstufungId === einstufungForPdf.value?.id) return 'diese Einstufung';
+  if (letter.einstufungId === einstufung.value?.id) return 'vorherige Fassung';
+  return 'andere Einstufung';
 }
 
 async function sendLetter() {
@@ -521,6 +563,7 @@ async function sendLetter() {
   try {
     const result = await api.sendEinstufungLetter(target.id, { subject, body });
     target.letterSentAt = result.sentAt;
+    void loadSentLetters(target.id);
     mailSuccess.value = `E-Mail mit ${result.filename} am ${formatDateTime(result.sentAt)} an ${result.recipients.join(', ')} gesendet.`;
   } catch (e) {
     mailError.value = e instanceof Error ? e.message : 'E-Mail konnte nicht gesendet werden';
@@ -673,6 +716,12 @@ async function handleSubmit() {
 watch(
   () => route.fullPath,
   () => loadData(),
+  { immediate: true },
+);
+
+watch(
+  () => einstufungForPdf.value?.id,
+  (id) => loadSentLetters(id),
   { immediate: true },
 );
 
@@ -1265,6 +1314,64 @@ watch(defaultEmailBody, (next) => {
             <Send v-else class="h-4 w-4" />
             E-Mail mit PDF senden
           </button>
+        </div>
+
+        <div class="border-t pt-4" data-testid="sent-letters">
+          <h3 class="text-sm font-medium text-foreground mb-2">Versendete Briefe</h3>
+          <p v-if="sentLettersError" class="text-sm text-red-700 dark:text-red-300">{{ sentLettersError }}</p>
+          <p v-else-if="!sentLetters.length" class="text-sm text-muted-foreground">
+            Für dieses Kind wurde noch kein Brief aus der App versendet.
+          </p>
+          <div v-else class="overflow-x-auto">
+            <table class="w-full text-sm">
+              <thead>
+                <tr class="text-left text-xs text-muted-foreground">
+                  <th class="py-1 pr-3 font-medium">Versendet</th>
+                  <th class="py-1 pr-3 font-medium">Von</th>
+                  <th class="py-1 pr-3 font-medium">Empfänger</th>
+                  <th class="py-1 pr-3 font-medium">Betreff</th>
+                  <th class="py-1 pr-3 font-medium">Einstufung</th>
+                  <th class="py-1 font-medium text-right">PDF</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr v-for="letter in sentLetters" :key="letter.id" class="border-t align-top">
+                  <td class="py-1.5 pr-3 whitespace-nowrap">{{ formatDateTime(letter.sentAt) }}</td>
+                  <td class="py-1.5 pr-3">{{ letter.sentByName || '–' }}</td>
+                  <td class="py-1.5 pr-3 break-all">{{ letter.recipients }}</td>
+                  <td class="py-1.5 pr-3">{{ letter.subject }}</td>
+                  <td class="py-1.5 pr-3 whitespace-nowrap">{{ sentLetterEinstufungLabel(letter) }}</td>
+                  <td class="py-1.5 text-right whitespace-nowrap">
+                    <button
+                      type="button"
+                      :disabled="sentLetterAction !== null"
+                      @click="openSentLetter(letter, 'view')"
+                      class="inline-flex p-1 text-muted-foreground hover:text-foreground disabled:opacity-50"
+                      :title="`${letter.filename} ansehen`"
+                      :aria-label="`${letter.filename} ansehen`"
+                    >
+                      <Loader2 v-if="sentLetterAction === `${letter.id}:view`" class="h-4 w-4 animate-spin" />
+                      <ExternalLink v-else class="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      :disabled="sentLetterAction !== null"
+                      @click="openSentLetter(letter, 'download')"
+                      class="inline-flex p-1 text-muted-foreground hover:text-foreground disabled:opacity-50"
+                      :title="`${letter.filename} herunterladen`"
+                      :aria-label="`${letter.filename} herunterladen`"
+                    >
+                      <Loader2 v-if="sentLetterAction === `${letter.id}:download`" class="h-4 w-4 animate-spin" />
+                      <Download v-else class="h-4 w-4" />
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p class="mt-2 text-xs text-muted-foreground">
+            Gespeichert wird genau das PDF, das an die Eltern ging – auch wenn die Einstufung später geändert wird.
+          </p>
         </div>
       </div>
 

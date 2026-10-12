@@ -52,7 +52,7 @@ func TestEinstufungLetter_PDFAndSend(t *testing.T) {
 	sender := &recordingLetterSender{}
 	letters := service.NewEinstufungLetterService(f.service, f.einstufungRepo,
 		repository.NewPostgresParentWorkRepository(testDB), repository.NewPostgresSettingsRepository(testDB),
-		repository.NewPostgresEmailLogRepository(testDB), sender)
+		repository.NewPostgresEmailLogRepository(testDB), repository.NewEinstufungLetterRepository(testDB), sender)
 
 	file, err := letters.PDF(f.ctx, created.ID)
 	if err != nil {
@@ -105,5 +105,31 @@ func TestEinstufungLetter_PDFAndSend(t *testing.T) {
 	}
 	if len(logs) != 1 || logs[0].ToEmail != "brief-a@example.test, brief-b@example.test" || logs[0].SentBy == nil {
 		t.Fatalf("logs = %+v", logs)
+	}
+
+	history, err := letters.ListLetters(f.ctx, created.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(history) != 1 || history[0].EmailLogID == nil || *history[0].EmailLogID != logs[0].ID ||
+		history[0].Subject != "Einstufung 2026" || history[0].PDF != nil {
+		t.Fatalf("history = %+v", history)
+	}
+	sent, err := letters.SentLetter(f.ctx, history[0].ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(sent.Data, sender.attachments[0].Data) || sent.Filename != result.Filename {
+		t.Fatal("stored PDF differs from the attachment")
+	}
+
+	// The stored letter stays unchanged when the Einstufung changes later.
+	childrenCount := 2
+	if _, err := f.service.Update(f.ctx, created.ID, service.UpdateEinstufungInput{ChildrenCount: &childrenCount}); err != nil {
+		t.Fatal(err)
+	}
+	again, err := letters.SentLetter(f.ctx, history[0].ID)
+	if err != nil || !bytes.Equal(again.Data, sent.Data) {
+		t.Fatalf("stored letter changed: %v", err)
 	}
 }

@@ -1632,6 +1632,37 @@ paths:
       summary: Create a follow-up fee classification
       tags:
         - Einstufungen
+  "/einstufungen/{id}/letters":
+    get:
+      description: Lists all letters emailed for the Einstufung's child, newest first,
+        without the PDF data.
+      parameters:
+        - description: Einstufung ID
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/EinstufungLetter"
+                type: array
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: List sent Einstufung letters
+      tags:
+        - Einstufungen
   "/einstufungen/{id}/pdf":
     get:
       description: Renders the letter as PDF. The letter is dated with the send date
@@ -1791,6 +1822,40 @@ paths:
       security:
         - BearerAuth: []
       summary: List Einstufungen for a household
+      tags:
+        - Einstufungen
+  "/einstufungen/letters/{letterId}/pdf":
+    get:
+      description: Returns the PDF exactly as it was attached to the email.
+      parameters:
+        - description: Letter ID
+          in: path
+          name: letterId
+          required: true
+          schema:
+            type: string
+        - description: Show in the browser instead of downloading
+          in: query
+          name: inline
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: OK
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Not Found
+          content:
+            application/pdf:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Download a sent Einstufung letter
       tags:
         - Einstufungen
   /einstufungen/preview:
@@ -6875,6 +6940,29 @@ components:
         - updatedAt
         - validFrom
         - year
+      type: object
+    EinstufungLetter:
+      properties:
+        einstufungId:
+          type: string
+        filename:
+          type: string
+        id:
+          type: string
+        recipients:
+          type: string
+        sentAt:
+          type: string
+        sentByName:
+          type: string
+        subject:
+          type: string
+      required:
+        - filename
+        - id
+        - recipients
+        - sentAt
+        - subject
       type: object
     EinstufungList:
       description: Paginated list of fee classifications

@@ -725,6 +725,29 @@ type SendEinstufungLetterResponse struct {
 	Filename   string   `json:"filename"`
 } //@name SendEinstufungLetterResponse
 
+// EinstufungLetterResponse is a letter that was emailed to the parents.
+type EinstufungLetterResponse struct {
+	ID           string  `json:"id"`
+	EinstufungID *string `json:"einstufungId,omitempty" binding:"optional"`
+	SentAt       string  `json:"sentAt"`
+	SentByName   *string `json:"sentByName,omitempty" binding:"optional"`
+	Recipients   string  `json:"recipients"`
+	Subject      string  `json:"subject"`
+	Filename     string  `json:"filename"`
+} //@name EinstufungLetter
+
+func toEinstufungLetterResponse(l domain.EinstufungLetter) EinstufungLetterResponse {
+	resp := EinstufungLetterResponse{
+		ID: l.ID.String(), SentAt: l.SentAt.Format(time.RFC3339), SentByName: l.SentByName,
+		Recipients: l.Recipients, Subject: l.Subject, Filename: l.Filename,
+	}
+	if l.EinstufungID != nil {
+		id := l.EinstufungID.String()
+		resp.EinstufungID = &id
+	}
+	return resp
+}
+
 // LetterPDF handles GET /einstufungen/{id}/pdf
 // @Summary Download the Einstufung letter
 // @Description Renders the letter as PDF. The letter is dated with the send date while the Einstufung is unchanged since sending, else today.
@@ -747,6 +770,10 @@ func (h *EinstufungHandler) LetterPDF(w http.ResponseWriter, r *http.Request) {
 		handleEinstufungError(w, err)
 		return
 	}
+	writeLetterPDF(w, r, file)
+}
+
+func writeLetterPDF(w http.ResponseWriter, r *http.Request, file *service.LetterFile) {
 	disposition := "attachment"
 	if r.URL.Query().Get("inline") == "1" || r.URL.Query().Get("inline") == "true" {
 		disposition = "inline"
@@ -757,6 +784,59 @@ func (h *EinstufungHandler) LetterPDF(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Length", strconv.Itoa(len(file.Data)))
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(file.Data)
+}
+
+// ListLetters handles GET /einstufungen/{id}/letters
+// @Summary List sent Einstufung letters
+// @Description Lists all letters emailed for the Einstufung's child, newest first, without the PDF data.
+// @Tags Einstufungen
+// @Produce json
+// @Param id path string true "Einstufung ID"
+// @Success 200 {array} EinstufungLetterResponse
+// @Failure 404 {object} response.ErrorBody
+// @Security BearerAuth
+// @Router /einstufungen/{id}/letters [get]
+func (h *EinstufungHandler) ListLetters(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		response.BadRequest(w, "invalid ID")
+		return
+	}
+	letters, err := h.letterService.ListLetters(r.Context(), id)
+	if err != nil {
+		handleEinstufungError(w, err)
+		return
+	}
+	result := make([]EinstufungLetterResponse, 0, len(letters))
+	for _, l := range letters {
+		result = append(result, toEinstufungLetterResponse(l))
+	}
+	response.Success(w, result)
+}
+
+// SentLetterPDF handles GET /einstufungen/letters/{letterId}/pdf
+// @Summary Download a sent Einstufung letter
+// @Description Returns the PDF exactly as it was attached to the email.
+// @Tags Einstufungen
+// @Produce application/pdf
+// @Param letterId path string true "Letter ID"
+// @Param inline query bool false "Show in the browser instead of downloading"
+// @Success 200 {file} binary
+// @Failure 404 {object} response.ErrorBody
+// @Security BearerAuth
+// @Router /einstufungen/letters/{letterId}/pdf [get]
+func (h *EinstufungHandler) SentLetterPDF(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(chi.URLParam(r, "letterId"))
+	if err != nil {
+		response.BadRequest(w, "invalid ID")
+		return
+	}
+	file, err := h.letterService.SentLetter(r.Context(), id)
+	if err != nil {
+		handleEinstufungError(w, err)
+		return
+	}
+	writeLetterPDF(w, r, file)
 }
 
 // SendLetter handles POST /einstufungen/{id}/send

@@ -475,6 +475,7 @@ export type CreateFollowUpEinstufungResponse = Omit<Schema['CreateFollowUpEinstu
 export type CalculateIncomeResponse = Schema['CalculateIncomeResponse'];
 export type SendEinstufungLetterRequest = Schema['SendEinstufungLetterRequest'];
 export type SendEinstufungLetterResponse = Schema['SendEinstufungLetterResponse'];
+export type EinstufungLetter = Schema['EinstufungLetter'];
 
 // ── Fee schedules (Beitragsordnung) ──────────────────────────────────────────
 export type FeeTableRow = Schema['FeeTableRow'];

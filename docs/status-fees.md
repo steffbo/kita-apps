@@ -3,6 +3,22 @@
 Rolling change log of non-obvious implementation decisions. Newest first.
 Basics (ports, commands, layout) live in `AGENTS.md`.
 
+## Einstufungsbrief: versendete PDFs speichern, Versandhistorie (2026-10-12)
+
+- Neue Tabelle `fees.einstufung_letters` (Migration `000047`): pro versendeter Mail das PDF genau wie
+  angehängt (`BYTEA`, ca. 85 KB), Empfänger, Betreff, Dateiname, Absender, Bezug auf Einstufung, Kind,
+  Haushalt und `email_logs`-Eintrag. Einstufung/Haushalt/Protokoll `ON DELETE SET NULL`, damit die Historie
+  das Löschen einer Einstufung überlebt; Kind `ON DELETE CASCADE`.
+- `POST /einstufungen/{id}/send` schreibt Protokoll, gespeicherten Brief und `letter_sent_at` nach dem
+  Versand in einer Transaktion.
+- `GET /einstufungen/{id}/letters`: alle Briefe zum Kind der Einstufung, neueste zuerst, ohne PDF-Daten.
+  `GET /einstufungen/letters/{letterId}/pdf` (`?inline=1`): das gespeicherte PDF. Spätere Änderungen an der
+  Einstufung ändern gespeicherte Briefe nicht.
+- Frontend: Abschnitt „Versendete Briefe“ in der Karte „Brief und E-Mail an Eltern“ mit Datum, Absender,
+  Empfängern, Betreff, Bezug („diese Einstufung“, „vorherige Fassung“, „andere Einstufung“) und PDF
+  ansehen/herunterladen. Briefe aus der Zeit vor dieser Änderung (mailto, Druckvorlage) sind nicht enthalten.
+- Alle App-Mails stehen weiterhin im E-Mail-Protokoll (Automatisierung), dort ohne Anhang.
+
 ## Einstufungsbrief: PDF-Download und Versand aus der App (2026-10-12)
 
 - `GET /einstufungen/{id}/pdf` liefert den Brief als PDF (`Einstufung_<Jahr>_<Nachname>_<Vorname>.pdf`,

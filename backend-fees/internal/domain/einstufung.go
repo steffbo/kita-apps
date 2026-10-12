@@ -146,3 +146,19 @@ func formatCareType(ct ChildAgeType) string {
 		return string(ct)
 	}
 }
+
+// EinstufungLetter is a letter emailed to the parents, with the PDF as sent.
+type EinstufungLetter struct {
+	ID           uuid.UUID  `json:"id" db:"id"`
+	EinstufungID *uuid.UUID `json:"einstufungId,omitempty" db:"einstufung_id" binding:"optional"`
+	ChildID      uuid.UUID  `json:"childId" db:"child_id"`
+	HouseholdID  *uuid.UUID `json:"householdId,omitempty" db:"household_id" binding:"optional"`
+	EmailLogID   *uuid.UUID `json:"emailLogId,omitempty" db:"email_log_id" binding:"optional"`
+	SentAt       time.Time  `json:"sentAt" db:"sent_at"`
+	SentBy       *uuid.UUID `json:"sentBy,omitempty" db:"sent_by" binding:"optional"`
+	SentByName   *string    `json:"sentByName,omitempty" db:"sent_by_name" binding:"optional"`
+	Recipients   string     `json:"recipients" db:"recipients"`
+	Subject      string     `json:"subject" db:"subject"`
+	Filename     string     `json:"filename" db:"filename"`
+	PDF          []byte     `json:"-" db:"pdf"`
+}
