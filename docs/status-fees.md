@@ -3,6 +3,22 @@
 Rolling change log of non-obvious implementation decisions. Newest first.
 Basics (ports, commands, layout) live in `AGENTS.md`.
 
+## Einstufungsliste verlinkt Kinder; E-Mail zur Folgeeinstufung nennt die Änderung (2026-10-12)
+
+- Einstufungsliste: Kindnamen in „Einstufung fehlt“ und in der Tabelle führen zur Kindseite; Haushalt steht
+  jetzt unter dem Kindnamen (eigene Spalte entfällt), die Regel darf umbrechen, die Tabelle scrollt
+  horizontal statt abgeschnitten zu werden.
+- E-Mail-Text (`utils/einstufungEmail.ts`): „willkommen bei uns in der Kita!“ nur, wenn die Einstufung mit
+  dem Eintritt beginnt und es keine frühere gibt. Sonst wird gegen die Vorgängerin verglichen (Quelle einer
+  Folgeeinstufung, sonst die letzte frühere Einstufung des Kinds) und aufgezählt, was sich geändert hat
+  (Bereich, Betreuungszeit, Grundlage, Jahresnettoeinkommen, Anzahl Kinder), dazu Platzgeld neu vs. bisher.
+  „Danke für eure Unterlagen.“ nur bei Grundlage Einkommen.
+- Live nachgetragen (über die API, ohne Brief/Mail): Einstufungen 2025 für 11089 (Höchstsatz, 2 Kinder,
+  343,53 €) und 11097 (Festsetzung 2024 inkl. Eltern-/Mutterschaftsgeld, 40.637,43 € → 110 €); erzeugtes
+  Platzgeld unverändert, Herkunft in den Notizen. 11099 offen: In der Buchhaltung ist Oktober 2025 der
+  halbe Monat (Brief: September halb, Oktober voll); eine Einstufung ab September würde Oktober auf 210 €
+  heben. Die App halbiert Eintritte erst nach dem 15. (Eintritte am 15.08./15.09.2026 wurden voll bezahlt).
+
 ## Kinddaten ändern gleicht Einstufung und Platzgeld an; Brief-Einleitung nach Grundlage (2026-10-12)
 
 - Die Monatstabelle einer Einstufung wird bei jedem Lesen aus den Kinddaten berechnet; vorher blieben nur die

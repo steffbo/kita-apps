@@ -35,6 +35,7 @@ import {
 } from 'lucide-vue-next';
 import IncomeForm from '@/components/IncomeForm.vue';
 import EinstufungPDF from '@/components/EinstufungPDF.vue';
+import { einstufungEmailIntro } from '@/utils/einstufungEmail';
 import ChildSearchSelect from '@/components/ChildSearchSelect.vue';
 import { formatCurrency, formatDate, formatDateTime, formatEuroAmount, formatMonthYear, todayISO } from '@/utils/format';
 
@@ -62,6 +63,9 @@ const einstufung = ref<Einstufung | null>(null);
 const sourceEinstufung = ref<Einstufung | null>(null);
 const previousEinstufung = ref<Einstufung | null>(null);
 const successorEinstufung = ref<Einstufung | null>(null);
+// Latest earlier Einstufung of the child when this one is not a follow-up
+// (e.g. a new year); the email names what changed against it.
+const priorEinstufung = ref<Einstufung | null>(null);
 
 // Form data
 const currentYear = new Date().getFullYear();
@@ -455,9 +459,15 @@ const defaultEmailSubject = computed(() => {
 });
 
 const defaultEmailBody = computed(() => {
-  const intro = einstufungForPdf.value?.sourceEinstufungId
-    ? 'eure Einstufung haben wir angepasst.'
-    : 'willkommen bei uns in der Kita!\n\nDanke für eure Unterlagen.';
+  const current = einstufungForPdf.value;
+  const intro = current
+    ? einstufungEmailIntro(
+      current,
+      previousEinstufungForPdf.value ?? priorEinstufung.value,
+      einstufungChild.value?.firstName ?? '',
+      einstufungChild.value?.entryDate,
+    )
+    : 'willkommen bei uns in der Kita!';
   return `${greetingLine.value}
 
 ${intro}
@@ -585,6 +595,7 @@ async function loadData() {
   sourceEinstufung.value = null;
   previousEinstufung.value = null;
   successorEinstufung.value = null;
+  priorEinstufung.value = null;
   if (einstufungId.value !== keepChangesFor) expectationChanges.value = null;
   keepChangesFor = null;
   ++prefillSequence;
@@ -607,6 +618,9 @@ async function loadData() {
       } else if (e.householdId) {
         const householdEinstufungen = await api.getEinstufungenForHousehold(e.householdId);
         successorEinstufung.value = householdEinstufungen.find((item) => item.sourceEinstufungId === e.id) ?? null;
+        priorEinstufung.value = householdEinstufungen
+          .filter((item) => item.childId === e.childId && item.effectiveFromMonth < e.effectiveFromMonth)
+          .sort((a, b) => b.effectiveFromMonth.localeCompare(a.effectiveFromMonth))[0] ?? null;
       }
       selectedChildId.value = e.childId;
       selectedYear.value = e.year;

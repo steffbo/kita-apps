@@ -218,6 +218,43 @@ test('Einstufungsliste: fehlende Einstufungen, Suche und Statusfilter', async ({
   await ben.getByRole('link', { name: 'Einstufung anlegen' }).click();
   await expect(page).toHaveURL(new RegExp(`/einstufungen/neu\\?childId=${ids.Ben}`));
   await expect(page.getByText(`Ben ${lastName} (`)).toBeVisible();
+
+  // Child names lead to the child, in the work list and in the table.
+  await page.goBack();
+  await missing.getByRole('link', { name: `Ben ${lastName}` }).click();
+  await expect(page).toHaveURL(new RegExp(`/kinder/${ids.Ben}$`));
+  await page.goBack();
+  await page.getByRole('row', { name: new RegExp(`Pia ${lastName}`) }).getByRole('link', { name: `Pia ${lastName}` }).click();
+  await expect(page).toHaveURL(new RegExp(`/kinder/${ids.Pia}$`));
+});
+
+test('E-Mail zur Folgeeinstufung nennt die Änderung statt einer Begrüßung', async ({ adminApi, adminPage: page }) => {
+  const suffix = uniq();
+  const today = berlinToday();
+  const lastName = `Folge${suffix}`;
+  const parent = await adminApi.post<{ id: string }>('/parents', { firstName: 'Eva', lastName });
+  const child = await adminApi.post<{ id: string }>('/children', {
+    memberNumber: memberNumber(), firstName: 'Mia', lastName,
+    birthDate: `${today.year - 1}-06-01`, entryDate: `${today.year}-01-01`,
+  });
+  await adminApi.post(`/children/${child.id}/parents`, { parentId: parent.id, isPrimary: true });
+  const income = (gross: number) => ({ parent1: { grossIncome: gross }, parent2: {} });
+  const source = await adminApi.post<{ id: string }>('/einstufungen', {
+    childId: child.id, year: today.year, incomeBasis: 'INCOME', childrenCount: 1, incomeCalculation: income(30000),
+  });
+
+  await page.goto(`/beitraege/einstufungen/${source.id}`);
+  await expect(page.getByLabel('Text', { exact: true })).toHaveValue(/willkommen bei uns in der Kita!/);
+
+  const followUp = await adminApi.post<{ einstufung: { id: string } }>(`/einstufungen/${source.id}/follow-ups`, {
+    changeDate: `${today.year}-03-01`, incomeBasis: 'INCOME', childrenCount: 1, incomeCalculation: income(60000),
+  });
+  await page.goto(`/beitraege/einstufungen/${followUp.einstufung.id}`);
+  const body = page.getByLabel('Text', { exact: true });
+  await expect(body).toHaveValue(/für Mia hat sich etwas geändert, deshalb ist ab März \d{4} eine neue Einstufung nötig:/);
+  await expect(body).toHaveValue(/- Jahresnettoeinkommen: bisher 30\.000,00 Euro, jetzt 60\.000,00 Euro/);
+  await expect(body).toHaveValue(/Das Platzgeld beträgt damit .* statt bisher .*\./);
+  await expect(body).not.toHaveValue(/willkommen/);
 });
 
 test('Geänderte Betreuungszeit passt Einstufung und Platzgeld an', async ({ adminApi, adminPage: page }) => {

@@ -206,7 +206,9 @@ onMounted(() => {
       <ul class="mt-3 divide-y divide-amber-200/70">
         <li v-for="m in missing" :key="m.childId" class="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
           <div>
-            <span class="font-medium text-foreground">{{ m.firstName }} {{ m.lastName }}</span>
+            <RouterLink :to="`/kinder/${m.childId}`" class="font-medium text-foreground hover:text-primary hover:underline">
+              {{ m.firstName }} {{ m.lastName }}
+            </RouterLink>
             <span class="text-muted-foreground"> · {{ m.householdName || 'kein Haushalt' }}</span>
             <span class="block text-xs text-muted-foreground">
               ab {{ formatMonthYear(Number(m.month.slice(0, 4)), Number(m.month.slice(5, 7))) }}
@@ -281,12 +283,11 @@ onMounted(() => {
     </div>
 
     <!-- Table -->
-    <div v-else class="bg-card rounded-lg border shadow-sm overflow-hidden">
+    <div v-else class="bg-card rounded-lg border shadow-sm overflow-x-auto">
       <table class="min-w-full divide-y divide-border">
         <thead class="bg-muted">
           <tr>
             <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Kind</th>
-            <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Haushalt</th>
             <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Bereich</th>
             <th class="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">Einkommen</th>
             <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Regel</th>
@@ -304,15 +305,21 @@ onMounted(() => {
             @click="router.push(`/einstufungen/${e.id}`)"
           >
             <td class="px-4 py-3 whitespace-nowrap">
-              <div class="flex items-center gap-2">
-                <User class="h-4 w-4 text-muted-foreground" />
-                <span class="text-sm font-medium text-foreground">{{ getChildName(e) }}</span>
-              </div>
-            </td>
-            <td class="px-4 py-3 whitespace-nowrap">
-              <div class="flex items-center gap-2">
-                <Home class="h-4 w-4 text-muted-foreground" />
-                <span class="text-sm text-muted-foreground">{{ getHouseholdName(e) }}</span>
+              <div class="flex items-start gap-2">
+                <User class="mt-0.5 h-4 w-4 text-muted-foreground" />
+                <div>
+                  <RouterLink
+                    :to="`/kinder/${e.childId}`"
+                    class="text-sm font-medium text-foreground hover:text-primary hover:underline"
+                    @click.stop
+                  >
+                    {{ getChildName(e) }}
+                  </RouterLink>
+                  <span class="flex items-center gap-1 text-xs text-muted-foreground">
+                    <Home class="h-3 w-3" />
+                    {{ getHouseholdName(e) }}
+                  </span>
+                </div>
               </div>
             </td>
             <td class="px-4 py-3 whitespace-nowrap">
@@ -327,7 +334,7 @@ onMounted(() => {
                 class="ml-2 inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300"
               >vorläufig</span>
             </td>
-            <td class="px-4 py-3 whitespace-nowrap">
+            <td class="px-4 py-3">
               <span
                 class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium"
                 :class="getRuleBadgeClass(e.feeRule)"
