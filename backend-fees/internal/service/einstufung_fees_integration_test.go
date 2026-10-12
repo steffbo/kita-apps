@@ -222,3 +222,58 @@ func TestEinstufungWorklist_FiltersAndMissing(t *testing.T) {
 		t.Fatal("unknown status accepted")
 	}
 }
+
+func TestEinstufungFees_CareHoursChangeAlignsFees(t *testing.T) {
+	f := newEinstufungFixture(t)
+	child, _ := f.child(t, "TEFH", domain.IncomeStatusUnknown, date(2025, time.March, 1), date(2026, time.January, 1))
+	created, _, err := f.service.Create(f.ctx, service.CreateEinstufungInput{
+		ChildID: child.ID, Year: 2026, IncomeBasis: domain.IncomeBasisHighestRate, ChildrenCount: 1,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, month := range []int{9, 10} {
+		m := month
+		if _, err := f.fees.Generate(f.ctx, 2026, &m); err != nil {
+			t.Fatal(err)
+		}
+	}
+	september, october := childcareFee(t, child.ID, 9), childcareFee(t, child.ID, 10)
+	sentAt := util.Now().Add(-time.Hour)
+	if err := f.einstufungRepo.MarkLetterSent(f.ctx, created.ID, sentAt); err != nil {
+		t.Fatal(err)
+	}
+
+	children := service.NewChildService(f.childRepo, nil, f.householdRepo)
+	children.UseEinstufungSync(f.service)
+	hours := 25
+	input := service.AddCareHoursHistoryInput{CareHours: &hours, ValidFrom: "2026-10-01"}
+	sync, err := children.AddCareHoursHistory(f.ctx, child.ID, input)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(sync.Einstufungen) != 1 || sync.Einstufungen[0].ID != created.ID || !sync.Einstufungen[0].LetterSent ||
+		sync.Expectations.Updated != 1 {
+		t.Fatalf("sync = %+v", sync)
+	}
+
+	updated, err := f.service.GetByID(f.ctx, created.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if row := monthRow(t, updated, 10); row.CareHoursPerWeek != 25 || childcareFee(t, child.ID, 10).Amount != row.ChildcareFee ||
+		row.ChildcareFee == october.Amount {
+		t.Fatalf("October row %+v, fee %.2f (was %.2f)", row, childcareFee(t, child.ID, 10).Amount, october.Amount)
+	}
+	if got := childcareFee(t, child.ID, 9).Amount; got != september.Amount {
+		t.Fatalf("September changed: %.2f -> %.2f", september.Amount, got)
+	}
+	if !updated.UpdatedAt.After(*updated.LetterSentAt) {
+		t.Fatalf("sent letter still counts as current: updated %v, sent %v", updated.UpdatedAt, updated.LetterSentAt)
+	}
+
+	// Saving the same hours again changes nothing.
+	if sync, err := children.AddCareHoursHistory(f.ctx, child.ID, input); err != nil || len(sync.Einstufungen) != 0 {
+		t.Fatalf("repeated change: %+v, %v", sync, err)
+	}
+}

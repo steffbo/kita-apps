@@ -219,3 +219,35 @@ test('Einstufungsliste: fehlende Einstufungen, Suche und Statusfilter', async ({
   await expect(page).toHaveURL(new RegExp(`/einstufungen/neu\\?childId=${ids.Ben}`));
   await expect(page.getByText(`Ben ${lastName} (`)).toBeVisible();
 });
+
+test('Geänderte Betreuungszeit passt Einstufung und Platzgeld an', async ({ adminApi, adminPage: page }) => {
+  const suffix = uniq();
+  const today = berlinToday();
+  const lastName = `Stunden${suffix}`;
+  const parent = await adminApi.post<{ id: string }>('/parents', { firstName: 'Eva', lastName });
+  const child = await adminApi.post<{ id: string }>('/children', {
+    memberNumber: memberNumber(), firstName: 'Mia', lastName,
+    birthDate: `${today.year - 1}-06-01`, entryDate: `${today.year}-01-01`,
+  });
+  await adminApi.post(`/children/${child.id}/parents`, { parentId: parent.id, isPrimary: true });
+  const created = await adminApi.post<{ id: string }>('/einstufungen', {
+    childId: child.id, year: today.year, incomeBasis: 'HIGHEST_RATE', childrenCount: 1,
+    incomeCalculation: { parent1: {}, parent2: {} },
+  });
+  const fee = await adminApi.post<{ id: string; amount: number }>('/fees', {
+    childId: child.id, feeType: 'CHILDCARE', year: today.year, month: today.month,
+  });
+
+  await page.goto(`/beitraege/kinder/${child.id}`);
+  await page.getByTitle('Bearbeiten').first().click();
+  await page.getByLabel('Betreuungszeit (Std./Woche)').fill('25');
+  await page.getByLabel('Betreuungszeit gültig ab').fill(`${today.year}-${String(today.month).padStart(2, '0')}-01`);
+  await page.getByRole('button', { name: 'Speichern' }).click();
+
+  const notice = page.getByRole('region', { name: 'Einstufung durch die Änderung angepasst' });
+  await expect(notice).toContainText('Platzgeld: 1 aktualisiert.');
+  await expect(notice.getByRole('link', { name: `Einstufung ${today.year}` }))
+    .toHaveAttribute('href', `/beitraege/einstufungen/${created.id}`);
+  const updated = await adminApi.get<{ amount: number }>(`/fees/${fee.id}`);
+  expect(updated.amount).toBeLessThan(fee.amount);
+});

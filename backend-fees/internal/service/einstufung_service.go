@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reflect"
 	"slices"
 	"time"
 
@@ -236,6 +237,66 @@ func (s *EinstufungService) syncFees(ctx context.Context, e *domain.Einstufung) 
 		months = append(months, ChildcareMonth{Year: row.Year, Month: row.Month, Amount: amount})
 	}
 	return s.feeService.SyncChildcareExpectations(ctx, e.ChildID, e.Child.HouseholdID, months)
+}
+
+// ChildEinstufungSync reports what a change of fee-relevant child data (care hours,
+// birth, entry or exit date) did to the child's Einstufungen and generated fees.
+type ChildEinstufungSync struct {
+	Einstufungen []ChangedEinstufung
+	Expectations ChildcareExpectationSyncResult
+}
+
+// ChangedEinstufung is an Einstufung whose monthly table changed with the child data.
+type ChangedEinstufung struct {
+	ID         uuid.UUID
+	Year       int
+	LetterSent bool
+}
+
+// ApplyChildChange runs change and, in the same transaction, aligns the generated
+// CHILDCARE fees of every Einstufung whose monthly table changed with it. Those
+// Einstufungen count as changed, so a letter sent before is no longer current.
+func (s *EinstufungService) ApplyChildChange(ctx context.Context, childID uuid.UUID, change func(ctx context.Context) error) (*ChildEinstufungSync, error) {
+	result := &ChildEinstufungSync{}
+	err := s.withTx(ctx, func(ctx context.Context) error {
+		existing, err := s.einstufungRepo.ListByChild(ctx, childID)
+		if err != nil {
+			return fmt.Errorf("load Einstufungen: %w", err)
+		}
+		before := make(map[uuid.UUID][]domain.EinstufungMonthRow, len(existing))
+		for i := range existing {
+			s.loadRelations(ctx, &existing[i])
+			before[existing[i].ID] = existing[i].MonthlyTable
+		}
+		if err := change(ctx); err != nil {
+			return err
+		}
+		for _, old := range existing {
+			e, err := s.einstufungRepo.GetByID(ctx, old.ID)
+			if err != nil {
+				return fmt.Errorf("reload Einstufung: %w", err)
+			}
+			s.loadRelations(ctx, e)
+			if reflect.DeepEqual(e.MonthlyTable, before[e.ID]) {
+				continue
+			}
+			sync, err := s.syncFees(ctx, e)
+			if err != nil {
+				return err
+			}
+			result.Expectations.add(sync)
+			if err := s.einstufungRepo.Touch(ctx, e.ID); err != nil {
+				return fmt.Errorf("mark Einstufung changed: %w", err)
+			}
+			result.Einstufungen = append(result.Einstufungen,
+				ChangedEinstufung{ID: e.ID, Year: e.Year, LetterSent: e.LetterSentAt != nil})
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return result, nil
 }
 
 // Preview computes an Einstufung form like Create, CreateFollowUp or Update

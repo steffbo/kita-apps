@@ -912,7 +912,7 @@ export interface paths {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["domain.Child"];
+                        "application/json": components["schemas"]["ChildUpdateResponse"];
                     };
                 };
                 /** @description Invalid request */
@@ -1112,12 +1112,14 @@ export interface paths {
                 };
             };
             responses: {
-                /** @description Care hours history saved */
-                204: {
+                /** @description Care hours history saved; Einstufungen and fees aligned */
+                200: {
                     headers: {
                         [name: string]: unknown;
                     };
-                    content?: never;
+                    content: {
+                        "application/json": components["schemas"]["ChildEinstufungSync"];
+                    };
                 };
                 /** @description Invalid request */
                 400: {
@@ -9502,6 +9504,17 @@ export interface components {
             /** @example newPassword456 */
             newPassword: string;
         };
+        ChangedEinstufung: {
+            id: string;
+            /** @description a letter was sent before and is no longer current */
+            letterSent: boolean;
+            year: number;
+        };
+        /** @description Einstufungen whose monthly table changed with the child data, and the aligned CHILDCARE fees */
+        ChildEinstufungSync: {
+            einstufungen: components["schemas"]["ChangedEinstufung"][];
+            expectationChanges: components["schemas"]["ChildcareExpectationSyncResult"];
+        };
         /** @description Request body for generating import preview */
         ChildImportPreviewRequest: {
             /** @description Base64 encoded CSV content */
@@ -9577,6 +9590,34 @@ export interface components {
             /** @example 250 */
             scanned: number;
             suggestions: components["schemas"]["domain.MatchSuggestion"][];
+        };
+        ChildUpdateResponse: {
+            birthDate: string;
+            careHours?: number;
+            city?: string;
+            createdAt: string;
+            /** @description set when fee-relevant data was sent */
+            einstufungSync?: components["schemas"]["ChildEinstufungSync"];
+            entryDate: string;
+            exitDate?: string;
+            firstName: string;
+            household?: components["schemas"]["domain.Household"];
+            householdId?: string;
+            id: string;
+            isActive: boolean;
+            lastName: string;
+            /** @description Derived from the history tables (see type comment), not stored on fees.children. */
+            legalHours?: number;
+            legalHoursUntil?: string;
+            memberNumber: string;
+            /** @description Computed fields (not stored in DB, populated by queries) */
+            openFeesCount?: number;
+            /** @description Loaded relations (not stored in DB) */
+            parents?: components["schemas"]["domain.Parent"][];
+            postalCode?: string;
+            street?: string;
+            streetNo?: string;
+            updatedAt: string;
         };
         /** @description Result of aligning generated CHILDCARE expectations with an Einstufung */
         ChildcareExpectationSyncResult: {

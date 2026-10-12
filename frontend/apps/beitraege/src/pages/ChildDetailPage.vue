@@ -8,10 +8,11 @@ import { api } from '@/api';
 import { useChildDetailData } from '@/composables/useChildDetailData';
 import ChangeHistory from '@/components/family/ChangeHistory.vue';
 import { useAuthStore } from '@/stores/auth';
-import type { FeeExpectation, MatchSuggestion, Parent, UpdateHouseholdRequest } from '@/api/types';
+import type { ChildEinstufungSync, FeeExpectation, MatchSuggestion, Parent, UpdateHouseholdRequest } from '@/api/types';
 import { ArrowLeft, Trash2, Loader2, AlertCircle, Unlink } from 'lucide-vue-next';
 import ChildNotesCard from '@/components/child/ChildNotesCard.vue';
 import ChildEditDialog from '@/components/child/ChildEditDialog.vue';
+import ChildEinstufungSyncNotice from '@/components/child/ChildEinstufungSyncNotice.vue';
 import ParentFormDialog from '@/components/child/ParentFormDialog.vue';
 import TransactionDetailModal from '@/components/child/TransactionDetailModal.vue';
 import AllocationModal from '@/components/child/AllocationModal.vue';
@@ -117,8 +118,12 @@ function formatSuggestionExpectation(suggestion: MatchSuggestion): string {
   return `${getFeeTypeName(expectation.feeType)} ${monthLabel}${expectation.year}`;
 }
 
-async function onChildSaved() {
+// What the last save of child data did to Einstufungen and generated fees.
+const einstufungSync = ref<ChildEinstufungSync | null>(null);
+
+async function onChildSaved(sync: ChildEinstufungSync | null) {
   showEditDialog.value = false;
+  einstufungSync.value = sync;
   await loadChild();
 }
 
@@ -378,6 +383,11 @@ async function createReminder() {
 
     <!-- Child details -->
     <div v-else-if="child">
+      <ChildEinstufungSyncNotice
+        v-if="einstufungSync?.einstufungen.length"
+        :sync="einstufungSync"
+        @close="einstufungSync = null"
+      />
       <ChildInformationCard
         :child="child"
         :careHoursHistory="careHoursHistory"

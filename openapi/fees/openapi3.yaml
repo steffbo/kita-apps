@@ -619,7 +619,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/domain.Child"
+                $ref: "#/components/schemas/ChildUpdateResponse"
         "400":
           description: Invalid request
           content:
@@ -714,8 +714,12 @@ paths:
         description: Care hours history data
         required: true
       responses:
-        "204":
-          description: Care hours history saved
+        "200":
+          description: Care hours history saved; Einstufungen and fees aligned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ChildEinstufungSync"
         "400":
           description: Invalid request
           content:
@@ -6324,6 +6328,34 @@ components:
         - currentPassword
         - newPassword
       type: object
+    ChangedEinstufung:
+      properties:
+        id:
+          type: string
+        letterSent:
+          description: a letter was sent before and is no longer current
+          type: boolean
+        year:
+          type: integer
+      required:
+        - id
+        - letterSent
+        - year
+      type: object
+    ChildEinstufungSync:
+      description: Einstufungen whose monthly table changed with the child data, and
+        the aligned CHILDCARE fees
+      properties:
+        einstufungen:
+          items:
+            $ref: "#/components/schemas/ChangedEinstufung"
+          type: array
+        expectationChanges:
+          $ref: "#/components/schemas/ChildcareExpectationSyncResult"
+      required:
+        - einstufungen
+        - expectationChanges
+      type: object
     ChildImportPreviewRequest:
       description: Request body for generating import preview
       properties:
@@ -6477,6 +6509,71 @@ components:
         - childId
         - scanned
         - suggestions
+      type: object
+    ChildUpdateResponse:
+      properties:
+        birthDate:
+          type: string
+        careHours:
+          type: integer
+        city:
+          type: string
+        createdAt:
+          type: string
+        einstufungSync:
+          allOf:
+            - $ref: "#/components/schemas/ChildEinstufungSync"
+          description: set when fee-relevant data was sent
+        entryDate:
+          type: string
+        exitDate:
+          type: string
+        firstName:
+          type: string
+        household:
+          $ref: "#/components/schemas/domain.Household"
+        householdId:
+          type: string
+        id:
+          type: string
+        isActive:
+          type: boolean
+        lastName:
+          type: string
+        legalHours:
+          description: Derived from the history tables (see type comment), not stored on
+            fees.children.
+          type: integer
+        legalHoursUntil:
+          type: string
+        memberNumber:
+          type: string
+        openFeesCount:
+          description: Computed fields (not stored in DB, populated by queries)
+          type: integer
+        parents:
+          description: Loaded relations (not stored in DB)
+          items:
+            $ref: "#/components/schemas/domain.Parent"
+          type: array
+        postalCode:
+          type: string
+        street:
+          type: string
+        streetNo:
+          type: string
+        updatedAt:
+          type: string
+      required:
+        - birthDate
+        - createdAt
+        - entryDate
+        - firstName
+        - id
+        - isActive
+        - lastName
+        - memberNumber
+        - updatedAt
       type: object
     ChildcareExpectationSyncResult:
       description: Result of aligning generated CHILDCARE expectations with an Einstufung

@@ -1276,6 +1276,9 @@ watch(defaultEmailBody, (next) => {
             {{ einstufungForPdf.letterSentAt
               ? `Zuletzt per E-Mail versendet am ${formatDateTime(einstufungForPdf.letterSentAt)}.`
               : 'Noch nicht per E-Mail versendet.' }}
+            <template v-if="einstufungForPdf.letterSentAt && einstufungForPdf.updatedAt > einstufungForPdf.letterSentAt">
+              <span class="font-medium text-amber-700 dark:text-amber-300">Seitdem geändert – bitte neu senden.</span>
+            </template>
           </span>
         </div>
 

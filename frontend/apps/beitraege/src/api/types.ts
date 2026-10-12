@@ -469,6 +469,8 @@ export type EinstufungPreview = Omit<Schema['EinstufungPreview'], 'einstufung'> 
   einstufung: Einstufung;
 };
 export type ChildcareExpectationSyncResult = Schema['ChildcareExpectationSyncResult'];
+export type ChildEinstufungSync = Schema['ChildEinstufungSync'];
+export type ChildUpdateResponse = Schema['ChildUpdateResponse'];
 export type CreateFollowUpEinstufungResponse = Omit<Schema['CreateFollowUpEinstufungResponse'], 'einstufung' | 'expectationChanges'> & {
   einstufung: Einstufung;
   expectationChanges: ChildcareExpectationSyncResult;

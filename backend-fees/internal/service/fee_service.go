@@ -83,6 +83,18 @@ type ChildcareExpectationSyncResult struct {
 	CreditReviewRequired []CreditReviewPeriod `json:"creditReviewRequired"`
 }
 
+func (r *ChildcareExpectationSyncResult) add(other *ChildcareExpectationSyncResult) {
+	if other == nil {
+		return
+	}
+	r.Created += other.Created
+	r.Updated += other.Updated
+	r.Removed += other.Removed
+	r.Skipped += other.Skipped
+	r.DeltaOpen += other.DeltaOpen
+	r.CreditReviewRequired = append(r.CreditReviewRequired, other.CreditReviewRequired...)
+}
+
 // CreditReviewPeriod identifies a paid month that would become overpaid after a decrease.
 type CreditReviewPeriod struct {
 	FeeID         uuid.UUID `json:"feeId"`

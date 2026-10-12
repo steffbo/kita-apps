@@ -235,6 +235,13 @@ func (r *PostgresEinstufungRepository) MarkLetterSent(ctx context.Context, id uu
 	return nil
 }
 
+// Touch marks an Einstufung as changed, e.g. after its monthly table changed with the child data.
+func (r *PostgresEinstufungRepository) Touch(ctx context.Context, id uuid.UUID) error {
+	_, err := conn(ctx, r.db).ExecContext(ctx,
+		`UPDATE fees.einstufungen SET updated_at = $2 WHERE id = $1`, id, util.Now())
+	return err
+}
+
 // Delete deletes an Einstufung.
 func (r *PostgresEinstufungRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	tx, err := beginTx(ctx, r.db)
@@ -290,6 +297,20 @@ func (r *PostgresEinstufungRepository) ListByHousehold(ctx context.Context, hous
 		WHERE household_id = $1
 		ORDER BY year DESC, effective_from_month DESC, created_at DESC
 	`, einstufungSelectColumns), householdID)
+	if err != nil {
+		return nil, err
+	}
+	return results, nil
+}
+
+// ListByChild returns all Einstufungen of a child.
+func (r *PostgresEinstufungRepository) ListByChild(ctx context.Context, childID uuid.UUID) ([]domain.Einstufung, error) {
+	var results []domain.Einstufung
+	err := conn(ctx, r.db).SelectContext(ctx, &results, fmt.Sprintf(`
+		SELECT %s FROM fees.einstufungen
+		WHERE child_id = $1
+		ORDER BY year, effective_from_month, created_at
+	`, einstufungSelectColumns), childID)
 	if err != nil {
 		return nil, err
 	}

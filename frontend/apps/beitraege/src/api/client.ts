@@ -7,6 +7,8 @@ import type {
   Child,
   CreateChildRequest,
   UpdateChildRequest,
+  ChildUpdateResponse,
+  ChildEinstufungSync,
   CareHoursHistoryEntry,
   CreateCareHoursHistoryRequest,
   LegalHoursHistoryEntry,
@@ -431,8 +433,8 @@ class ApiClient {
     });
   }
 
-  async updateChild(id: string, data: UpdateChildRequest): Promise<Child> {
-    return this.request<Child>(`/children/${id}`, {
+  async updateChild(id: string, data: UpdateChildRequest): Promise<ChildUpdateResponse> {
+    return this.request<ChildUpdateResponse>(`/children/${id}`, {
       method: 'PUT',
       body: JSON.stringify(data),
     });
@@ -446,8 +448,8 @@ class ApiClient {
     return this.request<CareHoursHistoryEntry[]>(`/children/${childId}/care-hours-history`);
   }
 
-  async addCareHoursHistory(childId: string, data: CreateCareHoursHistoryRequest): Promise<void> {
-    return this.request<void>(`/children/${childId}/care-hours-history`, {
+  async addCareHoursHistory(childId: string, data: CreateCareHoursHistoryRequest): Promise<ChildEinstufungSync> {
+    return this.request<ChildEinstufungSync>(`/children/${childId}/care-hours-history`, {
       method: 'POST',
       body: JSON.stringify(data),
     });

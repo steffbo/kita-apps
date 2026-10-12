@@ -8,6 +8,35 @@ import (
 	"time"
 )
 
+// ChildEinstufungSyncResponse reports what a change of care hours, birth, entry or exit
+// date did to the child's Einstufungen and generated fees.
+// @Description Einstufungen whose monthly table changed with the child data, and the aligned CHILDCARE fees
+type ChildEinstufungSyncResponse struct {
+	Einstufungen       []ChangedEinstufungResponse      `json:"einstufungen"`
+	ExpectationChanges ChildcareExpectationSyncResponse `json:"expectationChanges"`
+} //@name ChildEinstufungSync
+
+// ChangedEinstufungResponse is an Einstufung whose monthly table changed.
+type ChangedEinstufungResponse struct {
+	ID         string `json:"id"`
+	Year       int    `json:"year"`
+	LetterSent bool   `json:"letterSent"` // a letter was sent before and is no longer current
+} //@name ChangedEinstufung
+
+func toChildEinstufungSyncResponse(sync *service.ChildEinstufungSync) ChildEinstufungSyncResponse {
+	resp := ChildEinstufungSyncResponse{Einstufungen: []ChangedEinstufungResponse{}}
+	if sync == nil {
+		resp.ExpectationChanges = toChildcareExpectationSyncResponse(&service.ChildcareExpectationSyncResult{})
+		return resp
+	}
+	for _, e := range sync.Einstufungen {
+		resp.Einstufungen = append(resp.Einstufungen,
+			ChangedEinstufungResponse{ID: e.ID.String(), Year: e.Year, LetterSent: e.LetterSent})
+	}
+	resp.ExpectationChanges = toChildcareExpectationSyncResponse(&sync.Expectations)
+	return resp
+}
+
 // CareHoursHistoryResponse represents one care hours history period.
 type CareHoursHistoryResponse struct {
 	ID             string  `json:"id" example:"550e8400-e29b-41d4-a716-446655440010"`
@@ -101,7 +130,7 @@ func (h *ChildHandler) GetCareHoursHistory(w http.ResponseWriter, r *http.Reques
 // @Security BearerAuth
 // @Param id path string true "Child ID (UUID)"
 // @Param request body CreateCareHoursHistoryRequest true "Care hours history data"
-// @Success 204 "Care hours history saved"
+// @Success 200 {object} ChildEinstufungSyncResponse "Care hours history saved; Einstufungen and fees aligned"
 // @Failure 400 {object} response.ErrorBody "Invalid request"
 // @Failure 401 {object} response.ErrorBody "Not authenticated"
 // @Failure 404 {object} response.ErrorBody "Child not found"
@@ -123,7 +152,7 @@ func (h *ChildHandler) AddCareHoursHistory(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	err := h.childService.AddCareHoursHistory(r.Context(), childID, service.AddCareHoursHistoryInput{
+	sync, err := h.childService.AddCareHoursHistory(r.Context(), childID, service.AddCareHoursHistoryInput{
 		CareHours: req.CareHours,
 		ValidFrom: req.ValidFrom,
 	})
@@ -140,7 +169,7 @@ func (h *ChildHandler) AddCareHoursHistory(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
-	response.NoContent(w)
+	response.Success(w, toChildEinstufungSyncResponse(sync))
 }
 
 // GetLegalHoursHistory returns the legal hours history for a child.

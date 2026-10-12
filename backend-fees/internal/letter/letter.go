@@ -18,6 +18,7 @@ type EinstufungLetter struct {
 	EntryDate      time.Time
 	ValidFrom      time.Time
 	Provisional    bool
+	Introduction   string
 	BasisText      string
 	Periods        []FeePeriod
 	MembershipNote string

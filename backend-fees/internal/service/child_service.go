@@ -16,6 +16,24 @@ type ChildService struct {
 	childRepo     repository.ChildRepository
 	parentRepo    repository.ParentRepository
 	householdRepo repository.HouseholdRepository
+	einstufungen  childEinstufungSync
+}
+
+type childEinstufungSync interface {
+	ApplyChildChange(ctx context.Context, childID uuid.UUID, change func(ctx context.Context) error) (*ChildEinstufungSync, error)
+}
+
+// UseEinstufungSync aligns Einstufungen and their generated fees with changes of
+// care hours, birth, entry or exit date.
+func (s *ChildService) UseEinstufungSync(einstufungen childEinstufungSync) {
+	s.einstufungen = einstufungen
+}
+
+func (s *ChildService) applyFeeChange(ctx context.Context, childID uuid.UUID, change func(ctx context.Context) error) (*ChildEinstufungSync, error) {
+	if s.einstufungen == nil {
+		return nil, change(ctx)
+	}
+	return s.einstufungen.ApplyChildChange(ctx, childID, change)
 }
 
 // NewChildService creates a new child service.
@@ -221,10 +239,10 @@ func (s *ChildService) Create(ctx context.Context, input CreateChildInput) (*dom
 }
 
 // Update updates a child.
-func (s *ChildService) Update(ctx context.Context, id uuid.UUID, input UpdateChildInput) (*domain.Child, error) {
+func (s *ChildService) Update(ctx context.Context, id uuid.UUID, input UpdateChildInput) (*domain.Child, *ChildEinstufungSync, error) {
 	child, err := s.childRepo.GetByID(ctx, id)
 	if err != nil {
-		return nil, ErrNotFound
+		return nil, nil, ErrNotFound
 	}
 
 	if input.FirstName != nil {
@@ -236,14 +254,14 @@ func (s *ChildService) Update(ctx context.Context, id uuid.UUID, input UpdateChi
 	if input.BirthDate != nil {
 		birthDate, err := time.Parse("2006-01-02", *input.BirthDate)
 		if err != nil {
-			return nil, ErrInvalidInput
+			return nil, nil, ErrInvalidInput
 		}
 		child.BirthDate = birthDate
 	}
 	if input.EntryDate != nil {
 		entryDate, err := time.Parse("2006-01-02", *input.EntryDate)
 		if err != nil {
-			return nil, ErrInvalidInput
+			return nil, nil, ErrInvalidInput
 		}
 		child.EntryDate = entryDate
 	}
@@ -253,7 +271,7 @@ func (s *ChildService) Update(ctx context.Context, id uuid.UUID, input UpdateChi
 		} else {
 			parsed, err := time.Parse("2006-01-02", *input.ExitDate)
 			if err != nil {
-				return nil, ErrInvalidInput
+				return nil, nil, ErrInvalidInput
 			}
 			child.ExitDate = &parsed
 		}
@@ -279,7 +297,7 @@ func (s *ChildService) Update(ctx context.Context, id uuid.UUID, input UpdateChi
 		} else {
 			parsed, err := time.Parse("2006-01-02", *input.LegalHoursUntil)
 			if err != nil {
-				return nil, ErrInvalidInput
+				return nil, nil, ErrInvalidInput
 			}
 			child.LegalHoursUntil = &parsed
 		}
@@ -291,11 +309,19 @@ func (s *ChildService) Update(ctx context.Context, id uuid.UUID, input UpdateChi
 		child.IsActive = *input.IsActive
 	}
 
-	if err := s.childRepo.Update(ctx, child); err != nil {
-		return nil, err
+	save := func(ctx context.Context) error { return s.childRepo.Update(ctx, child) }
+	var sync *ChildEinstufungSync
+	if input.BirthDate != nil || input.EntryDate != nil || input.ExitDate != nil || input.CareHours != nil {
+		sync, err = s.applyFeeChange(ctx, child.ID, save)
+	} else {
+		err = save(ctx)
+	}
+	if err != nil {
+		return nil, nil, err
 	}
 
-	return s.GetByID(ctx, child.ID)
+	updated, err := s.GetByID(ctx, child.ID)
+	return updated, sync, err
 }
 
 // ListCareHoursHistory returns the care hours history for a child.
@@ -308,25 +334,27 @@ func (s *ChildService) ListCareHoursHistory(ctx context.Context, childID uuid.UU
 }
 
 // AddCareHoursHistory creates or updates a care hours entry effective from the given date.
-func (s *ChildService) AddCareHoursHistory(ctx context.Context, childID uuid.UUID, input AddCareHoursHistoryInput) error {
+func (s *ChildService) AddCareHoursHistory(ctx context.Context, childID uuid.UUID, input AddCareHoursHistoryInput) (*ChildEinstufungSync, error) {
 	child, err := s.childRepo.GetByID(ctx, childID)
 	if err != nil {
-		return ErrNotFound
+		return nil, ErrNotFound
 	}
 
 	validFrom, err := time.Parse("2006-01-02", input.ValidFrom)
 	if err != nil {
-		return ErrInvalidInput
+		return nil, ErrInvalidInput
 	}
 
 	if validFrom.Before(child.EntryDate) {
-		return ErrInvalidInput
+		return nil, ErrInvalidInput
 	}
 	if child.ExitDate != nil && validFrom.After(*child.ExitDate) {
-		return ErrInvalidInput
+		return nil, ErrInvalidInput
 	}
 
-	return s.childRepo.UpsertCareHoursHistory(ctx, childID, input.CareHours, validFrom)
+	return s.applyFeeChange(ctx, childID, func(ctx context.Context) error {
+		return s.childRepo.UpsertCareHoursHistory(ctx, childID, input.CareHours, validFrom)
+	})
 }
 
 // ListLegalHoursHistory returns the legal hours history for a child.

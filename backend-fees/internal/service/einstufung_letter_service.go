@@ -240,12 +240,13 @@ func buildEinstufungLetter(e, previous *domain.Einstufung, date time.Time) lette
 	}
 
 	l := letter.EinstufungLetter{
-		LetterDate:  date,
-		Year:        e.Year,
-		ValidFrom:   start,
-		Provisional: e.Provisional,
-		BasisText:   letterBasisText(e),
-		Periods:     letter.BuildFeePeriods(rows, e.ValidUntil == nil),
+		LetterDate:   date,
+		Year:         e.Year,
+		ValidFrom:    start,
+		Provisional:  e.Provisional,
+		Introduction: letterIntroduction(e),
+		BasisText:    letterBasisText(e),
+		Periods:      letter.BuildFeePeriods(rows, e.ValidUntil == nil),
 	}
 	if e.Child != nil {
 		l.ChildName = e.Child.FirstName + " " + e.Child.LastName
@@ -270,6 +271,18 @@ func buildEinstufungLetter(e, previous *domain.Einstufung, date time.Time) lette
 			letter.FormatMonthShort(start) + ", in den Monatsbeträgen nicht enthalten."
 	}
 	return l
+}
+
+// letterIntroduction names the evidence only when the Einstufung rests on submitted income evidence.
+func letterIntroduction(e *domain.Einstufung) string {
+	basis := "der eingereichten Nachweise und der Elternbeitragsordnung des Trägers"
+	switch e.IncomeBasis {
+	case domain.IncomeBasisHighestRate:
+		basis = "eurer Anerkennung des Höchstsatzes und der Elternbeitragsordnung des Trägers"
+	case domain.IncomeBasisNotRequired:
+		basis = "der Elternbeitragsordnung des Trägers"
+	}
+	return "auf Grundlage " + basis + " haben wir die Elternbeiträge für euer Kind wie folgt eingestuft."
 }
 
 func letterBasisText(e *domain.Einstufung) string {

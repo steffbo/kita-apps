@@ -32,8 +32,6 @@ var (
 )
 
 // Fixed wording is copied from EinstufungPDF.vue; dimensions follow EinstufungPDF.css.
-const introduction = "auf Grundlage der eingereichten Nachweise und der Elternbeitragsordnung des " +
-	"Trägers haben wir die Elternbeiträge für euer Kind wie folgt eingestuft."
 const legalBasis = "Nach § 17 des Kindertagesstättengesetzes haben die Erziehungsberechtigten Beiträge " +
 	"zur Inanspruchnahme eines Platzes in der Kindertagesstätte zu entrichten. Dieser monatliche " +
 	"Elternbeitrag wird in Verbindung mit der Elternbeitragsordnung des Trägers ermittelt. " +
@@ -306,7 +304,7 @@ func renderEinstufung(l EinstufungLetter) *fpdf.Fpdf {
 	r.y += 3.2
 	r.text(width, 9*pt*1.36, regular("Liebe Eltern,", 9, ink))
 	r.y += 1.6
-	r.body(introduction)
+	r.body(l.Introduction)
 	r.y += 1.8
 	r.heading("Angaben zum Kind")
 	r.childData(l)

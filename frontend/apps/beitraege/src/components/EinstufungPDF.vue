@@ -178,6 +178,15 @@ const childName = computed(() => {
 
 const einstufungYear = computed(() => props.einstufung.year);
 
+// Same wording as letterIntroduction in the backend letter service.
+const introduction = computed(() => {
+  const basis = {
+    HIGHEST_RATE: 'eurer Anerkennung des Höchstsatzes und der Elternbeitragsordnung des Trägers',
+    NOT_REQUIRED: 'der Elternbeitragsordnung des Trägers',
+  }[props.einstufung.incomeBasis as string] ?? 'der eingereichten Nachweise und der Elternbeitragsordnung des Trägers';
+  return `auf Grundlage ${basis} haben wir die Elternbeiträge für euer Kind wie folgt eingestuft.`;
+});
+
 const feeRuleText = computed(() => {
   const e = props.einstufung;
   const provisional = e.provisional
@@ -371,10 +380,7 @@ defineExpose({ generatePdf });
         </div>
 
         <p class="salutation">Liebe Eltern,</p>
-        <p class="body-text">
-          auf Grundlage der eingereichten Nachweise und der Elternbeitragsordnung des Trägers haben
-          wir die Elternbeiträge für euer Kind wie folgt eingestuft.
-        </p>
+        <p class="body-text">{{ introduction }}</p>
 
         <!-- Angaben zum Kind -->
         <section class="section">

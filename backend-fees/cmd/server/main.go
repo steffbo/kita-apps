@@ -142,6 +142,7 @@ func main() {
 	reminderService := service.NewReminderService(feeRepo, childRepo, householdRepo, settingsRepo, emailLogRepo, emailService)
 	stichtagService := service.NewStichtagsmeldungService(childRepo)
 	einstufungService := service.NewEinstufungService(einstufungRepo, householdRepo, childRepo, feeService, txManager)
+	childService.UseEinstufungSync(einstufungService)
 	childNoteService := service.NewChildNoteService(childNoteRepo, childService)
 	feeScheduleService := service.NewFeeScheduleService(feeScheduleRepo)
 	parentWorkService := service.NewParentWorkService(parentWorkRepo, txManager)

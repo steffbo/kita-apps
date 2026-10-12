@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue';
 import { api } from '@/api';
-import type { CareHoursHistoryEntry, Child, LegalHoursHistoryEntry, UpdateChildRequest } from '@/api/types';
+import type { CareHoursHistoryEntry, Child, ChildEinstufungSync, LegalHoursHistoryEntry, UpdateChildRequest } from '@/api/types';
 import { Loader2, X, Check } from 'lucide-vue-next';
 import { formatDateForInput } from '@/utils/format';
 
@@ -11,7 +11,31 @@ const props = defineProps<{
   legalHoursHistory: LegalHoursHistoryEntry[];
 }>();
 
-const emit = defineEmits<{ close: []; saved: [] }>();
+const emit = defineEmits<{ close: []; saved: [sync: ChildEinstufungSync | null] }>();
+
+// Child data and care hours are saved in two requests; report their effects together.
+function mergeSync(a: ChildEinstufungSync | null, b: ChildEinstufungSync | null | undefined): ChildEinstufungSync | null {
+  if (!a || !b) return a ?? b ?? null;
+  const einstufungen = [...a.einstufungen];
+  for (const e of b.einstufungen) {
+    const known = einstufungen.find((x) => x.id === e.id);
+    if (known) known.letterSent ||= e.letterSent;
+    else einstufungen.push(e);
+  }
+  const x = a.expectationChanges;
+  const y = b.expectationChanges;
+  return {
+    einstufungen,
+    expectationChanges: {
+      created: x.created + y.created,
+      updated: x.updated + y.updated,
+      removed: x.removed + y.removed,
+      skipped: x.skipped + y.skipped,
+      deltaOpen: x.deltaOpen + y.deltaOpen,
+      creditReviewRequired: [...x.creditReviewRequired, ...y.creditReviewRequired],
+    },
+  };
+}
 
 type UpdateChildForm = UpdateChildRequest & {
   legalHoursValidFrom?: string;
@@ -76,7 +100,8 @@ async function handleEdit() {
       ...childUpdate
     } = editForm.value;
 
-    await api.updateChild(props.child.id, childUpdate);
+    const updated = await api.updateChild(props.child.id, childUpdate);
+    let sync = mergeSync(null, updated.einstufungSync);
     if (legalHoursChanged) {
       if (!legalHoursValidFrom) {
         throw new Error('Bitte ein Gültig-ab-Datum für den Rechtsanspruch angeben.');
@@ -90,12 +115,12 @@ async function handleEdit() {
       if (!careHoursValidFrom) {
         throw new Error('Bitte ein Gültig-ab-Datum für die Betreuungszeit angeben.');
       }
-      await api.addCareHoursHistory(props.child.id, {
+      sync = mergeSync(sync, await api.addCareHoursHistory(props.child.id, {
         careHours: nextCareHours,
         validFrom: careHoursValidFrom,
-      });
+      }));
     }
-    emit('saved');
+    emit('saved', sync);
   } catch (e) {
     editError.value = e instanceof Error ? e.message : 'Fehler beim Speichern';
   } finally {

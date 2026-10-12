@@ -86,6 +86,19 @@ func TestLetterBasisText(t *testing.T) {
 	}
 }
 
+func TestLetterIntroduction(t *testing.T) {
+	for basis, want := range map[domain.IncomeBasis]string{
+		domain.IncomeBasisIncome:      "auf Grundlage der eingereichten Nachweise und der Elternbeitragsordnung des Trägers",
+		domain.IncomeBasisHighestRate: "auf Grundlage eurer Anerkennung des Höchstsatzes und der Elternbeitragsordnung des Trägers",
+		domain.IncomeBasisNotRequired: "auf Grundlage der Elternbeitragsordnung des Trägers",
+	} {
+		want += " haben wir die Elternbeiträge für euer Kind wie folgt eingestuft."
+		if got := letterIntroduction(&domain.Einstufung{IncomeBasis: basis}); got != want {
+			t.Errorf("%s: %q", basis, got)
+		}
+	}
+}
+
 func TestBuildEinstufungLetter_NewMembershipDueAndFallbackRow(t *testing.T) {
 	e := &domain.Einstufung{Year: 2026, ValidFrom: letterDay(2026, time.August, 1), AnnualMembershipFee: 30,
 		CareType: domain.ChildAgeTypeKindergarten, CareHoursPerWeek: 35, MonthlyFoodFee: 45.4}

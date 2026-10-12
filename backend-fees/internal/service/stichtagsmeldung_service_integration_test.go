@@ -117,14 +117,14 @@ func TestChildService_AddCareHoursHistory_SplitsAndUpdatesExistingStart(t *testi
 		t.Fatalf("failed to create child: %v", err)
 	}
 
-	if err := childService.AddCareHoursHistory(context.Background(), child.ID, service.AddCareHoursHistoryInput{
+	if _, err := childService.AddCareHoursHistory(context.Background(), child.ID, service.AddCareHoursHistoryInput{
 		CareHours: intPtr(40),
 		ValidFrom: "2026-02-01",
 	}); err != nil {
 		t.Fatalf("AddCareHoursHistory failed: %v", err)
 	}
 
-	if err := childService.AddCareHoursHistory(context.Background(), child.ID, service.AddCareHoursHistoryInput{
+	if _, err := childService.AddCareHoursHistory(context.Background(), child.ID, service.AddCareHoursHistoryInput{
 		CareHours: intPtr(45),
 		ValidFrom: "2026-02-01",
 	}); err != nil {

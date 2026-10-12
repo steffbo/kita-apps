@@ -3,6 +3,27 @@
 Rolling change log of non-obvious implementation decisions. Newest first.
 Basics (ports, commands, layout) live in `AGENTS.md`.
 
+## Kinddaten ändern gleicht Einstufung und Platzgeld an; Brief-Einleitung nach Grundlage (2026-10-12)
+
+- Die Monatstabelle einer Einstufung wird bei jedem Lesen aus den Kinddaten berechnet; vorher blieben nur die
+  schon erzeugten CHILDCARE-Erwartungen (und ein versendeter Brief) bei einer Stundenänderung stehen.
+- Jetzt laufen `PUT /children/{id}` (wenn Geburts-, Eintritts-, Austrittsdatum oder Betreuungszeit gesendet
+  werden) und `POST /children/{id}/care-hours-history` über `EinstufungService.ApplyChildChange`
+  (`ChildService.UseEinstufungSync`, in `main.go`): Monatstabellen aller Einstufungen des Kinds vor und nach der
+  Änderung vergleichen, bei Abweichung in derselben Transaktion `syncFees` (Regeln wie beim Speichern:
+  bezahlte Monate → Gutschrift prüfen) und `updated_at` setzen. Ein vorher versendeter Brief zählt damit als
+  „seitdem geändert“ (Status „Nicht versendet“, Briefdatum = heute).
+- API: `PUT /children/{id}` liefert `ChildUpdateResponse` (Kind + optional `einstufungSync`),
+  `POST /children/{id}/care-hours-history` jetzt 200 mit `ChildEinstufungSync` (statt 204):
+  geänderte Einstufungen (`id`, `year`, `letterSent`) und `expectationChanges`.
+- Frontend: Hinweis „Einstufung durch die Änderung angepasst“ auf der Kindseite nach dem Speichern (Link zur
+  Einstufung, „Brief nicht mehr aktuell, bitte neu senden“, Gutschrift-Monate). Einstufungsseite: „Seitdem
+  geändert – bitte neu senden.“ neben dem Versanddatum. Sammel-Austrittsdatum auf der Kinderliste gleicht
+  ebenfalls an, zeigt aber keinen Hinweis.
+- Brief (Server-PDF und Druckansicht): Einleitung nennt „eingereichte Nachweise“ nur bei Grundlage Einkommen;
+  Höchstsatz → „auf Grundlage eurer Anerkennung des Höchstsatzes und der Elternbeitragsordnung des Trägers“,
+  nicht erforderlich → „auf Grundlage der Elternbeitragsordnung des Trägers“ (`letterIntroduction`).
+
 ## Einstufungen: Arbeitsliste fehlender Einstufungen, Suche und Status (2026-10-12)
 
 - `GET /einstufungen/missing` (ADMIN/USER): aktive Kinder, die im aktuellen Monat (bzw. im Eintrittsmonat,

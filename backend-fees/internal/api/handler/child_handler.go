@@ -242,7 +242,7 @@ type UpdateChildRequest struct {
 // @Security BearerAuth
 // @Param id path string true "Child ID (UUID)"
 // @Param request body UpdateChildRequest true "Updated child data"
-// @Success 200 {object} domain.Child "Child updated"
+// @Success 200 {object} ChildUpdateResponse "Child updated"
 // @Failure 400 {object} response.ErrorBody "Invalid request"
 // @Failure 401 {object} response.ErrorBody "Not authenticated"
 // @Failure 404 {object} response.ErrorBody "Child not found"
@@ -260,7 +260,7 @@ func (h *ChildHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	child, err := h.childService.Update(r.Context(), id, service.UpdateChildInput{
+	child, sync, err := h.childService.Update(r.Context(), id, service.UpdateChildInput{
 		FirstName:       req.FirstName,
 		LastName:        req.LastName,
 		BirthDate:       req.BirthDate,
@@ -288,8 +288,19 @@ func (h *ChildHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.Success(w, child)
+	resp := ChildUpdateResponse{Child: child}
+	if sync != nil {
+		s := toChildEinstufungSyncResponse(sync)
+		resp.EinstufungSync = &s
+	}
+	response.Success(w, resp)
 }
+
+// ChildUpdateResponse is the updated child plus what the change did to its Einstufungen.
+type ChildUpdateResponse struct {
+	*domain.Child
+	EinstufungSync *ChildEinstufungSyncResponse `json:"einstufungSync,omitempty" binding:"optional"` // set when fee-relevant data was sent
+} //@name ChildUpdateResponse
 
 // Delete removes a child
 // @Summary Delete child
