@@ -26,8 +26,11 @@ Basics (ports, commands, layout) live in `AGENTS.md`.
   wurde außerhalb der App abgerechnet (der Bankimport beginnt praktisch Ende Oktober 2025).
 - `service.LedgerStartMonth` (2025-11-01): `SyncChildcareExpectations` ändert keine Monate davor. Eine
   nachträglich erfasste Einstufung ab z. B. September 2025 lässt diese Nachbuchungen damit stehen.
-- Auffällig, nicht korrigiert: 22 FOOD- und 2 CHILDCARE-Zahlungen sind zwischen November 2025 und Februar
-  2026 vertauscht zugeordnet (Zahlung aus Februar auf November und umgekehrt); Beträge gleich, offen 0.
+- Korrigiert am 2026-10-12: 22 FOOD- und 2 CHILDCARE-Zahlungen (inkl. Luca) waren zwischen November 2025 und
+  Februar 2026 vertauscht zugeordnet (Februar-Zahlung auf November und umgekehrt; Beträge gleich). Über die API
+  per Unmatch und manuellem Match neu zugeordnet, nach Probe auf der Live-Kopie; jede Gebühr ist weiter voll
+  bezahlt, offen bleibt 0. Der Match legte für die Zahlung vom 2025-11-20 eine neue LATE_PAYMENT-Warnung an; sie
+  wurde ohne Mahngebühr verworfen, wie die übrigen Warnungen dieser Zahlungen.
 
 ## Kinddaten ändern gleicht Einstufung und Platzgeld an; Brief-Einleitung nach Grundlage (2026-10-12)
 
