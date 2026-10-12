@@ -164,7 +164,8 @@ func main() {
 		Import:      handler.NewImportHandler(importService),
 		BankingSync: handler.NewBankingSyncHandler(cfg.BankingSync.BaseURL, cfg.BankingSync.Token,
 			cfg.BankingSync.Timeout),
-		Einstufung:       handler.NewEinstufungHandler(einstufungService),
+		Einstufung: handler.NewEinstufungHandler(einstufungService, service.NewEinstufungLetterService(
+			einstufungService, einstufungRepo, parentWorkRepo, settingsRepo, emailLogRepo, emailService)),
 		FeeSchedule:      handler.NewFeeScheduleHandler(feeScheduleService),
 		ParentWork:       handler.NewParentWorkHandler(parentWorkService),
 		ParentAccount:    handler.NewParentAccountHandler(parentAccountService),

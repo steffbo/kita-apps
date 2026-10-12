@@ -4,6 +4,7 @@
 #
 #   scripts/live-copy.sh up        copy live DB, build current checkout, start
 #   scripts/live-copy.sh restart   rebuild + migrate + restart, keep copied data
+#                                  (copies again if the DB container is gone)
 #   scripts/live-copy.sh refresh   fresh copy of the live DB, then restart
 #   scripts/live-copy.sh down      stop server and delete the copy
 #   scripts/live-copy.sh status    show what is running
@@ -40,10 +41,13 @@ stop_server() {
   rm -f "$PID_FILE"
 }
 
+# Sets FRESH_DB=1 when the container had to be created (it has no volume, so it is empty).
+FRESH_DB=0
 start_db() {
   if docker ps --format '{{.Names}}' | grep -qx "$DB_CONTAINER"; then
     return
   fi
+  FRESH_DB=1
   log "starting PostgreSQL ($DB_CONTAINER on 127.0.0.1:$DB_PORT)"
   docker run -d --rm --name "$DB_CONTAINER" \
     -e POSTGRES_USER=kita -e POSTGRES_PASSWORD=kita -e POSTGRES_DB=kita \
@@ -110,6 +114,8 @@ case "${1:-}" in
     ;;
   restart)
     start_db
+    # The container does not survive a Docker or host restart; reload the copy then.
+    [ "$FRESH_DB" = 1 ] && copy_live_data
     build_and_start
     ;;
   refresh)

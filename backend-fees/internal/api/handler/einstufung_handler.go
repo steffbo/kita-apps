@@ -2,6 +2,7 @@ package handler
 
 import (
 	"errors"
+	"mime"
 	"net/http"
 	"strconv"
 	"time"
@@ -9,6 +10,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/api/middleware"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/api/request"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/api/response"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
@@ -19,11 +21,13 @@ import (
 // EinstufungHandler handles Einstufung-related requests.
 type EinstufungHandler struct {
 	einstufungService *service.EinstufungService
+	letterService     *service.EinstufungLetterService
 }
 
 // NewEinstufungHandler creates a new Einstufung handler.
-func NewEinstufungHandler(einstufungService *service.EinstufungService) *EinstufungHandler {
-	return &EinstufungHandler{einstufungService: einstufungService}
+func NewEinstufungHandler(einstufungService *service.EinstufungService,
+	letterService *service.EinstufungLetterService) *EinstufungHandler {
+	return &EinstufungHandler{einstufungService: einstufungService, letterService: letterService}
 }
 
 // EinstufungResponse represents an Einstufung in API responses.
@@ -57,6 +61,7 @@ type EinstufungResponse struct {
 	MonthlyTable         []domain.EinstufungMonthRow       `json:"monthlyTable,omitempty" binding:"optional"`
 	CreatedAt            string                            `json:"createdAt"`
 	UpdatedAt            string                            `json:"updatedAt"`
+	LetterSentAt         *string                           `json:"letterSentAt,omitempty" binding:"optional"` // Last time the letter was emailed from the app
 	Child                interface{}                       `json:"child,omitempty" binding:"optional"`
 	Household            interface{}                       `json:"household,omitempty" binding:"optional"`
 } //@name Einstufung
@@ -643,6 +648,10 @@ func toEinstufungResponse(e *domain.Einstufung) EinstufungResponse {
 		CreatedAt:            e.CreatedAt.Format(time.RFC3339),
 		UpdatedAt:            e.UpdatedAt.Format(time.RFC3339),
 	}
+	if e.LetterSentAt != nil {
+		sentAt := e.LetterSentAt.Format(time.RFC3339)
+		resp.LetterSentAt = &sentAt
+	}
 	if e.ValidUntil != nil {
 		validUntil := e.ValidUntil.Format("2006-01-02")
 		resp.ValidUntil = &validUntil
@@ -699,6 +708,102 @@ func toChildcareExpectationSyncResponse(result *service.ChildcareExpectationSync
 		DeltaOpen:            result.DeltaOpen,
 		CreditReviewRequired: creditReview,
 	}
+}
+
+// SendEinstufungLetterRequest is the email written in the UI; the PDF is attached by the server.
+// @Description Email subject and text for sending the Einstufung letter
+type SendEinstufungLetterRequest struct {
+	Subject string `json:"subject"`
+	Body    string `json:"body"`
+} //@name SendEinstufungLetterRequest
+
+// SendEinstufungLetterResponse reports a sent letter.
+// @Description Result of sending the Einstufung letter
+type SendEinstufungLetterResponse struct {
+	Recipients []string `json:"recipients"`
+	SentAt     string   `json:"sentAt"`
+	Filename   string   `json:"filename"`
+} //@name SendEinstufungLetterResponse
+
+// LetterPDF handles GET /einstufungen/{id}/pdf
+// @Summary Download the Einstufung letter
+// @Description Renders the letter as PDF. The letter is dated with the send date while the Einstufung is unchanged since sending, else today.
+// @Tags Einstufungen
+// @Produce application/pdf
+// @Param id path string true "Einstufung ID"
+// @Param inline query bool false "Show in the browser instead of downloading"
+// @Success 200 {file} binary
+// @Failure 404 {object} response.ErrorBody
+// @Security BearerAuth
+// @Router /einstufungen/{id}/pdf [get]
+func (h *EinstufungHandler) LetterPDF(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		response.BadRequest(w, "invalid ID")
+		return
+	}
+	file, err := h.letterService.PDF(r.Context(), id)
+	if err != nil {
+		handleEinstufungError(w, err)
+		return
+	}
+	disposition := "attachment"
+	if r.URL.Query().Get("inline") == "1" || r.URL.Query().Get("inline") == "true" {
+		disposition = "inline"
+	}
+	w.Header().Set("Content-Type", "application/pdf")
+	w.Header().Set("Content-Disposition", mime.FormatMediaType(disposition, map[string]string{"filename": file.Filename}))
+	w.Header().Set("Cache-Control", "no-store")
+	w.Header().Set("Content-Length", strconv.Itoa(len(file.Data)))
+	w.WriteHeader(http.StatusOK)
+	_, _ = w.Write(file.Data)
+}
+
+// SendLetter handles POST /einstufungen/{id}/send
+// @Summary Email the Einstufung letter
+// @Description Sends the email to all parent addresses of the household with the letter PDF attached, logs it and records the send date.
+// @Tags Einstufungen
+// @Accept json
+// @Produce json
+// @Param id path string true "Einstufung ID"
+// @Param body body SendEinstufungLetterRequest true "Email subject and text"
+// @Success 200 {object} SendEinstufungLetterResponse
+// @Failure 400 {object} response.ErrorBody
+// @Failure 404 {object} response.ErrorBody
+// @Failure 503 {object} response.ErrorBody
+// @Security BearerAuth
+// @Router /einstufungen/{id}/send [post]
+func (h *EinstufungHandler) SendLetter(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		response.BadRequest(w, "invalid ID")
+		return
+	}
+	userCtx := middleware.GetUserFromContext(r)
+	if userCtx == nil {
+		response.Unauthorized(w, "not authenticated")
+		return
+	}
+	actorID, _ := uuid.Parse(userCtx.UserID)
+	var req SendEinstufungLetterRequest
+	if err := request.DecodeJSON(r, &req); err != nil {
+		response.BadRequest(w, "invalid request body")
+		return
+	}
+	result, err := h.letterService.Send(r.Context(), id, actorID, service.SendEinstufungLetterInput{
+		Subject: req.Subject, Body: req.Body,
+	})
+	if err != nil {
+		if errors.Is(err, service.ErrEmailDisabled) {
+			response.Error(w, http.StatusServiceUnavailable, "E-Mail-Versand ist auf diesem Server nicht eingerichtet.")
+			return
+		}
+		handleEinstufungError(w, err)
+		return
+	}
+	response.Success(w, SendEinstufungLetterResponse{
+		Recipients: result.Recipients, SentAt: result.SentAt.Format(time.RFC3339), Filename: result.Filename,
+	})
 }
 
 func handleEinstufungError(w http.ResponseWriter, err error) {

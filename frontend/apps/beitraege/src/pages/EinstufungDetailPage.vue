@@ -27,11 +27,14 @@ import {
   CheckCircle,
   Mail,
   RotateCcw,
+  Download,
+  ExternalLink,
+  Send,
 } from 'lucide-vue-next';
 import IncomeForm from '@/components/IncomeForm.vue';
 import EinstufungPDF from '@/components/EinstufungPDF.vue';
 import ChildSearchSelect from '@/components/ChildSearchSelect.vue';
-import { formatCurrency, formatDate, formatEuroAmount, formatMonthYear, todayISO } from '@/utils/format';
+import { formatCurrency, formatDate, formatDateTime, formatEuroAmount, formatMonthYear, todayISO } from '@/utils/format';
 
 const route = useRoute();
 const router = useRouter();
@@ -371,10 +374,20 @@ const emailBody = ref('');
 const emailSubjectDirty = ref(false);
 const emailBodyDirty = ref(false);
 const mailError = ref<string | null>(null);
+const mailSuccess = ref<string | null>(null);
+const isSending = ref(false);
+const letterAction = ref<'view' | 'download' | null>(null);
 
 const einstufungChild = computed(() => einstufung.value?.child ?? selectedChild.value ?? null);
 const childMemberNumber = computed(() => einstufungChild.value?.memberNumber || '—');
 const einstufungForPdf = computed(() => successorEinstufung.value ?? einstufung.value);
+// Letter and email always describe the latest saved Einstufung of this period.
+const letterBlockedReason = computed(() => {
+  if (!successorEinstufung.value && hasUnsavedCalculation.value) {
+    return 'Es gibt ungespeicherte Änderungen. Bitte zuerst speichern – Brief und E-Mail zeigen den gespeicherten Stand.';
+  }
+  return null;
+});
 const previousEinstufungForPdf = computed(() =>
   successorEinstufung.value ? einstufung.value : sourceEinstufung.value ?? previousEinstufung.value
 );
@@ -397,8 +410,8 @@ const greetingLine = computed(() => {
 });
 
 const shortSummary = computed(() => {
-  if (!einstufung.value) return '$zusammenfassungDerEinstufung';
-  const e = einstufung.value;
+  if (!einstufungForPdf.value) return '$zusammenfassungDerEinstufung';
+  const e = einstufungForPdf.value;
   const childcareFeeText = e.monthlyChildcareFee > 0
     ? formatEuroAmount(e.monthlyChildcareFee, 'Euro')
     : `${formatEuroAmount(0, 'Euro')} (beitragsfrei)`;
@@ -408,8 +421,8 @@ Essensgeld ${formatEuroAmount(e.monthlyFoodFee, 'Euro')}`;
 });
 
 const membershipLine = computed(() => {
-  if (!einstufung.value) return '$anweisungFürMitgliedsbeitrag';
-  const fee = einstufung.value.annualMembershipFee;
+  if (!einstufungForPdf.value) return '$anweisungFürMitgliedsbeitrag';
+  const fee = einstufungForPdf.value.annualMembershipFee;
   if (fee > 0) {
     return `Außerdem einmal pro Jahr die Mitgliedsgebühr für den Verein von ${
       formatEuroAmount(fee, 'Euro')
@@ -425,18 +438,19 @@ ${BANK_DETAILS}`;
 });
 
 const defaultEmailSubject = computed(() => {
-  if (!einstufung.value) return 'Einstufung Elternbeiträge';
+  if (!einstufungForPdf.value) return 'Einstufung Elternbeiträge';
   const lastName = einstufungChild.value?.lastName || '';
-  return `Einstufung Elternbeiträge ${einstufung.value.year}${lastName ? ` – ${lastName}` : ''}`;
+  return `Einstufung Elternbeiträge ${einstufungForPdf.value.year}${lastName ? ` – ${lastName}` : ''}`;
 });
 
 const defaultEmailBody = computed(() => {
+  const intro = einstufungForPdf.value?.sourceEinstufungId
+    ? 'eure Einstufung haben wir angepasst.'
+    : 'willkommen bei uns in der Kita!\n\nDanke für eure Unterlagen.';
   return `${greetingLine.value}
 
-willkommen bei uns in der Kita!
-
-Danke für eure Unterlagen.
-Ich sende euch eine Übersicht über die monatlichen Beiträge für die Kita.
+${intro}
+Im Anhang findet ihr die Einstufung mit den monatlichen Beiträgen für die Kita als PDF.
 
 ${shortSummary.value}
 
@@ -454,8 +468,38 @@ function resetEmailDraft() {
   mailError.value = null;
 }
 
-function openEmailComposer() {
+async function openLetter(mode: 'view' | 'download') {
+  const target = einstufungForPdf.value;
+  if (!target) return;
   mailError.value = null;
+  // Open the tab synchronously so the popup blocker allows it.
+  const tab = mode === 'view' ? window.open('', '_blank') : null;
+  letterAction.value = mode;
+  try {
+    const file = await api.getEinstufungLetter(target.id);
+    const url = URL.createObjectURL(file.blob);
+    if (tab) {
+      tab.location.href = url;
+    } else {
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = file.filename ?? `Einstufung_${target.year}.pdf`;
+      link.click();
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  } catch (e) {
+    tab?.close();
+    mailError.value = e instanceof Error ? e.message : 'PDF konnte nicht erstellt werden';
+  } finally {
+    letterAction.value = null;
+  }
+}
+
+async function sendLetter() {
+  const target = einstufungForPdf.value;
+  if (!target) return;
+  mailError.value = null;
+  mailSuccess.value = null;
   if (!emailRecipients.value.length) {
     mailError.value = 'Keine gültige E-Mail-Adresse bei den Eltern hinterlegt.';
     return;
@@ -470,10 +514,19 @@ function openEmailComposer() {
     mailError.value = 'Bitte einen E-Mail-Text eintragen.';
     return;
   }
+  const again = target.letterSentAt ? ` Sie wurde bereits am ${formatDateTime(target.letterSentAt)} versendet.` : '';
+  if (!confirm(`E-Mail mit der Einstufung als PDF an ${emailRecipients.value.join(', ')} senden?${again}`)) return;
 
-  const to = emailRecipients.value.map((email) => encodeURIComponent(email)).join(',');
-  const mailto = `mailto:${to}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-  window.location.href = mailto;
+  isSending.value = true;
+  try {
+    const result = await api.sendEinstufungLetter(target.id, { subject, body });
+    target.letterSentAt = result.sentAt;
+    mailSuccess.value = `E-Mail mit ${result.filename} am ${formatDateTime(result.sentAt)} an ${result.recipients.join(', ')} gesendet.`;
+  } catch (e) {
+    mailError.value = e instanceof Error ? e.message : 'E-Mail konnte nicht gesendet werden';
+  } finally {
+    isSending.value = false;
+  }
 }
 
 async function loadData() {
@@ -1103,11 +1156,11 @@ watch(defaultEmailBody, (next) => {
         </div>
       </div>
 
-      <div v-if="einstufung" class="bg-card rounded-lg border shadow-sm p-6 space-y-4">
+      <div v-if="einstufungForPdf" class="bg-card rounded-lg border shadow-sm p-6 space-y-4">
         <div class="flex items-center justify-between gap-3">
           <h2 class="text-lg font-semibold text-foreground flex items-center gap-2">
             <Mail class="h-5 w-5 text-muted-foreground" />
-            E-Mail an Eltern
+            Brief und E-Mail an Eltern
           </h2>
           <button
             type="button"
@@ -1117,6 +1170,46 @@ watch(defaultEmailBody, (next) => {
             <RotateCcw class="h-3.5 w-3.5" />
             Standardtext einsetzen
           </button>
+        </div>
+
+        <p v-if="successorEinstufung" class="text-sm text-muted-foreground">
+          Brief und E-Mail beziehen sich auf die neueste Einstufung ({{ einstufungLabel(successorEinstufung) }}), mit dieser
+          Einstufung als bisherigem Beitrag.
+        </p>
+        <div v-if="letterBlockedReason" class="text-sm text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 rounded-lg px-3 py-2">
+          {{ letterBlockedReason }}
+        </div>
+
+        <div class="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            :disabled="!!letterBlockedReason || letterAction !== null"
+            @click="openLetter('view')"
+            class="inline-flex items-center gap-2 px-3 py-2 text-sm text-foreground bg-muted rounded-lg hover:bg-accent transition-colors disabled:opacity-50"
+          >
+            <Loader2 v-if="letterAction === 'view'" class="h-4 w-4 animate-spin" />
+            <ExternalLink v-else class="h-4 w-4" />
+            PDF ansehen
+          </button>
+          <button
+            type="button"
+            :disabled="!!letterBlockedReason || letterAction !== null"
+            @click="openLetter('download')"
+            class="inline-flex items-center gap-2 px-3 py-2 text-sm text-foreground bg-muted rounded-lg hover:bg-accent transition-colors disabled:opacity-50"
+          >
+            <Loader2 v-if="letterAction === 'download'" class="h-4 w-4 animate-spin" />
+            <Download v-else class="h-4 w-4" />
+            PDF herunterladen
+          </button>
+          <EinstufungPDF
+            :einstufung="einstufungForPdf"
+            :previous-einstufung="previousEinstufungForPdf"
+          />
+          <span class="text-xs text-muted-foreground">
+            {{ einstufungForPdf.letterSentAt
+              ? `Zuletzt per E-Mail versendet am ${formatDateTime(einstufungForPdf.letterSentAt)}.`
+              : 'Noch nicht per E-Mail versendet.' }}
+          </span>
         </div>
 
         <div>
@@ -1130,8 +1223,9 @@ watch(defaultEmailBody, (next) => {
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-foreground mb-1">Betreff</label>
+          <label for="email-subject" class="block text-sm font-medium text-foreground mb-1">Betreff</label>
           <input
+            id="email-subject"
             v-model="emailSubject"
             @input="emailSubjectDirty = true"
             type="text"
@@ -1140,43 +1234,42 @@ watch(defaultEmailBody, (next) => {
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-foreground mb-1">Text</label>
+          <label for="email-body" class="block text-sm font-medium text-foreground mb-1">Text</label>
           <textarea
+            id="email-body"
             v-model="emailBody"
             @input="emailBodyDirty = true"
             rows="16"
             class="w-full border rounded-lg px-3 py-2 text-sm leading-6 focus:ring-2 focus:ring-primary/20 focus:border-primary"
           ></textarea>
           <p class="mt-2 text-xs text-muted-foreground">
-            Hinweis: Die PDF bitte zuerst über den PDF-Button erstellen und dann im Mailprogramm anhängen.
+            Der Brief wird als PDF angehängt. Der Versand wird im E-Mail-Protokoll festgehalten.
           </p>
         </div>
 
         <div v-if="mailError" class="text-sm text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-950/40 border border-red-100 rounded-lg px-3 py-2">
           {{ mailError }}
         </div>
+        <div v-if="mailSuccess" class="text-sm text-green-800 dark:text-green-300 bg-green-50 dark:bg-green-950/40 border border-green-200 rounded-lg px-3 py-2">
+          {{ mailSuccess }}
+        </div>
 
         <div>
           <button
             type="button"
-            @click="openEmailComposer"
-            class="inline-flex items-center gap-2 px-4 py-2 text-sm text-primary-foreground bg-primary rounded-lg hover:bg-primary/90 transition-colors"
+            :disabled="!!letterBlockedReason || isSending || !emailRecipients.length"
+            @click="sendLetter"
+            class="inline-flex items-center gap-2 px-4 py-2 text-sm text-primary-foreground bg-primary rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
           >
-            <Mail class="h-4 w-4" />
-            E-Mail im Mailprogramm öffnen
+            <Loader2 v-if="isSending" class="h-4 w-4 animate-spin" />
+            <Send v-else class="h-4 w-4" />
+            E-Mail mit PDF senden
           </button>
         </div>
       </div>
 
       <!-- Submit -->
-      <div class="flex items-center justify-between">
-        <div>
-          <EinstufungPDF
-            v-if="einstufungForPdf"
-            :einstufung="einstufungForPdf"
-            :previous-einstufung="previousEinstufungForPdf"
-          />
-        </div>
+      <div class="flex items-center justify-end">
         <div class="flex items-center gap-3">
         <button
           type="button"

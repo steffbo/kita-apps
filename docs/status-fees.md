@@ -3,6 +3,32 @@
 Rolling change log of non-obvious implementation decisions. Newest first.
 Basics (ports, commands, layout) live in `AGENTS.md`.
 
+## Einstufungsbrief: PDF-Download und Versand aus der App (2026-10-12)
+
+- `GET /einstufungen/{id}/pdf` liefert den Brief als PDF (`Einstufung_<Jahr>_<Nachname>_<Vorname>.pdf`,
+  `?inline=1` zum Ansehen im Browser). Der Brief zeigt bei einer Folgeeinstufung die Monate der Quelle als
+  „(bisher)“. Grundlagentext nach Einkommensgrundlage und „vorläufig“ wie in `EinstufungPDF.vue`.
+- Briefdatum: das Versanddatum, solange die Einstufung danach nicht geändert wurde (`updated_at <=
+  letter_sent_at`), sonst heute. Neue Spalte `einstufungen.letter_sent_at` (Migration `000046`), im API als
+  `letterSentAt`.
+- Vorstand im Fuß aus `fees.board_terms` (am Briefdatum im Amt, Reihenfolge Vorsitz, Bauliches, Finanzen,
+  Elternarbeit, Schriftführung, Personal, dann alphabetisch), Bezeichnung wie gepflegt. Bankverbindung aus den
+  Zahlungseinstellungen der Erinnerungen (`reminder_payment_*`); der Bankname kommt aus einer kleinen
+  BIC-Tabelle im Code (nur BFSWDE33XXX), bei unbekannter BIC bleibt er leer.
+- `POST /einstufungen/{id}/send` (`subject`, `body`) schickt die E-Mail an alle Eltern-Adressen des Haushalts
+  mit dem PDF als Anhang, protokolliert sie (`email_logs`, Typ `EINSTUFUNG`, Payload mit `einstufungId`) und
+  setzt `letter_sent_at`. Ohne SMTP-Konfiguration 503 statt stillem Überspringen. Schlägt nach dem Versand
+  das Speichern von Datum oder Protokoll fehl, meldet der Endpunkt einen Fehler, die Mail ist aber raus.
+- Frontend: Karte „Brief und E-Mail an Eltern“ mit „PDF ansehen“, „PDF herunterladen“, Versandstatus und
+  „E-Mail mit PDF senden“ (Bestätigung, Hinweis auf früheren Versand). Bei ungespeicherten Änderungen sind
+  Brief und Versand gesperrt. Mit Folgeeinstufung beziehen sich Brief und Standardtext auf die neueste. Der
+  `mailto`-Weg ist entfernt; die alte Browser-Druckvorlage bleibt als „Druckansicht (bisher)“. Liste:
+  Spalte „Versendet“. E-Mail-Protokoll kennt den Typ „Einstufung“.
+- Vereinsbeitrag bei Folgeeinstufungen: Hinweis nennt den bereits bezahlten Beitrag der Quelle; ohne Beitrag
+  entfällt er (vorher „0,00 € jährlich – bereits bezahlt“, auch in der Druckansicht).
+- `scripts/live-copy.sh restart` kopiert die Live-DB neu, wenn der Wegwerf-Container weg war (nach Docker-
+  oder Rechner-Neustart startete er sonst leer).
+
 ## Einstufung: Einkommensgrundlage, vorläufig, Live-Vorschau (2026-10-11)
 
 - Neues Feld `income_basis` (`INCOME` | `HIGHEST_RATE` | `NOT_REQUIRED`) ersetzt die Bedeutung von

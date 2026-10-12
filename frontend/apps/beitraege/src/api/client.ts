@@ -70,6 +70,8 @@ import type {
   CalculateIncomeResponse,
   PreviewEinstufungRequest,
   EinstufungPreview,
+  SendEinstufungLetterRequest,
+  SendEinstufungLetterResponse,
   ChildNote,
   CreateChildNoteRequest,
   UpdateChildNoteRequest,
@@ -92,6 +94,26 @@ import { ReminderCaseConflictError } from './types';
 import { todayISO } from '@/utils/format';
 
 const API_BASE = '/api/fees/v1';
+
+export interface DownloadedFile {
+  blob: Blob;
+  filename: string | null;
+}
+
+/** Reads the filename from a Content-Disposition header (RFC 6266, incl. filename*). */
+export function filenameFromDisposition(header: string | null): string | null {
+  if (!header) return null;
+  const extended = /filename\*\s*=\s*([^']*)'[^']*'([^;]+)/i.exec(header);
+  if (extended) {
+    try {
+      return decodeURIComponent(extended[2].trim());
+    } catch {
+      // fall through to the plain parameter
+    }
+  }
+  const plain = /filename\s*=\s*("([^"]*)"|[^;]+)/i.exec(header);
+  return plain ? (plain[2] ?? plain[1]).trim() : null;
+}
 
 // Auth endpoints that must not trigger a refresh-and-retry on 401.
 const NO_REFRESH_PATHS = ['/auth/login', '/auth/refresh', '/auth/logout',
@@ -203,6 +225,30 @@ class ApiClient {
     }
 
     return response.json();
+  }
+
+  /** Fetches a file with the same authentication and refresh handling as request(). */
+  private async requestFile(path: string, isRetry = false): Promise<DownloadedFile> {
+    const headers: Record<string, string> = {};
+    if (this.accessToken) {
+      headers['Authorization'] = `Bearer ${this.accessToken}`;
+    }
+    const response = await fetch(`${API_BASE}${path}`, { headers });
+    if (!response.ok) {
+      if (response.status === 401 && !isRetry) {
+        if (await this.tryRefreshToken()) {
+          return this.requestFile(path, true);
+        }
+        this.onAuthFailed?.();
+        throw new Error('Unauthorized');
+      }
+      const error = await response.json().catch(() => ({ error: 'Unknown error' }));
+      throw new Error(error.message || error.error || `HTTP ${response.status}`);
+    }
+    return {
+      blob: await response.blob(),
+      filename: filenameFromDisposition(response.headers.get('Content-Disposition')),
+    };
   }
 
   // Auth endpoints
@@ -1041,6 +1087,17 @@ class ApiClient {
   async deleteEinstufung(id: string): Promise<void> {
     return this.request<void>(`/einstufungen/${id}`, {
       method: 'DELETE',
+    });
+  }
+
+  async getEinstufungLetter(id: string): Promise<DownloadedFile> {
+    return this.requestFile(`/einstufungen/${id}/pdf`);
+  }
+
+  async sendEinstufungLetter(id: string, data: SendEinstufungLetterRequest): Promise<SendEinstufungLetterResponse> {
+    return this.request<SendEinstufungLetterResponse>(`/einstufungen/${id}/send`, {
+      method: 'POST',
+      body: JSON.stringify(data),
     });
   }
 

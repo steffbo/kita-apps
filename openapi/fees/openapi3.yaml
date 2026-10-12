@@ -1632,6 +1632,89 @@ paths:
       summary: Create a follow-up fee classification
       tags:
         - Einstufungen
+  "/einstufungen/{id}/pdf":
+    get:
+      description: Renders the letter as PDF. The letter is dated with the send date
+        while the Einstufung is unchanged since sending, else today.
+      parameters:
+        - description: Einstufung ID
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - description: Show in the browser instead of downloading
+          in: query
+          name: inline
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: OK
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "404":
+          description: Not Found
+          content:
+            application/pdf:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Download the Einstufung letter
+      tags:
+        - Einstufungen
+  "/einstufungen/{id}/send":
+    post:
+      description: Sends the email to all parent addresses of the household with the
+        letter PDF attached, logs it and records the send date.
+      parameters:
+        - description: Einstufung ID
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendEinstufungLetterRequest"
+        description: Email subject and text
+        required: true
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SendEinstufungLetterResponse"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "503":
+          description: Service Unavailable
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Email the Einstufung letter
+      tags:
+        - Einstufungen
   /einstufungen/calculate-income:
     post:
       description: Calculates fee-relevant household income from parent income details
@@ -6743,6 +6826,9 @@ components:
           type: string
         incomeCalculation:
           $ref: "#/components/schemas/domain.HouseholdIncomeCalculation"
+        letterSentAt:
+          description: Last time the letter was emailed from the app
+          type: string
         monthlyChildcareFee:
           type: number
         monthlyFoodFee:
@@ -7873,6 +7959,33 @@ components:
         - lateFeeAmount
         - lateFeeId
         - warningId
+      type: object
+    SendEinstufungLetterRequest:
+      description: Email subject and text for sending the Einstufung letter
+      properties:
+        body:
+          type: string
+        subject:
+          type: string
+      required:
+        - body
+        - subject
+      type: object
+    SendEinstufungLetterResponse:
+      description: Result of sending the Einstufung letter
+      properties:
+        filename:
+          type: string
+        recipients:
+          items:
+            type: string
+          type: array
+        sentAt:
+          type: string
+      required:
+        - filename
+        - recipients
+        - sentAt
       type: object
     SetUserPasswordRequest:
       properties:

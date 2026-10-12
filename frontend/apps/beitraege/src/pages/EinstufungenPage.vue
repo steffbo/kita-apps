@@ -195,6 +195,7 @@ onMounted(() => loadEinstufungen());
             <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Regel</th>
             <th class="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider">Platzgeld</th>
             <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Gültig ab</th>
+            <th class="px-4 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">Versendet</th>
             <th class="px-4 py-3 text-right text-xs font-medium text-muted-foreground uppercase tracking-wider"></th>
           </tr>
         </thead>
@@ -243,6 +244,9 @@ onMounted(() => loadEinstufungen());
             </td>
             <td class="px-4 py-3 whitespace-nowrap">
               <span class="text-sm text-muted-foreground">{{ formatDate(e.validFrom) }}</span>
+            </td>
+            <td class="px-4 py-3 whitespace-nowrap">
+              <span class="text-sm text-muted-foreground">{{ formatDate(e.letterSentAt) }}</span>
             </td>
             <td class="px-4 py-3 whitespace-nowrap text-right">
               <button

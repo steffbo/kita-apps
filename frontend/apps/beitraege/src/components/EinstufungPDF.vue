@@ -136,8 +136,11 @@ const feePeriods = computed<FeePeriod[]>(() => {
 });
 
 const isFollowUp = computed(() => !!props.einstufung.sourceEinstufungId);
-const membershipFee = computed(() => props.einstufung.annualMembershipFee);
-const showMembershipNote = computed(() => isFollowUp.value || membershipFee.value > 0);
+// A follow-up carries no membership fee of its own; quote the one already paid.
+const membershipFee = computed(() =>
+  props.einstufung.annualMembershipFee || (isFollowUp.value ? props.previousEinstufung?.annualMembershipFee ?? 0 : 0)
+);
+const showMembershipNote = computed(() => membershipFee.value > 0);
 const membershipDueMonth = computed(() => {
   const start = parseMonthStart(props.einstufung.effectiveFromMonth || props.einstufung.validFrom);
   return start ? formatMonthLabel(start) : '—';
@@ -326,13 +329,15 @@ defineExpose({ generatePdf });
   <div>
     <!-- Download button -->
     <button
+      type="button"
       @click="generatePdf"
       :disabled="isGenerating"
-      class="inline-flex items-center gap-2 px-4 py-2 text-sm text-white bg-primary rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+      title="Bisherige Druckvorlage aus dem Browser"
+      class="inline-flex items-center gap-2 px-3 py-2 text-sm text-muted-foreground rounded-lg hover:bg-accent transition-colors disabled:opacity-50"
     >
       <Loader2 v-if="isGenerating" class="h-4 w-4 animate-spin" />
       <FileDown v-else class="h-4 w-4" />
-      PDF drucken / speichern
+      Druckansicht (bisher)
     </button>
 
     <!-- Hidden print layout -->

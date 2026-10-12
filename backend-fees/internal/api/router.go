@@ -247,6 +247,8 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 					r.Get("/household/{householdId}", handlers.Einstufung.ListForHousehold)
 					r.Get("/{id}", handlers.Einstufung.Get)
 					r.Put("/{id}", handlers.Einstufung.Update)
+					r.Get("/{id}/pdf", handlers.Einstufung.LetterPDF)
+					r.Post("/{id}/send", handlers.Einstufung.SendLetter)
 					r.Post("/{id}/follow-ups", handlers.Einstufung.CreateFollowUp)
 					r.Delete("/{id}", handlers.Einstufung.Delete)
 				})

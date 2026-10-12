@@ -473,6 +473,8 @@ export type CreateFollowUpEinstufungResponse = Omit<Schema['CreateFollowUpEinstu
   expectationChanges: ChildcareExpectationSyncResult;
 };
 export type CalculateIncomeResponse = Schema['CalculateIncomeResponse'];
+export type SendEinstufungLetterRequest = Schema['SendEinstufungLetterRequest'];
+export type SendEinstufungLetterResponse = Schema['SendEinstufungLetterResponse'];
 
 // ── Fee schedules (Beitragsordnung) ──────────────────────────────────────────
 export type FeeTableRow = Schema['FeeTableRow'];

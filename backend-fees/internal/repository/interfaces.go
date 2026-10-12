@@ -281,6 +281,7 @@ type EinstufungRepository interface {
 	ListByHousehold(ctx context.Context, householdID uuid.UUID) ([]domain.Einstufung, error)
 	ListByYear(ctx context.Context, year int, offset, limit int) ([]domain.Einstufung, int64, error)
 	GetLatestForChild(ctx context.Context, childID uuid.UUID) (*domain.Einstufung, error)
+	MarkLetterSent(ctx context.Context, id uuid.UUID, sentAt time.Time) error
 }
 
 // FeeScheduleRepository stores versions of the fee regulation.

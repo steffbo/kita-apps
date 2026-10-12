@@ -45,16 +45,20 @@ func (s *ReminderService) GetPaymentSettings(ctx context.Context) (ReminderPayme
 	if s.settingsRepo == nil {
 		return ReminderPaymentSettings{}, nil
 	}
+	return loadPaymentSettings(ctx, s.settingsRepo)
+}
 
-	recipient, err := readAppSetting(ctx, s.settingsRepo, settingReminderPaymentRecipient)
+// loadPaymentSettings reads the association's bank account (also printed on letters).
+func loadPaymentSettings(ctx context.Context, repo repository.SettingsRepository) (ReminderPaymentSettings, error) {
+	recipient, err := readAppSetting(ctx, repo, settingReminderPaymentRecipient)
 	if err != nil {
 		return ReminderPaymentSettings{}, err
 	}
-	iban, err := readAppSetting(ctx, s.settingsRepo, settingReminderPaymentIBAN)
+	iban, err := readAppSetting(ctx, repo, settingReminderPaymentIBAN)
 	if err != nil {
 		return ReminderPaymentSettings{}, err
 	}
-	bic, err := readAppSetting(ctx, s.settingsRepo, settingReminderPaymentBIC)
+	bic, err := readAppSetting(ctx, repo, settingReminderPaymentBIC)
 	if err != nil {
 		return ReminderPaymentSettings{}, err
 	}

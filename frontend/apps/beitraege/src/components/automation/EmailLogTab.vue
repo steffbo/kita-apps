@@ -106,6 +106,7 @@ function toggleEmailLogsSort(): void {
         <option value="MEMBERSHIP_REMINDER_FINAL">Vereinsbeitrag Mahnung</option>
         <option value="PASSWORD_RESET">Passwort-Reset</option>
         <option value="ACCOUNT_INVITATION">Kontoeinladung</option>
+        <option value="EINSTUFUNG">Einstufung</option>
       </select>
 
       <SearchInput v-model="emailLogsSearch" placeholder="Suche nach Empfänger oder Betreff..."

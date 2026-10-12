@@ -2527,6 +2527,134 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/einstufungen/{id}/pdf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Download the Einstufung letter
+         * @description Renders the letter as PDF. The letter is dated with the send date while the Einstufung is unchanged since sending, else today.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Show in the browser instead of downloading */
+                    inline?: boolean;
+                };
+                header?: never;
+                path: {
+                    /** @description Einstufung ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/pdf": string;
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/pdf": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/einstufungen/{id}/send": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Email the Einstufung letter
+         * @description Sends the email to all parent addresses of the household with the letter PDF attached, logs it and records the send date.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Einstufung ID */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Email subject and text */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SendEinstufungLetterRequest"];
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["SendEinstufungLetterResponse"];
+                    };
+                };
+                /** @description Bad Request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not Found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Service Unavailable */
+                503: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/einstufungen/calculate-income": {
         parameters: {
             query?: never;
@@ -9478,6 +9606,8 @@ export interface components {
             /** @enum {string} */
             incomeBasis: "INCOME" | "HIGHEST_RATE" | "NOT_REQUIRED";
             incomeCalculation: components["schemas"]["domain.HouseholdIncomeCalculation"];
+            /** @description Last time the letter was emailed from the app */
+            letterSentAt?: string;
             monthlyChildcareFee: number;
             monthlyFoodFee: number;
             monthlyTable?: components["schemas"]["domain.EinstufungMonthRow"][];
@@ -10038,6 +10168,17 @@ export interface components {
             lateFeeId: string;
             /** @example 550e8400-e29b-41d4-a716-446655440000 */
             warningId: string;
+        };
+        /** @description Email subject and text for sending the Einstufung letter */
+        SendEinstufungLetterRequest: {
+            body: string;
+            subject: string;
+        };
+        /** @description Result of sending the Einstufung letter */
+        SendEinstufungLetterResponse: {
+            filename: string;
+            recipients: string[];
+            sentAt: string;
         };
         SetUserPasswordRequest: {
             password: string;

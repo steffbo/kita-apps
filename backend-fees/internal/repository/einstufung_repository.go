@@ -23,6 +23,9 @@ const einstufungColumns = `id, child_id, household_id, year, valid_from, valid_u
 	fee_rule, discount_percent, discount_factor, base_fee,
 	notes, created_at, updated_at`
 
+// einstufungSelectColumns adds columns that are written by dedicated statements only.
+const einstufungSelectColumns = einstufungColumns + `, letter_sent_at`
+
 const insertEinstufung = `
 	INSERT INTO fees.einstufungen (` + einstufungColumns + `)
 	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)`
@@ -112,7 +115,7 @@ func (r *PostgresEinstufungRepository) GetByID(ctx context.Context, id uuid.UUID
 	var e domain.Einstufung
 	err := conn(ctx, r.db).GetContext(ctx, &e, fmt.Sprintf(`
 		SELECT %s FROM fees.einstufungen WHERE id = $1
-	`, einstufungColumns), id)
+	`, einstufungSelectColumns), id)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNotFound
@@ -130,7 +133,7 @@ func (r *PostgresEinstufungRepository) GetByChildAndYear(ctx context.Context, ch
 		WHERE child_id = $1 AND year = $2
 		ORDER BY effective_from_month DESC, created_at DESC
 		LIMIT 1
-	`, einstufungColumns), childID, year)
+	`, einstufungSelectColumns), childID, year)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNotFound
@@ -217,6 +220,20 @@ func (r *PostgresEinstufungRepository) Update(ctx context.Context, e *domain.Ein
 	return tx.Commit()
 }
 
+// MarkLetterSent records when the letter was emailed. It leaves updated_at
+// untouched so later edits remain detectable.
+func (r *PostgresEinstufungRepository) MarkLetterSent(ctx context.Context, id uuid.UUID, sentAt time.Time) error {
+	result, err := conn(ctx, r.db).ExecContext(ctx,
+		`UPDATE fees.einstufungen SET letter_sent_at = $2 WHERE id = $1`, id, sentAt)
+	if err != nil {
+		return err
+	}
+	if n, err := result.RowsAffected(); err == nil && n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 // Delete deletes an Einstufung.
 func (r *PostgresEinstufungRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	tx, err := beginTx(ctx, r.db)
@@ -271,7 +288,7 @@ func (r *PostgresEinstufungRepository) ListByHousehold(ctx context.Context, hous
 		SELECT %s FROM fees.einstufungen
 		WHERE household_id = $1
 		ORDER BY year DESC, effective_from_month DESC, created_at DESC
-	`, einstufungColumns), householdID)
+	`, einstufungSelectColumns), householdID)
 	if err != nil {
 		return nil, err
 	}
@@ -294,7 +311,7 @@ func (r *PostgresEinstufungRepository) ListByYear(ctx context.Context, year int,
 		WHERE year = $1
 		ORDER BY effective_from_month DESC, created_at DESC
 		LIMIT $2 OFFSET $3
-	`, einstufungColumns), year, limit, offset)
+	`, einstufungSelectColumns), year, limit, offset)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -310,7 +327,7 @@ func (r *PostgresEinstufungRepository) GetLatestForChild(ctx context.Context, ch
 		WHERE child_id = $1
 		ORDER BY effective_from_month DESC, year DESC, created_at DESC
 		LIMIT 1
-	`, einstufungColumns), childID)
+	`, einstufungSelectColumns), childID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrNotFound

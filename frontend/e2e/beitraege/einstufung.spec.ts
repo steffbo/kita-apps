@@ -93,3 +93,45 @@ test('Neue Einstufung ohne Einkommensangaben braucht eine Bestätigung',
     await expect(page.getByText('Einstufung erfolgreich gespeichert.')).toBeVisible();
     await expect(page.getByText('Vorläufig – Nachweise fehlen', { exact: true })).toBeVisible();
   });
+
+test('Einstufungsbrief als PDF laden und per E-Mail senden', async ({ adminApi, adminPage: page }) => {
+  const suffix = uniq();
+  const today = berlinToday();
+  const lastName = `Brief${suffix}`;
+  const address = `brief-${suffix}@e2e.test`;
+  const parent = await adminApi.post<{ id: string }>('/parents', { firstName: 'Eva', lastName, email: address });
+  const child = await adminApi.post<{ id: string }>('/children', {
+    memberNumber: memberNumber(), firstName: 'Lea', lastName,
+    birthDate: `${today.year - 1}-06-01`, entryDate: `${today.year}-01-01`,
+  });
+  await adminApi.post(`/children/${child.id}/parents`, { parentId: parent.id, isPrimary: true });
+  const created = await adminApi.post<{ id: string }>('/einstufungen', {
+    childId: child.id, year: today.year, incomeBasis: 'HIGHEST_RATE', childrenCount: 1,
+    incomeCalculation: { parent1: {}, parent2: {} },
+  });
+
+  await page.goto(`/beitraege/einstufungen/${created.id}`);
+  await expect(page.getByText('Noch nicht per E-Mail versendet.')).toBeVisible();
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'PDF herunterladen' }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toBe(`Einstufung_${today.year}_${lastName}_Lea.pdf`);
+
+  // The e2e stack has no SMTP server: the API refuses instead of pretending to send.
+  page.once('dialog', (dialog) => void dialog.accept());
+  await page.getByRole('button', { name: 'E-Mail mit PDF senden' }).click();
+  await expect(page.getByText('E-Mail-Versand ist auf diesem Server nicht eingerichtet.')).toBeVisible();
+
+  const sentAt = new Date().toISOString();
+  let sentBody: { subject?: string; body?: string } = {};
+  await page.route(`**/api/fees/v1/einstufungen/${created.id}/send`, async (route) => {
+    sentBody = route.request().postDataJSON();
+    await route.fulfill({ json: { recipients: [address], sentAt, filename: download.suggestedFilename() } });
+  });
+  page.once('dialog', (dialog) => void dialog.accept());
+  await page.getByRole('button', { name: 'E-Mail mit PDF senden' }).click();
+  await expect(page.getByText(new RegExp(`gesendet\\.$`))).toContainText(address);
+  await expect(page.getByText(/Zuletzt per E-Mail versendet am/)).toBeVisible();
+  expect(sentBody.subject).toBe(`Einstufung Elternbeiträge ${today.year} – ${lastName}`);
+  expect(sentBody.body).toContain('Im Anhang findet ihr die Einstufung');
+});

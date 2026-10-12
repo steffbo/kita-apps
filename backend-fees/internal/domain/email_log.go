@@ -17,6 +17,7 @@ const (
 	EmailLogTypeMembershipReminderFinal   EmailLogType = "MEMBERSHIP_REMINDER_FINAL"
 	EmailLogTypePasswordReset             EmailLogType = "PASSWORD_RESET"
 	EmailLogTypeAccountInvitation         EmailLogType = "ACCOUNT_INVITATION"
+	EmailLogTypeEinstufung                EmailLogType = "EINSTUFUNG"
 )
 
 // EmailLog represents a sent email entry.

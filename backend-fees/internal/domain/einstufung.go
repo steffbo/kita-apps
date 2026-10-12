@@ -67,6 +67,8 @@ type Einstufung struct {
 	Notes     string    `json:"notes,omitempty" db:"notes" binding:"optional"`
 	CreatedAt time.Time `json:"createdAt" db:"created_at"`
 	UpdatedAt time.Time `json:"updatedAt" db:"updated_at"`
+	// LetterSentAt is when the letter was last emailed from the app.
+	LetterSentAt *time.Time `json:"letterSentAt,omitempty" db:"letter_sent_at" binding:"optional"`
 
 	// Loaded relations
 	Child        *Child               `json:"child,omitempty" db:"-" binding:"optional"`
