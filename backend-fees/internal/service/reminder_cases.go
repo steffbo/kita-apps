@@ -245,8 +245,16 @@ func (s *ReminderService) loadCaseFees(ctx context.Context, householdID uuid.UUI
 		return nil, err
 	}
 
+	remindable, err := s.remindableChildren(ctx, children, asOfStart)
+	if err != nil {
+		return nil, err
+	}
+
 	fees := make([]ReminderCaseFee, 0, len(rows))
 	for _, row := range rows {
+		if _, known := children[row.ChildID]; known && !remindable[row.ChildID] {
+			continue
+		}
 		childName := "Unbekanntes Kind"
 		memberNumber := ""
 		if child, ok := children[row.ChildID]; ok && child != nil {
@@ -306,6 +314,30 @@ func (s *ReminderService) loadCaseFees(ctx context.Context, householdID uuid.UUI
 	})
 
 	return placeRemindersAfterBase(fees), nil
+}
+
+// remindableChildren reports which children's fees may be reminded at asOf:
+// the child has entered the Kita, and a child under three has an Einstufung
+// (any period). Fees of other children stay out of the worklist and cannot be
+// sent, e.g. the membership fee of a family that starts only later.
+func (s *ReminderService) remindableChildren(ctx context.Context, children map[uuid.UUID]*domain.Child, asOf time.Time) (map[uuid.UUID]bool, error) {
+	result := make(map[uuid.UUID]bool, len(children))
+	for id, child := range children {
+		if child == nil || child.EntryDate.After(asOf) {
+			continue
+		}
+		if child.IsUnderThree(asOf) {
+			einstufungen, err := s.einstufungRepo.ListByChild(ctx, id)
+			if err != nil {
+				return nil, err
+			}
+			if len(einstufungen) == 0 {
+				continue
+			}
+		}
+		result[id] = true
+	}
+	return result, nil
 }
 
 // placeRemindersAfterBase moves each Mahngebühr directly behind its open base

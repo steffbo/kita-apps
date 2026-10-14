@@ -139,7 +139,7 @@ func main() {
 	importService := service.NewImportService(transactionRepo, feeRepo, childRepo, matchRepo, knownIBANRepo, warningRepo, txManager, feeScheduleRepo)
 	childImportService := service.NewChildImportService(childRepo, parentRepo, txManager)
 	coverageService := service.NewCoverageService(feeRepo, childRepo, transactionRepo, matchRepo)
-	reminderService := service.NewReminderService(feeRepo, childRepo, householdRepo, settingsRepo, emailLogRepo, emailService)
+	reminderService := service.NewReminderService(feeRepo, childRepo, householdRepo, einstufungRepo, settingsRepo, emailLogRepo, emailService)
 	stichtagService := service.NewStichtagsmeldungService(childRepo)
 	einstufungService := service.NewEinstufungService(einstufungRepo, householdRepo, childRepo, feeService, txManager)
 	childService.UseEinstufungSync(einstufungService)

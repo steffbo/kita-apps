@@ -45,6 +45,7 @@ func newReminderCaseService(emailSender *fakeReminderSender) *service.ReminderSe
 		repository.NewPostgresFeeRepository(testDB),
 		repository.NewPostgresChildRepository(testDB),
 		repository.NewPostgresHouseholdRepository(testDB),
+		repository.NewPostgresEinstufungRepository(testDB),
 		repository.NewPostgresSettingsRepository(testDB),
 		repository.NewPostgresEmailLogRepository(testDB),
 		emailSender,
@@ -70,6 +71,21 @@ func createCaseParent(t *testing.T, parentRepo repository.ParentRepository, hous
 		t.Fatalf("failed to create parent: %v", err)
 	}
 	return parent
+}
+
+// createCaseChild creates an enrolled child over three, so its fees are
+// remindable without an Einstufung.
+func createCaseChild(childRepo repository.ChildRepository, suffix string) (*domain.Child, error) {
+	child, err := createTestChild(childRepo, suffix)
+	if err != nil {
+		return nil, err
+	}
+	child.BirthDate = time.Date(2020, 3, 1, 0, 0, 0, 0, time.UTC)
+	child.EntryDate = time.Date(2023, 8, 1, 0, 0, 0, 0, time.UTC)
+	if err := childRepo.Update(context.Background(), child); err != nil {
+		return nil, err
+	}
+	return child, nil
 }
 
 func createCaseFee(t *testing.T, feeRepo repository.FeeRepository, childID, householdID uuid.UUID, feeType domain.FeeType, amount float64, year int, month *int, dueDate time.Time) *domain.FeeExpectation {
@@ -170,7 +186,7 @@ func TestReminderCases_GroupingStatusesAndScope(t *testing.T) {
 	reminderService := newReminderCaseService(&fakeReminderSender{})
 
 	household := createCaseHousehold(t, householdRepo, "TEST Cases Grouped")
-	child, err := createTestChild(childRepo, "CG")
+	child, err := createCaseChild(childRepo, "CG")
 	if err != nil {
 		t.Fatalf("failed to create child: %v", err)
 	}
@@ -180,7 +196,7 @@ func TestReminderCases_GroupingStatusesAndScope(t *testing.T) {
 
 	// Household with only paid fees must not appear.
 	paidHousehold := createCaseHousehold(t, householdRepo, "TEST Cases Paid")
-	paidChild, err := createTestChild(childRepo, "CP")
+	paidChild, err := createCaseChild(childRepo, "CP")
 	if err != nil {
 		t.Fatalf("failed to create child: %v", err)
 	}
@@ -256,7 +272,7 @@ func TestReminderCases_WaitingHiddenFromActionable(t *testing.T) {
 	reminderService := newReminderCaseService(&fakeReminderSender{})
 
 	household := createCaseHousehold(t, householdRepo, "TEST Cases Waiting")
-	child, err := createTestChild(childRepo, "CW")
+	child, err := createCaseChild(childRepo, "CW")
 	if err != nil {
 		t.Fatalf("failed to create child: %v", err)
 	}
@@ -325,7 +341,7 @@ func TestReminderCases_PartialPaymentRemaining(t *testing.T) {
 	reminderService := newReminderCaseService(&fakeReminderSender{})
 
 	household := createCaseHousehold(t, householdRepo, "TEST Cases Partial")
-	child, err := createTestChild(childRepo, "CPT")
+	child, err := createCaseChild(childRepo, "CPT")
 	if err != nil {
 		t.Fatalf("failed to create child: %v", err)
 	}
@@ -367,7 +383,7 @@ func TestReminderCase_Preview_MixedTypesPlansFees(t *testing.T) {
 
 	household := createCaseHousehold(t, householdRepo, "TEST Preview Mixed")
 	createCaseParent(t, repository.NewPostgresParentRepository(testDB), household.ID, "Anna")
-	child, err := createTestChild(childRepo, "PM")
+	child, err := createCaseChild(childRepo, "PM")
 	if err != nil {
 		t.Fatalf("failed to create child: %v", err)
 	}
@@ -459,7 +475,7 @@ func TestReminderCase_ReminderFeesOnlyWhenDueAndTicked(t *testing.T) {
 
 	household := createCaseHousehold(t, householdRepo, "TEST Reminder Fee Ticks")
 	createCaseParent(t, repository.NewPostgresParentRepository(testDB), household.ID, "Anna")
-	child, err := createTestChild(childRepo, "FWR")
+	child, err := createCaseChild(childRepo, "FWR")
 	if err != nil {
 		t.Fatalf("failed to create child: %v", err)
 	}
@@ -583,7 +599,7 @@ func TestReminderCase_Preview_InitialStagePlansNoFees(t *testing.T) {
 
 	household := createCaseHousehold(t, householdRepo, "TEST Initial No Fees")
 	createCaseParent(t, repository.NewPostgresParentRepository(testDB), household.ID, "Anna")
-	child, err := createTestChild(childRepo, "INF")
+	child, err := createCaseChild(childRepo, "INF")
 	if err != nil {
 		t.Fatalf("failed to create child: %v", err)
 	}
@@ -620,7 +636,7 @@ func TestReminderCase_Send_CreatesFeesLogsAndPreventsDuplicates(t *testing.T) {
 
 	household := createCaseHousehold(t, householdRepo, "TEST Send Once")
 	createCaseParent(t, repository.NewPostgresParentRepository(testDB), household.ID, "Ben")
-	child, err := createTestChild(childRepo, "SO")
+	child, err := createCaseChild(childRepo, "SO")
 	if err != nil {
 		t.Fatalf("failed to create child: %v", err)
 	}
@@ -697,11 +713,11 @@ func TestReminderCase_Send_ConflictsAndValidation(t *testing.T) {
 
 	householdA := createCaseHousehold(t, householdRepo, "TEST Conflict A")
 	householdB := createCaseHousehold(t, householdRepo, "TEST Conflict B")
-	childA, err := createTestChild(childRepo, "CA")
+	childA, err := createCaseChild(childRepo, "CA")
 	if err != nil {
 		t.Fatalf("failed to create child: %v", err)
 	}
-	childB, err := createTestChild(childRepo, "CB")
+	childB, err := createCaseChild(childRepo, "CB")
 	if err != nil {
 		t.Fatalf("failed to create child: %v", err)
 	}
@@ -841,7 +857,7 @@ func TestReminderCase_Send_ConcurrentSendsCreateSingleReminderFee(t *testing.T) 
 
 	household := createCaseHousehold(t, householdRepo, "TEST Concurrent Send")
 	createCaseParent(t, repository.NewPostgresParentRepository(testDB), household.ID, "Conny")
-	child, err := createTestChild(childRepo, "CCS")
+	child, err := createCaseChild(childRepo, "CCS")
 	if err != nil {
 		t.Fatalf("failed to create child: %v", err)
 	}
@@ -905,7 +921,7 @@ func TestReminderCase_Send_SMTPFailureCompensatesReminderFees(t *testing.T) {
 
 	household := createCaseHousehold(t, householdRepo, "TEST SMTP Failure")
 	createCaseParent(t, repository.NewPostgresParentRepository(testDB), household.ID, "Sven")
-	child, err := createTestChild(childRepo, "CSF")
+	child, err := createCaseChild(childRepo, "CSF")
 	if err != nil {
 		t.Fatalf("failed to create child: %v", err)
 	}
@@ -961,7 +977,7 @@ func TestReminderCase_NotDueFeeWithContactStaysNeverContacted(t *testing.T) {
 
 	household := createCaseHousehold(t, householdRepo, "TEST Early Contact")
 	createCaseParent(t, repository.NewPostgresParentRepository(testDB), household.ID, "Ida")
-	child, err := createTestChild(childRepo, "CEC")
+	child, err := createCaseChild(childRepo, "CEC")
 	if err != nil {
 		t.Fatalf("failed to create child: %v", err)
 	}
@@ -1017,7 +1033,7 @@ func TestReminderCase_FeeCreatedOnCutoffDayIsHistoryUnknown(t *testing.T) {
 
 	household := createCaseHousehold(t, householdRepo, "TEST Cutoff Day")
 	createCaseParent(t, repository.NewPostgresParentRepository(testDB), household.ID, "Kai")
-	child, err := createTestChild(childRepo, "CCD")
+	child, err := createCaseChild(childRepo, "CCD")
 	if err != nil {
 		t.Fatalf("failed to create child: %v", err)
 	}
@@ -1070,7 +1086,7 @@ func TestReminderCase_ExistingReminderFeeReferencesBaseFee(t *testing.T) {
 
 	household := createCaseHousehold(t, householdRepo, "TEST Existing Reminder")
 	createCaseParent(t, repository.NewPostgresParentRepository(testDB), household.ID, "Anna")
-	child, err := createTestChild(childRepo, "ERF")
+	child, err := createCaseChild(childRepo, "ERF")
 	if err != nil {
 		t.Fatalf("failed to create child: %v", err)
 	}
@@ -1132,5 +1148,104 @@ func TestReminderCase_ExistingReminderFeeReferencesBaseFee(t *testing.T) {
 	}
 	if !contains(preview.Body, "- Mahngebühr für Essensgeld September 2026 — 10,00 EUR") {
 		t.Fatalf("expected standalone reminder fee with base reference, got:\n%s", preview.Body)
+	}
+}
+
+func TestReminderCases_OnlyEnteredChildrenAndU3WithEinstufung(t *testing.T) {
+	requireTestDatabase(t)
+	cleanupTestData()
+	defer cleanupTestData()
+	setReliableCutoff(t, "2026-01-01")
+
+	ctx := context.Background()
+	householdRepo := repository.NewPostgresHouseholdRepository(testDB)
+	childRepo := repository.NewPostgresChildRepository(testDB)
+	feeRepo := repository.NewPostgresFeeRepository(testDB)
+	einstufungRepo := repository.NewPostgresEinstufungRepository(testDB)
+	reminderService := newReminderCaseService(&fakeReminderSender{enabled: true})
+
+	household := createCaseHousehold(t, householdRepo, "TEST Cases Remindable")
+	enrolled, err := createCaseChild(childRepo, "CE")
+	if err != nil {
+		t.Fatalf("failed to create child: %v", err)
+	}
+	future, err := createCaseChild(childRepo, "CF")
+	if err != nil {
+		t.Fatalf("failed to create child: %v", err)
+	}
+	future.EntryDate = time.Date(2026, 12, 1, 0, 0, 0, 0, time.UTC)
+	if err := childRepo.Update(ctx, future); err != nil {
+		t.Fatalf("failed to update child: %v", err)
+	}
+	underThree, err := createCaseChild(childRepo, "CU")
+	if err != nil {
+		t.Fatalf("failed to create child: %v", err)
+	}
+	underThree.BirthDate = time.Date(2025, 1, 10, 0, 0, 0, 0, time.UTC)
+	underThree.EntryDate = time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC)
+	if err := childRepo.Update(ctx, underThree); err != nil {
+		t.Fatalf("failed to update child: %v", err)
+	}
+
+	due := time.Date(2026, 3, 31, 0, 0, 0, 0, time.UTC)
+	enrolledFee := createCaseFee(t, feeRepo, enrolled.ID, household.ID, domain.FeeTypeFood, 45.40, 2026, ptrInt(8), time.Date(2026, 9, 5, 0, 0, 0, 0, time.UTC))
+	futureFee := createCaseFee(t, feeRepo, future.ID, household.ID, domain.FeeTypeMembership, 30, 2026, nil, due)
+	underThreeFee := createCaseFee(t, feeRepo, underThree.ID, household.ID, domain.FeeTypeFood, 45.40, 2026, ptrInt(8), time.Date(2026, 9, 5, 0, 0, 0, 0, time.UTC))
+
+	asOf := time.Date(2026, 9, 15, 0, 0, 0, 0, time.UTC)
+	listFeeIDs := func() map[uuid.UUID]bool {
+		t.Helper()
+		result, err := reminderService.ListReminderCases(ctx, asOf, service.ReminderCasesScopeAll)
+		if err != nil {
+			t.Fatalf("ListReminderCases failed: %v", err)
+		}
+		ids := map[uuid.UUID]bool{}
+		for _, c := range result.Cases {
+			if c.HouseholdID == household.ID {
+				for _, fee := range c.Fees {
+					ids[fee.FeeID] = true
+				}
+			}
+		}
+		return ids
+	}
+
+	ids := listFeeIDs()
+	if !ids[enrolledFee.ID] || ids[futureFee.ID] || ids[underThreeFee.ID] {
+		t.Fatalf("expected only the enrolled child's fee, got %v", ids)
+	}
+
+	previewedAt := time.Now().UTC().Add(-time.Hour)
+	_, err = reminderService.SendReminderCase(ctx, household.ID, &service.ReminderCaseRequest{
+		RunDate:     asOf,
+		FeeIDs:      []uuid.UUID{enrolledFee.ID, futureFee.ID},
+		PreviewedAt: &previewedAt,
+	}, nil)
+	assertConflict(t, err, []uuid.UUID{futureFee.ID})
+
+	// An Einstufung makes the under-three child's fees remindable.
+	einstufung := testEinstufung(underThree.ID, household.ID, time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC))
+	if err := einstufungRepo.Create(ctx, einstufung); err != nil {
+		t.Fatalf("failed to create Einstufung: %v", err)
+	}
+	if ids := listFeeIDs(); !ids[underThreeFee.ID] || ids[futureFee.ID] {
+		t.Fatalf("expected the under-three child's fee after Einstufung, got %v", ids)
+	}
+
+	// From the entry date on, the future child's fee is listed too.
+	result, err := reminderService.ListReminderCases(ctx, time.Date(2026, 12, 1, 0, 0, 0, 0, time.UTC), service.ReminderCasesScopeAll)
+	if err != nil {
+		t.Fatalf("ListReminderCases failed: %v", err)
+	}
+	found := false
+	for _, c := range result.Cases {
+		for _, fee := range c.Fees {
+			if fee.FeeID == futureFee.ID {
+				found = true
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("expected future child's fee from the entry date on")
 	}
 }

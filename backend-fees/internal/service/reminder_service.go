@@ -27,13 +27,14 @@ type ReminderEmailSender interface {
 // ReminderService is the shared reminder core for all fee-type scopes
 // (Food/Childcare and Membership).
 type ReminderService struct {
-	feeRepo       repository.FeeRepository
-	childRepo     repository.ChildRepository
-	householdRepo repository.HouseholdRepository
-	settingsRepo  repository.SettingsRepository
-	emailLogRepo  repository.EmailLogRepository
-	emailSender   ReminderEmailSender
-	now           func() time.Time
+	feeRepo        repository.FeeRepository
+	childRepo      repository.ChildRepository
+	householdRepo  repository.HouseholdRepository
+	einstufungRepo repository.EinstufungRepository
+	settingsRepo   repository.SettingsRepository
+	emailLogRepo   repository.EmailLogRepository
+	emailSender    ReminderEmailSender
+	now            func() time.Time
 }
 
 // EmailLogFilter filters the sent-email log.
@@ -49,17 +50,19 @@ func NewReminderService(
 	feeRepo repository.FeeRepository,
 	childRepo repository.ChildRepository,
 	householdRepo repository.HouseholdRepository,
+	einstufungRepo repository.EinstufungRepository,
 	settingsRepo repository.SettingsRepository,
 	emailLogRepo repository.EmailLogRepository,
 	emailSender ReminderEmailSender,
 ) *ReminderService {
 	return &ReminderService{
-		feeRepo:       feeRepo,
-		childRepo:     childRepo,
-		householdRepo: householdRepo,
-		settingsRepo:  settingsRepo,
-		emailLogRepo:  emailLogRepo,
-		emailSender:   emailSender,
-		now:           time.Now,
+		feeRepo:        feeRepo,
+		childRepo:      childRepo,
+		householdRepo:  householdRepo,
+		einstufungRepo: einstufungRepo,
+		settingsRepo:   settingsRepo,
+		emailLogRepo:   emailLogRepo,
+		emailSender:    emailSender,
+		now:            time.Now,
 	}
 }

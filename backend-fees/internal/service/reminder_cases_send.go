@@ -283,6 +283,18 @@ func (s *ReminderService) prepareCasePlan(ctx context.Context, householdID uuid.
 		feeByID[fee.FeeID] = fee
 	}
 
+	// Open fees of children not yet remindable (entry in the future, under
+	// three without Einstufung) are not in the case list.
+	var notRemindable []uuid.UUID
+	for _, id := range feeIDs {
+		if _, ok := feeByID[id]; !ok {
+			notRemindable = append(notRemindable, id)
+		}
+	}
+	if len(notRemindable) > 0 {
+		return nil, &CaseConflictError{FeeIDs: notRemindable, Reason: "selected fees belong to children who have not entered yet or are under three without Einstufung"}
+	}
+
 	selected := make([]ReminderCaseFee, 0, len(feeIDs))
 	baseIDs := make([]uuid.UUID, 0, len(feeIDs))
 	childIDByFee := make(map[uuid.UUID]uuid.UUID)

@@ -3,6 +3,19 @@
 Rolling change log of non-obvious implementation decisions. Newest first.
 Basics (ports, commands, layout) live in `AGENTS.md`.
 
+## Erinnerungen erst nach Eintritt, U3 nur mit Einstufung (2026-10-14)
+
+- Die Arbeitsliste (`GET /fees/reminder-cases`, beide Scopes) und Vorschau/Versand
+  (`/fees/reminder-cases/{householdId}/preview|send`) berücksichtigen offene Beiträge eines Kindes nur, wenn
+  sein Eintrittsdatum am Stichtag (`asOf` bzw. `runDate`) erreicht ist und es — falls dann unter drei — eine
+  Einstufung hat (irgendeinen Zeitraum). Das gilt für alle Beitragsarten samt Mahngebühren, also auch für den
+  Vereinsbeitrag, der vor dem Eintritt schon angelegt ist. Austritt spielt keine Rolle.
+- Logik: `ReminderService.remindableChildren` in `loadCaseFees`; der `ReminderService` bekommt dafür das
+  `EinstufungRepository`. Werden solche Beiträge trotzdem zum Versand ausgewählt, antwortet der Endpunkt mit
+  `409` (`CaseConflictError`) und den betroffenen IDs.
+- Anlass: zwei Kinder mit Eintritt 01.12.2026 (eins Ü3, eins U3 ohne Einstufung) standen mit dem
+  Vereinsbeitrag 2026 schon unter „Handlungsbedarf“.
+
 ## Manuelle Zuordnung bucht höchstens den überwiesenen Betrag (2026-10-14)
 
 - `CreateManualMatch` (`POST /import/match`) buchte bisher immer den vollen Gebührenbetrag, auch wenn die

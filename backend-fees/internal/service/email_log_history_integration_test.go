@@ -259,6 +259,7 @@ func TestGetHistoryReliableFrom_SetByMigration(t *testing.T) {
 		repository.NewPostgresFeeRepository(testDB),
 		repository.NewPostgresChildRepository(testDB),
 		repository.NewPostgresHouseholdRepository(testDB),
+		repository.NewPostgresEinstufungRepository(testDB),
 		settingsRepo,
 		repository.NewPostgresEmailLogRepository(testDB),
 		nil,
