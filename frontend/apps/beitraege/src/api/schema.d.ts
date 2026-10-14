@@ -5048,7 +5048,7 @@ export interface paths {
                         "application/json": components["schemas"]["ManualMatchResponse"];
                     };
                 };
-                /** @description Invalid transaction or expectation ID */
+                /** @description Invalid ID, fee already paid or transaction fully allocated */
                 400: {
                     headers: {
                         [name: string]: unknown;

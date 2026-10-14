@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -99,7 +100,7 @@ type ManualMatchResponse struct {
 // @Security BearerAuth
 // @Param match body ManualMatchRequest true "Match data"
 // @Success 201 {object} ManualMatchResponse "Match created"
-// @Failure 400 {object} response.ErrorBody "Invalid transaction or expectation ID"
+// @Failure 400 {object} response.ErrorBody "Invalid ID, fee already paid or transaction fully allocated"
 // @Failure 401 {object} response.ErrorBody "Not authenticated"
 // @Failure 404 {object} response.ErrorBody "Transaction or expectation not found"
 // @Failure 500 {object} response.ErrorBody "Internal server error"
@@ -135,6 +136,10 @@ func (h *ImportHandler) ManualMatch(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if err == service.ErrNotFound {
 			response.NotFound(w, "transaction or expectation not found")
+			return
+		}
+		if errors.Is(err, service.ErrInvalidInput) {
+			response.BadRequest(w, "Beitrag ist bereits bezahlt oder die Zahlung ist vollständig zugeordnet")
 			return
 		}
 		response.InternalError(w, "failed to create manual match")

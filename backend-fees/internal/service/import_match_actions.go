@@ -102,7 +102,7 @@ func (s *ImportService) GetUnmatchedTransactions(ctx context.Context, search, so
 // CreateManualMatch creates a manual match between transaction and fee.
 func (s *ImportService) CreateManualMatch(ctx context.Context, transactionID, expectationID, userID uuid.UUID) (*domain.PaymentMatch, error) {
 	// Verify transaction exists
-	_, err := s.transactionRepo.GetByID(ctx, transactionID)
+	tx, err := s.transactionRepo.GetByID(ctx, transactionID)
 	if err != nil {
 		return nil, ErrNotFound
 	}
@@ -113,11 +113,18 @@ func (s *ImportService) CreateManualMatch(ctx context.Context, transactionID, ex
 		return nil, ErrNotFound
 	}
 
+	// The match covers what is still open on the fee, but never more than is left
+	// of the transaction: a partial payment leaves the rest of the fee open.
+	amount, err := s.manualMatchAmount(ctx, tx, fee)
+	if err != nil {
+		return nil, err
+	}
+
 	match := &domain.PaymentMatch{
 		ID:            uuid.New(),
 		TransactionID: transactionID,
 		ExpectationID: expectationID,
-		Amount:        fee.Amount,
+		Amount:        amount,
 		MatchType:     domain.MatchTypeManual,
 		MatchedAt:     util.Now(),
 		MatchedBy:     &userID,
@@ -134,6 +141,33 @@ func (s *ImportService) CreateManualMatch(ctx context.Context, transactionID, ex
 	}
 
 	return match, nil
+}
+
+// manualMatchAmount returns min(open fee amount, unallocated transaction amount).
+// It returns ErrInvalidInput when the fee is already paid or the transaction is
+// already fully allocated.
+func (s *ImportService) manualMatchAmount(ctx context.Context, tx *domain.BankTransaction, fee *domain.FeeExpectation) (float64, error) {
+	const tolerance = domain.PaymentToleranceCents
+
+	matchedOnFee, err := s.matchRepo.GetTotalMatchedAmount(ctx, fee.ID)
+	if err != nil {
+		return 0, err
+	}
+	feeOpen := domain.Cents(fee.Amount) - domain.Cents(matchedOnFee)
+
+	existing, err := s.matchRepo.GetByTransactionIDs(ctx, []uuid.UUID{tx.ID})
+	if err != nil {
+		return 0, err
+	}
+	txLeft := domain.Cents(tx.Amount)
+	for _, m := range existing[tx.ID] {
+		txLeft -= domain.Cents(m.Amount)
+	}
+
+	if feeOpen <= tolerance || txLeft <= tolerance {
+		return 0, ErrInvalidInput
+	}
+	return domain.Euros(min(feeOpen, txLeft)), nil
 }
 
 // autoConfirmMatch automatically confirms a high-confidence match.

@@ -3,6 +3,20 @@
 Rolling change log of non-obvious implementation decisions. Newest first.
 Basics (ports, commands, layout) live in `AGENTS.md`.
 
+## Manuelle Zuordnung bucht höchstens den überwiesenen Betrag (2026-10-14)
+
+- `CreateManualMatch` (`POST /import/match`) buchte bisher immer den vollen Gebührenbetrag, auch wenn die
+  Überweisung kleiner war oder die Gebühr schon teilweise bezahlt. Jetzt gilt: Match-Betrag = min(offener
+  Gebührenbetrag, noch nicht zugeordneter Überweisungsbetrag); ist eins davon 0, antwortet der Endpunkt mit 400.
+  Eine Teilzahlung lässt den Rest der Gebühr offen. `allocate` prüfte das schon.
+- Aufgefallen bei der Prüfung Härtefallausgleich 2026 (Jugendamt Barnim): Elternbeitragseinnahmen
+  Jan–Aug 2026 laut Kontoauszug 14.511,22 €, die App zeigte 141 € mehr. Live korrigiert über die API
+  (Unmatch + `allocate`): Middelstaedt Juni-Nachzahlung vom 05.06.2026 (30 €, war mit 150 € gebucht);
+  Fink August 2026 Platzgeld 231 € → 210 € laut Einstufung, Zahlung vom 05.08.2026 mit 210 € neu zugeordnet.
+  Danach stimmt die App mit der Bank überein; keine neuen Warnungen.
+- Noch offen, nicht korrigiert: Abraham August 2026, Zahlung vom 21.09.2026 über 124,00 € ist mit 124,92 €
+  gebucht (Korrektur ließe 0,92 € offen).
+
 ## Einstufungsliste verlinkt Kinder; E-Mail zur Folgeeinstufung nennt die Änderung (2026-10-12)
 
 - Einstufungsliste: Kindnamen in „Einstufung fehlt“ und in der Tabelle führen zur Kindseite; Haushalt steht

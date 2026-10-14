@@ -3310,7 +3310,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ManualMatchResponse"
         "400":
-          description: Invalid transaction or expectation ID
+          description: Invalid ID, fee already paid or transaction fully allocated
           content:
             application/json:
               schema:
