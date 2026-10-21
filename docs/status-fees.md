@@ -3,6 +3,17 @@
 Rolling change log of non-obvious implementation decisions. Newest first.
 Basics (ports, commands, layout) live in `AGENTS.md`.
 
+## Einheitliche Sortier-Header, Vorstandstabelle filter- und sortierbar (2026-10-21)
+
+- Alle sortierbaren Tabellenköpfe nutzen `components/SortTh.vue` (Pfeil-Icons, `aria-sort` am `th`). Bisher
+  hatten Kinder, Mitglieder, Eltern, Beiträge und Banktransaktionen eigene Header-Buttons (Chevron-Icons,
+  bei Beiträge `aria-sort` am Button). `SortTh` ist dafür generisch über den Spaltenschlüssel und kann ein
+  Icon vor der Beschriftung (`icon`) und ein anderes Padding (`cellClass`, Transaktionen `px-3`). Die
+  Sortierlogik bleibt je Seite: serverseitig (Kinder, Mitglieder, Eltern, Beiträge mit eigener
+  Startrichtung je Spalte, Transaktionen) bzw. clientseitig über `useTableSort`.
+- Vorstand (`/elternstunden/vorstand`): Suche über Mitglied, Familie und Amt, Filter aktiv/nicht aktiv,
+  alle Spalten außer Aktionen sortierbar, Start: „Von“ absteigend.
+
 ## Erinnerungen erst nach Eintritt, U3 nur mit Einstufung (2026-10-14)
 
 - Die Arbeitsliste (`GET /fees/reminder-cases`, beide Scopes) und Vorschau/Versand

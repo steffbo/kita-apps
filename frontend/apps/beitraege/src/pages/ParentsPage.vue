@@ -11,15 +11,13 @@ import {
   Mail,
   Phone,
   AlertTriangle,
-  ChevronUp,
-  ChevronDown,
-  ChevronsUpDown,
   ChevronLeft,
   ChevronRight,
   Trash2,
   X,
 } from 'lucide-vue-next';
 import SearchInput from '@/components/SearchInput.vue';
+import SortTh from '@/components/SortTh.vue';
 import { usePagedList } from '@/composables/usePagedList';
 
 const router = useRouter();
@@ -120,11 +118,6 @@ function toggleSort(field: SortField) {
     sortField.value = field;
     sortDirection.value = 'asc';
   }
-}
-
-function getSortIcon(field: SortField) {
-  if (sortField.value !== field) return ChevronsUpDown;
-  return sortDirection.value === 'asc' ? ChevronUp : ChevronDown;
 }
 
 // Selection
@@ -317,37 +310,14 @@ const visiblePages = computed(() => {
                 />
               </th>
               <!-- Last Name -->
-              <th class="px-4 py-3 font-medium">
-                <button
-                  @click="toggleSort('lastName')"
-                  class="flex items-center gap-1 hover:text-foreground"
-                >
-                  <User class="h-4 w-4" />
-                  Nachname
-                  <component :is="getSortIcon('lastName')" class="h-4 w-4" />
-                </button>
-              </th>
+              <SortTh label="Nachname" column="lastName" :icon="User" :sort-key="sortField" :sort-dir="sortDirection"
+                @sort="toggleSort" />
               <!-- First Name -->
-              <th class="px-4 py-3 font-medium">
-                <button
-                  @click="toggleSort('firstName')"
-                  class="flex items-center gap-1 hover:text-foreground"
-                >
-                  Vorname
-                  <component :is="getSortIcon('firstName')" class="h-4 w-4" />
-                </button>
-              </th>
+              <SortTh label="Vorname" column="firstName" :sort-key="sortField" :sort-dir="sortDirection"
+                @sort="toggleSort" />
               <!-- Email -->
-              <th class="px-4 py-3 font-medium">
-                <button
-                  @click="toggleSort('email')"
-                  class="flex items-center gap-1 hover:text-foreground"
-                >
-                  <Mail class="h-4 w-4" />
-                  E-Mail
-                  <component :is="getSortIcon('email')" class="h-4 w-4" />
-                </button>
-              </th>
+              <SortTh label="E-Mail" column="email" :icon="Mail" :sort-key="sortField" :sort-dir="sortDirection"
+                @sort="toggleSort" />
               <!-- Phone -->
               <th class="px-4 py-3 font-medium">
                 <div class="flex items-center gap-1">

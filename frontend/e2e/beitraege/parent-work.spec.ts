@@ -110,6 +110,34 @@ test('board term exempts the family', async ({ adminApi, adminPage: page }) => {
   await expect(row).toContainText('0 h');
 });
 
+test('board terms: table filters and sorts', async ({ adminApi, adminPage: page }) => {
+  const family = await familyWithChild(adminApi);
+  const member = await adminApi.post<{ id: string }>('/members', {
+    memberNumber: memberNumber(), firstName: 'Mira', lastName: family.suffix,
+    membershipStart: `${family.year - 3}-01-01`, householdId: family.household.id,
+  });
+  await adminApi.post('/parent-work/board-terms', {
+    memberId: member.id, office: `A-Amt ${family.suffix}`,
+    startDate: `${family.year - 2}-01-01`, endDate: `${family.year - 2}-12-31`,
+  });
+  await adminApi.post('/parent-work/board-terms', {
+    memberId: member.id, office: `B-Amt ${family.suffix}`, startDate: `${family.year - 1}-01-01`,
+  });
+  await page.goto('/beitraege/elternstunden/vorstand');
+  await page.getByLabel('Amtszeiten durchsuchen').fill(family.suffix);
+  const rows = page.getByRole('row').filter({ hasText: family.suffix });
+  await expect(rows).toHaveCount(2);
+  await page.getByRole('button', { name: 'Amt', exact: true }).click();
+  await expect(page.getByRole('columnheader', { name: 'Amt' })).toHaveAttribute('aria-sort', 'ascending');
+  await expect(rows.first()).toContainText('A-Amt');
+  await page.getByRole('button', { name: 'Amt', exact: true }).click();
+  await expect(page.getByRole('columnheader', { name: 'Amt' })).toHaveAttribute('aria-sort', 'descending');
+  await expect(rows.first()).toContainText('B-Amt');
+  await page.getByLabel('Aktiv', { exact: true }).selectOption('inactive');
+  await expect(rows).toHaveCount(1);
+  await expect(rows.first()).toContainText('A-Amt');
+});
+
 test('CSV preview matches child and imports an entry', async ({ adminApi, adminPage: page }) => {
   const family = await familyWithChild(adminApi);
   const csv = [

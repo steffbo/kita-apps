@@ -13,9 +13,6 @@ import {
   Calendar,
   Trash2,
   AlertCircle,
-  ChevronUp,
-  ChevronDown,
-  ChevronsUpDown,
   ChevronLeft,
   ChevronRight,
 } from 'lucide-vue-next';
@@ -24,6 +21,7 @@ import { getFeePeriodLabel, getFeeTypeColor, getFeeTypeName } from '@/utils/fees
 import GenerateFeesDialog from '@/components/fees/GenerateFeesDialog.vue';
 import CreateFeeDialog from '@/components/fees/CreateFeeDialog.vue';
 import SearchInput from '@/components/SearchInput.vue';
+import SortTh from '@/components/SortTh.vue';
 
 const router = useRouter();
 const route = useRoute();
@@ -177,17 +175,6 @@ function toggleSort(column: FeeSortKey) {
     sortBy.value = column;
     sortDir.value = defaultSortDir[column];
   }
-}
-
-function getSortIcon(column: FeeSortKey) {
-  if (sortBy.value !== column) {
-    return ChevronsUpDown;
-  }
-  return sortDir.value === 'asc' ? ChevronUp : ChevronDown;
-}
-
-function isSorted(column: FeeSortKey) {
-  return sortBy.value === column;
 }
 
 function setTypeFilter(value: string) {
@@ -535,76 +522,16 @@ async function onFeeCreated() {
                   class="h-4 w-4 rounded border-border text-primary focus:ring-primary cursor-pointer"
                 />
               </th>
-              <th class="px-4 py-3 font-medium">
-                <button
-                  @click="toggleSort('memberNumber')"
-                  class="inline-flex items-center gap-1 hover:text-foreground"
-                  type="button"
-                  :aria-sort="isSorted('memberNumber') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'"
-                >
-                  <span>Mitgl.-Nr.</span>
-                  <component
-                    :is="getSortIcon('memberNumber')"
-                    :class="['h-4 w-4', isSorted('memberNumber') ? 'text-foreground' : 'text-muted-foreground']"
-                  />
-                </button>
-              </th>
-              <th class="px-4 py-3 font-medium">
-                <button
-                  @click="toggleSort('childName')"
-                  class="inline-flex items-center gap-1 hover:text-foreground"
-                  type="button"
-                  :aria-sort="isSorted('childName') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'"
-                >
-                  <span>Kind</span>
-                  <component
-                    :is="getSortIcon('childName')"
-                    :class="['h-4 w-4', isSorted('childName') ? 'text-foreground' : 'text-muted-foreground']"
-                  />
-                </button>
-              </th>
-              <th class="px-4 py-3 font-medium">
-                <button
-                  @click="toggleSort('feeType')"
-                  class="inline-flex items-center gap-1 hover:text-foreground"
-                  type="button"
-                  :aria-sort="isSorted('feeType') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'"
-                >
-                  <span>Typ</span>
-                  <component
-                    :is="getSortIcon('feeType')"
-                    :class="['h-4 w-4', isSorted('feeType') ? 'text-foreground' : 'text-muted-foreground']"
-                  />
-                </button>
-              </th>
-              <th class="px-4 py-3 font-medium">
-                <button
-                  @click="toggleSort('period')"
-                  class="inline-flex items-center gap-1 hover:text-foreground"
-                  type="button"
-                  :aria-sort="isSorted('period') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'"
-                >
-                  <span>Zeitraum</span>
-                  <component
-                    :is="getSortIcon('period')"
-                    :class="['h-4 w-4', isSorted('period') ? 'text-foreground' : 'text-muted-foreground']"
-                  />
-                </button>
-              </th>
-              <th class="px-4 py-3 font-medium text-right">
-                <button
-                  @click="toggleSort('amount')"
-                  class="inline-flex items-center gap-1 hover:text-foreground justify-end w-full"
-                  type="button"
-                  :aria-sort="isSorted('amount') ? (sortDir === 'asc' ? 'ascending' : 'descending') : 'none'"
-                >
-                  <span>Betrag</span>
-                  <component
-                    :is="getSortIcon('amount')"
-                    :class="['h-4 w-4', isSorted('amount') ? 'text-foreground' : 'text-muted-foreground']"
-                  />
-                </button>
-              </th>
+              <SortTh label="Mitgl.-Nr." column="memberNumber" :sort-key="sortBy" :sort-dir="sortDir"
+                @sort="toggleSort" />
+              <SortTh label="Kind" column="childName" :sort-key="sortBy" :sort-dir="sortDir"
+                @sort="toggleSort" />
+              <SortTh label="Typ" column="feeType" :sort-key="sortBy" :sort-dir="sortDir"
+                @sort="toggleSort" />
+              <SortTh label="Zeitraum" column="period" :sort-key="sortBy" :sort-dir="sortDir"
+                @sort="toggleSort" />
+              <SortTh label="Betrag" column="amount" align="right" :sort-key="sortBy" :sort-dir="sortDir"
+                @sort="toggleSort" />
               <th class="px-4 py-3 font-medium">Fällig</th>
               <th class="px-4 py-3 font-medium">Status</th>
               <th class="px-4 py-3 font-medium w-10"></th>

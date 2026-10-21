@@ -20,10 +20,8 @@ import {
   LinkIcon,
   Unlink,
   Search,
-  ArrowUp,
-  ArrowDown,
-  ArrowUpDown,
 } from 'lucide-vue-next';
+import SortTh from '@/components/SortTh.vue';
 import { formatCurrency, formatDate, formatDateTime, formatMonthName } from '@/utils/format';
 import { getFeeTypeColor, getFeeTypeName } from '@/utils/fees';
 
@@ -149,50 +147,14 @@ const dismissNote = computed({
       <table class="w-full">
         <thead class="bg-muted">
           <tr class="text-left text-sm text-muted-foreground">
-            <th
-              class="px-3 py-3 font-medium cursor-pointer hover:bg-accent select-none"
-              @click="toggleSort('date')"
-            >
-              <div class="flex items-center gap-1">
-                Datum
-                <ArrowUp v-if="sortField === 'date' && sortDirection === 'asc'" class="h-4 w-4" />
-                <ArrowDown v-else-if="sortField === 'date' && sortDirection === 'desc'" class="h-4 w-4" />
-                <ArrowUpDown v-else class="h-4 w-4 text-muted-foreground" />
-              </div>
-            </th>
-            <th
-              class="px-3 py-3 font-medium cursor-pointer hover:bg-accent select-none"
-              @click="toggleSort('payer')"
-            >
-              <div class="flex items-center gap-1">
-                Zahler
-                <ArrowUp v-if="sortField === 'payer' && sortDirection === 'asc'" class="h-4 w-4" />
-                <ArrowDown v-else-if="sortField === 'payer' && sortDirection === 'desc'" class="h-4 w-4" />
-                <ArrowUpDown v-else class="h-4 w-4 text-muted-foreground" />
-              </div>
-            </th>
-            <th
-              class="px-3 py-3 font-medium cursor-pointer hover:bg-accent select-none"
-              @click="toggleSort('description')"
-            >
-              <div class="flex items-center gap-1">
-                Beschreibung
-                <ArrowUp v-if="sortField === 'description' && sortDirection === 'asc'" class="h-4 w-4" />
-                <ArrowDown v-else-if="sortField === 'description' && sortDirection === 'desc'" class="h-4 w-4" />
-                <ArrowUpDown v-else class="h-4 w-4 text-muted-foreground" />
-              </div>
-            </th>
-            <th
-              class="px-3 py-3 font-medium text-right cursor-pointer hover:bg-accent select-none"
-              @click="toggleSort('amount')"
-            >
-              <div class="flex items-center justify-end gap-1">
-                Betrag
-                <ArrowUp v-if="sortField === 'amount' && sortDirection === 'asc'" class="h-4 w-4" />
-                <ArrowDown v-else-if="sortField === 'amount' && sortDirection === 'desc'" class="h-4 w-4" />
-                <ArrowUpDown v-else class="h-4 w-4 text-muted-foreground" />
-              </div>
-            </th>
+            <SortTh label="Datum" column="date" cell-class="px-3 py-3"
+              :sort-key="sortField" :sort-dir="sortDirection" @sort="toggleSort" />
+            <SortTh label="Zahler" column="payer" cell-class="px-3 py-3"
+              :sort-key="sortField" :sort-dir="sortDirection" @sort="toggleSort" />
+            <SortTh label="Beschreibung" column="description" cell-class="px-3 py-3"
+              :sort-key="sortField" :sort-dir="sortDirection" @sort="toggleSort" />
+            <SortTh label="Betrag" column="amount" align="right" cell-class="px-3 py-3"
+              :sort-key="sortField" :sort-dir="sortDirection" @sort="toggleSort" />
             <th class="px-3 py-3 font-medium">Status</th>
             <th class="px-3 py-3 font-medium text-right">Aktionen</th>
           </tr>

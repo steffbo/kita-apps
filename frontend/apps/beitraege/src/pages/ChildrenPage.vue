@@ -15,9 +15,6 @@ import {
   Upload,
   AlertTriangle,
   Coins,
-  ChevronUp,
-  ChevronDown,
-  ChevronsUpDown,
   ChevronLeft,
   ChevronRight,
   Trash2,
@@ -27,6 +24,7 @@ import {
 import { formatDate, todayISO } from '@/utils/format';
 import { calculateAge, isUnderThree } from '@/utils/child';
 import SearchInput from '@/components/SearchInput.vue';
+import SortTh from '@/components/SortTh.vue';
 import { usePagedList } from '@/composables/usePagedList';
 
 const router = useRouter();
@@ -206,11 +204,6 @@ function toggleSort(field: SortField) {
     sortField.value = field;
     sortDirection.value = 'asc';
   }
-}
-
-function getSortIcon(field: SortField) {
-  if (sortField.value !== field) return ChevronsUpDown;
-  return sortDirection.value === 'asc' ? ChevronUp : ChevronDown;
 }
 
 // Selection
@@ -517,48 +510,17 @@ const visiblePages = computed(() => {
                 />
               </th>
               <!-- Member number -->
-              <th class="px-4 py-3 font-medium">
-                <button
-                  @click="toggleSort('memberNumber')"
-                  class="flex items-center gap-1 hover:text-foreground"
-                >
-                  <Hash class="h-4 w-4" />
-                  Nr.
-                  <component :is="getSortIcon('memberNumber')" class="h-4 w-4" />
-                </button>
-              </th>
+              <SortTh label="Nr." column="memberNumber" :icon="Hash" :sort-key="sortField" :sort-dir="sortDirection"
+                @sort="toggleSort" />
               <!-- Last Name -->
-              <th class="px-4 py-3 font-medium">
-                <button
-                  @click="toggleSort('lastName')"
-                  class="flex items-center gap-1 hover:text-foreground"
-                >
-                  <User class="h-4 w-4" />
-                  Nachname
-                  <component :is="getSortIcon('lastName')" class="h-4 w-4" />
-                </button>
-              </th>
+              <SortTh label="Nachname" column="lastName" :icon="User" :sort-key="sortField" :sort-dir="sortDirection"
+                @sort="toggleSort" />
               <!-- First Name -->
-              <th class="px-4 py-3 font-medium">
-                <button
-                  @click="toggleSort('firstName')"
-                  class="flex items-center gap-1 hover:text-foreground"
-                >
-                  Vorname
-                  <component :is="getSortIcon('firstName')" class="h-4 w-4" />
-                </button>
-              </th>
+              <SortTh label="Vorname" column="firstName" :sort-key="sortField" :sort-dir="sortDirection"
+                @sort="toggleSort" />
               <!-- Birth date -->
-              <th class="px-4 py-3 font-medium">
-                <button
-                  @click="toggleSort('birthDate')"
-                  class="flex items-center gap-1 hover:text-foreground"
-                >
-                  <Calendar class="h-4 w-4" />
-                  Geburtsdatum
-                  <component :is="getSortIcon('birthDate')" class="h-4 w-4" />
-                </button>
-              </th>
+              <SortTh label="Geburtsdatum" column="birthDate" :icon="Calendar" :sort-key="sortField" :sort-dir="sortDirection"
+                @sort="toggleSort" />
               <!-- Age -->
               <th class="px-4 py-3 font-medium">Alter</th>
               <!-- Care Hours -->
