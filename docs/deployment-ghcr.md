@@ -13,7 +13,7 @@ There are no separately published frontend images. `kita-backend-management` is 
 
 ## Build pipeline
 
-`.github/workflows/build-images.yml` runs on every push to `main` and through manual dispatch. Its matrix builds both images and publishes:
+`.github/workflows/build-images.yml` runs on every push to `main` and through manual dispatch. It calls `ci.yml` and, in parallel, builds both images without pushing (job `build`, fills the GitHub Actions BuildKit cache, one cache scope per image). Only after CI and `build` are green does job `push` rebuild from that cache and publish:
 
 - `latest` on the default branch;
 - a Git-SHA tag such as `sha-abc1234`;

@@ -15,7 +15,8 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
-  workers: process.env.CI ? 2 : undefined,
+  // GitHub's standard runner for public repos has 4 vCPUs.
+  workers: process.env.CI ? 4 : undefined,
   timeout: 60_000,
   reporter: process.env.CI
     ? [['list'], ['html', { outputFolder: 'playwright-report', open: 'never' }]]

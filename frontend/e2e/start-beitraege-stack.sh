@@ -27,9 +27,11 @@ trap 'exit 143' TERM INT
 
 echo "[e2e] starting PostgreSQL ($DB_CONTAINER on :$E2E_DB_PORT)"
 docker rm -f "$DB_CONTAINER" >/dev/null 2>&1 || true
+# Started in the background so a cold image pull overlaps the builds below.
 docker run -d --rm --name "$DB_CONTAINER" \
   -e POSTGRES_USER=kita -e POSTGRES_PASSWORD=kita -e POSTGRES_DB=kita_e2e \
-  -p "127.0.0.1:$E2E_DB_PORT:5432" postgres:16-alpine >/dev/null
+  -p "127.0.0.1:$E2E_DB_PORT:5432" postgres:16-alpine >/dev/null &
+DB_START_PID=$!
 
 echo "[e2e] building frontend"
 (cd "$ROOT_DIR/frontend/apps/beitraege" && bun run vite build --logLevel warn)
@@ -42,6 +44,7 @@ cd "$ROOT_DIR/backend-fees"
 go build -tags embed_frontend -o "$BUILD_DIR/server" ./cmd/server
 go build -o "$BUILD_DIR/migrate" ./cmd/migrate
 
+wait "$DB_START_PID"
 for _ in $(seq 1 60); do
   docker exec "$DB_CONTAINER" pg_isready -U kita -d kita_e2e >/dev/null 2>&1 && break
   sleep 0.5

@@ -3,6 +3,23 @@
 Rolling change log of non-obvious implementation decisions. Newest first.
 Basics (ports, commands, layout) live in `AGENTS.md`.
 
+## Schnellere Release-Pipeline (2026-10-21)
+
+- Ausgangslage: Push bis Image ca. 3:45 min. Kritischer Pfad war `e2e-beitraege` (gut 2 min, davon 36 s
+  Chromium-Installation, 10 s Postgres-Pull, 26 s Stack-Build, 31 s Tests) und danach seriell der Image-Build
+  (`backend-fees` 71 s, davon 38 s Cache-Export ohne jeden Cache-Treffer).
+- Kein Sharding der Playwright-Suite wie in resk: 36 Tests laufen in rund 30 s, jeder Shard müsste aber die
+  komplette Einrichtung (Go, Bun, Chromium, Stack-Build, ca. 85 s) wiederholen. Stattdessen:
+  - `build-images.yml`: Job `build` baut beide Images parallel zur CI ohne Push und füllt den Cache, Job
+    `push` (`needs: [ci, build]`) baut aus dem Cache neu und pusht. Ein rotes CI liefert weiterhin kein Image.
+  - Cache-Scope pro Image (`scope=<name>`): vorher teilten sich beide Images den Standard-Scope und
+    überschrieben sich gegenseitig den Cache, deshalb lief `backend-fees` immer komplett neu.
+  - Playwright-Browser werden per `actions/cache` (Schlüssel `bun.lock`) zwischengespeichert; die
+    Systempakete (`install-deps`) laufen weiter jedes Mal.
+  - CI-Worker 2 → 4 (Standard-Runner öffentlicher Repos hat 4 vCPUs).
+  - `start-beitraege-stack.sh` startet den Postgres-Container im Hintergrund, damit ein kalter Image-Pull
+    parallel zum Frontend-/Backend-Build läuft.
+
 ## Einheitliche Sortier-Header, Vorstandstabelle filter- und sortierbar (2026-10-21)
 
 - Alle sortierbaren Tabellenköpfe nutzen `components/SortTh.vue` (Pfeil-Icons, `aria-sort` am `th`). Bisher
