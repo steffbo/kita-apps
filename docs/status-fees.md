@@ -14,6 +14,27 @@ Basics (ports, commands, layout) live in `AGENTS.md`.
   und `primary-text`). `brand-*` und `header` sind entfernt. Schrift Inter statt Nunito, Ziffern in Tabellen
   und Eingaben tabellarisch, Radius 10 px. Eingaben auf schmalen Bildschirmen 16 px, sonst zoomt iOS Safari
   beim Fokus hinein.
+- Schritt 2, App-Hülle (`layouts/MainLayout.vue`, Navigation zentral in `composables/useNavigation.ts`):
+  - Ab `lg` (1024 px) Seitenleiste mit Gruppen (Start, Aufgaben · Stammdaten · Beiträge · Elternstunden ·
+    System), Suchfeld und Konto unten. Die bisherigen Split-Buttons (Text öffnet erste Seite, Pfeil das Menü)
+    sind weg. Darunter Kopfleiste (Logo, Suche, Konto) und Tab-Leiste unten: Admin Start · Aufgaben · Kinder ·
+    Erinnerungen · Mehr; `USER` hat Beiträge statt Erinnerungen (Erinnerungen sind Admin-only); Eltern
+    Übersicht · Beiträge · Stunden · Daten. „Mehr“ öffnet die komplette Navigation als Sheet. Tablets im
+    Hochformat bekommen bewusst das Handy-Layout, die breiten Tabellen brauchen den Platz.
+  - „Aufgaben“ bündelt Bankabgleich, Meldungen und Änderungen von Eltern unter gemeinsamen Reitern
+    (`layouts/TasksLayout.vue`, Router-Elternroute mit leerem Pfad). Die URLs `/bankabgleich`, `/import`,
+    `/meldungen` und `/aenderungen` bleiben, `/aufgaben` leitet auf den Bankabgleich. Der Navigationspunkt
+    springt in den ersten Bereich mit offenen Einträgen. Zähler (`composables/useTaskCounts.ts`): nicht
+    zugeordnete Transaktionen, offene Meldungen, neue Änderungen seit dem letzten Besuch (wie die
+    Dashboard-Karte). Sie werden beim Seitenwechsel höchstens alle 30 s neu geladen, beim Verlassen oder
+    Betreten eines Aufgaben-Bereichs sofort. Die Bereiche haben keine eigene Überschrift mehr.
+  - Suche (Strg/⌘+K oder Lupe): Seiten, Kinder und Eltern (Server-Suche ab 2 Zeichen), Pfeiltasten + Enter.
+  - Konto-Menü: Design als Segmentschalter System/Hell/Dunkel (statt Rundlauf-Button), Passwort ändern bzw.
+    Impersonation beenden, Abmelden. Auf dem Desktop ein Popover über dem Konto-Eintrag, sonst ein Sheet.
+    Die Impersonation steht als gelbe Leiste über dem Inhalt, mit eigenem „Beenden“.
+  - `components/ui/AppSheet.vue`: Dialog als Bottom Sheet auf dem Handy, zentriert ab `sm`; Esc über
+    `[data-dialog-close]`, Scroll-Sperre, Fokus auf `[autofocus]` bzw. den Dialog. Grundlage für Schritt 3.
+  - `index.html`: `viewport-fit=cover` (Tab-Leiste respektiert den iPhone-Home-Indikator) und `theme-color`.
 
 ## Schnellere Release-Pipeline (2026-10-21)
 

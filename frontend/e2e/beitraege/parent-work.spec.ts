@@ -37,10 +37,9 @@ test('parent work role sees only its area and cannot fetch children', async ({ b
     await expect(page.getByRole('heading', { name: 'Elternstunden', exact: true })).toBeVisible();
     const navigation = page.getByRole('navigation');
     await expect(navigation.getByText('Elternstunden', { exact: true })).toBeVisible();
-    for (const group of ['Täglich', 'Verwaltung', 'Beiträge', 'System']) {
+    for (const group of ['Aufgaben', 'Stammdaten', 'Beiträge', 'System']) {
       await expect(navigation.getByText(group, { exact: true })).toHaveCount(0);
     }
-    await navigation.getByRole('button', { name: 'Elternstunden' }).click();
     await expect(navigation.getByRole('link', { name: 'Verwaltung' })).toBeVisible();
     await expect(navigation.getByRole('link', { name: 'Vorstand' })).toHaveCount(0);
     await page.goto('/beitraege/elternstunden/vorstand');

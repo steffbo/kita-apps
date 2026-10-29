@@ -26,6 +26,8 @@ Removed in 2026-09 (Dienstplan/Zeiterfassung `backend-management` + apps, portal
 
 In `backend-fees`, fee amounts (brackets, tables, sibling factors, food/membership fee) are versioned data in `fees.fee_schedules` (UI: Beitragsordnung), not code; pick the version valid at the relevant date. Monthly childcare fees (CHILDCARE) come from the Einstufung valid in the month (`fees.einstufungen`); household income data is only the fallback for months without one. Business dates follow Europe/Berlin: use `util.Today()` (Berlin date as UTC midnight, like scanned `DATE` columns) for date comparisons and `util.Now()` for year/month and timestamps — never bare `time.Now()`.
 
+Beiträge UI: navigation and role filtering in `src/composables/useNavigation.ts` (sidebar from `lg`, bottom tabs below); Bankabgleich, Meldungen and Änderungen share the „Aufgaben“ tabs (`src/layouts/TasksLayout.vue`) and keep their URLs. Zinc + Indigo tokens in `src/assets/main.css`; use status tokens (`success|warning|destructive` + `-soft`/`-line`) instead of raw palette colors. Design reference: `docs/design/ui-mockup.html`.
+
 Go services all follow: `cmd/server`, `cmd/migrate`, `internal/api` (handlers + router), `internal/service` (business logic), `internal/repository` (SQL), `migrations/`.
 
 ## Roles and Elternstunden

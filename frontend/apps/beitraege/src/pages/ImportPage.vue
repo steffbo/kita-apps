@@ -311,14 +311,6 @@ function getWarningTypeColor(type: string): string {
 
 <template>
   <div>
-    <!-- Header -->
-    <div class="mb-6">
-      <h1 class="text-2xl font-bold text-foreground">Bankabgleich</h1>
-      <p class="text-muted-foreground mt-1">
-        Banktransaktionen abrufen und Zahlungen zuordnen
-      </p>
-    </div>
-
     <!-- Banking Sync -->
     <BankingSyncCard v-if="authStore.isAdmin" @sync-finished="refreshAfterSync" />
 

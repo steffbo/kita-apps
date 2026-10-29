@@ -40,7 +40,6 @@ const topics: Record<string, string> = {
 </script>
 <template>
   <div class="space-y-5">
-    <h1 class="text-2xl font-bold">Meldungen</h1>
     <label class="block max-w-44 text-sm font-medium">Status
       <select v-model="status" class="mt-1 w-full rounded-lg border px-3 py-2">
         <option value="OPEN">Offen</option><option value="DONE">Erledigt</option>

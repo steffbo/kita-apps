@@ -31,14 +31,36 @@ const router = createRouter({
           component: () => import('@/pages/FamilyDataPage.vue'), meta: { requiresParent: true } },
         { path: 'familie/:pathMatch(.*)*', redirect: { name: 'family' },
           meta: { requiresParent: true } },
-        { path: 'meldungen', name: 'reports', component: () => import('@/pages/ReportsPage.vue'),
-          meta: { requiresAdmin: true } },
         {
           path: '',
           name: 'dashboard',
           component: () => import('@/pages/DashboardPage.vue'),
           meta: { requiresFees: true },
         },
+        {
+          // „Aufgaben“: shared tabs above the sections, which keep their own URLs.
+          // Declared after the dashboard so that `/` keeps matching the dashboard.
+          path: '',
+          component: () => import('@/layouts/TasksLayout.vue'),
+          children: [
+            {
+              path: 'bankabgleich',
+              name: 'bankabgleich',
+              alias: 'import',
+              component: () => import('@/pages/ImportPage.vue'),
+              meta: { requiresFees: true },
+            },
+            { path: 'meldungen', name: 'reports', component: () => import('@/pages/ReportsPage.vue'),
+              meta: { requiresAdmin: true } },
+            {
+              path: 'aenderungen',
+              name: 'parent-changes',
+              component: () => import('@/pages/ParentChangesPage.vue'),
+              meta: { requiresFees: true, requiresAdmin: true },
+            },
+          ],
+        },
+        { path: 'aufgaben', name: 'tasks', redirect: { name: 'bankabgleich' } },
         {
           path: 'kinder',
           name: 'children',
@@ -94,13 +116,6 @@ const router = createRouter({
           meta: { requiresFees: true },
         },
         {
-          path: 'bankabgleich',
-          name: 'bankabgleich',
-          alias: 'import',
-          component: () => import('@/pages/ImportPage.vue'),
-          meta: { requiresFees: true },
-        },
-        {
           path: 'automatisierung',
           name: 'automation',
           component: () => import('@/pages/AutomationPage.vue'),
@@ -111,12 +126,6 @@ const router = createRouter({
           name: 'fee-schedules',
           component: () => import('@/pages/FeeSchedulesPage.vue'),
           meta: { requiresFees: true },
-        },
-        {
-          path: 'aenderungen',
-          name: 'parent-changes',
-          component: () => import('@/pages/ParentChangesPage.vue'),
-          meta: { requiresFees: true, requiresAdmin: true },
         },
         {
           path: 'benutzer',
