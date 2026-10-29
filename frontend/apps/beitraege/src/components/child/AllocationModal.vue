@@ -2,9 +2,11 @@
 import { ref, computed } from 'vue';
 import { api } from '@/api';
 import type { FeeExpectation, MatchSuggestion } from '@/api/types';
-import { Loader2, X } from 'lucide-vue-next';
+import { Loader2 } from 'lucide-vue-next';
 import { formatCurrency, formatDate, formatMonthName } from '@/utils/format';
 import { getFeeRemainingAmount, getFeeTypeName, getTxRemainingAmount } from '@/utils/fees';
+import AppSheet from '@/components/ui/AppSheet.vue';
+import EmptyState from '@/components/ui/EmptyState.vue';
 
 const props = defineProps<{ suggestion: MatchSuggestion; openFees: FeeExpectation[] }>();
 const emit = defineEmits<{ close: []; allocated: [] }>();
@@ -103,19 +105,9 @@ async function confirmAllocation(): Promise<void> {
 </script>
 
 <template>
-  <div
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-    @click.self="$emit('close')"
-  >
-    <div class="bg-card rounded-xl shadow-xl w-full max-w-2xl mx-4 p-6 max-h-[90vh] overflow-y-auto">
-      <div class="flex items-center justify-between mb-6">
-        <h2 class="text-xl font-semibold">Transaktion zuordnen</h2>
-        <button @click="$emit('close')" class="p-1 hover:bg-accent rounded" aria-label="Schließen">
-          <X class="h-5 w-5" />
-        </button>
-      </div>
+  <AppSheet title="Transaktion zuordnen" size="lg" @close="$emit('close')">
 
-      <div class="p-4 bg-blue-50 dark:bg-blue-950/40 rounded-lg mb-6">
+      <div class="p-4 bg-primary-soft rounded-lg mb-6">
         <div class="flex justify-between text-sm">
           <span class="text-muted-foreground">Zahler</span>
           <span class="font-medium">{{ suggestion.transaction.payerName || 'Unbekannt' }}</span>
@@ -126,7 +118,7 @@ async function confirmAllocation(): Promise<void> {
         </div>
         <div class="flex justify-between text-sm">
           <span class="text-muted-foreground">Betrag</span>
-          <span class="font-semibold text-blue-700 dark:text-blue-300">{{ formatCurrency(suggestion.transaction.amount) }}</span>
+          <span class="font-semibold text-primary">{{ formatCurrency(suggestion.transaction.amount) }}</span>
         </div>
         <div v-if="(suggestion.transaction.matchedAmount ?? 0) > 0" class="flex justify-between text-sm">
           <span class="text-muted-foreground">Bereits zugeordnet</span>
@@ -139,9 +131,7 @@ async function confirmAllocation(): Promise<void> {
 
       <div class="space-y-3">
         <h3 class="text-sm font-medium text-muted-foreground">Offene Beiträge</h3>
-        <div v-if="allocationRows.length === 0" class="text-sm text-muted-foreground">
-          Keine offenen Beiträge vorhanden.
-        </div>
+        <EmptyState v-if="allocationRows.length === 0" text="Keine offenen Beiträge vorhanden." />
         <div v-else class="space-y-2">
           <div
             v-for="row in allocationRows"
@@ -195,33 +185,25 @@ async function confirmAllocation(): Promise<void> {
         </div>
         <div class="flex justify-between text-sm">
           <span class="text-muted-foreground">Restbetrag</span>
-          <span :class="allocationRemaining < -0.01 ? 'text-red-600 dark:text-red-300 font-medium' : 'font-medium'">
+          <span :class="allocationRemaining < -0.01 ? 'text-destructive font-medium' : 'font-medium'">
             {{ formatCurrency(allocationRemaining) }}
           </span>
         </div>
         <p v-if="allocationRemaining > 0.01" class="text-xs text-muted-foreground">
           Der Restbetrag bleibt offen und kann später einem anderen Beitrag oder Kind zugeordnet werden.
         </p>
-        <p v-if="allocationError" class="text-sm text-red-600 dark:text-red-300">
+        <p v-if="allocationError" class="text-sm text-destructive">
           {{ allocationError }}
         </p>
       </div>
 
-      <div class="flex justify-end gap-3 mt-6">
-        <button
-          @click="$emit('close')"
-          class="px-4 py-2 bg-muted text-foreground hover:bg-accent rounded-lg transition-colors"
-        >
-          Abbrechen
-        </button>
-        <button
-          @click="confirmAllocation"
+      <template #footer>
+        <button type="button" class="btn btn-secondary" @click="$emit('close')">Abbrechen</button>
+        <button type="button" class="btn btn-primary"
           :disabled="isAllocating || allocationTotal <= 0 || allocationRemaining < -0.01"
-          class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
-        >
-          <Loader2 v-if="isAllocating" class="h-4 w-4 animate-spin" />
-          Zuordnen
+          @click="confirmAllocation">
+          <Loader2 v-if="isAllocating" class="animate-spin" />Zuordnen
         </button>
-      </div>
-    </div>
-  </div></template>
+      </template>
+  </AppSheet>
+</template>

@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import PageHeader from '@/components/ui/PageHeader.vue';
+import EmptyState from '@/components/ui/EmptyState.vue';
+
 import { ref, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api';
@@ -17,7 +20,6 @@ import type {
 import type { DownloadedFile } from '@/api/client';
 import {
   AlertTriangle,
-  ArrowLeft,
   Calculator,
   Loader2,
   Save,
@@ -764,113 +766,87 @@ watch(defaultEmailBody, (next) => {
 
 <template>
   <div>
-    <!-- Header -->
-    <div class="flex items-center gap-4 mb-6">
-      <button
-        @click="router.push('/einstufungen')"
-        class="p-2 rounded-lg hover:bg-accent transition-colors"
-      >
-        <ArrowLeft class="h-5 w-5" />
-      </button>
-      <div class="flex-1">
-        <h1 class="text-2xl font-bold text-foreground">
-          {{ isFollowUpMode ? 'Folgeeinstufung erstellen' : isNew ? 'Neue Einstufung' : 'Einstufung bearbeiten' }}
-        </h1>
-        <p v-if="einstufung && einstufung.child" class="text-sm text-muted-foreground mt-0.5">
-          {{ einstufung.child.firstName }} {{ einstufung.child.lastName }} &middot; {{ einstufung.year }}
-        </p>
-      </div>
-    </div>
-
+    <PageHeader
+      back="/einstufungen"
+      :title="isFollowUpMode ? 'Folgeeinstufung erstellen' : isNew ? 'Neue Einstufung' : 'Einstufung bearbeiten'" />
+    <p v-if="einstufung && einstufung.child" class="mb-5 text-sm text-muted-foreground">
+      {{ einstufung.child.firstName }} {{ einstufung.child.lastName }} &middot; {{ einstufung.year }}
+    </p>
     <!-- Loading -->
     <div v-if="isLoading" class="flex items-center justify-center py-20">
       <Loader2 class="h-8 w-8 text-primary animate-spin" />
     </div>
-
     <!-- Error -->
-    <div v-if="error" class="bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-300 p-4 rounded-lg mb-4">
-      {{ error }}
+    <div v-if="error" class="note note-danger mb-4">
+      <Info />
+      <div class="min-w-0 flex-1">{{ error }}</div>
     </div>
-
     <!-- Success -->
-    <div v-if="saveSuccess" class="bg-green-50 dark:bg-green-950/40 text-green-700 dark:text-green-300 p-4 rounded-lg mb-4 flex items-center gap-2">
+    <div v-if="saveSuccess" class="note note-success mb-4">
       <CheckCircle class="h-5 w-5" />
-      {{ sourceEinstufung ? 'Folgeeinstufung erfolgreich gespeichert.' : 'Einstufung erfolgreich gespeichert.' }}
+      <div class="min-w-0 flex-1">
+        {{ sourceEinstufung ? 'Folgeeinstufung erfolgreich gespeichert.' : 'Einstufung erfolgreich gespeichert.' }}
+      </div>
     </div>
-
     <form v-if="!isLoading" @submit.prevent="handleSubmit" class="space-y-6">
       <!-- Child & Parameters Card -->
-      <div class="bg-card rounded-lg border shadow-sm p-6">
-        <h2 class="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+      <div class="card p-4 sm:p-6">
+        <h2 class="text-base font-semibold text-foreground border-b pb-3 mb-4 flex items-center gap-2">
           <User class="h-5 w-5 text-muted-foreground" />
           Kind & Parameter
         </h2>
-
         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <!-- Child search -->
           <div>
-            <label class="block text-sm font-medium text-foreground mb-1">Kind *</label>
+            <label class="label">Kind *</label>
             <ChildSearchSelect
               v-model="selectedChildId"
               :children="children"
               :households="households"
               :disabled="!isNew || isFollowUpMode"
-              @update:model-value="onChildSelected"
-            />
+              @update:model-value="onChildSelected" />
           </div>
-
           <!-- Year -->
           <div>
-            <label class="block text-sm font-medium text-foreground mb-1">Jahr *</label>
-            <select
-              v-model="selectedYear"
-              :disabled="!isNew"
-              class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary disabled:bg-muted"
-              required
-            >
-              <option v-for="y in yearOptions" :key="y" :value="y">
-                {{ y }}
-              </option>
+            <label class="label">Jahr *</label>
+            <select v-model="selectedYear" :disabled="!isNew" class="input" required>
+              <option v-for="y in yearOptions" :key="y" :value="y">{{ y }}</option>
             </select>
           </div>
-
           <!-- Income changes still need a date; initial validity comes from the child. -->
           <div v-if="isFollowUpMode">
-            <label class="block text-sm font-medium text-foreground mb-1">Änderungsdatum *</label>
-            <input
-              type="date"
-              v-model="validFrom"
-              class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              required
-            />
+            <label class="label">Änderungsdatum *</label>
+            <input type="date" v-model="validFrom" class="input" required />
             <p v-if="isFollowUpMode" class="mt-1 text-xs text-muted-foreground">
               Wirksam ab {{ formatEffectiveFromMonth(effectiveFromMonthPreview) }}
             </p>
           </div>
-
-          <div v-else class="md:col-span-2 rounded-lg border border-blue-100 bg-blue-50 dark:bg-blue-950/40 px-4 py-3 text-sm text-blue-800 dark:text-blue-300">
-            Gültigkeit und Betreuungsstunden werden automatisch aus dem Kinddatensatz und dessen Stundenverlauf übernommen.
+          <div v-else class="note note-info">
+            <Info />
+            <div class="min-w-0 flex-1">
+              Gültigkeit und Betreuungsstunden werden automatisch aus dem Kinddatensatz und dessen Stundenverlauf übernommen.
+            </div>
           </div>
-
           <!-- Children count -->
           <div>
-            <label for="childrenCount" class="block text-sm font-medium text-foreground mb-1">Anzahl unterhaltspflichtiger Kinder *</label>
+            <label for="childrenCount" class="label">Anzahl unterhaltspflichtiger Kinder *</label>
             <input
               id="childrenCount"
               type="number"
               v-model.number="childrenCount"
               min="1"
               max="10"
-              class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary"
-              required
-            />
+              class="input"
+              required />
             <p v-if="isNew && !isFollowUpMode && householdChildren.length" class="mt-1 text-xs text-muted-foreground">
-              Im Haushalt bekannt: {{ householdChildren.map((c) => c.firstName).join(', ') }}<template
-                v-if="selectedHousehold?.childrenCountForFees"> · zuletzt erfasst: {{ selectedHousehold.childrenCountForFees }}</template>.
+              Im Haushalt bekannt: {{ householdChildren.map((c) => c.firstName).join(', ') }}
+              <template v-if="selectedHousehold?.childrenCountForFees">
+                · zuletzt erfasst: {{ selectedHousehold.childrenCountForFees }}
+              </template>
+              .
               Weitere unterhaltspflichtige Kinder (z. B. Schulkinder) bitte hinzuzählen.
             </p>
           </div>
-
           <fieldset class="md:col-span-2 lg:col-span-3">
             <legend class="block text-sm font-medium text-foreground mb-2">Einkommensgrundlage *</legend>
             <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -878,19 +854,17 @@ watch(defaultEmailBody, (next) => {
                 v-for="option in incomeBasisOptions"
                 :key="option.value"
                 :class="[
-                  'flex items-start gap-2 rounded-lg border px-3 py-2 text-sm transition-colors',
-                  option.disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-accent',
-                  incomeBasis === option.value ? 'border-primary bg-primary/5' : '',
-                ]"
-              >
+                'flex items-start gap-2 rounded-lg border px-3 py-2 text-sm transition-colors',
+                option.disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer hover:bg-accent',
+                incomeBasis === option.value ? 'border-primary bg-primary-soft' : '',
+                ]">
                 <input
                   type="radio"
                   name="incomeBasis"
                   :value="option.value"
                   v-model="incomeBasis"
                   :disabled="option.disabled"
-                  class="mt-0.5 h-4 w-4 text-primary focus:ring-primary/20"
-                />
+                  class="mt-0.5 h-4 w-4 text-primary focus:ring-primary/20" />
                 <span>
                   <span class="font-medium text-foreground">{{ option.label }}</span>
                   <span class="block text-xs text-muted-foreground">{{ option.hint }}</span>
@@ -902,45 +876,39 @@ watch(defaultEmailBody, (next) => {
                 type="checkbox"
                 v-model="provisional"
                 id="provisional"
-                class="h-4 w-4 text-primary rounded focus:ring-primary/20"
-              />
-              <label for="provisional" class="text-sm text-foreground">
-                Vorläufig – Nachweise fehlen noch
-              </label>
+                class="h-4 w-4 text-primary rounded focus:ring-primary/20" />
+              <label for="provisional" class="text-sm text-foreground">Vorläufig – Nachweise fehlen noch</label>
             </div>
           </fieldset>
         </div>
-
         <!-- Household info -->
-        <div v-if="selectedHousehold" class="mt-4 p-3 bg-muted rounded-lg flex items-center gap-2 text-sm text-muted-foreground">
+        <div v-if="selectedHousehold" class="note mt-4 flex-wrap">
           <Home class="h-4 w-4 text-muted-foreground" />
-          Haushalt: <strong>{{ selectedHousehold.name }}</strong>
-          <span v-if="selectedHousehold.annualHouseholdIncome" class="ml-2">
-            (bisheriges Einkommen: {{ formatCurrency(selectedHousehold.annualHouseholdIncome) }})
-          </span>
+          <div class="min-w-0 flex-1">
+            Haushalt:
+            <strong>{{ selectedHousehold.name }}</strong>
+            <span v-if="selectedHousehold.annualHouseholdIncome" class="ml-2">
+              (bisheriges Einkommen: {{ formatCurrency(selectedHousehold.annualHouseholdIncome) }})
+            </span>
+          </div>
         </div>
-        <div v-else-if="childMissingHousehold" class="mt-4 p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 rounded-lg flex items-start gap-2 text-sm text-amber-800 dark:text-amber-300">
-          <Info class="h-4 w-4 text-amber-500 dark:text-amber-400 mt-0.5 shrink-0" />
+        <div v-else-if="childMissingHousehold" class="note note-warning mt-4">
+          <Info class="h-4 w-4 text-warning mt-0.5 shrink-0" />
           <div>
             <strong>Kein Haushalt zugeordnet.</strong>
             Bitte zuerst Eltern anlegen und dem Kind einen Haushalt zuweisen, bevor eine Einstufung erstellt werden kann.
-            <router-link
-              :to="`/kinder/${selectedChildId}`"
-              class="underline font-medium hover:text-amber-900 dark:text-amber-300"
-            >
+            <router-link :to="`/kinder/${selectedChildId}`" class="underline font-medium hover:text-warning">
               Zum Kind →
             </router-link>
           </div>
         </div>
-
         <template v-if="isNew && !isFollowUpMode && selectedChild">
           <div v-if="isPrefilling" class="mt-4 flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 class="h-4 w-4 animate-spin" />
             Bestehende Einstufungen des Haushalts werden geladen …
           </div>
-
-          <div v-if="existingOpenEinstufung" class="mt-4 p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 rounded-lg flex items-start gap-2 text-sm text-amber-800 dark:text-amber-300">
-            <Info class="h-4 w-4 text-amber-500 dark:text-amber-400 mt-0.5 shrink-0" />
+          <div v-if="existingOpenEinstufung" class="note note-warning mt-4">
+            <Info class="h-4 w-4 text-warning mt-0.5 shrink-0" />
             <div>
               <strong>Für {{ selectedChild.firstName }} gibt es bereits eine gültige Einstufung</strong>
               ({{ einstufungLabel(existingOpenEinstufung) }}). Bei geändertem Einkommen bitte eine
@@ -949,25 +917,25 @@ watch(defaultEmailBody, (next) => {
                 <router-link :to="`/einstufungen/${existingOpenEinstufung.id}`" class="underline font-medium">
                   Einstufung öffnen →
                 </router-link>
-                <router-link :to="`/einstufungen/neu?sourceId=${existingOpenEinstufung.id}`" class="underline font-medium">
+                <router-link
+                  :to="`/einstufungen/neu?sourceId=${existingOpenEinstufung.id}`"
+                  class="underline font-medium">
                   Folgeeinstufung erstellen →
                 </router-link>
               </span>
             </div>
           </div>
-
-          <div v-else-if="prefillSource" class="mt-4 p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-100 rounded-lg flex items-start gap-2 text-sm text-blue-800 dark:text-blue-300">
+          <div v-else-if="prefillSource" class="note note-info mt-4">
             <Info class="h-4 w-4 mt-0.5 shrink-0" />
-            <div class="flex-1">
-              {{ prefillSummary }} aus der Einstufung von {{ einstufungLabel(prefillSource) }}.
-              Bitte prüfen, ob die Angaben noch aktuell sind.
+            <div class="min-w-0 flex-1">
+              <div class="flex-1">
+                {{ prefillSummary }} aus der Einstufung von {{ einstufungLabel(prefillSource) }}.
+                Bitte prüfen, ob die Angaben noch aktuell sind.
+              </div>
+              <button type="button" class="btn btn-secondary shrink-0" @click="discardPrefill">Verwerfen</button>
             </div>
-            <button type="button" class="shrink-0 text-xs font-medium underline" @click="discardPrefill">
-              Verwerfen
-            </button>
           </div>
-
-          <div v-if="isKindergartenAtStart" class="mt-4 p-3 bg-green-50 dark:bg-green-950/40 border border-green-200 rounded-lg flex items-start gap-2 text-sm text-green-800 dark:text-green-300">
+          <div v-if="isKindergartenAtStart" class="note note-success mt-4">
             <Info class="h-4 w-4 mt-0.5 shrink-0" />
             <div>
               {{ selectedChild.firstName }} ist ab Beginn der Einstufung im Kindergartenalter (geb.
@@ -976,83 +944,83 @@ watch(defaultEmailBody, (next) => {
             </div>
           </div>
         </template>
-
         <!-- Notes -->
         <div class="mt-4">
-          <label class="block text-sm font-medium text-foreground mb-1">Bemerkungen</label>
-          <textarea
-            v-model="notes"
-            rows="2"
-            class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary"
-            placeholder="Optionale Bemerkungen..."
-          ></textarea>
+          <label class="label">Bemerkungen</label>
+          <textarea v-model="notes" rows="2" class="input" placeholder="Optionale Bemerkungen..."></textarea>
         </div>
       </div>
-
       <!-- Income Calculation Card -->
-      <div v-if="incomeBasis === 'INCOME'" class="bg-card rounded-lg border shadow-sm p-6">
-        <h2 class="text-lg font-semibold text-foreground mb-1 flex items-center gap-2">
+      <div v-if="incomeBasis === 'INCOME'" class="card p-4 sm:p-6">
+        <h2 class="text-base font-semibold text-foreground border-b pb-3 mb-4 flex items-center gap-2">
           <Calculator class="h-5 w-5 text-muted-foreground" />
           Einkommensberechnung
         </h2>
         <p class="text-sm text-muted-foreground mb-4">
           Festsetzung des Elternbeitrages – alle Beträge als Jahressummen in EUR
         </p>
-
         <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
           <!-- Parent 1 -->
           <section aria-label="Elternteil 1">
-            <h3 class="font-medium text-foreground mb-3 pb-2 border-b">
-              Elternteil 1 (Mutter / Sorgeberechtigte/r)
-            </h3>
+            <h3 class="font-medium text-foreground mb-3 pb-2 border-b">Elternteil 1 (Mutter / Sorgeberechtigte/r)</h3>
             <IncomeForm v-model="parent1Income" />
           </section>
-
           <!-- Parent 2 -->
           <section aria-label="Elternteil 2">
-            <h3 class="font-medium text-foreground mb-3 pb-2 border-b">
-              Elternteil 2 (Vater / Sorgeberechtigte/r)
-            </h3>
+            <h3 class="font-medium text-foreground mb-3 pb-2 border-b">Elternteil 2 (Vater / Sorgeberechtigte/r)</h3>
             <IncomeForm v-model="parent2Income" />
           </section>
         </div>
-
         <!-- Income from the live preview -->
-        <div v-if="preview" class="mt-6 p-4 bg-blue-50 dark:bg-blue-950/40 rounded-lg border border-blue-100">
-          <h4 class="text-sm font-semibold text-blue-900 dark:text-blue-300 mb-3 flex items-center gap-2">
-            <Euro class="h-4 w-4" />
-            Einkommensvorschau
-          </h4>
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-            <div>
-              <span class="text-blue-600 dark:text-blue-300">Elternteil 1 (Netto)</span>
-              <p class="font-semibold text-blue-900 dark:text-blue-300">{{ formatCurrency(preview.income.parent1NetIncome) }}</p>
-              <span class="block text-xs text-blue-500 dark:text-blue-400">Beitragsrelevant: {{ formatCurrency(preview.income.parent1FeeRelevantIncome) }}</span>
-              <span v-if="preview.income.parent1AdvertisingCosts > 0" class="block text-xs text-blue-500 dark:text-blue-400">
-                WK-Pauschale angerechnet: {{ formatCurrency(preview.income.parent1AdvertisingCosts) }}
-              </span>
-            </div>
-            <div>
-              <span class="text-blue-600 dark:text-blue-300">Elternteil 2 (Netto)</span>
-              <p class="font-semibold text-blue-900 dark:text-blue-300">{{ formatCurrency(preview.income.parent2NetIncome) }}</p>
-              <span class="block text-xs text-blue-500 dark:text-blue-400">Beitragsrelevant: {{ formatCurrency(preview.income.parent2FeeRelevantIncome) }}</span>
-              <span v-if="preview.income.parent2AdvertisingCosts > 0" class="block text-xs text-blue-500 dark:text-blue-400">
-                WK-Pauschale angerechnet: {{ formatCurrency(preview.income.parent2AdvertisingCosts) }}
-              </span>
-            </div>
-            <div>
-              <span class="text-blue-600 dark:text-blue-300">Haushaltseinkommen (beitragsrelevant)</span>
-              <p class="text-lg font-bold text-blue-900 dark:text-blue-300">{{ formatCurrency(preview.income.householdFeeIncome) }}</p>
-              <span class="text-xs text-blue-500 dark:text-blue-400">Gesamt inkl. Leistungen: {{ formatCurrency(preview.income.householdFullIncome) }}</span>
+        <div v-if="preview" class="note note-info mt-6">
+          <Info />
+          <div class="min-w-0 flex-1">
+            <h4 class="text-sm font-semibold text-primary-text mb-3 flex items-center gap-2">
+              <Euro class="h-4 w-4" />
+              Einkommensvorschau
+            </h4>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+              <div>
+                <span class="text-primary-text">Elternteil 1 (Netto)</span>
+                <p class="font-semibold text-primary-text text-right tabular-nums">
+                  {{ formatCurrency(preview.income.parent1NetIncome) }}
+                </p>
+                <span class="block text-xs text-primary-text">
+                  Beitragsrelevant: {{ formatCurrency(preview.income.parent1FeeRelevantIncome) }}
+                </span>
+                <span v-if="preview.income.parent1AdvertisingCosts > 0" class="block text-xs text-primary-text">
+                  WK-Pauschale angerechnet: {{ formatCurrency(preview.income.parent1AdvertisingCosts) }}
+                </span>
+              </div>
+              <div>
+                <span class="text-primary-text">Elternteil 2 (Netto)</span>
+                <p class="font-semibold text-primary-text text-right tabular-nums">
+                  {{ formatCurrency(preview.income.parent2NetIncome) }}
+                </p>
+                <span class="block text-xs text-primary-text">
+                  Beitragsrelevant: {{ formatCurrency(preview.income.parent2FeeRelevantIncome) }}
+                </span>
+                <span v-if="preview.income.parent2AdvertisingCosts > 0" class="block text-xs text-primary-text">
+                  WK-Pauschale angerechnet: {{ formatCurrency(preview.income.parent2AdvertisingCosts) }}
+                </span>
+              </div>
+              <div>
+                <span class="text-primary-text">Haushaltseinkommen (beitragsrelevant)</span>
+                <p class="text-lg font-semibold text-primary-text text-right tabular-nums">
+                  {{ formatCurrency(preview.income.householdFeeIncome) }}
+                </p>
+                <span class="text-xs text-primary-text">
+                  Gesamt inkl. Leistungen: {{ formatCurrency(preview.income.householdFullIncome) }}
+                </span>
+              </div>
             </div>
           </div>
         </div>
       </div>
-
       <!-- Highest rate notice -->
-      <div v-if="incomeBasis === 'HIGHEST_RATE'" class="bg-orange-50 dark:bg-orange-950/40 border border-orange-200 rounded-lg p-4 flex items-start gap-3">
-        <Info class="h-5 w-5 text-orange-500 dark:text-orange-400 mt-0.5 shrink-0" />
-        <div class="text-sm text-orange-800 dark:text-orange-300">
+      <div v-if="incomeBasis === 'HIGHEST_RATE'" class="note note-warning">
+        <Info class="h-5 w-5 text-warning mt-0.5 shrink-0" />
+        <div class="text-sm text-warning">
           <strong>Freiwillige Anerkennung des Höchstsatzes</strong>
           <p class="mt-1">
             Die Einkommensberechnung entfällt, da der Höchstsatz freiwillig anerkannt wird.
@@ -1060,10 +1028,9 @@ watch(defaultEmailBody, (next) => {
           </p>
         </div>
       </div>
-
-      <div v-if="incomeBasis === 'NOT_REQUIRED'" class="bg-green-50 dark:bg-green-950/40 border border-green-200 rounded-lg p-4 flex items-start gap-3">
-        <Info class="h-5 w-5 text-green-600 dark:text-green-400 mt-0.5 shrink-0" />
-        <div class="text-sm text-green-800 dark:text-green-300">
+      <div v-if="incomeBasis === 'NOT_REQUIRED'" class="note note-success">
+        <Info class="h-5 w-5 text-success mt-0.5 shrink-0" />
+        <div class="text-sm text-success">
           <strong>Einkommen nicht erforderlich</strong>
           <p class="mt-1">
             Das Kind ist im Kindergartenalter, die Betreuung ist beitragsfrei. Ein Einkommen wird nicht
@@ -1071,11 +1038,10 @@ watch(defaultEmailBody, (next) => {
           </p>
         </div>
       </div>
-
       <!-- Result: the stored Einstufung, or the live preview while the form differs from it -->
-      <div v-if="shownResult || isPreviewing || previewError || preview?.warnings.length" class="bg-card rounded-lg border shadow-sm p-6">
-        <div class="flex items-center justify-between gap-3 mb-4">
-          <h2 class="text-lg font-semibold text-foreground flex items-center gap-2">
+      <div v-if="shownResult || isPreviewing || previewError || preview?.warnings.length" class="card p-4 sm:p-6">
+        <div class="mb-4 flex flex-wrap items-center justify-between gap-3 border-b pb-3">
+          <h2 class="text-base font-semibold text-foreground flex items-center gap-2">
             <FileText class="h-5 w-5 text-muted-foreground" />
             {{ hasUnsavedCalculation ? 'Vorschau – noch nicht gespeichert' : 'Ergebnis' }}
             <Loader2 v-if="isPreviewing" class="h-4 w-4 animate-spin text-muted-foreground" />
@@ -1084,101 +1050,136 @@ watch(defaultEmailBody, (next) => {
             v-if="einstufung && !isNew && !successorEinstufung && !hasUnsavedCalculation"
             type="button"
             @click="router.push(`/einstufungen/neu?sourceId=${einstufung.id}`)"
-            class="inline-flex items-center gap-2 px-3 py-2 text-xs text-primary-foreground bg-primary rounded-lg hover:bg-primary/90 transition-colors"
-          >
+            class="btn btn-primary">
             Folgeeinstufung erstellen
           </button>
         </div>
-
-        <p v-if="previewError" class="mb-4 text-sm text-destructive">{{ previewError }}</p>
-
-        <div v-if="hasUnsavedCalculation && preview && (preview.warnings.length || preview.notices.length)" class="mb-4 space-y-2">
-          <div
-            v-for="warning in preview.warnings"
-            :key="warning"
-            class="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 rounded-lg flex items-start gap-2 text-sm text-amber-800 dark:text-amber-300"
-          >
+        <div v-if="previewError" class="note note-danger">
+          <Info />
+          <div>{{ previewError }}</div>
+        </div>
+        <div
+          v-if="hasUnsavedCalculation && preview && (preview.warnings.length || preview.notices.length)"
+          class="mb-4 space-y-2">
+          <div v-for="warning in preview.warnings" :key="warning" class="note note-warning">
             <AlertTriangle class="h-4 w-4 mt-0.5 shrink-0" />
-            {{ warning }}
+            <div class="min-w-0 flex-1">{{ warning }}</div>
           </div>
-          <div
-            v-for="notice in preview.notices"
-            :key="notice"
-            class="p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-100 rounded-lg flex items-start gap-2 text-sm text-blue-800 dark:text-blue-300"
-          >
+          <div v-for="notice in preview.notices" :key="notice" class="note note-info">
             <Info class="h-4 w-4 mt-0.5 shrink-0" />
-            {{ notice }}
+            <div class="min-w-0 flex-1">{{ notice }}</div>
           </div>
         </div>
-
         <template v-if="shownResult">
           <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div>
               <span class="text-sm text-muted-foreground">Platzgeld</span>
-              <p class="text-xl font-bold text-foreground">{{ formatCurrency(shownResult.monthlyChildcareFee) }}</p>
+              <p class="text-xl font-semibold text-foreground text-right tabular-nums">
+                {{ formatCurrency(shownResult.monthlyChildcareFee) }}
+              </p>
               <span class="text-xs text-muted-foreground">monatlich</span>
             </div>
             <div>
               <span class="text-sm text-muted-foreground">Essengeld</span>
-              <p class="text-xl font-bold text-foreground">{{ formatCurrency(shownResult.monthlyFoodFee) }}</p>
+              <p class="text-xl font-semibold text-foreground text-right tabular-nums">
+                {{ formatCurrency(shownResult.monthlyFoodFee) }}
+              </p>
               <span class="text-xs text-muted-foreground">monatlich</span>
             </div>
             <div>
               <span class="text-sm text-muted-foreground">Vereinsbeitrag</span>
-              <p class="text-xl font-bold text-foreground">{{ formatCurrency(shownResult.annualMembershipFee) }}</p>
+              <p class="text-xl font-semibold text-foreground text-right tabular-nums">
+                {{ formatCurrency(shownResult.annualMembershipFee) }}
+              </p>
               <span class="text-xs text-muted-foreground">jährlich</span>
             </div>
             <div>
               <span class="text-sm text-muted-foreground">Regel</span>
               <p class="text-lg font-semibold text-foreground">{{ shownResult.feeRule }}</p>
-              <span v-if="shownResult.discountPercent > 0" class="text-xs text-green-600 dark:text-green-300">
+              <span v-if="shownResult.discountPercent > 0" class="text-xs text-success">
                 {{ shownResult.discountPercent }}% Geschwisterrabatt
               </span>
             </div>
           </div>
-
           <div class="mt-4 flex flex-wrap gap-2 text-xs">
-            <span class="px-2 py-1 rounded-full bg-muted text-muted-foreground">
-              {{ INCOME_BASIS_LABELS[shownResult.incomeBasis] }}<template
-                v-if="shownResult.incomeBasis === 'INCOME' && shownResult.annualNetIncome != null">:
-                {{ formatCurrency(shownResult.annualNetIncome) }} / Jahr</template>
+            <span class="badge">
+              {{ INCOME_BASIS_LABELS[shownResult.incomeBasis] }}
+              <template v-if="shownResult.incomeBasis === 'INCOME' && shownResult.annualNetIncome != null">
+                :
+                {{ formatCurrency(shownResult.annualNetIncome) }} / Jahr
+              </template>
             </span>
-            <span v-if="shownResult.provisional" class="px-2 py-1 rounded-full bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300">
-              Vorläufig – Nachweise fehlen
-            </span>
+            <span v-if="shownResult.provisional" class="badge badge-warning">Vorläufig – Nachweise fehlen</span>
           </div>
-
           <!-- Monthly table -->
-          <div v-if="shownResult.monthlyTable && shownResult.monthlyTable.length" class="mt-6">
-            <h3 class="text-sm font-medium text-foreground mb-2">Monatsübersicht</h3>
-            <table class="min-w-full divide-y divide-border text-sm">
-              <thead class="bg-muted">
-                <tr>
-                  <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Monat</th>
-                  <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Bereich</th>
-                  <th class="px-3 py-2 text-right text-xs font-medium text-muted-foreground uppercase">Platzgeld</th>
-                  <th class="px-3 py-2 text-right text-xs font-medium text-muted-foreground uppercase">Essengeld</th>
-                  <th class="px-3 py-2 text-right text-xs font-medium text-muted-foreground uppercase">Vereinsbeitrag</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-border">
-                <tr v-for="row in shownResult.monthlyTable" :key="`${row.year}-${row.month}`">
-                  <td class="px-3 py-2 text-foreground">
-                    {{ formatMonthYear(row.year, row.month) }}
-                  </td>
-                  <td class="px-3 py-2 text-muted-foreground">{{ row.careType }} · {{ row.careHoursPerWeek }}h</td>
-                  <td class="px-3 py-2 text-right font-medium">{{ formatCurrency(row.childcareFee) }}</td>
-                  <td class="px-3 py-2 text-right">{{ formatCurrency(row.foodFee) }}</td>
-                  <td class="px-3 py-2 text-right">{{ row.membershipFee > 0 ? formatCurrency(row.membershipFee) : '—' }}</td>
-                </tr>
-              </tbody>
-            </table>
+          <div v-if="shownResult.monthlyTable && shownResult.monthlyTable.length" class="card mt-6 overflow-hidden">
+            <h3 class="px-4 pt-3 text-sm font-medium text-foreground mb-2">Monatsübersicht</h3>
+            <ul class="divide-y sm:hidden">
+              <li v-for="row in shownResult.monthlyTable" :key="`${row.year}-${row.month}`" class="space-y-2 px-4 py-3">
+                <div class="flex justify-between gap-3">
+                  <span class="font-medium">{{ formatMonthYear(row.year, row.month) }}</span>
+                  <span class="text-[13px] text-muted-foreground">
+                    {{ row.careType }} · {{ row.careHoursPerWeek }}h
+                  </span>
+                </div>
+                <dl class="space-y-1 text-[13px]">
+                  <div class="flex justify-between gap-3">
+                    <dt class="text-muted-foreground">Platzgeld</dt>
+                    <dd class="text-right tabular-nums">{{ formatCurrency(row.childcareFee) }}</dd>
+                  </div>
+                  <div class="flex justify-between gap-3">
+                    <dt class="text-muted-foreground">Essengeld</dt>
+                    <dd class="text-right tabular-nums">{{ formatCurrency(row.foodFee) }}</dd>
+                  </div>
+                  <div class="flex justify-between gap-3">
+                    <dt class="text-muted-foreground">Vereinsbeitrag</dt>
+                    <dd class="text-right tabular-nums">
+                      {{ row.membershipFee > 0 ? formatCurrency(row.membershipFee) : '—' }}
+                    </dd>
+                  </div>
+                </dl>
+              </li>
+            </ul>
+            <div class="hidden overflow-x-auto sm:block">
+              <table class="table">
+                <thead class="bg-muted">
+                  <tr>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Monat</th>
+                    <th class="px-3 py-2 text-left text-xs font-medium text-muted-foreground uppercase">Bereich</th>
+                    <th class="px-3 py-2 !text-right text-xs font-medium text-muted-foreground uppercase tabular-nums">
+                      Platzgeld
+                    </th>
+                    <th class="px-3 py-2 !text-right text-xs font-medium text-muted-foreground uppercase tabular-nums">
+                      Essengeld
+                    </th>
+                    <th class="px-3 py-2 !text-right text-xs font-medium text-muted-foreground uppercase tabular-nums">
+                      Vereinsbeitrag
+                    </th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-border">
+                  <tr v-for="row in shownResult.monthlyTable" :key="`${row.year}-${row.month}`">
+                    <td class="px-3 py-2 text-foreground">{{ formatMonthYear(row.year, row.month) }}</td>
+                    <td class="px-3 py-2 text-muted-foreground">{{ row.careType }} · {{ row.careHoursPerWeek }}h</td>
+                    <td class="px-3 py-2 text-right font-medium tabular-nums">
+                      {{ formatCurrency(row.childcareFee) }}
+                    </td>
+                    <td class="px-3 py-2 text-right tabular-nums">{{ formatCurrency(row.foodFee) }}</td>
+                    <td class="px-3 py-2 text-right tabular-nums">
+                      {{ row.membershipFee > 0 ? formatCurrency(row.membershipFee) : '—' }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </template>
       </div>
-
-      <div v-if="expectationChanges && showExpectationChanges" data-testid="expectation-changes" class="bg-card rounded-lg border shadow-sm p-6">
-        <h2 class="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
+      <div
+        v-if="expectationChanges && showExpectationChanges"
+        data-testid="expectation-changes"
+        class="card p-4 sm:p-6">
+        <h2 class="text-base font-semibold text-foreground border-b pb-3 mb-4 flex items-center gap-2">
           <CheckCircle class="h-5 w-5 text-muted-foreground" />
           Beitragsanpassung
         </h2>
@@ -1189,85 +1190,108 @@ watch(defaultEmailBody, (next) => {
         <div class="grid grid-cols-2 md:grid-cols-6 gap-4 text-sm">
           <div>
             <span class="text-muted-foreground">Neu angelegt</span>
-            <p class="text-xl font-bold text-foreground">{{ expectationChanges.created }}</p>
+            <p class="text-xl font-semibold text-foreground">{{ expectationChanges.created }}</p>
           </div>
           <div>
             <span class="text-muted-foreground">Aktualisiert</span>
-            <p class="text-xl font-bold text-foreground">{{ expectationChanges.updated }}</p>
+            <p class="text-xl font-semibold text-foreground">{{ expectationChanges.updated }}</p>
           </div>
           <div>
             <span class="text-muted-foreground">Entfernt</span>
-            <p class="text-xl font-bold text-foreground">{{ expectationChanges.removed }}</p>
+            <p class="text-xl font-semibold text-foreground">{{ expectationChanges.removed }}</p>
           </div>
           <div>
             <span class="text-muted-foreground">Übersprungen</span>
-            <p class="text-xl font-bold text-foreground">{{ expectationChanges.skipped }}</p>
+            <p class="text-xl font-semibold text-foreground">{{ expectationChanges.skipped }}</p>
           </div>
           <div>
             <span class="text-muted-foreground">Offene Differenz</span>
-            <p class="text-xl font-bold text-foreground">{{ formatCurrency(expectationChanges.deltaOpen) }}</p>
+            <p class="text-xl font-semibold text-foreground text-right tabular-nums">
+              {{ formatCurrency(expectationChanges.deltaOpen) }}
+            </p>
           </div>
           <div>
             <span class="text-muted-foreground">Gutschrift prüfen</span>
-            <p class="text-xl font-bold text-foreground">{{ expectationChanges.creditReviewRequired.length }}</p>
+            <p class="text-xl font-semibold text-foreground">{{ expectationChanges.creditReviewRequired.length }}</p>
           </div>
         </div>
-
-        <div v-if="expectationChanges.creditReviewRequired.length" class="mt-5 overflow-x-auto">
-          <table class="min-w-full divide-y divide-border text-sm">
-            <thead class="bg-amber-50 dark:bg-amber-950/40">
-              <tr>
-                <th class="px-3 py-2 text-left text-xs font-medium text-amber-800 dark:text-amber-300 uppercase">Monat</th>
-                <th class="px-3 py-2 text-right text-xs font-medium text-amber-800 dark:text-amber-300 uppercase">Alt</th>
-                <th class="px-3 py-2 text-right text-xs font-medium text-amber-800 dark:text-amber-300 uppercase">Neu</th>
-                <th class="px-3 py-2 text-right text-xs font-medium text-amber-800 dark:text-amber-300 uppercase">Bezahlt</th>
-                <th class="px-3 py-2 text-right text-xs font-medium text-amber-800 dark:text-amber-300 uppercase">Prüfbetrag</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-border">
-              <tr v-for="item in expectationChanges.creditReviewRequired" :key="item.feeId">
-                <td class="px-3 py-2 text-foreground">{{ formatMonthYear(item.year, item.month) }}</td>
-                <td class="px-3 py-2 text-right">{{ formatCurrency(item.oldAmount) }}</td>
-                <td class="px-3 py-2 text-right">{{ formatCurrency(item.newAmount) }}</td>
-                <td class="px-3 py-2 text-right">{{ formatCurrency(item.matchedAmount) }}</td>
-                <td class="px-3 py-2 text-right font-medium text-amber-800 dark:text-amber-300">{{ formatCurrency(item.creditAmount) }}</td>
-              </tr>
-            </tbody>
-          </table>
+        <div v-if="expectationChanges.creditReviewRequired.length" class="card mt-5 overflow-hidden">
+          <ul class="divide-y sm:hidden">
+            <li v-for="item in expectationChanges.creditReviewRequired" :key="item.feeId" class="space-y-2 px-4 py-3">
+              <p class="font-medium">{{ formatMonthYear(item.year, item.month) }}</p>
+              <dl class="space-y-1 text-[13px]">
+                <div class="flex justify-between gap-3">
+                  <dt class="text-muted-foreground">Alt</dt>
+                  <dd class="text-right tabular-nums">{{ formatCurrency(item.oldAmount) }}</dd>
+                </div>
+                <div class="flex justify-between gap-3">
+                  <dt class="text-muted-foreground">Neu</dt>
+                  <dd class="text-right tabular-nums">{{ formatCurrency(item.newAmount) }}</dd>
+                </div>
+                <div class="flex justify-between gap-3">
+                  <dt class="text-muted-foreground">Bezahlt</dt>
+                  <dd class="text-right tabular-nums">{{ formatCurrency(item.matchedAmount) }}</dd>
+                </div>
+                <div class="flex justify-between gap-3">
+                  <dt class="text-muted-foreground">Prüfbetrag</dt>
+                  <dd class="text-right tabular-nums">{{ formatCurrency(item.creditAmount) }}</dd>
+                </div>
+              </dl>
+            </li>
+          </ul>
+          <div class="hidden overflow-x-auto sm:block">
+            <table class="table">
+              <thead class="bg-warning-soft">
+                <tr>
+                  <th class="px-3 py-2 text-left text-xs font-medium text-warning uppercase">Monat</th>
+                  <th class="px-3 py-2 !text-right text-xs font-medium text-warning uppercase tabular-nums">Alt</th>
+                  <th class="px-3 py-2 !text-right text-xs font-medium text-warning uppercase tabular-nums">Neu</th>
+                  <th class="px-3 py-2 !text-right text-xs font-medium text-warning uppercase tabular-nums">Bezahlt</th>
+                  <th class="px-3 py-2 !text-right text-xs font-medium text-warning uppercase tabular-nums">
+                    Prüfbetrag
+                  </th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-border">
+                <tr v-for="item in expectationChanges.creditReviewRequired" :key="item.feeId">
+                  <td class="px-3 py-2 text-foreground">{{ formatMonthYear(item.year, item.month) }}</td>
+                  <td class="px-3 py-2 text-right tabular-nums">{{ formatCurrency(item.oldAmount) }}</td>
+                  <td class="px-3 py-2 text-right tabular-nums">{{ formatCurrency(item.newAmount) }}</td>
+                  <td class="px-3 py-2 text-right tabular-nums">{{ formatCurrency(item.matchedAmount) }}</td>
+                  <td class="px-3 py-2 text-right font-medium text-warning tabular-nums">
+                    {{ formatCurrency(item.creditAmount) }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
-
-      <div v-if="einstufungForPdf" class="bg-card rounded-lg border shadow-sm p-6 space-y-4">
-        <div class="flex items-center justify-between gap-3">
-          <h2 class="text-lg font-semibold text-foreground flex items-center gap-2">
+      <div v-if="einstufungForPdf" class="card p-4 sm:p-6 space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-3 border-b pb-3">
+          <h2 class="text-base font-semibold text-foreground flex items-center gap-2">
             <Mail class="h-5 w-5 text-muted-foreground" />
             Brief und E-Mail an Eltern
           </h2>
-          <button
-            type="button"
-            @click="resetEmailDraft"
-            class="inline-flex items-center gap-2 px-3 py-2 text-xs text-foreground bg-muted rounded-lg hover:bg-accent transition-colors"
-          >
+          <button type="button" @click="resetEmailDraft" class="btn btn-secondary">
             <RotateCcw class="h-3.5 w-3.5" />
             Standardtext einsetzen
           </button>
         </div>
-
         <p v-if="successorEinstufung" class="text-sm text-muted-foreground">
           Brief und E-Mail beziehen sich auf die neueste Einstufung ({{ einstufungLabel(successorEinstufung) }}), mit dieser
           Einstufung als bisherigem Beitrag.
         </p>
-        <div v-if="letterBlockedReason" class="text-sm text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 rounded-lg px-3 py-2">
-          {{ letterBlockedReason }}
+        <div v-if="letterBlockedReason" class="note note-warning">
+          <Info />
+          <div class="min-w-0 flex-1">{{ letterBlockedReason }}</div>
         </div>
-
         <div class="flex flex-wrap items-center gap-2">
           <button
             type="button"
             :disabled="!!letterBlockedReason || letterAction !== null"
             @click="openLetter('view')"
-            class="inline-flex items-center gap-2 px-3 py-2 text-sm text-foreground bg-muted rounded-lg hover:bg-accent transition-colors disabled:opacity-50"
-          >
+            class="btn btn-secondary">
             <Loader2 v-if="letterAction === 'view'" class="h-4 w-4 animate-spin" />
             <ExternalLink v-else class="h-4 w-4" />
             PDF ansehen
@@ -1276,159 +1300,189 @@ watch(defaultEmailBody, (next) => {
             type="button"
             :disabled="!!letterBlockedReason || letterAction !== null"
             @click="openLetter('download')"
-            class="inline-flex items-center gap-2 px-3 py-2 text-sm text-foreground bg-muted rounded-lg hover:bg-accent transition-colors disabled:opacity-50"
-          >
+            class="btn btn-secondary">
             <Loader2 v-if="letterAction === 'download'" class="h-4 w-4 animate-spin" />
             <Download v-else class="h-4 w-4" />
             PDF herunterladen
           </button>
-          <EinstufungPDF
-            :einstufung="einstufungForPdf"
-            :previous-einstufung="previousEinstufungForPdf"
-          />
+          <EinstufungPDF :einstufung="einstufungForPdf" :previous-einstufung="previousEinstufungForPdf" />
           <span class="text-xs text-muted-foreground">
             {{ einstufungForPdf.letterSentAt
-              ? `Zuletzt per E-Mail versendet am ${formatDateTime(einstufungForPdf.letterSentAt)}.`
-              : 'Noch nicht per E-Mail versendet.' }}
-            <template v-if="einstufungForPdf.letterSentAt && einstufungForPdf.updatedAt > einstufungForPdf.letterSentAt">
-              <span class="font-medium text-amber-700 dark:text-amber-300">Seitdem geändert – bitte neu senden.</span>
+            ? `Zuletzt per E-Mail versendet am ${formatDateTime(einstufungForPdf.letterSentAt)}.`
+            : 'Noch nicht per E-Mail versendet.' }}
+            <template
+              v-if="einstufungForPdf.letterSentAt && einstufungForPdf.updatedAt > einstufungForPdf.letterSentAt">
+              <span class="font-medium text-warning">Seitdem geändert – bitte neu senden.</span>
             </template>
           </span>
         </div>
-
         <div>
-          <label class="block text-sm font-medium text-foreground mb-1">Empfänger</label>
-          <p v-if="emailRecipients.length" class="text-sm text-foreground">
-            {{ emailRecipients.join(', ') }}
-          </p>
-          <p v-else class="text-sm text-amber-700 dark:text-amber-300">
+          <label class="label">Empfänger</label>
+          <p v-if="emailRecipients.length" class="text-sm text-foreground">{{ emailRecipients.join(', ') }}</p>
+          <p v-else class="text-sm text-warning">
             Keine Empfänger gefunden. Bitte E-Mail-Adressen in den Elterndaten hinterlegen.
           </p>
         </div>
-
         <div>
-          <label for="email-subject" class="block text-sm font-medium text-foreground mb-1">Betreff</label>
+          <label for="email-subject" class="label">Betreff</label>
           <input
             id="email-subject"
             v-model="emailSubject"
             @input="emailSubjectDirty = true"
             type="text"
-            class="w-full border rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary"
-          />
+            class="input" />
         </div>
-
         <div>
-          <label for="email-body" class="block text-sm font-medium text-foreground mb-1">Text</label>
+          <label for="email-body" class="label">Text</label>
           <textarea
             id="email-body"
             v-model="emailBody"
             @input="emailBodyDirty = true"
             rows="16"
-            class="w-full border rounded-lg px-3 py-2 text-sm leading-6 focus:ring-2 focus:ring-primary/20 focus:border-primary"
-          ></textarea>
+            class="input leading-6">
+          </textarea>
           <p class="mt-2 text-xs text-muted-foreground">
             Der Brief wird als PDF angehängt. Der Versand wird im E-Mail-Protokoll festgehalten.
           </p>
         </div>
-
-        <div v-if="mailError" class="text-sm text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-950/40 border border-red-100 rounded-lg px-3 py-2">
-          {{ mailError }}
+        <div v-if="mailError" class="note note-danger">
+          <Info />
+          <div class="min-w-0 flex-1">{{ mailError }}</div>
         </div>
-        <div v-if="mailSuccess" class="text-sm text-green-800 dark:text-green-300 bg-green-50 dark:bg-green-950/40 border border-green-200 rounded-lg px-3 py-2">
-          {{ mailSuccess }}
+        <div v-if="mailSuccess" class="note note-success">
+          <Info />
+          <div class="min-w-0 flex-1">{{ mailSuccess }}</div>
         </div>
-
         <div>
           <button
             type="button"
             :disabled="!!letterBlockedReason || isSending || !emailRecipients.length"
             @click="sendLetter"
-            class="inline-flex items-center gap-2 px-4 py-2 text-sm text-primary-foreground bg-primary rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
-          >
+            class="btn btn-primary">
             <Loader2 v-if="isSending" class="h-4 w-4 animate-spin" />
             <Send v-else class="h-4 w-4" />
             E-Mail mit PDF senden
           </button>
         </div>
-
         <div class="border-t pt-4" data-testid="sent-letters">
           <h3 class="text-sm font-medium text-foreground mb-2">Versendete Briefe</h3>
-          <p v-if="sentLettersError" class="text-sm text-red-700 dark:text-red-300">{{ sentLettersError }}</p>
-          <p v-else-if="!sentLetters.length" class="text-sm text-muted-foreground">
-            Für dieses Kind wurde noch kein Brief aus der App versendet.
-          </p>
+          <div v-if="sentLettersError" class="note note-danger">
+            <Info />
+            <div>{{ sentLettersError }}</div>
+          </div>
+          <EmptyState
+            v-else-if="!sentLetters.length"
+            :icon="Mail"
+            text="Für dieses Kind wurde noch kein Brief aus der App versendet." />
           <div v-else class="overflow-x-auto">
-            <table class="w-full text-sm">
-              <thead>
-                <tr class="text-left text-xs text-muted-foreground">
-                  <th class="py-1 pr-3 font-medium">Versendet</th>
-                  <th class="py-1 pr-3 font-medium">Von</th>
-                  <th class="py-1 pr-3 font-medium">Empfänger</th>
-                  <th class="py-1 pr-3 font-medium">Betreff</th>
-                  <th class="py-1 pr-3 font-medium">Einstufung</th>
-                  <th class="py-1 font-medium text-right">PDF</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="letter in sentLetters" :key="letter.id" class="border-t align-top">
-                  <td class="py-1.5 pr-3 whitespace-nowrap">{{ formatDateTime(letter.sentAt) }}</td>
-                  <td class="py-1.5 pr-3">{{ letter.sentByName || '–' }}</td>
-                  <td class="py-1.5 pr-3 break-all">{{ letter.recipients }}</td>
-                  <td class="py-1.5 pr-3">{{ letter.subject }}</td>
-                  <td class="py-1.5 pr-3 whitespace-nowrap">{{ sentLetterEinstufungLabel(letter) }}</td>
-                  <td class="py-1.5 text-right whitespace-nowrap">
-                    <button
-                      type="button"
-                      :disabled="sentLetterAction !== null"
-                      @click="openSentLetter(letter, 'view')"
-                      class="inline-flex p-1 text-muted-foreground hover:text-foreground disabled:opacity-50"
-                      :title="`${letter.filename} ansehen`"
-                      :aria-label="`${letter.filename} ansehen`"
-                    >
-                      <Loader2 v-if="sentLetterAction === `${letter.id}:view`" class="h-4 w-4 animate-spin" />
-                      <ExternalLink v-else class="h-4 w-4" />
-                    </button>
-                    <button
-                      type="button"
-                      :disabled="sentLetterAction !== null"
-                      @click="openSentLetter(letter, 'download')"
-                      class="inline-flex p-1 text-muted-foreground hover:text-foreground disabled:opacity-50"
-                      :title="`${letter.filename} herunterladen`"
-                      :aria-label="`${letter.filename} herunterladen`"
-                    >
-                      <Loader2 v-if="sentLetterAction === `${letter.id}:download`" class="h-4 w-4 animate-spin" />
-                      <Download v-else class="h-4 w-4" />
-                    </button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+            <ul class="divide-y sm:hidden">
+              <li v-for="letter in sentLetters" :key="letter.id" class="space-y-2 px-4 py-3">
+                <p class="font-medium break-words">{{ letter.subject }}</p>
+                <dl class="space-y-1 text-[13px]">
+                  <div class="flex justify-between gap-3">
+                    <dt class="text-muted-foreground">Versendet</dt>
+                    <dd class="min-w-0 break-words text-right">{{ formatDateTime(letter.sentAt) }}</dd>
+                  </div>
+                  <div class="flex justify-between gap-3">
+                    <dt class="text-muted-foreground">Von</dt>
+                    <dd class="min-w-0 break-words text-right">{{ letter.sentByName || '–' }}</dd>
+                  </div>
+                  <div class="flex justify-between gap-3">
+                    <dt class="text-muted-foreground">Empfänger</dt>
+                    <dd class="min-w-0 break-words text-right">{{ letter.recipients }}</dd>
+                  </div>
+                  <div class="flex justify-between gap-3">
+                    <dt class="text-muted-foreground">Einstufung</dt>
+                    <dd class="min-w-0 break-words text-right">{{ sentLetterEinstufungLabel(letter) }}</dd>
+                  </div>
+                </dl>
+                <div class="flex justify-end gap-2">
+                  <button
+                    type="button"
+                    :disabled="sentLetterAction !== null"
+                    @click="openSentLetter(letter, 'view')"
+                    class="btn btn-secondary btn-icon btn-sm"
+                    :title="`${letter.filename} ansehen`"
+                    :aria-label="`${letter.filename} ansehen`">
+                    <Loader2 v-if="sentLetterAction === `${letter.id}:view`" class="h-4 w-4 animate-spin" />
+                    <ExternalLink v-else class="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    :disabled="sentLetterAction !== null"
+                    @click="openSentLetter(letter, 'download')"
+                    class="btn btn-secondary btn-icon btn-sm"
+                    :title="`${letter.filename} herunterladen`"
+                    :aria-label="`${letter.filename} herunterladen`">
+                    <Loader2 v-if="sentLetterAction === `${letter.id}:download`" class="h-4 w-4 animate-spin" />
+                    <Download v-else class="h-4 w-4" />
+                  </button>
+                </div>
+              </li>
+            </ul>
+            <div class="hidden overflow-x-auto sm:block">
+              <table class="table">
+                <thead>
+                  <tr class="text-left text-xs text-muted-foreground">
+                    <th class="py-1 pr-3 font-medium">Versendet</th>
+                    <th class="py-1 pr-3 font-medium">Von</th>
+                    <th class="py-1 pr-3 font-medium">Empfänger</th>
+                    <th class="py-1 pr-3 font-medium">Betreff</th>
+                    <th class="py-1 pr-3 font-medium">Einstufung</th>
+                    <th class="py-1 font-medium !text-right tabular-nums">PDF</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="letter in sentLetters" :key="letter.id" class="border-t align-top">
+                    <td class="py-1.5 pr-3 whitespace-nowrap">{{ formatDateTime(letter.sentAt) }}</td>
+                    <td class="py-1.5 pr-3">{{ letter.sentByName || '–' }}</td>
+                    <td class="py-1.5 pr-3 break-all">{{ letter.recipients }}</td>
+                    <td class="py-1.5 pr-3">{{ letter.subject }}</td>
+                    <td class="py-1.5 pr-3 whitespace-nowrap">{{ sentLetterEinstufungLabel(letter) }}</td>
+                    <td class="py-1.5 text-right whitespace-nowrap tabular-nums">
+                      <button
+                        type="button"
+                        :disabled="sentLetterAction !== null"
+                        @click="openSentLetter(letter, 'view')"
+                        class="btn btn-secondary btn-icon btn-sm"
+                        :title="`${letter.filename} ansehen`"
+                        :aria-label="`${letter.filename} ansehen`">
+                        <Loader2 v-if="sentLetterAction === `${letter.id}:view`" class="h-4 w-4 animate-spin" />
+                        <ExternalLink v-else class="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        :disabled="sentLetterAction !== null"
+                        @click="openSentLetter(letter, 'download')"
+                        class="btn btn-secondary btn-icon btn-sm"
+                        :title="`${letter.filename} herunterladen`"
+                        :aria-label="`${letter.filename} herunterladen`">
+                        <Loader2 v-if="sentLetterAction === `${letter.id}:download`" class="h-4 w-4 animate-spin" />
+                        <Download v-else class="h-4 w-4" />
+                      </button>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
           <p class="mt-2 text-xs text-muted-foreground">
             Gespeichert wird genau das PDF, das an die Eltern ging – auch wenn die Einstufung später geändert wird.
           </p>
         </div>
       </div>
-
       <!-- Submit -->
       <div class="flex items-center justify-end">
         <div class="flex items-center gap-3">
-        <button
-          type="button"
-          @click="router.push('/einstufungen')"
-          class="px-4 py-2 text-sm text-foreground bg-muted rounded-lg hover:bg-accent transition-colors"
-        >
-          Abbrechen
-        </button>
-        <button
-          type="submit"
-          :disabled="isSaving || isPrefilling || childMissingHousehold || (isNew && !!existingOpenEinstufung)"
-          class="inline-flex items-center gap-2 px-6 py-2 text-sm text-primary-foreground bg-primary rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
-        >
-          <Loader2 v-if="isSaving" class="h-4 w-4 animate-spin" />
-          <Save v-else class="h-4 w-4" />
-          {{ isFollowUpMode ? 'Folgeeinstufung speichern' : isNew ? 'Einstufung speichern' : 'Änderungen speichern' }}
-        </button>
+          <button type="button" @click="router.push('/einstufungen')" class="btn btn-secondary">Abbrechen</button>
+          <button
+            type="submit"
+            :disabled="isSaving || isPrefilling || childMissingHousehold || (isNew && !!existingOpenEinstufung)"
+            class="btn btn-primary">
+            <Loader2 v-if="isSaving" class="h-4 w-4 animate-spin" />
+            <Save v-else class="h-4 w-4" />
+            {{ isFollowUpMode ? 'Folgeeinstufung speichern' : isNew ? 'Einstufung speichern' : 'Änderungen speichern' }}
+          </button>
         </div>
       </div>
     </form>

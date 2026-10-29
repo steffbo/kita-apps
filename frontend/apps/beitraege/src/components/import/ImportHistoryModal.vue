@@ -1,9 +1,10 @@
 <script setup lang="ts">
+import AppSheet from '@/components/ui/AppSheet.vue';
 import { ref, onMounted } from 'vue';
 import { api } from '@/api';
 import type { ImportBatch } from '@/api/types';
 import ImportErrorList from '@/components/ImportErrorList.vue';
-import { FileSpreadsheet, Loader2, XCircle, History } from 'lucide-vue-next';
+import { FileSpreadsheet, Loader2, History } from 'lucide-vue-next';
 import { formatDate, formatDateTime } from '@/utils/format';
 
 const props = defineProps<{ expandBatchId?: string | null }>();
@@ -40,28 +41,12 @@ onMounted(loadHistory);
 </script>
 
 <template>
-  <div
-    class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-    @click.self="$emit('close')"
-  >
-    <div class="bg-card rounded-xl shadow-xl max-w-4xl w-full mx-4 max-h-[85vh] overflow-hidden flex flex-col">
-      <div class="p-4 border-b flex items-center justify-between">
-        <div>
-          <h2 class="text-lg font-semibold">Import-Historie</h2>
-          <p class="text-sm text-muted-foreground">Frühere CSV- und Sync-Importe</p>
-        </div>
-        <div class="flex items-center gap-3">
-          <button @click="loadHistory" class="text-sm text-muted-foreground hover:text-foreground underline">
-            Aktualisieren
-          </button>
-          <button @click="$emit('close')" class="text-muted-foreground hover:text-muted-foreground" aria-label="Schließen">
-            <XCircle class="h-5 w-5" />
-          </button>
-        </div>
-      </div>
-
-      <div class="overflow-y-auto p-4">
-        <div v-if="historyError" class="mb-4 p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg text-sm text-red-700 dark:text-red-300">
+  <AppSheet title="Import-Historie" size="lg" @close="$emit('close')">
+    <div class="mb-4 flex justify-end">
+      <button @click="loadHistory" class="btn btn-ghost btn-sm">Aktualisieren</button>
+    </div>
+    <div>
+        <div v-if="historyError" role="alert" class="note note-danger mb-4">
           {{ historyError }}
         </div>
         <div v-if="isLoadingHistory" class="flex items-center justify-center py-12">
@@ -108,9 +93,9 @@ onMounted(loadHistory);
                       :class="[
                         'px-2 py-0.5 rounded-full text-xs font-medium',
                         batch.matchedCount === batch.transactionCount
-                          ? 'bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-300'
+                          ? 'bg-success-soft text-success'
                           : batch.matchedCount > 0
-                            ? 'bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300'
+                            ? 'bg-warning-soft text-warning'
                             : 'bg-muted text-foreground',
                       ]"
                     >
@@ -121,7 +106,7 @@ onMounted(loadHistory);
                     <button
                       v-if="batch.errorCount > 0"
                       @click="toggleBatchErrors(batch.id)"
-                      class="px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-300 hover:bg-red-200 dark:hover:bg-red-900/50"
+                      class="px-2 py-0.5 rounded-full text-xs font-medium bg-destructive-soft text-destructive hover:bg-destructive-soft"
                     >
                       {{ batch.errorCount }} {{ expandedBatchId === batch.id ? '▲' : '▼' }}
                     </button>
@@ -144,6 +129,6 @@ onMounted(loadHistory);
             </table>
           </div>
         </div>
-      </div>
     </div>
-  </div></template>
+</AppSheet>
+</template>

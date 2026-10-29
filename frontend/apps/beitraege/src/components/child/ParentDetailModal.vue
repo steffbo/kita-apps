@@ -2,7 +2,7 @@
 import { ref, onUnmounted } from 'vue';
 import { api } from '@/api';
 import type { Parent, UpdateParentRequest } from '@/api/types';
-import { Edit, Loader2, User, X, Check, Copy } from 'lucide-vue-next';
+import { Edit, Loader2, User, Check, Copy } from 'lucide-vue-next';
 import { formatDate, formatDateForInput } from '@/utils/format';
 
 const props = defineProps<{ parent: Parent }>();
@@ -79,21 +79,19 @@ async function saveParentEdit() {
     isSavingParent.value = false;
   }
 }
+import AppSheet from '@/components/ui/AppSheet.vue';
 </script>
 
 <template>
-  <div
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-    @click.self="$emit('close')"
-  >
-    <div class="bg-card rounded-xl shadow-xl w-full max-w-lg mx-4 p-6 max-h-[90vh] overflow-y-auto">
+  <AppSheet :title="`${current.firstName} ${current.lastName}`" hide-title @close="$emit('close')">
+
       <div class="flex items-center justify-between mb-6">
         <div class="flex items-center gap-3">
           <div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
             <User class="h-6 w-6 text-primary" />
           </div>
           <div>
-            <h2 class="text-xl font-semibold">
+            <h2 class="text-base font-semibold">
               {{ current.firstName }} {{ current.lastName }}
             </h2>
             <p class="text-sm text-muted-foreground">Elternteil</p>
@@ -108,9 +106,6 @@ async function saveParentEdit() {
           >
             <Edit class="h-5 w-5" />
           </button>
-            <button @click="$emit('close')" class="p-1 hover:bg-accent rounded" aria-label="Schließen">
-              <X class="h-5 w-5" />
-            </button>
         </div>
       </div>
 
@@ -160,122 +155,110 @@ async function saveParentEdit() {
       </div>
 
       <!-- Edit Mode -->
-      <form v-else @submit.prevent="saveParentEdit" class="space-y-4">
+      <form id="parent-edit-form" v-else @submit.prevent="saveParentEdit" class="space-y-4">
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <label for="parent-edit-firstName" class="block text-sm font-medium text-foreground mb-1">Vorname</label>
+            <label for="parent-edit-firstName" class="label">Vorname</label>
             <input
               id="parent-edit-firstName"
               v-model="parentEditForm.firstName"
               type="text"
-              class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              class="input"
             />
           </div>
           <div>
-            <label for="parent-edit-lastName" class="block text-sm font-medium text-foreground mb-1">Nachname</label>
+            <label for="parent-edit-lastName" class="label">Nachname</label>
             <input
               id="parent-edit-lastName"
               v-model="parentEditForm.lastName"
               type="text"
-              class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              class="input"
             />
           </div>
         </div>
 
         <div>
-          <label for="parent-edit-birthDate" class="block text-sm font-medium text-foreground mb-1">Geburtsdatum</label>
+          <label for="parent-edit-birthDate" class="label">Geburtsdatum</label>
           <input
             id="parent-edit-birthDate"
             v-model="parentEditForm.birthDate"
             type="date"
-            class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+            class="input"
           />
         </div>
 
         <div>
-          <label for="parent-edit-email" class="block text-sm font-medium text-foreground mb-1">E-Mail</label>
+          <label for="parent-edit-email" class="label">E-Mail</label>
           <input
             id="parent-edit-email"
             v-model="parentEditForm.email"
             type="email"
-            class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+            class="input"
           />
         </div>
 
         <div>
-          <label for="parent-edit-phone" class="block text-sm font-medium text-foreground mb-1">Telefon</label>
+          <label for="parent-edit-phone" class="label">Telefon</label>
           <input
             id="parent-edit-phone"
             v-model="parentEditForm.phone"
             type="tel"
-            class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+            class="input"
           />
         </div>
 
         <div class="grid grid-cols-4 gap-4">
           <div class="col-span-3">
-            <label for="parent-edit-street" class="block text-sm font-medium text-foreground mb-1">Straße</label>
+            <label for="parent-edit-street" class="label">Straße</label>
             <input
               id="parent-edit-street"
               v-model="parentEditForm.street"
               type="text"
-              class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              class="input"
             />
           </div>
           <div>
-            <label for="parent-edit-streetNo" class="block text-sm font-medium text-foreground mb-1">Hausnr.</label>
+            <label for="parent-edit-streetNo" class="label">Hausnr.</label>
             <input
               id="parent-edit-streetNo"
               v-model="parentEditForm.streetNo"
               type="text"
-              class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              class="input"
             />
           </div>
         </div>
 
         <div class="grid grid-cols-3 gap-4">
           <div>
-            <label for="parent-edit-postalCode" class="block text-sm font-medium text-foreground mb-1">PLZ</label>
+            <label for="parent-edit-postalCode" class="label">PLZ</label>
             <input
               id="parent-edit-postalCode"
               v-model="parentEditForm.postalCode"
               type="text"
-              class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              class="input"
             />
           </div>
           <div class="col-span-2">
-            <label for="parent-edit-city" class="block text-sm font-medium text-foreground mb-1">Ort</label>
+            <label for="parent-edit-city" class="label">Ort</label>
             <input
               id="parent-edit-city"
               v-model="parentEditForm.city"
               type="text"
-              class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              class="input"
             />
           </div>
         </div>
 
-        <div v-if="parentDetailError" class="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg">
-          <p class="text-sm text-red-600 dark:text-red-300">{{ parentDetailError }}</p>
+        <div v-if="parentDetailError" class="note note-danger">
+          <p class="text-sm text-destructive">{{ parentDetailError }}</p>
         </div>
 
-        <div class="flex justify-end gap-3 pt-4">
-          <button
-            type="button"
-            @click="cancelEditingParent"
-            class="px-4 py-2 text-foreground hover:bg-accent rounded-lg transition-colors"
-          >
-            Abbrechen
-          </button>
-          <button
-            type="submit"
-            :disabled="isSavingParent"
-            class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
-          >
-            <Loader2 v-if="isSavingParent" class="h-4 w-4 animate-spin" />
-            <Check v-else class="h-4 w-4" />
-            Speichern
-          </button>
-        </div>
       </form>
-    </div>
-  </div></template>
+      <template v-if="isEditingParent" #footer>
+        <button type="button" class="btn btn-secondary" @click="cancelEditingParent">Abbrechen</button>
+        <button type="submit" form="parent-edit-form" class="btn btn-primary" :disabled="isSavingParent">
+          <Loader2 v-if="isSavingParent" class="animate-spin" /><Check v-else />Speichern
+        </button>
+      </template>
+  </AppSheet>
+</template>

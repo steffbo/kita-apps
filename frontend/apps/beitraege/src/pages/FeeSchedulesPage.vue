@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import PageHeader from '@/components/ui/PageHeader.vue';
+
 import { ref, computed, onMounted } from 'vue';
 import { api } from '@/api';
 import type {
@@ -8,7 +10,7 @@ import type {
   FeeScheduleVersion,
   FeeTableRow,
 } from '@/api/types';
-import { Loader2, Plus, Trash2, Save, X, Pencil } from 'lucide-vue-next';
+import { Info, Loader2, Plus, Trash2, Save, X, Pencil } from 'lucide-vue-next';
 import { formatCurrency, formatDate } from '@/utils/format';
 
 const CARE_HOURS = [30, 35, 40, 45, 50, 55];
@@ -150,9 +152,9 @@ const statusLabel: Record<FeeScheduleStatus, string> = {
 };
 
 const statusTone: Record<FeeScheduleStatus, string> = {
-  active: 'bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-300',
-  planned: 'bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300',
-  past: 'bg-muted text-muted-foreground',
+  active: 'badge-success',
+  planned: 'badge-primary',
+  past: '',
 };
 
 onMounted(() => loadVersions());
@@ -160,179 +162,297 @@ onMounted(() => loadVersions());
 
 <template>
   <div>
-    <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-      <div>
-        <h1 class="text-2xl font-bold text-foreground">Beitragsordnung</h1>
-        <p class="text-muted-foreground mt-1 max-w-3xl">
-          Beitragstabellen, Einkommensgrenzen, Geschwisterermäßigung, Essensgeld und Mitgliedsbeitrag.
-          Jede Version gilt ab ihrem Datum bis zum Beginn der nächsten. Versionen, die bereits gelten,
-          sind schreibgeschützt. Änderungen werden als neue Version ab einem künftigen Monatsersten angelegt.
-        </p>
+    <PageHeader title="Beitragsordnung">
+      <template #actions>
+        <button
+          type="button"
+          v-if="!isEditing"
+          @click="startCreate"
+          :disabled="versions.length === 0"
+          class="btn btn-primary">
+          <Plus class="h-4 w-4" />
+          Neue Version
+        </button>
+      </template>
+    </PageHeader>
+    <div class="note note-info mb-5">
+      <Info />
+      <div class="min-w-0 flex-1">
+        Jede Version gilt ab ihrem Datum bis zum Beginn der nächsten. Versionen, die bereits gelten,
+        sind schreibgeschützt. Änderungen werden als neue Version ab einem künftigen Monatsersten angelegt.
       </div>
-      <button
-        v-if="!isEditing"
-        @click="startCreate"
-        :disabled="versions.length === 0"
-        class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50"
-      >
-        <Plus class="h-4 w-4" />
-        Neue Version
-      </button>
     </div>
-
     <div v-if="isLoading" class="flex items-center justify-center py-12">
       <Loader2 class="h-8 w-8 animate-spin text-primary" />
     </div>
-
-    <div v-else-if="loadError" class="bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg p-4 mb-4">
-      <p class="text-red-600 dark:text-red-300">{{ loadError }}</p>
-      <button @click="loadVersions()" class="mt-2 text-sm text-red-700 dark:text-red-300 underline">Erneut versuchen</button>
+    <div v-else-if="loadError" class="note note-danger mb-4">
+      <Info />
+      <div class="min-w-0 flex-1">
+        <p class="text-destructive">{{ loadError }}</p>
+        <button type="button" @click="loadVersions()" class="btn btn-secondary">Erneut versuchen</button>
+      </div>
     </div>
-
-    <div v-if="!isLoading" class="grid gap-6 lg:grid-cols-[18rem_1fr]">
+    <div v-if="!isLoading" class="grid gap-6 lg:grid-cols-[18rem_minmax(0,1fr)]">
       <!-- Versions -->
-      <div class="bg-card rounded-xl border divide-y h-fit">
+      <div class="card divide-y h-fit">
         <button
+          type="button"
           v-for="version in [...versions].reverse()"
           :key="version.id"
           @click="!isEditing && (selectedId = version.id)"
           :disabled="isEditing"
           :class="[
-            'w-full text-left px-4 py-3 transition-colors disabled:cursor-not-allowed',
-            selectedId === version.id && !(isEditing && !editingId) ? 'bg-primary/5' : 'hover:bg-accent',
-          ]"
-        >
+          'w-full text-left px-4 py-3 transition-colors disabled:cursor-not-allowed',
+          selectedId === version.id && !(isEditing && !editingId) ? 'bg-primary-soft' : 'hover:bg-accent',
+          ]">
           <div class="flex items-center justify-between gap-2">
             <span class="font-medium text-foreground truncate">{{ version.name }}</span>
-            <span class="px-2 py-0.5 rounded-full text-xs font-medium whitespace-nowrap" :class="statusTone[version.status]">
-              {{ statusLabel[version.status] }}
-            </span>
+            <span class="badge" :class="statusTone[version.status]">{{ statusLabel[version.status] }}</span>
           </div>
           <p class="text-sm text-muted-foreground">
-            ab {{ formatDate(version.validFrom) }}<span v-if="version.validUntil"> bis {{ formatDate(version.validUntil) }}</span>
+            ab {{ formatDate(version.validFrom) }}
+            <span v-if="version.validUntil">bis {{ formatDate(version.validUntil) }}</span>
           </p>
         </button>
-        <div v-if="isEditing && !editingId" class="px-4 py-3 bg-primary/5">
+        <div v-if="isEditing && !editingId" class="px-4 py-3 bg-primary-soft">
           <span class="font-medium text-foreground">Neue Version (Entwurf)</span>
         </div>
       </div>
-
       <!-- Details / editor -->
-      <div v-if="shownConfig" class="space-y-6">
-        <div class="bg-card rounded-xl border p-6">
+      <div v-if="shownConfig" class="min-w-0 space-y-6">
+        <div class="card p-4 sm:p-6">
           <div v-if="draft" class="grid gap-4 sm:grid-cols-2">
-            <label class="block">
+            <label class="label">
               <span class="text-sm font-medium text-foreground">Name</span>
-              <input v-model="draft.name" type="text" placeholder="z. B. Elternbeitragsordnung 2027"
-                class="mt-1 w-full rounded-lg border px-3 py-2" />
+              <input
+                v-model="draft.name"
+                type="text"
+                placeholder="z. B. Elternbeitragsordnung 2027"
+                class="input mt-1" />
             </label>
-            <label class="block">
+            <label class="label">
               <span class="text-sm font-medium text-foreground">Gültig ab (Monatserster, in der Zukunft)</span>
-              <input v-model="draft.validFrom" type="date" class="mt-1 w-full rounded-lg border px-3 py-2" />
+              <input v-model="draft.validFrom" type="date" class="input mt-1" />
             </label>
           </div>
           <div v-else-if="selected" class="flex flex-wrap items-start justify-between gap-3">
             <div>
-              <h2 class="text-lg font-semibold text-foreground">{{ selected.name }}</h2>
+              <h2 class="text-base font-semibold text-foreground">{{ selected.name }}</h2>
               <p class="text-sm text-muted-foreground">
-                gültig ab {{ formatDate(selected.validFrom) }}<span v-if="selected.validUntil"> bis {{ formatDate(selected.validUntil) }}</span>
+                gültig ab {{ formatDate(selected.validFrom) }}
+                <span v-if="selected.validUntil">bis {{ formatDate(selected.validUntil) }}</span>
               </p>
             </div>
             <div v-if="selected.editable" class="flex gap-2">
-              <button @click="startEdit(selected)" class="inline-flex items-center gap-1 px-3 py-1.5 border rounded-lg text-sm hover:bg-accent">
-                <Pencil class="h-4 w-4" /> Bearbeiten
+              <button type="button" @click="startEdit(selected)" class="btn btn-secondary">
+                <Pencil class="h-4 w-4" />
+                Bearbeiten
               </button>
-              <button @click="deleteVersion(selected)" class="inline-flex items-center gap-1 px-3 py-1.5 border border-red-200 text-red-700 dark:text-red-300 rounded-lg text-sm hover:bg-red-50 dark:hover:bg-red-900/40">
-                <Trash2 class="h-4 w-4" /> Löschen
+              <button type="button" @click="deleteVersion(selected)" class="btn btn-danger-outline">
+                <Trash2 class="h-4 w-4" />
+                Löschen
               </button>
             </div>
             <p v-else class="text-sm text-muted-foreground">Schreibgeschützt, da bereits gültig.</p>
           </div>
         </div>
-
         <!-- General amounts -->
-        <div class="bg-card rounded-xl border p-6">
+        <div class="card p-4 sm:p-6">
           <h3 class="font-semibold text-foreground mb-4">Grenzen und feste Beträge</h3>
           <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <label class="block">
+            <label class="label">
               <span class="text-sm text-muted-foreground">Beitragsfrei bis Jahreseinkommen</span>
-              <input v-if="draft" v-model.number="draft.config.freeIncomeLimit" type="number" step="0.01" min="0" class="mt-1 w-full rounded-lg border px-3 py-2" />
-              <p v-else class="font-medium">{{ formatCurrency(shownConfig.freeIncomeLimit) }}</p>
+              <input
+                v-if="draft"
+                v-model.number="draft.config.freeIncomeLimit"
+                type="number"
+                step="0.01"
+                min="0"
+                class="input text-right tabular-nums mt-1" />
+              <p v-else class="text-right font-medium tabular-nums">
+                {{ formatCurrency(shownConfig.freeIncomeLimit) }}
+              </p>
             </label>
-            <label class="block">
+            <label class="label">
               <span class="text-sm text-muted-foreground">Entlastungstabelle bis Jahreseinkommen</span>
-              <input v-if="draft" v-model.number="draft.config.entlastungIncomeLimit" type="number" step="0.01" min="0" class="mt-1 w-full rounded-lg border px-3 py-2" />
-              <p v-else class="font-medium">{{ formatCurrency(shownConfig.entlastungIncomeLimit) }}</p>
+              <input
+                v-if="draft"
+                v-model.number="draft.config.entlastungIncomeLimit"
+                type="number"
+                step="0.01"
+                min="0"
+                class="input text-right tabular-nums mt-1" />
+              <p v-else class="text-right font-medium tabular-nums">
+                {{ formatCurrency(shownConfig.entlastungIncomeLimit) }}
+              </p>
             </label>
-            <label class="block">
+            <label class="label">
               <span class="text-sm text-muted-foreground">Beitragsfrei ab Kinderzahl</span>
-              <input v-if="draft" v-model.number="draft.config.siblingsFreeThreshold" type="number" step="1" min="1" class="mt-1 w-full rounded-lg border px-3 py-2" />
+              <input
+                v-if="draft"
+                v-model.number="draft.config.siblingsFreeThreshold"
+                type="number"
+                step="1"
+                min="1"
+                class="input text-right tabular-nums mt-1" />
               <p v-else class="font-medium">{{ shownConfig.siblingsFreeThreshold }} Kinder</p>
             </label>
-            <label class="block">
+            <label class="label">
               <span class="text-sm text-muted-foreground">Essensgeld pro Monat</span>
-              <input v-if="draft" v-model.number="draft.config.monthlyFoodFee" type="number" step="0.01" min="0" class="mt-1 w-full rounded-lg border px-3 py-2" />
-              <p v-else class="font-medium">{{ formatCurrency(shownConfig.monthlyFoodFee) }}</p>
+              <input
+                v-if="draft"
+                v-model.number="draft.config.monthlyFoodFee"
+                type="number"
+                step="0.01"
+                min="0"
+                class="input text-right tabular-nums mt-1" />
+              <p v-else class="text-right font-medium tabular-nums">{{ formatCurrency(shownConfig.monthlyFoodFee) }}</p>
             </label>
-            <label class="block">
+            <label class="label">
               <span class="text-sm text-muted-foreground">Mitgliedsbeitrag pro Jahr</span>
-              <input v-if="draft" v-model.number="draft.config.annualMembershipFee" type="number" step="0.01" min="0" class="mt-1 w-full rounded-lg border px-3 py-2" />
-              <p v-else class="font-medium">{{ formatCurrency(shownConfig.annualMembershipFee) }}</p>
+              <input
+                v-if="draft"
+                v-model.number="draft.config.annualMembershipFee"
+                type="number"
+                step="0.01"
+                min="0"
+                class="input text-right tabular-nums mt-1" />
+              <p v-else class="text-right font-medium tabular-nums">
+                {{ formatCurrency(shownConfig.annualMembershipFee) }}
+              </p>
             </label>
           </div>
-
           <h4 class="font-medium text-foreground mt-6 mb-2">Geschwisterermäßigung (Satzungstabelle und Höchstsatz)</h4>
           <div class="flex flex-wrap gap-3">
-            <div v-for="(factor, index) in shownConfig.siblingDiscountFactors" :key="index" class="rounded-lg border px-3 py-2 text-sm">
-              <div class="text-muted-foreground">{{ index + 1 }}{{ index + 1 === shownConfig.siblingDiscountFactors.length ? '+' : '' }} {{ index === 0 ? 'Kind' : 'Kinder' }}</div>
+            <div
+              v-for="(factor, index) in shownConfig.siblingDiscountFactors"
+              :key="index"
+              class="rounded-lg border px-3 py-2 text-sm">
+              <div class="text-muted-foreground">
+                {{ index + 1 }}{{ index + 1 === shownConfig.siblingDiscountFactors.length ? '+' : '' }} {{ index === 0 ? 'Kind' : 'Kinder' }}
+              </div>
               <div v-if="draft" class="flex items-center gap-1">
-                <input :value="discountPercent(factor)" @input="setDiscountPercent(index, ($event.target as HTMLInputElement).value)"
-                  type="number" step="1" min="0" max="99" class="w-16 rounded border px-2 py-1" />
+                <input
+                  :value="discountPercent(factor)"
+                  @input="setDiscountPercent(index, ($event.target as HTMLInputElement).value)"
+                  type="number"
+                  step="1"
+                  min="0"
+                  max="99"
+                  class="input text-right tabular-nums w-16" />
                 <span>%</span>
-                <button v-if="draft.config.siblingDiscountFactors.length > 1 && index === draft.config.siblingDiscountFactors.length - 1"
-                  @click="draft.config.siblingDiscountFactors.pop()" class="text-muted-foreground hover:text-red-600 dark:text-red-300" title="Entfernen">
+                <button
+                  type="button"
+                  v-if="draft.config.siblingDiscountFactors.length > 1 && index === draft.config.siblingDiscountFactors.length - 1"
+                  @click="draft.config.siblingDiscountFactors.pop()"
+                  class="btn btn-danger-outline btn-icon btn-sm"
+                  aria-label="Entfernen"
+                  title="Entfernen">
                   <X class="h-4 w-4" />
                 </button>
               </div>
               <div v-else class="font-medium">{{ discountPercent(factor) }} % Ermäßigung</div>
             </div>
-            <button v-if="draft" @click="draft.config.siblingDiscountFactors.push(draft.config.siblingDiscountFactors[draft.config.siblingDiscountFactors.length - 1] ?? 1)"
-              class="rounded-lg border border-dashed px-3 py-2 text-sm text-muted-foreground hover:bg-accent">
-              <Plus class="h-4 w-4 inline" /> Stufe
+            <button
+              type="button"
+              v-if="draft"
+              @click="draft.config.siblingDiscountFactors.push(draft.config.siblingDiscountFactors[draft.config.siblingDiscountFactors.length - 1] ?? 1)"
+              class="btn btn-secondary">
+              <Plus class="h-4 w-4 inline" />
+              Stufe
             </button>
           </div>
         </div>
-
         <!-- Tables -->
-        <div
-          v-for="table in feeTables"
-          :key="table.key"
-          class="bg-card rounded-xl border overflow-hidden"
-        >
+        <div v-for="table in feeTables" :key="table.key" class="card overflow-hidden">
           <h3 class="font-semibold text-foreground px-6 pt-5 pb-3">{{ table.title }}</h3>
           <p v-if="table.hint" class="px-6 pb-3 -mt-1 text-sm text-muted-foreground">{{ table.hint }}</p>
-          <div class="overflow-x-auto">
-            <table class="w-full text-sm">
+          <ul class="divide-y sm:hidden">
+            <li v-for="(row, rowIndex) in table.rows" :key="rowIndex" class="space-y-3 px-4 py-3">
+              <div class="flex items-center justify-between gap-3">
+                <label v-if="draft" class="label mb-0 min-w-0">
+                  Einkommen ab
+                  <input
+                    v-model.number="row.minIncome"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    class="input mt-1 text-right tabular-nums" />
+                </label>
+                <p v-else class="font-medium tabular-nums">Einkommen ab {{ formatCurrency(row.minIncome) }}</p>
+                <button
+                  v-if="draft"
+                  type="button"
+                  @click="removeRow(table.rows, rowIndex)"
+                  :disabled="table.rows.length <= 1"
+                  class="btn btn-danger-outline btn-icon btn-sm"
+                  title="Zeile entfernen"
+                  aria-label="Zeile entfernen">
+                  <Trash2 />
+                </button>
+              </div>
+              <dl class="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
+                <div
+                  v-for="(hours, rateIndex) in CARE_HOURS"
+                  :key="hours"
+                  class="flex items-center justify-between gap-2">
+                  <dt class="text-muted-foreground">{{ hours }} h</dt>
+                  <dd class="text-right tabular-nums">
+                    <input
+                      v-if="draft"
+                      v-model.number="row.rates[rateIndex]"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      :aria-label="`${hours} h`"
+                      class="input w-24 text-right tabular-nums" />
+                    <span v-else>{{ formatCurrency(row.rates[rateIndex] ?? 0) }}</span>
+                  </dd>
+                </div>
+              </dl>
+            </li>
+          </ul>
+          <div class="hidden overflow-x-auto sm:block">
+            <table class="table">
               <thead class="bg-muted">
                 <tr class="text-left text-muted-foreground">
                   <th class="px-4 py-2 font-medium">Einkommen ab</th>
-                  <th v-for="hours in CARE_HOURS" :key="hours" class="px-4 py-2 font-medium text-right">{{ hours }} h</th>
+                  <th v-for="hours in CARE_HOURS" :key="hours" class="px-4 py-2 font-medium !text-right tabular-nums">
+                    {{ hours }} h
+                  </th>
                   <th v-if="draft" class="px-2 py-2"></th>
                 </tr>
               </thead>
               <tbody>
                 <tr v-for="(row, rowIndex) in table.rows" :key="rowIndex" class="border-t">
                   <td class="px-4 py-2">
-                    <input v-if="draft" v-model.number="row.minIncome" type="number" step="0.01" min="0" class="w-32 rounded border px-2 py-1" />
+                    <input
+                      v-if="draft"
+                      v-model.number="row.minIncome"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      class="input text-right tabular-nums w-32" />
                     <span v-else>{{ formatCurrency(row.minIncome) }}</span>
                   </td>
-                  <td v-for="(_, rateIndex) in CARE_HOURS" :key="rateIndex" class="px-4 py-2 text-right">
-                    <input v-if="draft" v-model.number="row.rates[rateIndex]" type="number" step="0.01" min="0" class="w-24 rounded border px-2 py-1 text-right" />
+                  <td v-for="(_, rateIndex) in CARE_HOURS" :key="rateIndex" class="px-4 py-2 text-right tabular-nums">
+                    <input
+                      v-if="draft"
+                      v-model.number="row.rates[rateIndex]"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      class="input w-24 text-right tabular-nums" />
                     <span v-else>{{ formatCurrency(row.rates[rateIndex] ?? 0) }}</span>
                   </td>
                   <td v-if="draft" class="px-2 py-2">
-                    <button @click="removeRow(table.rows, rowIndex)" :disabled="table.rows.length <= 1"
-                      class="text-muted-foreground hover:text-red-600 dark:text-red-300 disabled:opacity-30" title="Zeile entfernen">
+                    <button
+                      type="button"
+                      @click="removeRow(table.rows, rowIndex)"
+                      :disabled="table.rows.length <= 1"
+                      class="btn btn-danger-outline btn-icon btn-sm"
+                      aria-label="Zeile entfernen"
+                      title="Zeile entfernen">
                       <Trash2 class="h-4 w-4" />
                     </button>
                   </td>
@@ -341,24 +461,24 @@ onMounted(() => loadVersions());
             </table>
           </div>
           <div v-if="draft" class="px-6 py-3 border-t">
-            <button @click="addRow(table.rows)" class="text-sm text-primary hover:underline">
-              <Plus class="h-4 w-4 inline" /> Zeile hinzufügen
+            <button type="button" @click="addRow(table.rows)" class="btn btn-secondary">
+              <Plus class="h-4 w-4 inline" />
+              Zeile hinzufügen
             </button>
           </div>
         </div>
-
         <!-- Editor actions -->
-        <div v-if="draft" class="bg-card rounded-xl border p-4 flex flex-wrap items-center gap-3 sticky bottom-4">
-          <div v-if="saveError" class="w-full p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg text-sm text-red-700 dark:text-red-300" role="alert">
-            {{ saveError }}
+        <div v-if="draft" class="card p-4 flex flex-wrap items-center gap-3 sticky bottom-4">
+          <div v-if="saveError" class="note note-danger w-full" role="alert">
+            <Info />
+            <div class="min-w-0 flex-1">{{ saveError }}</div>
           </div>
-          <button @click="saveDraft" :disabled="isSaving"
-            class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 disabled:opacity-50">
+          <button type="button" @click="cancelEdit" class="btn btn-secondary">Abbrechen</button>
+          <button type="button" @click="saveDraft" :disabled="isSaving" class="btn btn-primary">
             <Loader2 v-if="isSaving" class="h-4 w-4 animate-spin" />
             <Save v-else class="h-4 w-4" />
             {{ editingId ? 'Änderungen speichern' : 'Version anlegen' }}
           </button>
-          <button @click="cancelEdit" class="px-4 py-2 border rounded-lg hover:bg-accent">Abbrechen</button>
           <p class="text-sm text-muted-foreground">
             Gilt ab {{ draft.validFrom ? formatDate(draft.validFrom) : '–' }} für Beitragserzeugung, Einstufungen und den Rechner.
           </p>

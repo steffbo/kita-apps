@@ -4,8 +4,10 @@ import { CornerDownRight, Download, Loader2, MessageSquareWarning } from 'lucide
 import { api } from '@/api';
 import type { OwnEinstufungLetter, OwnFees } from '@/api/types';
 import { formatCurrency, formatDate, formatMonthName, todayISO } from '@/utils/format';
-import { getFeePeriodLabel, getFeeTypeColor, getFeeTypeName } from '@/utils/fees';
+import { getFeePeriodLabel, getFeeTypeName } from '@/utils/fees';
 import ReportDialog from '@/components/family/ReportDialog.vue';
+import PageHeader from '@/components/ui/PageHeader.vue';
+import EmptyState from '@/components/ui/EmptyState.vue';
 type FeeRow = OwnFees['items'][number];
 const year = ref(Number(todayISO().slice(0, 4)));
 const fees = ref<OwnFees | null>(null);
@@ -17,9 +19,8 @@ const firstYear = 2025;
 const years = Array.from({ length: Math.max(1, year.value - firstYear + 1) }, (_, i) => year.value - i);
 const status: Record<string, string> = { OPEN: 'Offen', PAID: 'Bezahlt', OVERDUE: 'Überfällig' };
 function tone(value: string) {
-  return value === 'PAID' ? 'bg-green-100 text-green-800 dark:bg-green-950/40 dark:text-green-300'
-    : value === 'OVERDUE' ? 'bg-red-100 text-red-800 dark:bg-red-950/40 dark:text-red-300'
-      : 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300';
+  return value === 'PAID' ? 'badge-success'
+    : value === 'OVERDUE' ? 'badge-danger' : 'badge-warning';
 }
 // A Mahngebühr is listed right below its fee; one without its fee in the list names it instead.
 const groups = computed(() => {
@@ -88,31 +89,44 @@ onMounted(loadLetters);
 </script>
 <template>
   <div class="space-y-5">
-    <h1 class="text-2xl font-bold">Beiträge</h1>
-    <label class="block max-w-40 text-sm font-medium">Jahr
-      <select v-model.number="year" class="mt-1 w-full rounded-lg border px-3 py-2">
+    <PageHeader title="Beiträge" />
+    <label class="label block max-w-40">Jahr
+      <select v-model.number="year" class="input">
         <option v-for="y in years" :key="y" :value="y">{{ y }}</option>
       </select>
     </label>
-    <p v-if="error" role="alert" class="text-red-700 dark:text-red-300">{{ error }}</p>
+    <p v-if="error" role="alert" class="note note-danger">{{ error }}</p>
     <div v-if="fees" class="grid gap-3 sm:grid-cols-2">
       <button type="button" :aria-pressed="onlyOpen" title="Nur offene Beiträge anzeigen"
-        class="rounded-2xl border bg-card p-4 text-left transition-colors hover:border-primary"
+        class="btn btn-secondary h-auto min-h-14 w-full justify-start p-4 text-left"
         :class="onlyOpen ? 'border-primary ring-2 ring-primary' : ''" @click="onlyOpen = !onlyOpen">
         Offen: <strong>{{ formatCurrency(fees.openTotal) }}</strong>
       </button>
-      <div class="rounded-2xl border bg-card p-4">Bezahlt: <strong>{{ formatCurrency(fees.paidTotal) }}</strong></div>
+      <div class="card p-4">Bezahlt: <strong>{{ formatCurrency(fees.paidTotal) }}</strong></div>
     </div>
     <div v-if="onlyOpen" class="flex flex-wrap items-center gap-3 text-sm">
       <span class="text-muted-foreground">Nur offene Beiträge</span>
-      <button type="button" class="rounded-lg border bg-card px-3 py-1.5 font-medium hover:bg-muted"
+      <button type="button" class="btn btn-secondary"
         @click="onlyOpen = false">Alle anzeigen</button>
     </div>
-    <p v-if="fees && !groups.length" class="text-muted-foreground">
-      {{ onlyOpen ? 'Keine offenen Beiträge.' : 'Für dieses Jahr gibt es keine Beiträge.' }}
-    </p>
-    <div v-else-if="fees" class="overflow-x-auto rounded-2xl border bg-card">
-      <table class="w-full text-sm">
+    <EmptyState v-if="fees && !groups.length"
+      :text="onlyOpen ? 'Keine offenen Beiträge.' : 'Für dieses Jahr gibt es keine Beiträge.'" />
+    <div v-else-if="fees">
+      <ul class="card divide-y sm:hidden">
+        <li v-for="fee in groups.flatMap(g => [g.fee, ...g.reminders])" :key="fee.id" class="flex items-start gap-3 p-4">
+          <div class="min-w-0 flex-1">
+            <div class="flex flex-wrap items-center gap-2"><span class="badge">{{ getFeeTypeName(fee.feeType) }}</span><span class="badge" :class="tone(fee.status)">{{ status[fee.status] ?? fee.status }}</span></div>
+            <p class="mt-2 font-medium">{{ period(fee) }}<span v-if="showChild"> · {{ fee.childName }}</span></p>
+            <p class="text-[13px] text-muted-foreground">Fällig {{ formatDate(fee.dueDate) }} · {{ fee.paidAt ? `bezahlt am ${formatDate(fee.paidAt)}` : deadline(fee.dueDate) }}</p>
+            <p class="mt-1 font-semibold">{{ formatCurrency(fee.amount) }}<span v-if="fee.status !== 'PAID' && fee.paidAmount > 0" class="ml-2 text-xs font-normal text-muted-foreground">bezahlt {{ formatCurrency(fee.paidAmount) }}</span></p>
+          </div>
+          <button type="button" title="Fehler melden"
+            :aria-label="`Fehler melden: ${getFeeTypeName(fee.feeType)} ${fee.month ? formatMonthName(fee.month) + ' ' : ''}${fee.year}`"
+            class="btn btn-secondary btn-icon btn-sm" @click="reportId = fee.id"><MessageSquareWarning /></button>
+        </li>
+      </ul>
+      <div class="hidden overflow-x-auto card sm:block">
+      <table class="table w-full text-sm">
         <thead class="border-b text-left text-muted-foreground">
           <tr>
             <th class="px-4 py-2 font-medium">Art</th>
@@ -131,8 +145,7 @@ onMounted(loadLetters);
               :class="gi % 2 ? 'bg-muted/45' : 'bg-card'">
               <td class="whitespace-nowrap px-4 py-2">
                 <CornerDownRight v-if="i > 0" class="mr-1 inline h-4 w-4 text-muted-foreground" />
-                <span class="inline-flex rounded-full px-2 py-0.5 text-xs font-medium"
-                  :class="getFeeTypeColor(fee.feeType)">{{ getFeeTypeName(fee.feeType) }}</span>
+                <span class="badge">{{ getFeeTypeName(fee.feeType) }}</span>
               </td>
               <td class="whitespace-nowrap px-4 py-2">{{ i > 0 ? '' : period(fee) }}</td>
               <td v-if="showChild" class="whitespace-nowrap px-4 py-2">{{ fee.childName }}</td>
@@ -144,32 +157,33 @@ onMounted(loadLetters);
               </td>
               <td class="whitespace-nowrap px-4 py-2">{{ formatDate(fee.dueDate) }}</td>
               <td class="whitespace-nowrap px-4 py-2">
-                <span class="rounded-full px-2 py-0.5 text-xs font-semibold" :class="tone(fee.status)">
+                <span class="badge" :class="tone(fee.status)">
                   {{ status[fee.status] ?? fee.status }}</span>
                 <span v-if="fee.paidAt" class="ml-2 text-xs text-muted-foreground">
                   am {{ formatDate(fee.paidAt) }}</span>
                 <span v-else-if="fee.status !== 'PAID'" class="ml-2 text-xs"
-                  :class="daysUntil(fee.dueDate) < 0 ? 'text-red-700 dark:text-red-300' : 'text-muted-foreground'">
+                  :class="daysUntil(fee.dueDate) < 0 ? 'text-destructive' : 'text-muted-foreground'">
                   {{ deadline(fee.dueDate) }}</span>
               </td>
               <td class="px-2 py-2 text-right">
                 <button type="button" title="Fehler melden"
                   :aria-label="`Fehler melden: ${getFeeTypeName(fee.feeType)} ${fee.month
                     ? formatMonthName(fee.month) + ' ' : ''}${fee.year}`"
-                  class="rounded p-1.5 text-muted-foreground hover:bg-muted hover:text-primary"
+                  class="btn btn-secondary btn-icon btn-sm"
                   @click="reportId = fee.id"><MessageSquareWarning class="h-4 w-4" /></button>
               </td>
             </tr>
           </template>
         </tbody>
       </table>
+      </div>
     </div>
     <section class="space-y-2" aria-labelledby="letters-heading">
       <h2 id="letters-heading" class="text-lg font-semibold">Einstufungsbriefe</h2>
-      <p v-if="lettersError" role="alert" class="text-red-700 dark:text-red-300">{{ lettersError }}</p>
+      <p v-if="lettersError" role="alert" class="note note-danger">{{ lettersError }}</p>
       <p v-if="!letters.length" class="text-sm text-muted-foreground">
         Hier erscheinen die Einstufungen, die wir euch per E-Mail schicken.</p>
-      <ul v-else class="divide-y rounded-2xl border bg-card">
+      <ul v-else class="divide-y card">
         <li v-for="letter in letters" :key="letter.id"
           class="flex flex-wrap items-center justify-between gap-3 px-4 py-3 text-sm">
           <div>
@@ -177,7 +191,7 @@ onMounted(loadLetters);
             <p class="text-muted-foreground">{{ letter.childFirstName }} · per E-Mail am {{ formatDate(letter.sentAt) }}</p>
           </div>
           <button type="button" :disabled="downloading !== null"
-            class="inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 font-medium hover:bg-muted disabled:opacity-50"
+            class="btn btn-secondary btn-sm"
             :aria-label="`${letter.filename} herunterladen`" @click="downloadLetter(letter)">
             <Loader2 v-if="downloading === letter.id" class="h-4 w-4 animate-spin" />
             <Download v-else class="h-4 w-4" />

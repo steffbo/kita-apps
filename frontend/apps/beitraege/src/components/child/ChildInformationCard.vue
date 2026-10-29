@@ -42,29 +42,29 @@ const showDeleteDialog = computed({
 
 <template>
   <!-- Header -->
-  <div class="bg-card rounded-xl border p-6 mb-6">
+  <div class="card p-6 mb-6">
     <div class="flex items-start justify-between">
       <div class="flex items-center gap-4">
         <div class="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
           <User class="h-8 w-8 text-primary" />
         </div>
         <div>
-          <h1 class="text-2xl font-bold text-foreground">
+          <p class="text-base font-semibold text-foreground">
             {{ child.firstName }} {{ child.lastName }}
-          </h1>
+          </p>
           <p class="text-muted-foreground font-mono">Mitglieds-Nr. {{ child.memberNumber }}</p>
           <div class="flex items-center gap-2 mt-2">
             <span
               :class="[
-                'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium',
-                child.isActive ? 'bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-300' : 'bg-muted text-muted-foreground',
+                'badge',
+                child.isActive ? 'badge-success' : '',
               ]"
             >
               {{ child.isActive ? 'Aktiv' : 'Inaktiv' }}
             </span>
             <span
               v-if="isUnderThree(child.birthDate)"
-              class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300"
+              class="badge badge-warning"
             >
               U3
             </span>
@@ -74,14 +74,16 @@ const showDeleteDialog = computed({
       <div class="flex items-center gap-2">
         <button
           @click="showEditDialog = true"
-          class="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors"
+          class="btn btn-secondary btn-icon btn-sm"
+          aria-label="Bearbeiten"
           title="Bearbeiten"
         >
           <Edit class="h-5 w-5" />
         </button>
         <button
           @click="showDeleteDialog = true"
-          class="p-2 text-red-500 dark:text-red-400 hover:text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/40 rounded-lg transition-colors"
+          class="btn btn-danger-outline btn-icon btn-sm"
+          aria-label="Löschen"
           title="Löschen"
         >
           <Trash2 class="h-5 w-5" />

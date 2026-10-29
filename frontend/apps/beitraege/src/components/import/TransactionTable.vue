@@ -22,6 +22,7 @@ import {
   Search,
 } from 'lucide-vue-next';
 import SortTh from '@/components/SortTh.vue';
+import EmptyState from '@/components/ui/EmptyState.vue';
 import { formatCurrency, formatDate, formatDateTime, formatMonthName } from '@/utils/format';
 import { getFeeTypeColor, getFeeTypeName } from '@/utils/fees';
 
@@ -129,22 +130,16 @@ const dismissNote = computed({
     <Loader2 class="h-8 w-8 animate-spin text-primary" />
   </div>
 
-  <div v-else-if="pagedRows.length === 0" class="bg-card rounded-xl border text-center py-12">
-    <component
-      :is="transactionSearch.trim() ? Search : CheckCircle"
-      :class="['h-12 w-12 mx-auto mb-4', transactionSearch.trim() ? 'text-muted-foreground/60' : 'text-green-300']"
-    />
-    <p class="text-muted-foreground">
-      {{ transactionSearch.trim() ? 'Keine Transaktionen gefunden' : 'Keine offenen Transaktionen' }}
-    </p>
-    <p v-if="transactionSearch.trim()" class="text-sm text-muted-foreground mt-1">Versuche einen anderen Suchbegriff</p>
-    <p v-else-if="activeFilter === 'warnungen'" class="text-sm text-muted-foreground mt-1">Alle Zahlungen wurden korrekt verarbeitet</p>
-    <p v-else-if="activeFilter === 'zugeordnet'" class="text-sm text-muted-foreground mt-1">Noch keine zugeordneten Transaktionen</p>
-  </div>
+  <EmptyState v-else-if="pagedRows.length === 0" :icon="transactionSearch.trim() ? Search : CheckCircle"
+    :text="transactionSearch.trim() ? 'Keine Transaktionen gefunden' : 'Keine offenen Transaktionen'">
+    <p v-if="transactionSearch.trim()">Versuche einen anderen Suchbegriff</p>
+    <p v-else-if="activeFilter === 'warnungen'">Alle Zahlungen wurden korrekt verarbeitet</p>
+    <p v-else-if="activeFilter === 'zugeordnet'">Noch keine zugeordneten Transaktionen</p>
+  </EmptyState>
 
-  <div v-else class="bg-card rounded-xl border overflow-hidden">
+  <div v-else class="card overflow-hidden">
     <div class="overflow-x-auto">
-      <table class="w-full">
+      <table class="table">
         <thead class="bg-muted">
           <tr class="text-left text-sm text-muted-foreground">
             <SortTh label="Datum" column="date" cell-class="px-3 py-3"
@@ -186,7 +181,7 @@ const dismissNote = computed({
               <td
                 :class="[
                   'px-3 py-3 text-right font-medium whitespace-nowrap',
-                  row.matched ? 'text-green-600 dark:text-green-300' : '',
+                  row.matched ? 'text-success' : '',
                 ]"
               >
                 {{ formatCurrency(row.tx.amount) }}
@@ -195,21 +190,21 @@ const dismissNote = computed({
                 <div class="flex flex-col items-start gap-1.5">
                   <span
                     v-if="isPartiallyAllocated(row)"
-                    class="inline-flex items-center gap-1 whitespace-nowrap px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300"
+                    class="inline-flex items-center gap-1 whitespace-nowrap px-2 py-0.5 rounded-full text-xs font-medium bg-warning-soft text-warning"
                   >
                     <AlertTriangle class="h-3 w-3 shrink-0" />
                     Teilweise zugeordnet · Rest {{ formatCurrency(getTxRemaining(row.tx)) }}
                   </span>
                   <span
                     v-else-if="row.matched"
-                    class="inline-flex items-center gap-1 whitespace-nowrap px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-300"
+                    class="inline-flex items-center gap-1 whitespace-nowrap px-2 py-0.5 rounded-full text-xs font-medium bg-success-soft text-success"
                   >
                     <CheckCircle class="h-3 w-3 shrink-0" />
                     Zugeordnet
                   </span>
                   <span
                     v-else
-                    class="inline-flex items-center gap-1 whitespace-nowrap px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300"
+                    class="inline-flex items-center gap-1 whitespace-nowrap px-2 py-0.5 rounded-full text-xs font-medium bg-warning-soft text-warning"
                   >
                     <AlertTriangle class="h-3 w-3 shrink-0" />
                     Nicht zugeordnet
@@ -219,10 +214,7 @@ const dismissNote = computed({
                     <span
                       v-for="match in row.tx.matches"
                       :key="match.id"
-                      :class="[
-                        'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium',
-                        getFeeTypeColor(match.expectation?.feeType || ''),
-                      ]"
+                      :class="getFeeTypeColor(match.expectation?.feeType || '')"
                     >
                       {{ getFeeTypeName(match.expectation?.feeType || '') }}
                       <span class="ml-1 opacity-75">{{ formatCurrency(match.expectation?.amount || 0) }}</span>
@@ -232,7 +224,7 @@ const dismissNote = computed({
                   <button
                     v-if="row.warnings.length > 0"
                     @click="toggleWarnings(row.key)"
-                    class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300 hover:bg-orange-200 dark:hover:bg-orange-900/50 transition-colors"
+                    class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-warning-soft text-warning hover:bg-warning-soft transition-colors"
                   >
                     <AlertTriangle class="h-3 w-3" />
                     {{ row.warnings.length }} {{ row.warnings.length === 1 ? 'Warnung' : 'Warnungen' }}
@@ -248,7 +240,7 @@ const dismissNote = computed({
                     <span class="text-xs text-muted-foreground">Ignorieren?</span>
                     <button
                       @click="dismissTransaction(row.tx)"
-                      class="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600"
+                      class="btn btn-danger btn-sm"
                     >
                       Ja
                     </button>
@@ -263,7 +255,7 @@ const dismissNote = computed({
                     <span class="text-xs text-muted-foreground">Ausblenden?</span>
                     <button
                       @click="hideTransaction(row.tx)"
-                      class="px-2 py-1 text-xs bg-muted text-white rounded hover:bg-accent"
+                      class="btn btn-secondary btn-sm"
                     >
                       Ja
                     </button>
@@ -296,7 +288,7 @@ const dismissNote = computed({
                     <button
                       @click="showDismissConfirm(row.tx.id)"
                       :disabled="isDismissing === row.tx.id"
-                      class="inline-flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/40 rounded transition-colors disabled:opacity-50"
+                      class="inline-flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive-soft rounded transition-colors disabled:opacity-50"
                       title="IBAN dauerhaft ignorieren"
                     >
                       <Loader2 v-if="isDismissing === row.tx.id" class="h-3 w-3 animate-spin" />
@@ -312,7 +304,7 @@ const dismissNote = computed({
                     <span class="text-xs text-muted-foreground">Zuordnung aufheben?</span>
                     <button
                       @click="unmatchTransaction(row.tx)"
-                      class="px-2 py-1 text-xs bg-amber-500 text-white rounded hover:bg-amber-600"
+                      class="btn btn-secondary btn-sm"
                     >
                       Ja
                     </button>
@@ -327,7 +319,7 @@ const dismissNote = computed({
                     <span class="text-xs text-muted-foreground">Transaktion löschen?</span>
                     <button
                       @click="unmatchTransaction(row.tx, true)"
-                      class="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600"
+                      class="btn btn-danger btn-sm"
                     >
                       Ja
                     </button>
@@ -342,7 +334,7 @@ const dismissNote = computed({
                     <button
                       @click="showUnmatchConfirm(row.tx.id)"
                       :disabled="isUnmatching === row.tx.id || isDeletingMatched === row.tx.id"
-                      class="inline-flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/40 rounded transition-colors disabled:opacity-50"
+                      class="inline-flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-warning hover:bg-warning-soft rounded transition-colors disabled:opacity-50"
                       title="Zuordnung aufheben"
                     >
                       <Loader2 v-if="isUnmatching === row.tx.id" class="h-3 w-3 animate-spin" />
@@ -352,7 +344,7 @@ const dismissNote = computed({
                     <button
                       @click="showDeleteConfirm(row.tx.id)"
                       :disabled="isUnmatching === row.tx.id || isDeletingMatched === row.tx.id"
-                      class="inline-flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/40 rounded transition-colors disabled:opacity-50"
+                      class="inline-flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive-soft rounded transition-colors disabled:opacity-50"
                       title="Transaktion löschen"
                     >
                       <Loader2 v-if="isDeletingMatched === row.tx.id" class="h-3 w-3 animate-spin" />
@@ -365,13 +357,13 @@ const dismissNote = computed({
             </tr>
 
             <!-- Expanded warning details -->
-            <tr v-if="expandedWarnings.has(row.key) && row.warnings.length > 0" class="border-t bg-orange-50 dark:bg-orange-950/40">
+            <tr v-if="expandedWarnings.has(row.key) && row.warnings.length > 0" class="border-t bg-warning-soft">
               <td colspan="6" class="px-4 py-4">
                 <div class="space-y-4">
                   <div
                     v-for="warning in row.warnings"
                     :key="warning.id"
-                    class="bg-card rounded-xl border p-4"
+                    class="card p-4"
                   >
                     <div class="flex items-start justify-between gap-4">
                       <div class="flex-1">
@@ -405,7 +397,7 @@ const dismissNote = computed({
                           </div>
                           <div class="flex justify-between">
                             <span class="text-muted-foreground">Betrag:</span>
-                            <span class="font-medium text-green-600 dark:text-green-300">{{ formatCurrency(warning.transaction.amount) }}</span>
+                            <span class="font-medium text-success">{{ formatCurrency(warning.transaction.amount) }}</span>
                           </div>
                           <div class="flex justify-between">
                             <span class="text-muted-foreground">Datum:</span>
@@ -418,9 +410,9 @@ const dismissNote = computed({
 
                         <div
                           v-if="warning.warningType === 'LATE_PAYMENT' && warning.matchedFee"
-                          class="mt-2 p-3 bg-orange-50 dark:bg-orange-950/40 rounded-lg text-sm space-y-1"
+                          class="mt-2 p-3 bg-warning-soft rounded-lg text-sm space-y-1"
                         >
-                          <div class="flex items-center gap-1 text-orange-700 dark:text-orange-300 font-medium mb-1">
+                          <div class="flex items-center gap-1 text-warning font-medium mb-1">
                             <Clock class="h-4 w-4" />
                             Verspätete Zahlung für:
                           </div>
@@ -444,7 +436,7 @@ const dismissNote = computed({
                           v-if="warning.warningType === 'LATE_PAYMENT'"
                           @click="resolveLateFee(warning)"
                           :disabled="isResolvingWarning === warning.id"
-                          class="inline-flex items-center gap-1 px-3 py-1.5 text-sm bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition-colors disabled:opacity-50"
+                          class="btn btn-secondary btn-sm"
                           title="Mahngebuhr von 10 EUR erstellen"
                         >
                           <Loader2 v-if="isResolvingWarning === warning.id" class="h-4 w-4 animate-spin" />
@@ -463,7 +455,7 @@ const dismissNote = computed({
                             <button
                               @click="dismissWarning(warning)"
                               :disabled="isResolvingWarning === warning.id"
-                              class="px-2 py-1 text-xs bg-red-500 text-white rounded hover:bg-red-600 disabled:opacity-50"
+                              class="btn btn-danger btn-sm"
                             >
                               Verwerfen
                             </button>
@@ -480,7 +472,7 @@ const dismissNote = computed({
                           v-else
                           @click="showWarningDismiss(warning.id)"
                           :disabled="isResolvingWarning === warning.id"
-                          class="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-muted-foreground hover:text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/40 rounded-lg transition-colors disabled:opacity-50"
+                          class="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-muted-foreground hover:text-destructive hover:bg-destructive-soft rounded-lg transition-colors disabled:opacity-50"
                         >
                           <XCircle class="h-4 w-4" />
                           Verwerfen

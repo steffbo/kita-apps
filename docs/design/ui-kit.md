@@ -17,6 +17,8 @@ kein unnötiger Text, hell und dunkel gleichwertig, Handy zuerst.
   `destructive` (überfällig, Fehler, Löschen). Je Ton `text-<ton>`, `bg-<ton>-soft`, `border-<ton>-line`.
   Neutrales (Info ohne Dringlichkeit, Zähler) bleibt grau.
 - Lila/Orange/Blau als eigene Bedeutungen gibt es nicht mehr; auf die drei Status oder neutral abbilden.
+- Farb-Helfer in `utils/` (`getFeeTypeColor`, `getConfidenceColor`, `statusBadgeClass`) liefern fertige
+  `badge`-Klassen; am Element keine eigenen Badge-Maße dazuschreiben.
 
 ## Klassen (`src/assets/main.css`, `@layer components`)
 

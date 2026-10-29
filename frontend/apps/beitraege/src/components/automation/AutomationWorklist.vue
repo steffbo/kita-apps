@@ -66,7 +66,7 @@ const caseSearch = computed({
     </button>
   </div>
 
-  <div v-if="casesError" class="mb-4 text-sm text-red-600 dark:text-red-300">{{ casesError }}</div>
+  <div v-if="casesError" class="mb-4 text-sm text-destructive">{{ casesError }}</div>
   <div v-if="isCasesLoading && cases.length === 0" class="text-sm text-muted-foreground">Familien werden geladen...</div>
   <div v-else-if="filteredCases.length === 0" class="text-sm text-muted-foreground py-8 text-center">
     Keine offenen Fälle in dieser Ansicht.

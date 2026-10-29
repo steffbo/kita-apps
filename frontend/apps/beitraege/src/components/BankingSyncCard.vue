@@ -122,13 +122,13 @@ const bankingSyncStatusLabel = computed(() => {
 const bankingSyncStatusTone = computed(() => {
   switch (bankingSyncStatus.value?.status) {
     case 'running':
-      return 'bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300';
+      return 'bg-primary-soft text-primary';
     case 'waiting_for_2fa':
-      return 'bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300';
+      return 'bg-warning-soft text-warning';
     case 'success':
-      return 'bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-300';
+      return 'bg-success-soft text-success';
     case 'error':
-      return 'bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-300';
+      return 'bg-destructive-soft text-destructive';
     case 'idle':
       return 'bg-muted text-foreground';
     default:
@@ -180,10 +180,10 @@ defineExpose({ reload: loadBankingSyncStatus });
 </script>
 
 <template>
-  <div class="bg-card rounded-xl border p-6 mb-6">
+  <div class="card p-6 mb-6">
     <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div>
-        <h2 class="text-lg font-semibold text-foreground">Banking Sync</h2>
+        <h2 class="text-base font-semibold text-foreground">Banking Sync</h2>
         <p class="text-sm text-muted-foreground">
           Automatischer CSV-Export und Import aus dem Banking-Portal.
         </p>
@@ -209,7 +209,7 @@ defineExpose({ reload: loadBankingSyncStatus });
           v-if="shouldPollBankingSync(bankingSyncStatus)"
           @click="cancelBankingSync"
           :disabled="isCancellingBankingSync || isLoadingBankingSync"
-          class="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+          class="btn btn-danger"
         >
           <Loader2 v-if="isCancellingBankingSync" class="h-4 w-4 animate-spin" />
           <Square v-else class="h-4 w-4" />
@@ -218,8 +218,8 @@ defineExpose({ reload: loadBankingSyncStatus });
       </div>
     </div>
 
-    <div class="mt-4 flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-      <span class="px-2 py-1 rounded-full text-xs font-medium" :class="bankingSyncStatusTone">
+    <div class="flex mt-4 flex-wrap items-center gap-3 text-sm text-muted-foreground">
+      <span class="badge" :class="bankingSyncStatusTone">
         {{ bankingSyncStatusLabel }}
       </span>
       <span v-if="bankingSyncStatus?.startedAt">
@@ -233,18 +233,16 @@ defineExpose({ reload: loadBankingSyncStatus });
       </span>
     </div>
 
-    <div
-      v-if="bankingSyncError"
-      class="mt-3 p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg text-sm text-red-700 dark:text-red-300"
-    >
-      {{ bankingSyncError }}
+    <div v-if="bankingSyncError" class="note note-danger mt-3" role="alert">
+      <AlertTriangle />
+      <div>{{ bankingSyncError }}</div>
     </div>
     <div
       v-else-if="bankingSyncStatusHint"
       class="mt-3 p-3 border rounded-lg text-sm"
       :class="bankingSyncStatus?.status === 'error'
-        ? 'bg-red-50 dark:bg-red-950/40 border-red-200 text-red-700 dark:text-red-300'
-        : 'bg-amber-50 dark:bg-amber-950/40 border-amber-200 text-amber-800 dark:text-amber-300'"
+        ? 'bg-destructive-soft border-destructive-line text-destructive'
+        : 'bg-warning-soft border-warning-line text-warning'"
     >
       {{ bankingSyncStatusHint }}
     </div>

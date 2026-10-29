@@ -28,16 +28,10 @@ export function getFeePeriodLabel(fee: FeePeriod & { reminderFor?: FeePeriod & {
 
 export function getFeeTypeColor(type?: string): string {
   switch (type) {
-    case 'MEMBERSHIP':
-      return 'bg-purple-100 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300';
-    case 'FOOD':
-      return 'bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300';
-    case 'CHILDCARE':
-      return 'bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300';
     case 'REMINDER':
-      return 'bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-300';
+      return 'badge badge-danger';
     default:
-      return 'bg-muted text-foreground';
+      return 'badge';
   }
 }
 
@@ -88,9 +82,9 @@ export function formatMatchedBy(reason?: string): string {
 }
 
 export function getConfidenceColor(confidence: number): string {
-  if (confidence >= 0.8) return 'text-green-600 dark:text-green-300 bg-green-100 dark:bg-green-950/40';
-  if (confidence >= 0.5) return 'text-amber-600 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/40';
-  return 'text-red-600 dark:text-red-300 bg-red-100 dark:bg-red-950/40';
+  if (confidence >= 0.8) return 'badge badge-success';
+  if (confidence >= 0.5) return 'badge badge-warning';
+  return 'badge badge-danger';
 }
 
 export function getConfidenceLabel(confidence: number): string {

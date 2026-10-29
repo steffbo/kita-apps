@@ -5,6 +5,7 @@ import type { ParentWorkEntry, ParentWorkHouseholdOption, ParentWorkEntryRequest
 import { formatDateForInput, todayISO } from '@/utils/format';
 import HouseholdPicker from './HouseholdPicker.vue';
 import DurationPicker from './DurationPicker.vue';
+import AppSheet from '@/components/ui/AppSheet.vue';
 
 const props = defineProps<{ entry?: ParentWorkEntry | null; householdId?: string }>();
 const emit = defineEmits<{ close: []; saved: [] }>();
@@ -42,18 +43,18 @@ async function save() {
 </script>
 
 <template>
-  <div class="fixed inset-0 z-50 overflow-y-auto bg-black/50 p-4" @click.self="emit('close')">
-    <form role="dialog" aria-modal="true" :aria-label="entry ? 'Stunden bearbeiten' : 'Stunden erfassen'" class="mx-auto my-8 max-w-xl rounded-xl bg-card p-6 shadow-xl" @submit.prevent="save">
-      <h2 class="text-xl font-semibold">{{ entry ? 'Stunden bearbeiten' : 'Stunden erfassen' }}</h2>
-      <div class="mt-5 space-y-4">
+  <AppSheet :title="entry ? 'Stunden bearbeiten' : 'Stunden erfassen'" size="md" @close="emit('close')">
+    <form id="parent-work-entry" class="space-y-4" @submit.prevent="save">
         <HouseholdPicker v-model="householdId" :households="households" label="Familie *" />
         <p v-if="loading" class="text-sm text-muted-foreground">Familien werden geladen …</p>
-        <label class="block text-sm font-medium">Datum *<input v-model="date" type="date" required class="mt-1 block w-full rounded-lg border px-3 py-2 sm:w-56" /></label>
+        <label class="label">Datum *<input v-model="date" type="date" required class="input sm:w-56" /></label>
         <DurationPicker v-model="minutes" label="Dauer *" />
-        <label class="block text-sm font-medium">Anlass *<input v-model="occasion" type="text" required class="mt-1 w-full rounded-lg border px-3 py-2" /></label>
-        <p v-if="error" role="alert" class="rounded-lg bg-red-50 dark:bg-red-950/40 p-3 text-sm text-red-700 dark:text-red-300">{{ error }}</p>
-      </div>
-      <div class="mt-6 flex justify-end gap-3"><button type="button" class="rounded-lg border px-4 py-2" @click="emit('close')">Abbrechen</button><button type="submit" :disabled="saving || loading" class="rounded-lg bg-primary px-4 py-2 text-primary-foreground disabled:opacity-50">Speichern</button></div>
+        <label class="label">Anlass *<input v-model="occasion" type="text" required class="input" /></label>
+        <p v-if="error" role="alert" class="note note-danger">{{ error }}</p>
     </form>
-  </div>
+    <template #footer>
+      <button type="button" class="btn btn-secondary" @click="emit('close')">Abbrechen</button>
+      <button type="submit" form="parent-work-entry" :disabled="saving || loading" class="btn btn-primary">Speichern</button>
+    </template>
+  </AppSheet>
 </template>

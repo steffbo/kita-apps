@@ -2,8 +2,9 @@
 import { ref } from 'vue';
 import { api } from '@/api';
 import type { CareHoursHistoryEntry, Child, ChildEinstufungSync, LegalHoursHistoryEntry, UpdateChildRequest } from '@/api/types';
-import { Loader2, X, Check } from 'lucide-vue-next';
+import { Loader2, Check } from 'lucide-vue-next';
 import { formatDateForInput } from '@/utils/format';
+import AppSheet from '@/components/ui/AppSheet.vue';
 
 const props = defineProps<{
   child: Child;
@@ -130,110 +131,99 @@ async function handleEdit() {
 </script>
 
 <template>
-  <div
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-    @click.self="$emit('close')"
-  >
-    <div class="bg-card rounded-xl shadow-xl w-full max-w-md mx-4 p-6 max-h-[90vh] overflow-y-auto">
-      <div class="flex items-center justify-between mb-6">
-        <h2 class="text-xl font-semibold">Kind bearbeiten</h2>
-        <button @click="$emit('close')" class="p-1 hover:bg-accent rounded" aria-label="Schließen">
-          <X class="h-5 w-5" />
-        </button>
-      </div>
-
-      <form @submit.prevent="handleEdit" class="space-y-4">
+  <AppSheet title="Kind bearbeiten" size="md" @close="$emit('close')">
+      <form id="edit-child-form" @submit.prevent="handleEdit" class="space-y-4">
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <label for="edit-firstName" class="block text-sm font-medium text-foreground mb-1">Vorname</label>
+            <label for="edit-firstName" class="label">Vorname</label>
             <input
               id="edit-firstName"
               v-model="editForm.firstName"
               type="text"
-              class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              class="input"
             />
           </div>
           <div>
-            <label for="edit-lastName" class="block text-sm font-medium text-foreground mb-1">Nachname</label>
+            <label for="edit-lastName" class="label">Nachname</label>
             <input
               id="edit-lastName"
               v-model="editForm.lastName"
               type="text"
-              class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              class="input"
             />
           </div>
         </div>
 
         <div class="grid grid-cols-2 gap-4">
           <div>
-            <label for="edit-birthDate" class="block text-sm font-medium text-foreground mb-1">Geburtsdatum</label>
+            <label for="edit-birthDate" class="label">Geburtsdatum</label>
             <input
               id="edit-birthDate"
               v-model="editForm.birthDate"
               type="date"
-              class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              class="input"
             />
           </div>
           <div>
-            <label for="edit-entryDate" class="block text-sm font-medium text-foreground mb-1">Eintrittsdatum</label>
+            <label for="edit-entryDate" class="label">Eintrittsdatum</label>
             <input
               id="edit-entryDate"
               v-model="editForm.entryDate"
               type="date"
-              class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              class="input"
             />
           </div>
         </div>
 
         <div>
-          <label for="edit-exitDate" class="block text-sm font-medium text-foreground mb-1">Austrittsdatum</label>
+          <label for="edit-exitDate" class="label">Austrittsdatum</label>
           <input
             id="edit-exitDate"
             v-model="editForm.exitDate"
             type="date"
-            class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+            class="input"
           />
           <p class="text-xs text-muted-foreground mt-1">Optional: Datum, an dem das Kind die Kita verlässt</p>
         </div>
 
         <div class="grid grid-cols-4 gap-4">
           <div class="col-span-3">
-            <label for="edit-street" class="block text-sm font-medium text-foreground mb-1">Straße</label>
+            <label for="edit-street" class="label">Straße</label>
             <input
               id="edit-street"
               v-model="editForm.street"
               type="text"
-              class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              class="input"
             />
           </div>
           <div>
-            <label for="edit-streetNo" class="block text-sm font-medium text-foreground mb-1">Hausnr.</label>
+            <label for="edit-streetNo" class="label">Hausnr.</label>
             <input
               id="edit-streetNo"
               v-model="editForm.streetNo"
               type="text"
-              class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              class="input"
             />
           </div>
         </div>
 
         <div class="grid grid-cols-3 gap-4">
           <div>
-            <label for="edit-postalCode" class="block text-sm font-medium text-foreground mb-1">PLZ</label>
+            <label for="edit-postalCode" class="label">PLZ</label>
             <input
               id="edit-postalCode"
               v-model="editForm.postalCode"
               type="text"
-              class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              class="input"
             />
           </div>
           <div class="col-span-2">
-            <label for="edit-city" class="block text-sm font-medium text-foreground mb-1">Ort</label>
+            <label for="edit-city" class="label">Ort</label>
             <input
               id="edit-city"
               v-model="editForm.city"
               type="text"
-              class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              class="input"
             />
           </div>
         </div>
@@ -243,45 +233,45 @@ async function handleEdit() {
           <h3 class="text-sm font-medium text-foreground mb-3">Betreuungszeiten</h3>
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label for="edit-legalHours" class="block text-sm font-medium text-foreground mb-1">Rechtsanspruch (Std./Woche)</label>
+              <label for="edit-legalHours" class="label">Rechtsanspruch (Std./Woche)</label>
               <input
                 id="edit-legalHours"
                 v-model.number="editForm.legalHours"
                 type="number"
                 min="0"
                 max="50"
-                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                class="input"
               />
             </div>
             <div>
-              <label for="edit-legalHoursValidFrom" class="block text-sm font-medium text-foreground mb-1">Rechtsanspruch gültig ab</label>
+              <label for="edit-legalHoursValidFrom" class="label">Rechtsanspruch gültig ab</label>
               <input
                 id="edit-legalHoursValidFrom"
                 v-model="editForm.legalHoursValidFrom"
                 type="date"
-                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                class="input"
               />
             </div>
           </div>
           <div class="mt-4">
-            <label for="edit-careHours" class="block text-sm font-medium text-foreground mb-1">Betreuungszeit (Std./Woche)</label>
+            <label for="edit-careHours" class="label">Betreuungszeit (Std./Woche)</label>
             <input
               id="edit-careHours"
               v-model.number="editForm.careHours"
               type="number"
               min="0"
               max="50"
-              class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              class="input"
             />
             <p class="text-xs text-muted-foreground mt-1">Änderungen werden als Historieneintrag gespeichert und gelten ab dem gewählten Datum.</p>
           </div>
           <div class="mt-4">
-            <label for="edit-careHoursValidFrom" class="block text-sm font-medium text-foreground mb-1">Betreuungszeit gültig ab</label>
+            <label for="edit-careHoursValidFrom" class="label">Betreuungszeit gültig ab</label>
             <input
               id="edit-careHoursValidFrom"
               v-model="editForm.careHoursValidFrom"
               type="date"
-              class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              class="input"
             />
           </div>
         </div>
@@ -297,28 +287,16 @@ async function handleEdit() {
           </label>
         </div>
 
-        <div v-if="editError" class="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg">
-          <p class="text-sm text-red-600 dark:text-red-300">{{ editError }}</p>
+        <div v-if="editError" class="note note-danger">
+          <p class="text-sm text-destructive">{{ editError }}</p>
         </div>
 
-        <div class="flex justify-end gap-3 pt-4">
-          <button
-            type="button"
-            @click="$emit('close')"
-            class="px-4 py-2 text-foreground hover:bg-accent rounded-lg transition-colors"
-          >
-            Abbrechen
-          </button>
-          <button
-            type="submit"
-            :disabled="isEditing"
-            class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
-          >
-            <Loader2 v-if="isEditing" class="h-4 w-4 animate-spin" />
-            <Check v-else class="h-4 w-4" />
-            Speichern
-          </button>
-        </div>
       </form>
-    </div>
-  </div></template>
+      <template #footer>
+        <button type="button" class="btn btn-secondary" @click="$emit('close')">Abbrechen</button>
+        <button type="submit" form="edit-child-form" class="btn btn-primary" :disabled="isEditing">
+          <Loader2 v-if="isEditing" class="animate-spin" /><Check v-else />Speichern
+        </button>
+      </template>
+  </AppSheet>
+</template>

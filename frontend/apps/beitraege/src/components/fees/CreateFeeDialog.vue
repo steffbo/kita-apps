@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import AppSheet from '@/components/ui/AppSheet.vue';
+
 import { ref, computed, watch, onUnmounted } from 'vue';
 import { api } from '@/api';
 import type { Child, CreateFeeRequest } from '@/api/types';
-import { Loader2, Plus, User } from 'lucide-vue-next';
+import { Info, Loader2, Plus, User } from 'lucide-vue-next';
 import { MONTH_OPTIONS as months } from '@/utils/format';
 import SearchInput from '@/components/SearchInput.vue';
 
@@ -105,169 +107,126 @@ async function handleCreateFee() {
 </script>
 
 <template>
-  <div
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-    @click.self="$emit('close')"
-  >
-    <div class="bg-card rounded-xl shadow-xl w-full max-w-lg mx-4 p-6">
-      <div class="flex items-center gap-3 mb-6">
-        <div class="p-2 bg-primary/10 rounded-lg">
-          <Plus class="h-6 w-6 text-primary" />
+  <AppSheet title="Einzelnen Beitrag erstellen" @close="$emit('close')">
+    <form id="create-fee" class="space-y-4" @submit.prevent="handleCreateFee">
+      <!-- Child Selection -->
+      <div>
+        <label class="label">Kind *</label>
+        <!-- Selected Child Display -->
+        <div
+          v-if="selectedChild"
+          class="flex items-center justify-between p-3 bg-muted border border-border rounded-lg">
+          <div class="flex items-center gap-3">
+            <div class="p-2 bg-primary-soft rounded-full">
+              <User class="h-4 w-4 text-primary" />
+            </div>
+            <div>
+              <p class="font-medium">{{ selectedChild.firstName }} {{ selectedChild.lastName }}</p>
+              <p class="text-sm text-muted-foreground">Mitgl.-Nr.: {{ selectedChild.memberNumber }}</p>
+            </div>
+          </div>
+          <button
+            type="button"
+            aria-label="Auswahl aufheben"
+            @click="clearSelectedChild"
+            class="btn btn-ghost btn-icon">
+            <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
-        <div>
-          <h2 class="text-xl font-semibold">Einzelnen Beitrag erstellen</h2>
-          <p class="text-sm text-muted-foreground">Erstellt einen Beitrag für ein bestimmtes Kind</p>
-        </div>
-      </div>
-
-      <div class="space-y-4">
-        <!-- Child Selection -->
-        <div>
-          <label class="block text-sm font-medium text-foreground mb-1">Kind *</label>
-
-          <!-- Selected Child Display -->
-          <div v-if="selectedChild" class="flex items-center justify-between p-3 bg-muted border border-border rounded-lg">
-            <div class="flex items-center gap-3">
-              <div class="p-2 bg-primary/10 rounded-full">
-                <User class="h-4 w-4 text-primary" />
+        <!-- Child Search -->
+        <div v-else class="relative">
+          <SearchInput
+            v-model="childSearchQuery"
+            placeholder="Name oder Mitgliedsnummer eingeben..."
+            :loading="isSearchingChildren" />
+          <!-- Search Results Dropdown -->
+          <div
+            v-if="childSearchResults.length > 0"
+            class="absolute z-10 w-full mt-1 bg-popover border border-border rounded-lg shadow-lg max-h-60
+              overflow-auto">
+            <button
+              type="button"
+              v-for="child in childSearchResults"
+              :key="child.id"
+              @click="selectChild(child)"
+              class="w-full flex items-center gap-3 px-4 py-3 hover:bg-accent text-left border-b last:border-b-0">
+              <div class="p-1.5 bg-muted rounded-full">
+                <User class="h-4 w-4 text-muted-foreground" />
               </div>
               <div>
-                <p class="font-medium">{{ selectedChild.firstName }} {{ selectedChild.lastName }}</p>
-                <p class="text-sm text-muted-foreground">Mitgl.-Nr.: {{ selectedChild.memberNumber }}</p>
+                <p class="font-medium">{{ child.firstName }} {{ child.lastName }}</p>
+                <p class="text-sm text-muted-foreground">{{ child.memberNumber }}</p>
               </div>
-            </div>
-            <button
-              @click="clearSelectedChild"
-              class="text-muted-foreground hover:text-muted-foreground"
-            >
-              <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-              </svg>
             </button>
           </div>
-
-          <!-- Child Search -->
-          <div v-else class="relative">
-            <SearchInput v-model="childSearchQuery" placeholder="Name oder Mitgliedsnummer eingeben..."
-              :loading="isSearchingChildren" />
-
-            <!-- Search Results Dropdown -->
-            <div
-              v-if="childSearchResults.length > 0"
-              class="absolute z-10 w-full mt-1 bg-popover border border-border rounded-lg shadow-lg max-h-60 overflow-auto"
-            >
-              <button
-                v-for="child in childSearchResults"
-                :key="child.id"
-                @click="selectChild(child)"
-                class="w-full flex items-center gap-3 px-4 py-3 hover:bg-accent text-left border-b last:border-b-0"
-              >
-                <div class="p-1.5 bg-muted rounded-full">
-                  <User class="h-4 w-4 text-muted-foreground" />
-                </div>
-                <div>
-                  <p class="font-medium">{{ child.firstName }} {{ child.lastName }}</p>
-                  <p class="text-sm text-muted-foreground">{{ child.memberNumber }}</p>
-                </div>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Fee Type -->
-        <div>
-          <label class="block text-sm font-medium text-foreground mb-1">Beitragsart *</label>
-          <select
-            v-model="createFeeForm.feeType"
-            class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-          >
-            <option value="FOOD">Essensgeld</option>
-            <option value="CHILDCARE">Platzgeld</option>
-            <option value="MEMBERSHIP">Vereinsbeitrag</option>
-            <option value="REMINDER">Mahngebühr</option>
-          </select>
-        </div>
-
-        <!-- Year -->
-        <div>
-          <label class="block text-sm font-medium text-foreground mb-1">Jahr *</label>
-          <select
-            v-model="createFeeForm.year"
-            class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-          >
-            <option v-for="year in years" :key="year" :value="year">{{ year }}</option>
-          </select>
-        </div>
-
-        <!-- Month (conditional) -->
-        <div v-if="feeTypeRequiresMonth">
-          <label class="block text-sm font-medium text-foreground mb-1">Monat *</label>
-          <select
-            v-model="createFeeForm.month"
-            class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-          >
-            <option v-for="month in months" :key="month.value" :value="month.value">
-              {{ month.label }}
-            </option>
-          </select>
-        </div>
-
-        <!-- Amount (optional) -->
-        <div>
-          <label class="block text-sm font-medium text-foreground mb-1">
-            Betrag (optional)
-            <span class="font-normal text-muted-foreground">- wird automatisch berechnet wenn leer</span>
-          </label>
-          <div class="relative">
-            <input
-              v-model.number="createFeeForm.amount"
-              type="number"
-              step="0.01"
-              min="0"
-              placeholder="z.B. 45.40"
-              class="w-full px-3 py-2 pr-10 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-            />
-            <span class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">EUR</span>
-          </div>
-        </div>
-
-        <!-- Due Date (optional) -->
-        <div>
-          <label class="block text-sm font-medium text-foreground mb-1">
-            Fälligkeitsdatum (optional)
-            <span class="font-normal text-muted-foreground">- wird automatisch gesetzt wenn leer</span>
-          </label>
-          <input
-            v-model="createFeeForm.dueDate"
-            type="date"
-            class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-          />
-        </div>
-
-        <!-- Error Display -->
-        <div v-if="createFeeError" class="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg">
-          <p class="text-sm text-red-600 dark:text-red-300">{{ createFeeError }}</p>
-        </div>
-
-        <!-- Actions -->
-        <div class="flex justify-end gap-3 pt-4">
-          <button
-            @click="$emit('close')"
-            class="px-4 py-2 text-foreground hover:bg-accent rounded-lg transition-colors"
-          >
-            Abbrechen
-          </button>
-          <button
-            @click="handleCreateFee"
-            :disabled="isCreatingFee || !selectedChild"
-            class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
-          >
-            <Loader2 v-if="isCreatingFee" class="h-4 w-4 animate-spin" />
-            <Plus v-else class="h-4 w-4" />
-            Beitrag erstellen
-          </button>
         </div>
       </div>
-    </div>
-  </div>
+      <!-- Fee Type -->
+      <div>
+        <label class="label">Beitragsart *</label>
+        <select v-model="createFeeForm.feeType" class="input">
+          <option value="FOOD">Essensgeld</option>
+          <option value="CHILDCARE">Platzgeld</option>
+          <option value="MEMBERSHIP">Vereinsbeitrag</option>
+          <option value="REMINDER">Mahngebühr</option>
+        </select>
+      </div>
+      <!-- Year -->
+      <div>
+        <label class="label">Jahr *</label>
+        <select v-model="createFeeForm.year" class="input">
+          <option v-for="year in years" :key="year" :value="year">{{ year }}</option>
+        </select>
+      </div>
+      <!-- Month (conditional) -->
+      <div v-if="feeTypeRequiresMonth">
+        <label class="label">Monat *</label>
+        <select v-model="createFeeForm.month" class="input">
+          <option v-for="month in months" :key="month.value" :value="month.value">{{ month.label }}</option>
+        </select>
+      </div>
+      <!-- Amount (optional) -->
+      <div>
+        <label class="label">
+          Betrag (optional)
+          <span class="font-normal text-muted-foreground">- wird automatisch berechnet wenn leer</span>
+        </label>
+        <div class="relative">
+          <input
+            v-model.number="createFeeForm.amount"
+            type="number"
+            step="0.01"
+            min="0"
+            placeholder="z.B. 45.40"
+            class="input pr-10 text-right tabular-nums" />
+          <span class="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground">EUR</span>
+        </div>
+      </div>
+      <!-- Due Date (optional) -->
+      <div>
+        <label class="label">
+          Fälligkeitsdatum (optional)
+          <span class="font-normal text-muted-foreground">- wird automatisch gesetzt wenn leer</span>
+        </label>
+        <input v-model="createFeeForm.dueDate" type="date" class="input" />
+      </div>
+      <!-- Error Display -->
+      <div v-if="createFeeError" class="note note-danger">
+        <Info />
+        <div class="min-w-0 flex-1">
+          <p class="text-sm text-destructive">{{ createFeeError }}</p>
+        </div>
+      </div>
+    </form>
+    <template #footer>
+      <button type="button" @click="$emit('close')" class="btn btn-secondary">Abbrechen</button>
+      <button type="submit" form="create-fee" :disabled="isCreatingFee || !selectedChild" class="btn btn-primary">
+        <Loader2 v-if="isCreatingFee" class="h-4 w-4 animate-spin" />
+        <Plus v-else class="h-4 w-4" />
+        Beitrag erstellen
+      </button>
+    </template>
+  </AppSheet>
 </template>

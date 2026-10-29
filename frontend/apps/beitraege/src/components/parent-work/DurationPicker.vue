@@ -54,8 +54,8 @@ function step(delta: number) {
     <label :for="id" class="block text-sm font-medium">{{ props.label }}</label>
     <div class="mt-1 flex items-center gap-3">
       <div class="flex h-10 items-stretch overflow-hidden rounded-lg border bg-card focus-within:ring-2
-        focus-within:ring-ring" :class="{ 'border-red-500': touched && invalid }">
-        <button type="button" class="px-2.5 text-muted-foreground hover:bg-accent disabled:opacity-40"
+        focus-within:ring-ring" :class="{ 'border-destructive-line': touched && invalid }">
+        <button type="button" class="btn btn-ghost btn-icon"
           aria-label="15 Minuten weniger" :disabled="!model || model <= 15" @click="step(-15)">
           <Minus class="h-4 w-4" />
         </button>
@@ -64,12 +64,12 @@ function step(delta: number) {
           class="w-20 border-x bg-transparent text-center tabular-nums outline-none"
           @input="onInput(($event.target as HTMLInputElement).value)" @blur="onBlur" />
         <span class="flex items-center border-r px-2 text-sm text-muted-foreground">Std.</span>
-        <button type="button" class="px-2.5 text-muted-foreground hover:bg-accent"
+        <button type="button" class="btn btn-ghost btn-icon"
           aria-label="15 Minuten mehr" @click="step(15)">
           <Plus class="h-4 w-4" />
         </button>
       </div>
-      <span :id="`${id}-hint`" class="text-sm" :class="touched && invalid ? 'text-red-700 dark:text-red-300'
+      <span :id="`${id}-hint`" class="text-sm" :class="touched && invalid ? 'text-destructive'
         : 'text-muted-foreground'" aria-live="polite">
         {{ touched && invalid ? 'In Viertelstunden, z. B. 2,5 oder 2:30' : spelled }}
       </span>
@@ -77,9 +77,7 @@ function step(delta: number) {
     <div role="group" aria-label="Schnellwahl" class="mt-2 flex flex-wrap gap-1.5">
       <button v-for="p in presets" :key="p" type="button" :aria-pressed="model === p"
         :aria-label="`${format(p)} Std.`"
-        class="min-w-11 rounded-full border px-3 py-1 text-sm tabular-nums transition-colors"
-        :class="model === p ? 'border-primary bg-primary text-primary-foreground'
-          : 'text-muted-foreground hover:border-primary hover:text-foreground'"
+        class="chip tabular-nums"
         @click="model = p">{{ format(p) }}</button>
     </div>
   </div>

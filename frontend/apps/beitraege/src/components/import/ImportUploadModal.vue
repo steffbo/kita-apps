@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AppSheet from '@/components/ui/AppSheet.vue';
 import { ref, computed } from 'vue';
 import { api } from '@/api';
 import type { ImportResult, MatchConfirmation } from '@/api/types';
@@ -8,7 +9,6 @@ import {
   FileSpreadsheet,
   Loader2,
   CheckCircle,
-  XCircle,
   AlertTriangle,
   ChevronDown,
   ChevronUp,
@@ -171,20 +171,9 @@ function resetUpload(): void {
 </script>
 
 <template>
-  <div
-    class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-    @click.self="$emit('close')"
-  >
-    <div class="bg-card rounded-xl shadow-xl max-w-3xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
-      <div class="p-4 border-b flex items-center justify-between">
-        <h2 class="text-lg font-semibold">CSV hochladen</h2>
-        <button @click="$emit('close')" class="text-muted-foreground hover:text-muted-foreground" aria-label="Schließen">
-          <XCircle class="h-5 w-5" />
-        </button>
-      </div>
-
-      <div class="overflow-y-auto p-4 space-y-6">
-        <div v-if="uploadError" class="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg text-sm text-red-700 dark:text-red-300">
+  <AppSheet title="CSV hochladen" size="lg" @close="$emit('close')">
+      <div class="space-y-6">
+        <div v-if="uploadError" class="note note-danger">
           {{ uploadError }}
         </div>
         <!-- Upload Area -->
@@ -214,7 +203,7 @@ function resetUpload(): void {
             <input type="file" accept=".csv" @change="handleFileSelect" class="hidden" id="file-input" />
             <label
               for="file-input"
-              class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 cursor-pointer transition-colors"
+              class="btn btn-primary"
             >
               <Upload class="h-4 w-4" />
               Datei auswählen
@@ -230,34 +219,34 @@ function resetUpload(): void {
           <div class="rounded-xl border p-6">
             <div class="flex items-center justify-between mb-4">
               <div class="flex items-center gap-3">
-                <div v-if="importResult.errors?.length" class="p-2 bg-red-100 dark:bg-red-950/40 rounded-lg">
-                  <AlertTriangle class="h-6 w-6 text-red-600 dark:text-red-300" />
+                <div v-if="importResult.errors?.length" class="p-2 bg-destructive-soft rounded-lg">
+                  <AlertTriangle class="h-6 w-6 text-destructive" />
                 </div>
-                <div v-else class="p-2 bg-green-100 dark:bg-green-950/40 rounded-lg">
-                  <CheckCircle class="h-6 w-6 text-green-600 dark:text-green-300" />
+                <div v-else class="p-2 bg-success-soft rounded-lg">
+                  <CheckCircle class="h-6 w-6 text-success" />
                 </div>
                 <div>
-                  <h2 class="text-lg font-semibold">
+                  <h2 class="text-base font-semibold">
                     {{ importResult.errors?.length ? 'Import mit Fehlern abgeschlossen' : 'Import erfolgreich' }}
                   </h2>
                   <p class="text-sm text-muted-foreground">{{ importResult.fileName }}</p>
                 </div>
               </div>
-              <button @click="resetUpload" class="text-sm text-muted-foreground hover:text-foreground underline">
+              <button @click="resetUpload" class="btn btn-ghost btn-sm">
                 Neuer Import
               </button>
             </div>
             <div class="grid grid-cols-3 gap-4">
               <div class="p-3 bg-muted rounded-lg text-center">
-                <div class="text-2xl font-bold text-foreground">{{ importResult.totalRows }}</div>
+                <div class="text-2xl font-semibold text-foreground">{{ importResult.totalRows }}</div>
                 <div class="text-sm text-muted-foreground">Zeilen gelesen</div>
               </div>
-              <div class="p-3 bg-green-50 dark:bg-green-950/40 rounded-lg text-center">
-                <div class="text-2xl font-bold text-green-600 dark:text-green-300">{{ importResult.imported }}</div>
+              <div class="p-3 bg-success-soft rounded-lg text-center">
+                <div class="text-2xl font-semibold text-success">{{ importResult.imported }}</div>
                 <div class="text-sm text-muted-foreground">Importiert</div>
               </div>
               <div class="p-3 bg-muted rounded-lg text-center">
-                <div class="text-2xl font-bold text-muted-foreground">{{ importResult.skipped }}</div>
+                <div class="text-2xl font-semibold text-muted-foreground">{{ importResult.skipped }}</div>
                 <div class="text-sm text-muted-foreground">Übersprungen</div>
               </div>
             </div>
@@ -268,12 +257,12 @@ function resetUpload(): void {
           <!-- Confirm Result -->
           <div
             v-if="confirmResult"
-            class="p-4 bg-green-50 dark:bg-green-950/40 border border-green-200 rounded-lg flex items-start gap-3"
+            class="border p-4 bg-success-soft border-success-line rounded-lg flex items-start gap-3"
           >
-            <CheckCircle class="h-5 w-5 text-green-500 dark:text-green-400 flex-shrink-0 mt-0.5" />
+            <CheckCircle class="h-5 w-5 text-success flex-shrink-0 mt-0.5" />
             <div>
-              <p class="text-green-700 dark:text-green-300 font-medium">Zuordnungen bestätigt</p>
-              <p class="text-sm text-green-600 dark:text-green-300">
+              <p class="text-success font-medium">Zuordnungen bestätigt</p>
+              <p class="text-sm text-success">
                 {{ confirmResult.confirmed }} Zahlungen wurden als bezahlt markiert
                 <span v-if="confirmResult.failed > 0">, {{ confirmResult.failed }} fehlgeschlagen</span>
               </p>
@@ -290,11 +279,11 @@ function resetUpload(): void {
                 </p>
               </div>
               <div class="flex gap-2">
-                <button @click="selectAllMatches" class="text-sm text-primary hover:underline">
+                <button @click="selectAllMatches" class="btn btn-ghost btn-sm">
                   Alle auswählen
                 </button>
                 <span class="text-muted-foreground/60">|</span>
-                <button @click="deselectAllMatches" class="text-sm text-muted-foreground hover:underline">
+                <button @click="deselectAllMatches" class="btn btn-ghost btn-sm">
                   Keine
                 </button>
               </div>
@@ -330,7 +319,7 @@ function resetUpload(): void {
                         </div>
                       </div>
                       <div class="text-right flex-shrink-0">
-                        <div class="font-semibold text-green-600 dark:text-green-300">
+                        <div class="font-semibold text-success">
                           {{ formatCurrency(suggestion.transaction.amount) }}
                         </div>
                         <div class="text-xs text-muted-foreground">
@@ -341,10 +330,7 @@ function resetUpload(): void {
 
                     <div class="mt-3 flex items-center gap-4 text-sm">
                       <span
-                        :class="[
-                          'px-2 py-0.5 rounded-full text-xs font-medium',
-                          getConfidenceColor(suggestion.confidence),
-                        ]"
+                        :class="getConfidenceColor(suggestion.confidence)"
                       >
                         {{ getConfidenceLabel(suggestion.confidence) }} ({{ Math.round(suggestion.confidence * 100) }}%)
                       </span>
@@ -356,7 +342,7 @@ function resetUpload(): void {
 
                     <button
                       @click="toggleSuggestion(suggestion.transaction.id)"
-                      class="mt-2 text-sm text-primary flex items-center gap-1"
+                      class="btn btn-ghost btn-sm mt-2"
                     >
                       <ChevronDown
                         v-if="!expandedSuggestions.has(suggestion.transaction.id)"
@@ -413,7 +399,7 @@ function resetUpload(): void {
               <button
                 @click="confirmMatches"
                 :disabled="selectedMatches.size === 0 || isConfirming"
-                class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                class="btn btn-primary"
               >
                 <Loader2 v-if="isConfirming" class="h-4 w-4 animate-spin" />
                 <CheckCircle v-else class="h-4 w-4" />
@@ -426,7 +412,7 @@ function resetUpload(): void {
           <div v-if="unmatchableSuggestions.length > 0" class="rounded-xl border">
             <div class="p-4 border-b">
               <div class="flex items-center gap-2">
-                <AlertTriangle class="h-5 w-5 text-amber-500 dark:text-amber-400" />
+                <AlertTriangle class="h-5 w-5 text-warning" />
                 <h3 class="font-semibold">Nicht zuordenbar</h3>
               </div>
               <p class="text-sm text-muted-foreground mt-1">
@@ -461,5 +447,5 @@ function resetUpload(): void {
           </div>
         </template>
       </div>
-    </div>
-  </div></template>
+</AppSheet>
+</template>

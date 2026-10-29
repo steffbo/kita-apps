@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import EmptyState from '@/components/ui/EmptyState.vue';
+
 import { computed, nextTick, ref, useId } from 'vue';
 import type { Child, Household } from '@/api/types';
 import SearchInput from '@/components/SearchInput.vue';
@@ -87,7 +89,9 @@ async function change() {
 
 <template>
   <div class="relative">
-    <div v-if="selected" class="flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-sm"
+    <div
+      v-if="selected"
+      class="flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-sm"
       :class="disabled ? 'bg-muted text-muted-foreground' : 'bg-card'">
       <div class="min-w-0">
         <p class="truncate font-medium text-foreground">
@@ -101,40 +105,57 @@ async function change() {
           </template>
         </p>
       </div>
-      <button v-if="!disabled" type="button" class="shrink-0 text-xs font-medium text-primary hover:underline"
-        @click="change">
-        Ändern
-      </button>
+      <button v-if="!disabled" type="button" class="btn btn-secondary shrink-0" @click="change">Ändern</button>
     </div>
-
     <template v-else>
-      <SearchInput ref="searchInput" v-model="search" placeholder="Name oder Mitgliedsnummer" label="Kind suchen"
-        :disabled="disabled" role="combobox" autocomplete="off" :aria-expanded="open && queryLongEnough"
-        :aria-controls="listId" :aria-activedescendant="open && matches.length ? optionId(activeIndex) : undefined"
-        @focus="open = true" @input="onInput" @blur="open = false" @keydown="onKeydown" />
+      <SearchInput
+        ref="searchInput"
+        v-model="search"
+        placeholder="Name oder Mitgliedsnummer"
+        label="Kind suchen"
+        :disabled="disabled"
+        role="combobox"
+        autocomplete="off"
+        :aria-expanded="open && queryLongEnough"
+        :aria-controls="listId"
+        :aria-activedescendant="open && matches.length ? optionId(activeIndex) : undefined"
+        @focus="open = true"
+        @input="onInput"
+        @blur="open = false"
+        @keydown="onKeydown" />
       <p v-if="!queryLongEnough" class="mt-1 text-xs text-muted-foreground">
         Mindestens {{ MIN_QUERY_LENGTH }} Zeichen eingeben.
       </p>
-      <div v-if="open && queryLongEnough" :id="listId" role="listbox"
+      <div
+        v-if="open && queryLongEnough"
+        :id="listId"
+        role="listbox"
         class="absolute z-20 mt-1 max-h-72 w-full overflow-y-auto rounded-lg border bg-popover shadow-lg">
-        <button v-for="(child, index) in matches" :id="optionId(index)" :key="child.id" type="button" role="option"
+        <button
+          v-for="(child, index) in matches"
+          :id="optionId(index)"
+          :key="child.id"
+          type="button"
+          role="option"
           :aria-selected="index === activeIndex"
           class="block w-full px-3 py-2 text-left text-sm"
           :class="index === activeIndex ? 'bg-accent' : 'hover:bg-accent'"
-          @mousedown.prevent @mouseenter="activeIndex = index" @click="select(child)">
+          @mousedown.prevent
+          @mouseenter="activeIndex = index"
+          @click="select(child)">
           <span class="font-medium" :class="hasLeft(child) ? 'text-muted-foreground' : 'text-foreground'">
             {{ child.firstName }} {{ child.lastName }}
           </span>
-          <span class="text-muted-foreground"> ({{ child.memberNumber }})</span>
+          <span class="text-muted-foreground">({{ child.memberNumber }})</span>
           <span class="block text-xs text-muted-foreground">
             geb. {{ formatDate(child.birthDate) }}
             <template v-if="child.householdId && householdNames.get(child.householdId)">
               · {{ householdNames.get(child.householdId) }}
             </template>
-            <template v-if="hasLeft(child)"> · ausgetreten {{ formatDate(child.exitDate) }}</template>
+            <template v-if="hasLeft(child)">· ausgetreten {{ formatDate(child.exitDate) }}</template>
           </span>
         </button>
-        <p v-if="!matches.length" class="px-3 py-2 text-sm text-muted-foreground">Kein Kind gefunden</p>
+        <EmptyState v-if="!matches.length" text="Kein Kind gefunden" />
         <p v-else-if="allMatches.length > matches.length" class="px-3 py-2 text-xs text-muted-foreground">
           {{ allMatches.length - matches.length }} weitere Treffer – bitte Suche verfeinern.
         </p>

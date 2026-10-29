@@ -8,6 +8,8 @@ import { formatHours } from '@/utils/format';
 import { useTableSort } from '@/composables/useTableSort';
 import EntryDialog from '@/components/parent-work/EntryDialog.vue';
 import SortTh from '@/components/SortTh.vue';
+import PageHeader from '@/components/ui/PageHeader.vue';
+import EmptyState from '@/components/ui/EmptyState.vue';
 import SearchInput from '@/components/SearchInput.vue';
 
 type Filter = 'fulfilled' | 'open' | 'none' | 'submitted';
@@ -79,25 +81,22 @@ async function saved() { showEntry.value = false; await load(); }
 
 <template>
   <div class="space-y-6">
-    <div class="flex flex-wrap items-end justify-between gap-4">
-      <h1 class="text-2xl font-bold text-foreground">Elternstunden</h1>
-      <button class="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-primary-foreground" @click="entryHouseholdId = undefined; showEntry = true"><Plus class="h-4 w-4" />Stunden erfassen</button>
-    </div>
-    <label class="block w-44 text-sm font-medium">Kita-Jahr
-      <select v-model.number="year" class="mt-1 w-full rounded-lg border bg-card px-3 py-2"><option v-for="y in years" :key="y" :value="y">{{ yearLabel(y) }}</option></select>
+    <PageHeader title="Elternstunden"><template #actions><button class="btn btn-primary" @click="entryHouseholdId = undefined; showEntry = true"><Plus />Stunden erfassen</button></template></PageHeader>
+    <label class="label block w-44">Kita-Jahr
+      <select v-model.number="year" class="input"><option v-for="y in years" :key="y" :value="y">{{ yearLabel(y) }}</option></select>
     </label>
-    <p v-if="error" role="alert" class="rounded-lg bg-red-50 dark:bg-red-950/40 p-3 text-red-700 dark:text-red-300">{{ error }}</p>
-    <p v-if="overview?.notice" class="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/40 p-3 text-amber-900 dark:text-amber-300">{{ overview.notice }}</p>
+    <p v-if="error" role="alert" class="note note-danger">{{ error }}</p>
+    <p v-if="overview?.notice" class="note note-warning">{{ overview.notice }}</p>
     <div v-if="overview?.unassignedChildren?.length" role="status"
-      class="rounded-lg border border-amber-300 bg-amber-50 dark:bg-amber-950/40 p-3 text-amber-900 dark:text-amber-300">
+      class="note note-warning">
       <p>Diese Kinder zählen nicht zum Soll. Bitte in den Beiträgen einer Familie zuordnen:</p>
       <ul class="mt-1 list-inside list-disc">
         <li v-for="child in overview.unassignedChildren" :key="child.id">{{ child.name }}</li>
       </ul>
     </div>
-    <div v-if="overview" class="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
+    <div v-if="overview" class="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-5">
       <button v-for="card in cards" :key="card.label" type="button" :aria-pressed="filter === card.key"
-        class="rounded-xl border bg-card p-5 text-left transition-colors hover:border-primary"
+        class="card p-4 text-left transition-colors hover:border-primary sm:p-5"
         :class="filter === card.key && card.key !== null ? 'border-primary ring-2 ring-primary/40' : ''"
         @click="selectCard(card.key)">
         <p class="text-sm text-muted-foreground">{{ card.label }}</p>
@@ -106,8 +105,20 @@ async function saved() { showEntry.value = false; await load(); }
       </button>
     </div>
     <SearchInput v-model="search" placeholder="Suche nach Familie oder Kind..." label="Suche nach Familie oder Kind" />
-    <div class="rounded-xl border bg-card">
-      <div class="overflow-x-auto"><table class="w-full text-sm"><thead class="bg-muted text-muted-foreground"><tr>
+    <div class="card overflow-hidden">
+      <ul class="divide-y sm:hidden">
+        <li v-for="h in sorted" :key="h.householdId" class="space-y-2 p-4">
+          <div class="flex items-start justify-between gap-3"><div class="min-w-0">
+            <RouterLink :to="{ name: 'parent-work-detail', params: { id: h.householdId }, query: { jahr: year } }" class="font-medium text-primary underline">{{ h.householdName }}</RouterLink>
+            <span v-if="h.submittedCount" class="ml-2 badge badge-warning">{{ h.submittedCount }} Meldungen</span>
+            <p class="text-[13px] text-muted-foreground">{{ h.children.map(c => c.name).join(', ') || '—' }}</p>
+          </div><span class="badge" :class="h.openMinutes > 0 ? 'badge-warning' : 'badge-success'">{{ status(h) }}</span></div>
+          <p class="text-[13px] text-muted-foreground">Soll {{ formatHours(h.requiredMinutes) }} · Übertrag {{ formatHours(h.carryInMinutes) }} · Ist {{ formatHours(h.doneMinutes) }} · Offen {{ formatHours(h.openMinutes) }}</p>
+          <button type="button" class="btn btn-secondary btn-sm" :aria-label="`Stunden erfassen für ${h.householdName}`" :title="`Stunden erfassen für ${h.householdName}`" @click="addFor(h)"><Plus />Stunden erfassen</button>
+        </li>
+        <li v-if="!sorted.length"><EmptyState :text="loading ? 'Lade Familien …' : 'Keine Familien gefunden.'" /></li>
+      </ul>
+      <div class="hidden overflow-x-auto sm:block"><table class="table w-full text-sm"><thead class="bg-muted text-muted-foreground"><tr>
         <SortTh label="Familie" column="family" :sort-key="sortKey" :sort-dir="sortDir" @sort="toggle" />
         <SortTh label="Kinder" column="children" :sort-key="sortKey" :sort-dir="sortDir" @sort="toggle" />
         <SortTh label="Soll" column="required" align="right" :sort-key="sortKey" :sort-dir="sortDir" @sort="toggle" />
@@ -118,8 +129,7 @@ async function saved() { showEntry.value = false; await load(); }
         <th class="px-4 py-3 text-right"><span class="sr-only">Aktionen</span></th>
       </tr></thead>
         <tbody><tr v-for="h in sorted" :key="h.householdId" class="border-t hover:bg-accent"><td class="px-4 py-3 font-medium"><RouterLink :to="{ name: 'parent-work-detail', params: { id: h.householdId }, query: { jahr: year } }" class="text-primary hover:underline">{{ h.householdName }}</RouterLink><span v-if="h.submittedCount"
-          class="ml-2 rounded-full bg-amber-100 px-2 py-1 text-xs text-amber-800
-          dark:bg-amber-950/40 dark:text-amber-300">{{ h.submittedCount }} Meldungen</span></td><td class="px-4 py-3">{{ h.children.map(c => c.name).join(', ') || '—' }}</td><td class="px-4 py-3 text-right">{{ formatHours(h.requiredMinutes) }}</td><td class="px-4 py-3 text-right">{{ formatHours(h.carryInMinutes) }}</td><td class="px-4 py-3 text-right">{{ formatHours(h.doneMinutes) }}</td><td class="px-4 py-3 text-right">{{ formatHours(h.openMinutes) }}</td><td class="px-4 py-3"><span class="rounded-full px-2 py-1 text-xs" :class="h.openMinutes > 0 ? 'bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300' : 'bg-green-100 dark:bg-green-950/40 text-green-800 dark:text-green-300'">{{ status(h) }}</span></td>
+          class="ml-2 badge badge-warning">{{ h.submittedCount }} Meldungen</span></td><td class="px-4 py-3">{{ h.children.map(c => c.name).join(', ') || '—' }}</td><td class="px-4 py-3 text-right">{{ formatHours(h.requiredMinutes) }}</td><td class="px-4 py-3 text-right">{{ formatHours(h.carryInMinutes) }}</td><td class="px-4 py-3 text-right">{{ formatHours(h.doneMinutes) }}</td><td class="px-4 py-3 text-right">{{ formatHours(h.openMinutes) }}</td><td class="px-4 py-3"><span class="badge" :class="h.openMinutes > 0 ? 'badge-warning' : 'badge-success'">{{ status(h) }}</span></td>
           <td class="px-4 py-3 text-right"><button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border hover:bg-accent"
             :aria-label="`Stunden erfassen für ${h.householdName}`" :title="`Stunden erfassen für ${h.householdName}`" @click="addFor(h)"><Plus class="h-4 w-4" /></button></td></tr>
           <tr v-if="!sorted.length"><td colspan="8" class="px-4 py-8 text-center text-muted-foreground">{{ loading ? 'Lade Familien …' : 'Keine Familien gefunden.' }}</td></tr></tbody></table></div>

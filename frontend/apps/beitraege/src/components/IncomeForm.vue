@@ -56,11 +56,17 @@ function updateField(key: keyof IncomeDetails, event: Event) {
   <div class="space-y-4">
     <!-- Employee income -->
     <div>
-      <h4 class="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Einkommen aus nichtselbständiger Arbeit</h4>
+      <h4 class="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+        Einkommen aus nichtselbständiger Arbeit
+      </h4>
       <div class="space-y-2">
         <div v-for="field in employeeFields" :key="field.key" class="flex items-center gap-2">
-          <span class="w-5 text-center text-xs font-bold" :class="field.sign === '+' ? 'text-green-600 dark:text-green-300' : 'text-red-500 dark:text-red-400'">{{ field.sign }}</span>
-          <label class="flex-1 text-sm text-muted-foreground">{{ field.label }}</label>
+          <span
+            class="w-5 text-center text-xs font-semibold"
+            :class="field.sign === '+' ? 'text-success' : 'text-destructive'">
+            {{ field.sign }}
+          </span>
+          <label class="label mb-0 min-w-0 flex-1 font-normal text-muted-foreground">{{ field.label }}</label>
           <input
             type="number"
             step="0.01"
@@ -68,19 +74,21 @@ function updateField(key: keyof IncomeDetails, event: Event) {
             :value="model[field.key]"
             :aria-label="field.label"
             @input="updateField(field.key, $event)"
-            class="w-32 border rounded px-2 py-1 text-sm text-right focus:ring-2 focus:ring-primary/20 focus:border-primary"
-          />
+            class="input w-28 shrink-0 sm:w-32 text-right tabular-nums" />
         </div>
       </div>
     </div>
-
     <!-- Other income -->
     <div>
       <h4 class="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Sonstige Einnahmen</h4>
       <div class="space-y-2">
         <div v-for="field in otherIncomeFields" :key="field.key" class="flex items-center gap-2">
-          <span class="w-5 text-center text-xs font-bold" :class="field.sign === '+' ? 'text-green-600 dark:text-green-300' : 'text-red-500 dark:text-red-400'">{{ field.sign }}</span>
-          <label class="flex-1 text-sm text-muted-foreground">{{ field.label }}</label>
+          <span
+            class="w-5 text-center text-xs font-semibold"
+            :class="field.sign === '+' ? 'text-success' : 'text-destructive'">
+            {{ field.sign }}
+          </span>
+          <label class="label mb-0 min-w-0 flex-1 font-normal text-muted-foreground">{{ field.label }}</label>
           <input
             type="number"
             step="0.01"
@@ -88,19 +96,23 @@ function updateField(key: keyof IncomeDetails, event: Event) {
             :value="model[field.key]"
             :aria-label="field.label"
             @input="updateField(field.key, $event)"
-            class="w-32 border rounded px-2 py-1 text-sm text-right focus:ring-2 focus:ring-primary/20 focus:border-primary"
-          />
+            class="input w-28 shrink-0 sm:w-32 text-right tabular-nums" />
         </div>
       </div>
     </div>
-
     <!-- Self-employed -->
     <div>
-      <h4 class="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Einkommen aus selbständiger Arbeit</h4>
+      <h4 class="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">
+        Einkommen aus selbständiger Arbeit
+      </h4>
       <div class="space-y-2">
         <div v-for="field in selfEmployedFields" :key="field.key" class="flex items-center gap-2">
-          <span class="w-5 text-center text-xs font-bold" :class="field.sign === '+' ? 'text-green-600 dark:text-green-300' : 'text-red-500 dark:text-red-400'">{{ field.sign }}</span>
-          <label class="flex-1 text-sm text-muted-foreground">{{ field.label }}</label>
+          <span
+            class="w-5 text-center text-xs font-semibold"
+            :class="field.sign === '+' ? 'text-success' : 'text-destructive'">
+            {{ field.sign }}
+          </span>
+          <label class="label mb-0 min-w-0 flex-1 font-normal text-muted-foreground">{{ field.label }}</label>
           <input
             type="number"
             step="0.01"
@@ -108,21 +120,23 @@ function updateField(key: keyof IncomeDetails, event: Event) {
             :value="model[field.key]"
             :aria-label="field.label"
             @input="updateField(field.key, $event)"
-            class="w-32 border rounded px-2 py-1 text-sm text-right focus:ring-2 focus:ring-primary/20 focus:border-primary"
-          />
+            class="input w-28 shrink-0 sm:w-32 text-right tabular-nums" />
         </div>
       </div>
     </div>
-
     <!-- Benefits -->
     <div>
       <h4 class="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Leistungen</h4>
       <div class="space-y-2">
         <div v-for="field in benefitFields" :key="field.key" class="flex items-center gap-2">
-          <span class="w-5 text-center text-xs font-bold" :class="field.sign === '+' ? 'text-green-600 dark:text-green-300' : 'text-red-500 dark:text-red-400'">{{ field.sign }}</span>
-          <div class="flex-1">
+          <span
+            class="w-5 text-center text-xs font-semibold"
+            :class="field.sign === '+' ? 'text-success' : 'text-destructive'">
+            {{ field.sign }}
+          </span>
+          <div class="min-w-0 flex-1">
             <span class="text-sm text-muted-foreground">{{ field.label }}</span>
-            <span v-if="field.hint" class="ml-1 text-xs text-orange-500 dark:text-orange-400">({{ field.hint }})</span>
+            <span v-if="field.hint" class="ml-1 text-xs text-warning">({{ field.hint }})</span>
           </div>
           <input
             type="number"
@@ -131,19 +145,21 @@ function updateField(key: keyof IncomeDetails, event: Event) {
             :value="model[field.key]"
             :aria-label="field.label"
             @input="updateField(field.key, $event)"
-            class="w-32 border rounded px-2 py-1 text-sm text-right focus:ring-2 focus:ring-primary/20 focus:border-primary"
-          />
+            class="input w-28 shrink-0 sm:w-32 text-right tabular-nums" />
         </div>
       </div>
     </div>
-
     <!-- Maintenance -->
     <div>
       <h4 class="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2">Unterhalt</h4>
       <div class="space-y-2">
         <div v-for="field in maintenanceFields" :key="field.key" class="flex items-center gap-2">
-          <span class="w-5 text-center text-xs font-bold" :class="field.sign === '+' ? 'text-green-600 dark:text-green-300' : 'text-red-500 dark:text-red-400'">{{ field.sign }}</span>
-          <label class="flex-1 text-sm text-muted-foreground">{{ field.label }}</label>
+          <span
+            class="w-5 text-center text-xs font-semibold"
+            :class="field.sign === '+' ? 'text-success' : 'text-destructive'">
+            {{ field.sign }}
+          </span>
+          <label class="label mb-0 min-w-0 flex-1 font-normal text-muted-foreground">{{ field.label }}</label>
           <input
             type="number"
             step="0.01"
@@ -151,8 +167,7 @@ function updateField(key: keyof IncomeDetails, event: Event) {
             :value="model[field.key]"
             :aria-label="field.label"
             @input="updateField(field.key, $event)"
-            class="w-32 border rounded px-2 py-1 text-sm text-right focus:ring-2 focus:ring-primary/20 focus:border-primary"
-          />
+            class="input w-28 shrink-0 sm:w-32 text-right tabular-nums" />
         </div>
       </div>
     </div>

@@ -2,14 +2,16 @@
 import ChildPaymentsCard from '@/components/child/ChildPaymentsCard.vue';
 import ChildHouseholdCard from '@/components/child/ChildHouseholdCard.vue';
 import ChildInformationCard from '@/components/child/ChildInformationCard.vue';
-import { ref, onMounted, onUnmounted, computed } from 'vue';
+import { ref, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api';
 import { useChildDetailData } from '@/composables/useChildDetailData';
 import ChangeHistory from '@/components/family/ChangeHistory.vue';
 import { useAuthStore } from '@/stores/auth';
 import type { ChildEinstufungSync, FeeExpectation, MatchSuggestion, Parent, UpdateHouseholdRequest } from '@/api/types';
-import { ArrowLeft, Trash2, Loader2, AlertCircle, Unlink } from 'lucide-vue-next';
+import { Trash2, Loader2, AlertCircle, Unlink } from 'lucide-vue-next';
+import PageHeader from '@/components/ui/PageHeader.vue';
+import AppSheet from '@/components/ui/AppSheet.vue';
 import ChildNotesCard from '@/components/child/ChildNotesCard.vue';
 import ChildEditDialog from '@/components/child/ChildEditDialog.vue';
 import ChildEinstufungSyncNotice from '@/components/child/ChildEinstufungSyncNotice.vue';
@@ -73,37 +75,6 @@ const showReminderDialog = ref(false);
 const reminderFee = ref<FeeExpectation | null>(null);
 const isCreatingReminder = ref(false);
 const reminderError = ref<string | null>(null);
-
-// ESC key handler to close all modals (note dialogs close themselves)
-function handleKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape') {
-    if (showReminderDialog.value) {
-      showReminderDialog.value = false;
-    } else if (allocationSuggestion.value) {
-      allocationSuggestion.value = null;
-    } else if (selectedFee.value) {
-      selectedFee.value = null;
-    } else if (selectedParentForDetail.value) {
-      selectedParentForDetail.value = null;
-    } else if (showUnlinkDialog.value) {
-      showUnlinkDialog.value = false;
-    } else if (showParentDialog.value) {
-      showParentDialog.value = false;
-    } else if (showDeleteDialog.value) {
-      showDeleteDialog.value = false;
-    } else if (showEditDialog.value) {
-      showEditDialog.value = false;
-    }
-  }
-}
-
-onMounted(() => {
-  document.addEventListener('keydown', handleKeydown);
-});
-
-onUnmounted(() => {
-  document.removeEventListener('keydown', handleKeydown);
-});
 
 function formatHistoryRange(entry: { effectiveFrom: string; effectiveUntil?: string | null }): string {
   const from = formatDate(entry.effectiveFrom);
@@ -357,16 +328,8 @@ async function createReminder() {
 </script>
 
 <template>
-  <ChangeHistory v-if="authStore.isAdmin" kind="child" :id="String(route.params.id)" />
   <div>
-    <!-- Back button -->
-    <button
-      @click="router.push('/kinder')"
-      class="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6"
-    >
-      <ArrowLeft class="h-4 w-4" />
-      Zurück zur Übersicht
-    </button>
+    <PageHeader :title="child ? `${child.firstName} ${child.lastName}` : 'Kind'" back="/kinder" />
 
     <!-- Loading state -->
     <div v-if="isLoading" class="flex items-center justify-center py-12">
@@ -374,11 +337,12 @@ async function createReminder() {
     </div>
 
     <!-- Error state -->
-    <div v-else-if="error" class="bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg p-4">
-      <p class="text-red-600 dark:text-red-300">{{ error }}</p>
-      <button @click="loadChild" class="mt-2 text-sm text-red-700 dark:text-red-300 underline">
+    <div v-else-if="error" class="note note-danger">
+      <AlertCircle />
+      <div><p>{{ error }}</p>
+      <button @click="loadChild" class="btn btn-ghost btn-sm mt-1">
         Erneut versuchen
-      </button>
+      </button></div>
     </div>
 
     <!-- Child details -->
@@ -397,7 +361,8 @@ async function createReminder() {
         v-model:showEditDialog="showEditDialog"
         v-model:showDeleteDialog="showDeleteDialog"
         :formatHistoryRange="formatHistoryRange"
-      /><ChildHouseholdCard
+      />
+      <ChildHouseholdCard
           :child="child"
           :childcareFee="childcareFee"
           :isLoadingChildcareFee="isLoadingChildcareFee"
@@ -416,7 +381,8 @@ async function createReminder() {
           :startEditingHousehold="startEditingHousehold"
           :cancelEditingHousehold="cancelEditingHousehold"
           :saveHouseholdEdit="saveHouseholdEdit"
-        /><ChildNotesCard :child-id="childId" />
+        />
+      <ChildNotesCard :child-id="childId" />
 
       <!-- Fees section -->
       <ChildPaymentsCard
@@ -446,44 +412,18 @@ async function createReminder() {
       @saved="onChildSaved"
     />
 
-    <!-- Delete Confirmation Dialog -->
-    <div
-      v-if="showDeleteDialog"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      @click.self="showDeleteDialog = false"
-    >
-      <div class="bg-card rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
-        <div class="flex items-center gap-3 mb-4">
-          <div class="p-2 bg-red-100 dark:bg-red-950/40 rounded-lg">
-            <Trash2 class="h-6 w-6 text-red-600 dark:text-red-300" />
-          </div>
-          <h2 class="text-xl font-semibold">Kind löschen?</h2>
-        </div>
-
-        <p class="text-muted-foreground mb-6">
-          Möchtest du <strong>{{ child?.firstName }} {{ child?.lastName }}</strong> wirklich löschen?
-          Diese Aktion kann nicht rückgängig gemacht werden.
-        </p>
-
-        <div class="flex justify-end gap-3">
-          <button
-            @click="showDeleteDialog = false"
-            class="px-4 py-2 text-foreground hover:bg-accent rounded-lg transition-colors"
-          >
-            Abbrechen
-          </button>
-          <button
-            @click="handleDelete"
-            :disabled="isDeleting"
-            class="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
-          >
-            <Loader2 v-if="isDeleting" class="h-4 w-4 animate-spin" />
-            <Trash2 v-else class="h-4 w-4" />
-            Löschen
-          </button>
-        </div>
-      </div>
-    </div>
+    <AppSheet v-if="showDeleteDialog" title="Kind löschen?" size="sm" @close="showDeleteDialog = false">
+      <p class="text-muted-foreground mb-6">
+        Möchtest du <strong>{{ child?.firstName }} {{ child?.lastName }}</strong> wirklich löschen?
+        Diese Aktion kann nicht rückgängig gemacht werden.
+      </p>
+      <template #footer>
+        <button type="button" class="btn btn-secondary" @click="showDeleteDialog = false">Abbrechen</button>
+        <button type="button" class="btn btn-danger" :disabled="isDeleting" @click="handleDelete">
+          <Loader2 v-if="isDeleting" class="animate-spin" /><Trash2 v-else />Löschen
+        </button>
+      </template>
+    </AppSheet>
 
     <ParentFormDialog
       v-if="showParentDialog && child"
@@ -493,44 +433,18 @@ async function createReminder() {
       @saved="onParentLinked"
     />
 
-    <!-- Unlink Parent Confirmation Dialog -->
-    <div
-      v-if="showUnlinkDialog"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      @click.self="showUnlinkDialog = false"
-    >
-      <div class="bg-card rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
-        <div class="flex items-center gap-3 mb-4">
-          <div class="p-2 bg-amber-100 dark:bg-amber-950/40 rounded-lg">
-            <Unlink class="h-6 w-6 text-amber-600 dark:text-amber-300" />
-          </div>
-          <h2 class="text-xl font-semibold">Verknüpfung aufheben?</h2>
-        </div>
-
-        <p class="text-muted-foreground mb-6">
-          Möchtest du die Verknüpfung zu <strong>{{ parentToUnlink?.firstName }} {{ parentToUnlink?.lastName }}</strong> aufheben?
-          Der Elternteil wird nicht gelöscht, nur die Verknüpfung zu diesem Kind.
-        </p>
-
-        <div class="flex justify-end gap-3">
-          <button
-            @click="showUnlinkDialog = false"
-            class="px-4 py-2 text-foreground hover:bg-accent rounded-lg transition-colors"
-          >
-            Abbrechen
-          </button>
-          <button
-            @click="handleUnlinkParent"
-            :disabled="isUnlinking"
-            class="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-50"
-          >
-            <Loader2 v-if="isUnlinking" class="h-4 w-4 animate-spin" />
-            <Unlink v-else class="h-4 w-4" />
-            Aufheben
-          </button>
-        </div>
-      </div>
-    </div>
+    <AppSheet v-if="showUnlinkDialog" title="Verknüpfung aufheben?" size="sm" @close="showUnlinkDialog = false">
+      <p class="text-muted-foreground mb-6">
+        Möchtest du die Verknüpfung zu <strong>{{ parentToUnlink?.firstName }} {{ parentToUnlink?.lastName }}</strong> aufheben?
+        Der Elternteil wird nicht gelöscht, nur die Verknüpfung zu diesem Kind.
+      </p>
+      <template #footer>
+        <button type="button" class="btn btn-secondary" @click="showUnlinkDialog = false">Abbrechen</button>
+        <button type="button" class="btn btn-primary" :disabled="isUnlinking" @click="handleUnlinkParent">
+          <Loader2 v-if="isUnlinking" class="animate-spin" /><Unlink v-else />Aufheben
+        </button>
+      </template>
+    </AppSheet>
 
     <TransactionDetailModal
       v-if="selectedFee"
@@ -554,61 +468,30 @@ async function createReminder() {
       @saved="loadChild"
     />
 
-    <!-- Reminder Confirmation Dialog -->
-    <div
-      v-if="showReminderDialog && reminderFee"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      @click.self="showReminderDialog = false"
-    >
-      <div class="bg-card rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
-        <div class="flex items-center gap-3 mb-4">
-          <div class="p-2 bg-amber-100 dark:bg-amber-950/40 rounded-lg">
-            <AlertCircle class="h-6 w-6 text-amber-600 dark:text-amber-300" />
-          </div>
-          <h2 class="text-xl font-semibold">Mahngebühr erstellen?</h2>
-        </div>
-
-        <div class="mb-6">
-          <p class="text-muted-foreground mb-4">
-            Möchtest du eine Mahngebühr für den folgenden überfälligen Beitrag erstellen?
-          </p>
-          <div class="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 rounded-lg">
-            <p class="font-medium">{{ getFeeTypeName(reminderFee.feeType) }}</p>
-            <p class="text-sm text-muted-foreground">
-              {{ reminderFee.month ? formatMonthName(reminderFee.month) + ' ' : '' }}{{ reminderFee.year }}
-              · {{ formatCurrency(reminderFee.amount) }}
-            </p>
-            <p class="text-sm text-red-600 dark:text-red-300 mt-1">
-              Fällig seit: {{ formatDate(reminderFee.dueDate) }}
-            </p>
-          </div>
-          <p class="text-sm text-muted-foreground mt-3">
-            Es wird eine Mahngebühr von <strong>10,00 EUR</strong> erstellt.
-          </p>
-        </div>
-
-        <div v-if="reminderError" class="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg mb-4">
-          <p class="text-sm text-red-600 dark:text-red-300">{{ reminderError }}</p>
-        </div>
-
-        <div class="flex justify-end gap-3">
-          <button
-            @click="showReminderDialog = false"
-            class="px-4 py-2 text-foreground hover:bg-accent rounded-lg transition-colors"
-          >
-            Abbrechen
-          </button>
-          <button
-            @click="createReminder"
-            :disabled="isCreatingReminder"
-            class="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-50"
-          >
-            <Loader2 v-if="isCreatingReminder" class="h-4 w-4 animate-spin" />
-            <AlertCircle v-else class="h-4 w-4" />
-            Mahngebühr erstellen
-          </button>
-        </div>
+    <AppSheet v-if="showReminderDialog && reminderFee" title="Mahngebühr erstellen?" size="sm"
+      @close="showReminderDialog = false">
+      <p class="text-muted-foreground mb-4">
+        Möchtest du eine Mahngebühr für den folgenden überfälligen Beitrag erstellen?
+      </p>
+      <div class="card p-3">
+        <p class="font-medium">{{ getFeeTypeName(reminderFee.feeType) }}</p>
+        <p class="text-sm text-muted-foreground">
+          {{ reminderFee.month ? formatMonthName(reminderFee.month) + ' ' : '' }}{{ reminderFee.year }}
+          · {{ formatCurrency(reminderFee.amount) }}
+        </p>
+        <p class="text-sm text-destructive mt-1">Fällig seit: {{ formatDate(reminderFee.dueDate) }}</p>
       </div>
-    </div>
+      <p class="text-sm text-muted-foreground mt-3">
+        Es wird eine Mahngebühr von <strong>10,00 EUR</strong> erstellt.
+      </p>
+      <div v-if="reminderError" class="note note-danger mt-4">{{ reminderError }}</div>
+      <template #footer>
+        <button type="button" class="btn btn-secondary" @click="showReminderDialog = false">Abbrechen</button>
+        <button type="button" class="btn btn-primary" :disabled="isCreatingReminder" @click="createReminder">
+          <Loader2 v-if="isCreatingReminder" class="animate-spin" /><AlertCircle v-else />Mahngebühr erstellen
+        </button>
+      </template>
+    </AppSheet>
+    <ChangeHistory v-if="authStore.isAdmin" kind="child" :id="String(route.params.id)" class="mt-6" />
   </div>
 </template>

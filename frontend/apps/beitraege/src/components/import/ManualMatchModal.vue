@@ -1,8 +1,9 @@
 <script setup lang="ts">
+import AppSheet from '@/components/ui/AppSheet.vue';
 import { ref, computed, onMounted } from 'vue';
 import { api } from '@/api';
 import type { BankTransaction, FeeExpectation, MatchSuggestion } from '@/api/types';
-import { Loader2, CheckCircle, XCircle } from 'lucide-vue-next';
+import { Loader2, CheckCircle } from 'lucide-vue-next';
 import { formatCurrency, formatDate } from '@/utils/format';
 import { getConfidenceColor, getConfidenceLabel, getFeeTypeName } from '@/utils/fees';
 import SearchInput from '@/components/SearchInput.vue';
@@ -186,23 +187,10 @@ const displayedFeeCandidates = computed<ScoredFee[]>(() => {
 </script>
 
 <template>
-  <div
-    class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-    @click.self="$emit('close')"
-  >
-    <div class="bg-card rounded-xl shadow-xl max-w-3xl w-full mx-4 max-h-[90vh] overflow-hidden flex flex-col">
-      <!-- Modal Header -->
-      <div class="p-4 border-b">
-        <div class="flex items-center justify-between">
-          <h2 class="text-lg font-semibold">Transaktion manuell zuordnen</h2>
-          <button @click="$emit('close')" class="text-muted-foreground hover:text-muted-foreground" aria-label="Schließen">
-            <XCircle class="h-5 w-5" />
-          </button>
-        </div>
-      </div>
-
+  <AppSheet title="Transaktion manuell zuordnen" size="lg" @close="$emit('close')">
+    <div>
       <!-- Transaction Details -->
-      <div class="p-4 bg-muted border-b">
+      <div class="mb-4 bg-muted">
         <div class="grid grid-cols-2 gap-4 text-sm">
           <div>
             <span class="text-muted-foreground">Zahler:</span>
@@ -210,7 +198,7 @@ const displayedFeeCandidates = computed<ScoredFee[]>(() => {
           </div>
           <div>
             <span class="text-muted-foreground">Betrag:</span>
-            <span class="ml-2 font-medium text-green-600 dark:text-green-300">{{ formatCurrency(transaction.amount) }}</span>
+            <span class="ml-2 font-medium text-success">{{ formatCurrency(transaction.amount) }}</span>
           </div>
           <div>
             <span class="text-muted-foreground">Datum:</span>
@@ -233,10 +221,10 @@ const displayedFeeCandidates = computed<ScoredFee[]>(() => {
           Lade Vorschlage...
         </div>
       </div>
-      <div v-else-if="manualMatchSuggestion?.expectation" class="p-4 border-b">
+      <div v-else-if="manualMatchSuggestion?.expectation" class="py-4 border-b">
         <h3 class="text-sm font-medium text-foreground mb-2">Vorschlag</h3>
         <div
-          class="p-3 bg-green-50 dark:bg-green-950/40 border border-green-200 rounded-lg flex items-center justify-between cursor-pointer hover:bg-green-100 dark:hover:bg-green-900/40"
+          class="border p-3 bg-success-soft border-success-line rounded-lg flex items-center justify-between cursor-pointer hover:bg-success-soft"
           @click="confirmManualMatch(manualMatchSuggestion.expectation!.id)"
         >
           <div class="flex-1">
@@ -251,20 +239,17 @@ const displayedFeeCandidates = computed<ScoredFee[]>(() => {
           </div>
           <div class="flex items-center gap-2">
             <span
-              :class="[
-                'px-2 py-0.5 rounded-full text-xs font-medium',
-                getConfidenceColor(manualMatchSuggestion.confidence),
-              ]"
+              :class="getConfidenceColor(manualMatchSuggestion.confidence)"
             >
               {{ Math.round(manualMatchSuggestion.confidence * 100) }}%
             </span>
-            <CheckCircle class="h-5 w-5 text-green-500 dark:text-green-400" />
+            <CheckCircle class="h-5 w-5 text-success" />
           </div>
         </div>
       </div>
 
       <!-- Fee Search -->
-      <div class="p-4 border-b">
+      <div class="py-4 border-b">
         <div class="flex items-center justify-between mb-2">
           <h3 class="text-sm font-medium text-foreground">Offene Beitrage durchsuchen</h3>
           <button
@@ -282,12 +267,12 @@ const displayedFeeCandidates = computed<ScoredFee[]>(() => {
           @input="loadAvailableFees" />
       </div>
 
-      <div v-if="matchError" class="px-4 pt-4">
-        <div class="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg text-sm text-red-700 dark:text-red-300">{{ matchError }}</div>
+      <div v-if="matchError" class="pt-4">
+        <div class="note note-danger">{{ matchError }}</div>
       </div>
 
       <!-- Fee List -->
-      <div class="flex-1 overflow-y-auto p-4">
+      <div class="flex-1 py-4">
         <div v-if="isLoadingFees" class="flex items-center justify-center py-8">
           <Loader2 class="h-6 w-6 animate-spin text-primary" />
         </div>
@@ -314,10 +299,7 @@ const displayedFeeCandidates = computed<ScoredFee[]>(() => {
               <div class="flex items-center justify-end gap-2">
                 <span
                   v-if="candidate.confidence > 0"
-                  :class="[
-                    'px-2 py-0.5 rounded-full text-xs font-medium',
-                    getConfidenceColor(candidate.confidence),
-                  ]"
+                  :class="getConfidenceColor(candidate.confidence)"
                 >
                   {{ getConfidenceLabel(candidate.confidence) }} ({{ Math.round(candidate.confidence * 100) }}%)
                 </span>
@@ -329,11 +311,11 @@ const displayedFeeCandidates = computed<ScoredFee[]>(() => {
         </div>
       </div>
 
-      <!-- Modal Footer -->
-      <div class="p-4 border-t bg-muted flex justify-end">
-        <button @click="$emit('close')" class="px-4 py-2 text-sm text-muted-foreground hover:text-foreground">
+    </div>
+    <template #footer>
+        <button @click="$emit('close')" class="btn btn-secondary">
           Abbrechen
         </button>
-      </div>
-    </div>
-  </div></template>
+    </template>
+</AppSheet>
+</template>

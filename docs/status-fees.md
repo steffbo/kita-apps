@@ -41,6 +41,26 @@ Basics (ports, commands, layout) live in `AGENTS.md`.
   scrollen seitlich statt Wörter buchstabenweise umzubrechen (`overflow-wrap: anywhere` entfernt).
   Kinderseite als Referenz: Filter als Chips mit Gesamtzahl statt Checkboxen und Untertitel, Liste statt
   Tabelle auf dem Handy, Dialoge als `AppSheet`, Platzhalter der Suche jetzt „Name oder Mitgliedsnummer“.
+- Schritt 3b, alle übrigen Seiten und Komponenten auf die Bausteine umgestellt (in fünf Codex-Lanes, danach
+  geprüft: je Datei Handler, Bedingungen, Testids, Labels und sichtbare Texte gegen den alten Stand):
+  - Keine Tailwind-Palettenfarben und keine handgebauten Dialoge mehr (Ausnahme: Drag-and-drop-Hinweis im
+    Elternstunden-Import). Beitragsarten sind neutrale Badges, nur Mahngebühren rot; Trefferquote und
+    Erinnerungsstatus nutzen die Status-Badges (`utils/fees.ts`, `utils/reminders.ts`). Seitenweise Listen
+    (Beiträge, Einstufungen, Eltern, Mitglieder, Notizen, Notizen am Kind) nutzen `AppPagination`.
+  - Entfallen sind Untertitel ohne eigene Information (Anzahl-Zeilen wie „116 Eltern registriert“,
+    Seitenbeschreibungen wie „Übersicht der Beitragszahlungen“) und die „Zurück zur Übersicht“-Buttons
+    (ersetzt durch den Zurück-Pfeil im `PageHeader`). Erklärungen mit Regeln (Beitragsordnung,
+    Benutzer, Elternstunden-Regeln) stehen weiter da, als `note`.
+  - Filter als Chips: Beiträge (Status und Beitragsart, „Alle Typen“), Meldungen (Offen/Erledigt/Alle statt
+    Auswahlliste), Mitglieder („Inaktive anzeigen“), Bankabgleich. Bankabgleich und Einstufungen haben die
+    Suche in voller Breite oben, Aktionen bzw. Jahr und Status daneben.
+  - Dialoge mit eigener Kopfzeile in der alten Modal-Box (Import-Historie, Blacklist, CSV hochladen, manuelle
+    Zuordnung, E-Mail-Log, Zahlungsdaten, Stichtagsreport, Sende-Bestätigung) haben jetzt nur den
+    `AppSheet`-Titel und einen Schließen-Button.
+  - Änderungsverlauf an Kind und Elternteil steht jetzt unter dem Inhalt; vorher landete er als erstes
+    Fragment-Element über der Überschrift.
+  - Bekannte Lücken: Import-Vorschau der Kinder und Transaktionstabelle haben noch keine Handy-Liste (sie
+    scrollen seitlich), einige Bestätigungen nutzen weiter `confirm()` des Browsers.
 
 ## Schnellere Release-Pipeline (2026-10-21)
 

@@ -103,7 +103,7 @@ test('Eltern sehen nur die eigene Familie; Meldungen und Änderungen gehen an St
       await reported.getByLabel('Antwort an die Eltern (optional)').fill('E2E ist korrigiert');
       await reported.getByRole('button', { name: 'Antworten und erledigen' }).click();
       await expect(reported).toHaveCount(0);
-      await adminPage.getByLabel('Status').selectOption('DONE');
+      await adminPage.getByRole('group', { name: 'Status' }).getByRole('button', { name: 'Erledigt' }).click();
       await expect(reported).toContainText('Erledigt');
       await expect(reported).toContainText('E2E ist korrigiert');
       await adminPage.goto('/beitraege/aenderungen');

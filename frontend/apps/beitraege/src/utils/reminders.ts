@@ -43,15 +43,13 @@ export function statusLabel(status: string): string {
 export function statusBadgeClass(status: string): string {
   switch (status) {
     case 'actionable_initial':
-      return 'bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300';
+      return 'badge badge-warning';
     case 'actionable_final':
-      return 'bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-300';
+      return 'badge badge-danger';
     case 'waiting':
-      return 'bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300';
-    case 'history_unknown':
-      return 'bg-muted text-foreground';
+      return 'badge badge-primary';
     default:
-      return 'bg-muted text-muted-foreground';
+      return 'badge';
   }
 }
 

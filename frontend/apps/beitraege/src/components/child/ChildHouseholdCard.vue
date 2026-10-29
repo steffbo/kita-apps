@@ -52,16 +52,16 @@ const {
 
 <template>
   <!-- Household & Income Section -->
-  <div class="bg-card rounded-xl border p-6 mb-6">
+  <div class="card p-6 mb-6">
     <div class="flex items-center justify-between mb-4">
       <div class="flex items-center gap-2">
         <Home class="h-5 w-5 text-primary" />
-        <h2 class="text-lg font-semibold">Haushalt & Einkommen</h2>
+        <h2 class="text-base font-semibold">Haushalt & Einkommen</h2>
       </div>
       <div class="flex items-center gap-2">
         <button
           @click="openLinkParentDialog"
-          class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-primary hover:bg-primary/10 rounded-md transition-colors"
+          class="btn btn-secondary btn-sm"
           title="Vorhandenen Elternteil verknüpfen"
         >
           <Link class="h-3 w-3" />
@@ -69,7 +69,7 @@ const {
         </button>
         <button
           @click="openCreateParentDialog"
-          class="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 rounded-md transition-colors"
+          class="btn btn-secondary btn-sm"
         >
           <Plus class="h-3 w-3" />
           Elternteil
@@ -77,7 +77,8 @@ const {
         <button
           v-if="child.household && !isEditingHousehold"
           @click="startEditingHousehold"
-          class="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors"
+          class="btn btn-secondary btn-icon btn-sm"
+          aria-label="Bearbeiten"
           title="Bearbeiten"
         >
           <Edit class="h-4 w-4" />
@@ -132,7 +133,7 @@ const {
               v-for="iban in trustedIbans"
               :key="iban.iban"
               :title="iban.payerName ? `${iban.payerName} · ${iban.iban}` : iban.iban"
-              class="inline-flex items-center gap-1 px-2 py-1 bg-muted border border-border rounded-full text-xs text-foreground"
+              class="badge"
             >
               <span class="font-mono">{{ maskIban(iban.iban) }}</span>
               <span v-if="iban.transactionCount > 0" class="text-muted-foreground">· {{ iban.transactionCount }} Zahlungen</span>
@@ -156,7 +157,7 @@ const {
                 <p v-if="childcareFeeCareHours" class="text-sm text-muted-foreground">
                   Basis: {{ formatCareHours(childcareFeeCareHours.hours) }}<span v-if="childcareFeeCareHours.effectiveFrom"> (ab {{ formatDate(childcareFeeCareHours.effectiveFrom) }})</span>
                 </p>
-                <p v-if="childcareFee.discountPercent > 0" class="text-sm text-green-600 dark:text-green-300">
+                <p v-if="childcareFee.discountPercent > 0" class="text-sm text-success">
                   Geschwisterrabatt: {{ childcareFee.discountPercent }}%
                 </p>
                 <p v-if="childcareFee.notes && childcareFee.notes.length > 0" class="text-xs text-muted-foreground mt-1">
@@ -194,18 +195,18 @@ const {
               <div
                 v-for="parent in householdParents"
                 :key="parent.id"
-                class="inline-flex items-center bg-blue-50 dark:bg-blue-950/40 border border-blue-200 rounded-lg text-sm"
+                class="inline-flex items-center bg-primary-soft border border-primary/20 rounded-lg text-sm"
               >
                 <button
                   @click="openParentDetailModal(parent)"
-                  class="inline-flex items-center gap-2 px-3 py-1.5 hover:bg-blue-100 dark:hover:bg-blue-900/40 rounded-l-lg transition-colors"
+                  class="inline-flex items-center gap-2 px-3 py-1.5 hover:bg-primary-soft rounded-l-lg transition-colors"
                 >
-                  <User class="h-4 w-4 text-blue-500 dark:text-blue-400" />
+                  <User class="h-4 w-4 text-primary" />
                   <span>{{ parent.firstName }} {{ parent.lastName }}</span>
                 </button>
                 <button
                   @click="confirmUnlinkParent(parent)"
-                  class="p-1.5 text-blue-400 hover:text-red-500 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/40 rounded-r-lg border-l border-blue-200 transition-colors"
+                  class="p-1.5 text-primary hover:text-destructive hover:bg-destructive-soft rounded-r-lg border-l border-primary/20 transition-colors"
                   title="Verknüpfung aufheben"
                   aria-label="Verknüpfung aufheben"
                 >
@@ -223,9 +224,9 @@ const {
                 v-for="sibling in siblings"
                 :key="sibling.id"
                 :to="`/kinder/${sibling.id}`"
-                class="inline-flex items-center gap-2 px-3 py-1.5 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/40 border border-amber-200 rounded-lg text-sm transition-colors"
+                class="inline-flex items-center gap-2 px-3 py-1.5 bg-warning-soft hover:bg-warning-soft border border-warning-line rounded-lg text-sm transition-colors"
               >
-                <User class="h-4 w-4 text-amber-500 dark:text-amber-400" />
+                <User class="h-4 w-4 text-warning" />
                 <span>{{ sibling.firstName }} {{ sibling.lastName }}</span>
               </router-link>
             </div>
@@ -236,21 +237,21 @@ const {
       <!-- Edit Mode -->
       <form v-else @submit.prevent="saveHouseholdEdit" class="space-y-4">
         <div>
-          <label for="household-name" class="block text-sm font-medium text-foreground mb-1">Haushaltsname</label>
+          <label for="household-name" class="label">Haushaltsname</label>
           <input
             id="household-name"
             v-model="householdEditForm.name"
             type="text"
-            class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+            class="input"
           />
         </div>
 
         <div>
-          <label for="household-incomeStatus" class="block text-sm font-medium text-foreground mb-1">Einkommensstatus</label>
+          <label for="household-incomeStatus" class="label">Einkommensstatus</label>
           <select
             id="household-incomeStatus"
             v-model="householdEditForm.incomeStatus"
-            class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-card"
+            class="input"
           >
             <option v-for="option in incomeStatusOptions" :key="option.value" :value="option.value">
               {{ option.label }}
@@ -259,19 +260,19 @@ const {
         </div>
 
         <div v-if="householdEditForm.incomeStatus === 'PROVIDED' || householdEditForm.incomeStatus === 'HISTORIC'">
-          <label for="household-income" class="block text-sm font-medium text-foreground mb-1">Jahreshaushaltseinkommen</label>
+          <label for="household-income" class="label">Jahreshaushaltseinkommen</label>
           <input
             id="household-income"
             v-model.number="householdEditForm.annualHouseholdIncome"
             type="number"
             min="0"
             step="any"
-            class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+            class="input"
           />
         </div>
 
         <div>
-          <label for="household-childrenCount" class="block text-sm font-medium text-foreground mb-1">Anzahl Kinder (für Beitragsberechnung)</label>
+          <label for="household-childrenCount" class="label">Anzahl Kinder (für Beitragsberechnung)</label>
           <input
             id="household-childrenCount"
             v-model.number="householdEditForm.childrenCountForFees"
@@ -279,27 +280,27 @@ const {
             min="1"
             max="10"
             placeholder="Automatisch"
-            class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+            class="input"
           />
           <p class="text-xs text-muted-foreground mt-1">Leer lassen für automatische Zählung der U3-Kinder im Haushalt</p>
         </div>
 
-        <div v-if="householdError" class="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg">
-          <p class="text-sm text-red-600 dark:text-red-300">{{ householdError }}</p>
+        <div v-if="householdError" class="note note-danger">
+          <p class="text-sm text-destructive">{{ householdError }}</p>
         </div>
 
         <div class="flex justify-end gap-3 pt-2">
           <button
             type="button"
             @click="cancelEditingHousehold"
-            class="px-4 py-2 text-foreground hover:bg-accent rounded-lg transition-colors"
+            class="btn btn-secondary"
           >
             Abbrechen
           </button>
           <button
             type="submit"
             :disabled="isSavingHousehold"
-            class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+            class="btn btn-primary"
           >
             <Loader2 v-if="isSavingHousehold" class="h-4 w-4 animate-spin" />
             <Check v-else class="h-4 w-4" />

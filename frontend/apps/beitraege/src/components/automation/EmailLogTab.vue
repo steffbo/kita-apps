@@ -92,12 +92,12 @@ function toggleEmailLogsSort(): void {
       </button>
     </div>
 
-    <div v-if="emailLogsError" class="text-sm text-red-600 dark:text-red-300 mb-3">{{ emailLogsError }}</div>
+    <div v-if="emailLogsError" class="text-sm text-destructive mb-3">{{ emailLogsError }}</div>
 
     <div class="flex flex-col sm:flex-row sm:items-center gap-2 mb-4">
       <select
         v-model="emailLogsTypeFilter"
-        class="px-3 py-2 text-sm border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+        class="border px-3 py-2 text-sm border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
       >
         <option value="">Alle Typen</option>
         <option value="REMINDER_INITIAL">Zahlungserinnerung</option>
@@ -114,7 +114,7 @@ function toggleEmailLogsSort(): void {
 
       <button
         type="button"
-        class="inline-flex items-center gap-1.5 px-3 py-2 text-sm border border-border rounded-lg bg-card hover:bg-accent transition-colors"
+        class="border inline-flex items-center gap-1.5 px-3 py-2 text-sm border-border rounded-lg bg-card hover:bg-accent transition-colors"
         @click="toggleEmailLogsSort"
         :title="emailLogsSortDir === 'desc' ? 'Älteste zuerst' : 'Neueste zuerst'"
       >
@@ -128,7 +128,7 @@ function toggleEmailLogsSort(): void {
       Keine E-Mails für diese Filter gefunden.
     </div>
 
-    <div v-else class="overflow-x-auto rounded-xl border bg-card">
+    <div v-else class="overflow-x-auto card">
       <table class="w-full table-fixed text-sm">
         <thead class="bg-muted">
           <tr class="text-left text-muted-foreground">

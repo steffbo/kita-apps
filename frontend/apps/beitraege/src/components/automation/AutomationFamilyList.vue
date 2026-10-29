@@ -41,14 +41,13 @@ const {
             <span
               v-for="feeType in feeTypesIn(item)"
               :key="feeType"
-              class="px-2 py-0.5 text-xs rounded-full font-medium"
               :class="feeChipClass(feeType)"
             >
               {{ feeTypeLabel(feeType) }}
             </span>
             <span
               v-if="hasBlockedEmail(item)"
-              class="px-2 py-0.5 text-xs rounded-full font-medium bg-red-600 text-white"
+              class="badge badge-danger"
             >
               Keine E-Mail
             </span>

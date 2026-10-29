@@ -8,10 +8,10 @@ defineProps<{ reports: ParentReport[] }>();
     <li v-for="report in reports" :key="report.id" class="border-t pt-3">
       <div class="flex items-start justify-between gap-3">
         <p class="whitespace-pre-wrap font-semibold">{{ report.message }}</p>
-        <span class="shrink-0 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold" :class="
+        <span class="badge shrink-0" :class="
           report.status === 'OPEN'
-            ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300'
-            : 'bg-green-100 text-green-800 dark:bg-green-950/40 dark:text-green-300'">
+            ? 'badge-warning'
+            : 'badge-success'">
           {{ report.status === 'OPEN' ? 'Offen' : '✓ Erledigt' }}
         </span>
       </div>

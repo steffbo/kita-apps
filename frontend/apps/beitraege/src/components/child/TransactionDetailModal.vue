@@ -2,7 +2,7 @@
 import { ref } from 'vue';
 import { api } from '@/api';
 import type { BankTransaction, FeeExpectation } from '@/api/types';
-import { Trash2, Loader2, X, Unlink, CreditCard } from 'lucide-vue-next';
+import { Trash2, Loader2, Unlink, CreditCard } from 'lucide-vue-next';
 import { formatCurrency, formatDate } from '@/utils/format';
 import { getFeeMatches } from '@/utils/fees';
 
@@ -47,24 +47,19 @@ async function confirmTransactionAction(): Promise<void> {
     }
   }
 }
+import AppSheet from '@/components/ui/AppSheet.vue';
 </script>
 
 <template>
-  <div
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-    @click.self="$emit('close')"
-  >
-    <div class="bg-card rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
+  <AppSheet title="Transaktionsdetails" hide-title @close="$emit('close')">
+
       <div class="flex items-center justify-between mb-6">
         <div class="flex items-center gap-3">
-          <div class="p-2 bg-green-100 dark:bg-green-950/40 rounded-lg">
-            <CreditCard class="h-6 w-6 text-green-600 dark:text-green-300" />
+          <div class="p-2 bg-success-soft rounded-lg">
+            <CreditCard class="h-6 w-6 text-success" />
           </div>
-          <h2 class="text-xl font-semibold">Transaktionsdetails</h2>
+          <h2 class="text-base font-semibold">Transaktionsdetails</h2>
         </div>
-        <button @click="$emit('close')" class="p-1 hover:bg-accent rounded" aria-label="Schließen">
-          <X class="h-5 w-5" />
-        </button>
       </div>
 
       <div v-if="fee && getFeeMatches(fee).length > 1" class="mb-6">
@@ -82,7 +77,7 @@ async function confirmTransactionAction(): Promise<void> {
                 {{ match.transaction?.bookingDate ? formatDate(match.transaction.bookingDate) : 'Kein Datum' }}
               </p>
             </div>
-            <div class="text-sm font-semibold text-green-600 dark:text-green-300">
+            <div class="text-sm font-semibold text-success">
               {{ formatCurrency(match.amount) }}
             </div>
           </button>
@@ -115,7 +110,7 @@ async function confirmTransactionAction(): Promise<void> {
 
         <div>
           <p class="text-sm text-muted-foreground">Betrag</p>
-          <p class="font-semibold text-green-600 dark:text-green-300 text-lg">{{ formatCurrency(selectedTransaction.amount) }}</p>
+          <p class="font-semibold text-success text-lg">{{ formatCurrency(selectedTransaction.amount) }}</p>
         </div>
 
         <div>
@@ -129,7 +124,7 @@ async function confirmTransactionAction(): Promise<void> {
           v-if="transactionAction"
           :class="[
             'p-3 rounded-lg text-sm',
-            transactionAction === 'delete' ? 'bg-red-50 dark:bg-red-950/40 text-red-800 dark:text-red-300' : 'bg-amber-50 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300'
+            transactionAction === 'delete' ? 'bg-destructive-soft text-destructive' : 'bg-warning-soft text-warning'
           ]"
         >
           <p class="font-medium">
@@ -147,8 +142,8 @@ async function confirmTransactionAction(): Promise<void> {
               @click="confirmTransactionAction"
               :disabled="isUnmatchingTransaction || isDeletingTransaction"
               :class="[
-                'px-3 py-1.5 text-xs text-white rounded transition-colors disabled:opacity-50',
-                transactionAction === 'delete' ? 'bg-red-600 hover:bg-red-700' : 'bg-amber-600 hover:bg-amber-700'
+                'px-3 py-1.5 text-xs text-primary-foreground rounded transition-colors disabled:opacity-50',
+                transactionAction === 'delete' ? 'bg-destructive hover:bg-destructive' : 'bg-warning hover:bg-warning'
               ]"
             >
               <Loader2 v-if="isUnmatchingTransaction || isDeletingTransaction" class="h-3 w-3 animate-spin" />
@@ -163,7 +158,7 @@ async function confirmTransactionAction(): Promise<void> {
           </div>
         </div>
 
-        <p v-if="transactionActionError" class="text-sm text-red-600 dark:text-red-300">
+        <p v-if="transactionActionError" class="text-sm text-destructive">
           {{ transactionActionError }}
         </p>
 
@@ -171,7 +166,7 @@ async function confirmTransactionAction(): Promise<void> {
           <button
             @click="requestTransactionAction('unmatch')"
             :disabled="isUnmatchingTransaction || isDeletingTransaction"
-            class="inline-flex items-center gap-2 px-3 py-2 text-sm text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 hover:bg-amber-100 dark:hover:bg-amber-900/40 rounded-lg transition-colors disabled:opacity-50"
+            class="inline-flex items-center gap-2 px-3 py-2 text-sm text-warning bg-warning-soft hover:bg-warning-soft rounded-lg transition-colors disabled:opacity-50"
           >
             <Unlink class="h-4 w-4" />
             Zuordnung aufheben
@@ -179,21 +174,16 @@ async function confirmTransactionAction(): Promise<void> {
           <button
             @click="requestTransactionAction('delete')"
             :disabled="isUnmatchingTransaction || isDeletingTransaction"
-            class="inline-flex items-center gap-2 px-3 py-2 text-sm text-red-700 dark:text-red-300 bg-red-50 dark:bg-red-950/40 hover:bg-red-100 dark:hover:bg-red-900/40 rounded-lg transition-colors disabled:opacity-50"
+            class="inline-flex items-center gap-2 px-3 py-2 text-sm text-destructive bg-destructive-soft hover:bg-destructive-soft rounded-lg transition-colors disabled:opacity-50"
           >
             <Trash2 class="h-4 w-4" />
             Transaktion löschen
           </button>
         </div>
 
-        <div class="flex justify-end">
-          <button
-            @click="$emit('close')"
-            class="px-4 py-2 bg-muted text-foreground hover:bg-accent rounded-lg transition-colors"
-          >
-            Schließen
-          </button>
-        </div>
       </div>
-    </div>
-  </div></template>
+      <template #footer>
+        <button type="button" class="btn btn-secondary" @click="$emit('close')">Schließen</button>
+      </template>
+  </AppSheet>
+</template>

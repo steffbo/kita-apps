@@ -1,23 +1,23 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api';
 import { useAuthStore } from '@/stores/auth';
 import type { Member, UpdateMemberRequest } from '@/api/types';
 import {
-  ArrowLeft,
+  AlertTriangle,
   Edit,
   Trash2,
   Loader2,
-  User,
   Calendar,
   MapPin,
-  X,
   Check,
   Mail,
   Phone,
   Hash,
 } from 'lucide-vue-next';
+import AppSheet from '@/components/ui/AppSheet.vue';
+import PageHeader from '@/components/ui/PageHeader.vue';
 import { formatDate, formatDateForInput } from '@/utils/format';
 
 const route = useRoute();
@@ -53,25 +53,6 @@ async function loadMember() {
 }
 
 onMounted(loadMember);
-
-// ESC key handler to close all modals
-function handleKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape') {
-    if (showDeleteDialog.value) {
-      showDeleteDialog.value = false;
-    } else if (showEditDialog.value) {
-      showEditDialog.value = false;
-    }
-  }
-}
-
-onMounted(() => {
-  document.addEventListener('keydown', handleKeydown);
-});
-
-onUnmounted(() => {
-  document.removeEventListener('keydown', handleKeydown);
-});
 
 function openEditDialog() {
   if (!member.value) return;
@@ -136,14 +117,20 @@ async function handleToggleActive() {
 
 <template>
   <div>
-    <!-- Back button -->
-    <button
-      @click="router.push('/mitglieder')"
-      class="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6"
-    >
-      <ArrowLeft class="h-4 w-4" />
-      Zurück zur Übersicht
-    </button>
+    <PageHeader :title="member ? `${member.firstName} ${member.lastName}` : 'Mitglied'" back="/mitglieder">
+      <template #meta v-if="member">
+        <span :class="member.isActive ? 'badge badge-success' : 'badge'">
+          {{ member.isActive ? 'Aktiv' : 'Inaktiv' }}
+        </span>
+      </template>
+      <template #actions v-if="member">
+        <button type="button" class="btn btn-secondary" :disabled="isEditing" @click="handleToggleActive">
+          {{ member?.isActive ? 'Deaktivieren' : 'Aktivieren' }}
+        </button>
+        <button type="button" class="btn btn-secondary btn-icon" title="Bearbeiten" aria-label="Bearbeiten" @click="openEditDialog"><Edit /></button>
+        <button v-if="authStore.isAdmin" type="button" class="btn btn-danger-outline btn-icon" title="Löschen" aria-label="Löschen" @click="showDeleteDialog = true"><Trash2 /></button>
+      </template>
+    </PageHeader>
 
     <!-- Loading state -->
     <div v-if="isLoading" class="flex items-center justify-center py-12">
@@ -151,72 +138,23 @@ async function handleToggleActive() {
     </div>
 
     <!-- Error state -->
-    <div v-else-if="error" class="bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg p-4">
-      <p class="text-red-600 dark:text-red-300">{{ error }}</p>
-      <button @click="loadMember" class="mt-2 text-sm text-red-700 dark:text-red-300 underline">
+    <div v-else-if="error" class="note note-danger">
+      <AlertTriangle />
+      <div>
+        <p class="text-destructive">{{ error }}</p>
+      <button @click="loadMember" class="btn btn-secondary btn-sm">
         Erneut versuchen
       </button>
+      </div>
     </div>
 
     <!-- Member details -->
     <div v-else-if="member">
       <!-- Header -->
-      <div class="bg-card rounded-xl border p-6 mb-6">
-        <div class="flex items-start justify-between">
-          <div class="flex items-center gap-4">
-            <div class="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-              <User class="h-8 w-8 text-primary" />
-            </div>
-            <div>
-              <h1 class="text-2xl font-bold text-foreground">
-                {{ member.firstName }} {{ member.lastName }}
-              </h1>
-              <div class="flex items-center gap-3 mt-1">
-                <span class="text-muted-foreground font-mono">{{ member.memberNumber }}</span>
-                <span
-                  :class="[
-                    'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium',
-                    member.isActive ? 'bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-300' : 'bg-muted text-muted-foreground',
-                  ]"
-                >
-                  {{ member.isActive ? 'Aktiv' : 'Inaktiv' }}
-                </span>
-              </div>
-            </div>
-          </div>
-          <div class="flex items-center gap-2">
-            <button
-              @click="handleToggleActive"
-              :disabled="isEditing"
-              :class="[
-                'px-3 py-2 text-sm rounded-lg transition-colors',
-                member.isActive
-                  ? 'text-amber-700 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/40'
-                  : 'text-green-700 dark:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/40',
-              ]"
-            >
-              {{ member.isActive ? 'Deaktivieren' : 'Aktivieren' }}
-            </button>
-            <button
-              @click="openEditDialog"
-              class="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors"
-              title="Bearbeiten"
-            >
-              <Edit class="h-5 w-5" />
-            </button>
-            <button
-              v-if="authStore.isAdmin"
-              @click="showDeleteDialog = true"
-              class="p-2 text-red-500 dark:text-red-400 hover:text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/40 rounded-lg transition-colors"
-              title="Löschen"
-            >
-              <Trash2 class="h-5 w-5" />
-            </button>
-          </div>
-        </div>
+      <div class="card p-6 mb-6">
 
         <!-- Info grid -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mt-6 pt-6 border-t">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           <div class="flex items-start gap-3">
             <Hash class="h-5 w-5 text-muted-foreground mt-0.5" />
             <div>
@@ -277,99 +215,88 @@ async function handleToggleActive() {
     </div>
 
     <!-- Edit Dialog -->
-    <div
-      v-if="showEditDialog"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      @click.self="showEditDialog = false"
-    >
-      <div class="bg-card rounded-xl shadow-xl w-full max-w-md mx-4 p-6 max-h-[90vh] overflow-y-auto">
-        <div class="flex items-center justify-between mb-6">
-          <h2 class="text-xl font-semibold">Mitglied bearbeiten</h2>
-          <button @click="showEditDialog = false" class="p-1 hover:bg-accent rounded" aria-label="Schließen">
-            <X class="h-5 w-5" />
-          </button>
-        </div>
+    <AppSheet v-if="showEditDialog" title="Mitglied bearbeiten" @close="showEditDialog = false">
 
-        <form @submit.prevent="handleEdit" class="space-y-4">
+        <form id="edit-member-form" @submit.prevent="handleEdit" class="space-y-4">
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label for="edit-firstName" class="block text-sm font-medium text-foreground mb-1">Vorname</label>
+              <label for="edit-firstName" class="label">Vorname</label>
               <input
                 id="edit-firstName"
                 v-model="editForm.firstName"
                 type="text"
-                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                class="input"
               />
             </div>
             <div>
-              <label for="edit-lastName" class="block text-sm font-medium text-foreground mb-1">Nachname</label>
+              <label for="edit-lastName" class="label">Nachname</label>
               <input
                 id="edit-lastName"
                 v-model="editForm.lastName"
                 type="text"
-                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                class="input"
               />
             </div>
           </div>
 
           <div>
-            <label for="edit-email" class="block text-sm font-medium text-foreground mb-1">E-Mail</label>
+            <label for="edit-email" class="label">E-Mail</label>
             <input
               id="edit-email"
               v-model="editForm.email"
               type="email"
-              class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              class="input"
             />
           </div>
 
           <div>
-            <label for="edit-phone" class="block text-sm font-medium text-foreground mb-1">Telefon</label>
+            <label for="edit-phone" class="label">Telefon</label>
             <input
               id="edit-phone"
               v-model="editForm.phone"
               type="tel"
-              class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              class="input"
             />
           </div>
 
           <div class="grid grid-cols-4 gap-4">
             <div class="col-span-3">
-              <label for="edit-street" class="block text-sm font-medium text-foreground mb-1">Straße</label>
+              <label for="edit-street" class="label">Straße</label>
               <input
                 id="edit-street"
                 v-model="editForm.street"
                 type="text"
-                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                class="input"
               />
             </div>
             <div>
-              <label for="edit-streetNo" class="block text-sm font-medium text-foreground mb-1">Hausnr.</label>
+              <label for="edit-streetNo" class="label">Hausnr.</label>
               <input
                 id="edit-streetNo"
                 v-model="editForm.streetNo"
                 type="text"
-                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                class="input"
               />
             </div>
           </div>
 
           <div class="grid grid-cols-3 gap-4">
             <div>
-              <label for="edit-postalCode" class="block text-sm font-medium text-foreground mb-1">PLZ</label>
+              <label for="edit-postalCode" class="label">PLZ</label>
               <input
                 id="edit-postalCode"
                 v-model="editForm.postalCode"
                 type="text"
-                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                class="input"
               />
             </div>
             <div class="col-span-2">
-              <label for="edit-city" class="block text-sm font-medium text-foreground mb-1">Ort</label>
+              <label for="edit-city" class="label">Ort</label>
               <input
                 id="edit-city"
                 v-model="editForm.city"
                 type="text"
-                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                class="input"
               />
             </div>
           </div>
@@ -377,92 +304,81 @@ async function handleToggleActive() {
           <!-- Membership dates -->
           <div class="pt-4 border-t">
             <h3 class="text-sm font-medium text-foreground mb-3">Mitgliedschaft</h3>
-            
+
             <div class="grid grid-cols-2 gap-4">
               <div>
-                <label for="edit-membershipStart" class="block text-sm font-medium text-foreground mb-1">Mitglied seit</label>
+                <label for="edit-membershipStart" class="label">Mitglied seit</label>
                 <input
                   id="edit-membershipStart"
                   v-model="editForm.membershipStart"
                   type="date"
-                  class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                  class="input"
                 />
               </div>
               <div>
-                <label for="edit-membershipEnd" class="block text-sm font-medium text-foreground mb-1">Endet am</label>
+                <label for="edit-membershipEnd" class="label">Endet am</label>
                 <input
                   id="edit-membershipEnd"
                   v-model="editForm.membershipEnd"
                   type="date"
-                  class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                  class="input"
                 />
               </div>
             </div>
           </div>
 
-          <div v-if="editError" class="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg">
-            <p class="text-sm text-red-600 dark:text-red-300">{{ editError }}</p>
+          <div v-if="editError" class="note note-danger">
+      <AlertTriangle />
+      <p class="text-sm text-destructive">{{ editError }}</p>
           </div>
 
-          <div class="flex justify-end gap-3 pt-4">
+
+        </form>
+
+    <template #footer><div class="flex justify-end gap-3 pt-4">
             <button
               type="button"
               @click="showEditDialog = false"
-              class="px-4 py-2 text-foreground hover:bg-accent rounded-lg transition-colors"
+              class="btn btn-secondary"
             >
               Abbrechen
             </button>
-            <button
-              type="submit"
+            <button form="edit-member-form" type="submit"
               :disabled="isEditing"
-              class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+              class="btn btn-primary"
             >
               <Loader2 v-if="isEditing" class="h-4 w-4 animate-spin" />
               <Check v-else class="h-4 w-4" />
               Speichern
             </button>
-          </div>
-        </form>
-      </div>
-    </div>
+          </div></template></AppSheet>
 
     <!-- Delete Confirmation Dialog -->
-    <div
-      v-if="showDeleteDialog"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      @click.self="showDeleteDialog = false"
-    >
-      <div class="bg-card rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
-        <div class="flex items-center gap-3 mb-4">
-          <div class="p-2 bg-red-100 dark:bg-red-950/40 rounded-lg">
-            <Trash2 class="h-6 w-6 text-red-600 dark:text-red-300" />
-          </div>
-          <h2 class="text-xl font-semibold">Mitglied löschen?</h2>
-        </div>
+    <AppSheet v-if="showDeleteDialog" title="Mitglied löschen?" @close="showDeleteDialog = false">
 
         <p class="text-muted-foreground mb-6">
           Möchten Sie <strong>{{ member?.firstName }} {{ member?.lastName }}</strong> wirklich löschen?
           Diese Aktion kann nicht rückgängig gemacht werden.
         </p>
 
-        <div class="flex justify-end gap-3">
+
+
+    <template #footer><div class="flex justify-end gap-3">
           <button
             @click="showDeleteDialog = false"
-            class="px-4 py-2 text-foreground hover:bg-accent rounded-lg transition-colors"
+            class="btn btn-secondary"
           >
             Abbrechen
           </button>
           <button
             @click="handleDelete"
             :disabled="isDeleting"
-            class="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+            class="btn btn-danger"
           >
             <Loader2 v-if="isDeleting" class="h-4 w-4 animate-spin" />
             <Trash2 v-else class="h-4 w-4" />
             Löschen
           </button>
-        </div>
-      </div>
-    </div>
+        </div></template></AppSheet>
   </div>
 </template>

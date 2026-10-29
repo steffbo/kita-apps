@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import AppSheet from '@/components/ui/AppSheet.vue';
+
 import { ref } from 'vue';
 import { api } from '@/api';
 import type { GenerateFeeRequest } from '@/api/types';
-import { Loader2, Plus, Calendar } from 'lucide-vue-next';
+import { Info, Loader2, Plus } from 'lucide-vue-next';
 import { MONTH_OPTIONS as months } from '@/utils/format';
 
 const emit = defineEmits<{ close: []; generated: [] }>();
@@ -34,72 +36,41 @@ async function handleGenerate() {
 </script>
 
 <template>
-  <div
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-    @click.self="$emit('close')"
-  >
-    <div class="bg-card rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
-      <div class="flex items-center gap-3 mb-6">
-        <div class="p-2 bg-primary/10 rounded-lg">
-          <Calendar class="h-6 w-6 text-primary" />
-        </div>
-        <div>
-          <h2 class="text-xl font-semibold">Beiträge generieren</h2>
-          <p class="text-sm text-muted-foreground">Erstellt fehlende Beiträge für alle aktiven Kinder</p>
-        </div>
+  <AppSheet title="Beiträge generieren" @close="$emit('close')">
+    <p class="mb-4 text-sm text-muted-foreground">Erstellt fehlende Beiträge für alle aktiven Kinder</p>
+    <form id="generate-fees" class="space-y-4" @submit.prevent="handleGenerate">
+      <div>
+        <label for="generate-year" class="label">Jahr</label>
+        <select id="generate-year" v-model="generateForm.year" class="input">
+          <option v-for="year in years" :key="year" :value="year">{{ year }}</option>
+        </select>
       </div>
-
-      <div class="space-y-4">
-        <div>
-          <label for="generate-year" class="block text-sm font-medium text-foreground mb-1">Jahr</label>
-          <select
-            id="generate-year"
-            v-model="generateForm.year"
-            class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-          >
-            <option v-for="year in years" :key="year" :value="year">{{ year }}</option>
-          </select>
-        </div>
-
-        <div>
-          <label for="generate-month" class="block text-sm font-medium text-foreground mb-1">Monat</label>
-          <select
-            id="generate-month"
-            v-model="generateForm.month"
-            class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-          >
-            <option :value="undefined">Nur Jahresbeitrag (Vereinsbeitrag)</option>
-            <option v-for="month in months" :key="month.value" :value="month.value">
-              {{ month.label }} (Essensgeld + ggf. Platzgeld)
-            </option>
-          </select>
-        </div>
-
-        <div v-if="generateResult" class="p-4 bg-green-50 dark:bg-green-950/40 border border-green-200 rounded-lg">
-          <p class="text-green-700 dark:text-green-300 font-medium">Erfolgreich generiert!</p>
-          <p class="text-sm text-green-600 dark:text-green-300 mt-1">
+      <div>
+        <label for="generate-month" class="label">Monat</label>
+        <select id="generate-month" v-model="generateForm.month" class="input">
+          <option :value="undefined">Nur Jahresbeitrag (Vereinsbeitrag)</option>
+          <option v-for="month in months" :key="month.value" :value="month.value">
+            {{ month.label }} (Essensgeld + ggf. Platzgeld)
+          </option>
+        </select>
+      </div>
+      <div v-if="generateResult" class="note note-success">
+        <Info />
+        <div class="min-w-0 flex-1">
+          <p class="text-success font-medium">Erfolgreich generiert!</p>
+          <p class="text-sm text-success mt-1">
             {{ generateResult.created }} Beiträge erstellt, {{ generateResult.skipped }} übersprungen
           </p>
         </div>
-
-        <div class="flex justify-end gap-3 pt-4">
-          <button
-            @click="$emit('close')"
-            class="px-4 py-2 text-foreground hover:bg-accent rounded-lg transition-colors"
-          >
-            Schließen
-          </button>
-          <button
-            @click="handleGenerate"
-            :disabled="isGenerating"
-            class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
-          >
-            <Loader2 v-if="isGenerating" class="h-4 w-4 animate-spin" />
-            <Plus v-else class="h-4 w-4" />
-            Generieren
-          </button>
-        </div>
       </div>
-    </div>
-  </div>
+    </form>
+    <template #footer>
+      <button type="button" @click="$emit('close')" class="btn btn-secondary">Abbrechen</button>
+      <button type="submit" form="generate-fees" :disabled="isGenerating" class="btn btn-primary">
+        <Loader2 v-if="isGenerating" class="h-4 w-4 animate-spin" />
+        <Plus v-else class="h-4 w-4" />
+        Generieren
+      </button>
+    </template>
+  </AppSheet>
 </template>

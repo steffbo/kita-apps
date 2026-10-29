@@ -32,10 +32,10 @@ const {
 <template>
   <div class="space-y-6">
     <!-- Summary -->
-    <div class="bg-card rounded-xl border p-6">
+    <div class="card p-6">
       <div class="flex items-center justify-between">
         <div>
-          <h2 class="text-lg font-semibold">Vorschau</h2>
+          <h2 class="text-base font-semibold">Vorschau</h2>
           <p class="text-sm text-muted-foreground mt-1">
             {{ previewResult?.validCount || 0 }} gültige Einträge,
             {{ previewResult?.errorCount || 0 }} mit Fehlern/Duplikaten
@@ -50,7 +50,7 @@ const {
           </button>
           <div class="text-sm font-medium text-foreground">
             {{ selectedValidCount - mergeRowsCount }} neu,
-            <span v-if="mergeRowsCount > 0" class="text-blue-600 dark:text-blue-300">{{ mergeRowsCount }} Merge</span>
+            <span v-if="mergeRowsCount > 0" class="text-primary">{{ mergeRowsCount }} Merge</span>
             <span v-else class="text-muted-foreground">0 Merge</span>
           </div>
         </div>
@@ -58,9 +58,9 @@ const {
     </div>
 
     <!-- Preview table -->
-    <div class="bg-card rounded-xl border overflow-hidden">
+    <div class="card overflow-hidden">
       <div class="overflow-x-auto max-h-[500px] overflow-y-auto">
-        <table class="w-full text-sm">
+        <table class="table">
           <thead class="bg-muted sticky top-0">
             <tr>
               <th class="px-4 py-3 text-left font-medium text-muted-foreground w-12"></th>
@@ -85,11 +85,11 @@ const {
               :class="[
                 'hover:bg-accent',
                 // Invalid rows: red
-                !row.isValid && !row.isDuplicate ? 'bg-red-50 dark:bg-red-950/40' : '',
+                !row.isValid && !row.isDuplicate ? 'bg-destructive-soft' : '',
                 // Duplicates not marked for merge: amber/yellow
-                row.isDuplicate && !mergeRows.has(row.index) ? 'bg-amber-50 dark:bg-amber-950/40' : '',
+                row.isDuplicate && !mergeRows.has(row.index) ? 'bg-warning-soft' : '',
                 // Duplicates marked for merge: blue
-                row.isDuplicate && mergeRows.has(row.index) ? 'bg-blue-50 dark:bg-blue-950/40' : '',
+                row.isDuplicate && mergeRows.has(row.index) ? 'bg-primary-soft' : '',
                 // Selected valid rows: primary
                 selectedRows.has(row.index) && row.isValid && !row.isDuplicate ? 'bg-primary/5' : '',
               ]"
@@ -109,11 +109,12 @@ const {
                   v-else-if="row.isDuplicate && row.existingChildId"
                   @click="toggleMerge(row.index)"
                   :class="[
-                    'flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-colors',
+                    'chip',
                     mergeRows.has(row.index)
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-muted text-foreground hover:bg-accent',
+                      ? 'border-transparent bg-primary-soft text-primary-text'
+                      : '',
                   ]"
+                  :aria-pressed="mergeRows.has(row.index)"
                   :title="mergeRows.has(row.index) ? 'Zusammenführung deaktivieren' : 'Eltern zu bestehendem Kind hinzufügen'"
                 >
                   <GitMerge class="h-3 w-3" />
@@ -129,34 +130,34 @@ const {
                   <!-- Action badge -->
                   <span 
                     v-if="row.action === 'create' && row.isValid && !row.isDuplicate"
-                    class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-300"
+                    class="badge badge-success"
                   >
                     <Plus class="h-3 w-3" />
                     NEU
                   </span>
                   <span 
                     v-else-if="row.isDuplicate && mergeRows.has(row.index) && rowHasConflicts(row)"
-                    class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300"
+                    class="badge badge-primary"
                   >
                     <RefreshCw class="h-3 w-3" />
                     UPDATE
                   </span>
                   <span 
                     v-else-if="row.isDuplicate && mergeRows.has(row.index)"
-                    class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300"
+                    class="badge badge-primary"
                   >
                     <GitMerge class="h-3 w-3" />
                     MERGE
                   </span>
                   <span 
                     v-else-if="row.isDuplicate"
-                    class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300"
+                    class="badge badge-warning"
                   >
                     EXISTIERT
                   </span>
                   <span 
                     v-else-if="!row.isValid"
-                    class="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-300"
+                    class="badge badge-danger"
                   >
                     <XCircle class="h-3 w-3" />
                     FEHLER
@@ -164,7 +165,7 @@ const {
 
                   <!-- Warnings tooltip -->
                   <div v-if="row.warnings.length > 0 && !row.isDuplicate" class="group relative">
-                    <AlertTriangle class="h-4 w-4 text-amber-500 dark:text-amber-400" />
+                    <AlertTriangle class="h-4 w-4 text-warning" />
                     <div class="hidden group-hover:block absolute left-0 top-6 z-10 bg-popover border rounded-lg shadow-lg p-3 w-64">
                       <ul class="text-xs text-foreground space-y-1">
                         <li v-for="(warning, idx) in row.warnings" :key="idx">
@@ -176,13 +177,13 @@ const {
                 </div>
 
                 <!-- Status info text -->
-                <div v-if="row.isDuplicate && !mergeRows.has(row.index)" class="text-xs text-amber-600 dark:text-amber-300 mt-1">
+                <div v-if="row.isDuplicate && !mergeRows.has(row.index)" class="text-xs text-warning mt-1">
                   Kind existiert bereits
                 </div>
-                <div v-if="row.isDuplicate && mergeRows.has(row.index) && !rowHasConflicts(row)" class="text-xs text-blue-600 dark:text-blue-300 mt-1">
+                <div v-if="row.isDuplicate && mergeRows.has(row.index) && !rowHasConflicts(row)" class="text-xs text-primary mt-1">
                   Eltern werden hinzugefügt
                 </div>
-                <div v-if="row.isDuplicate && mergeRows.has(row.index) && rowHasConflicts(row)" class="text-xs text-blue-600 dark:text-blue-300 mt-1">
+                <div v-if="row.isDuplicate && mergeRows.has(row.index) && rowHasConflicts(row)" class="text-xs text-primary mt-1">
                   {{ row.fieldConflicts?.length }} Feld{{ row.fieldConflicts?.length !== 1 ? 'er' : '' }} können aktualisiert werden
                 </div>
               </td>
@@ -225,7 +226,7 @@ const {
                     <!-- Show info icon for duplicate - details shown in expandable row below -->
                     <span 
                       v-if="row.isDuplicate && row.existingChild"
-                      class="inline-flex items-center justify-center w-4 h-4 text-xs bg-blue-100 dark:bg-blue-950/40 text-blue-600 dark:text-blue-300 rounded-full cursor-help"
+                      class="inline-flex h-4 w-4 items-center justify-center rounded-md bg-primary-soft text-xs text-primary cursor-help"
                       title="Bestehendes Kind - Details siehe unten"
                     >i</span>
                   </div>
@@ -292,7 +293,7 @@ const {
                 </template>
                 <template v-else>
                   <div v-if="row.child.careHours" class="text-foreground">
-                    <span v-if="row.child.careHours < 12" class="text-amber-600 dark:text-amber-300" :title="`Umgerechnet von ${row.child.careHours} Std/Tag`">
+                    <span v-if="row.child.careHours < 12" class="text-warning" :title="`Umgerechnet von ${row.child.careHours} Std/Tag`">
                       {{ row.child.careHours * 5 }} Std
                       <span class="text-xs text-muted-foreground">({{ row.child.careHours }}/Tag)</span>
                     </span>
@@ -389,7 +390,7 @@ const {
                   <template v-if="editingRow === row.index">
                     <button
                       @click="saveEditing(row)"
-                      class="p-1 text-green-600 dark:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/40 rounded"
+                      class="p-1 text-success hover:bg-success-soft rounded"
                       title="Speichern"
                     >
                       <Check class="h-4 w-4" />
@@ -418,15 +419,15 @@ const {
             <tr 
               v-if="row.isDuplicate && row.existingChild && !mergeRows.has(row.index)"
               :key="`${row.index}-existing`"
-              class="bg-amber-50 dark:bg-amber-950/40 border-t border-amber-100"
+              class="bg-warning-soft border-t border-warning-line"
             >
               <td colspan="11" class="px-8 py-3">
                 <div class="text-sm">
-                  <div class="font-medium text-amber-800 dark:text-amber-300 mb-2 flex items-center gap-2">
+                  <div class="font-medium text-warning mb-2 flex items-center gap-2">
                     <AlertCircle class="h-4 w-4" />
                     Bestehendes Kind in Datenbank:
                   </div>
-                  <div class="bg-card rounded-lg px-4 py-3 border border-amber-200">
+                  <div class="bg-card rounded-lg px-4 py-3 border border-warning-line">
                     <dl class="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-2 text-sm">
                       <div>
                         <dt class="text-muted-foreground">Name</dt>
@@ -449,7 +450,7 @@ const {
                         </dd>
                       </div>
                     </dl>
-                    <p class="mt-3 text-xs text-amber-700 dark:text-amber-300 border-t border-amber-200 pt-2">
+                    <p class="mt-3 text-xs text-warning border-t border-warning-line pt-2">
                       Klicke auf "Merge?" um Eltern aus der CSV zu diesem Kind hinzuzufügen.
                     </p>
                   </div>
@@ -460,11 +461,11 @@ const {
             <tr 
               v-if="row.isDuplicate && mergeRows.has(row.index) && rowHasConflicts(row)"
               :key="`${row.index}-conflicts`"
-              class="bg-blue-50 dark:bg-blue-950/40 border-t border-blue-100"
+              class="bg-primary-soft border-t border-primary/20"
             >
               <td colspan="11" class="px-8 py-3">
                 <div class="text-sm">
-                  <div class="font-medium text-blue-800 dark:text-blue-300 mb-2 flex items-center gap-2">
+                  <div class="font-medium text-primary mb-2 flex items-center gap-2">
                     <AlertTriangle class="h-4 w-4" />
                     Unterschiede zwischen CSV und Datenbank:
                   </div>
@@ -481,7 +482,7 @@ const {
                           :name="`conflict-${row.index}-${conflict.field}`"
                           :checked="getConflictResolution(row.index, conflict.field) === 'existing'"
                           @change="setConflictResolution(row.index, conflict.field, 'existing')"
-                          class="text-blue-600 dark:text-blue-300"
+                          class="text-primary"
                         />
                         <span class="text-foreground">
                           <span class="font-medium">Behalten:</span> {{ conflict.existingValue || '-' }}
@@ -493,9 +494,9 @@ const {
                           :name="`conflict-${row.index}-${conflict.field}`"
                           :checked="getConflictResolution(row.index, conflict.field) === 'new'"
                           @change="setConflictResolution(row.index, conflict.field, 'new')"
-                          class="text-blue-600 dark:text-blue-300"
+                          class="text-primary"
                         />
-                        <span class="text-blue-700 dark:text-blue-300">
+                        <span class="text-primary">
                           <span class="font-medium">CSV verwenden:</span> {{ conflict.newValue }}
                         </span>
                       </label>
@@ -514,7 +515,7 @@ const {
     <div class="flex justify-between">
       <button
         @click="goBack"
-        class="px-4 py-2 text-foreground hover:bg-accent rounded-lg transition-colors flex items-center gap-2"
+        class="btn btn-secondary"
       >
         <ArrowLeft class="h-4 w-4" />
         Zurück
@@ -522,7 +523,7 @@ const {
       <button
         @click="executeImport"
         :disabled="selectedValidCount === 0 || isLoading"
-        class="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+        class="btn btn-primary"
       >
         <Loader2 v-if="isLoading" class="h-4 w-4 animate-spin" />
         <template v-else>

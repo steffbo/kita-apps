@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
+import { ref, computed, onMounted, watch } from 'vue';
 import { api } from '@/api';
 import ActivitySummaryCard from '@/components/family/ActivitySummaryCard.vue';
 import { useAuthStore } from '@/stores/auth';
@@ -16,13 +16,14 @@ import {
   Baby,
   Calendar,
   Users2,
-  X,
   CircleDollarSign,
   RefreshCw,
 } from 'lucide-vue-next';
 import { useRouter } from 'vue-router';
 import { formatCurrency, formatCurrencyWhole, formatDate, formatDateTime, formatMonthName, todayISO } from '@/utils/format';
 import { formatCareHours } from '@/utils/child';
+import PageHeader from '@/components/ui/PageHeader.vue';
+import AppSheet from '@/components/ui/AppSheet.vue';
 
 const router = useRouter();
 const authStore = useAuthStore();
@@ -77,13 +78,13 @@ const bankingSyncLabel = computed(() => {
 const bankingSyncTone = computed(() => {
   switch (bankingSyncStatus.value?.status) {
     case 'running':
-      return 'bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300';
+      return 'bg-primary-soft text-primary';
     case 'waiting_for_2fa':
-      return 'bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300';
+      return 'bg-warning-soft text-warning';
     case 'success':
-      return 'bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-300';
+      return 'bg-success-soft text-success';
     case 'error':
-      return 'bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-300';
+      return 'bg-destructive-soft text-destructive';
     default:
       return 'bg-muted text-foreground';
   }
@@ -213,19 +214,8 @@ watch(selectedYear, () => {
   loadMonthlyOverview();
 });
 
-function handleKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape' && showStichtagModal.value) {
-    showStichtagModal.value = false;
-  }
-}
-
 onMounted(() => {
   loadDashboard();
-  document.addEventListener('keydown', handleKeydown);
-});
-
-onUnmounted(() => {
-  document.removeEventListener('keydown', handleKeydown);
 });
 
 function formatAge(birthDateStr: string): string {
@@ -251,11 +241,7 @@ function formatAge(birthDateStr: string): string {
 
 <template>
   <div>
-    <!-- Header -->
-    <div class="mb-6">
-      <h1 class="text-2xl font-bold text-foreground">Dashboard</h1>
-      <p class="text-muted-foreground mt-1">Übersicht der Beitragszahlungen</p>
-    </div>
+    <PageHeader title="Dashboard" />
 
     <ActivitySummaryCard v-if="authStore.isAdmin" class="mb-6" />
 
@@ -265,9 +251,10 @@ function formatAge(birthDateStr: string): string {
     </div>
 
     <!-- Error state -->
-    <div v-else-if="error" class="bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg p-4">
-      <p class="text-red-600 dark:text-red-300">{{ error }}</p>
-      <button @click="loadDashboard" class="mt-2 text-sm text-red-700 dark:text-red-300 underline">
+    <div v-else-if="error" class="note note-danger">
+      <AlertTriangle />
+      <div class="flex-1">{{ error }}</div>
+      <button @click="loadDashboard" class="btn btn-secondary btn-sm">
         Erneut versuchen
       </button>
     </div>
@@ -275,52 +262,52 @@ function formatAge(birthDateStr: string): string {
     <!-- Content -->
     <div v-else-if="overview" class="space-y-6">
       <!-- Main Stats Card - Open Fees (current state) -->
-      <div class="bg-card rounded-2xl border shadow-sm p-5">
+      <div class="card p-5">
         <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <!-- Open Food Fees -->
           <div
-            class="p-4 rounded-lg bg-orange-50 dark:bg-orange-950/40 hover:bg-orange-100 dark:hover:bg-orange-900/40 cursor-pointer transition-colors"
+            class="card p-4 cursor-pointer hover:bg-accent transition-colors"
             @click="router.push('/beitraege?feeType=FOOD&status=open')"
           >
             <div class="flex items-center gap-3">
-              <div class="p-2 rounded-lg bg-orange-100 dark:bg-orange-950/40">
-                <Utensils class="h-5 w-5 text-orange-600 dark:text-orange-300" />
+              <div class="rounded-lg bg-muted p-2">
+                <Utensils class="h-5 w-5 text-muted-foreground" />
               </div>
               <div class="flex-1 min-w-0">
-                <p class="text-xs text-orange-700 dark:text-orange-300 font-medium truncate">Offene Essensgelder</p>
-                <p class="text-xl font-bold text-orange-900 dark:text-orange-300">{{ overview.openFoodCount }}</p>
+                <p class="text-[13px] text-muted-foreground truncate">Offene Essensgelder</p>
+                <p class="text-2xl font-semibold tabular-nums">{{ overview.openFoodCount }}</p>
               </div>
             </div>
           </div>
 
           <!-- Open Childcare Fees -->
           <div
-            class="p-4 rounded-lg bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/40 cursor-pointer transition-colors"
+            class="card p-4 cursor-pointer hover:bg-accent transition-colors"
             @click="router.push('/beitraege?feeType=CHILDCARE&status=open')"
           >
             <div class="flex items-center gap-3">
-              <div class="p-2 rounded-lg bg-blue-100 dark:bg-blue-950/40">
-                <Home class="h-5 w-5 text-blue-600 dark:text-blue-300" />
+              <div class="rounded-lg bg-muted p-2">
+                <Home class="h-5 w-5 text-muted-foreground" />
               </div>
               <div class="flex-1 min-w-0">
-                <p class="text-xs text-blue-700 dark:text-blue-300 font-medium truncate">Offene Platzgelder</p>
-                <p class="text-xl font-bold text-blue-900 dark:text-blue-300">{{ overview.openChildcareCount }}</p>
+                <p class="text-[13px] text-muted-foreground truncate">Offene Platzgelder</p>
+                <p class="text-2xl font-semibold tabular-nums">{{ overview.openChildcareCount }}</p>
               </div>
             </div>
           </div>
 
           <!-- Open Membership Fees -->
           <div
-            class="p-4 rounded-lg bg-purple-50 dark:bg-purple-950/40 hover:bg-purple-100 dark:hover:bg-purple-900/40 cursor-pointer transition-colors"
+            class="card p-4 cursor-pointer hover:bg-accent transition-colors"
             @click="router.push('/beitraege?feeType=MEMBERSHIP&status=open')"
           >
             <div class="flex items-center gap-3">
-              <div class="p-2 rounded-lg bg-purple-100 dark:bg-purple-950/40">
-                <Users2 class="h-5 w-5 text-purple-600 dark:text-purple-300" />
+              <div class="rounded-lg bg-muted p-2">
+                <Users2 class="h-5 w-5 text-muted-foreground" />
               </div>
               <div class="flex-1 min-w-0">
-                <p class="text-xs text-purple-700 dark:text-purple-300 font-medium truncate">Offene Vereinsbeiträge</p>
-                <p class="text-xl font-bold text-purple-900 dark:text-purple-300">{{ overview.openMembershipCount }}</p>
+                <p class="text-[13px] text-muted-foreground truncate">Offene Vereinsbeiträge</p>
+                <p class="text-2xl font-semibold tabular-nums">{{ overview.openMembershipCount }}</p>
               </div>
             </div>
           </div>
@@ -332,7 +319,7 @@ function formatAge(birthDateStr: string): string {
             <Receipt class="h-4 w-4" />
             <span class="text-sm">Offener Gesamtbetrag:</span>
           </div>
-          <span class="text-lg font-bold text-foreground">
+          <span class="text-lg font-semibold text-foreground">
             {{ formatCurrency(overview.amountOpen + overview.amountOverdue) }}
           </span>
         </div>
@@ -342,7 +329,7 @@ function formatAge(birthDateStr: string): string {
       <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <!-- Bank Import Status Card -->
         <div v-if="authStore.isAdmin"
-          class="bg-card rounded-2xl border shadow-sm p-5 cursor-pointer hover:bg-muted/50 transition-colors"
+          class="card p-5 cursor-pointer hover:bg-muted/50 transition-colors"
           @click="router.push('/bankabgleich')"
         >
           <div class="flex items-start gap-3">
@@ -370,14 +357,14 @@ function formatAge(birthDateStr: string): string {
         </div>
 
         <!-- U3/Ü3 Children Card -->
-        <div class="bg-card rounded-2xl border shadow-sm p-5">
+        <div class="card p-5">
           <div class="flex items-center gap-3">
-            <div class="p-2.5 bg-violet-100 dark:bg-violet-950/40 rounded-lg">
-              <Baby class="h-5 w-5 text-violet-600 dark:text-violet-300" />
+            <div class="p-2.5 bg-primary-soft rounded-lg">
+              <Baby class="h-5 w-5 text-primary" />
             </div>
             <div>
               <p class="text-xs text-muted-foreground font-medium">Aktive Kinder</p>
-              <p class="text-lg font-bold text-foreground">
+              <p class="text-lg font-semibold text-foreground">
                 {{ u3Count }} <span class="text-muted-foreground font-normal">U3</span>
                 · {{ ue3Count }} <span class="text-muted-foreground font-normal">Ü3</span>
               </p>
@@ -389,17 +376,17 @@ function formatAge(birthDateStr: string): string {
         <!-- Stichtagsmeldung Card (clickable) -->
         <div
           v-if="stichtagStats"
-          class="bg-card rounded-2xl border shadow-sm p-5 cursor-pointer hover:bg-muted/50 transition-colors"
+          class="card p-5 cursor-pointer hover:bg-muted/50 transition-colors"
           @click="openStichtagModal"
         >
           <div class="flex items-start gap-3">
-            <div class="p-2.5 bg-emerald-100 dark:bg-emerald-950/40 rounded-lg">
-              <Calendar class="h-5 w-5 text-emerald-600 dark:text-emerald-300" />
+            <div class="p-2.5 bg-success-soft rounded-lg">
+              <Calendar class="h-5 w-5 text-success" />
             </div>
             <div class="flex-1 min-w-0">
               <div class="flex items-center justify-between gap-2">
                 <p class="text-xs text-muted-foreground font-medium">Stichtagsmeldung</p>
-                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300">
+                <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-success-soft text-success">
                   {{ stichtagStats.daysUntilStichtag }}d
                 </span>
               </div>
@@ -433,19 +420,19 @@ function formatAge(birthDateStr: string): string {
         <!-- Missing Income Warning Card -->
         <div
           v-if="childrenWithWarnings > 0"
-          class="bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-xl p-5 cursor-pointer hover:bg-red-100 dark:hover:bg-red-900/40 transition-colors"
+          class="border bg-destructive-soft border-destructive-line rounded-xl p-5 cursor-pointer hover:bg-destructive-soft transition-colors"
           @click="router.push('/kinder?warnings=true')"
         >
           <div class="flex items-center gap-3">
-            <div class="p-2.5 bg-red-100 dark:bg-red-950/40 rounded-lg">
-              <CircleDollarSign class="h-5 w-5 text-red-600 dark:text-red-300" />
+            <div class="p-2.5 bg-destructive-soft rounded-lg">
+              <CircleDollarSign class="h-5 w-5 text-destructive" />
             </div>
             <div class="flex-1">
-              <p class="text-xs text-red-700 dark:text-red-300 font-medium">Fehlende Daten</p>
-              <p class="text-lg font-bold text-red-900 dark:text-red-300">{{ childrenWithWarnings }} Kinder</p>
+              <p class="text-xs text-destructive font-medium">Fehlende Daten</p>
+              <p class="text-lg font-semibold text-destructive">{{ childrenWithWarnings }} Kinder</p>
             </div>
-            <svg class="w-4 h-4 text-red-600 dark:text-red-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            <svg class="w-4 h-4 text-destructive" fill="none" stroke="currentColor" viewBox="0 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7" />
             </svg>
           </div>
         </div>
@@ -453,19 +440,19 @@ function formatAge(birthDateStr: string): string {
         <!-- Unmatched Transactions Card -->
         <div
           v-if="unmatchedTotal > 0"
-          class="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 rounded-xl p-5 cursor-pointer hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors"
+          class="border bg-warning-soft border-warning-line rounded-xl p-5 cursor-pointer hover:bg-warning-soft transition-colors"
           @click="router.push('/bankabgleich')"
         >
           <div class="flex items-center gap-3">
-            <div class="p-2.5 bg-amber-100 dark:bg-amber-950/40 rounded-lg">
-              <Link2 class="h-5 w-5 text-amber-600 dark:text-amber-300" />
+            <div class="p-2.5 bg-warning-soft rounded-lg">
+              <Link2 class="h-5 w-5 text-warning" />
             </div>
             <div class="flex-1">
-              <p class="text-xs text-amber-700 dark:text-amber-300 font-medium">Nicht zugeordnet</p>
-              <p class="text-lg font-bold text-amber-900 dark:text-amber-300">{{ unmatchedTotal }} Transaktionen</p>
+              <p class="text-xs text-warning font-medium">Nicht zugeordnet</p>
+              <p class="text-lg font-semibold text-warning">{{ unmatchedTotal }} Transaktionen</p>
             </div>
-            <svg class="w-4 h-4 text-amber-600 dark:text-amber-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            <svg class="w-4 h-4 text-warning" fill="none" stroke="currentColor" viewBox="0 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7" />
             </svg>
           </div>
         </div>
@@ -473,7 +460,7 @@ function formatAge(birthDateStr: string): string {
         <!-- Placeholder if no warnings and no unmatched -->
         <div
           v-if="childrenWithWarnings === 0 && unmatchedTotal === 0"
-          class="bg-muted/50 rounded-xl border border-dashed border-border p-5"
+          class="border bg-muted/50 rounded-xl border-dashed border-border p-5"
         >
           <div class="flex items-center gap-3">
             <div class="p-2.5 bg-muted rounded-lg">
@@ -488,15 +475,15 @@ function formatAge(birthDateStr: string): string {
       </div>
 
       <!-- Monthly Overview -->
-      <div class="bg-card rounded-2xl border shadow-sm p-6">
+      <div class="card p-6">
         <div class="flex items-center justify-between mb-4">
           <div class="flex items-center gap-2">
             <TrendingUp class="h-5 w-5 text-primary" />
-            <h2 class="text-lg font-semibold">Jahresübersicht</h2>
+            <h2 class="text-base font-semibold">Jahresübersicht</h2>
           </div>
           <select
             v-model="selectedYear"
-            class="px-3 py-1.5 text-sm border border-input bg-card rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+            class="px-3 py-1.5 text-sm border-input bg-card rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
           >
             <option v-for="year in years" :key="year" :value="year">{{ year }}</option>
           </select>
@@ -504,27 +491,27 @@ function formatAge(birthDateStr: string): string {
 
         <!-- Year summary stats -->
         <div v-if="!isLoadingMonthly && monthlyOverview" class="grid grid-cols-2 gap-4 mb-6">
-          <div class="p-4 rounded-lg bg-red-50 dark:bg-red-950/40">
+          <div class="p-4 rounded-lg bg-destructive-soft">
             <div class="flex items-center gap-3">
-              <div class="p-2 rounded-lg bg-red-100 dark:bg-red-950/40">
-                <AlertTriangle class="h-5 w-5 text-red-600 dark:text-red-300" />
+              <div class="p-2 rounded-lg bg-destructive-soft">
+                <AlertTriangle class="h-5 w-5 text-destructive" />
               </div>
               <div>
-                <p class="text-xs text-red-700 dark:text-red-300 font-medium">Überfällig {{ selectedYear }}</p>
-                <p class="text-xl font-bold text-red-900 dark:text-red-300">{{ monthlyOverview.totalOverdue }}</p>
-                <p class="text-xs text-red-600 dark:text-red-300 font-medium">{{ formatCurrency(monthlyOverview.amountOverdue) }}</p>
+                <p class="text-xs text-destructive font-medium">Überfällig {{ selectedYear }}</p>
+                <p class="text-xl font-semibold text-destructive">{{ monthlyOverview.totalOverdue }}</p>
+                <p class="text-xs text-destructive font-medium">{{ formatCurrency(monthlyOverview.amountOverdue) }}</p>
               </div>
             </div>
           </div>
-          <div class="p-4 rounded-lg bg-green-50 dark:bg-green-950/40">
+          <div class="p-4 rounded-lg bg-success-soft">
             <div class="flex items-center gap-3">
-              <div class="p-2 rounded-lg bg-green-100 dark:bg-green-950/40">
-                <CheckCircle class="h-5 w-5 text-green-600 dark:text-green-300" />
+              <div class="p-2 rounded-lg bg-success-soft">
+                <CheckCircle class="h-5 w-5 text-success" />
               </div>
               <div>
-                <p class="text-xs text-green-700 dark:text-green-300 font-medium">Bezahlt {{ selectedYear }}</p>
-                <p class="text-xl font-bold text-green-900 dark:text-green-300">{{ monthlyOverview.totalPaid }}</p>
-                <p class="text-xs text-green-600 dark:text-green-300 font-medium">{{ formatCurrency(monthlyOverview.amountPaid) }}</p>
+                <p class="text-xs text-success font-medium">Bezahlt {{ selectedYear }}</p>
+                <p class="text-xl font-semibold text-success">{{ monthlyOverview.totalPaid }}</p>
+                <p class="text-xs text-success font-medium">{{ formatCurrency(monthlyOverview.amountPaid) }}</p>
               </div>
             </div>
           </div>
@@ -555,7 +542,7 @@ function formatAge(birthDateStr: string): string {
                 <td class="py-3 text-right">
                   <span
                     v-if="month.openCount > 0"
-                    class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300"
+                    class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-primary-soft text-primary"
                   >
                     {{ month.openCount }}
                   </span>
@@ -564,16 +551,16 @@ function formatAge(birthDateStr: string): string {
                 <td class="py-3 text-right">
                   <span
                     v-if="month.paidCount > 0"
-                    class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-300"
+                    class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-success-soft text-success"
                   >
                     {{ month.paidCount }}
                   </span>
                   <span v-else class="text-muted-foreground">-</span>
                 </td>
-                <td class="py-3 text-right text-blue-600 dark:text-blue-300">
+                <td class="py-3 text-right text-primary">
                   {{ month.openAmount > 0 ? formatCurrency(month.openAmount) : '-' }}
                 </td>
-                <td class="py-3 text-right text-green-600 dark:text-green-300">
+                <td class="py-3 text-right text-success">
                   {{ month.paidAmount > 0 ? formatCurrency(month.paidAmount) : '-' }}
                 </td>
               </tr>
@@ -581,7 +568,7 @@ function formatAge(birthDateStr: string): string {
           </table>
         </div>
 
-        <div v-else-if="monthlyError" class="text-center py-8 text-red-600 dark:text-red-300">
+        <div v-else-if="monthlyError" class="text-center py-8 text-destructive">
           Jahresübersicht {{ selectedYear }} konnte nicht geladen werden.
           <button class="ml-1 underline" @click="loadMonthlyOverview">Erneut versuchen</button>
         </div>
@@ -592,51 +579,22 @@ function formatAge(birthDateStr: string): string {
     </div>
 
     <!-- Stichtagsmeldung Modal -->
-    <Teleport to="body">
-      <div
-        v-if="showStichtagModal"
-        class="fixed inset-0 z-50 flex items-center justify-center p-4"
-      >
-        <!-- Backdrop -->
-        <div
-          class="absolute inset-0 bg-black/50"
-          @click="showStichtagModal = false"
-        />
-
-        <!-- Modal -->
-        <div class="relative bg-card rounded-xl shadow-xl max-w-7xl w-full max-h-[90vh] flex flex-col">
-          <!-- Header -->
-          <div class="flex items-center justify-between p-6 border-b">
-            <div>
-              <h2 class="text-lg font-semibold text-foreground">Stichtagsreport</h2>
-              <p class="text-sm text-muted-foreground mt-0.5">
-                Allgemeiner Bestand plus separate U3-Meldung
-              </p>
-            </div>
-            <button
-              @click="showStichtagModal = false"
-              class="p-2 text-muted-foreground hover:text-muted-foreground rounded-lg hover:bg-accent"
-              aria-label="Schließen"
-            >
-              <X class="h-5 w-5" />
-            </button>
-          </div>
-
-          <!-- Content -->
-          <div class="flex-1 overflow-auto p-6">
+    <AppSheet v-if="showStichtagModal" title="Stichtagsreport" size="lg"
+      @close="showStichtagModal = false">
+          <div>
             <div class="mb-6">
-              <label for="report-date" class="block text-sm font-medium text-foreground mb-2">Stichtag</label>
+              <label for="report-date" class="label">Stichtag</label>
               <div class="flex gap-2">
                 <input
                   id="report-date"
                   v-model="selectedReportDate"
                   type="date"
-                  class="flex-1 px-3 py-2 border border-input rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                  class="input flex-1"
                   @change="loadStichtagReport"
                 />
                 <button
                   @click="selectedReportDate = todayISO(); loadStichtagReport()"
-                  class="px-3 py-2 text-sm font-medium text-foreground bg-muted hover:bg-accent rounded-lg transition-colors whitespace-nowrap"
+                  class="btn btn-secondary btn-sm whitespace-nowrap"
                 >
                   Heute
                 </button>
@@ -649,27 +607,27 @@ function formatAge(birthDateStr: string): string {
 
             <div v-else class="space-y-6">
               <div v-if="report" class="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div class="rounded-lg border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/40 p-4">
-                  <p class="text-sm text-emerald-700 dark:text-emerald-300 font-medium">Kinder angemeldet</p>
-                  <p class="text-2xl font-bold text-emerald-900 dark:text-emerald-300 mt-1">{{ report.totalChildrenInKita }}</p>
-                  <p class="text-xs text-emerald-700 dark:text-emerald-300 mt-1">am {{ formatDate(report.reportDate) }}</p>
+                <div class="border rounded-lg border-success-line bg-success-soft p-4">
+                  <p class="text-sm text-success font-medium">Kinder angemeldet</p>
+                  <p class="text-2xl font-semibold text-success mt-1">{{ report.totalChildrenInKita }}</p>
+                  <p class="text-xs text-success mt-1">am {{ formatDate(report.reportDate) }}</p>
                 </div>
-                <div class="rounded-lg border border-sky-200 bg-sky-50 p-4">
-                  <p class="text-sm text-sky-700 font-medium">Davon U3</p>
-                  <p class="text-2xl font-bold text-sky-900 mt-1">{{ report.u3ChildrenCount }}</p>
+                <div class="border rounded-lg border-border bg-primary-soft p-4">
+                  <p class="text-sm text-primary font-medium">Davon U3</p>
+                  <p class="text-2xl font-semibold text-primary mt-1">{{ report.u3ChildrenCount }}</p>
                 </div>
-                <div class="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/40 p-4">
-                  <p class="text-sm text-amber-700 dark:text-amber-300 font-medium">Davon Ü3</p>
-                  <p class="text-2xl font-bold text-amber-900 dark:text-amber-300 mt-1">{{ report.ue3ChildrenCount }}</p>
+                <div class="border rounded-lg border-warning-line bg-warning-soft p-4">
+                  <p class="text-sm text-warning font-medium">Davon Ü3</p>
+                  <p class="text-2xl font-semibold text-warning mt-1">{{ report.ue3ChildrenCount }}</p>
                 </div>
               </div>
 
-              <div v-if="report" class="rounded-xl border border-border">
+              <div v-if="report" class="border rounded-xl border-border">
                 <div class="px-4 py-3 border-b bg-muted/50">
                   <h3 class="text-sm font-semibold text-foreground">Allgemeiner Stichtagsreport</h3>
                 </div>
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 p-4">
-                  <div class="rounded-lg border border-border">
+                  <div class="border rounded-lg border-border">
                     <div class="px-4 py-3 border-b bg-card">
                       <h4 class="text-sm font-medium text-foreground">Rechtsanspruch</h4>
                     </div>
@@ -689,15 +647,15 @@ function formatAge(birthDateStr: string): string {
                         <tbody class="divide-y">
                           <tr v-for="item in report.legalHoursBreakdown" :key="item.legalHours ?? 'unknown'">
                             <td class="px-4 py-3 text-foreground">{{ formatCareHours(item.legalHours) }}</td>
-                            <td class="px-4 py-3 text-right font-semibold text-sky-900">{{ item.u3Count }}</td>
-                            <td class="px-4 py-3 text-right font-semibold text-amber-900 dark:text-amber-300">{{ item.ue3Count }}</td>
+                            <td class="px-4 py-3 text-right font-semibold text-primary">{{ item.u3Count }}</td>
+                            <td class="px-4 py-3 text-right font-semibold text-warning">{{ item.ue3Count }}</td>
                             <td class="px-4 py-3 text-right font-semibold text-foreground">{{ item.count }}</td>
                           </tr>
                         </tbody>
                       </table>
                     </div>
                   </div>
-                  <div class="rounded-lg border border-border">
+                  <div class="border rounded-lg border-border">
                     <div class="px-4 py-3 border-b bg-card">
                       <h4 class="text-sm font-medium text-foreground">Betreuungszeit</h4>
                     </div>
@@ -717,8 +675,8 @@ function formatAge(birthDateStr: string): string {
                         <tbody class="divide-y">
                           <tr v-for="item in report.careHoursBreakdown" :key="item.careHours ?? 'unknown'">
                             <td class="px-4 py-3 text-foreground">{{ formatCareHours(item.careHours) }}</td>
-                            <td class="px-4 py-3 text-right font-semibold text-sky-900">{{ item.u3Count }}</td>
-                            <td class="px-4 py-3 text-right font-semibold text-amber-900 dark:text-amber-300">{{ item.ue3Count }}</td>
+                            <td class="px-4 py-3 text-right font-semibold text-primary">{{ item.u3Count }}</td>
+                            <td class="px-4 py-3 text-right font-semibold text-warning">{{ item.ue3Count }}</td>
                             <td class="px-4 py-3 text-right font-semibold text-foreground">{{ item.count }}</td>
                           </tr>
                         </tbody>
@@ -728,13 +686,13 @@ function formatAge(birthDateStr: string): string {
                 </div>
               </div>
 
-              <div class="rounded-xl border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/40">
-                <div class="px-4 py-3 border-b border-emerald-200">
-                  <h3 class="text-sm font-semibold text-emerald-900 dark:text-emerald-300">U3-Stichtagsmeldung</h3>
-                  <p class="text-xs text-emerald-700 dark:text-emerald-300 mt-1">Spezifische Prüfung für die offizielle Meldung</p>
+              <div class="border rounded-xl border-success-line bg-success-soft">
+                <div class="border px-4 py-3 border-b border-success-line">
+                  <h3 class="text-sm font-semibold text-success">U3-Stichtagsmeldung</h3>
+                  <p class="text-xs text-success mt-1">Spezifische Prüfung für die offizielle Meldung</p>
                 </div>
 
-                <div v-if="u3Children.length === 0" class="px-4 py-8 text-center text-emerald-800 dark:text-emerald-300">
+                <div v-if="u3Children.length === 0" class="px-4 py-8 text-center text-success">
                   Keine U3-Kinder gefunden
                 </div>
 
@@ -749,16 +707,16 @@ function formatAge(birthDateStr: string): string {
                     <div
                       :class="[
                         'flex items-center justify-between px-3 py-2 rounded-lg mb-2',
-                        bracket === 'fosterFamily' || bracket === 'maxAccepted' ? 'bg-muted' : 'bg-emerald-50 dark:bg-emerald-950/40'
+                        bracket === 'fosterFamily' || bracket === 'maxAccepted' ? 'bg-muted' : 'bg-success-soft'
                       ]"
                     >
                       <div class="flex items-center gap-2">
-                        <span :class="['text-sm font-medium', bracket === 'fosterFamily' || bracket === 'maxAccepted' ? 'text-muted-foreground' : 'text-emerald-800 dark:text-emerald-300']">
+                        <span :class="['text-sm font-medium', bracket === 'fosterFamily' || bracket === 'maxAccepted' ? 'text-muted-foreground' : 'text-success']">
                           {{ bracketLabels[bracket] }}
                         </span>
                         <span v-if="bracket === 'fosterFamily' || bracket === 'maxAccepted'" class="text-xs text-muted-foreground">(nicht gezählt)</span>
                       </div>
-                      <span :class="['text-sm font-bold', bracket === 'fosterFamily' || bracket === 'maxAccepted' ? 'text-muted-foreground' : 'text-emerald-800 dark:text-emerald-300']">
+                      <span :class="['text-sm font-semibold', bracket === 'fosterFamily' || bracket === 'maxAccepted' ? 'text-muted-foreground' : 'text-success']">
                         {{ groupedU3Children[bracket].length }}
                       </span>
                     </div>
@@ -790,7 +748,7 @@ function formatAge(birthDateStr: string): string {
                             v-if="bracket !== 'fosterFamily' && bracket !== 'maxAccepted'"
                             :class="[
                               'text-sm font-medium w-20 text-right',
-                              child.householdIncome === null ? 'text-red-600 dark:text-red-300' : 'text-foreground'
+                              child.householdIncome === null ? 'text-destructive' : 'text-foreground'
                             ]"
                           >
                             {{ formatCurrencyWhole(child.householdIncome) }}
@@ -804,10 +762,7 @@ function formatAge(birthDateStr: string): string {
                 </div>
               </div>
             </div>
-          </div>
-
-          <!-- Footer -->
-          <div class="p-6 border-t bg-muted/50 rounded-b-xl">
+          <div class="mt-4 border-t pt-4">
             <div class="flex items-center justify-between text-sm text-muted-foreground">
               <span>
                 <span class="font-medium">{{ u3Children.length }}</span> U3-Kinder ·
@@ -818,8 +773,7 @@ function formatAge(birthDateStr: string): string {
               </span>
             </div>
           </div>
-        </div>
-      </div>
-    </Teleport>
+          </div>
+    </AppSheet>
   </div>
 </template>

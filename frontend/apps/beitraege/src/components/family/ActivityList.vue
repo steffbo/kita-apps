@@ -70,19 +70,19 @@ function relative(date: string) {
 }
 </script>
 <template>
-  <section class="rounded-2xl border bg-card p-5">
+  <section class="card p-5">
     <p v-if="error" class="text-sm text-muted-foreground">{{ error }}</p>
     <p v-else-if="loading" class="text-sm text-muted-foreground">Änderungen werden geladen …</p>
     <p v-else-if="!activity.length" class="text-sm text-muted-foreground">Noch keine Aktivitäten.</p>
     <ul class="space-y-3"><li v-for="(item, index) in activity" :key="index"
       class="flex gap-3 border-t pt-3 text-sm first:border-t-0 first:pt-0">
-      <span aria-hidden="true" :class="done(item) ? 'text-green-700 dark:text-green-400' : ''">{{
+      <span aria-hidden="true" :class="done(item) ? 'text-success' : ''">{{
         done(item) ? '✓' : item.type === 'REPORT_CREATED' ? '⚑' :
           item.type === 'PARENT_WORK_SUBMITTED' ? '◷' : '✎' }}</span>
       <div><RouterLink :to="link(item)" class="underline"
         :class="done(item) ? 'text-muted-foreground' : 'text-primary'">{{ text(item) }}</RouterLink>
         <p class="text-xs text-muted-foreground"><span v-if="isNew(item)"
-          class="mr-1.5 rounded-full bg-primary px-1.5 py-0.5 font-bold text-primary-foreground">neu</span>{{
+          class="badge badge-primary mr-1.5">neu</span>{{
             relative(item.at) }}<template v-if="outcome(item)">
           · {{ outcome(item) }}</template></p></div>
     </li></ul>

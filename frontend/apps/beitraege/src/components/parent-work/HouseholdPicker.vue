@@ -32,7 +32,7 @@ function select(id: string) {
         @focus="open = true" @input="open = true" @blur="open = false" @keydown.escape="open = false" />
     </label>
     <p v-if="selected" class="mt-1 text-sm text-foreground">Familie: {{ selected.name }}</p>
-    <p v-else class="mt-1 text-sm text-amber-700 dark:text-amber-300">Keine Familie ausgewählt</p>
+    <p v-else class="mt-1 text-sm text-warning">Keine Familie ausgewählt</p>
     <div v-if="open"
       class="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border bg-popover shadow-lg">
       <button v-for="household in matches" :key="household.id" type="button"

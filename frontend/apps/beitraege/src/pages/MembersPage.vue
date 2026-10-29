@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { api } from '@/api';
 import { useAuthStore } from '@/stores/auth';
@@ -13,17 +13,18 @@ import {
   Phone,
   Calendar,
   CalendarClock,
-  X,
   Check,
   AlertTriangle,
-  ChevronLeft,
-  ChevronRight,
   Trash2,
   UserX,
 } from 'lucide-vue-next';
 import { formatDate, todayISO } from '@/utils/format';
 import SearchInput from '@/components/SearchInput.vue';
 import SortTh from '@/components/SortTh.vue';
+import AppSheet from '@/components/ui/AppSheet.vue';
+import AppPagination from '@/components/ui/AppPagination.vue';
+import PageHeader from '@/components/ui/PageHeader.vue';
+import EmptyState from '@/components/ui/EmptyState.vue';
 import { usePagedList } from '@/composables/usePagedList';
 
 const router = useRouter();
@@ -116,24 +117,6 @@ watch([sortField, sortDirection], () => {
 });
 
 onMounted(loadMembers);
-
-// ESC key handler to close modals
-function handleKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape') {
-    if (showDeleteDialog.value) showDeleteDialog.value = false;
-    else if (showDeactivateDialog.value) showDeactivateDialog.value = false;
-    else if (showCreateDialog.value) showCreateDialog.value = false;
-    else if (showStichtagModal.value) showStichtagModal.value = false;
-  }
-}
-
-onMounted(() => {
-  document.addEventListener('keydown', handleKeydown);
-});
-
-onUnmounted(() => {
-  document.removeEventListener('keydown', handleKeydown);
-});
 
 // Helpers
 
@@ -228,12 +211,12 @@ async function handleCreate() {
 // Bulk actions
 async function handleBulkDeactivate() {
   if (selectedIds.value.size === 0) return;
-  
+
   isBulkActionLoading.value = true;
   bulkActionError.value = null;
-  
+
   try {
-    const promises = [...selectedIds.value].map(id => 
+    const promises = [...selectedIds.value].map(id =>
       api.updateMember(id, { isActive: false })
     );
     await Promise.all(promises);
@@ -249,10 +232,10 @@ async function handleBulkDeactivate() {
 
 async function handleBulkDelete() {
   if (selectedIds.value.size === 0 || !authStore.isAdmin) return;
-  
+
   isBulkActionLoading.value = true;
   bulkActionError.value = null;
-  
+
   try {
     const promises = [...selectedIds.value].map(id => api.deleteMember(id));
     await Promise.all(promises);
@@ -290,84 +273,45 @@ function resetStichtagToToday() {
   loadStichtagCount();
 }
 
-// Pagination display helpers
-const visiblePages = computed(() => {
-  const pages: (number | '...')[] = [];
-  const totalPgs = totalPages.value;
-  const current = currentPage.value;
-  
-  if (totalPgs <= 7) {
-    for (let i = 1; i <= totalPgs; i++) pages.push(i);
-  } else {
-    pages.push(1);
-    if (current > 3) pages.push('...');
-    
-    const start = Math.max(2, current - 1);
-    const end = Math.min(totalPgs - 1, current + 1);
-    
-    for (let i = start; i <= end; i++) pages.push(i);
-    
-    if (current < totalPgs - 2) pages.push('...');
-    pages.push(totalPgs);
-  }
-  
-  return pages;
-});
 </script>
 
 <template>
   <div>
-    <!-- Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-      <div>
-        <h1 class="text-2xl font-bold text-foreground">Vereinsmitglieder</h1>
-        <p class="text-muted-foreground mt-1">{{ total }} Mitglieder registriert</p>
-      </div>
-      <div class="flex items-center gap-2">
-        <button
-          @click="openStichtagModal"
-          class="inline-flex items-center gap-2 px-4 py-2 border border-border text-foreground bg-card rounded-lg hover:bg-accent transition-colors"
-        >
-          <CalendarClock class="h-4 w-4" />
-          Stichtagsreport
+    <PageHeader title="Vereinsmitglieder">
+      <template #actions>
+        <button type="button" class="btn btn-secondary" @click="openStichtagModal">
+          <CalendarClock />Stichtagsreport
         </button>
-        <button
-          @click="showCreateDialog = true"
-          class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-        >
-          <Plus class="h-4 w-4" />
-          Mitglied hinzufügen
+        <button type="button" class="btn btn-primary" @click="showCreateDialog = true">
+          <Plus />Mitglied hinzufügen
         </button>
-      </div>
-    </div>
+      </template>
+    </PageHeader>
 
-    <!-- Filters -->
-    <div class="flex flex-col sm:flex-row gap-4 mb-6">
+    <div class="mb-4 flex flex-col gap-3">
       <SearchInput v-model="searchQuery" placeholder="Suchen nach Name, Mitgliedsnummer oder E-Mail..."
-        class="flex-1" @input="handleSearchInput" />
-      <label class="flex items-center gap-2 cursor-pointer">
-        <input
-          v-model="showInactive"
-          @change="handleInactiveChange"
-          type="checkbox"
-          class="w-4 h-4 text-primary rounded border-border focus:ring-primary"
-        />
-        <span class="text-sm text-foreground">Inaktive anzeigen</span>
-      </label>
+        @input="handleSearchInput" />
+      <div class="flex gap-2" role="group" aria-label="Filter">
+        <span class="chip pointer-events-none border-transparent bg-transparent px-1 text-muted-foreground">
+          {{ total }} {{ total === 1 ? 'Mitglied' : 'Mitglieder' }}
+        </span>
+        <button type="button" class="chip" :aria-pressed="showInactive"
+          @click="showInactive = !showInactive; handleInactiveChange()">Inaktive anzeigen</button>
+      </div>
     </div>
 
     <!-- Bulk actions bar -->
     <div
       v-if="selectedIds.size > 0"
-      class="mb-4 p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 rounded-lg flex items-center justify-between"
+      class="mb-4 p-3 bg-primary-soft border border-primary-line rounded-lg flex items-center justify-between"
     >
-      <span class="text-sm font-medium text-blue-800 dark:text-blue-300">
+      <span class="text-sm font-medium text-primary">
         {{ selectedIds.size }} {{ selectedIds.size === 1 ? 'Mitglied' : 'Mitglieder' }} ausgewählt
       </span>
       <div class="flex items-center gap-2">
         <button
           @click="showDeactivateDialog = true"
-          class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 rounded-lg hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors"
+          class="btn btn-secondary btn-sm"
         >
           <UserX class="h-4 w-4" />
           Deaktivieren
@@ -375,14 +319,14 @@ const visiblePages = computed(() => {
         <button
           v-if="authStore.isAdmin"
           @click="showDeleteDialog = true"
-          class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-red-100 dark:bg-red-950/40 text-red-800 dark:text-red-300 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors"
+          class="btn btn-danger-outline btn-sm"
         >
           <Trash2 class="h-4 w-4" />
           Löschen
         </button>
         <button
           @click="selectedIds = new Set()"
-          class="px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent rounded-lg transition-colors"
+          class="btn btn-ghost btn-sm"
         >
           Auswahl aufheben
         </button>
@@ -395,17 +339,47 @@ const visiblePages = computed(() => {
     </div>
 
     <!-- Error state -->
-    <div v-else-if="error" class="bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg p-4">
-      <p class="text-red-600 dark:text-red-300">{{ error }}</p>
-      <button @click="loadMembers" class="mt-2 text-sm text-red-700 dark:text-red-300 underline">
+    <div v-else-if="error" class="note note-danger">
+      <AlertTriangle />
+      <div>
+        <p class="text-destructive">{{ error }}</p>
+      <button @click="loadMembers" class="btn btn-secondary btn-sm">
         Erneut versuchen
       </button>
+      </div>
     </div>
 
     <!-- Members table -->
-    <div v-else class="bg-card rounded-xl border overflow-hidden">
-      <div class="overflow-x-auto">
-        <table class="w-full">
+    <div v-else class="card overflow-hidden">
+      <ul class="divide-y sm:hidden">
+        <li class="flex flex-wrap items-center gap-2 px-4 py-3">
+          <input type="checkbox" :checked="isAllSelected" :indeterminate="isSomeSelected"
+            @change="toggleSelectAll" aria-label="Alle Mitglieder auswählen" />
+          <button type="button" class="chip" :aria-pressed="sortField === 'memberNumber'"
+            @click="toggleSort('memberNumber')">Nr.</button>
+          <button type="button" class="chip" :aria-pressed="sortField === 'lastName'"
+            @click="toggleSort('lastName')">Nachname</button>
+          <button type="button" class="chip" :aria-pressed="sortField === 'firstName'"
+            @click="toggleSort('firstName')">Vorname</button>
+          <button type="button" class="chip" :aria-pressed="sortField === 'email'"
+            @click="toggleSort('email')">E-Mail</button>
+          <button type="button" class="chip" :aria-pressed="sortField === 'membershipStart'"
+            @click="toggleSort('membershipStart')">Mitglied seit</button>
+        </li>
+        <li v-for="member in members" :key="member.id" class="flex items-center gap-3 p-4" @click="goToMember(member.id)">
+          <input type="checkbox" :checked="selectedIds.has(member.id)" @click.stop
+            @change="toggleSelect(member.id, $event)" aria-label="Mitglied auswählen" />
+          <div class="min-w-0 flex-1">
+            <p class="font-medium">{{ member.lastName }}, {{ member.firstName }}</p>
+            <p class="text-[13px] text-muted-foreground">{{ member.memberNumber }} · {{ childNamesFor(member).join(', ') || '-' }}</p>
+            <p class="text-[13px] text-muted-foreground">{{ member.email || '-' }} · {{ member.phone || '-' }}</p>
+          </div>
+          <span :class="member.isActive ? 'badge badge-success' : 'badge'">{{ member.isActive ? 'Aktiv' : 'Inaktiv' }}</span>
+        </li>
+        <li v-if="members.length === 0"><EmptyState :icon="User" text="Keine Mitglieder gefunden" /></li>
+      </ul>
+      <div class="hidden overflow-x-auto sm:block">
+        <table class="table">
           <thead class="bg-muted">
             <tr class="text-left text-sm text-muted-foreground">
               <!-- Checkbox column -->
@@ -458,7 +432,7 @@ const visiblePages = computed(() => {
               @click="goToMember(member.id)"
               :class="[
                 'border-t hover:bg-accent cursor-pointer transition-colors',
-                selectedIds.has(member.id) ? 'bg-blue-50 dark:bg-blue-950/40' : '',
+                selectedIds.has(member.id) ? 'bg-primary-soft' : '',
               ]"
             >
               <!-- Checkbox -->
@@ -499,8 +473,7 @@ const visiblePages = computed(() => {
               <td class="px-4 py-3">
                 <span
                   :class="[
-                    'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium',
-                    member.isActive ? 'bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-300' : 'bg-muted text-muted-foreground',
+                    member.isActive ? 'badge badge-success' : 'badge',
                   ]"
                 >
                   {{ member.isActive ? 'Aktiv' : 'Inaktiv' }}
@@ -516,213 +489,136 @@ const visiblePages = computed(() => {
         </table>
       </div>
 
-      <!-- Pagination -->
-      <div class="flex items-center justify-between px-4 py-3 border-t bg-muted">
-        <div class="flex items-center gap-4">
-          <span class="text-sm text-muted-foreground">
-            {{ offset + 1 }}-{{ Math.min(offset + pageSize, total) }} von {{ total }}
-          </span>
-          <select
-            v-model="pageSize"
-            class="text-sm border border-border rounded px-2 py-1 focus:ring-primary focus:border-primary"
-          >
-            <option v-for="size in pageSizeOptions" :key="size" :value="size">
-              {{ size }} pro Seite
-            </option>
-          </select>
-        </div>
-        <div class="flex items-center gap-1">
-          <button
-            @click="goToPage(currentPage - 1)"
-            :disabled="currentPage === 1"
-            class="p-1.5 rounded hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <ChevronLeft class="h-4 w-4" />
-          </button>
-          <template v-for="page in visiblePages" :key="page">
-            <span v-if="page === '...'" class="px-2 text-muted-foreground">...</span>
-            <button
-              v-else
-              @click="goToPage(page)"
-              :class="[
-                'px-3 py-1 rounded text-sm',
-                page === currentPage
-                  ? 'bg-primary text-primary-foreground'
-                  : 'hover:bg-accent',
-              ]"
-            >
-              {{ page }}
-            </button>
-          </template>
-          <button
-            @click="goToPage(currentPage + 1)"
-            :disabled="currentPage === totalPages"
-            class="p-1.5 rounded hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <ChevronRight class="h-4 w-4" />
-          </button>
-        </div>
-      </div>
+      <AppPagination v-model:page-size="pageSize" :current-page="currentPage" :total-pages="totalPages"
+        :total="total" :offset="offset" :page-size-options="pageSizeOptions" @go="goToPage" />
     </div>
 
     <!-- Create Dialog -->
-    <div
-      v-if="showCreateDialog"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      @click.self="showCreateDialog = false"
-    >
-      <div class="bg-card rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
-        <div class="flex items-center justify-between mb-6">
-          <h2 class="text-xl font-semibold">Mitglied hinzufügen</h2>
-          <button @click="showCreateDialog = false" class="p-1 hover:bg-accent rounded" aria-label="Schließen">
-            <X class="h-5 w-5" />
-          </button>
-        </div>
+    <AppSheet v-if="showCreateDialog" title="Mitglied hinzufügen" @close="showCreateDialog = false">
 
-        <form @submit.prevent="handleCreate" class="space-y-4">
+        <form id="create-member-form" @submit.prevent="handleCreate" class="space-y-4">
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label for="firstName" class="block text-sm font-medium text-foreground mb-1">Vorname *</label>
+              <label for="firstName" class="label">Vorname *</label>
               <input
                 id="firstName"
                 v-model="createForm.firstName"
                 required
                 type="text"
-                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                class="input"
               />
             </div>
             <div>
-              <label for="lastName" class="block text-sm font-medium text-foreground mb-1">Nachname *</label>
+              <label for="lastName" class="label">Nachname *</label>
               <input
                 id="lastName"
                 v-model="createForm.lastName"
                 required
                 type="text"
-                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                class="input"
               />
             </div>
           </div>
 
           <div>
-            <label for="email" class="block text-sm font-medium text-foreground mb-1">E-Mail</label>
+            <label for="email" class="label">E-Mail</label>
             <input
               id="email"
               v-model="createForm.email"
               type="email"
-              class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              class="input"
             />
           </div>
 
           <div>
-            <label for="phone" class="block text-sm font-medium text-foreground mb-1">Telefon</label>
+            <label for="phone" class="label">Telefon</label>
             <input
               id="phone"
               v-model="createForm.phone"
               type="tel"
-              class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              class="input"
             />
           </div>
 
           <div>
-            <label for="membershipStart" class="block text-sm font-medium text-foreground mb-1">Mitglied seit *</label>
+            <label for="membershipStart" class="label">Mitglied seit *</label>
             <input
               id="membershipStart"
               v-model="createForm.membershipStart"
               required
               type="date"
-              class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              class="input"
             />
           </div>
 
-          <div v-if="createError" class="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg">
-            <p class="text-sm text-red-600 dark:text-red-300">{{ createError }}</p>
+          <div v-if="createError" class="note note-danger">
+      <AlertTriangle />
+      <p class="text-sm text-destructive">{{ createError }}</p>
           </div>
 
-          <div class="flex justify-end gap-3 pt-4">
+
+        </form>
+
+    <template #footer><div class="flex justify-end gap-3 pt-4">
             <button
               type="button"
               @click="showCreateDialog = false"
-              class="px-4 py-2 text-foreground hover:bg-accent rounded-lg transition-colors"
+              class="btn btn-secondary"
             >
               Abbrechen
             </button>
-            <button
-              type="submit"
+            <button form="create-member-form" type="submit"
               :disabled="isCreating"
-              class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+              class="btn btn-primary"
             >
               <Loader2 v-if="isCreating" class="h-4 w-4 animate-spin" />
               <Check v-else class="h-4 w-4" />
               Speichern
             </button>
-          </div>
-        </form>
-      </div>
-    </div>
+          </div></template></AppSheet>
 
     <!-- Deactivate Confirmation Dialog -->
-    <div
-      v-if="showDeactivateDialog"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      @click.self="showDeactivateDialog = false"
-    >
-      <div class="bg-card rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
-        <div class="flex items-center gap-3 mb-4">
-          <div class="w-10 h-10 bg-amber-100 dark:bg-amber-950/40 rounded-full flex items-center justify-center">
-            <UserX class="h-5 w-5 text-amber-600 dark:text-amber-300" />
-          </div>
-          <h2 class="text-xl font-semibold">Mitglieder deaktivieren</h2>
-        </div>
-        
+    <AppSheet v-if="showDeactivateDialog" title="Mitglieder deaktivieren" @close="showDeactivateDialog = false">
+
         <p class="text-muted-foreground mb-6">
           Möchten Sie <strong>{{ selectedIds.size }}</strong> {{ selectedIds.size === 1 ? 'Mitglied' : 'Mitglieder' }} wirklich deaktivieren?
           Deaktivierte Mitglieder werden nicht mehr in den Standardlisten angezeigt.
         </p>
 
-        <div v-if="bulkActionError" class="mb-4 p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg">
-          <p class="text-sm text-red-600 dark:text-red-300">{{ bulkActionError }}</p>
+        <div v-if="bulkActionError" class="mb-4 note note-danger">
+      <AlertTriangle />
+      <p class="text-sm text-destructive">{{ bulkActionError }}</p>
         </div>
 
-        <div class="flex justify-end gap-3">
+
+
+    <template #footer><div class="flex justify-end gap-3">
           <button
             @click="showDeactivateDialog = false"
-            class="px-4 py-2 text-foreground hover:bg-accent rounded-lg transition-colors"
+            class="btn btn-secondary"
           >
             Abbrechen
           </button>
           <button
             @click="handleBulkDeactivate"
             :disabled="isBulkActionLoading"
-            class="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-50"
+            class="btn btn-secondary"
           >
             <Loader2 v-if="isBulkActionLoading" class="h-4 w-4 animate-spin" />
             <UserX v-else class="h-4 w-4" />
             Deaktivieren
           </button>
-        </div>
-      </div>
-    </div>
+        </div></template></AppSheet>
 
     <!-- Delete Confirmation Dialog (Admin only) -->
-    <div
-      v-if="showDeleteDialog && authStore.isAdmin"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      @click.self="showDeleteDialog = false"
-    >
-      <div class="bg-card rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
-        <div class="flex items-center gap-3 mb-4">
-          <div class="w-10 h-10 bg-red-100 dark:bg-red-950/40 rounded-full flex items-center justify-center">
-            <Trash2 class="h-5 w-5 text-red-600 dark:text-red-300" />
-          </div>
-          <h2 class="text-xl font-semibold text-red-700 dark:text-red-300">Mitglieder löschen</h2>
-        </div>
-        
-        <div class="bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg p-4 mb-4">
+    <AppSheet v-if="showDeleteDialog && authStore.isAdmin" title="Mitglieder löschen" @close="showDeleteDialog = false">
+
+        <div class="note note-danger mb-4">
           <div class="flex items-start gap-2">
-            <AlertTriangle class="h-5 w-5 text-red-600 dark:text-red-300 flex-shrink-0 mt-0.5" />
+            <AlertTriangle class="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
             <div>
-              <p class="font-semibold text-red-800 dark:text-red-300">Achtung: Permanente Löschung!</p>
-              <p class="text-sm text-red-700 dark:text-red-300 mt-1">
+              <p class="font-semibold text-destructive">Achtung: Permanente Löschung!</p>
+              <p class="text-sm text-destructive mt-1">
                 Diese Aktion kann nicht rückgängig gemacht werden. Alle zugehörigen Daten
                 werden ebenfalls gelöscht.
               </p>
@@ -732,114 +628,77 @@ const visiblePages = computed(() => {
 
         <p class="text-muted-foreground mb-6">
           Möchten Sie <strong>{{ selectedIds.size }}</strong> {{ selectedIds.size === 1 ? 'Mitglied' : 'Mitglieder' }} wirklich
-          <strong class="text-red-600 dark:text-red-300">unwiderruflich löschen</strong>?
+          <strong class="text-destructive">unwiderruflich löschen</strong>?
         </p>
 
-        <div v-if="bulkActionError" class="mb-4 p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg">
-          <p class="text-sm text-red-600 dark:text-red-300">{{ bulkActionError }}</p>
+        <div v-if="bulkActionError" class="mb-4 note note-danger">
+      <AlertTriangle />
+      <p class="text-sm text-destructive">{{ bulkActionError }}</p>
         </div>
 
-        <div class="flex justify-end gap-3">
+
+
+    <template #footer><div class="flex justify-end gap-3">
           <button
             @click="showDeleteDialog = false"
-            class="px-4 py-2 text-foreground hover:bg-accent rounded-lg transition-colors"
+            class="btn btn-secondary"
           >
             Abbrechen
           </button>
           <button
             @click="handleBulkDelete"
             :disabled="isBulkActionLoading"
-            class="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+            class="btn btn-danger"
           >
             <Loader2 v-if="isBulkActionLoading" class="h-4 w-4 animate-spin" />
             <Trash2 v-else class="h-4 w-4" />
             Endgültig löschen
           </button>
-        </div>
-      </div>
-    </div>
+        </div></template></AppSheet>
 
-    <!-- Stichtagsreport Modal -->
-    <Teleport to="body">
-      <div
-        v-if="showStichtagModal"
-        class="fixed inset-0 z-50 flex items-center justify-center p-4"
-      >
-        <!-- Backdrop -->
-        <div
-          class="absolute inset-0 bg-black/50"
-          @click="showStichtagModal = false"
-        />
-
-        <!-- Modal -->
-        <div class="relative bg-card rounded-xl shadow-xl w-full max-w-2xl">
-          <!-- Header -->
-          <div class="flex items-center justify-between p-6 border-b">
-            <div>
-              <h2 class="text-lg font-semibold text-foreground">Mitglieder-Stichtagsreport</h2>
-              <p class="text-sm text-muted-foreground mt-0.5">
-                Anzahl der Vereinsmitglieder zum Stichtag, inklusive bereits inaktiver Mitglieder
-              </p>
-            </div>
-            <button
-              @click="showStichtagModal = false"
-              class="p-2 text-muted-foreground hover:text-muted-foreground rounded-lg hover:bg-accent"
-              aria-label="Schließen"
-            >
-              <X class="h-5 w-5" />
-            </button>
+    <AppSheet v-if="showStichtagModal" title="Mitglieder-Stichtagsreport" size="lg"
+      @close="showStichtagModal = false">
+      <div class="space-y-5">
+        <p class="note note-info">
+          Anzahl der Vereinsmitglieder zum Stichtag, inklusive bereits inaktiver Mitglieder
+        </p>
+        <div>
+          <label for="member-count-date" class="label">Stichtag</label>
+          <div class="flex gap-2">
+            <input id="member-count-date" v-model="stichtagDate" type="date" class="input"
+              @change="loadStichtagCount" />
+            <button type="button" class="btn btn-secondary" @click="resetStichtagToToday">Heute</button>
           </div>
-
-          <!-- Content -->
-          <div class="p-6">
-            <div class="mb-6">
-              <label for="member-count-date" class="block text-sm font-medium text-foreground mb-2">Stichtag</label>
-              <div class="flex gap-2">
-                <input
-                  id="member-count-date"
-                  v-model="stichtagDate"
-                  type="date"
-                  class="flex-1 px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-                  @change="loadStichtagCount"
-                />
-                <button
-                  @click="resetStichtagToToday"
-                  class="px-3 py-2 text-sm font-medium text-foreground bg-muted hover:bg-accent rounded-lg transition-colors whitespace-nowrap"
-                >
-                  Heute
-                </button>
-              </div>
-            </div>
-
-            <div v-if="isLoadingStichtag" class="flex items-center justify-center py-8">
-              <Loader2 class="h-6 w-6 animate-spin text-primary" />
-            </div>
-
-            <div v-else-if="stichtagError" class="bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg p-4">
-              <p class="text-red-600 dark:text-red-300">{{ stichtagError }}</p>
-              <button @click="loadStichtagCount" class="mt-2 text-sm text-red-700 dark:text-red-300 underline">
-                Erneut versuchen
-              </button>
-            </div>
-
-            <div v-else-if="stichtagData" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div class="rounded-lg border border-emerald-200 bg-emerald-50 dark:bg-emerald-950/40 p-4">
-                <p class="text-sm text-emerald-700 dark:text-emerald-300 font-medium">Mitglieder am Stichtag</p>
-                <p class="text-2xl font-bold text-emerald-900 dark:text-emerald-300 mt-1">{{ stichtagData.total }}</p>
-                <p class="text-xs text-emerald-700 dark:text-emerald-300 mt-1">am {{ formatDate(stichtagData.asOf) }}</p>
-              </div>
-              <div class="rounded-lg border border-sky-200 bg-sky-50 p-4">
-                <p class="text-sm text-sky-700 font-medium">Davon aktuell aktiv</p>
-                <p class="text-2xl font-bold text-sky-900 mt-1">{{ stichtagData.active }}</p>
-              </div>
-              <div class="rounded-lg border border-amber-200 bg-amber-50 dark:bg-amber-950/40 p-4">
-                <p class="text-sm text-amber-700 dark:text-amber-300 font-medium">Davon inaktiv</p>
-                <p class="text-2xl font-bold text-amber-900 dark:text-amber-300 mt-1">{{ stichtagData.inactive }}</p>
-              </div>
-            </div>
+        </div>
+        <div v-if="isLoadingStichtag" class="flex items-center justify-center py-8">
+          <Loader2 class="h-6 w-6 animate-spin text-primary" />
+        </div>
+        <div v-else-if="stichtagError" class="note note-danger">
+      <AlertTriangle />
+      <div>
+        <p>{{ stichtagError }}</p>
+          <button class="btn btn-secondary btn-sm" @click="loadStichtagCount">Erneut versuchen</button>
+      </div>
+        </div>
+        <div v-else-if="stichtagData" class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div class="card bg-success-soft p-4">
+            <p class="text-sm font-medium text-success">Mitglieder am Stichtag</p>
+            <p class="mt-1 text-2xl font-semibold text-success">{{ stichtagData.total }}</p>
+            <p class="mt-1 text-xs text-success">am {{ formatDate(stichtagData.asOf) }}</p>
+          </div>
+          <div class="card bg-muted p-4">
+            <p class="text-sm font-medium text-muted-foreground">Davon aktuell aktiv</p>
+            <p class="mt-1 text-2xl font-semibold">{{ stichtagData.active }}</p>
+          </div>
+          <div class="card bg-warning-soft p-4">
+            <p class="text-sm font-medium text-warning">Davon inaktiv</p>
+            <p class="mt-1 text-2xl font-semibold text-warning">{{ stichtagData.inactive }}</p>
           </div>
         </div>
       </div>
-    </Teleport>
+      <template #footer>
+
+      </template>
+    </AppSheet>
   </div>
 </template>

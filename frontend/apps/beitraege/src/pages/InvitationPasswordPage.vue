@@ -39,27 +39,27 @@ async function submit() {
     <div class="w-full max-w-md">
       <div class="mb-8 text-center">
         <img :src="logo" alt="" class="mx-auto mb-4 h-20 w-20 rounded-full object-cover" />
-        <h1 class="text-3xl font-bold text-primary">Kita Knirpsenstadt</h1>
+        <h1 class="text-3xl font-semibold text-primary">Kita Knirpsenstadt</h1>
         <p class="mt-2 text-muted-foreground">Beitragsverwaltung</p>
       </div>
-      <div class="rounded-2xl border bg-card p-8 shadow-lg">
+      <div class="card p-6 sm:p-8">
         <h2 class="mb-4 text-xl font-semibold">Passwort setzen</h2>
         <p v-if="!token" class="text-destructive">Der Einladungslink ist ungültig.</p>
         <form v-else class="space-y-4" @submit.prevent="submit">
           <p class="text-sm text-muted-foreground">
             Wähle ein Passwort mit mindestens 8 Zeichen. Damit meldest du dich danach an.
           </p>
-          <label class="block text-sm font-medium">Passwort
+          <label class="label">Passwort
             <input v-model="password" type="password" autocomplete="new-password" required minlength="8"
-              class="mt-1 w-full rounded-xl border border-input bg-card px-3 py-2 text-foreground" />
+              class="input" />
           </label>
-          <label class="block text-sm font-medium">Passwort wiederholen
+          <label class="label">Passwort wiederholen
             <input v-model="confirm" type="password" autocomplete="new-password" required minlength="8"
-              class="mt-1 w-full rounded-xl border border-input bg-card px-3 py-2 text-foreground" />
+              class="input" />
           </label>
           <p v-if="error" class="text-sm text-destructive" role="alert">{{ error }}</p>
           <button type="submit" :disabled="saving"
-            class="w-full rounded-xl bg-primary px-4 py-2.5 text-primary-foreground disabled:opacity-50">
+            class="btn btn-primary w-full">
             {{ saving ? 'Speichern...' : 'Passwort setzen' }}
           </button>
         </form>

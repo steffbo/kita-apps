@@ -7,12 +7,14 @@ import { ref } from 'vue';
 import { useAutomationWorklist } from '@/composables/useAutomationWorklist';
 import { useAutomationSending } from '@/composables/useAutomationSending';
 import { useAutomationChronology } from '@/composables/useAutomationChronology';
-import { X, ArrowLeft, Settings } from 'lucide-vue-next';
+import { ArrowLeft, Settings } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/auth';
 import { formatCurrency, formatDate } from '@/utils/format';
 import EmailLogTab from '@/components/automation/EmailLogTab.vue';
 import EmailLogModal from '@/components/automation/EmailLogModal.vue';
 import ReminderSettingsDialog from '@/components/automation/ReminderSettingsDialog.vue';
+import PageHeader from '@/components/ui/PageHeader.vue';
+import AppSheet from '@/components/ui/AppSheet.vue';
 
 const authStore = useAuthStore();
 
@@ -99,20 +101,13 @@ function closeCase(): void {
 
 <template>
   <div>
-    <!-- Header -->
-    <div class="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-      <div>
-        <h1 class="text-2xl font-bold text-foreground">Erinnerungen</h1>
-        <p class="text-muted-foreground mt-1">Familien mit offenen Beiträgen bearbeiten</p>
-      </div>
-      <button
-        class="inline-flex items-center gap-2 px-3 py-2 rounded-lg border bg-card text-sm font-medium hover:bg-accent"
-        @click="showSettingsDialog = true"
-      >
-        <Settings class="h-4 w-4" />
-        Zahlungsdaten
-      </button>
-    </div>
+    <PageHeader title="Erinnerungen">
+      <template #actions>
+        <button class="btn btn-secondary" @click="showSettingsDialog = true">
+          <Settings />Zahlungsdaten
+        </button>
+      </template>
+    </PageHeader>
 
     <!-- Tab switch -->
     <div class="flex gap-1 mb-6 border-b">
@@ -170,9 +165,9 @@ function closeCase(): void {
 
             <div class="bg-card border rounded-xl p-5">
               <!-- Success banner -->
-              <div v-if="sendResult" class="mb-4 p-4 bg-green-50 dark:bg-green-950/40 border border-green-200 rounded-lg text-sm">
-                <p class="font-medium text-green-800 dark:text-green-300">E-Mail gesendet an {{ sendResult.sentTo.join(', ') }}</p>
-                <p class="text-green-700 dark:text-green-300 mt-1">
+              <div v-if="sendResult" class="border mb-4 p-4 bg-success-soft border-success-line rounded-lg text-sm">
+                <p class="font-medium text-success">E-Mail gesendet an {{ sendResult.sentTo.join(', ') }}</p>
+                <p class="text-success mt-1">
                   Frist: {{ formatDate(sendResult.deadline) }}
                   <template v-if="sendResult.createdReminderFees.length > 0">
                     · Mahngebühren erstellt: {{ sendResult.createdReminderFees.length }}
@@ -182,11 +177,11 @@ function closeCase(): void {
 
               <div class="flex items-start justify-between gap-3 mb-4">
                 <div>
-                  <h2 class="text-lg font-semibold text-foreground">{{ selectedCase.householdName }}</h2>
+                  <h2 class="text-base font-semibold text-foreground">{{ selectedCase.householdName }}</h2>
                   <p class="text-sm text-muted-foreground">
                     Empfänger:
                     <template v-if="selectedCase.recipients.length > 0">{{ selectedCase.recipients.join(', ') }}</template>
-                    <template v-else><span class="text-red-600 dark:text-red-300 font-medium">keine gültige E-Mail-Adresse</span></template>
+                    <template v-else><span class="text-destructive font-medium">keine gültige E-Mail-Adresse</span></template>
                   </p>
                 </div>
                 <div class="text-right shrink-0">
@@ -203,7 +198,7 @@ function closeCase(): void {
               </div>
               <p
                 v-if="untickedDueFeeCount > 0"
-                class="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 rounded-lg text-xs text-amber-900 dark:text-amber-300 mb-3"
+                class="border p-3 bg-warning-soft border-warning-line rounded-lg text-xs text-warning mb-3"
               >
                 Für {{ untickedDueFeeCount === 1 ? 'einen ausgewählten Beitrag' : `${untickedDueFeeCount} ausgewählte Beiträge` }}
                 ist laut Regeln eine Mahngebühr fällig (erinnert, Frist abgelaufen). Sie wird nur erhoben, wenn du sie in der Spalte
@@ -247,7 +242,7 @@ function closeCase(): void {
         </div>
 
         <!-- Desktop empty state -->
-        <div v-else class="hidden lg:flex items-center justify-center border border-dashed rounded-xl p-12 text-muted-foreground text-sm">
+        <div v-else class="hidden lg:flex items-center justify-center border-dashed rounded-xl p-12 text-muted-foreground text-sm">
           Familie aus der Liste auswählen, um den Entwurf zu erstellen.
         </div>
       </div>
@@ -261,21 +256,10 @@ function closeCase(): void {
     <!-- ════════════════════ Modals ════════════════════ -->
 
     <!-- Send confirmation -->
-    <div
-      v-if="showConfirmModal && preview"
-      class="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
-      @click.self="showConfirmModal = false"
-    >
-      <div class="bg-card rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] flex flex-col">
-        <div class="flex items-start justify-between gap-4 p-5 border-b">
-          <h3 class="text-lg font-semibold text-foreground">
-            {{ isMahnung ? 'Mahnung senden?' : 'Erinnerung senden?' }}
-          </h3>
-          <button type="button" class="rounded-lg p-2 text-muted-foreground hover:bg-accent hover:text-foreground" @click="showConfirmModal = false" aria-label="Schließen">
-            <X class="h-5 w-5" />
-          </button>
-        </div>
-        <div class="overflow-y-auto p-5 text-sm space-y-3">
+    <AppSheet v-if="showConfirmModal && preview"
+      :title="isMahnung ? 'Mahnung senden?' : 'Erinnerung senden?'" size="md"
+      @close="showConfirmModal = false">
+        <div class="text-sm space-y-3">
           <dl class="grid grid-cols-2 gap-3">
             <div>
               <dt class="text-muted-foreground">Familie</dt>
@@ -302,34 +286,32 @@ function closeCase(): void {
               <dd class="font-medium text-foreground">{{ includeQR ? 'angehängt' : 'deaktiviert' }}</dd>
             </div>
           </dl>
-          <div v-if="preview.plannedReminderFees.length > 0" class="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 rounded-lg">
-            <p class="font-medium text-amber-900 dark:text-amber-300 mb-1">Neu entstehende Mahngebühren</p>
-            <ul class="space-y-0.5 text-amber-900 dark:text-amber-300">
+          <div v-if="preview.plannedReminderFees.length > 0" class="border p-3 bg-warning-soft border-warning-line rounded-lg">
+            <p class="font-medium text-warning mb-1">Neu entstehende Mahngebühren</p>
+            <ul class="space-y-0.5 text-warning">
               <li v-for="planned in preview.plannedReminderFees" :key="planned.baseFeeId" class="flex justify-between gap-3">
                 <span>Mahngebühr für {{ planned.baseLabel }}</span>
                 <span class="font-medium">{{ formatCurrency(planned.amount) }}</span>
               </li>
             </ul>
           </div>
-          <p v-if="preview.warnings && preview.warnings.length > 0" class="text-xs text-amber-700 dark:text-amber-300">
+          <p v-if="preview.warnings && preview.warnings.length > 0" class="text-xs text-warning">
             {{ preview.warnings.length }} Hinweis(e) — siehe Vorschau.
           </p>
         </div>
-        <div class="flex justify-end gap-3 p-5 border-t">
-          <button class="px-4 py-2 rounded-lg border text-sm font-medium hover:bg-accent" @click="showConfirmModal = false">
+      <template #footer>
+          <button class="btn btn-secondary" @click="showConfirmModal = false">
             Abbrechen
           </button>
           <button
-            class="px-4 py-2 rounded-lg text-white text-sm font-medium disabled:opacity-50"
-            :class="isMahnung ? 'bg-amber-600 hover:bg-amber-700' : 'bg-primary hover:bg-primary/90'"
+            class="btn btn-primary"
             :disabled="isSending"
             @click="confirmSend"
           >
             {{ isSending ? 'Wird gesendet...' : 'Jetzt senden' }}
           </button>
-        </div>
-      </div>
-    </div>
+      </template>
+    </AppSheet>
 
     <ReminderSettingsDialog v-if="showSettingsDialog" @close="showSettingsDialog = false" />
 

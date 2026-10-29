@@ -30,7 +30,7 @@ const label = computed(() => {
 <template>
   <RouterLink
     to="/aenderungen"
-    class="flex items-center gap-3 rounded-2xl border bg-card p-4 transition-colors hover:bg-accent"
+    class="flex items-center gap-3 card p-4 transition-colors hover:bg-accent"
   >
     <span
       class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl"

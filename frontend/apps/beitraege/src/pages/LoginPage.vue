@@ -27,22 +27,22 @@ async function handleSubmit() {
       <!-- Header -->
       <div class="text-center mb-8">
         <img :src="logo" alt="" class="mx-auto mb-4 h-20 w-20 rounded-full object-cover shadow-sm" />
-        <h1 class="text-3xl font-bold text-primary">Kita Knirpsenstadt</h1>
+        <h1 class="text-3xl font-semibold text-primary">Kita Knirpsenstadt</h1>
         <p class="mt-2 text-muted-foreground">Beitragsverwaltung</p>
       </div>
 
       <!-- Login Card -->
-      <div class="rounded-2xl border bg-card p-8 text-card-foreground shadow-lg">
+      <div class="card p-6 sm:p-8">
         <h2 class="text-xl font-semibold mb-6">Anmelden</h2>
         <p v-if="route.query.eingeladen === '1'"
-          class="mb-4 rounded-xl bg-green-50 p-3 text-sm text-green-700 dark:bg-green-950/40 dark:text-green-300">
+          class="note note-success mb-4">
           Dein Passwort ist gesetzt. Du kannst dich jetzt anmelden.
         </p>
 
         <form @submit.prevent="handleSubmit" class="space-y-4">
           <!-- Email -->
           <div>
-            <label for="email" class="mb-1 block text-sm font-medium text-foreground">
+            <label for="email" class="label">
               E-Mail
             </label>
             <input
@@ -51,14 +51,14 @@ async function handleSubmit() {
               type="email"
               required
               autocomplete="email"
-              class="w-full rounded-xl border border-input bg-card px-3 py-2 text-foreground outline-none transition-shadow focus:ring-2 focus:ring-ring"
+              class="input"
               placeholder="name@knirpsenstadt.de"
             />
           </div>
 
           <!-- Password -->
           <div>
-            <label for="password" class="mb-1 block text-sm font-medium text-foreground">
+            <label for="password" class="label">
               Passwort
             </label>
             <input
@@ -67,21 +67,21 @@ async function handleSubmit() {
               type="password"
               required
               autocomplete="current-password"
-              class="w-full rounded-xl border border-input bg-card px-3 py-2 text-foreground outline-none transition-shadow focus:ring-2 focus:ring-ring"
+              class="input"
               placeholder="••••••••"
             />
           </div>
 
           <!-- Error message -->
-          <div v-if="authStore.error" class="rounded-xl border border-destructive/30 bg-destructive/10 p-3">
-            <p class="text-sm text-destructive">{{ authStore.error }}</p>
+          <div v-if="authStore.error" class="note note-danger">
+            <p>{{ authStore.error }}</p>
           </div>
 
           <!-- Submit button -->
           <button
             type="submit"
             :disabled="authStore.isLoading"
-            class="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+            class="btn btn-primary w-full"
           >
             <Loader2 v-if="authStore.isLoading" class="h-4 w-4 animate-spin" />
             {{ authStore.isLoading ? 'Anmelden...' : 'Anmelden' }}

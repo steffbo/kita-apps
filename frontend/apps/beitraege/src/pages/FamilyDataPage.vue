@@ -6,6 +6,7 @@ import { useAuthStore } from '@/stores/auth';
 import { formatDate } from '@/utils/format';
 import ReportDialog from '@/components/family/ReportDialog.vue';
 import ReportList from '@/components/family/ReportList.vue';
+import PageHeader from '@/components/ui/PageHeader.vue';
 const auth = useAuthStore();
 const overview = ref<OwnOverview | null>(null);
 const reports = ref<ParentReport[]>([]);
@@ -18,8 +19,8 @@ type Parent = OwnOverview['parent'];
 type ParentContact = { id: string; name: string; own: boolean; parent: Parent; email: string; phone: string };
 const contacts = ref<ParentContact[]>([]);
 const children = ref<OwnChild[]>([]);
-const input = 'mt-1 h-9 w-full rounded-lg border px-3 font-normal disabled:opacity-60';
-const card = 'rounded-2xl border bg-card p-4';
+const input = 'input font-normal disabled:opacity-60';
+const card = 'card p-4';
 type Address = Pick<Parent, 'street' | 'streetNo' | 'postalCode' | 'city'>;
 function addressLine(a: Address) {
   const line = [[a.street, a.streetNo].filter(Boolean).join(' '),
@@ -71,12 +72,12 @@ function childFacts(child: OwnChild): [string, string][] {
 </script>
 <template>
   <div class="space-y-5">
-    <h1 class="text-2xl font-bold">Meine Daten</h1>
-    <p v-if="error" role="alert" class="text-red-700 dark:text-red-300">{{ error }}</p>
-    <p v-if="notice" role="status" class="text-green-800 dark:text-green-300">{{ notice }}</p>
+    <PageHeader title="Meine Daten" />
+    <p v-if="error" role="alert" class="note note-danger">{{ error }}</p>
+    <p v-if="notice" role="status" class="note note-success">{{ notice }}</p>
     <div class="grid gap-4 lg:grid-cols-2">
       <form v-for="c in contacts" :key="c.id" :class="card" @submit.prevent="saveContact(c)">
-        <h2 class="text-lg font-bold">{{ c.own ? 'Deine Kontaktdaten' : `Kontaktdaten von ${c.name}` }}</h2>
+        <h2 class="text-base font-semibold">{{ c.own ? 'Deine Kontaktdaten' : `Kontaktdaten von ${c.name}` }}</h2>
         <div class="mt-3 space-y-3">
           <label class="block text-sm font-medium">E-Mail
             <span class="font-normal text-muted-foreground">{{ c.own ? '– gleichzeitig dein Login!'
@@ -89,39 +90,39 @@ function childFacts(child: OwnChild): [string, string][] {
           </dl>
         </div>
         <div class="mt-4 flex flex-wrap items-center gap-3">
-          <button type="submit" class="rounded-lg bg-primary px-4 py-2 text-primary-foreground">
+          <button type="submit" class="btn btn-primary">
             Kontaktdaten speichern
           </button>
-          <button type="button" class="text-primary underline"
+          <button type="button" class="btn btn-secondary"
             @click="report = { topic: 'CONTACT' }">Fehler melden</button>
         </div>
       </form>
       <section v-if="sharedAddress" :class="card">
-        <h2 class="text-lg font-bold">Adresse der Familie</h2>
+        <h2 class="text-base font-semibold">Adresse der Familie</h2>
         <p class="mt-3">{{ sharedAddress }}</p>
         <p class="mt-1 text-sm text-muted-foreground">Gilt für alle Eltern und Kinder.</p>
-        <button type="button" class="mt-4 text-primary underline"
+        <button type="button" class="btn btn-secondary mt-4"
           @click="report = { topic: 'CONTACT' }">Fehler melden</button>
       </section>
     </div>
     <section v-if="overview" class="space-y-4">
-      <h2 class="text-lg font-bold">Kinder</h2>
+      <h2 class="text-base font-semibold">Kinder</h2>
       <div class="grid gap-4 lg:grid-cols-2">
         <article v-for="child in children" :key="child.id" :class="card">
-          <h3 class="text-lg font-bold">{{ child.firstName }} {{ child.lastName }}</h3>
+          <h3 class="text-base font-semibold">{{ child.firstName }} {{ child.lastName }}</h3>
           <dl class="mt-3 grid grid-cols-[auto_1fr] gap-x-6 gap-y-1 text-sm">
             <template v-for="[term, value] in childFacts(child)" :key="term">
               <dt class="text-muted-foreground">{{ term }}</dt><dd>{{ value }}</dd>
             </template>
           </dl>
-          <button type="button" class="mt-4 text-primary underline"
+          <button type="button" class="btn btn-secondary mt-4"
             @click="report = { topic: 'CHILD', referenceId: child.id }">Fehler melden</button>
         </article>
       </div>
     </section>
     <section :class="card">
-      <div class="flex flex-wrap items-center justify-between gap-3"><h2 class="text-lg font-bold">Meldungen deiner Familie</h2>
-        <button class="text-primary underline" @click="showReport = true">Fehler melden</button></div>
+      <div class="flex flex-wrap items-center justify-between gap-3"><h2 class="text-base font-semibold">Meldungen deiner Familie</h2>
+        <button class="btn btn-secondary" @click="showReport = true">Fehler melden</button></div>
       <p v-if="!reports.length" class="mt-3 text-muted-foreground">Noch keine Meldungen.</p>
       <ReportList class="mt-3" :reports="reports" />
     </section>

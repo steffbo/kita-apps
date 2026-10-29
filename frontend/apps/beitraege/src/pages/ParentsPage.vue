@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { api } from '@/api';
 import { useAuthStore } from '@/stores/auth';
@@ -11,13 +11,14 @@ import {
   Mail,
   Phone,
   AlertTriangle,
-  ChevronLeft,
-  ChevronRight,
   Trash2,
-  X,
 } from 'lucide-vue-next';
 import SearchInput from '@/components/SearchInput.vue';
 import SortTh from '@/components/SortTh.vue';
+import AppSheet from '@/components/ui/AppSheet.vue';
+import AppPagination from '@/components/ui/AppPagination.vue';
+import PageHeader from '@/components/ui/PageHeader.vue';
+import EmptyState from '@/components/ui/EmptyState.vue';
 import { usePagedList } from '@/composables/usePagedList';
 
 const router = useRouter();
@@ -93,22 +94,6 @@ watch([sortField, sortDirection], () => {
 });
 
 onMounted(loadParents);
-
-// ESC key handler to close modals
-function handleKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape') {
-    if (showDeleteDialog.value) showDeleteDialog.value = false;
-    if (showCreateDialog.value) showCreateDialog.value = false;
-  }
-}
-
-onMounted(() => {
-  document.addEventListener('keydown', handleKeydown);
-});
-
-onUnmounted(() => {
-  document.removeEventListener('keydown', handleKeydown);
-});
 
 // Sorting
 function toggleSort(field: SortField) {
@@ -191,10 +176,10 @@ async function handleCreateParent() {
 // Bulk delete
 async function handleBulkDelete() {
   if (selectedIds.value.size === 0 || !authStore.isAdmin) return;
-  
+
   isBulkActionLoading.value = true;
   bulkActionError.value = null;
-  
+
   try {
     const promises = [...selectedIds.value].map(id => api.deleteParent(id));
     await Promise.all(promises);
@@ -208,72 +193,48 @@ async function handleBulkDelete() {
   }
 }
 
-// Pagination display helpers
-const visiblePages = computed(() => {
-  const pages: (number | '...')[] = [];
-  const totalPgs = totalPages.value;
-  const current = currentPage.value;
-  
-  if (totalPgs <= 7) {
-    for (let i = 1; i <= totalPgs; i++) pages.push(i);
-  } else {
-    pages.push(1);
-    if (current > 3) pages.push('...');
-    
-    const start = Math.max(2, current - 1);
-    const end = Math.min(totalPgs - 1, current + 1);
-    
-    for (let i = start; i <= end; i++) pages.push(i);
-    
-    if (current < totalPgs - 2) pages.push('...');
-    pages.push(totalPgs);
-  }
-  
-  return pages;
-});
 </script>
 
 <template>
   <div>
-    <!-- Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-      <div>
-        <h1 class="text-2xl font-bold text-foreground">Eltern</h1>
-        <p class="text-muted-foreground mt-1">{{ total }} Eltern registriert</p>
-      </div>
-      <button
-        @click="openCreateParentDialog"
-        class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-      >
-        <Plus class="h-4 w-4" />
-        Elternteil hinzufügen
-      </button>
-    </div>
+    <PageHeader title="Eltern">
+      <template #actions>
+        <button type="button" class="btn btn-primary" @click="openCreateParentDialog">
+          <Plus />Elternteil hinzufügen
+        </button>
+      </template>
+    </PageHeader>
 
     <!-- Search -->
-    <SearchInput v-model="searchQuery" placeholder="Suchen nach Name oder E-Mail..." class="mb-6"
-      @input="handleSearchInput" />
+    <div class="mb-4 flex flex-col gap-3">
+      <SearchInput v-model="searchQuery" placeholder="Suchen nach Name oder E-Mail..." @input="handleSearchInput" />
+      <div class="flex gap-2" role="group" aria-label="Filter">
+        <span class="chip pointer-events-none border-transparent bg-transparent px-1 text-muted-foreground">
+          {{ total }} {{ total === 1 ? 'Elternteil' : 'Eltern' }}
+        </span>
+      </div>
+    </div>
 
     <!-- Bulk actions bar -->
     <div
       v-if="selectedIds.size > 0"
-      class="mb-4 p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 rounded-lg flex items-center justify-between"
+      class="mb-4 p-3 bg-primary-soft border border-primary-line rounded-lg flex items-center justify-between"
     >
-      <span class="text-sm font-medium text-blue-800 dark:text-blue-300">
+      <span class="text-sm font-medium text-primary">
         {{ selectedIds.size }} {{ selectedIds.size === 1 ? 'Elternteil' : 'Eltern' }} ausgewählt
       </span>
       <div class="flex items-center gap-2">
         <button
           v-if="authStore.isAdmin"
           @click="showDeleteDialog = true"
-          class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-red-100 dark:bg-red-950/40 text-red-800 dark:text-red-300 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors"
+          class="btn btn-danger-outline btn-sm"
         >
           <Trash2 class="h-4 w-4" />
           Löschen
         </button>
         <button
           @click="selectedIds = new Set()"
-          class="px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent rounded-lg transition-colors"
+          class="btn btn-ghost btn-sm"
         >
           Auswahl aufheben
         </button>
@@ -286,17 +247,44 @@ const visiblePages = computed(() => {
     </div>
 
     <!-- Error state -->
-    <div v-else-if="error" class="bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg p-4">
-      <p class="text-red-600 dark:text-red-300">{{ error }}</p>
-      <button @click="loadParents" class="mt-2 text-sm text-red-700 dark:text-red-300 underline">
+    <div v-else-if="error" class="note note-danger">
+      <AlertTriangle />
+      <div>
+        <p class="text-destructive">{{ error }}</p>
+      <button @click="loadParents" class="btn btn-secondary btn-sm">
         Erneut versuchen
       </button>
+      </div>
     </div>
 
     <!-- Parents table -->
-    <div v-else class="bg-card rounded-xl border overflow-hidden">
-      <div class="overflow-x-auto">
-        <table class="w-full">
+    <div v-else class="card overflow-hidden">
+      <ul class="divide-y sm:hidden">
+        <li class="flex flex-wrap items-center gap-2 px-4 py-3">
+          <input type="checkbox" :checked="isAllSelected" :indeterminate="isSomeSelected"
+            @change="toggleSelectAll" aria-label="Alle Eltern auswählen" />
+          <button type="button" class="chip" :aria-pressed="sortField === 'lastName'"
+            @click="toggleSort('lastName')">Nachname</button>
+          <button type="button" class="chip" :aria-pressed="sortField === 'firstName'"
+            @click="toggleSort('firstName')">Vorname</button>
+          <button type="button" class="chip" :aria-pressed="sortField === 'email'"
+            @click="toggleSort('email')">E-Mail</button>
+        </li>
+        <li v-for="parent in parents" :key="parent.id" class="flex items-center gap-3 p-4" @click="goToParent(parent.id)">
+          <input type="checkbox" :checked="selectedIds.has(parent.id)" @click.stop
+            @change="toggleSelect(parent.id, $event)" aria-label="Elternteil auswählen" />
+          <div class="min-w-0 flex-1">
+            <p class="font-medium">{{ parent.lastName }}, {{ parent.firstName }}</p>
+            <p class="text-[13px] text-muted-foreground">{{ parent.email || '-' }} · {{ parent.phone || '-' }}</p>
+            <p v-if="parent.children?.length" class="text-[13px] text-muted-foreground">
+              {{ parent.children.map(child => child.firstName).join(', ') }}
+            </p>
+          </div>
+        </li>
+        <li v-if="parents.length === 0"><EmptyState :icon="User" text="Keine Eltern gefunden" /></li>
+      </ul>
+      <div class="hidden overflow-x-auto sm:block">
+        <table class="table">
           <thead class="bg-muted">
             <tr class="text-left text-sm text-muted-foreground">
               <!-- Checkbox column -->
@@ -336,7 +324,7 @@ const visiblePages = computed(() => {
               @click="goToParent(parent.id)"
               :class="[
                 'border-t hover:bg-accent cursor-pointer transition-colors',
-                selectedIds.has(parent.id) ? 'bg-blue-50 dark:bg-blue-950/40' : '',
+                selectedIds.has(parent.id) ? 'bg-primary-soft' : '',
               ]"
             >
               <!-- Checkbox -->
@@ -385,76 +373,20 @@ const visiblePages = computed(() => {
         </table>
       </div>
 
-      <!-- Pagination -->
-      <div class="flex items-center justify-between px-4 py-3 border-t bg-muted">
-        <div class="flex items-center gap-4">
-          <span class="text-sm text-muted-foreground">
-            {{ offset + 1 }}-{{ Math.min(offset + pageSize, total) }} von {{ total }}
-          </span>
-          <select
-            v-model="pageSize"
-            class="text-sm border border-border rounded px-2 py-1 focus:ring-primary focus:border-primary"
-          >
-            <option v-for="size in pageSizeOptions" :key="size" :value="size">
-              {{ size }} pro Seite
-            </option>
-          </select>
-        </div>
-        <div class="flex items-center gap-1">
-          <button
-            @click="goToPage(currentPage - 1)"
-            :disabled="currentPage === 1"
-            class="p-1.5 rounded hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <ChevronLeft class="h-4 w-4" />
-          </button>
-          <template v-for="page in visiblePages" :key="page">
-            <span v-if="page === '...'" class="px-2 text-muted-foreground">...</span>
-            <button
-              v-else
-              @click="goToPage(page)"
-              :class="[
-                'px-3 py-1 rounded text-sm',
-                page === currentPage
-                  ? 'bg-primary text-primary-foreground'
-                  : 'hover:bg-accent',
-              ]"
-            >
-              {{ page }}
-            </button>
-          </template>
-          <button
-            @click="goToPage(currentPage + 1)"
-            :disabled="currentPage === totalPages"
-            class="p-1.5 rounded hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <ChevronRight class="h-4 w-4" />
-          </button>
-        </div>
-      </div>
+      <AppPagination v-model:page-size="pageSize" :current-page="currentPage" :total-pages="totalPages"
+        :total="total" :offset="offset" :page-size-options="pageSizeOptions" @go="goToPage" />
     </div>
 
     <!-- Delete Confirmation Dialog (Admin only) -->
-    <div
-      v-if="showDeleteDialog && authStore.isAdmin"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      @click.self="showDeleteDialog = false"
-    >
-      <div class="bg-card rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
-        <div class="flex items-center gap-3 mb-4">
-          <div class="w-10 h-10 bg-red-100 dark:bg-red-950/40 rounded-full flex items-center justify-center">
-            <Trash2 class="h-5 w-5 text-red-600 dark:text-red-300" />
-          </div>
-          <h2 class="text-xl font-semibold text-red-700 dark:text-red-300">Eltern löschen</h2>
-        </div>
-        
-        <div class="bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg p-4 mb-4">
+    <AppSheet v-if="showDeleteDialog && authStore.isAdmin" title="Eltern löschen" @close="showDeleteDialog = false">
+
+        <div class="note note-danger mb-4">
           <div class="flex items-start gap-2">
-            <AlertTriangle class="h-5 w-5 text-red-600 dark:text-red-300 flex-shrink-0 mt-0.5" />
+            <AlertTriangle class="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
             <div>
-              <p class="font-semibold text-red-800 dark:text-red-300">Achtung: Permanente Löschung!</p>
-              <p class="text-sm text-red-700 dark:text-red-300 mt-1">
-                Diese Aktion kann nicht rückgängig gemacht werden. Die Verknüpfungen 
+              <p class="font-semibold text-destructive">Achtung: Permanente Löschung!</p>
+              <p class="text-sm text-destructive mt-1">
+                Diese Aktion kann nicht rückgängig gemacht werden. Die Verknüpfungen
                 zu den Kindern werden ebenfalls entfernt.
               </p>
             </div>
@@ -463,66 +395,56 @@ const visiblePages = computed(() => {
 
         <p class="text-muted-foreground mb-6">
           Möchten Sie <strong>{{ selectedIds.size }}</strong> {{ selectedIds.size === 1 ? 'Elternteil' : 'Eltern' }} wirklich
-          <strong class="text-red-600 dark:text-red-300">unwiderruflich löschen</strong>?
+          <strong class="text-destructive">unwiderruflich löschen</strong>?
         </p>
 
-        <div v-if="bulkActionError" class="mb-4 p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg">
-          <p class="text-sm text-red-600 dark:text-red-300">{{ bulkActionError }}</p>
+        <div v-if="bulkActionError" class="mb-4 note note-danger">
+      <AlertTriangle />
+      <p class="text-sm text-destructive">{{ bulkActionError }}</p>
         </div>
 
-        <div class="flex justify-end gap-3">
+
+
+    <template #footer><div class="flex justify-end gap-3">
           <button
             @click="showDeleteDialog = false"
-            class="px-4 py-2 text-foreground hover:bg-accent rounded-lg transition-colors"
+            class="btn btn-secondary"
           >
             Abbrechen
           </button>
           <button
             @click="handleBulkDelete"
             :disabled="isBulkActionLoading"
-            class="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+            class="btn btn-danger"
           >
             <Loader2 v-if="isBulkActionLoading" class="h-4 w-4 animate-spin" />
             <Trash2 v-else class="h-4 w-4" />
             Endgültig löschen
           </button>
-        </div>
-      </div>
-    </div>
+        </div></template></AppSheet>
 
     <!-- Create Parent Dialog -->
-    <div
-      v-if="showCreateDialog"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      @click.self="showCreateDialog = false"
-    >
-      <div class="bg-card rounded-xl shadow-xl w-full max-w-lg mx-4 p-6">
-        <div class="flex items-center justify-between mb-6">
-          <h2 class="text-xl font-semibold">Elternteil anlegen</h2>
-          <button @click="showCreateDialog = false" class="p-1 hover:bg-accent rounded" aria-label="Schließen">
-            <X class="h-5 w-5" />
-          </button>
-        </div>
+    <AppSheet v-if="showCreateDialog" title="Elternteil anlegen" @close="showCreateDialog = false">
 
-        <form @submit.prevent="handleCreateParent" class="space-y-4">
+        <form id="create-parent-form" @submit.prevent="handleCreateParent" class="space-y-4">
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label for="parent-firstName" class="block text-sm font-medium text-foreground mb-1">Vorname *</label>
+              <label for="parent-firstName" class="label">Vorname *</label>
               <input
                 id="parent-firstName"
                 v-model="parentForm.firstName"
                 type="text"
-                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                class="input"
                 required
               />
             </div>
             <div>
-              <label for="parent-lastName" class="block text-sm font-medium text-foreground mb-1">Nachname *</label>
+              <label for="parent-lastName" class="label">Nachname *</label>
               <input
                 id="parent-lastName"
                 v-model="parentForm.lastName"
                 type="text"
-                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                class="input"
                 required
               />
             </div>
@@ -530,101 +452,101 @@ const visiblePages = computed(() => {
 
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label for="parent-birthDate" class="block text-sm font-medium text-foreground mb-1">Geburtsdatum</label>
+              <label for="parent-birthDate" class="label">Geburtsdatum</label>
               <input
                 id="parent-birthDate"
                 v-model="parentForm.birthDate"
                 type="date"
-                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                class="input"
               />
             </div>
             <div>
-              <label for="parent-phone" class="block text-sm font-medium text-foreground mb-1">Telefon</label>
+              <label for="parent-phone" class="label">Telefon</label>
               <input
                 id="parent-phone"
                 v-model="parentForm.phone"
                 type="tel"
-                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                class="input"
               />
             </div>
           </div>
 
           <div>
-            <label for="parent-email" class="block text-sm font-medium text-foreground mb-1">E-Mail</label>
+            <label for="parent-email" class="label">E-Mail</label>
             <input
               id="parent-email"
               v-model="parentForm.email"
               type="email"
-              class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              class="input"
             />
           </div>
 
           <div class="grid grid-cols-4 gap-4">
             <div class="col-span-3">
-              <label for="parent-street" class="block text-sm font-medium text-foreground mb-1">Straße</label>
+              <label for="parent-street" class="label">Straße</label>
               <input
                 id="parent-street"
                 v-model="parentForm.street"
                 type="text"
-                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                class="input"
               />
             </div>
             <div>
-              <label for="parent-streetNo" class="block text-sm font-medium text-foreground mb-1">Hausnr.</label>
+              <label for="parent-streetNo" class="label">Hausnr.</label>
               <input
                 id="parent-streetNo"
                 v-model="parentForm.streetNo"
                 type="text"
-                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                class="input"
               />
             </div>
           </div>
 
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label for="parent-postalCode" class="block text-sm font-medium text-foreground mb-1">PLZ</label>
+              <label for="parent-postalCode" class="label">PLZ</label>
               <input
                 id="parent-postalCode"
                 v-model="parentForm.postalCode"
                 type="text"
-                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                class="input"
               />
             </div>
             <div>
-              <label for="parent-city" class="block text-sm font-medium text-foreground mb-1">Ort</label>
+              <label for="parent-city" class="label">Ort</label>
               <input
                 id="parent-city"
                 v-model="parentForm.city"
                 type="text"
-                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                class="input"
               />
             </div>
           </div>
 
-          <div v-if="createError" class="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg">
-            <p class="text-sm text-red-600 dark:text-red-300">{{ createError }}</p>
+          <div v-if="createError" class="note note-danger">
+      <AlertTriangle />
+      <p class="text-sm text-destructive">{{ createError }}</p>
           </div>
 
-          <div class="flex justify-end gap-3">
+
+        </form>
+
+    <template #footer><div class="flex justify-end gap-3">
             <button
               type="button"
               @click="showCreateDialog = false"
-              class="px-4 py-2 text-foreground hover:bg-accent rounded-lg transition-colors"
+              class="btn btn-secondary"
             >
               Abbrechen
             </button>
-            <button
-              type="submit"
+            <button form="create-parent-form" type="submit"
               :disabled="isCreatingParent"
-              class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+              class="btn btn-primary"
             >
               <Loader2 v-if="isCreatingParent" class="h-4 w-4 animate-spin" />
               <Plus v-else class="h-4 w-4" />
               Speichern
             </button>
-          </div>
-        </form>
-      </div>
-    </div>
+          </div></template></AppSheet>
   </div>
 </template>

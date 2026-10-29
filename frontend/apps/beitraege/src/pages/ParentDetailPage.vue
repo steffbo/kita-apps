@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { api } from '@/api';
 import ChangeHistory from '@/components/family/ChangeHistory.vue';
 import { useAuthStore } from '@/stores/auth';
 import type { Parent, UpdateParentRequest } from '@/api/types';
 import {
-  ArrowLeft,
+  AlertTriangle,
   Edit,
   Trash2,
   Loader2,
@@ -21,6 +21,9 @@ import {
   UserPlus,
   ExternalLink,
 } from 'lucide-vue-next';
+import AppSheet from '@/components/ui/AppSheet.vue';
+import EmptyState from '@/components/ui/EmptyState.vue';
+import PageHeader from '@/components/ui/PageHeader.vue';
 import { formatDate, formatDateForInput, todayISO } from '@/utils/format';
 
 const route = useRoute();
@@ -62,27 +65,6 @@ async function loadParent() {
 }
 
 onMounted(loadParent);
-
-// ESC key handler to close all modals
-function handleKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape') {
-    if (showDeleteDialog.value) {
-      showDeleteDialog.value = false;
-    } else if (showMemberDialog.value) {
-      showMemberDialog.value = false;
-    } else if (showEditDialog.value) {
-      showEditDialog.value = false;
-    }
-  }
-}
-
-onMounted(() => {
-  document.addEventListener('keydown', handleKeydown);
-});
-
-onUnmounted(() => {
-  document.removeEventListener('keydown', handleKeydown);
-});
 
 function openEditDialog() {
   if (!parent.value) return;
@@ -142,7 +124,7 @@ function getOldestChildEntryDate(): string {
   if (!parent.value?.children || parent.value.children.length === 0) {
     return todayISO();
   }
-  
+
   let oldest = parent.value.children[0].entryDate;
   for (const child of parent.value.children) {
     if (child.entryDate < oldest) {
@@ -186,16 +168,13 @@ async function handleUnlinkMember() {
 </script>
 
 <template>
-  <ChangeHistory v-if="authStore.isAdmin" kind="parent" :id="String(route.params.id)" />
   <div>
-    <!-- Back button -->
-    <button
-      @click="router.push('/eltern')"
-      class="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6"
-    >
-      <ArrowLeft class="h-4 w-4" />
-      Zurück zur Übersicht
-    </button>
+    <PageHeader :title="parent ? `${parent.firstName} ${parent.lastName}` : 'Elternteil'" back="/eltern">
+      <template #actions v-if="parent">
+        <button type="button" class="btn btn-secondary btn-icon" title="Bearbeiten" aria-label="Bearbeiten" @click="openEditDialog"><Edit /></button>
+        <button v-if="authStore.isAdmin" type="button" class="btn btn-danger-outline btn-icon" title="Löschen" aria-label="Löschen" @click="showDeleteDialog = true"><Trash2 /></button>
+      </template>
+    </PageHeader>
 
     <!-- Loading state -->
     <div v-if="isLoading" class="flex items-center justify-center py-12">
@@ -203,50 +182,23 @@ async function handleUnlinkMember() {
     </div>
 
     <!-- Error state -->
-    <div v-else-if="error" class="bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg p-4">
-      <p class="text-red-600 dark:text-red-300">{{ error }}</p>
-      <button @click="loadParent" class="mt-2 text-sm text-red-700 dark:text-red-300 underline">
+    <div v-else-if="error" class="note note-danger">
+      <AlertTriangle />
+      <div>
+        <p class="text-destructive">{{ error }}</p>
+      <button @click="loadParent" class="btn btn-secondary btn-sm">
         Erneut versuchen
       </button>
+      </div>
     </div>
 
     <!-- Parent details -->
     <div v-else-if="parent">
       <!-- Header -->
-      <div class="bg-card rounded-xl border p-6 mb-6">
-        <div class="flex items-start justify-between">
-          <div class="flex items-center gap-4">
-            <div class="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center">
-              <User class="h-8 w-8 text-primary" />
-            </div>
-            <div>
-              <h1 class="text-2xl font-bold text-foreground">
-                {{ parent.firstName }} {{ parent.lastName }}
-              </h1>
-              <p class="text-muted-foreground">Elternteil</p>
-            </div>
-          </div>
-          <div class="flex items-center gap-2">
-            <button
-              @click="openEditDialog"
-              class="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors"
-              title="Bearbeiten"
-            >
-              <Edit class="h-5 w-5" />
-            </button>
-            <button
-              v-if="authStore.isAdmin"
-              @click="showDeleteDialog = true"
-              class="p-2 text-red-500 dark:text-red-400 hover:text-red-700 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/40 rounded-lg transition-colors"
-              title="Löschen"
-            >
-              <Trash2 class="h-5 w-5" />
-            </button>
-          </div>
-        </div>
+      <div class="card p-6 mb-6">
 
         <!-- Info grid -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mt-6 pt-6 border-t">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
           <div v-if="parent.birthDate" class="flex items-start gap-3">
             <Calendar class="h-5 w-5 text-muted-foreground mt-0.5" />
             <div>
@@ -308,10 +260,7 @@ async function handleUnlinkMember() {
             </button>
           </div>
 
-          <div v-else class="text-center py-6 bg-muted rounded-lg border border-dashed">
-            <Users class="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-            <p class="text-muted-foreground text-sm">Keine Kinder verknüpft</p>
-          </div>
+          <EmptyState v-else :icon="Users" text="Keine Kinder verknüpft" />
         </div>
 
         <!-- Membership Section -->
@@ -324,11 +273,11 @@ async function handleUnlinkMember() {
           </div>
 
           <!-- Already a member -->
-          <div v-if="parent.member" class="bg-green-50 dark:bg-green-950/40 rounded-lg border border-green-200 p-4">
+          <div v-if="parent.member" class="note note-success">
             <div class="flex items-center justify-between">
               <div class="flex items-center gap-3">
-                <div class="w-10 h-10 rounded-full bg-green-100 dark:bg-green-950/40 flex items-center justify-center">
-                  <UserPlus class="h-5 w-5 text-green-600 dark:text-green-300" />
+                <div class="w-10 h-10 rounded-full bg-success-soft flex items-center justify-center">
+                  <UserPlus class="h-5 w-5 text-success" />
                 </div>
                 <div>
                   <p class="font-medium text-foreground">{{ parent.member.memberNumber }}</p>
@@ -340,15 +289,15 @@ async function handleUnlinkMember() {
               <div class="flex items-center gap-2">
                 <button
                   @click="goToMember(parent.member!.id)"
-                  class="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                  class="btn btn-secondary btn-sm"
                 >
                   <ExternalLink class="h-4 w-4" />
                   Details
                 </button>
                 <button
                   @click="handleUnlinkMember"
-                  class="inline-flex items-center gap-1 px-3 py-1.5 text-sm text-muted-foreground hover:text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/40 rounded-lg transition-colors"
-                  title="Verknüpfung entfernen"
+                  class="btn btn-ghost btn-icon btn-sm"
+                  title="Verknüpfung entfernen" aria-label="Verknüpfung entfernen"
                 >
                   <X class="h-4 w-4" />
                 </button>
@@ -362,7 +311,7 @@ async function handleUnlinkMember() {
             <p class="text-muted-foreground text-sm mb-3">Kein Vereinsmitglied</p>
             <button
               @click="openMemberDialog"
-              class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
+              class="btn btn-primary"
             >
               <UserPlus class="h-4 w-4" />
               Zum Mitglied machen
@@ -373,191 +322,158 @@ async function handleUnlinkMember() {
     </div>
 
     <!-- Edit Dialog -->
-    <div
-      v-if="showEditDialog"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      @click.self="showEditDialog = false"
-    >
-      <div class="bg-card rounded-xl shadow-xl w-full max-w-md mx-4 p-6 max-h-[90vh] overflow-y-auto">
-        <div class="flex items-center justify-between mb-6">
-          <h2 class="text-xl font-semibold">Elternteil bearbeiten</h2>
-          <button @click="showEditDialog = false" class="p-1 hover:bg-accent rounded" aria-label="Schließen">
-            <X class="h-5 w-5" />
-          </button>
-        </div>
+    <AppSheet v-if="showEditDialog" title="Elternteil bearbeiten" @close="showEditDialog = false">
 
-        <form @submit.prevent="handleEdit" class="space-y-4">
+        <form id="edit-parent-form" @submit.prevent="handleEdit" class="space-y-4">
           <div class="grid grid-cols-2 gap-4">
             <div>
-              <label for="edit-firstName" class="block text-sm font-medium text-foreground mb-1">Vorname</label>
+              <label for="edit-firstName" class="label">Vorname</label>
               <input
                 id="edit-firstName"
                 v-model="editForm.firstName"
                 type="text"
-                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                class="input"
               />
             </div>
             <div>
-              <label for="edit-lastName" class="block text-sm font-medium text-foreground mb-1">Nachname</label>
+              <label for="edit-lastName" class="label">Nachname</label>
               <input
                 id="edit-lastName"
                 v-model="editForm.lastName"
                 type="text"
-                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                class="input"
               />
             </div>
           </div>
 
           <div>
-            <label for="edit-birthDate" class="block text-sm font-medium text-foreground mb-1">Geburtsdatum</label>
+            <label for="edit-birthDate" class="label">Geburtsdatum</label>
             <input
               id="edit-birthDate"
               v-model="editForm.birthDate"
               type="date"
-              class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              class="input"
             />
           </div>
 
           <div>
-            <label for="edit-email" class="block text-sm font-medium text-foreground mb-1">E-Mail</label>
+            <label for="edit-email" class="label">E-Mail</label>
             <input
               id="edit-email"
               v-model="editForm.email"
               type="email"
-              class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              class="input"
             />
           </div>
 
           <div>
-            <label for="edit-phone" class="block text-sm font-medium text-foreground mb-1">Telefon</label>
+            <label for="edit-phone" class="label">Telefon</label>
             <input
               id="edit-phone"
               v-model="editForm.phone"
               type="tel"
-              class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+              class="input"
             />
           </div>
 
           <div class="grid grid-cols-4 gap-4">
             <div class="col-span-3">
-              <label for="edit-street" class="block text-sm font-medium text-foreground mb-1">Straße</label>
+              <label for="edit-street" class="label">Straße</label>
               <input
                 id="edit-street"
                 v-model="editForm.street"
                 type="text"
-                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                class="input"
               />
             </div>
             <div>
-              <label for="edit-streetNo" class="block text-sm font-medium text-foreground mb-1">Hausnr.</label>
+              <label for="edit-streetNo" class="label">Hausnr.</label>
               <input
                 id="edit-streetNo"
                 v-model="editForm.streetNo"
                 type="text"
-                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                class="input"
               />
             </div>
           </div>
 
           <div class="grid grid-cols-3 gap-4">
             <div>
-              <label for="edit-postalCode" class="block text-sm font-medium text-foreground mb-1">PLZ</label>
+              <label for="edit-postalCode" class="label">PLZ</label>
               <input
                 id="edit-postalCode"
                 v-model="editForm.postalCode"
                 type="text"
-                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                class="input"
               />
             </div>
             <div class="col-span-2">
-              <label for="edit-city" class="block text-sm font-medium text-foreground mb-1">Ort</label>
+              <label for="edit-city" class="label">Ort</label>
               <input
                 id="edit-city"
                 v-model="editForm.city"
                 type="text"
-                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+                class="input"
               />
             </div>
           </div>
 
-          <div v-if="editError" class="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg">
-            <p class="text-sm text-red-600 dark:text-red-300">{{ editError }}</p>
+          <div v-if="editError" class="note note-danger">
+      <AlertTriangle />
+      <p class="text-sm text-destructive">{{ editError }}</p>
           </div>
 
-          <div class="flex justify-end gap-3 pt-4">
+
+        </form>
+
+    <template #footer><div class="flex justify-end gap-3 pt-4">
             <button
               type="button"
               @click="showEditDialog = false"
-              class="px-4 py-2 text-foreground hover:bg-accent rounded-lg transition-colors"
+              class="btn btn-secondary"
             >
               Abbrechen
             </button>
-            <button
-              type="submit"
+            <button form="edit-parent-form" type="submit"
               :disabled="isEditing"
-              class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+              class="btn btn-primary"
             >
               <Loader2 v-if="isEditing" class="h-4 w-4 animate-spin" />
               <Check v-else class="h-4 w-4" />
               Speichern
             </button>
-          </div>
-        </form>
-      </div>
-    </div>
+          </div></template></AppSheet>
 
     <!-- Delete Confirmation Dialog -->
-    <div
-      v-if="showDeleteDialog"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      @click.self="showDeleteDialog = false"
-    >
-      <div class="bg-card rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
-        <div class="flex items-center gap-3 mb-4">
-          <div class="p-2 bg-red-100 dark:bg-red-950/40 rounded-lg">
-            <Trash2 class="h-6 w-6 text-red-600 dark:text-red-300" />
-          </div>
-          <h2 class="text-xl font-semibold">Elternteil löschen?</h2>
-        </div>
+    <AppSheet v-if="showDeleteDialog" title="Elternteil löschen?" @close="showDeleteDialog = false">
 
         <p class="text-muted-foreground mb-6">
           Möchten Sie <strong>{{ parent?.firstName }} {{ parent?.lastName }}</strong> wirklich löschen?
           Diese Aktion kann nicht rückgängig gemacht werden. Die Verknüpfungen zu Kindern werden ebenfalls entfernt.
         </p>
 
-        <div class="flex justify-end gap-3">
+
+
+    <template #footer><div class="flex justify-end gap-3">
           <button
             @click="showDeleteDialog = false"
-            class="px-4 py-2 text-foreground hover:bg-accent rounded-lg transition-colors"
+            class="btn btn-secondary"
           >
             Abbrechen
           </button>
           <button
             @click="handleDelete"
             :disabled="isDeleting"
-            class="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+            class="btn btn-danger"
           >
             <Loader2 v-if="isDeleting" class="h-4 w-4 animate-spin" />
             <Trash2 v-else class="h-4 w-4" />
             Löschen
           </button>
-        </div>
-      </div>
-    </div>
+        </div></template></AppSheet>
 
     <!-- Create Member Dialog -->
-    <div
-      v-if="showMemberDialog"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      @click.self="showMemberDialog = false"
-    >
-      <div class="bg-card rounded-xl shadow-xl w-full max-w-sm mx-4 p-6">
-        <div class="flex items-center gap-3 mb-4">
-          <div class="p-2 bg-primary/10 rounded-lg">
-            <UserPlus class="h-6 w-6 text-primary" />
-          </div>
-          <h2 class="text-xl font-semibold">Vereinsmitglied erstellen</h2>
-        </div>
+    <AppSheet v-if="showMemberDialog" title="Vereinsmitglied erstellen" @close="showMemberDialog = false">
 
         <p class="text-muted-foreground mb-4">
           <strong>{{ parent?.firstName }} {{ parent?.lastName }}</strong> wird als Vereinsmitglied registriert.
@@ -565,42 +481,44 @@ async function handleUnlinkMember() {
         </p>
 
         <div class="mb-6">
-          <label for="membershipStart" class="block text-sm font-medium text-foreground mb-1">
+          <label for="membershipStart" class="label">
             Mitgliedschaft ab
           </label>
           <input
             id="membershipStart"
             v-model="membershipStart"
             type="date"
-            class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
+            class="input"
           />
           <p v-if="parent?.children && parent.children.length > 0" class="mt-1 text-xs text-muted-foreground">
             Vorausgefüllt mit dem Eintrittsdatum des ältesten Kindes
           </p>
         </div>
 
-        <div v-if="memberError" class="mb-4 p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg">
-          <p class="text-sm text-red-600 dark:text-red-300">{{ memberError }}</p>
+        <div v-if="memberError" class="mb-4 note note-danger">
+      <AlertTriangle />
+      <p class="text-sm text-destructive">{{ memberError }}</p>
         </div>
 
-        <div class="flex justify-end gap-3">
+
+
+    <template #footer><div class="flex justify-end gap-3">
           <button
             @click="showMemberDialog = false"
-            class="px-4 py-2 text-foreground hover:bg-accent rounded-lg transition-colors"
+            class="btn btn-secondary"
           >
             Abbrechen
           </button>
           <button
             @click="handleCreateMember"
             :disabled="isCreatingMember"
-            class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
+            class="btn btn-primary"
           >
             <Loader2 v-if="isCreatingMember" class="h-4 w-4 animate-spin" />
             <Check v-else class="h-4 w-4" />
             Erstellen
           </button>
-        </div>
-      </div>
-    </div>
+        </div></template></AppSheet>
+    <ChangeHistory v-if="authStore.isAdmin" kind="parent" :id="String(route.params.id)" class="mt-6" />
   </div>
 </template>

@@ -32,12 +32,12 @@ async function toggle() {
 }
 </script>
 <template>
-  <section class="rounded-xl border bg-card p-5">
-    <button class="flex w-full justify-between text-left font-bold" :aria-expanded="open" @click="toggle">
+  <section class="card p-5">
+    <button class="btn btn-ghost flex w-full justify-between text-left font-semibold" :aria-expanded="open" @click="toggle">
       Änderungsverlauf <span>{{ open ? '−' : '+' }}</span>
     </button>
     <div v-if="open" class="mt-4 space-y-3 text-sm">
-      <p v-if="error" role="alert" class="text-red-700 dark:text-red-300">{{ error }}</p>
+      <p v-if="error" role="alert" class="text-destructive">{{ error }}</p>
       <p v-else-if="!changes.length" class="text-muted-foreground">Noch keine Änderungen.</p>
       <div v-for="change in changes" :key="change.id" class="border-t pt-3">
         <p class="font-semibold">{{ fields[change.field] ?? change.field }}</p>

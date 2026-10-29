@@ -21,10 +21,10 @@ const {
 <template>
   <div class="space-y-6">
     <!-- Detected info -->
-    <div class="bg-card rounded-xl border p-6">
+    <div class="card p-6">
       <div class="flex items-center gap-2 mb-4">
         <FileSpreadsheet class="h-5 w-5 text-primary" />
-        <h2 class="text-lg font-semibold">Datei erkannt</h2>
+        <h2 class="text-base font-semibold">Datei erkannt</h2>
       </div>
       <div class="grid grid-cols-3 gap-4 text-sm">
         <div>
@@ -47,8 +47,8 @@ const {
     </div>
 
     <!-- Mapping sections -->
-    <div class="bg-card rounded-xl border p-6">
-      <h2 class="text-lg font-semibold mb-4">Feldzuordnung</h2>
+    <div class="card p-6">
+      <h2 class="text-base font-semibold mb-4">Feldzuordnung</h2>
       <p class="text-sm text-muted-foreground mb-6">
         Ordne die CSV-Spalten den Systemfeldern zu. Felder mit * sind Pflichtfelder.
       </p>
@@ -61,15 +61,15 @@ const {
         </h3>
         <div class="grid grid-cols-2 gap-4">
           <div v-for="field in childFields" :key="field.key" class="flex items-center gap-3">
-            <label :for="`mapping-${field.key}`" class="w-40 text-sm">
+            <label :for="`mapping-${field.key}`" class="label w-40">
               {{ field.label }}
-              <span v-if="field.required" class="text-red-500 dark:text-red-400">*</span>
+              <span v-if="field.required" class="text-destructive">*</span>
             </label>
             <select
               :id="`mapping-${field.key}`"
               :value="mapping[field.key]"
               @change="setMapping(field.key, ($event.target as HTMLSelectElement).value ? parseInt(($event.target as HTMLSelectElement).value) : undefined)"
-              class="flex-1 px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none text-sm"
+              class="input min-w-0"
             >
               <option value="">-- Nicht zuordnen --</option>
               <option
@@ -92,14 +92,14 @@ const {
         </h3>
         <div class="grid grid-cols-2 gap-4">
           <div v-for="field in parent1Fields" :key="field.key" class="flex items-center gap-3">
-            <label :for="`mapping-${field.key}`" class="w-40 text-sm">
+            <label :for="`mapping-${field.key}`" class="label w-40">
               {{ field.label.replace('Elternteil 1 - ', '') }}
             </label>
             <select
               :id="`mapping-${field.key}`"
               :value="mapping[field.key]"
               @change="setMapping(field.key, ($event.target as HTMLSelectElement).value ? parseInt(($event.target as HTMLSelectElement).value) : undefined)"
-              class="flex-1 px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none text-sm"
+              class="input min-w-0"
             >
               <option value="">-- Nicht zuordnen --</option>
               <option
@@ -122,14 +122,14 @@ const {
         </h3>
         <div class="grid grid-cols-2 gap-4">
           <div v-for="field in parent2Fields" :key="field.key" class="flex items-center gap-3">
-            <label :for="`mapping-${field.key}`" class="w-40 text-sm">
+            <label :for="`mapping-${field.key}`" class="label w-40">
               {{ field.label.replace('Elternteil 2 - ', '') }}
             </label>
             <select
               :id="`mapping-${field.key}`"
               :value="mapping[field.key]"
               @change="setMapping(field.key, ($event.target as HTMLSelectElement).value ? parseInt(($event.target as HTMLSelectElement).value) : undefined)"
-              class="flex-1 px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none text-sm"
+              class="input min-w-0"
             >
               <option value="">-- Nicht zuordnen --</option>
               <option
@@ -146,17 +146,15 @@ const {
     </div>
 
     <!-- Info box when not all fields for new children are mapped -->
-    <div v-if="allRequiredFieldsMapped && !allNewChildFieldsMapped" class="p-4 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 rounded-lg">
-      <div class="flex items-start gap-3">
-        <AlertCircle class="h-5 w-5 text-blue-500 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-        <div>
-          <h4 class="font-medium text-blue-900 dark:text-blue-300">Nur Aktualisierung möglich</h4>
-          <p class="text-sm text-blue-700 dark:text-blue-300 mt-1">
-            Nicht alle Pflichtfelder für neue Kinder sind zugeordnet (Vorname, Nachname, Geburtsdatum, Eintrittsdatum).
-            Der Import kann nur bestehende Kinder anhand der Mitgliedsnummer aktualisieren.
-            Neue Kinder können nicht angelegt werden.
-          </p>
-        </div>
+    <div v-if="allRequiredFieldsMapped && !allNewChildFieldsMapped" class="note note-info">
+      <AlertCircle />
+      <div>
+        <h4 class="font-medium">Nur Aktualisierung möglich</h4>
+        <p class="text-sm mt-1">
+          Nicht alle Pflichtfelder für neue Kinder sind zugeordnet (Vorname, Nachname, Geburtsdatum, Eintrittsdatum).
+          Der Import kann nur bestehende Kinder anhand der Mitgliedsnummer aktualisieren.
+          Neue Kinder können nicht angelegt werden.
+        </p>
       </div>
     </div>
 
@@ -164,7 +162,7 @@ const {
     <div class="flex justify-between">
       <button
         @click="goBack"
-        class="px-4 py-2 text-foreground hover:bg-accent rounded-lg transition-colors flex items-center gap-2"
+        class="btn btn-secondary"
       >
         <ArrowLeft class="h-4 w-4" />
         Zurück
@@ -172,7 +170,7 @@ const {
       <button
         @click="goToPreview"
         :disabled="!allRequiredFieldsMapped || isLoading"
-        class="px-6 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+        class="btn btn-primary"
       >
         <Loader2 v-if="isLoading" class="h-4 w-4 animate-spin" />
         <template v-else>

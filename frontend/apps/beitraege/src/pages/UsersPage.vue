@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { RouterLink } from 'vue-router';
-import { computed, onMounted, onUnmounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { KeyRound, Loader2, MailPlus, Pencil, Plus, Send, VenetianMask } from 'lucide-vue-next';
 import { api } from '@/api';
 import type { UserAccount, UserRole } from '@/api/types';
@@ -13,6 +13,8 @@ import SortTh from '@/components/SortTh.vue';
 import UserFormDialog from '@/components/users/UserFormDialog.vue';
 import SetUserPasswordDialog from '@/components/users/SetUserPasswordDialog.vue';
 import InviteParentsDialog from '@/components/users/InviteParentsDialog.vue';
+import PageHeader from '@/components/ui/PageHeader.vue';
+import EmptyState from '@/components/ui/EmptyState.vue';
 
 const authStore = useAuthStore();
 
@@ -70,11 +72,11 @@ function statusLabel(user: UserAccount): string {
 
 function statusClass(user: UserAccount): string {
   if (user.invitationPending) {
-    return 'bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300';
+    return 'badge-warning';
   }
   return user.isActive
-    ? 'bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-300'
-    : 'bg-muted text-muted-foreground';
+    ? 'badge-success'
+    : 'badge';
 }
 
 function isSelf(user: UserAccount | null): boolean {
@@ -132,71 +134,71 @@ async function resendInvitation(user: UserAccount) {
   }
 }
 
-function handleKeydown(e: KeyboardEvent) {
-  if (e.key !== 'Escape') return;
-  showForm.value = false;
-  passwordUser.value = null;
-  showInvitations.value = false;
-}
-
-onMounted(() => {
-  loadUsers();
-  document.addEventListener('keydown', handleKeydown);
-});
-onUnmounted(() => document.removeEventListener('keydown', handleKeydown));
+onMounted(loadUsers);
 </script>
 
 <template>
   <div>
-    <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-      <div>
-        <h1 class="text-2xl font-bold text-foreground">Benutzer</h1>
-        <p class="text-muted-foreground mt-1 max-w-3xl">
+    <PageHeader title="Benutzer">
+      <template #actions>
+        <button type="button" @click="showInvitations = true" class="btn btn-secondary"><MailPlus />Eltern einladen</button>
+        <button @click="openCreate" class="btn btn-primary"><Plus />Benutzer anlegen</button>
+      </template>
+    </PageHeader>
+    <p class="note note-info mb-4">
           Zugänge zur Beitragsverwaltung. Deaktivierte Benutzer können sich nicht mehr anmelden;
           laufende Sitzungen enden spätestens nach 15 Minuten.
-        </p>
-      </div>
-      <div class="flex flex-wrap gap-2">
-        <button type="button" @click="showInvitations = true"
-          class="inline-flex items-center gap-2 rounded-lg border px-4 py-2 hover:bg-accent">
-          <MailPlus class="h-4 w-4" /> Eltern einladen
-        </button>
-        <button @click="openCreate"
-          class="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2
-            text-primary-foreground hover:bg-primary/90">
-          <Plus class="h-4 w-4" /> Benutzer anlegen
-        </button>
-      </div>
-    </div>
+    </p>
 
-    <div v-if="notice" class="mb-4 p-3 bg-green-50 dark:bg-green-950/40 border border-green-200 rounded-lg text-sm text-green-700 dark:text-green-300 flex justify-between gap-2">
+    <div v-if="notice" class="note note-success mb-4 justify-between">
       <span>{{ notice }}</span>
-      <button class="text-green-700 dark:text-green-300 underline" @click="notice = null">OK</button>
+      <button class="btn btn-ghost btn-sm" @click="notice = null">OK</button>
     </div>
 
-    <div v-if="actionError" class="mb-4 p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg text-sm text-red-600 dark:text-red-300 flex justify-between gap-2" role="alert">
+    <div v-if="actionError" class="note note-danger mb-4 justify-between" role="alert">
       <span>{{ actionError }}</span>
-      <button class="underline" @click="actionError = null">OK</button>
+      <button class="btn btn-ghost btn-sm" @click="actionError = null">OK</button>
     </div>
 
     <div v-if="isLoading" class="flex items-center justify-center py-12">
       <Loader2 class="h-8 w-8 animate-spin text-primary" />
     </div>
-    <div v-else-if="loadError" class="bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg p-4" role="alert">
-      <p class="text-red-600 dark:text-red-300">{{ loadError }}</p>
-      <button @click="loadUsers()" class="mt-2 text-sm text-red-700 dark:text-red-300 underline">Erneut versuchen</button>
+    <div v-else-if="loadError" class="bg-destructive-soft border border-destructive-line rounded-lg p-4" role="alert">
+      <p class="text-destructive">{{ loadError }}</p>
+      <button @click="loadUsers()" class="btn btn-danger-outline mt-2">Erneut versuchen</button>
     </div>
 
     <div v-else class="space-y-4">
       <div class="flex flex-col gap-3 sm:flex-row">
         <SearchInput v-model="search" placeholder="Suchen nach Name, E-Mail oder Elternteil..." class="flex-1" />
-        <select v-model="roleFilter" aria-label="Rolle" class="rounded-lg border px-3 py-2">
+        <select v-model="roleFilter" aria-label="Rolle" class="input sm:w-56">
           <option value="">Alle Rollen</option>
           <option v-for="role in roles" :key="role" :value="role">{{ userRoleLabel(role) }}</option>
         </select>
       </div>
-      <div class="bg-card rounded-xl border overflow-x-auto">
-        <table class="w-full text-sm">
+      <div class="card overflow-hidden">
+        <ul class="divide-y sm:hidden">
+          <li v-for="user in sorted" :key="user.id" class="space-y-2 p-4" :class="{ 'text-muted-foreground': !user.isActive }">
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <p class="font-medium">{{ displayName(user) }}<span v-if="isSelf(user)" class="ml-1 text-xs text-muted-foreground">(angemeldet)</span></p>
+                <p class="break-all text-[13px] text-muted-foreground">{{ user.email }}</p>
+                <p class="text-[13px] text-muted-foreground">{{ userRoleLabel(user.role) }} · {{ formatDate(user.createdAt) }}</p>
+                <RouterLink v-if="user.parentId" :to="`/eltern/${user.parentId}`" class="text-[13px] text-primary underline">{{ user.parentName || 'Elternteil' }}</RouterLink>
+              </div>
+              <span class="badge" :class="statusClass(user)">{{ statusLabel(user) }}</span>
+            </div>
+            <div class="flex gap-2">
+              <button @click="openEdit(user)" class="btn btn-secondary btn-icon" aria-label="Bearbeiten" title="Bearbeiten"><Pencil /></button>
+              <button v-if="!isSelf(user)" @click="passwordUser = user" class="btn btn-secondary btn-icon" aria-label="Passwort neu setzen" title="Passwort neu setzen"><KeyRound /></button>
+              <button v-if="user.invitationPending" type="button" class="btn btn-secondary btn-icon" :disabled="resendingId !== null" @click="resendInvitation(user)" aria-label="Einladung erneut senden" title="Einladung erneut senden"><Send /></button>
+              <button v-if="canImpersonate(user)" @click="impersonate(user)" :disabled="impersonatingId !== null" class="btn btn-secondary btn-icon" aria-label="Als diesen Benutzer anmelden" title="Als diesen Benutzer anmelden"><VenetianMask /></button>
+            </div>
+          </li>
+          <li v-if="!sorted.length"><EmptyState text="Keine Benutzer gefunden." /></li>
+        </ul>
+        <div class="hidden overflow-x-auto sm:block">
+        <table class="table w-full text-sm">
           <thead class="bg-muted text-left text-muted-foreground">
             <tr>
               <SortTh label="Name" column="name" :sort-key="sortKey" :sort-dir="sortDir" @sort="toggle" />
@@ -217,11 +219,11 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown));
               <td class="px-4 py-3">{{ user.email }}</td>
               <td class="px-4 py-3">{{ userRoleLabel(user.role) }}</td>
               <td class="px-4 py-3"><RouterLink v-if="user.parentId" :to="`/eltern/${user.parentId}`"
-                class="text-primary underline">{{ user.parentName || 'Elternteil' }}</RouterLink>
+                class="text-primary-text hover:underline">{{ user.parentName || 'Elternteil' }}</RouterLink>
                 <span v-else>—</span></td>
               <td class="px-4 py-3">
                 <span
-                  class="px-2 py-0.5 rounded-full text-xs font-medium"
+                  class="badge"
                   :class="statusClass(user)"
                 >
                   {{ statusLabel(user) }}
@@ -232,7 +234,7 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown));
                 <div class="flex justify-end gap-1">
                   <button
                     @click="openEdit(user)"
-                    class="rounded-lg border p-2 hover:bg-accent"
+                    class="btn btn-secondary btn-icon btn-sm"
                     aria-label="Bearbeiten" title="Bearbeiten"
                   >
                     <Pencil class="h-4 w-4" />
@@ -240,13 +242,13 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown));
                   <button
                     v-if="!isSelf(user)"
                     @click="passwordUser = user"
-                    class="rounded-lg border p-2 hover:bg-accent"
+                    class="btn btn-secondary btn-icon btn-sm"
                     aria-label="Passwort neu setzen" title="Passwort neu setzen"
                   >
                     <KeyRound class="h-4 w-4" />
                   </button>
                   <button v-if="user.invitationPending" type="button"
-                    class="rounded-lg border p-2 hover:bg-accent disabled:opacity-50"
+                    class="btn btn-secondary btn-icon btn-sm disabled:opacity-50"
                     :disabled="resendingId !== null" @click="resendInvitation(user)"
                     aria-label="Einladung erneut senden" title="Einladung erneut senden">
                     <Send class="h-4 w-4" />
@@ -255,7 +257,7 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown));
                     v-if="canImpersonate(user)"
                     @click="impersonate(user)"
                     :disabled="impersonatingId !== null"
-                    class="rounded-lg border p-2 hover:bg-accent disabled:opacity-50"
+                    class="btn btn-secondary btn-icon btn-sm disabled:opacity-50"
                     aria-label="Als diesen Benutzer anmelden" title="Als diesen Benutzer anmelden"
                   >
                     <VenetianMask class="h-4 w-4" />
@@ -268,6 +270,7 @@ onUnmounted(() => document.removeEventListener('keydown', handleKeydown));
             </tr>
           </tbody>
         </table>
+        </div>
       </div>
     </div>
 

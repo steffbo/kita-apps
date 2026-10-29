@@ -115,7 +115,7 @@ const bodyEdit = computed({
                 >
                   {{ fee.childName }}
                 </router-link>
-                <span class="px-2 py-0.5 text-xs rounded-full font-medium" :class="feeChipClass(fee.feeType)">
+                <span :class="feeChipClass(fee.feeType)">
                   {{ feeTypeLabel(fee.feeType) }}
                 </span>
               </div>
@@ -125,13 +125,13 @@ const bodyEdit = computed({
             <td class="py-2 pr-3 text-right whitespace-nowrap">{{ formatCurrency(fee.amount) }}</td>
             <td class="py-2 pr-3 text-right font-medium whitespace-nowrap">{{ formatCurrency(fee.remaining) }}</td>
             <td class="py-2 pr-3">
-              <span class="px-2 py-0.5 text-xs rounded-full font-medium whitespace-nowrap" :class="statusBadgeClass(fee.status)">
+              <span :class="statusBadgeClass(fee.status)">
                 {{ statusLabel(fee.status) }}
               </span>
               <label
                 v-if="fee.reminderFeeDue"
                 class="mt-1 flex items-center gap-1.5 text-xs whitespace-nowrap"
-                :class="reminderFeeIds.includes(fee.feeId) ? 'text-amber-700 dark:text-amber-300 font-medium' : 'text-foreground'"
+                :class="reminderFeeIds.includes(fee.feeId) ? 'text-warning font-medium' : 'text-foreground'"
                 :title="selectedFeeIds.includes(fee.feeId) ? 'Laut Regeln fällig – wird nur mit Häkchen erhoben' : 'Erst den Beitrag auswählen'"
               >
                 <input
@@ -152,7 +152,7 @@ const bodyEdit = computed({
   <!-- Warnings -->
   <div
     v-if="preview && preview.warnings && preview.warnings.length > 0"
-    class="p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-300 rounded-lg text-sm text-amber-900 dark:text-amber-300 mb-4"
+    class="border p-3 bg-warning-soft border-warning-line rounded-lg text-sm text-warning mb-4"
   >
     <p class="font-semibold mb-1">Hinweise</p>
     <ul class="space-y-0.5">
@@ -161,7 +161,7 @@ const bodyEdit = computed({
   </div>
 
   <!-- Send error -->
-  <div v-if="sendError" class="p-3 bg-red-50 dark:bg-red-950/40 border border-red-300 rounded-lg text-sm text-red-800 dark:text-red-300 mb-4">
+  <div v-if="sendError" class="border p-3 bg-destructive-soft border-destructive-line rounded-lg text-sm text-destructive mb-4">
     {{ sendError }}
     <span v-if="conflictFeeCount > 0" class="block text-xs mt-1">
       Betroffene Beiträge: {{ conflictFeeCount }} — bitte Auswahl prüfen.
@@ -173,14 +173,14 @@ const bodyEdit = computed({
     Bitte mindestens einen Beitrag auswählen.
   </div>
   <div v-else-if="isPreviewLoading && !preview" class="text-sm text-muted-foreground mb-4">Vorschau wird erstellt...</div>
-  <div v-else-if="previewError" class="text-sm text-red-600 dark:text-red-300 mb-4">{{ previewError }}</div>
+  <div v-else-if="previewError" class="text-sm text-destructive mb-4">{{ previewError }}</div>
   <div v-else-if="preview" class="border rounded-lg p-4 mb-4 bg-muted">
     <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
       <p class="text-sm font-medium text-foreground">
         Vorschau · Frist: <span class="font-semibold">{{ formatDate(preview.deadline) }}</span>
         · Gesamtbetrag: <span class="font-semibold">{{ formatCurrency(preview.totalAmount) }}</span>
       </p>
-      <p v-if="resetNotice" class="text-xs text-amber-700 dark:text-amber-300">Manuelle Textänderungen wurden zurückgesetzt.</p>
+      <p v-if="resetNotice" class="text-xs text-warning">Manuelle Textänderungen wurden zurückgesetzt.</p>
     </div>
 
     <!-- Planned reminder fees -->
@@ -201,7 +201,7 @@ const bodyEdit = computed({
           type="text"
           v-model="subjectEdit"
           @input="onSubjectInput"
-          class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-card"
+          class="border w-full px-3 py-2 border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none bg-card"
         />
       </div>
       <div>
@@ -210,9 +210,9 @@ const bodyEdit = computed({
           v-model="bodyEdit"
           @input="onBodyInput"
           rows="14"
-          class="w-full px-3 py-2 border border-border rounded-lg font-mono text-xs focus:ring-2 focus:ring-primary focus:border-transparent outline-none whitespace-pre-wrap bg-card"
+          class="border w-full px-3 py-2 border-border rounded-lg font-mono text-xs focus:ring-2 focus:ring-primary focus:border-transparent outline-none whitespace-pre-wrap bg-card"
         ></textarea>
-        <p v-if="userEdited" class="mt-1 text-xs text-amber-700 dark:text-amber-300">
+        <p v-if="userEdited" class="mt-1 text-xs text-warning">
           Text angepasst — Änderungen an der Auswahl oder den Mahngebühren setzen ihn zurück.
         </p>
       </div>
@@ -221,7 +221,7 @@ const bodyEdit = computed({
           <p class="text-xs text-muted-foreground mb-1">SEPA-QR-Code</p>
           <img :src="preview.qrImageDataUrl" alt="SEPA QR-Code" class="w-full max-w-[220px] border rounded bg-card p-2" />
         </div>
-        <div v-if="preview.qrPayload" class="flex-1 min-w-0 flex flex-col">
+        <div v-if="preview.qrPayload" class="flex flex-1 min-w-0 flex-col">
           <p class="text-xs text-muted-foreground mb-1">Im QR-Code enthalten</p>
           <pre class="flex-1 whitespace-pre-wrap break-all font-mono text-xs text-muted-foreground bg-card border rounded p-3">{{ preview.qrPayload }}</pre>
         </div>

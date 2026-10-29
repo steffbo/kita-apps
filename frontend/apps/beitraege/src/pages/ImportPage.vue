@@ -294,15 +294,15 @@ function getWarningTypeLabel(type: string): string {
 function getWarningTypeColor(type: string): string {
   switch (type) {
     case 'AMOUNT_MISMATCH':
-      return 'bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300';
+      return 'bg-warning-soft text-warning';
     case 'DUPLICATE_PAYMENT':
-      return 'bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-300';
+      return 'bg-destructive-soft text-destructive';
     case 'UNKNOWN_IBAN':
       return 'bg-muted text-foreground';
     case 'LATE_PAYMENT':
-      return 'bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300';
+      return 'bg-warning-soft text-warning';
     case 'OVERPAYMENT':
-      return 'bg-purple-100 dark:bg-purple-950/40 text-purple-700 dark:text-purple-300';
+      return 'bg-primary-soft text-primary';
     default:
       return 'bg-muted text-foreground';
   }
@@ -317,18 +317,18 @@ function getWarningTypeColor(type: string): string {
     <!-- Rescan Result -->
     <div
       v-if="rescanResult"
-      class="mb-4 p-4 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 rounded-lg flex items-start gap-3"
+      class="border mb-4 p-4 bg-primary-soft border-border rounded-lg flex items-start gap-3"
     >
-      <CheckCircle class="h-5 w-5 text-blue-500 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+      <CheckCircle class="h-5 w-5 text-primary flex-shrink-0 mt-0.5" />
       <div>
-        <p class="text-blue-700 dark:text-blue-300 font-medium">Erneute Zuordnung abgeschlossen</p>
-        <p class="text-sm text-blue-600 dark:text-blue-300">
+        <p class="text-primary font-medium">Erneute Zuordnung abgeschlossen</p>
+        <p class="text-sm text-primary">
           {{ rescanResult.scanned }} Transaktionen gescannt<span v-if="rescanResult.autoMatched > 0">, {{ rescanResult.autoMatched }} automatisch zugeordnet</span><span v-if="rescanResult.newMatches > 0">, {{ rescanResult.newMatches }} Vorschläge zur Überprüfung</span>
         </p>
       </div>
       <button
         @click="rescanResult = null"
-        class="ml-auto text-blue-500 dark:text-blue-400 hover:text-blue-700 dark:text-blue-300"
+        class="ml-auto text-primary hover:text-primary"
       >
         <XCircle class="h-4 w-4" />
       </button>
@@ -343,42 +343,56 @@ function getWarningTypeColor(type: string): string {
     <!-- Errors of the latest (usually automated) import -->
     <div
       v-if="latestImportBatch && latestImportBatch.errorCount > 0"
-      class="mb-4 p-4 bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg flex items-start gap-3"
+      class="border mb-4 p-4 bg-destructive-soft border-destructive-line rounded-lg flex items-start gap-3"
       role="alert"
     >
-      <AlertTriangle class="h-5 w-5 text-red-500 dark:text-red-400 flex-shrink-0 mt-0.5" />
+      <AlertTriangle class="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
       <div class="flex-1">
-        <p class="text-red-700 dark:text-red-300 font-medium">
+        <p class="text-destructive font-medium">
           Letzter Import vom {{ formatDateTime(latestImportBatch.importedAt) }}:
           {{ latestImportBatch.errorCount }}
           {{ latestImportBatch.errorCount === 1 ? 'Buchung' : 'Buchungen' }} mit Fehlern
         </p>
-        <p class="text-sm text-red-600 dark:text-red-300">{{ latestImportBatch.importedByEmail }} · {{ latestImportBatch.fileName }}</p>
+        <p class="text-sm text-destructive">{{ latestImportBatch.importedByEmail }} · {{ latestImportBatch.fileName }}</p>
       </div>
-      <button @click="openLatestImportErrors" class="text-sm text-red-700 dark:text-red-300 hover:text-red-900 dark:text-red-300 underline">
+      <button @click="openLatestImportErrors" class="text-sm text-destructive hover:text-destructive underline">
         Details
       </button>
     </div>
 
     <!-- Toolbar -->
-    <div class="bg-card rounded-xl border p-4 mb-6 space-y-3">
-      <div class="flex flex-col lg:flex-row lg:items-center gap-3">
+    <div class="card p-4 mb-6 space-y-3">
+      <div class="flex flex-col gap-2 sm:flex-row">
+        <SearchInput v-model="transactionSearch" placeholder="Zahler oder Beschreibung" class="flex-1" />
+        <div class="flex gap-2">
+          <button
+            @click="rescanTransactions"
+            :disabled="isRescanning || offenCount === 0"
+            class="btn btn-secondary flex-1 sm:flex-none"
+            title="Automatische Zuordnung erneut ausführen"
+          >
+            <Loader2 v-if="isRescanning" class="animate-spin" />
+            <RefreshCw v-else />
+            Erneut zuordnen
+          </button>
+          <button @click="showUploadModal = true" class="btn btn-primary flex-1 sm:flex-none">
+            <Upload />
+            CSV hochladen
+          </button>
+        </div>
+      </div>
         <div class="flex flex-wrap items-center gap-2">
           <button
             @click="activeFilter = 'offen'"
-            :class="[
-              'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition-colors',
-              activeFilter === 'offen'
-                ? 'bg-primary text-primary-foreground border-primary'
-                : 'bg-card text-muted-foreground border-border hover:bg-accent',
-            ]"
+            class="chip"
+            :aria-pressed="activeFilter === 'offen'"
           >
             Offen
             <span
               v-if="offenCount > 0"
               :class="[
-                'px-1.5 py-0.5 text-xs rounded-full',
-                activeFilter === 'offen' ? 'bg-card/20 text-white' : 'bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300',
+                'chip-count',
+                activeFilter === 'offen' ? 'text-primary-text' : 'text-warning',
               ]"
             >
               {{ offenCount }}
@@ -386,19 +400,15 @@ function getWarningTypeColor(type: string): string {
           </button>
           <button
             @click="activeFilter = 'warnungen'"
-            :class="[
-              'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition-colors',
-              activeFilter === 'warnungen'
-                ? 'bg-primary text-primary-foreground border-primary'
-                : 'bg-card text-muted-foreground border-border hover:bg-accent',
-            ]"
+            class="chip"
+            :aria-pressed="activeFilter === 'warnungen'"
           >
             Warnungen
             <span
               v-if="warnungenCount > 0"
               :class="[
-                'px-1.5 py-0.5 text-xs rounded-full',
-                activeFilter === 'warnungen' ? 'bg-card/20 text-white' : 'bg-orange-100 dark:bg-orange-950/40 text-orange-700 dark:text-orange-300',
+                'chip-count',
+                activeFilter === 'warnungen' ? 'text-primary-text' : 'text-warning',
               ]"
             >
               {{ warnungenCount }}
@@ -406,19 +416,15 @@ function getWarningTypeColor(type: string): string {
           </button>
           <button
             @click="activeFilter = 'zugeordnet'"
-            :class="[
-              'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium border transition-colors',
-              activeFilter === 'zugeordnet'
-                ? 'bg-primary text-primary-foreground border-primary'
-                : 'bg-card text-muted-foreground border-border hover:bg-accent',
-            ]"
+            class="chip"
+            :aria-pressed="activeFilter === 'zugeordnet'"
           >
             Zugeordnet
             <span
               v-if="zugeordnetCount > 0"
               :class="[
-                'px-1.5 py-0.5 text-xs rounded-full',
-                activeFilter === 'zugeordnet' ? 'bg-card/20 text-white' : 'bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-300',
+                'chip-count',
+                activeFilter === 'zugeordnet' ? 'text-primary-text' : 'text-success',
               ]"
             >
               {{ zugeordnetCount }}
@@ -426,42 +432,12 @@ function getWarningTypeColor(type: string): string {
           </button>
           <button
             @click="activeFilter = 'alle'"
-            :class="[
-              'px-3 py-1.5 rounded-full text-sm font-medium border transition-colors',
-              activeFilter === 'alle'
-                ? 'bg-primary text-primary-foreground border-primary'
-                : 'bg-card text-muted-foreground border-border hover:bg-accent',
-            ]"
+            class="chip"
+            :aria-pressed="activeFilter === 'alle'"
           >
             Alle
           </button>
         </div>
-
-        <div class="flex-1 min-w-[220px]">
-          <SearchInput v-model="transactionSearch" placeholder="Suche nach Zahler oder Beschreibung..."
-            class="max-w-md lg:ml-auto" />
-        </div>
-
-        <div class="flex items-center gap-2">
-          <button
-            @click="rescanTransactions"
-            :disabled="isRescanning || offenCount === 0"
-            class="inline-flex items-center gap-1 px-3 py-2 text-sm border border-border text-foreground rounded-lg hover:bg-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Automatische Zuordnung erneut ausführen"
-          >
-            <Loader2 v-if="isRescanning" class="h-4 w-4 animate-spin" />
-            <RefreshCw v-else class="h-4 w-4" />
-            Erneut zuordnen
-          </button>
-          <button
-            @click="showUploadModal = true"
-            class="inline-flex items-center gap-1 px-3 py-2 text-sm bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-          >
-            <Upload class="h-4 w-4" />
-            CSV hochladen
-          </button>
-        </div>
-      </div>
 
       <div class="flex flex-wrap items-center justify-between gap-3 pt-1 border-t text-sm">
         <p class="text-muted-foreground pt-2">
@@ -490,14 +466,14 @@ function getWarningTypeColor(type: string): string {
     <!-- Error Banner -->
     <div
       v-if="uploadError"
-      class="mb-4 p-4 bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg flex items-start gap-3"
+      class="border mb-4 p-4 bg-destructive-soft border-destructive-line rounded-lg flex items-start gap-3"
     >
-      <XCircle class="h-5 w-5 text-red-500 dark:text-red-400 flex-shrink-0 mt-0.5" />
+      <XCircle class="h-5 w-5 text-destructive flex-shrink-0 mt-0.5" />
       <div>
-        <p class="text-red-700 dark:text-red-300 font-medium">Fehler</p>
-        <p class="text-sm text-red-600 dark:text-red-300">{{ uploadError }}</p>
+        <p class="text-destructive font-medium">Fehler</p>
+        <p class="text-sm text-destructive">{{ uploadError }}</p>
       </div>
-      <button @click="uploadError = null" class="ml-auto text-red-400 hover:text-red-600 dark:text-red-300">
+      <button @click="uploadError = null" class="ml-auto text-destructive hover:text-destructive">
         <XCircle class="h-4 w-4" />
       </button>
     </div>

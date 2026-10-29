@@ -160,19 +160,19 @@ async function execute() {
     </div>
 
     <div v-if="dragging" class="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-primary/20 p-8" aria-hidden="true">
-      <div class="rounded-2xl border-2 border-dashed border-primary bg-card px-10 py-8 text-center shadow-xl">
+      <div class="rounded-xl border-2 border-dashed border-primary bg-card px-10 py-8 text-center shadow-xl">
         <Upload class="mx-auto h-10 w-10 text-primary" />
         <p class="mt-3 text-lg font-semibold">CSV-Datei hier ablegen</p>
       </div>
     </div>
 
-    <div class="rounded-lg border bg-card p-4">
+    <div class="card p-4">
       <h3 class="font-semibold">Erwartete Spalten</h3>
       <p class="mt-1 text-sm text-muted-foreground">Die erste Zeile enthält die Spaltennamen. Reihenfolge und Namen sind frei, du ordnest die Spalten nach dem Hochladen zu; weitere Spalten werden ignoriert.</p>
       <ul class="mt-3 grid gap-2 text-sm sm:grid-cols-2 lg:grid-cols-3">
         <li v-for="field in fields" :key="field.key" class="rounded-md bg-muted/50 px-3 py-2">
           <span class="font-medium">{{ field.label }}</span>
-          <span v-if="field.required" class="ml-1 text-xs text-red-700 dark:text-red-300">Pflicht</span>
+          <span v-if="field.required" class="ml-1 text-xs text-destructive">Pflicht</span>
           <span v-else class="ml-1 text-xs text-muted-foreground">Kind oder Mitglied</span>
           <span class="block text-muted-foreground">z. B. {{ field.example }}</span>
         </li>
@@ -197,7 +197,7 @@ async function execute() {
       </label>
     </div>
 
-    <div v-if="headers.length" class="rounded-lg border bg-card p-4">
+    <div v-if="headers.length" class="card p-4">
       <h3 class="font-semibold">Spalten zuordnen</h3>
       <p class="mt-1 text-sm text-muted-foreground">Ordne jeder Spalte deiner Datei ein Feld zu. Nicht benötigte Spalten bleiben auf „Ignorieren“<span v-if="ignoredCount"> ({{ ignoredCount }} von {{ headers.length }} ignoriert)</span>.</p>
       <div class="mt-3 overflow-x-auto">
@@ -217,15 +217,15 @@ async function execute() {
           </tbody>
         </table>
       </div>
-      <p v-if="missing.length" class="mt-3 text-sm text-amber-700 dark:text-amber-300">Es fehlt noch: {{ missing.join(', ') }}.</p>
-      <button class="mt-4 rounded bg-primary px-4 py-2 text-primary-foreground disabled:opacity-50" :disabled="!canPreview || busy" @click="preview">Vorschau erstellen</button>
+      <p v-if="missing.length" class="mt-3 text-sm text-warning">Es fehlt noch: {{ missing.join(', ') }}.</p>
+      <button class="btn btn-primary mt-4" :disabled="!canPreview || busy" @click="preview">Vorschau erstellen</button>
     </div>
 
-    <p v-if="error" class="rounded border border-red-300 bg-red-50 dark:bg-red-950/40 p-3 text-sm text-red-800 dark:text-red-300" role="alert">{{ error }}</p>
-    <p v-if="success" class="rounded border border-green-300 bg-green-50 dark:bg-green-950/40 p-3 text-sm text-green-800 dark:text-green-300" role="status">{{ success }} <RouterLink class="underline" to="/elternstunden">Zur Übersicht</RouterLink></p>
+    <p v-if="error" class="rounded border border-destructive-line bg-destructive-soft p-3 text-sm text-destructive" role="alert">{{ error }}</p>
+    <p v-if="success" class="rounded border border-success-line bg-success-soft p-3 text-sm text-success" role="status">{{ success }} <RouterLink class="underline" to="/elternstunden">Zur Übersicht</RouterLink></p>
 
     <div v-if="rows.length" class="space-y-3">
-      <div v-if="unmatched.length" class="rounded-lg border border-amber-300 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200" role="alert">
+      <div v-if="unmatched.length" class="rounded-lg border border-warning-line bg-warning-soft p-4 text-sm text-warning" role="alert">
         <p class="flex items-center gap-2 font-semibold"><AlertTriangle class="h-4 w-4" aria-hidden="true" />{{ unmatchedRowCount }} {{ unmatchedRowCount === 1 ? 'Zeile' : 'Zeilen' }} ohne Familie</p>
         <p class="mt-1">Diese Zeilen werden nicht importiert, solange keine Familie gewählt ist:</p>
         <ul class="mt-2 list-disc space-y-0.5 pl-5">
@@ -235,8 +235,8 @@ async function execute() {
           </li>
         </ul>
       </div>
-      <div class="flex flex-wrap items-center justify-between gap-3"><h3 class="text-lg font-semibold">Vorschau ({{ chosenRows.length }} ausgewählt)</h3><button class="rounded bg-primary px-4 py-2 text-primary-foreground disabled:opacity-50" :disabled="busy || !chosenRows.length" @click="execute">{{ chosenRows.length }} {{ chosenRows.length === 1 ? 'Eintrag' : 'Einträge' }} importieren</button></div>
-      <div class="overflow-x-auto rounded-lg border bg-card">
+      <div class="flex flex-wrap items-center justify-between gap-3"><h3 class="text-base font-semibold">Vorschau ({{ chosenRows.length }} ausgewählt)</h3><button class="btn btn-primary" :disabled="busy || !chosenRows.length" @click="execute">{{ chosenRows.length }} {{ chosenRows.length === 1 ? 'Eintrag' : 'Einträge' }} importieren</button></div>
+      <div class="overflow-x-auto card">
         <table aria-label="Vorschau" class="min-w-full text-left text-sm"><thead class="bg-muted"><tr><th class="p-3">Import</th><th class="p-3">Zeile</th><th class="p-3">Datum</th><th class="p-3">Stunden</th><th class="p-3">Anlass</th><th class="p-3">Mitglied / Kind</th><th class="p-3">Familie</th><th class="p-3">Status</th></tr></thead>
           <tbody><tr v-for="row in rows" :key="row.index" class="border-t align-top">
             <td class="p-3"><input v-model="selected[row.index]" type="checkbox" :disabled="!rowSelectable(row)" :aria-label="`Zeile ${row.index} importieren`" /></td>
@@ -247,7 +247,7 @@ async function execute() {
                 Treffer über {{ row.matchedBy === 'child' ? 'Kind' : 'Mitglied' }}
               </p>
             </td>
-            <td class="max-w-64 p-3"><span v-if="!rowSelectable(row)" class="text-red-700 dark:text-red-300">{{ remainingErrors(row).join('; ') || 'Familie auswählen' }}</span><span v-else-if="row.duplicate" class="text-amber-700 dark:text-amber-300">Dublette</span><span v-else class="text-green-700 dark:text-green-300">OK</span></td>
+            <td class="max-w-64 p-3"><span v-if="!rowSelectable(row)" class="text-destructive">{{ remainingErrors(row).join('; ') || 'Familie auswählen' }}</span><span v-else-if="row.duplicate" class="text-warning">Dublette</span><span v-else class="text-success">OK</span></td>
           </tr></tbody>
         </table>
       </div>

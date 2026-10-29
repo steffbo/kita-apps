@@ -1,8 +1,9 @@
 <script setup lang="ts">
+import AppSheet from '@/components/ui/AppSheet.vue';
 import { ref, onMounted } from 'vue';
 import { api } from '@/api';
 import type { KnownIBAN } from '@/api/types';
-import { Loader2, XCircle, Trash2, ShieldOff } from 'lucide-vue-next';
+import { Loader2, Trash2, ShieldOff } from 'lucide-vue-next';
 import { formatCurrency, formatDate } from '@/utils/format';
 
 defineEmits<{ close: [] }>();
@@ -41,30 +42,15 @@ onMounted(loadBlacklist);
 </script>
 
 <template>
-  <div
-    class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
-    @click.self="$emit('close')"
-  >
-    <div class="bg-card rounded-xl shadow-xl max-w-4xl w-full mx-4 max-h-[85vh] overflow-hidden flex flex-col">
-      <div class="p-4 border-b flex items-center justify-between">
-        <div>
-          <h2 class="text-lg font-semibold">Blacklist</h2>
-          <p class="text-sm text-muted-foreground">
-            {{ blacklistTotal }} ignorierte IBANs – Transaktionen von diesen IBANs werden beim Import automatisch ignoriert
-          </p>
-        </div>
-        <div class="flex items-center gap-3">
-          <button @click="loadBlacklist" class="text-sm text-muted-foreground hover:text-foreground underline">
-            Aktualisieren
-          </button>
-          <button @click="$emit('close')" class="text-muted-foreground hover:text-muted-foreground" aria-label="Schließen">
-            <XCircle class="h-5 w-5" />
-          </button>
-        </div>
-      </div>
-
-      <div class="overflow-y-auto p-4">
-        <div v-if="blacklistError" class="mb-4 p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg text-sm text-red-700 dark:text-red-300">
+  <AppSheet title="Blacklist" size="lg" @close="$emit('close')">
+    <p class="mb-3 text-sm text-muted-foreground">
+      {{ blacklistTotal }} ignorierte IBANs – Transaktionen von diesen IBANs werden beim Import automatisch ignoriert
+    </p>
+    <div class="mb-4 flex justify-end">
+      <button @click="loadBlacklist" class="btn btn-ghost btn-sm">Aktualisieren</button>
+    </div>
+    <div>
+        <div v-if="blacklistError" class="note note-danger mb-4">
           {{ blacklistError }}
         </div>
         <div v-if="isLoadingBlacklist" class="flex items-center justify-center py-12">
@@ -117,7 +103,7 @@ onMounted(loadBlacklist);
                   <td class="px-4 py-3 text-right">
                     <button
                       @click="removeFromBlacklist(item.iban)"
-                      class="inline-flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-green-600 dark:text-green-300 hover:bg-green-50 dark:hover:bg-green-900/40 rounded transition-colors"
+                      class="btn btn-secondary btn-sm"
                       title="Von Blacklist entfernen"
                     >
                       <Trash2 class="h-3 w-3" />
@@ -129,6 +115,6 @@ onMounted(loadBlacklist);
             </table>
           </div>
         </div>
-      </div>
     </div>
-  </div></template>
+</AppSheet>
+</template>

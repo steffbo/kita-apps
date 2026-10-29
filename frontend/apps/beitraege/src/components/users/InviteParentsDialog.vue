@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { api } from '@/api';
+import AppSheet from '@/components/ui/AppSheet.vue';
 import type { InvitationCandidate, InviteParentsResponse } from '@/api/types';
 
 const emit = defineEmits<{ close: []; changed: [] }>();
@@ -53,10 +54,7 @@ onMounted(load);
 </script>
 
 <template>
-  <div class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="presentation">
-    <div class="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-card p-6 shadow-xl"
-      role="dialog" aria-modal="true" aria-labelledby="invite-title">
-      <h2 id="invite-title" class="text-xl font-semibold">Eltern einladen</h2>
+  <AppSheet title="Eltern einladen" size="lg" @close="emit('close')">
       <p class="mt-1 text-sm text-muted-foreground">
         Eltern mit aktivem Kind und ohne Benutzerkonto auswählen. Jede Einladung enthält einen Link zum
         Setzen des Passworts.
@@ -83,7 +81,7 @@ onMounted(load);
               <span class="block text-xs text-muted-foreground">
                 {{ item.children.length === 1 ? 'Kind' : 'Kinder' }}: {{ item.children.join(', ') }}
               </span>
-              <span v-if="item.userId" class="block text-xs text-amber-700 dark:text-amber-300">
+              <span v-if="item.userId" class="block text-xs text-warning">
                 Hat bereits ein Konto: Die Einladung setzt das Passwort zurück, Anmeldung erst nach
                 Setzen des neuen Passworts.
               </span>
@@ -98,18 +96,16 @@ onMounted(load);
         <p class="font-medium">Ergebnis</p>
         <p v-for="(result, index) in results" :key="index" class="text-sm">
           {{ result.email || result.parentId }}:
-          <span :class="result.success ? 'text-green-700 dark:text-green-300' : 'text-destructive'">
+          <span :class="result.success ? 'text-success' : 'text-destructive'">
             {{ result.success ? 'Einladung gesendet' : result.error }}
           </span>
         </p>
       </div>
-      <div class="mt-6 flex justify-end gap-2">
-        <button type="button" class="rounded-lg border px-4 py-2" @click="emit('close')">Schließen</button>
-        <button type="button" class="rounded-lg bg-primary px-4 py-2 text-primary-foreground
-          disabled:opacity-50" :disabled="!selected.length || sending" @click="submit">
+      <template #footer>
+        <button type="button" class="btn btn-secondary" @click="emit('close')">Schließen</button>
+        <button type="button" class="btn btn-primary" :disabled="!selected.length || sending" @click="submit">
           {{ sending ? 'Einladungen werden gesendet...' : 'Ausgewählte einladen' }}
         </button>
-      </div>
-    </div>
-  </div>
+      </template>
+  </AppSheet>
 </template>

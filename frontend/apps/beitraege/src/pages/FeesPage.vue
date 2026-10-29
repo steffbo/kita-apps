@@ -1,10 +1,15 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
+import PageHeader from '@/components/ui/PageHeader.vue';
+import AppSheet from '@/components/ui/AppSheet.vue';
+import AppPagination from '@/components/ui/AppPagination.vue';
+import EmptyState from '@/components/ui/EmptyState.vue';
+
+import { ref, onMounted, computed, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { api } from '@/api';
 import type { FeeExpectation } from '@/api/types';
 import {
-  Filter,
+  Info,
   Loader2,
   Plus,
   CheckCircle,
@@ -13,11 +18,9 @@ import {
   Calendar,
   Trash2,
   AlertCircle,
-  ChevronLeft,
-  ChevronRight,
 } from 'lucide-vue-next';
 import { formatCurrency, formatDate, todayISO } from '@/utils/format';
-import { getFeePeriodLabel, getFeeTypeColor, getFeeTypeName } from '@/utils/fees';
+import { getFeePeriodLabel, getFeeTypeName } from '@/utils/fees';
 import GenerateFeesDialog from '@/components/fees/GenerateFeesDialog.vue';
 import CreateFeeDialog from '@/components/fees/CreateFeeDialog.vue';
 import SearchInput from '@/components/SearchInput.vue';
@@ -68,7 +71,7 @@ const isCreatingReminder = ref(false);
 const showCreateFeeDialog = ref(false);
 
 const feeTypes = [
-  { value: '', label: 'Alle' },
+  { value: '', label: 'Alle Typen' },
   { value: 'MEMBERSHIP', label: 'Vereinsbeitrag' },
   { value: 'FOOD', label: 'Essensgeld' },
   { value: 'CHILDCARE', label: 'Platzgeld' },
@@ -91,30 +94,6 @@ const selectedDeletableCount = computed(() => {
     const fee = fees.value.find(f => f.id === id);
     return fee && !fee.isPaid;
   }).length;
-});
-
-// Pagination display helpers
-const visiblePages = computed(() => {
-  const pages: (number | '...')[] = [];
-  const totalPgs = totalPages.value;
-  const current = currentPage.value;
-  
-  if (totalPgs <= 7) {
-    for (let i = 1; i <= totalPgs; i++) pages.push(i);
-  } else {
-    pages.push(1);
-    if (current > 3) pages.push('...');
-    
-    const start = Math.max(2, current - 1);
-    const end = Math.min(totalPgs - 1, current + 1);
-    
-    for (let i = start; i <= end; i++) pages.push(i);
-    
-    if (current < totalPgs - 2) pages.push('...');
-    pages.push(totalPgs);
-  }
-  
-  return pages;
 });
 
 // Computed pagination helpers
@@ -199,16 +178,6 @@ function goToPage(page: number) {
   }
 }
 
-// ESC key handler to close modals
-function handleKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape') {
-    if (showDeleteConfirm.value) showDeleteConfirm.value = false;
-    else if (showReminderConfirm.value) showReminderConfirm.value = false;
-    else if (showCreateFeeDialog.value) showCreateFeeDialog.value = false;
-    else if (showGenerateDialog.value) showGenerateDialog.value = false;
-  }
-}
-
 onMounted(() => {
   // Read URL query params for deep-linking from dashboard
   const feeTypeParam = route.query.feeType as string;
@@ -222,11 +191,6 @@ onMounted(() => {
   }
 
   loadFees();
-  document.addEventListener('keydown', handleKeydown);
-});
-
-onUnmounted(() => {
-  document.removeEventListener('keydown', handleKeydown);
 });
 
 // Reload when pagination changes
@@ -242,13 +206,19 @@ watch([sortBy, sortDir], () => {
 
 function getStatusInfo(fee: FeeExpectation) {
   if (fee.isPaid) {
-    return { icon: CheckCircle, color: 'text-green-500 dark:text-green-400', label: 'Bezahlt', bg: 'bg-green-50 dark:bg-green-950/40' };
+    return {
+      icon: CheckCircle, color: 'badge-success', label: 'Bezahlt', bg: 'bg-success-soft',
+    };
   }
   const isOverdue = fee.dueDate.slice(0, 10) < todayISO();
   if (isOverdue) {
-    return { icon: AlertTriangle, color: 'text-red-500 dark:text-red-400', label: 'Überfällig', bg: 'bg-red-50 dark:bg-red-950/40' };
+    return {
+      icon: AlertTriangle, color: 'badge-danger', label: 'Überfällig', bg: 'bg-destructive-soft',
+    };
   }
-  return { icon: Clock, color: 'text-amber-500 dark:text-amber-400', label: 'Offen', bg: 'bg-amber-50 dark:bg-amber-950/40' };
+  return {
+      icon: Clock, color: 'badge-warning', label: 'Offen', bg: 'bg-warning-soft',
+    };
 }
 
 // Selection functions
@@ -371,146 +341,146 @@ async function onFeeCreated() {
 
 <template>
   <div>
-    <!-- Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-      <div>
-        <h1 class="text-2xl font-bold text-foreground">Beiträge</h1>
-        <p class="text-muted-foreground mt-1">{{ total }} Beiträge gesamt</p>
-      </div>
-      <div class="flex gap-2">
-        <button
-          @click="showCreateFeeDialog = true"
-          class="inline-flex items-center gap-2 px-4 py-2 border border-primary text-primary rounded-lg hover:bg-primary/5 transition-colors"
-        >
+    <PageHeader title="Beiträge">
+      <template #actions>
+        <button type="button" @click="showCreateFeeDialog = true" class="btn btn-secondary">
           <Plus class="h-4 w-4" />
           Einzelner Beitrag
         </button>
-        <button
-          @click="showGenerateDialog = true"
-          class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-        >
+        <button type="button" @click="showGenerateDialog = true" class="btn btn-primary">
           <Calendar class="h-4 w-4" />
           Beiträge generieren
         </button>
-      </div>
-    </div>
-
+      </template>
+    </PageHeader>
     <!-- Selection Action Bar -->
-    <div
-      v-if="selectedCount > 0"
-      class="flex items-center justify-between gap-4 mb-4 p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 rounded-lg"
-    >
-      <div class="flex items-center gap-3">
-        <span class="text-sm font-medium text-blue-800 dark:text-blue-300">
-          {{ selectedCount }} ausgewählt
-        </span>
-        <button
-          @click="clearSelection"
-          class="text-sm text-blue-600 dark:text-blue-300 hover:text-blue-800 dark:text-blue-300 underline"
-        >
-          Auswahl aufheben
-        </button>
-      </div>
+    <div v-if="selectedCount > 0" class="mb-4 flex flex-wrap items-center gap-2 rounded-xl bg-primary-soft px-3 py-2">
+      <span class="mr-auto text-sm font-medium text-primary-text">{{ selectedCount }} ausgewählt</span>
+      <button type="button" class="btn btn-ghost btn-sm" @click="clearSelection">Auswahl aufheben</button>
       <button
         v-if="selectedDeletableCount > 0"
-        @click="showDeleteConfirm = true"
-        class="inline-flex items-center gap-2 px-3 py-1.5 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition-colors"
-      >
-        <Trash2 class="h-4 w-4" />
+        type="button"
+        class="btn btn-danger btn-sm"
+        @click="showDeleteConfirm = true">
+        <Trash2 />
         {{ selectedDeletableCount }} löschen
       </button>
-      <span v-else class="text-sm text-muted-foreground">
-        Nur unbezahlte Beiträge können gelöscht werden
-      </span>
+      <span v-else class="text-sm text-muted-foreground">Nur unbezahlte Beiträge können gelöscht werden</span>
     </div>
-
-    <!-- Filters -->
-    <div class="flex flex-wrap gap-4 mb-6 p-4 bg-card rounded-xl border">
-      <div class="flex items-center gap-2">
-        <Filter class="h-4 w-4 text-muted-foreground" />
-        <span class="text-sm font-medium text-foreground">Filter:</span>
-      </div>
-
-      <!-- Search Input -->
-      <SearchInput v-model="searchQuery" placeholder="Mitgl.-Nr. oder Name..." size="sm" class="w-48"
-        @input="handleSearchInput" />
-      
-      <!-- Status Filter Buttons -->
-      <div class="flex items-center gap-1 p-1 bg-muted rounded-lg">
-        <button
-          @click="setStatusFilter('open')"
-          :class="[
-            'flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
-            selectedStatus === 'open'
-              ? 'bg-card text-amber-600 dark:text-amber-300 shadow-sm'
-              : 'text-muted-foreground hover:text-foreground'
-          ]"
-          title="Offene Beiträge"
-        >
-          <Clock class="h-4 w-4" />
-          <span class="hidden sm:inline">Offen</span>
-        </button>
-        <button
-          @click="setStatusFilter('paid')"
-          :class="[
-            'flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
-            selectedStatus === 'paid'
-              ? 'bg-card text-green-600 dark:text-green-300 shadow-sm'
-              : 'text-muted-foreground hover:text-foreground'
-          ]"
-          title="Bezahlte Beiträge"
-        >
-          <CheckCircle class="h-4 w-4" />
-          <span class="hidden sm:inline">Bezahlt</span>
-        </button>
-        <button
-          @click="setStatusFilter('all')"
-          :class="[
-            'flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
-            selectedStatus === 'all'
-              ? 'bg-card text-foreground shadow-sm'
-              : 'text-muted-foreground hover:text-foreground'
-          ]"
-          title="Alle Beiträge"
-        >
-          <span>Alle</span>
-        </button>
-      </div>
-
-      <div class="flex items-center gap-1 p-1 bg-muted rounded-lg">
-        <button
-          v-for="type in feeTypes"
-          :key="type.value || 'all'"
-          @click="setTypeFilter(type.value)"
-          :class="[
-            'px-3 py-1.5 text-sm font-medium rounded-md transition-colors whitespace-nowrap',
-            selectedType === type.value
-              ? 'bg-card text-primary shadow-sm'
-              : 'text-muted-foreground hover:text-foreground'
-          ]"
-        >
-          {{ type.label }}
-        </button>
+    <div class="mb-4 flex flex-col gap-3">
+      <SearchInput v-model="searchQuery" placeholder="Mitgl.-Nr. oder Name" @input="handleSearchInput" />
+      <div class="-mx-4 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:px-0" role="group" aria-label="Filter">
+        <span class="chip pointer-events-none border-transparent bg-transparent px-1 text-muted-foreground"
+          aria-live="polite">{{ total }} Beiträge</span>
+        <button type="button" class="chip" :aria-pressed="selectedStatus === 'open'" title="Offene Beiträge"
+          @click="setStatusFilter('open')"><Clock class="h-4 w-4" />Offen</button>
+        <button type="button" class="chip" :aria-pressed="selectedStatus === 'paid'" title="Bezahlte Beiträge"
+          @click="setStatusFilter('paid')"><CheckCircle class="h-4 w-4" />Bezahlt</button>
+        <button type="button" class="chip" :aria-pressed="selectedStatus === 'all'" title="Alle Beiträge"
+          @click="setStatusFilter('all')">Alle</button>
+        <span class="mx-1 w-px shrink-0 self-stretch bg-border" aria-hidden="true" />
+        <button v-for="type in feeTypes" :key="type.value || 'all'" type="button" class="chip"
+          :aria-pressed="selectedType === type.value" @click="setTypeFilter(type.value)">{{ type.label }}</button>
       </div>
     </div>
-
+    <div class="mb-4 flex items-center gap-2 sm:hidden">
+      <label for="fees-mobile-sort" class="label mb-0 shrink-0">Sortieren nach</label>
+      <select
+        id="fees-mobile-sort"
+        :value="sortBy"
+        class="input min-w-0 flex-1"
+        @change="toggleSort(($event.target as HTMLSelectElement).value as FeeSortKey)">
+        <option value="memberNumber">Mitgl.-Nr.</option>
+        <option value="childName">Kind</option>
+        <option value="feeType">Typ</option>
+        <option value="period">Zeitraum</option>
+        <option value="amount">Betrag</option>
+      </select>
+      <button
+        type="button"
+        class="btn btn-secondary btn-icon"
+        aria-label="Sortierrichtung ändern"
+        @click="toggleSort(sortBy)">
+        <span aria-hidden="true">{{ sortDir === 'asc' ? '↑' : '↓' }}</span>
+      </button>
+    </div>
     <!-- Loading state -->
     <div v-if="isLoading" class="flex items-center justify-center py-12">
       <Loader2 class="h-8 w-8 animate-spin text-primary" />
     </div>
-
     <!-- Error state -->
-    <div v-else-if="error" class="bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg p-4">
-      <p class="text-red-600 dark:text-red-300">{{ error }}</p>
-      <button @click="loadFees" class="mt-2 text-sm text-red-700 dark:text-red-300 underline">
-        Erneut versuchen
-      </button>
+    <div v-else-if="error" class="note note-danger">
+      <Info />
+      <div class="min-w-0 flex-1">
+        <p class="text-destructive">{{ error }}</p>
+        <button type="button" @click="loadFees" class="btn btn-secondary">Erneut versuchen</button>
+      </div>
     </div>
-
     <!-- Fees table -->
-    <div v-else class="bg-card rounded-xl border overflow-hidden">
-      <div class="overflow-x-auto">
-        <table class="w-full">
+    <div v-else class="card overflow-hidden">
+      <EmptyState v-if="fees.length === 0" :icon="Calendar" text="Keine Beiträge gefunden" />
+      <ul v-else class="divide-y sm:hidden">
+        <li
+          v-for="fee in fees"
+          :key="fee.id"
+          class="space-y-2 px-4 py-3"
+          :class="isSelected(fee.id) && 'bg-primary-soft'">
+          <div class="flex items-center gap-3">
+            <input
+              type="checkbox"
+              :checked="isSelected(fee.id)"
+              @change="toggleSelect(fee.id)"
+              :aria-label="`${fee.child?.firstName} ${fee.child?.lastName} auswählen`"
+              class="h-5 w-5 rounded" />
+            <button type="button" class="min-w-0 flex-1 text-left" @click="goToChild(fee.childId)">
+              <span class="block font-medium">{{ fee.child?.firstName }} {{ fee.child?.lastName }}</span>
+              <span class="text-[13px] text-muted-foreground">{{ fee.child?.memberNumber }}</span>
+            </button>
+            <span class="text-right font-medium tabular-nums">{{ formatCurrency(fee.amount) }}</span>
+          </div>
+          <p class="text-[13px] text-muted-foreground">
+            {{ getFeeTypeName(fee.feeType) }} · {{ getFeePeriodLabel(fee) }} · Fällig: {{ formatDate(fee.dueDate) }}
+          </p>
+          <div class="flex items-center justify-between gap-2">
+            <span class="badge" :class="getStatusInfo(fee).color">
+              <component :is="getStatusInfo(fee).icon" class="h-3.5 w-3.5" />
+              {{ getStatusInfo(fee).label }}
+            </span>
+            <div class="flex items-center gap-1">
+              <button
+                type="button"
+                v-if="canCreateReminder(fee)"
+                @click="openReminderDialog(fee)"
+                class="btn btn-secondary btn-icon btn-sm"
+                aria-label="Mahngebühr erstellen"
+                title="Mahngebühr erstellen">
+                <AlertCircle class="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                v-if="!fee.isPaid"
+                @click="deleteSingleFee(fee)"
+                class="btn btn-danger-outline btn-icon btn-sm"
+                aria-label="Löschen"
+                title="Löschen">
+                <Trash2 class="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </li>
+      </ul>
+      <div v-if="fees.length" class="flex items-center gap-2 border-t px-4 py-2 text-sm sm:hidden">
+        <input
+          type="checkbox"
+          :checked="allSelected"
+          :indeterminate="someSelected"
+          @change="toggleSelectAll"
+          aria-label="Alle auswählen"
+          class="h-4 w-4 rounded" />
+        Alle auswählen
+      </div>
+      <div v-if="fees.length" class="hidden overflow-x-auto sm:block">
+        <table class="table">
           <thead class="bg-muted">
             <tr class="text-left text-sm text-muted-foreground">
               <th class="px-4 py-3 font-medium w-10">
@@ -519,18 +489,23 @@ async function onFeeCreated() {
                   :checked="allSelected"
                   :indeterminate="someSelected"
                   @change="toggleSelectAll"
-                  class="h-4 w-4 rounded border-border text-primary focus:ring-primary cursor-pointer"
-                />
+                  class="h-4 w-4 rounded border-border text-primary focus:ring-primary cursor-pointer" />
               </th>
-              <SortTh label="Mitgl.-Nr." column="memberNumber" :sort-key="sortBy" :sort-dir="sortDir"
+              <SortTh
+                label="Mitgl.-Nr."
+                column="memberNumber"
+                :sort-key="sortBy"
+                :sort-dir="sortDir"
                 @sort="toggleSort" />
-              <SortTh label="Kind" column="childName" :sort-key="sortBy" :sort-dir="sortDir"
-                @sort="toggleSort" />
-              <SortTh label="Typ" column="feeType" :sort-key="sortBy" :sort-dir="sortDir"
-                @sort="toggleSort" />
-              <SortTh label="Zeitraum" column="period" :sort-key="sortBy" :sort-dir="sortDir"
-                @sort="toggleSort" />
-              <SortTh label="Betrag" column="amount" align="right" :sort-key="sortBy" :sort-dir="sortDir"
+              <SortTh label="Kind" column="childName" :sort-key="sortBy" :sort-dir="sortDir" @sort="toggleSort" />
+              <SortTh label="Typ" column="feeType" :sort-key="sortBy" :sort-dir="sortDir" @sort="toggleSort" />
+              <SortTh label="Zeitraum" column="period" :sort-key="sortBy" :sort-dir="sortDir" @sort="toggleSort" />
+              <SortTh
+                label="Betrag"
+                column="amount"
+                align="right"
+                :sort-key="sortBy"
+                :sort-dir="sortDir"
                 @sort="toggleSort" />
               <th class="px-4 py-3 font-medium">Fällig</th>
               <th class="px-4 py-3 font-medium">Status</th>
@@ -542,229 +517,130 @@ async function onFeeCreated() {
               v-for="fee in fees"
               :key="fee.id"
               :class="[
-                'border-t transition-colors',
-                isSelected(fee.id) ? 'bg-blue-50 dark:bg-blue-950/40' : 'hover:bg-accent'
-              ]"
-            >
+              'border-t transition-colors',
+              isSelected(fee.id) ? 'bg-primary-soft' : 'hover:bg-accent'
+              ]">
               <td class="px-4 py-3">
                 <input
                   type="checkbox"
                   :checked="isSelected(fee.id)"
                   @change="toggleSelect(fee.id)"
-                  class="h-4 w-4 rounded border-border text-primary focus:ring-primary cursor-pointer"
-                />
+                  class="h-4 w-4 rounded border-border text-primary focus:ring-primary cursor-pointer" />
               </td>
-              <td class="px-4 py-3 text-muted-foreground font-mono text-sm">
-                {{ fee.child?.memberNumber }}
-              </td>
+              <td class="px-4 py-3 text-muted-foreground font-mono text-sm">{{ fee.child?.memberNumber }}</td>
               <td class="px-4 py-3">
-                <button
-                  @click="goToChild(fee.childId)"
-                  class="font-medium text-primary hover:underline text-left"
-                >
+                <button type="button" @click="goToChild(fee.childId)" class="text-left font-medium hover:text-primary-text hover:underline">
                   {{ fee.child?.firstName }} {{ fee.child?.lastName }}
                 </button>
               </td>
               <td class="px-4 py-3">
                 <span
                   :class="[
-                    'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium',
-                    getFeeTypeColor(fee.feeType),
-                  ]"
-                >
+                  'badge',
+                  fee.feeType === 'REMINDER' ? 'badge-danger' : '',
+                  ]">
                   {{ getFeeTypeName(fee.feeType) }}
                 </span>
               </td>
-              <td class="px-4 py-3 text-muted-foreground">
-                {{ getFeePeriodLabel(fee) }}
-              </td>
-              <td class="px-4 py-3 text-right font-medium">
-                {{ formatCurrency(fee.amount) }}
-              </td>
-              <td class="px-4 py-3 text-muted-foreground">
-                {{ formatDate(fee.dueDate) }}
-              </td>
+              <td class="px-4 py-3 text-muted-foreground">{{ getFeePeriodLabel(fee) }}</td>
+              <td class="px-4 py-3 text-right font-medium tabular-nums">{{ formatCurrency(fee.amount) }}</td>
+              <td class="px-4 py-3 text-muted-foreground">{{ formatDate(fee.dueDate) }}</td>
               <td class="px-4 py-3">
-                <div class="flex items-center gap-1.5">
-                  <component
-                    :is="getStatusInfo(fee).icon"
-                    :class="['h-4 w-4', getStatusInfo(fee).color]"
-                  />
+                <div class="badge" :class="getStatusInfo(fee).color">
+                  <component :is="getStatusInfo(fee).icon" class="h-3.5 w-3.5" />
                   <span class="text-sm">{{ getStatusInfo(fee).label }}</span>
                 </div>
               </td>
               <td class="px-4 py-3">
                 <div class="flex items-center gap-1">
                   <button
+                    type="button"
                     v-if="canCreateReminder(fee)"
                     @click="openReminderDialog(fee)"
-                    class="p-1.5 text-muted-foreground hover:text-amber-600 dark:text-amber-300 hover:bg-amber-50 dark:hover:bg-amber-900/40 rounded transition-colors"
-                    title="Mahngebühr erstellen"
-                  >
+                    class="btn btn-secondary btn-icon btn-sm"
+                    aria-label="Mahngebühr erstellen"
+                    title="Mahngebühr erstellen">
                     <AlertCircle class="h-4 w-4" />
                   </button>
                   <button
+                    type="button"
                     v-if="!fee.isPaid"
                     @click="deleteSingleFee(fee)"
-                    class="p-1.5 text-muted-foreground hover:text-red-600 dark:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/40 rounded transition-colors"
-                    title="Löschen"
-                  >
+                    class="btn btn-ghost btn-icon btn-sm text-muted-foreground hover:text-destructive"
+                    aria-label="Löschen"
+                    title="Löschen">
                     <Trash2 class="h-4 w-4" />
                   </button>
                 </div>
               </td>
             </tr>
-            <tr v-if="fees.length === 0">
-              <td colspan="9" class="px-4 py-8 text-center text-muted-foreground">
-                Keine Beiträge gefunden
-              </td>
-            </tr>
           </tbody>
         </table>
       </div>
-
-      <!-- Pagination -->
-      <div class="flex items-center justify-between px-4 py-3 border-t bg-muted">
-        <div class="flex items-center gap-4">
-          <span class="text-sm text-muted-foreground">
-            {{ offset + 1 }}-{{ Math.min(offset + pageSize, total) }} von {{ total }}
-          </span>
-          <select
-            v-model="pageSize"
-            class="text-sm border border-border rounded px-2 py-1 focus:ring-primary focus:border-primary"
-          >
-            <option v-for="size in pageSizeOptions" :key="size" :value="size">
-              {{ size }} pro Seite
-            </option>
-          </select>
-        </div>
-        <div class="flex items-center gap-1">
-          <button
-            @click="goToPage(currentPage - 1)"
-            :disabled="currentPage === 1"
-            class="p-1.5 rounded hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <ChevronLeft class="h-4 w-4" />
-          </button>
-          <template v-for="page in visiblePages" :key="page">
-            <span v-if="page === '...'" class="px-2 text-muted-foreground">...</span>
-            <button
-              v-else
-              @click="goToPage(page)"
-              :class="[
-                'px-3 py-1 rounded text-sm',
-                page === currentPage
-                  ? 'bg-primary text-primary-foreground'
-                  : 'hover:bg-accent',
-              ]"
-            >
-              {{ page }}
-            </button>
-          </template>
-          <button
-            @click="goToPage(currentPage + 1)"
-            :disabled="currentPage === totalPages"
-            class="p-1.5 rounded hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <ChevronRight class="h-4 w-4" />
-          </button>
-        </div>
-      </div>
+      <AppPagination
+        v-if="fees.length"
+        v-model:page-size="pageSize"
+        :current-page="currentPage"
+        :total-pages="totalPages"
+        :total="total"
+        :offset="offset"
+        :page-size-options="pageSizeOptions"
+        @go="goToPage" />
     </div>
-
     <GenerateFeesDialog v-if="showGenerateDialog" @close="showGenerateDialog = false" @generated="loadFees" />
-
     <!-- Delete Confirmation Dialog -->
-    <div
-      v-if="showDeleteConfirm"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      @click.self="showDeleteConfirm = false"
-    >
-      <div class="bg-card rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
-        <div class="flex items-center gap-3 mb-6">
-          <div class="p-2 bg-red-100 dark:bg-red-950/40 rounded-lg">
-            <Trash2 class="h-6 w-6 text-red-600 dark:text-red-300" />
-          </div>
-          <div>
-            <h2 class="text-xl font-semibold">Beiträge löschen</h2>
-            <p class="text-sm text-muted-foreground">Diese Aktion kann nicht rückgängig gemacht werden</p>
-          </div>
-        </div>
-
-        <p class="text-foreground mb-6">
-          Möchten Sie wirklich <strong>{{ selectedDeletableCount }} Beiträge</strong> löschen?
-        </p>
-
-        <div class="flex justify-end gap-3">
-          <button
-            @click="showDeleteConfirm = false"
-            :disabled="isDeleting"
-            class="px-4 py-2 text-foreground hover:bg-accent rounded-lg transition-colors disabled:opacity-50"
-          >
-            Abbrechen
-          </button>
-          <button
-            @click="deleteSelectedFees"
-            :disabled="isDeleting"
-            class="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
-          >
-            <Loader2 v-if="isDeleting" class="h-4 w-4 animate-spin" />
-            <Trash2 v-else class="h-4 w-4" />
-            Löschen
-          </button>
-        </div>
+    <AppSheet v-if="showDeleteConfirm" title="Beiträge löschen" @close="showDeleteConfirm = false">
+      <div class="note note-danger mb-4">
+        <Info />
+        <div class="min-w-0 flex-1">Diese Aktion kann nicht rückgängig gemacht werden</div>
       </div>
-    </div>
-
+      <p class="text-foreground mb-6">
+        Möchten Sie wirklich
+        <strong>{{ selectedDeletableCount }} Beiträge</strong>
+        löschen?
+      </p>
+      <template #footer>
+        <button type="button" @click="showDeleteConfirm = false" :disabled="isDeleting" class="btn btn-secondary">
+          Abbrechen
+        </button>
+        <button type="button" @click="deleteSelectedFees" :disabled="isDeleting" class="btn btn-danger">
+          <Loader2 v-if="isDeleting" class="h-4 w-4 animate-spin" />
+          <Trash2 v-else class="h-4 w-4" />
+          Löschen
+        </button>
+      </template>
+    </AppSheet>
     <!-- Reminder Confirmation Dialog -->
-    <div
-      v-if="showReminderConfirm"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      @click.self="showReminderConfirm = false"
-    >
-      <div class="bg-card rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
-        <div class="flex items-center gap-3 mb-6">
-          <div class="p-2 bg-amber-100 dark:bg-amber-950/40 rounded-lg">
-            <AlertCircle class="h-6 w-6 text-amber-600 dark:text-amber-300" />
-          </div>
-          <div>
-            <h2 class="text-xl font-semibold">Mahngebühr erstellen</h2>
-            <p class="text-sm text-muted-foreground">Eine Mahngebühr von 10,00 € wird erstellt</p>
-          </div>
-        </div>
-
-        <div v-if="reminderTargetFee" class="mb-6 p-4 bg-muted rounded-lg">
-          <p class="text-sm text-muted-foreground">Für den überfälligen Beitrag:</p>
-          <p class="font-medium mt-1">
-            {{ getFeeTypeName(reminderTargetFee.feeType) }} - 
-            {{ reminderTargetFee.child?.firstName }} {{ reminderTargetFee.child?.lastName }}
-          </p>
-          <p class="text-sm text-muted-foreground mt-1">
-            {{ formatCurrency(reminderTargetFee.amount) }} • Fällig: {{ formatDate(reminderTargetFee.dueDate) }}
-          </p>
-        </div>
-
-        <div class="flex justify-end gap-3">
-          <button
-            @click="showReminderConfirm = false"
-            :disabled="isCreatingReminder"
-            class="px-4 py-2 text-foreground hover:bg-accent rounded-lg transition-colors disabled:opacity-50"
-          >
-            Abbrechen
-          </button>
-          <button
-            @click="createReminder"
-            :disabled="isCreatingReminder"
-            class="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-50"
-          >
-            <Loader2 v-if="isCreatingReminder" class="h-4 w-4 animate-spin" />
-            <AlertCircle v-else class="h-4 w-4" />
-            Mahngebühr erstellen
-          </button>
-        </div>
+    <AppSheet v-if="showReminderConfirm" title="Mahngebühr erstellen" @close="showReminderConfirm = false">
+      <div class="note note-warning mb-4">
+        <Info />
+        <div class="min-w-0 flex-1">Eine Mahngebühr von 10,00 € wird erstellt</div>
       </div>
-    </div>
-
+      <div v-if="reminderTargetFee" class="mb-6 p-4 bg-muted rounded-lg">
+        <p class="text-sm text-muted-foreground">Für den überfälligen Beitrag:</p>
+        <p class="font-medium mt-1">
+          {{ getFeeTypeName(reminderTargetFee.feeType) }} -
+          {{ reminderTargetFee.child?.firstName }} {{ reminderTargetFee.child?.lastName }}
+        </p>
+        <p class="text-sm text-muted-foreground mt-1">
+          {{ formatCurrency(reminderTargetFee.amount) }} • Fällig: {{ formatDate(reminderTargetFee.dueDate) }}
+        </p>
+      </div>
+      <template #footer>
+        <button
+          type="button"
+          @click="showReminderConfirm = false"
+          :disabled="isCreatingReminder"
+          class="btn btn-secondary">
+          Abbrechen
+        </button>
+        <button type="button" @click="createReminder" :disabled="isCreatingReminder" class="btn btn-primary">
+          <Loader2 v-if="isCreatingReminder" class="h-4 w-4 animate-spin" />
+          <AlertCircle v-else class="h-4 w-4" />
+          Mahngebühr erstellen
+        </button>
+      </template>
+    </AppSheet>
     <CreateFeeDialog v-if="showCreateFeeDialog" @close="showCreateFeeDialog = false" @created="onFeeCreated" />
   </div>
 </template>

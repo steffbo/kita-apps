@@ -4,6 +4,7 @@ import { RouterLink } from 'vue-router';
 import { api } from '@/api';
 import type { ParentReport } from '@/api/types';
 import { formatDate } from '@/utils/format';
+import EmptyState from '@/components/ui/EmptyState.vue';
 const status = ref<'OPEN' | 'DONE' | 'ALL'>('OPEN');
 const reports = ref<ParentReport[]>([]);
 const error = ref('');
@@ -40,20 +41,19 @@ const topics: Record<string, string> = {
 </script>
 <template>
   <div class="space-y-5">
-    <label class="block max-w-44 text-sm font-medium">Status
-      <select v-model="status" class="mt-1 w-full rounded-lg border px-3 py-2">
-        <option value="OPEN">Offen</option><option value="DONE">Erledigt</option>
-        <option value="ALL">Alle</option>
-      </select>
-    </label>
-    <p v-if="error" role="alert" class="text-red-700 dark:text-red-300">{{ error }}</p>
-    <p v-if="!reports.length" class="text-muted-foreground">Keine Meldungen.</p>
-    <article v-for="report in reports" :key="report.id" class="rounded-2xl border bg-card p-4">
-      <div class="flex items-start justify-between gap-2"><h2 class="font-bold">{{ topics[report.topic] ?? report.topic }}</h2>
-        <span class="shrink-0 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold" :class="
-          report.status === 'OPEN'
-            ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300'
-            : 'bg-green-100 text-green-800 dark:bg-green-950/40 dark:text-green-300'">
+    <div class="flex flex-wrap items-center gap-2" role="group" aria-label="Status">
+      <button v-for="option in [{ value: 'OPEN', label: 'Offen' }, { value: 'DONE', label: 'Erledigt' },
+        { value: 'ALL', label: 'Alle' }]" :key="option.value" type="button" class="chip"
+        :aria-pressed="status === option.value" @click="status = option.value as typeof status">
+        {{ option.label }}
+      </button>
+    </div>
+    <p v-if="error" role="alert" class="note note-danger">{{ error }}</p>
+    <div class="space-y-3">
+    <EmptyState v-if="!reports.length" text="Keine Meldungen." />
+    <article v-for="report in reports" :key="report.id" class="card p-4">
+      <div class="flex items-start justify-between gap-2"><h2 class="text-base font-semibold">{{ topics[report.topic] ?? report.topic }}</h2>
+        <span class="badge shrink-0 whitespace-nowrap" :class="report.status === 'OPEN' ? 'badge-warning' : 'badge-success'">
           {{ report.status === 'OPEN' ? 'Offen' : '✓ Erledigt' }}</span></div>
       <p class="mt-2 whitespace-pre-wrap">{{ report.message }}</p>
       <p class="mt-2 text-sm text-muted-foreground">{{ formatDate(report.createdAt) }}<template
@@ -63,11 +63,12 @@ const topics: Record<string, string> = {
       <label v-if="report.status === 'OPEN'" class="mt-3 block text-sm font-medium">
         Antwort an die Eltern (optional)
         <textarea v-model="answers[report.id]" rows="2" maxlength="2000"
-          class="mt-1 w-full rounded-lg border px-3 py-2" /></label>
-      <div class="mt-3 flex flex-wrap items-center gap-4 text-sm"><RouterLink :to="link(report)" class="text-primary underline">
+          class="input mt-1" /></label>
+      <div class="flex mt-3 flex-wrap items-center gap-4 text-sm"><RouterLink :to="link(report)" class="text-primary underline">
         Bezug ansehen</RouterLink>
-        <button v-if="report.status === 'OPEN'" class="rounded-lg bg-primary px-3 py-1.5 text-primary-foreground"
+        <button v-if="report.status === 'OPEN'" class="btn btn-primary btn-sm"
           @click="resolve(report.id)">{{ answers[report.id]?.trim() ? 'Antworten und erledigen' : 'Erledigt' }}</button></div>
     </article>
+    </div>
   </div>
 </template>

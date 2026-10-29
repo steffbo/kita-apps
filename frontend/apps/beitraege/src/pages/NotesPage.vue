@@ -3,12 +3,14 @@ import { ref, onMounted, computed, watch } from 'vue';
 import { api } from '@/api';
 import type { ChildNote } from '@/api/types';
 import {
+  AlertTriangle,
   Loader2,
-  ChevronLeft,
-  ChevronRight,
   User,
 } from 'lucide-vue-next';
 import { formatDateTime } from '@/utils/format';
+import AppPagination from '@/components/ui/AppPagination.vue';
+import PageHeader from '@/components/ui/PageHeader.vue';
+import EmptyState from '@/components/ui/EmptyState.vue';
 
 // Data
 const notes = ref<ChildNote[]>([]);
@@ -65,7 +67,6 @@ function goToPage(page: number) {
 // Change of page size restarts at page 1
 function handlePageSizeChange() {
   currentPage.value = 1;
-  loadNotes();
 }
 
 onMounted(() => {
@@ -88,147 +89,71 @@ function isEdited(note: ChildNote): boolean {
   return new Date(note.updatedAt).getTime() - new Date(note.createdAt).getTime() > 1000;
 }
 
-// Pagination display helpers
-const visiblePages = computed(() => {
-  const pages: (number | '...')[] = [];
-  const total = totalPages.value;
-  const current = currentPage.value;
-
-  if (total <= 7) {
-    for (let i = 1; i <= total; i++) pages.push(i);
-  } else {
-    pages.push(1);
-    if (current > 3) pages.push('...');
-
-    const start = Math.max(2, current - 1);
-    const end = Math.min(total - 1, current + 1);
-
-    for (let i = start; i <= end; i++) pages.push(i);
-
-    if (current < total - 2) pages.push('...');
-    pages.push(total);
-  }
-
-  return pages;
-});
 </script>
 
 <template>
   <div>
-    <!-- Header -->
-    <div class="mb-6">
-      <h1 class="text-2xl font-bold text-foreground">Notizen</h1>
-      <p class="text-muted-foreground mt-1">{{ total }} Notizen zu Kindern</p>
+    <PageHeader title="Notizen" />
+    <div class="mb-4 flex gap-2">
+      <span class="chip pointer-events-none border-transparent bg-transparent px-1 text-muted-foreground">
+        {{ total }} {{ total === 1 ? 'Notiz' : 'Notizen' }}
+      </span>
     </div>
 
-    <!-- Loading state -->
     <div v-if="isLoading" class="flex items-center justify-center py-12">
       <Loader2 class="h-8 w-8 animate-spin text-primary" />
     </div>
-
-    <!-- Error state -->
-    <div v-else-if="error" class="bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg p-4">
-      <p class="text-red-600 dark:text-red-300">{{ error }}</p>
-      <button @click="loadNotes" class="mt-2 text-sm text-red-700 dark:text-red-300 underline">
-        Erneut versuchen
-      </button>
+    <div v-else-if="error" class="note note-danger">
+      <AlertTriangle />
+      <div>
+        <p>{{ error }}</p>
+      <button class="btn btn-secondary btn-sm" @click="loadNotes">Erneut versuchen</button>
+      </div>
     </div>
-
-    <!-- Notes table -->
-    <div v-else class="bg-card rounded-xl border overflow-hidden">
-      <div class="overflow-x-auto">
-        <table class="w-full">
-          <thead class="bg-muted">
-            <tr class="text-left text-sm text-muted-foreground">
-              <th class="px-4 py-3 font-medium">Notiz</th>
-              <th class="px-4 py-3 font-medium">
-                <span class="flex items-center gap-1">
-                  <User class="h-4 w-4" />
-                  Kind
-                </span>
-              </th>
-              <th class="px-4 py-3 font-medium">Erstellt</th>
-              <th class="hidden md:table-cell px-4 py-3 font-medium">Bearbeitet</th>
+    <div v-else class="card overflow-hidden">
+      <ul class="divide-y sm:hidden">
+        <li v-for="note in notes" :key="note.id" class="p-4">
+          <p class="text-foreground">{{ truncateText(note.text) }}</p>
+          <div class="mt-2 flex flex-wrap gap-x-2 text-[13px] text-muted-foreground">
+            <router-link :to="`/kinder/${note.childId}`" class="text-primary hover:underline">
+              {{ childName(note) }}
+            </router-link>
+            <span>{{ formatDateTime(note.createdAt) }}</span>
+            <span v-if="isEdited(note)">Bearbeitet: {{ formatDateTime(note.updatedAt) }}</span>
+          </div>
+        </li>
+        <li v-if="notes.length === 0"><EmptyState :icon="User" text="Keine Notizen vorhanden" /></li>
+      </ul>
+      <div class="hidden overflow-x-auto sm:block">
+        <table class="table">
+          <thead>
+            <tr>
+              <th>Notiz</th>
+              <th><span class="flex items-center gap-1"><User />Kind</span></th>
+              <th>Erstellt</th>
+              <th class="hidden md:table-cell">Bearbeitet</th>
             </tr>
           </thead>
           <tbody>
-            <tr v-for="note in notes" :key="note.id" class="border-t hover:bg-accent transition-colors">
-              <td class="px-4 py-3">
-                <p class="text-foreground max-w-md">{{ truncateText(note.text) }}</p>
-              </td>
-              <td class="px-4 py-3">
-                <router-link
-                  :to="`/kinder/${note.childId}`"
-                  class="text-primary hover:underline whitespace-nowrap"
-                >
+            <tr v-for="note in notes" :key="note.id">
+              <td><p class="max-w-md">{{ truncateText(note.text) }}</p></td>
+              <td>
+                <router-link :to="`/kinder/${note.childId}`" class="text-primary hover:underline whitespace-nowrap">
                   {{ childName(note) }}
                 </router-link>
               </td>
-              <td class="px-4 py-3 text-muted-foreground whitespace-nowrap">
-                {{ formatDateTime(note.createdAt) }}
-              </td>
-              <td class="hidden md:table-cell px-4 py-3 text-muted-foreground whitespace-nowrap">
+              <td class="text-muted-foreground whitespace-nowrap">{{ formatDateTime(note.createdAt) }}</td>
+              <td class="hidden md:table-cell text-muted-foreground whitespace-nowrap">
                 <template v-if="isEdited(note)">{{ formatDateTime(note.updatedAt) }}</template>
-                <span v-else class="text-muted-foreground/60">-</span>
+                <span v-else>-</span>
               </td>
             </tr>
-            <tr v-if="notes.length === 0">
-              <td colspan="4" class="px-4 py-8 text-center text-muted-foreground">
-                Keine Notizen vorhanden
-              </td>
-            </tr>
+            <tr v-if="notes.length === 0"><td colspan="4"><EmptyState :icon="User" text="Keine Notizen vorhanden" /></td></tr>
           </tbody>
         </table>
       </div>
-
-      <!-- Pagination -->
-      <div class="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 border-t bg-muted">
-        <div class="flex items-center gap-4">
-          <span class="text-sm text-muted-foreground">
-            {{ offset + 1 }}-{{ Math.min(offset + pageSize, total) }} von {{ total }}
-          </span>
-          <select
-            v-model="pageSize"
-            @change="handlePageSizeChange"
-            class="text-sm border border-border rounded px-2 py-1 focus:ring-primary focus:border-primary"
-          >
-            <option v-for="size in pageSizeOptions" :key="size" :value="size">
-              {{ size }} pro Seite
-            </option>
-          </select>
-        </div>
-        <div class="flex items-center gap-1">
-          <button
-            @click="goToPage(currentPage - 1)"
-            :disabled="currentPage === 1"
-            class="p-1.5 rounded hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <ChevronLeft class="h-4 w-4" />
-          </button>
-          <template v-for="page in visiblePages" :key="page">
-            <span v-if="page === '...'" class="px-2 text-muted-foreground">...</span>
-            <button
-              v-else
-              @click="goToPage(page)"
-              :class="[
-                'px-3 py-1 rounded text-sm',
-                page === currentPage
-                  ? 'bg-primary text-primary-foreground'
-                  : 'hover:bg-accent',
-              ]"
-            >
-              {{ page }}
-            </button>
-          </template>
-          <button
-            @click="goToPage(currentPage + 1)"
-            :disabled="currentPage === totalPages"
-            class="p-1.5 rounded hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <ChevronRight class="h-4 w-4" />
-          </button>
-        </div>
-      </div>
+      <AppPagination v-model:page-size="pageSize" :current-page="currentPage" :total-pages="totalPages"
+        :total="total" :offset="offset" :page-size-options="pageSizeOptions" @go="goToPage" @update:page-size="handlePageSizeChange" />
     </div>
   </div>
 </template>

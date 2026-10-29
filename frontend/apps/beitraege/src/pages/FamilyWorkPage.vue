@@ -5,6 +5,9 @@ import type { OwnWork, OwnWorkEntry } from '@/api/types';
 import { formatCurrency, formatDate, formatHours, todayISO } from '@/utils/format';
 import ReportDialog from '@/components/family/ReportDialog.vue';
 import DurationPicker from '@/components/parent-work/DurationPicker.vue';
+import PageHeader from '@/components/ui/PageHeader.vue';
+import AppSheet from '@/components/ui/AppSheet.vue';
+import EmptyState from '@/components/ui/EmptyState.vue';
 const berlinDate = todayISO();
 const currentYear = Number(berlinDate.slice(0, 4));
 const year = ref(Number(berlinDate.slice(5, 7)) >= 8 ? currentYear : currentYear - 1);
@@ -53,21 +56,18 @@ async function confirmWithdraw() {
 </script>
 <template>
   <div class="space-y-5">
-    <div class="flex flex-wrap items-center justify-between gap-3">
-      <h1 class="text-2xl font-bold">Deine Elternstunden</h1>
-      <button class="rounded-lg bg-primary px-4 py-2 text-primary-foreground" @click="showForm = true">
-        Stunden melden
-      </button>
-    </div>
-    <label class="block max-w-44 text-sm font-medium">Kita-Jahr
-      <select v-model.number="year" class="mt-1 w-full rounded-lg border px-3 py-2">
+    <PageHeader title="Deine Elternstunden">
+      <template #actions><button class="btn btn-primary" @click="showForm = true">Stunden melden</button></template>
+    </PageHeader>
+    <label class="label block max-w-44">Kita-Jahr
+      <select v-model.number="year" class="input">
         <option v-for="y in years" :key="y" :value="y">{{ y }}/{{ String(y + 1).slice(-2) }}</option>
       </select>
     </label>
-    <p v-if="error" role="alert" class="text-red-700 dark:text-red-300">{{ error }}</p>
+    <p v-if="error" role="alert" class="note note-danger">{{ error }}</p>
     <template v-if="work">
-      <section class="rounded-2xl border bg-card p-5">
-        <p v-if="work.exempt" class="font-bold">Du bist in diesem Kita-Jahr befreit.</p>
+      <section class="card p-4 sm:p-5">
+        <p v-if="work.exempt" class="font-semibold">Du bist in diesem Kita-Jahr befreit.</p>
         <div v-else class="grid grid-cols-2 gap-3 text-sm sm:grid-cols-5">
           <div v-for="item in [
             ['Soll', formatHours(work.requiredMinutes)], ['Ist', formatHours(work.doneMinutes)],
@@ -76,70 +76,62 @@ async function confirmWithdraw() {
           ]" :key="item[0]"><p class="text-muted-foreground">{{ item[0] }}</p><strong>{{ item[1] }}</strong></div>
         </div>
         <div role="progressbar" :aria-valuenow="progress" aria-valuemin="0" aria-valuemax="100"
-          class="mt-4 h-3 overflow-hidden rounded-full bg-muted">
+          class="mt-4 h-3 overflow-hidden rounded-lg bg-muted">
           <div class="h-full bg-primary" :style="{ width: `${progress}%` }" />
         </div>
       </section>
       <p class="text-sm text-muted-foreground">Gemeldete Stunden zählen, sobald sie bestätigt sind.</p>
-      <h2 class="text-lg font-bold">Einträge</h2>
-      <p v-if="!work.entries.length" class="text-muted-foreground">Noch keine Einträge.</p>
-      <article v-for="entry in work.entries" :key="entry.id" class="rounded-2xl border bg-card p-4">
+      <h2 class="text-base font-semibold">Einträge</h2>
+      <EmptyState v-if="!work.entries.length" text="Noch keine Einträge." />
+      <article v-for="entry in work.entries" :key="entry.id" class="card p-4">
         <div class="flex items-start justify-between gap-3">
-          <div><h3 class="font-bold">{{ entry.occasion }}</h3>
+          <div><h3 class="font-semibold">{{ entry.occasion }}</h3>
             <p class="text-sm">{{ formatDate(entry.workDate) }} · {{ formatHours(entry.durationMinutes) }}</p>
             <p v-if="entry.childName" class="text-sm">{{ entry.childName }}</p></div>
-          <span class="shrink-0 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-semibold" :class="
+          <span class="badge shrink-0" :class="
             entry.status === 'APPROVED'
-              ? 'bg-green-100 text-green-800 dark:bg-green-950/40 dark:text-green-300'
+              ? 'badge-success'
               : entry.status === 'REJECTED'
-                ? 'bg-red-100 text-red-800 dark:bg-red-950/40 dark:text-red-300'
+                ? 'badge-danger'
                 : entry.status === 'SUBMITTED'
-                  ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300'
-                  : 'bg-muted text-muted-foreground'">
+                  ? 'badge-warning'
+                  : ''">
             {{ status[entry.status] ?? entry.status }}
           </span>
         </div>
         <p v-if="entry.rejectReason" class="mt-2 text-sm">Grund: {{ entry.rejectReason }}</p>
         <p v-if="entry.voidReason" class="mt-2 text-sm">Grund: {{ entry.voidReason }}</p>
         <div class="mt-3 flex gap-4 text-sm">
-          <button v-if="entry.status === 'SUBMITTED'" class="text-primary underline"
+          <button v-if="entry.status === 'SUBMITTED'" class="btn btn-secondary"
             @click="withdraw = entry">Zurückziehen</button>
-          <button class="text-primary underline" @click="reportId = entry.id">Fehler melden</button>
+          <button class="btn btn-secondary" @click="reportId = entry.id">Fehler melden</button>
         </div>
       </article>
     </template>
-    <div v-if="showForm" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-      @click.self="showForm = false">
-      <form role="dialog" aria-modal="true" aria-label="Stunden melden"
-        class="max-h-[90vh] w-full max-w-lg space-y-3 overflow-y-auto rounded-2xl bg-card p-5"
-        @submit.prevent="submit">
-        <h2 class="text-xl font-bold">Stunden melden</h2>
-        <label class="block text-sm font-medium">Datum
+    <AppSheet v-if="showForm" title="Stunden melden" @close="showForm = false">
+      <form id="own-work-form" class="space-y-3" @submit.prevent="submit">
+        <label class="label">Datum
           <input v-model="date" type="date" :max="todayISO()" required
-            class="mt-1 block w-full rounded-lg border px-3 py-2 sm:w-56" /></label>
+            class="input sm:w-56" /></label>
         <DurationPicker v-model="minutes" label="Dauer" />
-        <label class="block text-sm font-medium">Anlass
-          <input v-model="occasion" required class="mt-1 w-full rounded-lg border px-3 py-2" /></label>
-        <p v-if="actionError" role="alert" class="text-red-700 dark:text-red-300">{{ actionError }}</p>
-        <div class="flex justify-end gap-2"><button type="button" class="rounded-lg border px-4 py-2"
-          @click="showForm = false">Abbrechen</button>
-          <button type="submit" :disabled="saving" class="rounded-lg bg-primary px-4 py-2
-            text-primary-foreground">Melden</button></div>
+        <label class="label">Anlass
+          <input v-model="occasion" required class="input" /></label>
+        <p v-if="actionError" role="alert" class="note note-danger">{{ actionError }}</p>
       </form>
-    </div>
-    <div v-if="withdraw" class="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div role="dialog" aria-modal="true" aria-label="Meldung zurückziehen"
-        class="w-full max-w-md rounded-2xl bg-card p-5">
-        <h2 class="text-lg font-bold">Meldung zurückziehen?</h2>
+      <template #footer>
+        <button type="button" class="btn btn-secondary" @click="showForm = false">Abbrechen</button>
+        <button type="submit" form="own-work-form" :disabled="saving" class="btn btn-primary">Melden</button>
+      </template>
+    </AppSheet>
+    <AppSheet v-if="withdraw" title="Meldung zurückziehen" @close="withdraw = null">
+        <h2 class="sr-only">Meldung zurückziehen?</h2>
         <p class="mt-2">{{ withdraw.occasion }} wird storniert.</p>
-        <p v-if="actionError" role="alert" class="text-red-700 dark:text-red-300">{{ actionError }}</p>
-        <div class="mt-4 flex justify-end gap-2">
-          <button class="rounded-lg border px-4 py-2" @click="withdraw = null">Abbrechen</button>
-          <button :disabled="saving" class="rounded-lg bg-primary px-4 py-2 text-primary-foreground"
-            @click="confirmWithdraw">Zurückziehen</button>
-        </div>
-      </div>
-    </div>
+        <p v-if="actionError" role="alert" class="note note-danger">{{ actionError }}</p>
+      <template #footer>
+        <button class="btn btn-secondary" @click="withdraw = null">Abbrechen</button>
+        <button :disabled="saving" class="btn btn-primary" @click="confirmWithdraw">Zurückziehen</button>
+      </template>
+    </AppSheet>
     <ReportDialog v-if="reportId" topic="PARENT_WORK" :reference-id="reportId"
       @close="reportId = null" @saved="reportId = null" />
   </div>
