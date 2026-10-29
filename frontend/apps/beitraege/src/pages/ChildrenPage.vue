@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { api } from '@/api';
 import { useAuthStore } from '@/stores/auth';
@@ -7,24 +7,23 @@ import type { Child, CreateChildRequest } from '@/api/types';
 import {
   Plus,
   Loader2,
-  User,
-  Calendar,
-  Hash,
-  X,
   Check,
   Upload,
   AlertTriangle,
   Coins,
-  ChevronLeft,
-  ChevronRight,
   Trash2,
   UserX,
   CalendarX,
+  Users,
 } from 'lucide-vue-next';
 import { formatDate, todayISO } from '@/utils/format';
 import { calculateAge, isUnderThree } from '@/utils/child';
 import SearchInput from '@/components/SearchInput.vue';
 import SortTh from '@/components/SortTh.vue';
+import AppSheet from '@/components/ui/AppSheet.vue';
+import AppPagination from '@/components/ui/AppPagination.vue';
+import PageHeader from '@/components/ui/PageHeader.vue';
+import EmptyState from '@/components/ui/EmptyState.vue';
 import { usePagedList } from '@/composables/usePagedList';
 
 const router = useRouter();
@@ -103,19 +102,16 @@ const createForm = ref<CreateChildRequest>({
 const isCreating = ref(false);
 const createError = ref<string | null>(null);
 
-function handleInactiveChange() {
-  goToFirstPageAndLoad();
-}
+// Filter chips; each change restarts at page 1.
+const filters = [
+  { label: 'Inaktive', flag: showInactive },
+  { label: 'U3', flag: showOnlyU3 },
+  { label: 'Mit Hinweisen', flag: showOnlyWarnings },
+  { label: 'Offene Beiträge', flag: showOnlyOpenFees },
+];
 
-function handleU3Change() {
-  goToFirstPageAndLoad();
-}
-
-function handleWarningsChange() {
-  goToFirstPageAndLoad();
-}
-
-function handleOpenFeesChange() {
+function toggleFilter(flag: { value: boolean }) {
+  flag.value = !flag.value;
   goToFirstPageAndLoad();
 }
 
@@ -134,24 +130,6 @@ onMounted(() => {
     showOnlyWarnings.value = true;
   }
   loadChildren();
-});
-
-// ESC key handler to close modals
-function handleKeydown(e: KeyboardEvent) {
-  if (e.key === 'Escape') {
-    if (showDeleteDialog.value) showDeleteDialog.value = false;
-    else if (showExitDateDialog.value) showExitDateDialog.value = false;
-    else if (showDeactivateDialog.value) showDeactivateDialog.value = false;
-    else if (showCreateDialog.value) showCreateDialog.value = false;
-  }
-}
-
-onMounted(() => {
-  document.addEventListener('keydown', handleKeydown);
-});
-
-onUnmounted(() => {
-  document.removeEventListener('keydown', handleKeydown);
 });
 
 // Helpers
@@ -348,578 +326,243 @@ async function handleBulkDelete() {
 }
 
 // Pagination display helpers
-const visiblePages = computed(() => {
-  const pages: (number | '...')[] = [];
-  const total = totalPages.value;
-  const current = currentPage.value;
-  
-  if (total <= 7) {
-    for (let i = 1; i <= total; i++) pages.push(i);
-  } else {
-    pages.push(1);
-    if (current > 3) pages.push('...');
-    
-    const start = Math.max(2, current - 1);
-    const end = Math.min(total - 1, current + 1);
-    
-    for (let i = start; i <= end; i++) pages.push(i);
-    
-    if (current < total - 2) pages.push('...');
-    pages.push(total);
-  }
-  
-  return pages;
-});
 </script>
 
 <template>
   <div>
-    <!-- Header -->
-    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-      <div>
-        <h1 class="text-2xl font-bold text-foreground">Kinder</h1>
-        <p class="text-muted-foreground mt-1">{{ total }} Kinder registriert</p>
-      </div>
-      <div class="flex items-center gap-2">
-        <button
-          @click="router.push('/kinder/import')"
-          class="inline-flex items-center gap-2 px-4 py-2 border border-border text-foreground rounded-lg hover:bg-accent transition-colors"
-        >
-          <Upload class="h-4 w-4" />
-          Importieren
+    <PageHeader title="Kinder">
+      <template #actions>
+        <button type="button" class="btn btn-secondary" @click="router.push('/kinder/import')">
+          <Upload />Importieren
         </button>
-        <button
-          @click="openCreateDialog"
-          class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors"
-        >
-          <Plus class="h-4 w-4" />
-          Kind hinzufügen
+        <button type="button" class="btn btn-primary" @click="openCreateDialog">
+          <Plus />Kind hinzufügen
         </button>
+      </template>
+    </PageHeader>
+
+    <div class="mb-4 flex flex-col gap-3">
+      <SearchInput v-model="searchQuery" placeholder="Name oder Mitgliedsnummer" @input="handleSearchInput" />
+      <div class="-mx-4 flex gap-2 overflow-x-auto px-4 sm:mx-0 sm:flex-wrap sm:px-0" role="group" aria-label="Filter">
+        <span class="chip pointer-events-none border-transparent bg-transparent px-1 text-muted-foreground"
+          aria-live="polite">{{ total }} {{ total === 1 ? 'Kind' : 'Kinder' }}</span>
+        <button v-for="filter in filters" :key="filter.label" type="button" class="chip"
+          :aria-pressed="filter.flag.value" @click="toggleFilter(filter.flag)">{{ filter.label }}</button>
       </div>
     </div>
 
-    <!-- Filters -->
-    <div class="flex flex-col sm:flex-row gap-4 mb-6">
-      <SearchInput v-model="searchQuery" placeholder="Suchen nach Name oder Mitgliedsnummer..." class="flex-1"
-        @input="handleSearchInput" />
-      <label class="flex items-center gap-2 cursor-pointer">
-        <input
-          v-model="showInactive"
-          @change="handleInactiveChange"
-          type="checkbox"
-          class="w-4 h-4 text-primary rounded border-border focus:ring-primary"
-        />
-        <span class="text-sm text-foreground">Inaktive anzeigen</span>
-      </label>
-      <label class="flex items-center gap-2 cursor-pointer">
-        <input
-          v-model="showOnlyU3"
-          @change="handleU3Change"
-          type="checkbox"
-          class="w-4 h-4 text-amber-500 dark:text-amber-400 rounded border-border focus:ring-amber-500"
-        />
-        <span class="text-sm text-foreground">Nur U3</span>
-      </label>
-      <label class="flex items-center gap-2 cursor-pointer">
-        <input
-          v-model="showOnlyWarnings"
-          @change="handleWarningsChange"
-          type="checkbox"
-          class="w-4 h-4 text-amber-500 dark:text-amber-400 rounded border-border focus:ring-amber-500"
-        />
-        <span class="text-sm text-foreground">Nur mit Hinweisen</span>
-      </label>
-      <label class="flex items-center gap-2 cursor-pointer">
-        <input
-          v-model="showOnlyOpenFees"
-          @change="handleOpenFeesChange"
-          type="checkbox"
-          class="w-4 h-4 text-blue-600 dark:text-blue-300 rounded border-border focus:ring-blue-500"
-        />
-        <span class="text-sm text-foreground">Nur mit offenen Beiträgen</span>
-      </label>
-    </div>
-
-    <!-- Bulk actions bar -->
-    <div
-      v-if="selectedIds.size > 0"
-      class="mb-4 p-3 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 rounded-lg flex flex-wrap items-center justify-between gap-2"
-    >
-      <span class="text-sm font-medium text-blue-800 dark:text-blue-300">
+    <div v-if="selectedIds.size > 0"
+      class="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-transparent bg-primary-soft px-3 py-2">
+      <span class="mr-auto text-sm font-medium text-primary-text">
         {{ selectedIds.size }} {{ selectedIds.size === 1 ? 'Kind' : 'Kinder' }} ausgewählt
       </span>
-      <div class="flex flex-wrap items-center gap-2">
-        <button
-          @click="openExitDateDialog"
-          class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-card border rounded-lg hover:bg-accent transition-colors"
-        >
-          <CalendarX class="h-4 w-4" />
-          Austrittsdatum setzen
-        </button>
-        <button
-          @click="showDeactivateDialog = true"
-          class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-amber-100 dark:bg-amber-950/40 text-amber-800 dark:text-amber-300 rounded-lg hover:bg-amber-200 dark:hover:bg-amber-900/50 transition-colors"
-        >
-          <UserX class="h-4 w-4" />
-          Deaktivieren
-        </button>
-        <button
-          v-if="authStore.isAdmin"
-          @click="showDeleteDialog = true"
-          class="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm bg-red-100 dark:bg-red-950/40 text-red-800 dark:text-red-300 rounded-lg hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors"
-        >
-          <Trash2 class="h-4 w-4" />
-          Löschen
-        </button>
-        <button
-          @click="selectedIds = new Set()"
-          class="px-3 py-1.5 text-sm text-muted-foreground hover:bg-accent rounded-lg transition-colors"
-        >
-          Auswahl aufheben
-        </button>
-      </div>
-    </div>
-
-    <!-- Loading state -->
-    <div v-if="isLoading" class="flex items-center justify-center py-12">
-      <Loader2 class="h-8 w-8 animate-spin text-primary" />
-    </div>
-
-    <!-- Error state -->
-    <div v-else-if="error" class="bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg p-4">
-      <p class="text-red-600 dark:text-red-300">{{ error }}</p>
-      <button @click="loadChildren" class="mt-2 text-sm text-red-700 dark:text-red-300 underline">
-        Erneut versuchen
+      <button type="button" class="btn btn-secondary btn-sm" @click="openExitDateDialog">
+        <CalendarX />Austrittsdatum setzen
       </button>
+      <button type="button" class="btn btn-secondary btn-sm" @click="showDeactivateDialog = true">
+        <UserX />Deaktivieren
+      </button>
+      <button v-if="authStore.isAdmin" type="button" class="btn btn-danger-outline btn-sm" @click="showDeleteDialog = true">
+        <Trash2 />Löschen
+      </button>
+      <button type="button" class="btn btn-ghost btn-sm" @click="selectedIds = new Set()">Auswahl aufheben</button>
     </div>
 
-    <!-- Children table -->
-    <div v-else class="bg-card rounded-xl border overflow-hidden">
-      <div class="overflow-x-auto">
-        <table class="w-full">
-          <thead class="bg-muted">
-            <tr class="text-left text-sm text-muted-foreground">
-              <!-- Checkbox column -->
-              <th class="px-4 py-3 w-12">
-                <input
-                  type="checkbox"
-                  :checked="isAllSelected"
-                  :indeterminate="isSomeSelected"
-                  @change="toggleSelectAll"
-                  class="w-4 h-4 text-primary rounded border-border focus:ring-primary"
-                />
+    <div v-if="isLoading" class="flex items-center justify-center py-12">
+      <Loader2 class="h-6 w-6 animate-spin text-muted-foreground" />
+    </div>
+
+    <div v-else-if="error" class="note note-danger" role="alert">
+      <AlertTriangle />
+      <div class="flex-1">{{ error }}</div>
+      <button type="button" class="font-medium underline" @click="loadChildren">Erneut versuchen</button>
+    </div>
+
+    <div v-else class="card overflow-hidden">
+      <EmptyState v-if="children.length === 0" :icon="Users" text="Keine Kinder gefunden" />
+
+      <!-- Phone: one row per child -->
+      <ul v-else class="divide-y sm:hidden">
+        <li v-for="child in children" :key="child.id" class="flex items-center gap-3 px-4 py-3"
+          :class="selectedIds.has(child.id) && 'bg-primary-soft'">
+          <input type="checkbox" :checked="selectedIds.has(child.id)" :aria-label="`${child.firstName} ${child.lastName} auswählen`"
+            class="h-5 w-5 shrink-0 rounded" @change="toggleSelect(child.id, $event)" />
+          <button type="button" class="flex min-w-0 flex-1 items-center gap-3 text-left" @click="goToChild(child.id)">
+            <span class="min-w-0 flex-1">
+              <span class="block truncate font-medium">{{ child.lastName }}, {{ child.firstName }}</span>
+              <span class="block truncate text-[13px] tabular-nums text-muted-foreground">
+                {{ child.memberNumber }} · {{ calculateAge(child.birthDate) }} J.<template
+                  v-if="child.careHours"> · {{ child.careHours }} h</template>
+              </span>
+            </span>
+            <span class="flex shrink-0 items-center gap-1.5">
+              <span v-if="getChildWarnings(child).length" class="badge badge-warning">
+                <AlertTriangle class="h-3 w-3" />{{ getChildWarnings(child).length }}
+              </span>
+              <span v-if="hasOpenFees(child)" class="badge">
+                <Coins class="h-3 w-3" />{{ child.openFeesCount ?? 0 }}
+              </span>
+              <span v-if="!child.isActive" class="badge">Inaktiv</span>
+            </span>
+          </button>
+        </li>
+      </ul>
+
+      <div v-if="children.length" class="hidden overflow-x-auto sm:block">
+        <table class="table">
+          <thead>
+            <tr>
+              <th class="w-12">
+                <input type="checkbox" aria-label="Alle auswählen" :checked="isAllSelected" :indeterminate="isSomeSelected"
+                  class="h-4 w-4 rounded" @change="toggleSelectAll" />
               </th>
-              <!-- Member number -->
-              <SortTh label="Nr." column="memberNumber" :icon="Hash" :sort-key="sortField" :sort-dir="sortDirection"
+              <SortTh label="Nr." column="memberNumber" :sort-key="sortField" :sort-dir="sortDirection" @sort="toggleSort" />
+              <SortTh label="Nachname" column="lastName" :sort-key="sortField" :sort-dir="sortDirection" @sort="toggleSort" />
+              <SortTh label="Vorname" column="firstName" :sort-key="sortField" :sort-dir="sortDirection" @sort="toggleSort" />
+              <SortTh label="Geburtsdatum" column="birthDate" :sort-key="sortField" :sort-dir="sortDirection"
                 @sort="toggleSort" />
-              <!-- Last Name -->
-              <SortTh label="Nachname" column="lastName" :icon="User" :sort-key="sortField" :sort-dir="sortDirection"
-                @sort="toggleSort" />
-              <!-- First Name -->
-              <SortTh label="Vorname" column="firstName" :sort-key="sortField" :sort-dir="sortDirection"
-                @sort="toggleSort" />
-              <!-- Birth date -->
-              <SortTh label="Geburtsdatum" column="birthDate" :icon="Calendar" :sort-key="sortField" :sort-dir="sortDirection"
-                @sort="toggleSort" />
-              <!-- Age -->
-              <th class="px-4 py-3 font-medium">Alter</th>
-              <!-- Care Hours -->
-              <th class="px-4 py-3 font-medium">Stunden</th>
-              <!-- Warnings -->
-              <th class="px-4 py-3 font-medium">Hinweise</th>
-              <!-- Status -->
-              <th class="px-4 py-3 font-medium">Status</th>
+              <th>Alter</th>
+              <th>Stunden</th>
+              <th>Hinweise</th>
+              <th>Status</th>
             </tr>
           </thead>
           <tbody>
-            <tr
-              v-for="child in children"
-              :key="child.id"
-              @click="goToChild(child.id)"
-              :class="[
-                'border-t hover:bg-accent cursor-pointer transition-colors',
-                selectedIds.has(child.id) ? 'bg-blue-50 dark:bg-blue-950/40' : '',
-              ]"
-            >
-              <!-- Checkbox -->
-              <td class="px-4 py-3" @click.stop>
-                <input
-                  type="checkbox"
-                  :checked="selectedIds.has(child.id)"
-                  @change="toggleSelect(child.id, $event)"
-                  class="w-4 h-4 text-primary rounded border-border focus:ring-primary"
-                />
+            <tr v-for="child in children" :key="child.id" class="cursor-pointer transition-colors hover:bg-accent"
+              :class="selectedIds.has(child.id) && 'bg-primary-soft hover:bg-primary-soft'" @click="goToChild(child.id)">
+              <td @click.stop>
+                <input type="checkbox" :checked="selectedIds.has(child.id)" class="h-4 w-4 rounded"
+                  @change="toggleSelect(child.id, $event)" />
               </td>
-              <!-- Member number -->
-              <td class="px-4 py-3 font-mono text-sm">{{ child.memberNumber }}</td>
-              <!-- Last Name -->
-              <td class="px-4 py-3 font-medium">{{ child.lastName }}</td>
-              <!-- First Name -->
-              <td class="px-4 py-3">{{ child.firstName }}</td>
-              <!-- Birth date -->
-              <td class="px-4 py-3 text-muted-foreground">{{ formatDate(child.birthDate) }}</td>
-              <!-- Age -->
-              <td class="px-4 py-3">{{ calculateAge(child.birthDate) }} J.</td>
-              <!-- Care Hours -->
-              <td class="px-4 py-3 text-muted-foreground">
-                <span v-if="child.careHours">{{ child.careHours }}h</span>
-                <span v-else class="text-muted-foreground">-</span>
-              </td>
-              <!-- Warnings -->
-              <td class="px-4 py-3">
-                <div class="flex items-center gap-2">
+              <td class="tabular-nums text-muted-foreground">{{ child.memberNumber }}</td>
+              <td class="font-medium">{{ child.lastName }}</td>
+              <td>{{ child.firstName }}</td>
+              <td class="tabular-nums text-muted-foreground">{{ formatDate(child.birthDate) }}</td>
+              <td class="tabular-nums">{{ calculateAge(child.birthDate) }} J.</td>
+              <td class="tabular-nums text-muted-foreground">{{ child.careHours ? `${child.careHours} h` : '–' }}</td>
+              <td>
+                <div class="flex items-center gap-1.5">
                   <div v-if="getChildWarnings(child).length > 0" class="group relative">
-                    <div class="flex items-center gap-1 text-amber-600 dark:text-amber-300">
-                      <AlertTriangle class="h-4 w-4" />
-                      <span class="text-xs font-medium">{{ getChildWarnings(child).length }}</span>
-                    </div>
-                    <!-- Tooltip -->
-                    <div class="hidden group-hover:block absolute left-0 top-6 z-10 bg-popover border rounded-lg shadow-lg p-3 w-56">
-                      <ul class="text-xs space-y-1">
-                        <li
-                          v-for="(warning, idx) in getChildWarnings(child)"
-                          :key="idx"
-                          class="flex items-start gap-2"
-                        >
-                          <AlertTriangle class="h-3 w-3 text-amber-500 dark:text-amber-400 flex-shrink-0 mt-0.5" />
-                          <span class="text-foreground">{{ warning }}</span>
+                    <span class="badge badge-warning"><AlertTriangle class="h-3 w-3" />{{ getChildWarnings(child).length }}</span>
+                    <div class="absolute left-0 top-7 z-10 hidden w-60 rounded-lg border bg-popover p-3 shadow-lg group-hover:block">
+                      <ul class="space-y-1 text-xs">
+                        <li v-for="(warning, idx) in getChildWarnings(child)" :key="idx" class="flex items-start gap-2">
+                          <AlertTriangle class="mt-0.5 h-3 w-3 shrink-0 text-warning" />
+                          <span>{{ warning }}</span>
                         </li>
                       </ul>
                     </div>
                   </div>
-                  <div v-if="hasOpenFees(child)" class="group relative">
-                    <div class="flex items-center gap-1 text-blue-600 dark:text-blue-300">
-                      <Coins class="h-4 w-4" />
-                      <span class="text-xs font-medium">{{ child.openFeesCount ?? 0 }}</span>
-                    </div>
-                    <div class="hidden group-hover:block absolute left-0 top-6 z-10 bg-popover border rounded-lg shadow-lg p-3 w-56 text-xs text-foreground">
-                      {{ child.openFeesCount ?? 0 }} offene Beiträge
-                    </div>
-                  </div>
-                  <span v-if="getChildWarnings(child).length === 0 && !hasOpenFees(child)" class="text-green-600 dark:text-green-300">
-                    <Check class="h-4 w-4" />
+                  <span v-if="hasOpenFees(child)" class="badge"
+                    :title="`${child.openFeesCount ?? 0} offene Beiträge`">
+                    <Coins class="h-3 w-3" />{{ child.openFeesCount ?? 0 }}
                   </span>
+                  <Check v-if="getChildWarnings(child).length === 0 && !hasOpenFees(child)"
+                    class="h-4 w-4 text-success" aria-label="Keine Hinweise" />
                 </div>
               </td>
-              <!-- Status -->
-              <td class="px-4 py-3">
-                <span
-                  :class="[
-                    'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium',
-                    child.isActive ? 'bg-green-100 dark:bg-green-950/40 text-green-700 dark:text-green-300' : 'bg-muted text-muted-foreground',
-                  ]"
-                >
-                  {{ child.isActive ? 'Aktiv' : 'Inaktiv' }}
-                </span>
-              </td>
-            </tr>
-            <tr v-if="children.length === 0">
-              <td colspan="9" class="px-4 py-8 text-center text-muted-foreground">
-                Keine Kinder gefunden
+              <td>
+                <span class="badge" :class="child.isActive && 'badge-success'">{{ child.isActive ? 'Aktiv' : 'Inaktiv' }}</span>
               </td>
             </tr>
           </tbody>
         </table>
       </div>
 
-      <!-- Pagination -->
-      <div class="flex items-center justify-between px-4 py-3 border-t bg-muted">
-        <div class="flex items-center gap-4">
-          <span class="text-sm text-muted-foreground">
-            {{ offset + 1 }}-{{ Math.min(offset + pageSize, total) }} von {{ total }}
-          </span>
-          <select
-            v-model="pageSize"
-            class="text-sm border border-border rounded px-2 py-1 focus:ring-primary focus:border-primary"
-          >
-            <option v-for="size in pageSizeOptions" :key="size" :value="size">
-              {{ size }} pro Seite
-            </option>
-          </select>
-        </div>
-        <div class="flex items-center gap-1">
-          <button
-            @click="goToPage(currentPage - 1)"
-            :disabled="currentPage === 1"
-            class="p-1.5 rounded hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <ChevronLeft class="h-4 w-4" />
-          </button>
-          <template v-for="page in visiblePages" :key="page">
-            <span v-if="page === '...'" class="px-2 text-muted-foreground">...</span>
-            <button
-              v-else
-              @click="goToPage(page)"
-              :class="[
-                'px-3 py-1 rounded text-sm',
-                page === currentPage
-                  ? 'bg-primary text-primary-foreground'
-                  : 'hover:bg-accent',
-              ]"
-            >
-              {{ page }}
-            </button>
-          </template>
-          <button
-            @click="goToPage(currentPage + 1)"
-            :disabled="currentPage === totalPages"
-            class="p-1.5 rounded hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <ChevronRight class="h-4 w-4" />
-          </button>
-        </div>
-      </div>
+      <AppPagination v-if="children.length" v-model:page-size="pageSize" :current-page="currentPage"
+        :total-pages="totalPages" :total="total" :offset="offset" :page-size-options="pageSizeOptions" @go="goToPage" />
     </div>
 
-    <!-- Create Dialog -->
-    <div
-      v-if="showCreateDialog"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      @click.self="showCreateDialog = false"
-    >
-      <div class="bg-card rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
-        <div class="flex items-center justify-between mb-6">
-          <h2 class="text-xl font-semibold">Kind hinzufügen</h2>
-          <button @click="showCreateDialog = false" class="p-1 hover:bg-accent rounded" aria-label="Schließen">
-            <X class="h-5 w-5" />
-          </button>
+    <AppSheet v-if="showCreateDialog" title="Kind hinzufügen" @close="showCreateDialog = false">
+      <form id="create-child" class="space-y-4" @submit.prevent="handleCreate">
+        <div>
+          <label for="memberNumber" class="label">Mitgliedsnummer *</label>
+          <input id="memberNumber" v-model="createForm.memberNumber" required type="text" placeholder="z. B. 11072"
+            class="input" />
         </div>
-
-        <form @submit.prevent="handleCreate" class="space-y-4">
+        <div class="grid grid-cols-2 gap-3">
           <div>
-            <label for="memberNumber" class="block text-sm font-medium text-foreground mb-1">Mitgliedsnummer *</label>
-            <input
-              id="memberNumber"
-              v-model="createForm.memberNumber"
-              required
-              type="text"
-              placeholder="z.B. 11072"
-              class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-            />
+            <label for="firstName" class="label">Vorname *</label>
+            <input id="firstName" v-model="createForm.firstName" required type="text" class="input" />
           </div>
-
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <label for="firstName" class="block text-sm font-medium text-foreground mb-1">Vorname *</label>
-              <input
-                id="firstName"
-                v-model="createForm.firstName"
-                required
-                type="text"
-                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-              />
-            </div>
-            <div>
-              <label for="lastName" class="block text-sm font-medium text-foreground mb-1">Nachname *</label>
-              <input
-                id="lastName"
-                v-model="createForm.lastName"
-                required
-                type="text"
-                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-              />
-            </div>
+          <div>
+            <label for="lastName" class="label">Nachname *</label>
+            <input id="lastName" v-model="createForm.lastName" required type="text" class="input" />
           </div>
-
-          <div class="grid grid-cols-2 gap-4">
-            <div>
-              <label for="birthDate" class="block text-sm font-medium text-foreground mb-1">Geburtsdatum *</label>
-              <input
-                id="birthDate"
-                v-model="createForm.birthDate"
-                required
-                type="date"
-                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-              />
-            </div>
-            <div>
-              <label for="entryDate" class="block text-sm font-medium text-foreground mb-1">Eintrittsdatum *</label>
-              <input
-                id="entryDate"
-                v-model="createForm.entryDate"
-                required
-                type="date"
-                class="w-full px-3 py-2 border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent outline-none"
-              />
-            </div>
-          </div>
-
-          <div v-if="createError" class="p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg">
-            <p class="text-sm text-red-600 dark:text-red-300">{{ createError }}</p>
-          </div>
-
-          <div class="flex justify-end gap-3 pt-4">
-            <button
-              type="button"
-              @click="showCreateDialog = false"
-              class="px-4 py-2 text-foreground hover:bg-accent rounded-lg transition-colors"
-            >
-              Abbrechen
-            </button>
-            <button
-              type="submit"
-              :disabled="isCreating"
-              class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
-            >
-              <Loader2 v-if="isCreating" class="h-4 w-4 animate-spin" />
-              <Check v-else class="h-4 w-4" />
-              Speichern
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-
-    <!-- Exit Date Dialog -->
-    <div
-      v-if="showExitDateDialog"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      @click.self="showExitDateDialog = false"
-    >
-      <form role="dialog" aria-modal="true" aria-label="Austrittsdatum setzen"
-        class="bg-card rounded-xl shadow-xl w-full max-w-md mx-4 p-6" @submit.prevent="handleBulkExitDate">
-        <div class="flex items-center gap-3 mb-4">
-          <div class="w-10 h-10 bg-muted rounded-full flex items-center justify-center">
-            <CalendarX class="h-5 w-5 text-primary" />
-          </div>
-          <h2 class="text-xl font-semibold">Austrittsdatum setzen</h2>
         </div>
-
-        <p class="text-muted-foreground mb-4">
-          Für <strong>{{ selectedIds.size }}</strong> {{ selectedIds.size === 1 ? 'Kind' : 'Kinder' }}
-          wird das Austrittsdatum gesetzt. Ein bereits eingetragenes Datum wird überschrieben.
-        </p>
-
-        <label class="block text-sm font-medium mb-4">Austrittsdatum
-          <input v-model="bulkExitDate" type="date" required class="mt-1 w-full rounded-lg border px-3 py-2" />
-        </label>
-
-        <div v-if="exitBeforeEntry.length" role="alert"
-          class="mb-4 p-3 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 rounded-lg text-sm text-amber-800 dark:text-amber-300">
-          Liegt vor dem Eintritt von {{ exitBeforeEntry.map(c => `${c.firstName} ${c.lastName}`).join(', ') }}.
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label for="birthDate" class="label">Geburtsdatum *</label>
+            <input id="birthDate" v-model="createForm.birthDate" required type="date" class="input" />
+          </div>
+          <div>
+            <label for="entryDate" class="label">Eintrittsdatum *</label>
+            <input id="entryDate" v-model="createForm.entryDate" required type="date" class="input" />
+          </div>
         </div>
-        <div v-if="bulkActionError" class="mb-4 p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg">
-          <p class="text-sm text-red-600 dark:text-red-300">{{ bulkActionError }}</p>
-        </div>
-
-        <div class="flex justify-end gap-3">
-          <button
-            type="button"
-            @click="showExitDateDialog = false"
-            class="px-4 py-2 text-foreground hover:bg-accent rounded-lg transition-colors"
-          >
-            Abbrechen
-          </button>
-          <button
-            type="submit"
-            :disabled="isBulkActionLoading || !bulkExitDate || exitBeforeEntry.length > 0"
-            class="inline-flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors disabled:opacity-50"
-          >
-            <Loader2 v-if="isBulkActionLoading" class="h-4 w-4 animate-spin" />
-            <CalendarX v-else class="h-4 w-4" />
-            Austrittsdatum setzen
-          </button>
-        </div>
+        <div v-if="createError" class="note note-danger" role="alert"><AlertTriangle />{{ createError }}</div>
       </form>
-    </div>
+      <template #footer>
+        <button type="button" class="btn btn-secondary" @click="showCreateDialog = false">Abbrechen</button>
+        <button type="submit" form="create-child" class="btn btn-primary" :disabled="isCreating">
+          <Loader2 v-if="isCreating" class="animate-spin" />Speichern
+        </button>
+      </template>
+    </AppSheet>
 
-    <!-- Deactivate Confirmation Dialog -->
-    <div
-      v-if="showDeactivateDialog"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      @click.self="showDeactivateDialog = false"
-    >
-      <div class="bg-card rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
-        <div class="flex items-center gap-3 mb-4">
-          <div class="w-10 h-10 bg-amber-100 dark:bg-amber-950/40 rounded-full flex items-center justify-center">
-            <UserX class="h-5 w-5 text-amber-600 dark:text-amber-300" />
-          </div>
-          <h2 class="text-xl font-semibold">Kinder deaktivieren</h2>
-        </div>
-        
-        <p class="text-muted-foreground mb-6">
-          Möchten Sie <strong>{{ selectedIds.size }}</strong> {{ selectedIds.size === 1 ? 'Kind' : 'Kinder' }} wirklich deaktivieren?
-          Deaktivierte Kinder werden nicht mehr in den Standardlisten angezeigt.
+    <AppSheet v-if="showExitDateDialog" title="Austrittsdatum setzen" @close="showExitDateDialog = false">
+      <form id="bulk-exit-date" class="space-y-4" @submit.prevent="handleBulkExitDate">
+        <p class="text-sm text-muted-foreground">
+          Gilt für {{ selectedIds.size }} {{ selectedIds.size === 1 ? 'Kind' : 'Kinder' }} und überschreibt ein
+          eingetragenes Datum.
         </p>
-
-        <div v-if="bulkActionError" class="mb-4 p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg">
-          <p class="text-sm text-red-600 dark:text-red-300">{{ bulkActionError }}</p>
+        <label class="label">Austrittsdatum
+          <input v-model="bulkExitDate" type="date" required class="input mt-1.5" />
+        </label>
+        <div v-if="exitBeforeEntry.length" role="alert" class="note note-warning">
+          <AlertTriangle />Liegt vor dem Eintritt von {{ exitBeforeEntry.map(c => `${c.firstName} ${c.lastName}`).join(', ') }}.
         </div>
+        <div v-if="bulkActionError" class="note note-danger"><AlertTriangle />{{ bulkActionError }}</div>
+      </form>
+      <template #footer>
+        <button type="button" class="btn btn-secondary" @click="showExitDateDialog = false">Abbrechen</button>
+        <button type="submit" form="bulk-exit-date" class="btn btn-primary"
+          :disabled="isBulkActionLoading || !bulkExitDate || exitBeforeEntry.length > 0">
+          <Loader2 v-if="isBulkActionLoading" class="animate-spin" />Austrittsdatum setzen
+        </button>
+      </template>
+    </AppSheet>
 
-        <div class="flex justify-end gap-3">
-          <button
-            @click="showDeactivateDialog = false"
-            class="px-4 py-2 text-foreground hover:bg-accent rounded-lg transition-colors"
-          >
-            Abbrechen
-          </button>
-          <button
-            @click="handleBulkDeactivate"
-            :disabled="isBulkActionLoading"
-            class="inline-flex items-center gap-2 px-4 py-2 bg-amber-600 text-white rounded-lg hover:bg-amber-700 transition-colors disabled:opacity-50"
-          >
-            <Loader2 v-if="isBulkActionLoading" class="h-4 w-4 animate-spin" />
-            <UserX v-else class="h-4 w-4" />
-            Deaktivieren
-          </button>
+    <AppSheet v-if="showDeactivateDialog" title="Kinder deaktivieren" size="sm" @close="showDeactivateDialog = false">
+      <p class="text-sm text-muted-foreground">
+        {{ selectedIds.size }} {{ selectedIds.size === 1 ? 'Kind' : 'Kinder' }} deaktivieren? Deaktivierte Kinder
+        erscheinen nicht mehr in den Standardlisten.
+      </p>
+      <div v-if="bulkActionError" class="note note-danger mt-4"><AlertTriangle />{{ bulkActionError }}</div>
+      <template #footer>
+        <button type="button" class="btn btn-secondary" @click="showDeactivateDialog = false">Abbrechen</button>
+        <button type="button" class="btn btn-primary" :disabled="isBulkActionLoading" @click="handleBulkDeactivate">
+          <Loader2 v-if="isBulkActionLoading" class="animate-spin" />Deaktivieren
+        </button>
+      </template>
+    </AppSheet>
+
+    <AppSheet v-if="showDeleteDialog && authStore.isAdmin" title="Kinder löschen" size="sm"
+      @close="showDeleteDialog = false">
+      <div class="note note-danger">
+        <AlertTriangle />
+        <div>
+          {{ selectedIds.size }} {{ selectedIds.size === 1 ? 'Kind' : 'Kinder' }} unwiderruflich löschen? Alle
+          zugehörigen Daten (Elternverknüpfungen, Gebühreneinträge usw.) werden mitgelöscht.
         </div>
       </div>
-    </div>
-
-    <!-- Delete Confirmation Dialog (Admin only) -->
-    <div
-      v-if="showDeleteDialog && authStore.isAdmin"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
-      @click.self="showDeleteDialog = false"
-    >
-      <div class="bg-card rounded-xl shadow-xl w-full max-w-md mx-4 p-6">
-        <div class="flex items-center gap-3 mb-4">
-          <div class="w-10 h-10 bg-red-100 dark:bg-red-950/40 rounded-full flex items-center justify-center">
-            <Trash2 class="h-5 w-5 text-red-600 dark:text-red-300" />
-          </div>
-          <h2 class="text-xl font-semibold text-red-700 dark:text-red-300">Kinder löschen</h2>
-        </div>
-        
-        <div class="bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg p-4 mb-4">
-          <div class="flex items-start gap-2">
-            <AlertTriangle class="h-5 w-5 text-red-600 dark:text-red-300 flex-shrink-0 mt-0.5" />
-            <div>
-              <p class="font-semibold text-red-800 dark:text-red-300">Achtung: Permanente Löschung!</p>
-              <p class="text-sm text-red-700 dark:text-red-300 mt-1">
-                Diese Aktion kann nicht rückgängig gemacht werden. Alle zugehörigen Daten
-                (Elternverknüpfungen, Gebühreneinträge, etc.) werden ebenfalls gelöscht.
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <p class="text-muted-foreground mb-6">
-          Möchten Sie <strong>{{ selectedIds.size }}</strong> {{ selectedIds.size === 1 ? 'Kind' : 'Kinder' }} wirklich
-          <strong class="text-red-600 dark:text-red-300">unwiderruflich löschen</strong>?
-        </p>
-
-        <div v-if="bulkActionError" class="mb-4 p-3 bg-red-50 dark:bg-red-950/40 border border-red-200 rounded-lg">
-          <p class="text-sm text-red-600 dark:text-red-300">{{ bulkActionError }}</p>
-        </div>
-
-        <div class="flex justify-end gap-3">
-          <button
-            @click="showDeleteDialog = false"
-            class="px-4 py-2 text-foreground hover:bg-accent rounded-lg transition-colors"
-          >
-            Abbrechen
-          </button>
-          <button
-            @click="handleBulkDelete"
-            :disabled="isBulkActionLoading"
-            class="inline-flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
-          >
-            <Loader2 v-if="isBulkActionLoading" class="h-4 w-4 animate-spin" />
-            <Trash2 v-else class="h-4 w-4" />
-            Endgültig löschen
-          </button>
-        </div>
-      </div>
-    </div>
+      <div v-if="bulkActionError" class="note note-danger mt-4"><AlertTriangle />{{ bulkActionError }}</div>
+      <template #footer>
+        <button type="button" class="btn btn-secondary" @click="showDeleteDialog = false">Abbrechen</button>
+        <button type="button" class="btn btn-danger" :disabled="isBulkActionLoading" @click="handleBulkDelete">
+          <Loader2 v-if="isBulkActionLoading" class="animate-spin" />Endgültig löschen
+        </button>
+      </template>
+    </AppSheet>
   </div>
 </template>

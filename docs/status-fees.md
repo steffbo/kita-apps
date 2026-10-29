@@ -35,6 +35,12 @@ Basics (ports, commands, layout) live in `AGENTS.md`.
   - `components/ui/AppSheet.vue`: Dialog als Bottom Sheet auf dem Handy, zentriert ab `sm`; Esc über
     `[data-dialog-close]`, Scroll-Sperre, Fokus auf `[autofocus]` bzw. den Dialog. Grundlage für Schritt 3.
   - `index.html`: `viewport-fit=cover` (Tab-Leiste respektiert den iPhone-Home-Indikator) und `theme-color`.
+- Schritt 3, gemeinsame Bausteine: Klassen `btn`, `badge`, `note`, `card`, `chip`, `label`, `input`, `table`
+  in `main.css` und Komponenten `PageHeader`, `AppPagination`, `EmptyState` (Regeln: `docs/design/ui-kit.md`).
+  Zellen-Padding in `.table` ist absichtlich fest (Selektor schlägt Utilities). Tabellen auf dem Handy
+  scrollen seitlich statt Wörter buchstabenweise umzubrechen (`overflow-wrap: anywhere` entfernt).
+  Kinderseite als Referenz: Filter als Chips mit Gesamtzahl statt Checkboxen und Untertitel, Liste statt
+  Tabelle auf dem Handy, Dialoge als `AppSheet`, Platzhalter der Suche jetzt „Name oder Mitgliedsnummer“.
 
 ## Schnellere Release-Pipeline (2026-10-21)
 

@@ -96,8 +96,8 @@
     @apply border-input bg-card text-foreground;
   }
 
-  /* Zebra rows for all app tables; row classes (hover, status colors) still win as utilities. */
-  table:not(.data-table):not(.fee-table) > tbody > tr:nth-child(even) {
+  /* Zebra rows for tables not yet on `.table`; row classes (hover, status colors) still win as utilities. */
+  table:not(.data-table):not(.fee-table):not(.table) > tbody > tr:nth-child(even) {
     background-color: rgb(var(--muted) / 0.45);
   }
 
@@ -119,7 +119,126 @@
   }
 }
 
+/* Shared building blocks. Use these instead of per-page class strings so equal things look and behave
+   the same; utilities still win where a single instance needs an adjustment. */
 @layer components {
+  .btn {
+    @apply inline-flex h-10 shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-lg border
+      border-transparent px-4 text-sm font-medium transition-colors focus-visible:outline-none
+      focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2
+      focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-50;
+  }
+  .btn > svg {
+    @apply h-4 w-4 shrink-0;
+  }
+  .btn-primary {
+    @apply bg-primary text-primary-foreground hover:bg-primary/90;
+  }
+  .btn-secondary {
+    @apply border-border bg-card text-foreground hover:bg-accent;
+  }
+  .btn-ghost {
+    @apply px-3 text-foreground hover:bg-accent;
+  }
+  .btn-danger {
+    @apply bg-destructive text-destructive-foreground hover:bg-destructive/90;
+  }
+  .btn-danger-outline {
+    @apply border-destructive-line bg-card text-destructive hover:bg-destructive-soft;
+  }
+  .btn-sm {
+    @apply h-8 px-3 text-[13px];
+  }
+  .btn-icon {
+    @apply w-10 px-0;
+  }
+  .btn-icon.btn-sm {
+    @apply w-8;
+  }
+
+  .badge {
+    @apply inline-flex h-[22px] shrink-0 items-center gap-1 whitespace-nowrap rounded-full border
+      border-transparent bg-muted px-2 text-xs font-medium tabular-nums text-muted-foreground;
+  }
+  .badge-primary {
+    @apply bg-primary-soft text-primary-text;
+  }
+  .badge-success {
+    @apply border-success-line bg-success-soft text-success;
+  }
+  .badge-warning {
+    @apply border-warning-line bg-warning-soft text-warning;
+  }
+  .badge-danger {
+    @apply border-destructive-line bg-destructive-soft text-destructive;
+  }
+
+  /* Inline message: neutral info, or a status tone. Put the icon first, text in a <div>/<p>. */
+  .note {
+    @apply flex items-start gap-3 rounded-xl border bg-muted/60 px-4 py-3 text-sm text-foreground;
+  }
+  .note > svg {
+    @apply mt-0.5 h-4 w-4 shrink-0;
+  }
+  .note-info {
+    @apply border-transparent bg-primary-soft text-primary-text;
+  }
+  .note-success {
+    @apply border-success-line bg-success-soft text-success;
+  }
+  .note-warning {
+    @apply border-warning-line bg-warning-soft text-warning;
+  }
+  .note-danger {
+    @apply border-destructive-line bg-destructive-soft text-destructive;
+  }
+
+  .card {
+    @apply rounded-xl border bg-card text-card-foreground;
+  }
+
+  /* Filter chip; mark the active one with aria-pressed="true". */
+  .chip {
+    @apply inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border bg-card px-3
+      text-[13px] font-medium text-foreground transition-colors hover:bg-accent;
+  }
+  .chip[aria-pressed="true"] {
+    @apply border-transparent bg-primary-soft text-primary-text hover:bg-primary-soft;
+  }
+  .chip > .chip-count {
+    @apply tabular-nums text-muted-foreground;
+  }
+  .chip[aria-pressed="true"] > .chip-count {
+    @apply text-primary-text/75;
+  }
+
+  .label {
+    @apply mb-1.5 block text-[13px] font-medium text-foreground;
+  }
+  .input {
+    @apply h-10 w-full rounded-lg border border-input bg-card px-3 text-sm text-foreground
+      placeholder:text-muted-foreground focus:border-primary focus:outline-none focus:ring-[3px]
+      focus:ring-primary/20 disabled:cursor-not-allowed disabled:opacity-60;
+  }
+  textarea.input {
+    @apply h-auto py-2;
+  }
+
+  /* Data table inside a .card: quiet header and row lines. The cell padding is fixed on purpose
+     (the selectors outrank utilities), so every table has the same rhythm. */
+  .table {
+    @apply w-full border-collapse text-sm;
+  }
+  .table > thead > tr > th {
+    @apply whitespace-nowrap border-b px-4 py-2.5 text-left text-xs font-medium text-muted-foreground;
+  }
+  .table > tbody > tr > td {
+    @apply border-b px-4 py-2.5;
+  }
+  .table > tbody > tr:last-child > td {
+    @apply border-b-0;
+  }
+
   .overflow-x-auto {
     max-width: 100%;
     -webkit-overflow-scrolling: touch;
@@ -132,9 +251,13 @@
     font-size: 0.8125rem;
   }
 
-  th,
+  /* Tables scroll sideways (wrapped in .overflow-x-auto) instead of breaking words letter by letter. */
+  th {
+    white-space: nowrap;
+  }
+
   td {
-    overflow-wrap: anywhere;
+    overflow-wrap: break-word;
   }
 
   th[class*="px-4"],

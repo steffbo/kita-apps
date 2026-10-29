@@ -15,7 +15,7 @@ test('admin sets the exit date for several selected children at once', async ({ 
   }
 
   await page.goto('/beitraege/kinder');
-  await page.getByPlaceholder('Suchen nach Name oder Mitgliedsnummer...').fill(`Austritt${suffix}`);
+  await page.getByPlaceholder('Name oder Mitgliedsnummer').fill(`Austritt${suffix}`);
   const rows = page.getByRole('row', { name: new RegExp(`Austritt${suffix}`) });
   await expect(rows).toHaveCount(2);
   // Check by name: the list may re-sort while hint counts load.

@@ -50,7 +50,7 @@ const widths = { sm: 'sm:max-w-sm', md: 'sm:max-w-lg', lg: 'sm:max-w-2xl' };
           <slot />
         </div>
         <div v-if="$slots.footer"
-          class="flex shrink-0 items-center justify-end gap-2 border-t px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-5">
+          class="flex shrink-0 items-center justify-end gap-2 border-t px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-5 max-sm:[&>.btn]:h-11 max-sm:[&>.btn]:flex-1">
           <slot name="footer" />
         </div>
       </div>
