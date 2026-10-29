@@ -7,12 +7,8 @@ export default {
   ],
   theme: {
     extend: {
-      fontFamily: { sans: ['Nunito Variable', 'sans-serif'] },
+      fontFamily: { sans: ['Inter Variable', 'system-ui', '-apple-system', 'Segoe UI', 'sans-serif'] },
       colors: {
-        brand: {
-          50: '#f5fbe9', 200: '#d4ecc0', 800: '#4a7a3a',
-        },
-        header: { DEFAULT: 'rgb(var(--header) / <alpha-value>)', foreground: 'rgb(var(--header-foreground) / <alpha-value>)' },
         border: 'rgb(var(--border) / <alpha-value>)',
         input: 'rgb(var(--input) / <alpha-value>)',
         ring: 'rgb(var(--ring) / <alpha-value>)',
@@ -21,14 +17,18 @@ export default {
         primary: {
           DEFAULT: 'rgb(var(--primary) / <alpha-value>)',
           foreground: 'rgb(var(--primary-foreground) / <alpha-value>)',
+          soft: 'var(--primary-soft)',
+          text: 'rgb(var(--primary-text) / <alpha-value>)',
         },
         secondary: {
           DEFAULT: 'rgb(var(--secondary) / <alpha-value>)',
           foreground: 'rgb(var(--secondary-foreground) / <alpha-value>)',
         },
         destructive: {
-          DEFAULT: 'hsl(var(--destructive) / <alpha-value>)',
-          foreground: 'hsl(var(--destructive-foreground) / <alpha-value>)',
+          DEFAULT: 'rgb(var(--destructive) / <alpha-value>)',
+          foreground: 'rgb(var(--destructive-foreground) / <alpha-value>)',
+          soft: 'var(--destructive-soft)',
+          line: 'var(--destructive-line)',
         },
         muted: {
           DEFAULT: 'rgb(var(--muted) / <alpha-value>)',
@@ -49,13 +49,18 @@ export default {
         success: {
           DEFAULT: 'rgb(var(--success) / <alpha-value>)',
           foreground: 'rgb(var(--success-foreground) / <alpha-value>)',
+          soft: 'var(--success-soft)',
+          line: 'var(--success-line)',
         },
         warning: {
-          DEFAULT: 'hsl(var(--warning) / <alpha-value>)',
-          foreground: 'hsl(var(--warning-foreground) / <alpha-value>)',
+          DEFAULT: 'rgb(var(--warning) / <alpha-value>)',
+          foreground: 'rgb(var(--warning-foreground) / <alpha-value>)',
+          soft: 'var(--warning-soft)',
+          line: 'var(--warning-line)',
         },
       },
       borderRadius: {
+        xl: 'calc(var(--radius) + 2px)',
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',

@@ -3,6 +3,18 @@
 Rolling change log of non-obvious implementation decisions. Newest first.
 Basics (ports, commands, layout) live in `AGENTS.md`.
 
+## UI-Redesign: neutrale Basis, Indigo, Inter (2026-10-29)
+
+- Anlass: Die App wirkte wie die verspielte Webseite knirpsenstadt.de (Grün, Nunito, runde Formen). Ziel ist
+  ein ruhiges, professionelles Werkzeug, hell und dunkel gleichwertig, mobil zuerst. Referenz-Entwurf:
+  `docs/design/ui-mockup.html` (interaktiv, Zustände per Hash, z. B. `#wide&dark&page=kinder`).
+- Schritt 1, Farben und Schrift: Zink-Grautöne als Basis, eine Akzentfarbe Indigo (hell `#4f46e5`, dunkel
+  `#818cf8`). Grün, Gelb und Rot tragen nur noch Status (bezahlt, offen, überfällig) und haben je Ton,
+  Hintergrund und Rahmen als Token (`success|warning|destructive` mit `-soft`/`-line`, dazu `primary-soft`
+  und `primary-text`). `brand-*` und `header` sind entfernt. Schrift Inter statt Nunito, Ziffern in Tabellen
+  und Eingaben tabellarisch, Radius 10 px. Eingaben auf schmalen Bildschirmen 16 px, sonst zoomt iOS Safari
+  beim Fokus hinein.
+
 ## Schnellere Release-Pipeline (2026-10-21)
 
 - Ausgangslage: Push bis Image ca. 3:45 min. Kritischer Pfad war `e2e-beitraege` (gut 2 min, davon 36 s

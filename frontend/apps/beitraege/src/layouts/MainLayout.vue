@@ -134,7 +134,7 @@ function onPasswordChanged() {
 
 <template>
   <div class="min-h-screen min-w-0 bg-background">
-    <header class="sticky top-0 z-50 border-b border-brand-200 bg-header text-header-foreground shadow-sm">
+    <header class="sticky top-0 z-50 border-b border-border bg-card text-foreground shadow-sm">
       <div class="mx-auto flex max-w-7xl items-center gap-4 px-4 py-2 sm:px-6">
         <RouterLink :to="authStore.isParent ? '/familie' : '/'" class="flex shrink-0 items-center gap-2 rounded-full focus-visible:ring-2 focus-visible:ring-ring">
           <img :src="logo" alt="" class="h-10 w-10 rounded-full object-cover" />
@@ -143,15 +143,15 @@ function onPasswordChanged() {
 
         <nav aria-label="Hauptnavigation" class="hidden min-w-0 flex-1 items-center justify-center gap-1 lg:flex">
           <RouterLink v-for="item in authStore.isParent ? parentLinks : []" :key="item.to"
-            :to="item.to" class="rounded-full px-3 py-2 text-sm font-bold hover:bg-brand-50/70
-              dark:hover:bg-brand-800" :class="{ 'bg-brand-50/80 dark:bg-brand-800': isActive(item.to) }">
+            :to="item.to" class="rounded-full px-3 py-2 text-sm font-bold hover:bg-accent
+" :class="{ 'bg-accent': isActive(item.to) }">
             {{ item.name }}
           </RouterLink>
           <div v-for="group in navGroups" :key="group.label" class="relative" data-header-menu>
             <RouterLink
               v-if="group.items.length === 1" :to="group.items[0].to"
-              class="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold hover:bg-brand-50/70 dark:hover:bg-brand-800"
-              :class="{ 'bg-brand-50/80 dark:bg-brand-800': groupActive(group.items) }"
+              class="flex items-center gap-2 rounded-full px-4 py-2 text-sm font-bold hover:bg-accent"
+              :class="{ 'bg-accent': groupActive(group.items) }"
             >
               <component :is="group.items[0].icon" class="h-4 w-4" />
               {{ group.items[0].name }}
@@ -159,15 +159,15 @@ function onPasswordChanged() {
             <template v-else>
               <!-- Split button: the label opens the group's first page, the chevron lists all pages. -->
               <div
-                class="flex items-center rounded-full hover:bg-brand-50/70 dark:hover:bg-brand-800"
-                :class="{ 'bg-brand-50/80 dark:bg-brand-800': groupActive(group.items) }"
+                class="flex items-center rounded-full hover:bg-accent"
+                :class="{ 'bg-accent': groupActive(group.items) }"
               >
                 <RouterLink
                   :to="group.items[0].to"
                   class="rounded-l-full py-2 pl-4 pr-2 text-sm font-bold"
                   @click="closeMenus"
                 >{{ group.label }}</RouterLink>
-                <span aria-hidden="true" class="h-5 w-px bg-header-foreground/25" />
+                <span aria-hidden="true" class="h-5 w-px bg-border" />
                 <button
                   type="button" class="rounded-r-full py-2 pl-1.5 pr-3"
                   :aria-label="`${group.label}: alle Seiten`"
@@ -203,7 +203,7 @@ function onPasswordChanged() {
             <span class="md:hidden">Impersonation</span>
           </div>
           <button
-            type="button" class="rounded-full p-2 hover:bg-brand-50/70 dark:hover:bg-accent"
+            type="button" class="rounded-full p-2 hover:bg-accent"
             :aria-label="'Design: ' + (mode === 'system' ? 'System' : mode === 'light' ? 'Hell' : 'Dunkel') + '. Umschalten'"
             :title="'Design: ' + (mode === 'system' ? 'System' : mode === 'light' ? 'Hell' : 'Dunkel')"
             @click="cycleTheme"
@@ -215,7 +215,7 @@ function onPasswordChanged() {
           <div class="relative" data-header-menu>
             <button
               type="button" aria-label="Benutzermenü" :aria-expanded="openMenu === 'Benutzer'"
-              class="flex items-center gap-2 rounded-full px-2 py-1 hover:bg-brand-50/70 dark:hover:bg-accent"
+              class="flex items-center gap-2 rounded-full px-2 py-1 hover:bg-accent"
               @click="openMenu = openMenu === 'Benutzer' ? null : 'Benutzer'"
             >
               <UserCircle class="h-7 w-7" />
@@ -239,7 +239,7 @@ function onPasswordChanged() {
             </div>
           </div>
           <button
-            type="button" class="rounded-full p-2 hover:bg-brand-50/70 lg:hidden"
+            type="button" class="rounded-full p-2 hover:bg-accent lg:hidden"
             :aria-label="mobileMenuOpen ? 'Menü schließen' : 'Menü öffnen'"
             :aria-expanded="mobileMenuOpen" @click="mobileMenuOpen = !mobileMenuOpen"
           >
@@ -249,16 +249,16 @@ function onPasswordChanged() {
         </div>
       </div>
       <nav v-if="mobileMenuOpen" aria-label="Mobile Navigation"
-        class="max-h-[calc(100vh-4rem)] overflow-y-auto border-t bg-header px-4 py-4 lg:hidden">
+        class="max-h-[calc(100vh-4rem)] overflow-y-auto border-t bg-card px-4 py-4 lg:hidden">
         <RouterLink v-for="item in authStore.isParent ? parentLinks : []" :key="item.to"
           :to="item.to" class="block rounded-xl px-3 py-2 text-sm font-bold
-            hover:bg-brand-50/70 dark:hover:bg-brand-800" @click="closeMenus">{{ item.name }}</RouterLink>
+            hover:bg-accent" @click="closeMenus">{{ item.name }}</RouterLink>
         <div v-for="group in navGroups" :key="group.label" class="mb-4">
           <p class="mb-1 px-3 text-xs font-bold uppercase tracking-wide">{{ group.label }}</p>
           <RouterLink
             v-for="item in group.items" :key="item.to" :to="item.to"
-            class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm hover:bg-brand-50/70 dark:hover:bg-brand-800"
-            :class="{ 'bg-brand-50/80 font-bold': isActive(item.to) }" @click="closeMenus"
+            class="flex items-center gap-3 rounded-xl px-3 py-2 text-sm hover:bg-accent"
+            :class="{ 'bg-accent font-bold': isActive(item.to) }" @click="closeMenus"
           ><component :is="item.icon" class="h-4 w-4" />{{ item.name }}</RouterLink>
         </div>
       </nav>

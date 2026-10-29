@@ -53,7 +53,8 @@ start_db() {
     -e POSTGRES_USER=kita -e POSTGRES_PASSWORD=kita -e POSTGRES_DB=kita \
     -p "127.0.0.1:$DB_PORT:5432" postgres:16-alpine >/dev/null
   for _ in $(seq 1 60); do
-    docker exec "$DB_CONTAINER" pg_isready -U kita -d kita >/dev/null 2>&1 && return
+    # Over TCP: the image's init phase runs a socket-only server that would pass too early.
+    docker exec "$DB_CONTAINER" pg_isready -h 127.0.0.1 -U kita -d kita >/dev/null 2>&1 && return
     sleep 0.5
   done
   log "database did not become ready"; exit 1

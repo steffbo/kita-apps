@@ -74,14 +74,14 @@ async function handleSubmit() {
 
           <!-- Error message -->
           <div v-if="authStore.error" class="rounded-xl border border-destructive/30 bg-destructive/10 p-3">
-            <p class="text-sm text-destructive dark:text-destructive-foreground">{{ authStore.error }}</p>
+            <p class="text-sm text-destructive">{{ authStore.error }}</p>
           </div>
 
           <!-- Submit button -->
           <button
             type="submit"
             :disabled="authStore.isLoading"
-            class="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 font-medium text-primary-foreground transition-colors hover:bg-brand-800 focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 dark:hover:bg-brand-200"
+            class="flex w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-2.5 font-medium text-primary-foreground transition-colors hover:bg-primary/90 focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           >
             <Loader2 v-if="authStore.isLoading" class="h-4 w-4 animate-spin" />
             {{ authStore.isLoading ? 'Anmelden...' : 'Anmelden' }}

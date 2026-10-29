@@ -5,62 +5,74 @@
 @layer base {
   :root {
     color-scheme: light;
-    /* Neutral page background so the white content surfaces stand out; green stays in header and accents. */
-    --background: 244 245 241;
-    --foreground: 36 51 41;
+    /* Neutral zinc base, one accent (Indigo); green/amber/red only carry status. */
+    --background: 250 250 250;
+    --foreground: 24 24 27;
     --card: 255 255 255;
-    --card-foreground: 36 51 41;
+    --card-foreground: 24 24 27;
     --popover: 255 255 255;
-    --popover-foreground: 36 51 41;
-    --primary: 93 152 71;
+    --popover-foreground: 24 24 27;
+    --primary: 79 70 229;
     --primary-foreground: 255 255 255;
-    --secondary: 234 246 211;
-    --secondary-foreground: 36 51 41;
-    --muted: 234 246 211;
-    --muted-foreground: 74 122 58;
-    --accent: 234 246 211;
-    --accent-foreground: 36 51 41;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --success: 93 152 71;
+    --primary-soft: rgb(238 242 255);
+    --primary-text: 67 56 202;
+    --secondary: 244 244 245;
+    --secondary-foreground: 24 24 27;
+    --muted: 244 244 245;
+    --muted-foreground: 113 113 122;
+    --accent: 244 244 245;
+    --accent-foreground: 24 24 27;
+    --success: 21 128 61;
     --success-foreground: 255 255 255;
-    --warning: 38 92% 50%;
-    --warning-foreground: 48 96% 89%;
-    --border: 212 236 192;
-    --input: 212 236 192;
-    --ring: 134 192 106;
-    --header: 218 239 180;
-    --header-foreground: 36 51 41;
-    --radius: 1rem;
+    --success-soft: rgb(240 253 244);
+    --success-line: rgb(187 247 208);
+    --warning: 180 83 9;
+    --warning-foreground: 255 255 255;
+    --warning-soft: rgb(255 251 235);
+    --warning-line: rgb(253 230 138);
+    --destructive: 185 28 28;
+    --destructive-foreground: 255 255 255;
+    --destructive-soft: rgb(254 242 242);
+    --destructive-line: rgb(254 202 202);
+    --border: 228 228 231;
+    --input: 212 212 216;
+    --ring: 99 102 241;
+    --radius: 0.625rem;
   }
 
   .dark {
     color-scheme: dark;
-    --background: 36 51 41;
-    --foreground: 245 251 233;
-    --card: 44 61 48;
-    --card-foreground: 245 251 233;
-    --popover: 53 72 54;
-    --popover-foreground: 245 251 233;
-    --primary: 168 217 138;
-    --primary-foreground: 36 51 41;
-    --secondary: 53 72 54;
-    --secondary-foreground: 245 251 233;
-    --muted: 53 72 54;
-    --muted-foreground: 220 235 213;
-    --accent: 53 72 54;
-    --accent-foreground: 245 251 233;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --success: 168 217 138;
-    --success-foreground: 36 51 41;
-    --warning: 48 96% 89%;
-    --warning-foreground: 38 92% 50%;
-    --border: 74 122 58;
-    --input: 74 122 58;
-    --ring: 134 192 106;
-    --header: 53 72 54;
-    --header-foreground: 245 251 233;
+    --background: 9 9 11;
+    --foreground: 250 250 250;
+    --card: 20 20 23;
+    --card-foreground: 250 250 250;
+    --popover: 24 24 27;
+    --popover-foreground: 250 250 250;
+    --primary: 129 140 248;
+    --primary-foreground: 17 16 51;
+    --primary-soft: rgb(129 140 248 / 0.15);
+    --primary-text: 165 180 252;
+    --secondary: 35 35 39;
+    --secondary-foreground: 250 250 250;
+    --muted: 35 35 39;
+    --muted-foreground: 161 161 170;
+    --accent: 35 35 39;
+    --accent-foreground: 250 250 250;
+    --success: 74 222 128;
+    --success-foreground: 5 46 22;
+    --success-soft: rgb(34 197 94 / 0.1);
+    --success-line: rgb(34 197 94 / 0.25);
+    --warning: 251 191 36;
+    --warning-foreground: 69 26 3;
+    --warning-soft: rgb(245 158 11 / 0.1);
+    --warning-line: rgb(245 158 11 / 0.25);
+    --destructive: 248 113 113;
+    --destructive-foreground: 69 10 10;
+    --destructive-soft: rgb(239 68 68 / 0.1);
+    --destructive-line: rgb(239 68 68 / 0.28);
+    --border: 39 39 42;
+    --input: 63 63 70;
+    --ring: 129 140 248;
   }
 }
 
@@ -95,8 +107,15 @@
   }
 
   body {
-    @apply bg-background font-sans text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    @apply bg-background font-sans text-foreground antialiased;
+    font-feature-settings: "cv11" 1, "ss01" 1;
+  }
+
+  /* Amounts, dates and counts line up in columns. */
+  table,
+  input,
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
   }
 }
 
@@ -124,7 +143,10 @@
     padding-right: 0.75rem;
   }
 
-  .rounded-xl {
-    border-radius: 0.625rem;
+  /* 16px keeps iOS Safari from zooming into focused fields. */
+  input:not([type="checkbox"]):not([type="radio"]),
+  select,
+  textarea {
+    font-size: 1rem;
   }
 }

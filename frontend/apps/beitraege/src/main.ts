@@ -5,7 +5,7 @@ import App from './App.vue';
 import router from './router';
 import { installDialogEscape } from './utils/dialogEscape';
 import { installGermanValidation } from './utils/germanValidation';
-import '@fontsource-variable/nunito';
+import '@fontsource-variable/inter';
 
 import './assets/main.css';
 
