@@ -16,18 +16,13 @@
     --primary-foreground: 255 255 255;
     --primary-soft: rgb(238 242 255);
     --primary-text: 67 56 202;
-    --secondary: 244 244 245;
-    --secondary-foreground: 24 24 27;
     --muted: 244 244 245;
     --muted-foreground: 113 113 122;
     --accent: 244 244 245;
-    --accent-foreground: 24 24 27;
     --success: 21 128 61;
-    --success-foreground: 255 255 255;
     --success-soft: rgb(240 253 244);
     --success-line: rgb(187 247 208);
     --warning: 180 83 9;
-    --warning-foreground: 255 255 255;
     --warning-soft: rgb(255 251 235);
     --warning-line: rgb(253 230 138);
     --destructive: 185 28 28;
@@ -52,18 +47,13 @@
     --primary-foreground: 17 16 51;
     --primary-soft: rgb(129 140 248 / 0.15);
     --primary-text: 165 180 252;
-    --secondary: 35 35 39;
-    --secondary-foreground: 250 250 250;
     --muted: 35 35 39;
     --muted-foreground: 161 161 170;
     --accent: 35 35 39;
-    --accent-foreground: 250 250 250;
     --success: 74 222 128;
-    --success-foreground: 5 46 22;
     --success-soft: rgb(34 197 94 / 0.1);
     --success-line: rgb(34 197 94 / 0.25);
     --warning: 251 191 36;
-    --warning-foreground: 69 26 3;
     --warning-soft: rgb(245 158 11 / 0.1);
     --warning-line: rgb(245 158 11 / 0.25);
     --destructive: 248 113 113;
@@ -94,11 +84,6 @@
   select,
   textarea {
     @apply border-input bg-card text-foreground;
-  }
-
-  /* Zebra rows for tables not yet on `.table`; row classes (hover, status colors) still win as utilities. */
-  table:not(.data-table):not(.fee-table):not(.table) > tbody > tr:nth-child(even) {
-    background-color: rgb(var(--muted) / 0.45);
   }
 
   input[type="checkbox"],
@@ -230,7 +215,11 @@
     @apply w-full border-collapse text-sm;
   }
   .table > thead > tr > th {
-    @apply whitespace-nowrap border-b px-4 py-2.5 text-left text-xs font-medium text-muted-foreground;
+    @apply whitespace-nowrap border-b px-4 py-2.5 text-xs font-medium text-muted-foreground;
+  }
+  /* Zero specificity, so `text-right` on a header cell still wins. */
+  :where(.table > thead > tr > th) {
+    text-align: left;
   }
   .table > tbody > tr > td {
     @apply border-b px-4 py-2.5;
@@ -258,12 +247,6 @@
 
   td {
     overflow-wrap: break-word;
-  }
-
-  th[class*="px-4"],
-  td[class*="px-4"] {
-    padding-left: 0.75rem;
-    padding-right: 0.75rem;
   }
 
   /* 16px keeps iOS Safari from zooming into focused fields. */

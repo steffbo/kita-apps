@@ -20,10 +20,6 @@ export default {
           soft: 'var(--primary-soft)',
           text: 'rgb(var(--primary-text) / <alpha-value>)',
         },
-        secondary: {
-          DEFAULT: 'rgb(var(--secondary) / <alpha-value>)',
-          foreground: 'rgb(var(--secondary-foreground) / <alpha-value>)',
-        },
         destructive: {
           DEFAULT: 'rgb(var(--destructive) / <alpha-value>)',
           foreground: 'rgb(var(--destructive-foreground) / <alpha-value>)',
@@ -34,10 +30,7 @@ export default {
           DEFAULT: 'rgb(var(--muted) / <alpha-value>)',
           foreground: 'rgb(var(--muted-foreground) / <alpha-value>)',
         },
-        accent: {
-          DEFAULT: 'rgb(var(--accent) / <alpha-value>)',
-          foreground: 'rgb(var(--accent-foreground) / <alpha-value>)',
-        },
+        accent: 'rgb(var(--accent) / <alpha-value>)',
         popover: {
           DEFAULT: 'rgb(var(--popover) / <alpha-value>)',
           foreground: 'rgb(var(--popover-foreground) / <alpha-value>)',
@@ -48,13 +41,11 @@ export default {
         },
         success: {
           DEFAULT: 'rgb(var(--success) / <alpha-value>)',
-          foreground: 'rgb(var(--success-foreground) / <alpha-value>)',
           soft: 'var(--success-soft)',
           line: 'var(--success-line)',
         },
         warning: {
           DEFAULT: 'rgb(var(--warning) / <alpha-value>)',
-          foreground: 'rgb(var(--warning-foreground) / <alpha-value>)',
           soft: 'var(--warning-soft)',
           line: 'var(--warning-line)',
         },

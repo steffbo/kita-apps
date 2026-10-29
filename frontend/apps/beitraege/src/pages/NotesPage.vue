@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, computed, watch } from 'vue';
+import { onMounted } from 'vue';
 import { api } from '@/api';
 import type { ChildNote } from '@/api/types';
 import {
@@ -11,67 +11,22 @@ import { formatDateTime } from '@/utils/format';
 import AppPagination from '@/components/ui/AppPagination.vue';
 import PageHeader from '@/components/ui/PageHeader.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
+import { usePagedList } from '@/composables/usePagedList';
 
-// Data
-const notes = ref<ChildNote[]>([]);
-const total = ref(0);
-const isLoading = ref(true);
-const error = ref<string | null>(null);
+const {
+  items: notes,
+  total,
+  isLoading,
+  error,
+  currentPage,
+  pageSize,
+  totalPages,
+  offset,
+  load: loadNotes,
+  goToPage,
+} = usePagedList<ChildNote>({ fetchPage: pagination => api.getNotes(pagination) });
 
-// Pagination
-const currentPage = ref(1);
-const pageSize = ref(25);
-const pageSizeOptions = [10, 25, 50, 100];
-
-const totalPages = computed(() => Math.ceil(total.value / pageSize.value));
-const offset = computed(() => (currentPage.value - 1) * pageSize.value);
-
-let loadNotesSeq = 0;
-async function loadNotes() {
-  const seq = ++loadNotesSeq;
-  isLoading.value = true;
-  error.value = null;
-  try {
-    const response = await api.getNotes({
-      page: currentPage.value,
-      perPage: pageSize.value,
-    });
-    if (seq !== loadNotesSeq) return; // a newer request superseded this one
-    notes.value = response.data;
-    total.value = response.total;
-
-    // If the current page ran empty (e.g. after deletes), fall back to the last valid page
-    if (response.data.length === 0 && currentPage.value > 1 && response.total > 0) {
-      currentPage.value = Math.max(1, Math.ceil(response.total / pageSize.value));
-      return;
-    }
-  } catch (e) {
-    if (seq !== loadNotesSeq) return;
-    error.value = e instanceof Error ? e.message : 'Fehler beim Laden';
-  } finally {
-    if (seq === loadNotesSeq) isLoading.value = false;
-  }
-}
-
-// Reload when pagination changes
-watch([currentPage, pageSize], () => {
-  loadNotes();
-});
-
-function goToPage(page: number) {
-  if (page >= 1 && page <= totalPages.value) {
-    currentPage.value = page;
-  }
-}
-
-// Change of page size restarts at page 1
-function handlePageSizeChange() {
-  currentPage.value = 1;
-}
-
-onMounted(() => {
-  loadNotes();
-});
+onMounted(loadNotes);
 
 // Helpers
 
@@ -107,7 +62,7 @@ function isEdited(note: ChildNote): boolean {
       <AlertTriangle />
       <div>
         <p>{{ error }}</p>
-      <button class="btn btn-secondary btn-sm" @click="loadNotes">Erneut versuchen</button>
+        <button class="btn btn-secondary btn-sm" @click="loadNotes">Erneut versuchen</button>
       </div>
     </div>
     <div v-else class="card overflow-hidden">
@@ -153,7 +108,7 @@ function isEdited(note: ChildNote): boolean {
         </table>
       </div>
       <AppPagination v-model:page-size="pageSize" :current-page="currentPage" :total-pages="totalPages"
-        :total="total" :offset="offset" :page-size-options="pageSizeOptions" @go="goToPage" @update:page-size="handlePageSizeChange" />
+        :total="total" :offset="offset" @go="goToPage" />
     </div>
   </div>
 </template>

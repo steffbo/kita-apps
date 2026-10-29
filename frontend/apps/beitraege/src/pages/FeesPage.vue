@@ -25,19 +25,14 @@ import GenerateFeesDialog from '@/components/fees/GenerateFeesDialog.vue';
 import CreateFeeDialog from '@/components/fees/CreateFeeDialog.vue';
 import SearchInput from '@/components/SearchInput.vue';
 import SortTh from '@/components/SortTh.vue';
+import { usePagedList } from '@/composables/usePagedList';
 
 const router = useRouter();
 const route = useRoute();
 
-const fees = ref<FeeExpectation[]>([]);
-const total = ref(0);
-const isLoading = ref(true);
-const error = ref<string | null>(null);
-
 const selectedType = ref<string>('');
 const selectedStatus = ref<'open' | 'paid' | 'all'>('open');
 const searchQuery = ref('');
-const debouncedSearch = ref('');
 
 type FeeSortKey = 'memberNumber' | 'childName' | 'feeType' | 'period' | 'amount';
 const sortBy = ref<FeeSortKey>('period');
@@ -50,15 +45,35 @@ const defaultSortDir: Record<FeeSortKey, 'asc' | 'desc'> = {
   amount: 'desc',
 };
 
+const {
+  items: fees,
+  total,
+  isLoading,
+  error,
+  currentPage,
+  pageSize,
+  selectedIds: selectedFeeIds,
+  totalPages,
+  offset,
+  load: loadFees,
+  goToPage,
+  goToFirstPageAndLoad,
+  handleSearchInput,
+} = usePagedList<FeeExpectation>({
+  fetchPage: ({ page, perPage }) => api.getFees({
+    feeType: selectedType.value || undefined,
+    status: selectedStatus.value !== 'all' ? selectedStatus.value : undefined,
+    search: searchQuery.value || undefined,
+    page,
+    perPage,
+    sortBy: sortBy.value,
+    sortDir: sortDir.value,
+  }),
+});
+
 const showGenerateDialog = ref(false);
 
-// Pagination
-const currentPage = ref(1);
-const pageSize = ref(25);
-const pageSizeOptions = [10, 25, 50, 100];
-
 // Selection state
-const selectedFeeIds = ref<Set<string>>(new Set());
 const isDeleting = ref(false);
 const showDeleteConfirm = ref(false);
 
@@ -96,57 +111,6 @@ const selectedDeletableCount = computed(() => {
   }).length;
 });
 
-// Computed pagination helpers
-const totalPages = computed(() => Math.ceil(total.value / pageSize.value));
-const offset = computed(() => (currentPage.value - 1) * pageSize.value);
-
-// Debounce timer for search
-let searchDebounceTimer: ReturnType<typeof setTimeout> | null = null;
-
-function handleSearchInput() {
-  if (searchDebounceTimer) {
-    clearTimeout(searchDebounceTimer);
-  }
-  searchDebounceTimer = setTimeout(() => {
-    debouncedSearch.value = searchQuery.value;
-    currentPage.value = 1;
-    loadFees();
-  }, 150);
-}
-
-let loadFeesSeq = 0;
-async function loadFees() {
-  const seq = ++loadFeesSeq;
-  isLoading.value = true;
-  error.value = null;
-  selectedFeeIds.value = new Set(); // Clear selection on reload
-  try {
-    const response = await api.getFees({
-      feeType: selectedType.value || undefined,
-      status: selectedStatus.value !== 'all' ? selectedStatus.value : undefined,
-      search: debouncedSearch.value || undefined,
-      page: currentPage.value,
-      perPage: pageSize.value,
-      sortBy: sortBy.value,
-      sortDir: sortDir.value,
-    });
-    if (seq !== loadFeesSeq) return; // a newer request superseded this one
-    fees.value = response.data;
-    total.value = response.total;
-
-    // If the current page ran empty (e.g. after deletes), fall back to the last valid page
-    if (response.data.length === 0 && currentPage.value > 1 && response.total > 0) {
-      currentPage.value = Math.max(1, Math.ceil(response.total / pageSize.value));
-      return;
-    }
-  } catch (e) {
-    if (seq !== loadFeesSeq) return;
-    error.value = e instanceof Error ? e.message : 'Fehler beim Laden';
-  } finally {
-    if (seq === loadFeesSeq) isLoading.value = false;
-  }
-}
-
 function toggleSort(column: FeeSortKey) {
   if (sortBy.value === column) {
     sortDir.value = sortDir.value === 'asc' ? 'desc' : 'asc';
@@ -158,24 +122,16 @@ function toggleSort(column: FeeSortKey) {
 
 function setTypeFilter(value: string) {
   selectedType.value = value;
-  currentPage.value = 1;
-  loadFees();
+  goToFirstPageAndLoad();
 }
 
 function setStatusFilter(value: 'open' | 'paid' | 'all') {
   selectedStatus.value = value;
-  currentPage.value = 1;
-  loadFees();
+  goToFirstPageAndLoad();
 }
 
 function goToChild(childId: string) {
   router.push(`/kinder/${childId}`);
-}
-
-function goToPage(page: number) {
-  if (page >= 1 && page <= totalPages.value) {
-    currentPage.value = page;
-  }
 }
 
 onMounted(() => {
@@ -193,16 +149,8 @@ onMounted(() => {
   loadFees();
 });
 
-// Reload when pagination changes
-watch([currentPage, pageSize], () => {
-  loadFees();
-});
-
 // Reload when sort changes
-watch([sortBy, sortDir], () => {
-  currentPage.value = 1;
-  loadFees();
-});
+watch([sortBy, sortDir], goToFirstPageAndLoad);
 
 function getStatusInfo(fee: FeeExpectation) {
   if (fee.isPaid) {
@@ -584,7 +532,6 @@ async function onFeeCreated() {
         :total-pages="totalPages"
         :total="total"
         :offset="offset"
-        :page-size-options="pageSizeOptions"
         @go="goToPage" />
     </div>
     <GenerateFeesDialog v-if="showGenerateDialog" @close="showGenerateDialog = false" @generated="loadFees" />

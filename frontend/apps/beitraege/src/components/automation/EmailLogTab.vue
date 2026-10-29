@@ -129,23 +129,23 @@ function toggleEmailLogsSort(): void {
     </div>
 
     <div v-else class="overflow-x-auto card">
-      <table class="w-full table-fixed text-sm">
-        <thead class="bg-muted">
-          <tr class="text-left text-muted-foreground">
-            <th class="w-48 px-4 py-3 font-medium">Zeitpunkt</th>
-            <th class="w-48 px-4 py-3 font-medium">Typ</th>
-            <th class="px-4 py-3 font-medium">Empfänger</th>
-            <th class="px-4 py-3 font-medium">Betreff</th>
-            <th class="w-36 px-4 py-3 font-medium">Inhalt</th>
+      <table class="table table-fixed">
+        <thead>
+          <tr>
+            <th class="w-48">Zeitpunkt</th>
+            <th class="w-48">Typ</th>
+            <th>Empfänger</th>
+            <th>Betreff</th>
+            <th class="w-36">Inhalt</th>
           </tr>
         </thead>
         <tbody>
-          <tr v-for="log in emailLogs" :key="log.id" class="border-t align-top">
-            <td class="px-4 py-3 whitespace-nowrap">{{ formatDateTime(log.sentAt) }}</td>
-            <td class="px-4 py-3 whitespace-nowrap">{{ formatEmailType(log.emailType) }}</td>
-            <td class="px-4 py-3 truncate" :title="log.toEmail">{{ log.toEmail }}</td>
-            <td class="px-4 py-3 truncate" :title="log.subject">{{ log.subject }}</td>
-            <td class="px-4 py-3">
+          <tr v-for="log in emailLogs" :key="log.id" class="align-top">
+            <td class="whitespace-nowrap">{{ formatDateTime(log.sentAt) }}</td>
+            <td class="whitespace-nowrap">{{ formatEmailType(log.emailType) }}</td>
+            <td class="truncate" :title="log.toEmail">{{ log.toEmail }}</td>
+            <td class="truncate" :title="log.subject">{{ log.subject }}</td>
+            <td>
               <button
                 type="button"
                 class="inline-flex items-center gap-1.5 text-primary hover:underline"

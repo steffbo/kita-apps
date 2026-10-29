@@ -1,5 +1,5 @@
 import type { Einstufung } from '@/api/types';
-import { formatEuroAmount, formatMonthYear } from '@/utils/format';
+import { formatCareType, formatEuroAmount, formatMonthYear } from '@/utils/format';
 
 const BASIS_LABEL: Record<Einstufung['incomeBasis'], string> = {
   INCOME: 'nach eurem Einkommen',
@@ -7,15 +7,11 @@ const BASIS_LABEL: Record<Einstufung['incomeBasis'], string> = {
   NOT_REQUIRED: 'ohne Einkommensnachweis (Kindergarten)',
 };
 
-function careTypeLabel(careType: string): string {
-  return careType === 'kindergarten' ? 'Kindergarten' : 'Krippe';
-}
-
 /** What changed from `previous` to `current`, one line per fee-relevant attribute. */
 export function einstufungChanges(current: Einstufung, previous: Einstufung): string[] {
   const changes: string[] = [];
   if (current.careType !== previous.careType) {
-    changes.push(`Betreuungsbereich: bisher ${careTypeLabel(previous.careType)}, jetzt ${careTypeLabel(current.careType)}`);
+    changes.push(`Betreuungsbereich: bisher ${formatCareType(previous.careType)}, jetzt ${formatCareType(current.careType)}`);
   }
   if (current.careHoursPerWeek !== previous.careHoursPerWeek) {
     changes.push(`Betreuungszeit: bisher ${previous.careHoursPerWeek}, jetzt ${current.careHoursPerWeek} Wochenstunden`);

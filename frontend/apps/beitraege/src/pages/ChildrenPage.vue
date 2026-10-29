@@ -38,7 +38,6 @@ const showOnlyWarnings = ref(false);
 const showOnlyOpenFees = ref(false);
 
 // Pagination
-const pageSizeOptions = [10, 25, 50, 100];
 
 // Sorting
 type SortField = 'memberNumber' | 'firstName' | 'lastName' | 'birthDate' | 'age' | 'entryDate';
@@ -57,6 +56,7 @@ const {
   totalPages,
   offset,
   load: loadChildren,
+  goToPage,
   goToFirstPageAndLoad,
   handleSearchInput,
 } = usePagedList<Child>({
@@ -206,12 +206,6 @@ function toggleSelect(id: string, event: Event) {
 // Navigation
 function goToChild(id: string) {
   router.push(`/kinder/${id}`);
-}
-
-function goToPage(page: number) {
-  if (page >= 1 && page <= totalPages.value) {
-    currentPage.value = page;
-  }
 }
 
 // Create
@@ -470,7 +464,7 @@ async function handleBulkDelete() {
       </div>
 
       <AppPagination v-if="children.length" v-model:page-size="pageSize" :current-page="currentPage"
-        :total-pages="totalPages" :total="total" :offset="offset" :page-size-options="pageSizeOptions" @go="goToPage" />
+        :total-pages="totalPages" :total="total" :offset="offset" @go="goToPage" />
     </div>
 
     <AppSheet v-if="showCreateDialog" title="Kind hinzufügen" @close="showCreateDialog = false">

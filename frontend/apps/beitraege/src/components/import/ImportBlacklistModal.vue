@@ -65,31 +65,31 @@ onMounted(loadBlacklist);
           </p>
         </div>
 
-        <div v-else class="rounded-xl border overflow-hidden">
+        <div v-else class="card overflow-hidden">
           <div class="overflow-x-auto">
-            <table class="w-full">
-              <thead class="bg-muted">
-                <tr class="text-left text-sm text-muted-foreground">
-                  <th class="px-4 py-3 font-medium">IBAN</th>
-                  <th class="px-4 py-3 font-medium">Zahler</th>
-                  <th class="px-4 py-3 font-medium">Letzte Transaktion</th>
-                  <th class="px-4 py-3 font-medium">Hinzugefugt am</th>
-                  <th class="px-4 py-3 font-medium text-right">Aktionen</th>
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>IBAN</th>
+                  <th>Zahler</th>
+                  <th>Letzte Transaktion</th>
+                  <th>Hinzugefugt am</th>
+                  <th class="text-right">Aktionen</th>
                 </tr>
               </thead>
               <tbody>
                 <tr
                   v-for="item in blacklistedIBANs"
                   :key="item.iban"
-                  class="border-t hover:bg-accent"
+                  class="hover:bg-accent"
                 >
-                  <td class="px-4 py-3">
+                  <td>
                     <span class="font-mono text-sm">{{ item.iban }}</span>
                   </td>
-                  <td class="px-4 py-3">
+                  <td>
                     <span class="font-medium">{{ item.payerName || 'Unbekannt' }}</span>
                   </td>
-                  <td class="px-4 py-3 text-muted-foreground">
+                  <td class="text-muted-foreground">
                     <div v-if="item.originalDescription" class="truncate max-w-xs text-sm">
                       {{ item.originalDescription }}
                     </div>
@@ -97,10 +97,10 @@ onMounted(loadBlacklist);
                       {{ formatCurrency(item.originalAmount) }}
                     </div>
                   </td>
-                  <td class="px-4 py-3 text-muted-foreground text-sm">
+                  <td class="text-muted-foreground text-sm">
                     {{ formatDate(item.createdAt) }}
                   </td>
-                  <td class="px-4 py-3 text-right">
+                  <td class="text-right">
                     <button
                       @click="removeFromBlacklist(item.iban)"
                       class="btn btn-secondary btn-sm"

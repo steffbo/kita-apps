@@ -28,7 +28,6 @@ const authStore = useAuthStore();
 const searchQuery = ref('');
 
 // Pagination
-const pageSizeOptions = [10, 25, 50, 100];
 
 // Sorting
 type SortField = 'lastName' | 'firstName' | 'email';
@@ -47,6 +46,7 @@ const {
   totalPages,
   offset,
   load: loadParents,
+  goToPage,
   goToFirstPageAndLoad,
   handleSearchInput,
 } = usePagedList<Parent>({
@@ -127,12 +127,6 @@ function toggleSelect(id: string, event: Event) {
 // Navigation
 function goToParent(id: string) {
   router.push(`/eltern/${id}`);
-}
-
-function goToPage(page: number) {
-  if (page >= 1 && page <= totalPages.value) {
-    currentPage.value = page;
-  }
 }
 
 function openCreateParentDialog() {
@@ -374,7 +368,7 @@ async function handleBulkDelete() {
       </div>
 
       <AppPagination v-model:page-size="pageSize" :current-page="currentPage" :total-pages="totalPages"
-        :total="total" :offset="offset" :page-size-options="pageSizeOptions" @go="goToPage" />
+        :total="total" :offset="offset" @go="goToPage" />
     </div>
 
     <!-- Delete Confirmation Dialog (Admin only) -->

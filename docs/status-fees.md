@@ -61,6 +61,23 @@ Basics (ports, commands, layout) live in `AGENTS.md`.
     Fragment-Element über der Überschrift.
   - Bekannte Lücken: Import-Vorschau der Kinder und Transaktionstabelle haben noch keine Handy-Liste (sie
     scrollen seitlich), einige Bestätigungen nutzen weiter `confirm()` des Browsers.
+- Schritt 4, Aufräumen nach dem Umbau (kein neues Verhalten außer den genannten Punkten):
+  - Seitenweise Listen laden alle über `composables/usePagedList.ts` (Beiträge, Notizen und Einstufungen
+    hatten die Logik nachgebaut); `goToPage` liegt dort, die Seitengrößen kommen aus `AppPagination`. Neue
+    Seitengröße springt überall auf Seite 1 (vorher nur bei Notizen). Beiträge behalten die Auswahl jetzt
+    für Zeilen, die nach dem Neuladen noch sichtbar sind, statt sie bei jedem Laden zu leeren; Suche bei
+    den Einstufungen wartet 150 statt 300 ms.
+  - Alle Tabellen in Karten nutzen `.table`; die Zebra-Regel für die übrigen und der Handy-Hack für
+    `px-4`-Zellen sind weg. Ausnahmen ohne `.table`: Jahresübersicht im Dashboard und Beitragsauswahl der
+    Mahnungsvorschau (eingebettet, eigene Zeilenlinien) sowie das Einstufungs-PDF. Kopfzellen in `.table`
+    sind über `:where()` linksbündig, damit `text-right` wieder greift (z. B. „Betrag“, Zahlenspalten).
+  - Entfernt: ungenutzte Tokens (`secondary`, `accent-`/`success-`/`warning-foreground`) und Typen,
+    eigene Esc-Handler im Bankabgleich und Kinderimport (macht `AppSheet` bzw. `utils/dialogEscape.ts`),
+    die Umleitung alter `?tab=`-Links im Bankabgleich (keine Verweise mehr). `formatCareType` liegt in
+    `utils/format.ts` statt dreimal lokal.
+  - Tests: Sortieren prüft nur noch der Übersichtstest der Elternstunden (alle Tabellen teilen
+    `useTableSort`/`SortTh`), Vorstands- und Benutzertabelle prüfen ihre Filter; der Test auf den Regeltext
+    der Verwaltung ist entfallen.
 
 ## Schnellere Release-Pipeline (2026-10-21)
 

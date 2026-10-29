@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -435,7 +436,7 @@ func TestReminderCase_Preview_MixedTypesPlansFees(t *testing.T) {
 	for _, planned := range preview.PlannedReminderFees {
 		labels[planned.BaseFeeID] = planned.BaseLabel
 	}
-	if !contains(labels[foodFee.ID], "Essensgeld August 2026") {
+	if !strings.Contains(labels[foodFee.ID], "Essensgeld August 2026") {
 		t.Fatalf("expected period in food base label, got %q", labels[foodFee.ID])
 	}
 	if labels[membershipFee.ID] != "Vereinsbeitrag 2026 (Anna Mitglied)" {
@@ -446,7 +447,7 @@ func TestReminderCase_Preview_MixedTypesPlansFees(t *testing.T) {
 		"Vereinsmitglied Anna Mitglied:\n- Vereinsbeitrag 2026 — 30,00 EUR\n  zzgl. Mahngebühr — 5,00 EUR",
 		"Gesamtbetrag: 90,40 EUR",
 	} {
-		if !contains(preview.Body, want) {
+		if !strings.Contains(preview.Body, want) {
 			t.Fatalf("expected body to contain %q, got:\n%s", want, preview.Body)
 		}
 	}
@@ -512,15 +513,15 @@ func TestReminderCase_ReminderFeesOnlyWhenDueAndTicked(t *testing.T) {
 	if preview.Stage != service.ReminderStageInitial || len(preview.PlannedReminderFees) != 0 {
 		t.Fatalf("expected a Zahlungserinnerung without fees, got %s with %d fees", preview.Stage, len(preview.PlannedReminderFees))
 	}
-	if preview.Subject != "Kita Zahlungserinnerung: offene Beiträge" || !contains(preview.Body, "können für die offenen Beiträge Mahngebühren erhoben werden") {
+	if preview.Subject != "Kita Zahlungserinnerung: offene Beiträge" || !strings.Contains(preview.Body, "können für die offenen Beiträge Mahngebühren erhoben werden") {
 		t.Fatalf("unexpected reminder mail: %s\n%s", preview.Subject, preview.Body)
 	}
-	if contains(preview.Body, "Wichtig:") {
+	if strings.Contains(preview.Body, "Wichtig:") {
 		t.Fatalf("recipient-name hint must be gone, got:\n%s", preview.Body)
 	}
 	found := false
 	for _, warning := range preview.Warnings {
-		if contains(warning, "Essensgeld August 2026 – Mahngebühr laut Regeln fällig, wird nicht erhoben") {
+		if strings.Contains(warning, "Essensgeld August 2026 – Mahngebühr laut Regeln fällig, wird nicht erhoben") {
 			found = true
 		}
 	}
@@ -1057,19 +1058,6 @@ func TestReminderCase_FeeCreatedOnCutoffDayIsHistoryUnknown(t *testing.T) {
 	}
 }
 
-func contains(haystack, needle string) bool {
-	return len(needle) > 0 && len(haystack) >= len(needle) && stringContains(haystack, needle)
-}
-
-func stringContains(haystack, needle string) bool {
-	for i := 0; i+len(needle) <= len(haystack); i++ {
-		if haystack[i:i+len(needle)] == needle {
-			return true
-		}
-	}
-	return false
-}
-
 // An existing Mahngebühr carries its base fee reference, follows its base fee
 // in the case list and is nested under it in the mail.
 func TestReminderCase_ExistingReminderFeeReferencesBaseFee(t *testing.T) {
@@ -1134,7 +1122,7 @@ func TestReminderCase_ExistingReminderFeeReferencesBaseFee(t *testing.T) {
 		t.Fatalf("PreviewReminderCase failed: %v", err)
 	}
 	want := "- Essensgeld September 2026 — 45,40 EUR\n  zzgl. Mahngebühr — 10,00 EUR\n- Essensgeld Oktober 2026 — 45,40 EUR\n"
-	if !contains(preview.Body, want) {
+	if !strings.Contains(preview.Body, want) {
 		t.Fatalf("expected nested reminder fee, got:\n%s", preview.Body)
 	}
 
@@ -1146,7 +1134,7 @@ func TestReminderCase_ExistingReminderFeeReferencesBaseFee(t *testing.T) {
 	if err != nil {
 		t.Fatalf("PreviewReminderCase failed: %v", err)
 	}
-	if !contains(preview.Body, "- Mahngebühr für Essensgeld September 2026 — 10,00 EUR") {
+	if !strings.Contains(preview.Body, "- Mahngebühr für Essensgeld September 2026 — 10,00 EUR") {
 		t.Fatalf("expected standalone reminder fee with base reference, got:\n%s", preview.Body)
 	}
 }

@@ -99,7 +99,6 @@ export class ReminderCaseConflictError extends Error {
   }
 }
 
-export type EmailLogType = Schema['EmailLogResponse']['emailType'];
 export type EmailLog = Schema['EmailLogResponse'];
 
 // ── Children ─────────────────────────────────────────────────────────────────
@@ -243,7 +242,6 @@ export type ImportBatch = Omit<Schema['domain.ImportBatch'], 'errors'> & {
   errors?: ImportError[];
 };
 
-export type BankingSyncStatusType = Schema['BankingSyncStatus']['status'];
 export type BankingSyncStatus = Schema['BankingSyncStatus'];
 
 // ── Pagination envelope (response.Paginated; not generic in the spec) ────────

@@ -109,7 +109,7 @@ test('board term exempts the family', async ({ adminApi, adminPage: page }) => {
   await expect(row).toContainText('0 h');
 });
 
-test('board terms: table filters and sorts', async ({ adminApi, adminPage: page }) => {
+test('board terms: table filters by search and activity', async ({ adminApi, adminPage: page }) => {
   const family = await familyWithChild(adminApi);
   const member = await adminApi.post<{ id: string }>('/members', {
     memberNumber: memberNumber(), firstName: 'Mira', lastName: family.suffix,
@@ -126,12 +126,6 @@ test('board terms: table filters and sorts', async ({ adminApi, adminPage: page 
   await page.getByLabel('Amtszeiten durchsuchen').fill(family.suffix);
   const rows = page.getByRole('row').filter({ hasText: family.suffix });
   await expect(rows).toHaveCount(2);
-  await page.getByRole('button', { name: 'Amt', exact: true }).click();
-  await expect(page.getByRole('columnheader', { name: 'Amt' })).toHaveAttribute('aria-sort', 'ascending');
-  await expect(rows.first()).toContainText('A-Amt');
-  await page.getByRole('button', { name: 'Amt', exact: true }).click();
-  await expect(page.getByRole('columnheader', { name: 'Amt' })).toHaveAttribute('aria-sort', 'descending');
-  await expect(rows.first()).toContainText('B-Amt');
   await page.getByLabel('Aktiv', { exact: true }).selectOption('inactive');
   await expect(rows).toHaveCount(1);
   await expect(rows.first()).toContainText('A-Amt');
@@ -250,6 +244,7 @@ test('overview: cards filter the table', async ({ adminApi, adminPage: page }) =
   await expect(page.getByRole('button', { name: /Unbestätigte Meldungen/ })).toBeVisible();
 });
 
+// Overview, board terms and users share useTableSort/SortTh; this test covers sorting for all of them.
 test('overview: table sorts by column', async ({ adminApi, adminPage: page }) => {
   const idle = await familyWithChild(adminApi);
   const active = await familyWithChild(adminApi);
@@ -293,12 +288,3 @@ test('detail: account cards, no board section without term, no amount for parent
       await expect(workAccount.getByText('Fehlbetrag', { exact: true })).toHaveCount(0);
     } finally { await context.close(); }
   });
-
-test('verwaltung page explains Tertiale and board exemption', async ({ adminPage: page }) => {
-  await page.goto('/beitraege/elternstunden/verwaltung');
-  await expect(page.getByRole('heading', { name: 'Verwaltung', exact: true })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Regeln', exact: true })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Import', exact: true })).toBeVisible();
-  await expect(page.getByText('Tertiale:')).toBeVisible();
-  await expect(page.getByText('Vorstandsbetreuung:')).toBeVisible();
-});

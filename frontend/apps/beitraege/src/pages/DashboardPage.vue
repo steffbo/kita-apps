@@ -635,21 +635,21 @@ function formatAge(birthDateStr: string): string {
                       Keine Daten vorhanden
                     </div>
                     <div v-else class="overflow-x-auto">
-                      <table class="min-w-full text-sm">
-                        <thead class="bg-muted/50 text-muted-foreground">
+                      <table class="table">
+                        <thead>
                           <tr>
-                            <th class="px-4 py-3 text-left font-medium">Stundenmodell</th>
-                            <th class="px-4 py-3 text-right font-medium">U3</th>
-                            <th class="px-4 py-3 text-right font-medium">Ü3</th>
-                            <th class="px-4 py-3 text-right font-medium">Gesamt</th>
+                            <th>Stundenmodell</th>
+                            <th class="text-right">U3</th>
+                            <th class="text-right">Ü3</th>
+                            <th class="text-right">Gesamt</th>
                           </tr>
                         </thead>
-                        <tbody class="divide-y">
+                        <tbody>
                           <tr v-for="item in report.legalHoursBreakdown" :key="item.legalHours ?? 'unknown'">
-                            <td class="px-4 py-3 text-foreground">{{ formatCareHours(item.legalHours) }}</td>
-                            <td class="px-4 py-3 text-right font-semibold text-primary">{{ item.u3Count }}</td>
-                            <td class="px-4 py-3 text-right font-semibold text-warning">{{ item.ue3Count }}</td>
-                            <td class="px-4 py-3 text-right font-semibold text-foreground">{{ item.count }}</td>
+                            <td class="text-foreground">{{ formatCareHours(item.legalHours) }}</td>
+                            <td class="text-right font-semibold text-primary">{{ item.u3Count }}</td>
+                            <td class="text-right font-semibold text-warning">{{ item.ue3Count }}</td>
+                            <td class="text-right font-semibold text-foreground">{{ item.count }}</td>
                           </tr>
                         </tbody>
                       </table>
@@ -663,21 +663,21 @@ function formatAge(birthDateStr: string): string {
                       Keine Daten vorhanden
                     </div>
                     <div v-else class="overflow-x-auto">
-                      <table class="min-w-full text-sm">
-                        <thead class="bg-muted/50 text-muted-foreground">
+                      <table class="table">
+                        <thead>
                           <tr>
-                            <th class="px-4 py-3 text-left font-medium">Stundenmodell</th>
-                            <th class="px-4 py-3 text-right font-medium">U3</th>
-                            <th class="px-4 py-3 text-right font-medium">Ü3</th>
-                            <th class="px-4 py-3 text-right font-medium">Gesamt</th>
+                            <th>Stundenmodell</th>
+                            <th class="text-right">U3</th>
+                            <th class="text-right">Ü3</th>
+                            <th class="text-right">Gesamt</th>
                           </tr>
                         </thead>
-                        <tbody class="divide-y">
+                        <tbody>
                           <tr v-for="item in report.careHoursBreakdown" :key="item.careHours ?? 'unknown'">
-                            <td class="px-4 py-3 text-foreground">{{ formatCareHours(item.careHours) }}</td>
-                            <td class="px-4 py-3 text-right font-semibold text-primary">{{ item.u3Count }}</td>
-                            <td class="px-4 py-3 text-right font-semibold text-warning">{{ item.ue3Count }}</td>
-                            <td class="px-4 py-3 text-right font-semibold text-foreground">{{ item.count }}</td>
+                            <td class="text-foreground">{{ formatCareHours(item.careHours) }}</td>
+                            <td class="text-right font-semibold text-primary">{{ item.u3Count }}</td>
+                            <td class="text-right font-semibold text-warning">{{ item.ue3Count }}</td>
+                            <td class="text-right font-semibold text-foreground">{{ item.count }}</td>
                           </tr>
                         </tbody>
                       </table>

@@ -58,37 +58,37 @@ onMounted(loadHistory);
           <p class="text-muted-foreground">Noch keine Importe durchgeführt</p>
         </div>
 
-        <div v-else class="rounded-xl border overflow-hidden">
+        <div v-else class="card overflow-hidden">
           <div class="overflow-x-auto">
-            <table class="w-full">
-              <thead class="bg-muted">
-                <tr class="text-left text-sm text-muted-foreground">
-                  <th class="px-4 py-3 font-medium">Datei</th>
-                  <th class="px-4 py-3 font-medium">Zeitraum</th>
-                  <th class="px-4 py-3 font-medium">Transaktionen</th>
-                  <th class="px-4 py-3 font-medium">Zugeordnet</th>
-                  <th class="px-4 py-3 font-medium">Fehler</th>
-                  <th class="px-4 py-3 font-medium">Importiert am</th>
-                  <th class="px-4 py-3 font-medium">Von</th>
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Datei</th>
+                  <th>Zeitraum</th>
+                  <th>Transaktionen</th>
+                  <th>Zugeordnet</th>
+                  <th>Fehler</th>
+                  <th>Importiert am</th>
+                  <th>Von</th>
                 </tr>
               </thead>
               <tbody>
                 <template v-for="batch in importHistory" :key="batch.id">
-                <tr class="border-t hover:bg-accent">
-                  <td class="px-4 py-3">
+                <tr class="hover:bg-accent">
+                  <td>
                     <div class="flex items-center gap-2">
                       <FileSpreadsheet class="h-4 w-4 text-muted-foreground" />
                       <span class="font-medium">{{ batch.fileName }}</span>
                     </div>
                   </td>
-                  <td class="px-4 py-3 text-muted-foreground text-sm">
+                  <td class="text-muted-foreground text-sm">
                     <span v-if="batch.dateFrom && batch.dateTo">
                       {{ formatDate(batch.dateFrom) }} - {{ formatDate(batch.dateTo) }}
                     </span>
                     <span v-else class="text-muted-foreground">-</span>
                   </td>
-                  <td class="px-4 py-3">{{ batch.transactionCount }}</td>
-                  <td class="px-4 py-3">
+                  <td>{{ batch.transactionCount }}</td>
+                  <td>
                     <span
                       :class="[
                         'px-2 py-0.5 rounded-full text-xs font-medium',
@@ -102,7 +102,7 @@ onMounted(loadHistory);
                       {{ batch.matchedCount }} / {{ batch.transactionCount }}
                     </span>
                   </td>
-                  <td class="px-4 py-3">
+                  <td>
                     <button
                       v-if="batch.errorCount > 0"
                       @click="toggleBatchErrors(batch.id)"
@@ -112,15 +112,15 @@ onMounted(loadHistory);
                     </button>
                     <span v-else class="text-muted-foreground">–</span>
                   </td>
-                  <td class="px-4 py-3 text-muted-foreground">
+                  <td class="text-muted-foreground">
                     {{ formatDateTime(batch.importedAt) }}
                   </td>
-                  <td class="px-4 py-3 text-muted-foreground">
+                  <td class="text-muted-foreground">
                     {{ batch.importedByEmail || batch.importedBy }}
                   </td>
                 </tr>
-                <tr v-if="expandedBatchId === batch.id && batch.errorCount > 0" class="border-t">
-                  <td colspan="7" class="px-4 py-3">
+                <tr v-if="expandedBatchId === batch.id && batch.errorCount > 0">
+                  <td colspan="7">
                     <ImportErrorList :errors="batch.errors ?? []" :total="batch.errorCount" />
                   </td>
                 </tr>

@@ -87,7 +87,7 @@ test('deactivated user cannot log in; own account is protected', async ({ adminP
   await expect(dialog.getByLabel('Aktiv (darf sich anmelden)')).toBeDisabled();
 });
 
-test('user list filters by search and role and sorts by column', async ({ adminPage: page, createUser }) => {
+test('user list filters by search and role', async ({ adminPage: page, createUser }) => {
   const user = await createUser();
   const worker = await createUser('PARENT_WORK');
 
@@ -104,11 +104,4 @@ test('user list filters by search and role and sorts by column', async ({ adminP
   await page.getByLabel('Rolle').selectOption({ label: 'Elternstunden' });
   await expect(workerRow).toBeVisible();
   await expect(userRow).toHaveCount(0);
-  await page.getByLabel('Rolle').selectOption({ label: 'Alle Rollen' });
-
-  const emailHeader = page.getByRole('columnheader', { name: 'E-Mail' });
-  await emailHeader.getByRole('button').click();
-  await expect(emailHeader).toHaveAttribute('aria-sort', 'ascending');
-  await emailHeader.getByRole('button').click();
-  await expect(emailHeader).toHaveAttribute('aria-sort', 'descending');
 });

@@ -1,6 +1,6 @@
 // State and actions of the child CSV import wizard (upload → mapping → preview → result).
 // The page provides it; step components inject it via useChildImportWizardContext().
-import { ref, computed, onMounted, onUnmounted, inject, type InjectionKey, type Ref } from 'vue';
+import { ref, computed, inject, type InjectionKey, type Ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { api } from '@/api';
 import type {
@@ -128,20 +128,6 @@ export function useChildImportWizard() {
     });
   });
 
-  // ESC key handler
-  function handleKeydown(e: KeyboardEvent) {
-    if (e.key === 'Escape') {
-      router.push('/kinder');
-    }
-  }
-
-  onMounted(() => {
-    document.addEventListener('keydown', handleKeydown);
-  });
-
-  onUnmounted(() => {
-    document.removeEventListener('keydown', handleKeydown);
-  });
 
   // Step 1: File upload handlers
   function handleDragOver(e: DragEvent) {
@@ -650,7 +636,6 @@ export function useChildImportWizard() {
     selectedValidCount,
     mergeRowsCount,
     sortedPreviewRows,
-    handleKeydown,
     handleDragOver,
     handleDragLeave,
     handleDrop,

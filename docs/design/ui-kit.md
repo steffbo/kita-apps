@@ -34,7 +34,7 @@ kein unnötiger Text, hell und dunkel gleichwertig, Handy zuerst.
 | `card` | Fläche mit Rahmen, `rounded-xl` |
 | `chip` + `aria-pressed` | Filter über Listen (an/aus, ein Wert aus mehreren); Zähler in `span.chip-count` |
 | `label`, `input` | Formularfeld (auch `select`, `textarea.input`) |
-| `table` | Datentabelle in einer `card` (Kopf grau, Zeilenlinien, keine Zebrastreifen) |
+| `table` | jede Datentabelle in einer `card` (Kopf grau, Zeilenlinien, keine Zebrastreifen); Padding fest, Kopfzelle rechtsbündig mit `text-right` |
 
 Icons in `btn`/`note` brauchen keine Größe (`<Plus />`), das setzt die Klasse.
 
@@ -46,7 +46,8 @@ Icons in `btn`/`note` brauchen keine Größe (`<Plus />`), das setzt die Klasse.
   bleibt für Tests gleich), `size` `sm|md|lg`. Buttons in `#footer`: „Abbrechen“ (`btn-secondary`) zuerst,
   Hauptaktion zuletzt. Formulare: `<form id="x">` im Inhalt, Submit-Button mit `form="x"` im Footer.
   Esc, Klick daneben und Scroll-Sperre macht die Komponente; keine eigenen Esc-Handler mehr.
-- `AppPagination`: Fußzeile seitenweiser Listen (`v-model:page-size`, `@go`).
+- `AppPagination`: Fußzeile seitenweiser Listen (`v-model:page-size`, `@go`); Zustand und Laden kommen aus
+  `composables/usePagedList.ts`.
 - `EmptyState`: leere Liste (`icon`, `text`, optional Aktion im Slot).
 - Weiterhin: `SearchInput`, `SortTh`.
 

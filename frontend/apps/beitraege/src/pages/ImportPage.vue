@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import TransactionTable from '@/components/import/TransactionTable.vue';
-import { ref, onMounted, onUnmounted } from 'vue';
-import { useRoute } from 'vue-router';
+import { ref, onMounted } from 'vue';
 import { api } from '@/api';
 import type { ImportBatch, BankTransaction, RescanResult } from '@/api/types';
 import { useImportTransactions } from '@/composables/useImportTransactions';
@@ -26,7 +25,6 @@ import {
 import { formatDateTime } from '@/utils/format';
 import SearchInput from '@/components/SearchInput.vue';
 
-const route = useRoute();
 const authStore = useAuthStore();
 const uploadError = ref<string | null>(null);
 const {
@@ -146,44 +144,9 @@ async function onManualMatched(): Promise<void> {
   await loadTransactions();
 }
 
-function handleKeydown(e: KeyboardEvent): void {
-  if (e.key !== 'Escape') return;
-  if (manualMatchTransaction.value) {
-    manualMatchTransaction.value = null;
-  } else if (showUploadModal.value) {
-    showUploadModal.value = false;
-  } else if (showHistoryModal.value) {
-    showHistoryModal.value = false;
-  } else if (showBlacklistModal.value) {
-    showBlacklistModal.value = false;
-  }
-}
-
 onMounted(() => {
-  document.addEventListener('keydown', handleKeydown);
-
-  // Map legacy tab query params to the new filter/modal structure
-  const tabParam = route.query.tab as string | undefined;
-  if (tabParam === 'upload') {
-    showUploadModal.value = true;
-  } else if (tabParam === 'history') {
-    openHistoryModal();
-  } else if (tabParam === 'blacklist') {
-    openBlacklistModal();
-  } else if (tabParam === 'warnings') {
-    activeFilter.value = 'warnungen';
-  } else if (tabParam === 'matched') {
-    activeFilter.value = 'zugeordnet';
-  } else if (tabParam === 'unmatched') {
-    activeFilter.value = 'offen';
-  }
-
   loadTransactions();
   loadLatestImport();
-});
-
-onUnmounted(() => {
-  document.removeEventListener('keydown', handleKeydown);
 });
 
 function showDismissConfirm(transactionId: string): void {

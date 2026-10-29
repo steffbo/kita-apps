@@ -19,14 +19,10 @@ import {
   Search,
   AlertTriangle,
 } from 'lucide-vue-next';
-import { formatCurrency, formatDate, formatMonthYear } from '@/utils/format';
+import { usePagedList } from '@/composables/usePagedList';
+import { formatCareType, formatCurrency, formatDate, formatMonthYear } from '@/utils/format';
 
 const router = useRouter();
-
-const einstufungen = ref<Einstufung[]>([]);
-const total = ref(0);
-const isLoading = ref(true);
-const error = ref<string | null>(null);
 
 const selectedYear = ref(new Date().getFullYear());
 const search = ref('');
@@ -48,49 +44,34 @@ async function loadMissing() {
     missing.value = [];
   }
 }
-const currentPage = ref(1);
-const pageSize = ref(25);
 
-const totalPages = computed(() => Math.ceil(total.value / pageSize.value));
+const {
+  items: einstufungen,
+  total,
+  isLoading,
+  error,
+  currentPage,
+  pageSize,
+  totalPages,
+  offset,
+  load: loadEinstufungen,
+  goToPage,
+  goToFirstPageAndLoad,
+  handleSearchInput,
+} = usePagedList<Einstufung>({
+  fetchPage: ({ page, perPage }) => api.getEinstufungen({
+    year: selectedYear.value,
+    search: search.value,
+    status: status.value,
+    page,
+    perPage,
+  }),
+});
 
 const years = computed(() => {
   const current = new Date().getFullYear();
   return [current - 2, current - 1, current, current + 1];
 });
-
-let loadSeq = 0;
-async function loadEinstufungen() {
-  const seq = ++loadSeq;
-  isLoading.value = true;
-  error.value = null;
-  try {
-    const response = await api.getEinstufungen({
-      year: selectedYear.value,
-      search: search.value,
-      status: status.value,
-      page: currentPage.value,
-      perPage: pageSize.value,
-    });
-    if (seq !== loadSeq) return; // a newer request superseded this one
-    einstufungen.value = response.data;
-    total.value = response.total;
-
-    // If the current page ran empty (e.g. after a delete), fall back to the last valid page
-    if (response.data.length === 0 && currentPage.value > 1 && response.total > 0) {
-      currentPage.value = Math.max(1, Math.ceil(response.total / pageSize.value));
-      return;
-    }
-  } catch (e) {
-    if (seq !== loadSeq) return;
-    error.value = e instanceof Error ? e.message : 'Fehler beim Laden';
-  } finally {
-    isLoading.value = false;
-  }
-}
-
-function formatCareType(type: string): string {
-  return type === 'krippe' ? 'Krippe' : 'Kindergarten';
-}
 
 function getChildName(e: Einstufung): string {
   if (e.child) return `${e.child.firstName} ${e.child.lastName}`;
@@ -140,32 +121,8 @@ async function handleDelete() {
   }
 }
 
-let searchTimer: ReturnType<typeof setTimeout> | undefined;
-watch(search, () => {
-  clearTimeout(searchTimer);
-  searchTimer = setTimeout(reloadFromFirstPage, 300);
-});
-watch(status, reloadFromFirstPage);
-
-function reloadFromFirstPage() {
-  if (currentPage.value !== 1) {
-    currentPage.value = 1; // pagination watcher performs the reload
-  } else {
-    loadEinstufungen();
-  }
-}
-
-watch([selectedYear], () => {
-  if (currentPage.value !== 1) {
-    currentPage.value = 1; // pagination watcher performs the reload
-  } else {
-    loadEinstufungen();
-  }
-});
-
-watch([currentPage, pageSize], () => {
-  loadEinstufungen();
-});
+watch(search, handleSearchInput);
+watch([status, selectedYear], goToFirstPageAndLoad);
 
 onMounted(() => {
   loadEinstufungen();
@@ -425,8 +382,8 @@ onMounted(() => {
         :current-page="currentPage"
         :total-pages="totalPages"
         :total="total"
-        :offset="(currentPage - 1) * pageSize"
-        @go="currentPage = $event" />
+        :offset="offset"
+        @go="goToPage" />
     </div>
     <!-- Delete dialog -->
     <AppSheet v-if="showDeleteDialog" title="Einstufung löschen" @close="showDeleteDialog = false">

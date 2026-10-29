@@ -38,7 +38,6 @@ const searchQuery = ref('');
 const showInactive = ref(false);
 
 // Pagination
-const pageSizeOptions = [10, 25, 50, 100];
 
 // Sorting
 type SortField = 'memberNumber' | 'lastName' | 'firstName' | 'email' | 'membershipStart';
@@ -57,6 +56,7 @@ const {
   totalPages,
   offset,
   load: loadMembers,
+  goToPage,
   goToFirstPageAndLoad,
   handleSearchInput,
 } = usePagedList<Member>({
@@ -178,12 +178,6 @@ function toggleSelect(id: string, event: Event) {
 // Navigation
 function goToMember(id: string) {
   router.push(`/mitglieder/${id}`);
-}
-
-function goToPage(page: number) {
-  if (page >= 1 && page <= totalPages.value) {
-    currentPage.value = page;
-  }
 }
 
 // Create
@@ -490,7 +484,7 @@ function resetStichtagToToday() {
       </div>
 
       <AppPagination v-model:page-size="pageSize" :current-page="currentPage" :total-pages="totalPages"
-        :total="total" :offset="offset" :page-size-options="pageSizeOptions" @go="goToPage" />
+        :total="total" :offset="offset" @go="goToPage" />
     </div>
 
     <!-- Create Dialog -->

@@ -45,6 +45,10 @@ export function usePagedList<T extends { id: string }>(options: PagedListOptions
     }
   }
 
+  function goToPage(page: number) {
+    if (page >= 1 && page <= totalPages.value) currentPage.value = page;
+  }
+
   function goToFirstPageAndLoad() {
     if (currentPage.value !== 1) {
       currentPage.value = 1; // pagination watcher performs the reload
@@ -61,8 +65,13 @@ export function usePagedList<T extends { id: string }>(options: PagedListOptions
     searchDebounceTimer = setTimeout(() => goToFirstPageAndLoad(), 150);
   }
 
-  // Filters/search use explicit handlers so each interaction triggers exactly one load
-  watch([currentPage, pageSize], () => {
+  // Filters/search use explicit handlers so each interaction triggers exactly one load.
+  // A new page size restarts at page 1 (the watcher then fires again and loads).
+  watch([currentPage, pageSize], ([, size], [, oldSize]) => {
+    if (size !== oldSize && currentPage.value !== 1) {
+      currentPage.value = 1;
+      return;
+    }
     load();
   });
 
@@ -77,6 +86,7 @@ export function usePagedList<T extends { id: string }>(options: PagedListOptions
     totalPages,
     offset,
     load,
+    goToPage,
     goToFirstPageAndLoad,
     handleSearchInput,
   };

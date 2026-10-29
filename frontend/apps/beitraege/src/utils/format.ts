@@ -81,6 +81,13 @@ export function formatDecimalNumber(value: number, maximumFractionDigits?: 2): s
 }
 
 /** Whole minutes as decimal hours, with a German comma. */
+/** Betreuungsbereich der Einstufung („krippe“/„kindergarten“) als Text. */
+export function formatCareType(careType: string): string {
+  if (careType === 'krippe') return 'Krippe';
+  if (careType === 'kindergarten') return 'Kindergarten';
+  return careType;
+}
+
 export function formatHours(minutes: number): string {
   return `${formatDecimalNumber(minutes / 60, 2)} h`;
 }

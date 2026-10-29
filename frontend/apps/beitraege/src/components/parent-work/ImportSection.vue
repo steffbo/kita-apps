@@ -200,14 +200,14 @@ async function execute() {
     <div v-if="headers.length" class="card p-4">
       <h3 class="font-semibold">Spalten zuordnen</h3>
       <p class="mt-1 text-sm text-muted-foreground">Ordne jeder Spalte deiner Datei ein Feld zu. Nicht benötigte Spalten bleiben auf „Ignorieren“<span v-if="ignoredCount"> ({{ ignoredCount }} von {{ headers.length }} ignoriert)</span>.</p>
-      <div class="mt-3 overflow-x-auto">
-        <table aria-label="Spaltenzuordnung" class="min-w-full text-left text-sm">
-          <thead class="bg-muted"><tr><th class="p-2">Spalte in der Datei</th><th class="p-2">Beispielwerte</th><th class="p-2">Zuordnung</th></tr></thead>
+      <div class="card mt-3 overflow-x-auto">
+        <table aria-label="Spaltenzuordnung" class="table">
+          <thead><tr><th>Spalte in der Datei</th><th>Beispielwerte</th><th>Zuordnung</th></tr></thead>
           <tbody>
-            <tr v-for="(header, i) in headers" :key="i" class="border-t align-middle" :class="{ 'text-muted-foreground': !assignment[i] }">
-              <td class="p-2 font-medium">{{ header || `Spalte ${i + 1}` }}</td>
-              <td class="max-w-72 truncate p-2">{{ sample(i) || '—' }}</td>
-              <td class="p-2">
+            <tr v-for="(header, i) in headers" :key="i" :class="{ 'text-muted-foreground': !assignment[i] }">
+              <td class="font-medium">{{ header || `Spalte ${i + 1}` }}</td>
+              <td class="max-w-72 truncate">{{ sample(i) || '—' }}</td>
+              <td>
                 <select :value="assignment[i]" :aria-label="`Zuordnung für Spalte ${header || i + 1}`" class="w-full rounded border bg-card px-2 py-1.5 text-foreground" @change="assign(i, ($event.target as HTMLSelectElement).value as FieldKey | '')">
                   <option value="">Ignorieren</option>
                   <option v-for="field in fields" :key="field.key" :value="field.key">{{ field.label }}{{ field.required ? ' *' : '' }}</option>
@@ -237,17 +237,17 @@ async function execute() {
       </div>
       <div class="flex flex-wrap items-center justify-between gap-3"><h3 class="text-base font-semibold">Vorschau ({{ chosenRows.length }} ausgewählt)</h3><button class="btn btn-primary" :disabled="busy || !chosenRows.length" @click="execute">{{ chosenRows.length }} {{ chosenRows.length === 1 ? 'Eintrag' : 'Einträge' }} importieren</button></div>
       <div class="overflow-x-auto card">
-        <table aria-label="Vorschau" class="min-w-full text-left text-sm"><thead class="bg-muted"><tr><th class="p-3">Import</th><th class="p-3">Zeile</th><th class="p-3">Datum</th><th class="p-3">Stunden</th><th class="p-3">Anlass</th><th class="p-3">Mitglied / Kind</th><th class="p-3">Familie</th><th class="p-3">Status</th></tr></thead>
-          <tbody><tr v-for="row in rows" :key="row.index" class="border-t align-top">
-            <td class="p-3"><input v-model="selected[row.index]" type="checkbox" :disabled="!rowSelectable(row)" :aria-label="`Zeile ${row.index} importieren`" /></td>
-            <td class="p-3">{{ row.index }}</td><td class="p-3">{{ formatDate(row.workDate) }}</td><td class="p-3">{{ row.durationMinutes ? formatHours(row.durationMinutes) : '—' }}</td><td class="p-3">{{ row.occasion || '—' }}</td><td class="p-3">{{ [row.memberName, row.childName].filter(Boolean).join(' / ') || '—' }}</td>
-            <td class="min-w-56 p-3"><HouseholdPicker :model-value="row.householdId" :households="households"
+        <table aria-label="Vorschau" class="table"><thead><tr><th>Import</th><th>Zeile</th><th>Datum</th><th>Stunden</th><th>Anlass</th><th>Mitglied / Kind</th><th>Familie</th><th>Status</th></tr></thead>
+          <tbody><tr v-for="row in rows" :key="row.index" class="align-top">
+            <td><input v-model="selected[row.index]" type="checkbox" :disabled="!rowSelectable(row)" :aria-label="`Zeile ${row.index} importieren`" /></td>
+            <td>{{ row.index }}</td><td>{{ formatDate(row.workDate) }}</td><td>{{ row.durationMinutes ? formatHours(row.durationMinutes) : '—' }}</td><td>{{ row.occasion || '—' }}</td><td>{{ [row.memberName, row.childName].filter(Boolean).join(' / ') || '—' }}</td>
+            <td class="min-w-56"><HouseholdPicker :model-value="row.householdId" :households="households"
               :label="`Familie für Zeile ${row.index}`" @update:model-value="chooseHousehold(row, $event)" />
               <p v-if="row.matchedBy && row.householdId" class="mt-1 text-xs text-muted-foreground">
                 Treffer über {{ row.matchedBy === 'child' ? 'Kind' : 'Mitglied' }}
               </p>
             </td>
-            <td class="max-w-64 p-3"><span v-if="!rowSelectable(row)" class="text-destructive">{{ remainingErrors(row).join('; ') || 'Familie auswählen' }}</span><span v-else-if="row.duplicate" class="text-warning">Dublette</span><span v-else class="text-success">OK</span></td>
+            <td class="max-w-64"><span v-if="!rowSelectable(row)" class="text-destructive">{{ remainingErrors(row).join('; ') || 'Familie auswählen' }}</span><span v-else-if="row.duplicate" class="text-warning">Dublette</span><span v-else class="text-success">OK</span></td>
           </tr></tbody>
         </table>
       </div>

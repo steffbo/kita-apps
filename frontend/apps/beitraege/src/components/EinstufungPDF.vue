@@ -4,7 +4,7 @@ import type { Einstufung, Child } from '@/api/types';
 import { FileDown, Loader2 } from 'lucide-vue-next';
 import printStyles from './EinstufungPDF.css?raw';
 import logoUrl from '@/assets/knirpsenstadt-logo.png';
-import { formatDate, formatDateLong, formatEuroAmount, formatMonthYear } from '@/utils/format';
+import { formatCareType, formatDate, formatDateLong, formatEuroAmount, formatMonthYear } from '@/utils/format';
 
 const props = defineProps<{
   einstufung: Einstufung;
@@ -38,12 +38,6 @@ function parseMonthStart(value?: string): Date | null {
 
 function isSameMonth(left: Date, right: Date): boolean {
   return left.getUTCFullYear() === right.getUTCFullYear() && left.getUTCMonth() === right.getUTCMonth();
-}
-
-function formatCareType(ct: string) {
-  if (ct === 'krippe') return 'Krippe';
-  if (ct === 'kindergarten') return 'Kindergarten';
-  return ct.charAt(0).toUpperCase() + ct.slice(1);
 }
 
 function formatMonthLabel(date: Date): string {
