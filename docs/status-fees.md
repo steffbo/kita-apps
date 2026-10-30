@@ -78,6 +78,9 @@ Basics (ports, commands, layout) live in `AGENTS.md`.
   - Tests: Sortieren prüft nur noch der Übersichtstest der Elternstunden (alle Tabellen teilen
     `useTableSort`/`SortTh`), Vorstands- und Benutzertabelle prüfen ihre Filter; der Test auf den Regeltext
     der Verwaltung ist entfallen.
+- Fix nach dem Deploy: Seitenleiste (Desktop) und Kopfleiste (Handy) scrollten mit, weil
+  `overflow-x: hidden` auf `html`, `body` und `#app` diese zu Scroll-Containern machte und `sticky` aushebelte.
+  Jetzt `overflow-x: clip` (schneidet ebenfalls ab, ohne Scroll-Container).
 
 ## Schnellere Release-Pipeline (2026-10-21)
 

@@ -67,12 +67,13 @@
 }
 
 @layer base {
+  /* `clip`, not `hidden`: hidden turns these into scroll containers and breaks the sticky sidebar/header. */
   html,
   body,
   #app {
     min-height: 100%;
     max-width: 100%;
-    overflow-x: hidden;
+    overflow-x: clip;
   }
 
   * {
