@@ -86,8 +86,12 @@ async function submit() {
             <option value="USER">Benutzer</option>
             <option value="ADMIN">Administrator</option>
             <option value="PARENT_WORK">Elternstunden</option>
+            <option value="LEITUNG">Leitung</option>
             <option value="PARENT">Eltern</option>
           </select>
+          <span v-if="role === 'LEITUNG'" class="mt-1 block text-xs text-muted-foreground">
+            Sieht und bearbeitet Kinder, Eltern, Haushalte, Mitglieder und Elternstunden, aber keine Beiträge, Einkommen, Einstufungen, Notizen oder Bankdaten.
+          </span>
           <span v-if="role === 'PARENT'" class="mt-1 block text-xs text-muted-foreground">
             Das Konto wird über die E-Mail-Adresse mit dem Elternteil verknüpft.
           </span>

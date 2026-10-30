@@ -215,7 +215,7 @@ func TestRouter_UploadBodyLimit(t *testing.T) {
 
 func TestRouter_ParentWorkRuleWriteRoles(t *testing.T) {
 	router, jwtService := testRouter(t, "")
-	for _, role := range []string{"ADMIN", "USER", "PARENT_WORK"} {
+	for _, role := range []string{"ADMIN", "USER", "PARENT_WORK", "LEITUNG"} {
 		t.Run(role, func(t *testing.T) {
 			tokens, err := jwtService.GenerateTokenPair(uuid.New(), role+"@example.org", role)
 			if err != nil {
@@ -238,25 +238,40 @@ func TestRouter_ParentWorkRuleWriteRoles(t *testing.T) {
 
 func TestRouter_RoleAreas(t *testing.T) {
 	router, jwtService := testRouter(t, "")
+	staff := map[string]bool{"ADMIN": true, "USER": true}
+	masterData := map[string]bool{"ADMIN": true, "USER": true, "LEITUNG": true}
+	childID := uuid.NewString()
 	routes := []struct {
 		path    string
 		allowed map[string]bool
 	}{
-		{"/auth/me", map[string]bool{"ADMIN": true, "USER": true, "PARENT_WORK": true, "PARENT": true}},
+		{"/auth/me", map[string]bool{"ADMIN": true, "USER": true, "PARENT_WORK": true, "LEITUNG": true, "PARENT": true}},
 		{"/users/", map[string]bool{"ADMIN": true}},
-		{"/children/", map[string]bool{"ADMIN": true, "USER": true}},
-		{"/fees/", map[string]bool{"ADMIN": true, "USER": true}},
-		{"/fee-schedules/", map[string]bool{"ADMIN": true, "USER": true}},
+		{"/children/", masterData},
+		{"/members/", masterData},
+		{"/households/", masterData},
+		{"/fees/", staff},
+		{"/fee-schedules/", staff},
 		{"/fees/reminders/settings", map[string]bool{"ADMIN": true}},
-		{"/parent-work/rules", map[string]bool{"ADMIN": true, "PARENT_WORK": true}},
+		{"/parent-work/rules", map[string]bool{"ADMIN": true, "PARENT_WORK": true, "LEITUNG": true}},
 		{"/parent-work/board-terms", map[string]bool{"ADMIN": true}},
 		{"/activity", map[string]bool{"ADMIN": true}},
 		{"/parent-reports/", map[string]bool{"ADMIN": true}},
 		{"/children/" + uuid.NewString() + "/changes", map[string]bool{"ADMIN": true}},
-		{"/parents/" + uuid.NewString(), map[string]bool{"ADMIN": true, "USER": true}},
+		{"/parents/" + uuid.NewString(), masterData},
 		{"/me", map[string]bool{"PARENT": true}},
+		// Fee, Einstufung, bank and note data: never for LEITUNG.
+		{"/children/" + childID + "/ledger", staff},
+		{"/children/" + childID + "/timeline", staff},
+		{"/children/" + childID + "/notes", staff},
+		{"/notes", staff},
+		{"/einstufungen/", staff},
+		{"/stichtagsmeldung/stats", staff},
+		{"/import/transactions", staff},
+		{"/import/history", staff},
+		{"/banking-sync/status", map[string]bool{"ADMIN": true}},
 	}
-	for _, role := range []string{"ADMIN", "USER", "PARENT_WORK", "PARENT"} {
+	for _, role := range []string{"ADMIN", "USER", "PARENT_WORK", "LEITUNG", "PARENT"} {
 		tokens, err := jwtService.GenerateTokenPair(uuid.New(), role+"@example.org", role)
 		if err != nil {
 			t.Fatal(err)
@@ -287,5 +302,68 @@ func TestRouter_RoleAreas(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+// LEITUNG edits master data but must not delete it (deleting a child or
+// household cascades into fee data) or reach the bulk child import.
+func TestRouter_LeitungWriteRoutes(t *testing.T) {
+	router, jwtService := testRouter(t, "")
+	id := uuid.NewString()
+	routes := []struct {
+		method, path string
+		leitung      bool
+	}{
+		{http.MethodPost, "/children/", true},
+		{http.MethodPut, "/children/" + id, true},
+		{http.MethodPost, "/children/" + id + "/parents", true},
+		{http.MethodPost, "/children/" + id + "/care-hours-history", true},
+		{http.MethodPost, "/parents/", true},
+		{http.MethodPut, "/parents/" + id, true},
+		{http.MethodPost, "/households/", true},
+		{http.MethodPut, "/households/" + id, true},
+		{http.MethodPost, "/households/" + id + "/children", true},
+		{http.MethodPost, "/members/", true},
+		{http.MethodPut, "/members/" + id, true},
+		{http.MethodDelete, "/children/" + id, false},
+		{http.MethodDelete, "/parents/" + id, false},
+		{http.MethodDelete, "/households/" + id, false},
+		{http.MethodDelete, "/members/" + id, false},
+		{http.MethodPost, "/children/" + id + "/notes", false},
+		{http.MethodPost, "/children/import/parse", false},
+		{http.MethodPost, "/children/import/execute", false},
+		{http.MethodPost, "/fees/", false},
+		{http.MethodPost, "/einstufungen/", false},
+		{http.MethodPost, "/import/match", false},
+	}
+	leitung, err := jwtService.GenerateTokenPair(uuid.New(), "leitung@example.org", "LEITUNG")
+	if err != nil {
+		t.Fatal(err)
+	}
+	user, err := jwtService.GenerateTokenPair(uuid.New(), "user@example.org", "USER")
+	if err != nil {
+		t.Fatal(err)
+	}
+	do := func(method, path, token string) int {
+		req := httptest.NewRequest(method, apiPrefix+path, strings.NewReader(`{}`))
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		return rec.Code
+	}
+	for _, route := range routes {
+		t.Run(route.method+route.path, func(t *testing.T) {
+			code := do(route.method, route.path, leitung.AccessToken)
+			if route.leitung && (code == http.StatusUnauthorized || code == http.StatusForbidden) {
+				t.Fatalf("LEITUNG: status %d, want handler reached", code)
+			}
+			if !route.leitung && code != http.StatusForbidden {
+				t.Fatalf("LEITUNG: status %d, want 403", code)
+			}
+			if code := do(route.method, route.path, user.AccessToken); code == http.StatusForbidden || code == http.StatusUnauthorized {
+				t.Fatalf("USER: status %d, want handler reached", code)
+			}
+		})
 	}
 }

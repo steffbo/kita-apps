@@ -39,7 +39,8 @@ func (in *UserInput) normalize() error {
 		return fmt.Errorf("%w: ungültige E-Mail-Adresse", ErrInvalidInput)
 	}
 	if in.Role != domain.UserRoleAdmin && in.Role != domain.UserRoleUser &&
-		in.Role != domain.UserRoleParentWork && in.Role != domain.UserRolePARENT {
+		in.Role != domain.UserRoleParentWork && in.Role != domain.UserRoleLeitung &&
+		in.Role != domain.UserRolePARENT {
 		return fmt.Errorf("%w: Ungültige Rolle", ErrInvalidInput)
 	}
 	in.FirstName = trimmedOrNil(in.FirstName)

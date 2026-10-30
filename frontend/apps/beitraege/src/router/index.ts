@@ -65,7 +65,7 @@ const router = createRouter({
           path: 'kinder',
           name: 'children',
           component: () => import('@/pages/ChildrenPage.vue'),
-          meta: { requiresFees: true },
+          meta: { requiresMasterData: true },
         },
         {
           path: 'kinder/import',
@@ -77,7 +77,7 @@ const router = createRouter({
           path: 'kinder/:id',
           name: 'child-detail',
           component: () => import('@/pages/ChildDetailPage.vue'),
-          meta: { requiresFees: true },
+          meta: { requiresMasterData: true },
         },
         {
           path: 'notizen',
@@ -89,25 +89,25 @@ const router = createRouter({
           path: 'eltern',
           name: 'parents',
           component: () => import('@/pages/ParentsPage.vue'),
-          meta: { requiresFees: true },
+          meta: { requiresMasterData: true },
         },
         {
           path: 'eltern/:id',
           name: 'parent-detail',
           component: () => import('@/pages/ParentDetailPage.vue'),
-          meta: { requiresFees: true },
+          meta: { requiresMasterData: true },
         },
         {
           path: 'mitglieder',
           name: 'members',
           component: () => import('@/pages/MembersPage.vue'),
-          meta: { requiresFees: true },
+          meta: { requiresMasterData: true },
         },
         {
           path: 'mitglieder/:id',
           name: 'member-detail',
           component: () => import('@/pages/MemberDetailPage.vue'),
-          meta: { requiresFees: true },
+          meta: { requiresMasterData: true },
         },
         {
           path: 'beitraege',
@@ -175,27 +175,32 @@ router.beforeEach(async (to, _from, next) => {
     return;
   }
   if (to.meta.requiresParent && !authStore.isParent) {
+    next({ name: authStore.isParentWork ? 'parent-work' : authStore.isLeitung ? 'children' : 'dashboard' });
+    return;
+  }
+
+  if (to.meta.requiresMasterData && !authStore.canAccessMasterData) {
     next({ name: authStore.isParentWork ? 'parent-work' : 'dashboard' });
     return;
   }
 
   if (to.meta.requiresFees && !authStore.canAccessFees) {
-    next({ name: 'parent-work' });
+    next({ name: authStore.isLeitung ? 'children' : 'parent-work' });
     return;
   }
 
   if (to.meta.requiresAdmin && !authStore.isAdmin) {
-    next({ name: 'dashboard' });
+    next({ name: authStore.isLeitung ? 'children' : 'dashboard' });
     return;
   }
 
   if (to.meta.requiresParentWork && !authStore.canAccessParentWork) {
-    next({ name: 'dashboard' });
+    next({ name: authStore.isLeitung ? 'children' : 'dashboard' });
     return;
   }
 
   if (to.name === 'login' && authStore.isAuthenticated) {
-    next({ name: authStore.isParent ? 'family' : authStore.isParentWork ? 'parent-work' : 'dashboard' });
+    next({ name: authStore.isParent ? 'family' : authStore.isParentWork ? 'parent-work' : authStore.isLeitung ? 'children' : 'dashboard' });
     return;
   }
 

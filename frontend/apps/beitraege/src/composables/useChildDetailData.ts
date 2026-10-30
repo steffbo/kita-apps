@@ -1,5 +1,6 @@
 import { ref, computed, onMounted, watch, type Ref } from 'vue';
 import { api } from '@/api';
+import { useAuthStore } from '@/stores/auth';
 import type {
   CareHoursHistoryEntry,
   Child,
@@ -18,6 +19,7 @@ export type EffectiveCareHours = {
 };
 
 export function useChildDetailData(childId: Readonly<Ref<string>>) {
+  const auth = useAuthStore();
   const child = ref<Child | null>(null);
   const fees = ref<FeeExpectation[]>([]);
   const isLoading = ref(true);
@@ -49,6 +51,14 @@ export function useChildDetailData(childId: Readonly<Ref<string>>) {
       child.value = await api.getChild(childId.value);
       careHoursHistory.value = await api.getCareHoursHistory(childId.value);
       legalHoursHistory.value = await api.getLegalHoursHistory(childId.value);
+      // Leitung has no access to fees, bank data or the fee calculation.
+      if (!auth.canAccessFees) {
+        fees.value = [];
+        childcareFee.value = null;
+        trustedIbans.value = [];
+        likelyTransactions.value = [];
+        return;
+      }
       const feesResponse = await api.getFees({ childId: childId.value, perPage: 50 });
       fees.value = feesResponse.data;
       // Load childcare fee if applicable

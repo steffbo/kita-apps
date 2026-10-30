@@ -58,7 +58,7 @@ type Fixtures = {
   /** API client authenticated as admin, for seeding. */
   adminApi: Api;
   /** Creates an active account with the requested role and returns its credentials. */
-  createUser: (role?: 'USER' | 'ADMIN' | 'PARENT_WORK') => Promise<TestUser>;
+  createUser: (role?: 'USER' | 'ADMIN' | 'PARENT_WORK' | 'LEITUNG') => Promise<TestUser>;
 };
 
 export const test = base.extend<Fixtures>({

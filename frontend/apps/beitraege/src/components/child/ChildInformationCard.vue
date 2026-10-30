@@ -5,6 +5,10 @@ import ChildHoursHistory from '@/components/child/ChildHoursHistory.vue';
 import { Edit, Trash2, User, Calendar, MapPin, Clock } from 'lucide-vue-next';
 import { formatDate } from '@/utils/format';
 import { calculateAge, formatCareHours, isUnderThree } from '@/utils/child';
+import { useAuthStore } from '@/stores/auth';
+
+// Deleting a child also deletes its fee data, so Leitung does not get the button.
+const auth = useAuthStore();
 
 const props = defineProps<{
   child: Child;
@@ -81,6 +85,7 @@ const showDeleteDialog = computed({
           <Edit class="h-5 w-5" />
         </button>
         <button
+          v-if="auth.canAccessFees"
           @click="showDeleteDialog = true"
           class="btn btn-danger-outline btn-icon btn-sm"
           aria-label="Löschen"

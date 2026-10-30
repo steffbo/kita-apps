@@ -34,7 +34,7 @@ watch(query, (value) => {
   selected.value = 0;
   clearTimeout(timer);
   const q = value.trim();
-  if (q.length < 2 || !auth.canAccessFees) {
+  if (q.length < 2 || !auth.canAccessMasterData) {
     people.value = [];
     loading.value = false;
     return;

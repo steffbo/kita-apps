@@ -103,12 +103,16 @@ const isCreating = ref(false);
 const createError = ref<string | null>(null);
 
 // Filter chips; each change restarts at page 1.
-const filters = [
+// „Mit Hinweisen“ prüft auch fehlendes Einkommen und „Offene Beiträge“ ist Beitragsinfo:
+// beides gibt es für die Leitung nicht.
+const filters = computed(() => [
   { label: 'Inaktive', flag: showInactive },
   { label: 'U3', flag: showOnlyU3 },
-  { label: 'Mit Hinweisen', flag: showOnlyWarnings },
-  { label: 'Offene Beiträge', flag: showOnlyOpenFees },
-];
+  ...(authStore.canAccessFees ? [
+    { label: 'Mit Hinweisen', flag: showOnlyWarnings },
+    { label: 'Offene Beiträge', flag: showOnlyOpenFees },
+  ] : []),
+]);
 
 function toggleFilter(flag: { value: boolean }) {
   flag.value = !flag.value;
@@ -123,10 +127,10 @@ watch([sortField, sortDirection], () => {
 
 onMounted(() => {
   // Check for query params to auto-enable filters
-  if (route.query.openFees === 'true') {
+  if (route.query.openFees === 'true' && authStore.canAccessFees) {
     showOnlyOpenFees.value = true;
   }
-  if (route.query.warnings === 'true') {
+  if (route.query.warnings === 'true' && authStore.canAccessFees) {
     showOnlyWarnings.value = true;
   }
   loadChildren();
@@ -138,8 +142,8 @@ onMounted(() => {
 function getChildWarnings(child: Child): string[] {
   const warnings: string[] = [];
   
-  // U3 without household income
-  if (isUnderThree(child.birthDate)) {
+  // U3 without household income (income is not visible to Leitung)
+  if (authStore.canAccessFees && isUnderThree(child.birthDate)) {
     const household = child.household;
     const hasIncome = household && (
       household.annualHouseholdIncome !== undefined && household.annualHouseholdIncome !== null ||
@@ -326,7 +330,7 @@ async function handleBulkDelete() {
   <div>
     <PageHeader title="Kinder">
       <template #actions>
-        <button type="button" class="btn btn-secondary" @click="router.push('/kinder/import')">
+        <button v-if="authStore.canAccessFees" type="button" class="btn btn-secondary" @click="router.push('/kinder/import')">
           <Upload />Importieren
         </button>
         <button type="button" class="btn btn-primary" @click="openCreateDialog">

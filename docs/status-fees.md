@@ -3,6 +3,41 @@
 Rolling change log of non-obvious implementation decisions. Newest first.
 Basics (ports, commands, layout) live in `AGENTS.md`.
 
+## Rolle `LEITUNG`: Stammdaten ohne Beitragsdaten (2026-10-30)
+
+- Anlass: Die Kita-Leitung soll Kinder, Eltern, Haushalte, Mitglieder und Elternstunden pflegen, aber keine
+  Beiträge, Einkommen oder Kontodaten sehen. Migration `000048` erweitert `users_role_check` um `LEITUNG`
+  (Down schlägt fehl, solange noch ein `LEITUNG`-Konto existiert, wie bei `000038`).
+- Zugriff (`internal/api/router.go`): Eine eigene Gruppe „Stammdaten“ (`ADMIN`/`USER`/`LEITUNG`) enthält
+  `/children`, `/parents`, `/households`, `/members`. Lesen, Anlegen, Ändern und Verknüpfen sind für `LEITUNG`
+  erlaubt. `staffOnly` (`ADMIN`/`USER`) bleiben: **Löschen** von Kind, Elternteil, Haushalt und Mitglied (das
+  Löschen eines Kindes löscht auch seine Beitragsdaten), `/children/{id}/ledger`, `/timeline`, `/notes`
+  (Kindernotizen), `/children/import/**`, `/notes`, `/fees/**`, `/einstufungen/**`, `/fee-schedules`,
+  `/stichtagsmeldung`, `/import/**` (Bankabgleich), `/banking-sync/**`. `/parent-work/**` steht `LEITUNG` offen
+  wie `PARENT_WORK` (Regeln und Vorstandszeiten schreiben bleibt `ADMIN`).
+- Beitragsfelder in den erlaubten Antworten: `middleware.HideFeeData("LEITUNG")` entfernt für diese Rolle aus
+  jeder JSON-Antwort der Stammdaten-Gruppe rekursiv `annualHouseholdIncome`, `incomeStatus`,
+  `childrenCountForFees`, `openFeesCount` und `einstufungSync` (`middleware.FeeFields`), verwirft dieselben
+  Schlüssel in JSON-Anfragen (fehlend heißt „unverändert“, Einkommen lässt sich also auch nicht schreiben) und
+  ignoriert in der Kinderliste die Filter `hasOpenFees` und `hasWarnings` (letzterer prüft auch fehlendes
+  Einkommen). Andere Rollen laufen unverändert durch.
+- Absicherung gegen neue Felder: `TestFeeFieldsCoverDomainPayloads` schlägt fehl, wenn an Kind, Elternteil,
+  Haushalt, Mitglied oder den Stundenhistorien ein Feld mit `fee|income|einstuf|amount|balance|iban|price|
+  contribution` im JSON-Namen fehlt in `FeeFields`. Neue Beitragsfelder dort eintragen.
+- Nebenwirkung, die bleibt: Ändert die Leitung Geburtsdatum oder Betreuungszeiten eines Kindes, gleicht das
+  Backend Einstufung und Platzgeld wie bisher an (`ChildService.Update`). Das Ergebnis sieht die Leitung nicht.
+- Frontend: `auth.canAccessMasterData` (Stammdaten) neben `canAccessFees` (Beiträge, Einstufungen, Bankabgleich,
+  Notizen, Kinderimport); `LEITUNG` zählt zu `canAccessParentWork`. Route-Meta `requiresMasterData` für
+  Kinder, Eltern und Mitglieder; Leitung landet nach Login und bei gesperrten Seiten auf `/kinder`. Die
+  Navigation zeigt Stammdaten (Kinder, Eltern, Mitglieder) und Elternstunden, kein Start, keine Aufgaben, keine
+  Beitragsgruppe. Kinderseite ohne Einkommen, Platzgeld, IBANs, Beitragsliste, Notizen und Löschen; Kinderliste
+  ohne Filter „Mit Hinweisen“ und „Offene Beiträge“ und ohne Import; Haushaltsbearbeitung nur Name.
+- Bewusst gleich wie bei `PARENT_WORK`: Die Elternstunden-Regeln zeigen weiter den Satz je Fehlstunde.
+- Tests: Routertests (`TestRouter_RoleAreas`, `TestRouter_LeitungWriteRoutes`), Middleware-Tests
+  (`hide_fee_data_test.go`) und e2e `frontend/e2e/beitraege/leitung.spec.ts`. Lokal nicht gelaufen (siehe Commit).
+- Offen: `openapi/fees/openapi3.yaml` und `schema.d.ts` wurden nur an den Rollen-Enums von Hand angepasst
+  (Generator braucht Netz); `scripts/generate-api.sh` einmal laufen lassen und auf Drift prüfen.
+
 ## UI-Redesign: neutrale Basis, Indigo, Inter (2026-10-29)
 
 - Anlass: Die App wirkte wie die verspielte Webseite knirpsenstadt.de (Grün, Nunito, runde Formen). Ziel ist

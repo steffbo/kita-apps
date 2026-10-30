@@ -34,7 +34,7 @@ type UserAccountResponse struct {
 	Email             string     `json:"email" example:"user@example.com"`
 	FirstName         *string    `json:"firstName,omitempty" example:"Max" binding:"optional"`
 	LastName          *string    `json:"lastName,omitempty" example:"Mustermann" binding:"optional"`
-	Role              string     `json:"role" example:"USER" enums:"ADMIN,USER,PARENT_WORK,PARENT"`
+	Role              string     `json:"role" example:"USER" enums:"ADMIN,USER,PARENT_WORK,LEITUNG,PARENT"`
 	ParentID          *uuid.UUID `json:"parentId" binding:"optional"`
 	ParentName        *string    `json:"parentName" binding:"optional"`
 	IsActive          bool       `json:"isActive"`
@@ -48,7 +48,7 @@ type UserAccountRequest struct {
 	Email     string  `json:"email" example:"user@example.com"`
 	FirstName *string `json:"firstName,omitempty" example:"Max" binding:"optional"`
 	LastName  *string `json:"lastName,omitempty" example:"Mustermann" binding:"optional"`
-	Role      string  `json:"role" example:"USER" enums:"ADMIN,USER,PARENT_WORK,PARENT"`
+	Role      string  `json:"role" example:"USER" enums:"ADMIN,USER,PARENT_WORK,LEITUNG,PARENT"`
 	IsActive  bool    `json:"isActive"`
 } //@name UserAccountRequest
 

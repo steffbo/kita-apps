@@ -34,7 +34,7 @@ const resendingId = ref<string | null>(null);
 
 const search = ref('');
 const roleFilter = ref<UserRole | ''>('');
-const roles: UserRole[] = ['ADMIN', 'USER', 'PARENT_WORK', 'PARENT'];
+const roles: UserRole[] = ['ADMIN', 'USER', 'PARENT_WORK', 'LEITUNG', 'PARENT'];
 const filteredUsers = computed(() => {
   const q = search.value.trim().toLocaleLowerCase('de');
   return users.value.filter(u => (!roleFilter.value || u.role === roleFilter.value)

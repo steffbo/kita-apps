@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { toRefs } from 'vue';
+import { useAuthStore } from '@/stores/auth';
 import type { EffectiveCareHours } from '@/composables/useChildDetailData';
 import type { Child, ChildcareFeeResult, KnownIBANSummary, Parent, UpdateHouseholdRequest } from '@/api/types';
 import { Edit, Loader2, User, Check, Users, Plus, Link, Unlink, Home, Euro } from 'lucide-vue-next';
@@ -48,6 +49,9 @@ const {
   cancelEditingHousehold,
   saveHouseholdEdit,
 } = toRefs(props);
+
+// Leitung sees the household and its members, but no income or fee data.
+const auth = useAuthStore();
 </script>
 
 <template>
@@ -56,7 +60,7 @@ const {
     <div class="flex items-center justify-between mb-4">
       <div class="flex items-center gap-2">
         <Home class="h-5 w-5 text-primary" />
-        <h2 class="text-base font-semibold">Haushalt & Einkommen</h2>
+        <h2 class="text-base font-semibold">{{ auth.canAccessFees ? 'Haushalt & Einkommen' : 'Haushalt' }}</h2>
       </div>
       <div class="flex items-center gap-2">
         <button
@@ -97,7 +101,7 @@ const {
         </div>
 
         <!-- Income Status -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div v-if="auth.canAccessFees" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           <div>
             <p class="text-sm text-muted-foreground">Einkommensstatus</p>
             <p class="font-medium">{{ getIncomeStatusLabel(child.household.incomeStatus) }}</p>
@@ -126,7 +130,7 @@ const {
           </div>
         </div>
 
-        <div v-if="trustedIbans.length > 0" class="pt-3 border-t">
+        <div v-if="auth.canAccessFees && trustedIbans.length > 0" class="pt-3 border-t">
           <p class="text-sm text-muted-foreground mb-2">Bekannte IBANs</p>
           <div class="flex flex-wrap gap-2">
             <span
@@ -142,7 +146,7 @@ const {
         </div>
 
         <!-- Platzgeld (Childcare Fee) for U3 children -->
-        <div v-if="isUnderThree(child.birthDate)" class="pt-4 border-t">
+        <div v-if="auth.canAccessFees && isUnderThree(child.birthDate)" class="pt-4 border-t">
           <div class="flex items-start gap-3">
             <Euro class="h-5 w-5 text-primary mt-0.5" />
             <div class="flex-1">
@@ -246,7 +250,7 @@ const {
           />
         </div>
 
-        <div>
+        <div v-if="auth.canAccessFees">
           <label for="household-incomeStatus" class="label">Einkommensstatus</label>
           <select
             id="household-incomeStatus"
@@ -259,7 +263,7 @@ const {
           </select>
         </div>
 
-        <div v-if="householdEditForm.incomeStatus === 'PROVIDED' || householdEditForm.incomeStatus === 'HISTORIC'">
+        <div v-if="auth.canAccessFees && (householdEditForm.incomeStatus === 'PROVIDED' || householdEditForm.incomeStatus === 'HISTORIC')">
           <label for="household-income" class="label">Jahreshaushaltseinkommen</label>
           <input
             id="household-income"
@@ -271,7 +275,7 @@ const {
           />
         </div>
 
-        <div>
+        <div v-if="auth.canAccessFees">
           <label for="household-childrenCount" class="label">Anzahl Kinder (für Beitragsberechnung)</label>
           <input
             id="household-childrenCount"

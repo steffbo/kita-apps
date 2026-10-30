@@ -112,7 +112,8 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 			// Parent-work account routes.
 			r.Route("/parent-work", func(r chi.Router) {
 				r.Use(customMiddleware.RequireRole(
-					string(domain.UserRoleAdmin), string(domain.UserRoleParentWork)))
+					string(domain.UserRoleAdmin), string(domain.UserRoleParentWork),
+					string(domain.UserRoleLeitung)))
 				r.Get("/overview", handlers.ParentWork.Overview)
 				r.Get("/households", handlers.ParentWork.Households)
 				r.Get("/households/{id}", handlers.ParentWork.Household)
@@ -140,9 +141,19 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 					Put("/rules/{id}", handlers.ParentWork.UpdateRule)
 			})
 
+			// Staff = full access including fees (ADMIN, USER). LEITUNG gets the
+			// master-data group below and never reaches fee, Einstufung, bank or note routes.
+			staffOnly := customMiddleware.RequireRole(
+				string(domain.UserRoleAdmin), string(domain.UserRoleUser))
+
+			// Master data: children, parents, households, members. LEITUNG may use
+			// it, but HideFeeData strips income/fee fields from its requests and
+			// responses. Routes that expose or destroy fee data stay staffOnly.
 			r.Group(func(r chi.Router) {
 				r.Use(customMiddleware.RequireRole(
-					string(domain.UserRoleAdmin), string(domain.UserRoleUser)))
+					string(domain.UserRoleAdmin), string(domain.UserRoleUser),
+					string(domain.UserRoleLeitung)))
+				r.Use(customMiddleware.HideFeeData(string(domain.UserRoleLeitung)))
 
 				// Children
 				r.Route("/children", func(r chi.Router) {
@@ -153,32 +164,30 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 					r.With(customMiddleware.RequireRole(string(domain.UserRoleAdmin))).
 						Get("/{id}/changes", handlers.ParentAccount.ChildChanges)
 					r.Put("/{id}", handlers.Child.Update)
-					r.Delete("/{id}", handlers.Child.Delete)
+					r.With(staffOnly).Delete("/{id}", handlers.Child.Delete)
 					r.Get("/{id}/care-hours-history", handlers.Child.GetCareHoursHistory)
 					r.Post("/{id}/care-hours-history", handlers.Child.AddCareHoursHistory)
 					r.Get("/{id}/legal-hours-history", handlers.Child.GetLegalHoursHistory)
 					r.Post("/{id}/legal-hours-history", handlers.Child.AddLegalHoursHistory)
-					r.Get("/{id}/ledger", handlers.Child.GetLedger)
-					r.Get("/{id}/timeline", handlers.Child.GetTimeline)
+					r.With(staffOnly).Get("/{id}/ledger", handlers.Child.GetLedger)
+					r.With(staffOnly).Get("/{id}/timeline", handlers.Child.GetTimeline)
 					r.Post("/{id}/parents", handlers.Child.LinkParent)
 					r.Delete("/{id}/parents/{parentId}", handlers.Child.UnlinkParent)
 
-					// Child notes
-					r.Get("/{id}/notes", handlers.ChildNote.ListByChild)
-					r.Post("/{id}/notes", handlers.ChildNote.Create)
-					r.Put("/{id}/notes/{noteId}", handlers.ChildNote.Update)
-					r.Delete("/{id}/notes/{noteId}", handlers.ChildNote.Delete)
+					// Child notes (staff only)
+					r.With(staffOnly).Get("/{id}/notes", handlers.ChildNote.ListByChild)
+					r.With(staffOnly).Post("/{id}/notes", handlers.ChildNote.Create)
+					r.With(staffOnly).Put("/{id}/notes/{noteId}", handlers.ChildNote.Update)
+					r.With(staffOnly).Delete("/{id}/notes/{noteId}", handlers.ChildNote.Delete)
 
-					// Child import routes
+					// Child import routes (staff only)
 					r.Route("/import", func(r chi.Router) {
+						r.Use(staffOnly)
 						r.Post("/parse", handlers.ChildImport.Parse)
 						r.Post("/preview", handlers.ChildImport.Preview)
 						r.Post("/execute", handlers.ChildImport.Execute)
 					})
 				})
-
-				// Notes (global list across children)
-				r.Get("/notes", handlers.ChildNote.ListAll)
 
 				// Parents
 				r.Route("/parents", func(r chi.Router) {
@@ -188,7 +197,7 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 					r.With(customMiddleware.RequireRole(string(domain.UserRoleAdmin))).
 						Get("/{id}/changes", handlers.ParentAccount.ParentChanges)
 					r.Put("/{id}", handlers.Parent.Update)
-					r.Delete("/{id}", handlers.Parent.Delete)
+					r.With(staffOnly).Delete("/{id}", handlers.Parent.Delete)
 					r.Post("/{id}/member", handlers.Parent.CreateMember)
 					r.Delete("/{id}/member", handlers.Parent.UnlinkMember)
 				})
@@ -199,7 +208,7 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 					r.Post("/", handlers.Household.Create)
 					r.Get("/{id}", handlers.Household.Get)
 					r.Put("/{id}", handlers.Household.Update)
-					r.Delete("/{id}", handlers.Household.Delete)
+					r.With(staffOnly).Delete("/{id}", handlers.Household.Delete)
 					r.Post("/{id}/parents", handlers.Household.LinkParent)
 					r.Post("/{id}/children", handlers.Household.LinkChild)
 				})
@@ -211,8 +220,16 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 					r.Get("/count", handlers.Member.CountAsOf)
 					r.Get("/{id}", handlers.Member.Get)
 					r.Put("/{id}", handlers.Member.Update)
-					r.Delete("/{id}", handlers.Member.Delete)
+					r.With(staffOnly).Delete("/{id}", handlers.Member.Delete)
 				})
+			})
+
+			// Fees, Einstufungen, bank data and notes: ADMIN and USER only.
+			r.Group(func(r chi.Router) {
+				r.Use(staffOnly)
+
+				// Notes (global list across children)
+				r.Get("/notes", handlers.ChildNote.ListAll)
 
 				// Banking sync (admin only)
 				r.Route("/banking-sync", func(r chi.Router) {

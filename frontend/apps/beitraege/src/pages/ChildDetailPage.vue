@@ -262,12 +262,12 @@ const householdParents = computed(() => {
 // Household functions
 function startEditingHousehold() {
   if (!child.value?.household) return;
-  householdEditForm.value = {
+  householdEditForm.value = authStore.canAccessFees ? {
     name: child.value.household.name,
     annualHouseholdIncome: child.value.household.annualHouseholdIncome,
     incomeStatus: child.value.household.incomeStatus || '',
     childrenCountForFees: child.value.household.childrenCountForFees,
-  };
+  } : { name: child.value.household.name };
   householdError.value = null;
   isEditingHousehold.value = true;
 }
@@ -382,10 +382,11 @@ async function createReminder() {
           :cancelEditingHousehold="cancelEditingHousehold"
           :saveHouseholdEdit="saveHouseholdEdit"
         />
-      <ChildNotesCard :child-id="childId" />
+      <ChildNotesCard v-if="authStore.canAccessFees" :child-id="childId" />
 
-      <!-- Fees section -->
+      <!-- Fees section (not for Leitung) -->
       <ChildPaymentsCard
+        v-if="authStore.canAccessFees"
         :fees="fees"
         :likelyTransactions="likelyTransactions"
         :isLoadingLikelyTransactions="isLoadingLikelyTransactions"

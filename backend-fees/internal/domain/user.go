@@ -29,7 +29,10 @@ const (
 	UserRoleAdmin      UserRole = "ADMIN"
 	UserRoleUser       UserRole = "USER"
 	UserRoleParentWork UserRole = "PARENT_WORK"
-	UserRolePARENT     UserRole = "PARENT"
+	// UserRoleLeitung manages children, parents, households, members and
+	// Elternstunden, but never sees fee, income or bank data.
+	UserRoleLeitung UserRole = "LEITUNG"
+	UserRolePARENT  UserRole = "PARENT"
 )
 
 // RefreshToken represents a stored refresh token.

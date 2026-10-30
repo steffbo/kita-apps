@@ -27,8 +27,12 @@ export const useAuthStore = defineStore('auth', () => {
   const isAdmin = computed(() => user.value?.role === 'ADMIN');
   const isParent = computed(() => user.value?.role === 'PARENT');
   const isParentWork = computed(() => user.value?.role === 'PARENT_WORK');
+  const isLeitung = computed(() => user.value?.role === 'LEITUNG');
+  /** Beiträge, Einstufungen, Bankabgleich, Notizen; never for Leitung. */
   const canAccessFees = computed(() => isAdmin.value || user.value?.role === 'USER');
-  const canAccessParentWork = computed(() => isAdmin.value || isParentWork.value);
+  /** Kinder, Eltern, Haushalte, Mitglieder (Leitung ohne Beitrags- und Einkommensdaten). */
+  const canAccessMasterData = computed(() => canAccessFees.value || isLeitung.value);
+  const canAccessParentWork = computed(() => isAdmin.value || isParentWork.value || isLeitung.value);
 
   api.setOnTokenRefreshed((token) => {
     accessToken.value = token;
@@ -69,6 +73,7 @@ export const useAuthStore = defineStore('auth', () => {
   function homePath(target: User): string {
     if (target.role === 'PARENT') return '/familie';
     if (target.role === 'PARENT_WORK') return '/elternstunden';
+    if (target.role === 'LEITUNG') return '/kinder';
     return '/';
   }
 
@@ -163,7 +168,9 @@ export const useAuthStore = defineStore('auth', () => {
     isAdmin,
     isParent,
     isParentWork,
+    isLeitung,
     canAccessFees,
+    canAccessMasterData,
     canAccessParentWork,
     isLoading,
     error,

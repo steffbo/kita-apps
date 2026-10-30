@@ -74,6 +74,14 @@ export function useNavigation() {
         ] },
       );
     }
+    if (!auth.canAccessFees && auth.isLeitung) {
+      // Leitung: Stammdaten ohne Notizen, keine Beitrags- oder Bankbereiche.
+      result.push({ label: 'Stammdaten', items: [
+        { name: 'Kinder', to: '/kinder', icon: Users },
+        { name: 'Eltern', to: '/eltern', icon: UserCircle },
+        { name: 'Mitglieder', to: '/mitglieder', icon: UserPlus },
+      ] });
+    }
     if (auth.canAccessParentWork) {
       result.push({ label: 'Elternstunden', items: [
         { name: 'Übersicht', to: '/elternstunden', icon: Clock, match: ['/elternstunden/familien'] },
@@ -112,7 +120,11 @@ export function useNavigation() {
     });
   }
 
-  const home = computed(() => (auth.isParent ? '/familie' : auth.canAccessFees ? '/' : '/elternstunden'));
+  const home = computed(() => {
+    if (auth.isParent) return '/familie';
+    if (auth.canAccessFees) return '/';
+    return auth.isLeitung ? '/kinder' : '/elternstunden';
+  });
 
   return { groups, allItems, tabs, hasMore, taskTabs, taskTotal, isActive, home };
 }

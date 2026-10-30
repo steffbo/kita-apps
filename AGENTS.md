@@ -32,9 +32,9 @@ Go services all follow: `cmd/server`, `cmd/migrate`, `internal/api` (handlers + 
 
 ## Roles and Elternstunden
 
-Router groups by role: fee routes `ADMIN`/`USER`, `/users` `ADMIN` (incl. `POST /users/{id}/impersonate` and parent invitations; public `POST /auth/invitation-password`; see `docs/status-fees.md`), `/parent-work/**` `ADMIN`/`PARENT_WORK`
+Router groups by role: fee routes `ADMIN`/`USER` (children, parents, households, members also `LEITUNG`, see below), `/users` `ADMIN` (incl. `POST /users/{id}/impersonate` and parent invitations; public `POST /auth/invitation-password`; see `docs/status-fees.md`), `/parent-work/**` `ADMIN`/`PARENT_WORK`
 (rules write and board terms `ADMIN`), `/me/**` `PARENT`, `/activity`, `/parent-reports/**`, `/parents/{id}/changes` and `/children/{id}/changes` `ADMIN`.
-`PARENT` is linked by login email, uses `/familie/**`, and sees its own family (changes only its own email and the phones of both parents; names, birth dates and addresses are read-only, corrections go through error reports); linked contact and login emails stay synchronized. `PARENT_WORK` sees only `/beitraege/elternstunden/**` (no board page). Parent edits to contact data are audited in `fees.data_changes`; error reports live in `fees.parent_reports`.
+`PARENT` is linked by login email, uses `/familie/**`, and sees its own family (changes only its own email and the phones of both parents; names, birth dates and addresses are read-only, corrections go through error reports); linked contact and login emails stay synchronized. `PARENT_WORK` sees only `/beitraege/elternstunden/**` (no board page). `LEITUNG` edits children, parents, households, members and Elternstunden but never sees fees, income, Einstufungen, bank data or notes and cannot delete: `middleware.HideFeeData` strips `middleware.FeeFields` from its responses and requests (add new fee/income fields there; a test guards the domain payloads), fee/bank/note routes stay `ADMIN`/`USER`. Parent edits to contact data are audited in `fees.data_changes`; error reports live in `fees.parent_reports`.
 Parent work is booked per household
 (`fees.households`), stored in minutes (multiples of 15); rules (hours per child, rate per missing hour, carry-over cap)
 are versioned data in `fees.parent_work_rules`, board terms in `fees.board_terms`. Calculation:
@@ -106,7 +106,7 @@ ssh vm-infra-dev \
   "sudo docker exec kita-db psql -U kita -d kita -c 'SELECT COUNT(*) FROM fees.children;'"
 ```
 
-Qualify schemas explicitly (`fees.*`). `backend-fees` users live in `fees.users` (migration `000036`, bcrypt hashes, roles `ADMIN`/`USER`/`PARENT_WORK`/`PARENT`, managed on the "Benutzer" page). `USER_NAME` / `USER_PASSWORD` only bootstrap the admin when no account with that email exists (same ID as the former static admin, `a0eebc99-…`); they never overwrite it. There is no agent service account yet.
+Qualify schemas explicitly (`fees.*`). `backend-fees` users live in `fees.users` (migration `000036`, bcrypt hashes, roles `ADMIN`/`USER`/`PARENT_WORK`/`LEITUNG`/`PARENT`, managed on the "Benutzer" page). `USER_NAME` / `USER_PASSWORD` only bootstrap the admin when no account with that email exists (same ID as the former static admin, `a0eebc99-…`); they never overwrite it. There is no agent service account yet.
 
 Note on the kita stack `.env` (`/srv/homelab/stacks/infra-dev/apps/kita/.env` on infra-dev): values with special characters (e.g. `USER_PASSWORD`) are wrapped in single quotes. Docker Compose strips the quotes when passing them into containers, so login works — but when reading the file manually (scripts, shell parsing), strip surrounding `'` yourself or authentication will fail.
 

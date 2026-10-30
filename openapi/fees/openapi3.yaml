@@ -6971,6 +6971,7 @@ components:
             - ADMIN
             - USER
             - PARENT_WORK
+            - LEITUNG
             - PARENT
           example: USER
           type: string
@@ -8666,6 +8667,7 @@ components:
             - ADMIN
             - USER
             - PARENT_WORK
+            - LEITUNG
             - PARENT
           example: ADMIN
           type: string
@@ -8702,6 +8704,7 @@ components:
             - ADMIN
             - USER
             - PARENT_WORK
+            - LEITUNG
             - PARENT
           example: USER
           type: string
@@ -8734,6 +8737,7 @@ components:
             - ADMIN
             - USER
             - PARENT_WORK
+            - LEITUNG
             - PARENT
           example: USER
           type: string
