@@ -13,8 +13,10 @@ Basics (ports, commands, layout) live in `AGENTS.md`.
   erlaubt. `staffOnly` (`ADMIN`/`USER`) bleiben: **Löschen** von Kind, Elternteil, Haushalt und Mitglied (das
   Löschen eines Kindes löscht auch seine Beitragsdaten), `/children/{id}/ledger`, `/timeline`, `/notes`
   (Kindernotizen), `/children/import/**`, `/notes`, `/fees/**`, `/einstufungen/**`, `/fee-schedules`,
-  `/stichtagsmeldung`, `/import/**` (Bankabgleich), `/banking-sync/**`. `/parent-work/**` steht `LEITUNG` offen
-  wie `PARENT_WORK` (Regeln und Vorstandszeiten schreiben bleibt `ADMIN`).
+  `/stichtagsmeldung`, `/import/**` (Bankabgleich), `/banking-sync/**`. In `/parent-work/**` darf `LEITUNG` nur
+  lesen (`overview`, `households`, `households/{id}`, `rules`) und Einträge anlegen (`POST /entries`); Bearbeiten,
+  Stornieren, Bestätigen/Ablehnen, manuelles Soll und CSV-Import bleiben `ADMIN`/`PARENT_WORK` (Nachtrag
+  2026-10-30, Wunsch: Leitung sieht den Stand der Familien und erfasst Stunden, keine Verwaltung).
 - Beitragsfelder in den erlaubten Antworten: `middleware.HideFeeData("LEITUNG")` entfernt für diese Rolle aus
   jeder JSON-Antwort der Stammdaten-Gruppe rekursiv `annualHouseholdIncome`, `incomeStatus`,
   `childrenCountForFees`, `openFeesCount` und `einstufungSync` (`middleware.FeeFields`), verwirft dieselben
@@ -27,19 +29,25 @@ Basics (ports, commands, layout) live in `AGENTS.md`.
 - Nebenwirkung, die bleibt: Ändert die Leitung Geburtsdatum oder Betreuungszeiten eines Kindes, gleicht das
   Backend Einstufung und Platzgeld wie bisher an (`ChildService.Update`). Das Ergebnis sieht die Leitung nicht.
 - Frontend: `auth.canAccessMasterData` (Stammdaten) neben `canAccessFees` (Beiträge, Einstufungen, Bankabgleich,
-  Notizen, Kinderimport); `LEITUNG` zählt zu `canAccessParentWork`. Route-Meta `requiresMasterData` für
+  Notizen, Kinderimport); `LEITUNG` zählt zu `canAccessParentWork`, aber nicht zu `canManageParentWork`
+  (Seite „Verwaltung“ mit Route-Meta `requiresParentWorkManagement`, in der Familienansicht Soll-Button und
+  Aktionsspalte). Route-Meta `requiresMasterData` für
   Kinder, Eltern und Mitglieder; Leitung landet nach Login und bei gesperrten Seiten auf `/kinder`. Die
   Navigation zeigt Stammdaten (Kinder, Eltern, Mitglieder) und Elternstunden, kein Start, keine Aufgaben, keine
   Beitragsgruppe. Kinderseite ohne Einkommen, Platzgeld, IBANs, Beitragsliste, Notizen und Löschen; Kinderliste
   ohne Filter „Mit Hinweisen“ und „Offene Beiträge“ und ohne Import; Haushaltsbearbeitung nur Name.
 - Bewusst gleich wie bei `PARENT_WORK`: Die Elternstunden-Regeln zeigen weiter den Satz je Fehlstunde.
-- Tests: Routertests (`TestRouter_RoleAreas`, `TestRouter_LeitungWriteRoutes`), Middleware-Tests
+- Tests: Routertests (`TestRouter_RoleAreas`, `TestRouter_LeitungWriteRoutes`,
+  `TestRouter_LeitungParentWorkRoutes`), Middleware-Tests
   (`hide_fee_data_test.go`) und e2e `frontend/e2e/beitraege/leitung.spec.ts`. Nachgeholt vor dem Merge
   (2026-10-30): `go test ./...` mit Datenbank, Typecheck und alle E2E-Tests grün, `scripts/generate-api.sh`
   ohne Drift; Ansicht als Leitung auf der lokalen Live-Kopie geprüft (Desktop und Handy).
 - Bewusst gleich wie bei `PARENT_WORK`: Der Fehlbetrag der Elternstunden (`missingAmountCents`) steht in der
   API-Antwort und wird nur in der Oberfläche ausgeblendet (nur Admin sieht ihn).
 - Anlegen eines Kontos (auch `LEITUNG`) verschickt keine Mail; Mails gibt es nur bei Eltern-Einladungen.
+- Dialog „Stunden erfassen“ (alle Rollen): Steht die Familie fest (Zeilen-Button, Familienseite, Bearbeiten
+  oder in der Suche gewählt), zeigt der Dialog nur noch ihren Namen statt der Suche. Für eine andere Familie
+  den Dialog schließen und neu öffnen; das vermeidet Buchungen auf die falsche Familie.
 
 ## UI-Redesign: neutrale Basis, Indigo, Inter (2026-10-29)
 

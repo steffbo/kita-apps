@@ -153,7 +153,7 @@ const router = createRouter({
         },
         { path: 'elternstunden/familien/:id', name: 'parent-work-detail', component: () => import('@/pages/ParentWorkDetailPage.vue'), meta: { requiresParentWork: true } },
         { path: 'elternstunden/vorstand', name: 'parent-work-board', component: () => import('@/pages/ParentWorkBoardPage.vue'), meta: { requiresAdmin: true } },
-        { path: 'elternstunden/verwaltung', name: 'parent-work-admin', component: () => import('@/pages/ParentWorkAdminPage.vue'), meta: { requiresParentWork: true } },
+        { path: 'elternstunden/verwaltung', name: 'parent-work-admin', component: () => import('@/pages/ParentWorkAdminPage.vue'), meta: { requiresParentWorkManagement: true } },
       ],
     },
   ],
@@ -191,6 +191,11 @@ router.beforeEach(async (to, _from, next) => {
 
   if (to.meta.requiresAdmin && !authStore.isAdmin) {
     next({ name: authStore.isLeitung ? 'children' : 'dashboard' });
+    return;
+  }
+
+  if (to.meta.requiresParentWorkManagement && !authStore.canManageParentWork) {
+    next({ name: authStore.canAccessParentWork ? 'parent-work' : 'dashboard' });
     return;
   }
 

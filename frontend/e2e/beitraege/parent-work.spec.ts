@@ -7,6 +7,8 @@ function memberNumber() {
   return String(10_000_000 + Math.floor(Math.random() * 90_000_000));
 }
 
+const FAMILY_SEARCH = 'Familie, Kind oder Mitglied suchen';
+
 function workYear() {
   const today = berlinToday();
   return { today, year: today.month >= 8 ? today.year : today.year - 1 };
@@ -70,7 +72,8 @@ test('work entry reduces the open account and voiding restores it', async ({ adm
   await expect(open).toContainText('9 h');
   await page.getByRole('button', { name: 'Stunden erfassen' }).click();
   const dialog = page.getByRole('dialog', { name: 'Stunden erfassen' });
-  await expect(dialog).toContainText(`Familie: ${family.householdName}`);
+  await expect(dialog.getByText(family.householdName, { exact: true })).toBeVisible();
+  await expect(dialog.getByPlaceholder(FAMILY_SEARCH)).toHaveCount(0);
   await expect(dialog.getByLabel('Dauer *')).toHaveValue('');
   await dialog.getByLabel('Dauer *').fill('2:30');
   await dialog.getByLabel('Anlass *').fill('E2E Gartenarbeit');
@@ -211,7 +214,8 @@ test('overview: row button opens the entry form with the family preselected', as
   const row = page.getByRole('row', { name: new RegExp(family.householdName) });
   await row.getByRole('button', { name: `Stunden erfassen für ${family.householdName}` }).click();
   const dialog = page.getByRole('dialog', { name: 'Stunden erfassen' });
-  await expect(dialog).toContainText(`Familie: ${family.householdName}`);
+  await expect(dialog.getByText(family.householdName, { exact: true })).toBeVisible();
+  await expect(dialog.getByPlaceholder(FAMILY_SEARCH)).toHaveCount(0);
   await expect(dialog.getByLabel('Mitglied')).toHaveCount(0);
   await expect(dialog.getByLabel('Kind')).toHaveCount(0);
   await dialog.getByRole('button', { name: '2 Std.', exact: true }).click();
@@ -219,6 +223,23 @@ test('overview: row button opens the entry form with the family preselected', as
   await dialog.getByRole('button', { name: 'Speichern' }).click();
   await expect(dialog).toBeHidden();
   await expect(row).toContainText('7 h');
+});
+
+test('overview: a family picked in the entry form stays fixed', async ({ adminApi, adminPage: page }) => {
+  const family = await familyWithChild(adminApi);
+  await page.goto('/beitraege/elternstunden');
+  await page.getByRole('button', { name: 'Stunden erfassen', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Stunden erfassen' });
+  await dialog.getByPlaceholder(FAMILY_SEARCH).fill(family.suffix);
+  await dialog.getByRole('button', { name: family.householdName }).click();
+  await expect(dialog.getByPlaceholder(FAMILY_SEARCH)).toHaveCount(0);
+  await expect(dialog.getByText(family.householdName, { exact: true })).toBeVisible();
+  await dialog.getByRole('button', { name: '2 Std.', exact: true }).click();
+  await dialog.getByLabel('Anlass *').fill('E2E Suche');
+  await dialog.getByRole('button', { name: 'Speichern' }).click();
+  await expect(dialog).toBeHidden();
+  await page.getByLabel('Suche nach Familie oder Kind').fill(family.suffix);
+  await expect(page.getByRole('row', { name: new RegExp(family.householdName) })).toContainText('7 h');
 });
 
 test('overview: cards filter the table', async ({ adminApi, adminPage: page }) => {

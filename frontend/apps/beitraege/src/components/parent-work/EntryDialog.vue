@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { api } from '@/api';
 import type { ParentWorkEntry, ParentWorkHouseholdOption, ParentWorkEntryRequest } from '@/api/types';
 import { formatDateForInput, todayISO } from '@/utils/format';
@@ -17,6 +17,9 @@ const occasion = ref(props.entry?.occasion ?? '');
 const error = ref('');
 const loading = ref(false);
 const saving = ref(false);
+// Once a family is set (preselected or picked) it stays fixed; changing it means closing the dialog.
+const householdName = computed(() => households.value.find(h => h.id === householdId.value)?.name
+  ?? (loading.value ? '…' : 'Unbekannte Familie'));
 
 onMounted(async () => {
   loading.value = true;
@@ -45,9 +48,16 @@ async function save() {
 <template>
   <AppSheet :title="entry ? 'Stunden bearbeiten' : 'Stunden erfassen'" size="md" @close="emit('close')">
     <form id="parent-work-entry" class="space-y-4" @submit.prevent="save">
-        <HouseholdPicker v-model="householdId" :households="households" label="Familie *" />
-        <p v-if="loading" class="text-sm text-muted-foreground">Familien werden geladen …</p>
-        <label class="label">Datum *<input v-model="date" type="date" required class="input sm:w-56" /></label>
+        <div v-if="householdId">
+          <p class="label">Familie</p>
+          <p class="flex h-10 items-center rounded-lg border border-input bg-muted px-3 text-sm font-medium">
+            {{ householdName }}</p>
+        </div>
+        <template v-else>
+          <HouseholdPicker v-model="householdId" :households="households" label="Familie *" />
+          <p v-if="loading" class="text-sm text-muted-foreground">Familien werden geladen …</p>
+        </template>
+        <label class="label">Datum *<input v-model="date" type="date" required class="input block sm:w-56" /></label>
         <DurationPicker v-model="minutes" label="Dauer *" />
         <label class="label">Anlass *<input v-model="occasion" type="text" required class="input" /></label>
         <p v-if="error" role="alert" class="note note-danger">{{ error }}</p>

@@ -109,7 +109,9 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 				r.Post("/{id}/impersonate", handlers.User.Impersonate)
 			})
 
-			// Parent-work account routes.
+			// Parent-work account routes. LEITUNG sees the accounts and records hours;
+			// everything else (corrections, review, overrides, import, rules) is
+			// ADMIN/PARENT_WORK only.
 			r.Route("/parent-work", func(r chi.Router) {
 				r.Use(customMiddleware.RequireRole(
 					string(domain.UserRoleAdmin), string(domain.UserRoleParentWork),
@@ -117,28 +119,30 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 				r.Get("/overview", handlers.ParentWork.Overview)
 				r.Get("/households", handlers.ParentWork.Households)
 				r.Get("/households/{id}", handlers.ParentWork.Household)
-				r.Put("/households/{id}/override", handlers.ParentWork.SaveOverride)
-				r.Delete("/households/{id}/override", handlers.ParentWork.DeleteOverride)
+				r.Get("/rules", handlers.ParentWork.Rules)
 				r.Post("/entries", handlers.ParentWork.CreateEntry)
-				r.Put("/entries/{id}", handlers.ParentWork.UpdateEntry)
-				r.Post("/entries/{id}/void", handlers.ParentWork.VoidEntry)
-				r.Post("/entries/{id}/approve", handlers.ParentWork.ApproveEntry)
-				r.Post("/entries/{id}/reject", handlers.ParentWork.RejectEntry)
+				r.Group(func(r chi.Router) {
+					r.Use(customMiddleware.RequireRole(
+						string(domain.UserRoleAdmin), string(domain.UserRoleParentWork)))
+					r.Put("/households/{id}/override", handlers.ParentWork.SaveOverride)
+					r.Delete("/households/{id}/override", handlers.ParentWork.DeleteOverride)
+					r.Put("/entries/{id}", handlers.ParentWork.UpdateEntry)
+					r.Post("/entries/{id}/void", handlers.ParentWork.VoidEntry)
+					r.Post("/entries/{id}/approve", handlers.ParentWork.ApproveEntry)
+					r.Post("/entries/{id}/reject", handlers.ParentWork.RejectEntry)
+					r.Post("/import/parse", handlers.ParentWork.ParseImport)
+					r.Post("/import/preview", handlers.ParentWork.PreviewImport)
+					r.Post("/import/execute", handlers.ParentWork.ExecuteImport)
+				})
 				r.Group(func(r chi.Router) {
 					r.Use(customMiddleware.RequireRole(string(domain.UserRoleAdmin)))
 					r.Get("/board-terms", handlers.ParentWork.Terms)
 					r.Post("/board-terms", handlers.ParentWork.CreateTerm)
 					r.Put("/board-terms/{id}", handlers.ParentWork.UpdateTerm)
 					r.Delete("/board-terms/{id}", handlers.ParentWork.DeleteTerm)
+					r.Post("/rules", handlers.ParentWork.CreateRule)
+					r.Put("/rules/{id}", handlers.ParentWork.UpdateRule)
 				})
-				r.Get("/rules", handlers.ParentWork.Rules)
-				r.Post("/import/parse", handlers.ParentWork.ParseImport)
-				r.Post("/import/preview", handlers.ParentWork.PreviewImport)
-				r.Post("/import/execute", handlers.ParentWork.ExecuteImport)
-				r.With(customMiddleware.RequireRole(string(domain.UserRoleAdmin))).
-					Post("/rules", handlers.ParentWork.CreateRule)
-				r.With(customMiddleware.RequireRole(string(domain.UserRoleAdmin))).
-					Put("/rules/{id}", handlers.ParentWork.UpdateRule)
 			})
 
 			// Staff = full access including fees (ADMIN, USER). LEITUNG gets the

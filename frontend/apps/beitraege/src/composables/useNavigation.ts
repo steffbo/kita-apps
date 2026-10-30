@@ -86,7 +86,8 @@ export function useNavigation() {
       result.push({ label: 'Elternstunden', items: [
         { name: 'Übersicht', to: '/elternstunden', icon: Clock, match: ['/elternstunden/familien'] },
         ...(auth.isAdmin ? [{ name: 'Vorstand', to: '/elternstunden/vorstand', icon: UserCheck }] : []),
-        { name: 'Verwaltung', to: '/elternstunden/verwaltung', icon: Settings2 },
+        ...(auth.canManageParentWork
+          ? [{ name: 'Verwaltung', to: '/elternstunden/verwaltung', icon: Settings2 }] : []),
       ] });
     }
     if (auth.isAdmin) {

@@ -33,6 +33,8 @@ export const useAuthStore = defineStore('auth', () => {
   /** Kinder, Eltern, Haushalte, Mitglieder (Leitung ohne Beitrags- und Einkommensdaten). */
   const canAccessMasterData = computed(() => canAccessFees.value || isLeitung.value);
   const canAccessParentWork = computed(() => isAdmin.value || isParentWork.value || isLeitung.value);
+  /** Regeln, Import, Soll, Bearbeiten/Stornieren/Prüfen; Leitung sieht nur den Stand und erfasst Stunden. */
+  const canManageParentWork = computed(() => isAdmin.value || isParentWork.value);
 
   api.setOnTokenRefreshed((token) => {
     accessToken.value = token;
@@ -172,6 +174,7 @@ export const useAuthStore = defineStore('auth', () => {
     canAccessFees,
     canAccessMasterData,
     canAccessParentWork,
+    canManageParentWork,
     isLoading,
     error,
     login,

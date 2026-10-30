@@ -1,5 +1,6 @@
 import { test, expect, uniq, loginContext } from './fixtures';
 import { API } from './env';
+import { berlinToday } from './bank';
 
 /** Unique member number within the varchar(10) column. */
 function memberNumber() {
@@ -33,10 +34,11 @@ test('leitung sees master data and Elternstunden but no fee areas', async ({ bro
     await page.goto('/beitraege/');
     await expect(page).toHaveURL(/\/beitraege\/kinder$/);
     const navigation = page.getByRole('navigation', { name: 'Hauptnavigation' });
-    for (const name of ['Kinder', 'Eltern', 'Mitglieder', 'Verwaltung']) {
+    for (const name of ['Kinder', 'Eltern', 'Mitglieder', 'Übersicht']) {
       await expect(navigation.getByRole('link', { name, exact: true })).toBeVisible();
     }
-    for (const name of ['Notizen', 'Einstufungen', 'Beitragsordnung', 'Erinnerungen', 'Benutzer', 'Vorstand']) {
+    for (const name of ['Notizen', 'Einstufungen', 'Beitragsordnung', 'Erinnerungen', 'Benutzer', 'Vorstand',
+      'Verwaltung']) {
       await expect(navigation.getByRole('link', { name, exact: true })).toHaveCount(0);
     }
     for (const group of ['Aufgaben', 'Beiträge', 'System']) {
@@ -109,5 +111,51 @@ test('leitung api hides income and rejects fee, bank, note and delete routes', a
     expect(stored.name).toBe('Familie umbenannt');
     expect(stored.annualHouseholdIncome).toBe(INCOME);
     expect(stored.incomeStatus).toBe('PROVIDED');
+  } finally { await context.close(); }
+});
+
+test('leitung sees parent-work accounts and records hours but cannot correct them', async ({ browser, createUser, adminApi }) => {
+  const { household, suffix } = await seedFamily(adminApi);
+  const householdName = `Familie Leitung ${suffix}`;
+  const today = berlinToday();
+  const workDate = `${today.year}-${String(today.month).padStart(2, '0')}-${String(today.day).padStart(2, '0')}`;
+  const entry = await adminApi.post<{ id: string }>('/parent-work/entries', {
+    householdId: household.id, workDate, durationMinutes: 60, occasion: 'E2E Admin-Eintrag',
+  });
+  const user = await createUser('LEITUNG');
+  const context = await browser.newContext();
+  try {
+    const token = await loginContext(context, user.email, user.password);
+    const page = await context.newPage();
+
+    await page.goto('/beitraege/elternstunden/verwaltung');
+    await expect(page).toHaveURL(/\/beitraege\/elternstunden$/);
+
+    await page.goto(`/beitraege/elternstunden/familien/${household.id}`);
+    await expect(page.getByRole('heading', { name: householdName })).toBeVisible();
+    await expect(page.getByRole('row', { name: /E2E Admin-Eintrag/ })).toBeVisible();
+    for (const name of ['Manuelles Soll setzen', 'Bearbeiten', 'Stornieren']) {
+      await expect(page.getByRole('button', { name })).toHaveCount(0);
+    }
+    await expect(page.getByRole('columnheader', { name: 'Aktionen' })).toHaveCount(0);
+
+    await page.getByRole('button', { name: 'Stunden erfassen' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Stunden erfassen' });
+    await expect(dialog.getByText(householdName, { exact: true })).toBeVisible();
+    await dialog.getByRole('button', { name: '2 Std.', exact: true }).click();
+    await dialog.getByLabel('Anlass *').fill('E2E Leitung');
+    await dialog.getByRole('button', { name: 'Speichern' }).click();
+    await expect(dialog).toBeHidden();
+    await expect(page.getByRole('row', { name: /E2E Leitung/ })).toBeVisible();
+
+    const headers = { Authorization: `Bearer ${token}` };
+    const forbidden = [
+      context.request.put(`${API}/parent-work/entries/${entry.id}`, { headers, data: {} }),
+      context.request.post(`${API}/parent-work/entries/${entry.id}/void`, { headers, data: { reason: 'x' } }),
+      context.request.post(`${API}/parent-work/entries/${entry.id}/approve`, { headers }),
+      context.request.put(`${API}/parent-work/households/${household.id}/override`, { headers, data: {} }),
+      context.request.post(`${API}/parent-work/import/parse`, { headers, data: {} }),
+    ];
+    for (const res of await Promise.all(forbidden)) expect(res.status(), res.url()).toBe(403);
   } finally { await context.close(); }
 });

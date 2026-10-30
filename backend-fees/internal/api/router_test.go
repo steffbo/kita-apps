@@ -367,3 +367,59 @@ func TestRouter_LeitungWriteRoutes(t *testing.T) {
 		})
 	}
 }
+
+// LEITUNG sees the parent-work accounts and records hours, but corrections,
+// review, overrides and the import stay with ADMIN/PARENT_WORK.
+func TestRouter_LeitungParentWorkRoutes(t *testing.T) {
+	router, jwtService := testRouter(t, "")
+	id := uuid.NewString()
+	routes := []struct {
+		method, path string
+		leitung      bool
+	}{
+		{http.MethodGet, "/parent-work/overview", true},
+		{http.MethodGet, "/parent-work/households", true},
+		{http.MethodGet, "/parent-work/households/" + id, true},
+		{http.MethodGet, "/parent-work/rules", true},
+		{http.MethodPost, "/parent-work/entries", true},
+		{http.MethodPut, "/parent-work/households/" + id + "/override", false},
+		{http.MethodDelete, "/parent-work/households/" + id + "/override", false},
+		{http.MethodPut, "/parent-work/entries/" + id, false},
+		{http.MethodPost, "/parent-work/entries/" + id + "/void", false},
+		{http.MethodPost, "/parent-work/entries/" + id + "/approve", false},
+		{http.MethodPost, "/parent-work/entries/" + id + "/reject", false},
+		{http.MethodPost, "/parent-work/import/parse", false},
+		{http.MethodPost, "/parent-work/import/preview", false},
+		{http.MethodPost, "/parent-work/import/execute", false},
+	}
+	token := func(role string) string {
+		tokens, err := jwtService.GenerateTokenPair(uuid.New(), role+"@example.org", role)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return tokens.AccessToken
+	}
+	leitung, parentWork := token("LEITUNG"), token("PARENT_WORK")
+	do := func(method, path, token string) int {
+		req := httptest.NewRequest(method, apiPrefix+path, strings.NewReader(`{}`))
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		return rec.Code
+	}
+	for _, route := range routes {
+		t.Run(route.method+route.path, func(t *testing.T) {
+			code := do(route.method, route.path, leitung)
+			if route.leitung && (code == http.StatusUnauthorized || code == http.StatusForbidden) {
+				t.Fatalf("LEITUNG: status %d, want handler reached", code)
+			}
+			if !route.leitung && code != http.StatusForbidden {
+				t.Fatalf("LEITUNG: status %d, want 403", code)
+			}
+			if code := do(route.method, route.path, parentWork); code == http.StatusForbidden || code == http.StatusUnauthorized {
+				t.Fatalf("PARENT_WORK: status %d, want handler reached", code)
+			}
+		})
+	}
+}
