@@ -32,7 +32,7 @@ Go services all follow: `cmd/server`, `cmd/migrate`, `internal/api` (handlers + 
 
 ## Roles and Elternstunden
 
-Router groups by role: fee routes `ADMIN`/`USER` (children, parents, households, members also `LEITUNG`, see below), `/users` `ADMIN` (incl. `POST /users/{id}/impersonate` and parent invitations; public `POST /auth/invitation-password`; see `docs/status-fees.md`), `/parent-work/**` `ADMIN`/`PARENT_WORK`
+Router groups by role: fee routes `ADMIN`/`USER` (children, parents, households, members also `LEITUNG`, see below), `/users` `ADMIN` (incl. `POST /users/{id}/impersonate` and parent invitations; public `POST /auth/invitation-password`; see `docs/status-fees.md`), `/parent-work/**` `ADMIN`/`PARENT_WORK`/`LEITUNG`
 (rules write and board terms `ADMIN`), `/me/**` `PARENT`, `/activity`, `/parent-reports/**`, `/parents/{id}/changes` and `/children/{id}/changes` `ADMIN`.
 `PARENT` is linked by login email, uses `/familie/**`, and sees its own family (changes only its own email and the phones of both parents; names, birth dates and addresses are read-only, corrections go through error reports); linked contact and login emails stay synchronized. `PARENT_WORK` sees only `/beitraege/elternstunden/**` (no board page). `LEITUNG` edits children, parents, households, members and Elternstunden but never sees fees, income, Einstufungen, bank data or notes and cannot delete: `middleware.HideFeeData` strips `middleware.FeeFields` from its responses and requests (add new fee/income fields there; a test guards the domain payloads), fee/bank/note routes stay `ADMIN`/`USER`. Parent edits to contact data are audited in `fees.data_changes`; error reports live in `fees.parent_reports`.
 Parent work is booked per household

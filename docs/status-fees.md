@@ -34,9 +34,12 @@ Basics (ports, commands, layout) live in `AGENTS.md`.
   ohne Filter „Mit Hinweisen“ und „Offene Beiträge“ und ohne Import; Haushaltsbearbeitung nur Name.
 - Bewusst gleich wie bei `PARENT_WORK`: Die Elternstunden-Regeln zeigen weiter den Satz je Fehlstunde.
 - Tests: Routertests (`TestRouter_RoleAreas`, `TestRouter_LeitungWriteRoutes`), Middleware-Tests
-  (`hide_fee_data_test.go`) und e2e `frontend/e2e/beitraege/leitung.spec.ts`. Lokal nicht gelaufen (siehe Commit).
-- Offen: `openapi/fees/openapi3.yaml` und `schema.d.ts` wurden nur an den Rollen-Enums von Hand angepasst
-  (Generator braucht Netz); `scripts/generate-api.sh` einmal laufen lassen und auf Drift prüfen.
+  (`hide_fee_data_test.go`) und e2e `frontend/e2e/beitraege/leitung.spec.ts`. Nachgeholt vor dem Merge
+  (2026-10-30): `go test ./...` mit Datenbank, Typecheck und alle E2E-Tests grün, `scripts/generate-api.sh`
+  ohne Drift; Ansicht als Leitung auf der lokalen Live-Kopie geprüft (Desktop und Handy).
+- Bewusst gleich wie bei `PARENT_WORK`: Der Fehlbetrag der Elternstunden (`missingAmountCents`) steht in der
+  API-Antwort und wird nur in der Oberfläche ausgeblendet (nur Admin sieht ihn).
+- Anlegen eines Kontos (auch `LEITUNG`) verschickt keine Mail; Mails gibt es nur bei Eltern-Einladungen.
 
 ## UI-Redesign: neutrale Basis, Indigo, Inter (2026-10-29)
 
