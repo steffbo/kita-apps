@@ -17,7 +17,7 @@ Voraussetzungen: Docker, Go, Bun. Keine laufende Dev-DB und kein Backend nötig;
 
 Playwright startet als `webServer` das Skript `frontend/e2e/start-beitraege-stack.sh`:
 
-1. PostgreSQL 16 als Wegwerf-Container `kita-e2e-db-<port>`, bei jedem Lauf leer.
+1. PostgreSQL 16 als Wegwerf-Container `kita-e2e-db-<port>`, bei jedem Lauf leer. Bereitschaft wird über TCP geprüft (`pg_isready -h 127.0.0.1`): Beim ersten Start meldet der Init-Server des Images schon über den Socket „bereit“ und startet danach neu, die Migration bekam dann „connection reset by peer“ (CI-Lauf vom 2026-10-30).
 2. Frontend per Vite gebaut und mit `-tags embed_frontend` in `backend-fees` eingebettet, wie im Docker-Image. Gleiche Origin und gleiche Cookie-Pfade wie in Produktion, kein Vite-Proxy.
 3. Migrationen, dann Backend auf `127.0.0.1:18081`. Der Admin wird aus `USER_NAME`/`USER_PASSWORD` gebootstrappt (Standard `admin@e2e.test` / `e2e-admin-password`, siehe `e2e/beitraege/env.ts`). `CRON_API_TOKEN` ist `e2e-import-token` (`E2E_IMPORT_TOKEN`), für den Upload-Pfad von banking-sync.
 

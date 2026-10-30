@@ -45,10 +45,17 @@ go build -tags embed_frontend -o "$BUILD_DIR/server" ./cmd/server
 go build -o "$BUILD_DIR/migrate" ./cmd/migrate
 
 wait "$DB_START_PID"
-for _ in $(seq 1 60); do
-  docker exec "$DB_CONTAINER" pg_isready -U kita -d kita_e2e >/dev/null 2>&1 && break
+# Check over TCP: on first start the image runs a socket-only init server that
+# already answers pg_isready on the socket and then restarts.
+db_ready=""
+for _ in $(seq 1 120); do
+  if docker exec "$DB_CONTAINER" pg_isready -h 127.0.0.1 -U kita -d kita_e2e >/dev/null 2>&1; then
+    db_ready=1
+    break
+  fi
   sleep 0.5
 done
+[ -n "$db_ready" ] || { echo "[e2e] PostgreSQL not ready after 60 s" >&2; exit 1; }
 
 export DATABASE_URL="postgres://kita:kita@127.0.0.1:$E2E_DB_PORT/kita_e2e?sslmode=disable&search_path=fees"
 echo "[e2e] migrating"
