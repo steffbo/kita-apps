@@ -195,7 +195,7 @@ body{padding:12px 0}
 @media (max-width:600px){
  body{padding:0;display:flex;flex-direction:column;height:100dvh}
  .ctl{padding:8px 8px 0;margin-bottom:8px}
- .app{flex:1;height:auto;min-height:0;border-radius:0;border-left:0;border-right:0;border-bottom:0;max-width:none}
+ .app{flex:1;height:auto;min-height:0;width:100%;margin:0;border-radius:0;border-left:0;border-right:0;border-bottom:0;max-width:none}
 }
 .ri.warn{background:var(--warn-bg);color:var(--warn)}
 .ri.bad{background:var(--bad-bg);color:var(--bad)}
@@ -323,15 +323,21 @@ const $app=document.getElementById('app');
 const plan=id=>DB.plans.find(p=>p.id===id);
 
 // Ratenplan: Zahlungen werden der ältesten offenen Rate zugerechnet (FIFO), Überzahlung läuft in die nächste Rate.
-function schedule(p){
- const n=Math.ceil(p.total/p.rate-1e-9);let pool=p.payments.reduce((s,x)=>s+x.amount,0);const out=[];
- for(let i=0;i<n;i++){
-  const amt=i<n-1?p.rate:Math.round((p.total-p.rate*(n-1))*100)/100, due=addM(p.first,i*p.interval);
-  const cov=Math.min(pool,amt);pool=Math.round((pool-cov)*100)/100;
-  const st=cov>=amt-1e-9?'paid':due<S.today?'overdue':cov>0?'partial':'open';
-  out.push({nr:i+1,due,amt,cov,st});
- }
+function regular(p){
+ const n=Math.ceil(p.total/p.rate-1e-9),out=[];
+ for(let i=0;i<n;i++)out.push({due:addM(p.first,i*p.interval),amt:i<n-1?p.rate:Math.round((p.total-p.rate*(n-1))*100)/100});
  return out;
+}
+// Schlussrate: bezahlte Raten bleiben stehen, alles noch Offene (auch Überfälliges) wird an diesem Tag in einer Rate fällig.
+function withFinal(p,date){
+ let pool=p.payments.reduce((s,x)=>s+x.amount,0);
+ const keep=regular(p).filter(r=>{if(pool>=r.amt-1e-9){pool-=r.amt;return true}return false}),kept=keep.reduce((s,r)=>s+r.amt,0);
+ return [...keep,{due:date,amt:Math.round((p.total-kept)*100)/100,final:true}];
+}
+function schedule(p){
+ const raw=p.final?withFinal(p,p.final):regular(p);let pool=p.payments.reduce((s,x)=>s+x.amount,0);
+ return raw.map((r,i)=>{const cov=Math.min(pool,r.amt);pool=Math.round((pool-cov)*100)/100;
+  const st=cov>=r.amt-1e-9?'paid':r.due<S.today?'overdue':cov>0?'partial':'open';return {...r,nr:i+1,cov,st}});
 }
 function summary(p){
  const sch=schedule(p), paid=Math.min(p.payments.reduce((s,x)=>s+x.amount,0),p.total), rest=Math.round((p.total-paid)*100)/100;
@@ -414,12 +420,12 @@ function pPlan(){
  return `${s.state==='overdue'?`<div class="note bad">${ic('alert',18)}<span>${s.overdue.length} ${s.overdue.length===1?'Rate':'Raten'} überfällig · ${eur(s.overdueAmt)}</span><button class="btn sm sec" data-a="remind" data-v="${p.id}">${nextStage(p)}</button></div>`:''}
  <div class="card stat"><div class="l">Restschuld</div><div class="v">${eur(s.rest)} <small>von ${eur(p.total)}</small></div><div class="bar"><i style="width:${pct}%"></i></div><div class="prog"><span>${eur(s.paid)} bezahlt · ${s.nPaid}/${s.n} Raten</span>${stBadge(s.state)}</div></div>
  <div class="cols2"><div class="stack">
- <section>${sec('Vereinbarung')}<div class="card dl">${dl([['Ratenhöhe',eur(p.rate)],['Intervall',intL(p.interval)],['Erste Rate',fd(p.first)],['Letzte Rate',fd(s.sch[s.n-1].due)],['Bezug',p.ref?esc(p.ref):'<span class="mut">—</span>'],['IBAN für Abgleich',p.iban||'<span class="mut">—</span>']])}</div></section>
+ <section>${sec('Vereinbarung',s.rest>0&&p.status==='active'?(p.final?`<button class="btn sm sec" data-a="unfinal">Schlussrate aufheben</button>`:`<button class="btn sm sec" data-a="sheet" data-v="final">${ic('cal',14)}Schlussrate</button>`):'')}<div class="card dl">${dl([['Ratenhöhe',eur(p.rate)],['Intervall',intL(p.interval)],['Erste Rate',fd(p.first)],[p.final?'Schlussrate':'Letzte Rate',p.final?`${fd(p.final)} · ${eur(s.sch[s.n-1].amt)}`:fd(s.sch[s.n-1].due)],['Bezug',p.ref?esc(p.ref):'<span class="mut">—</span>'],['IBAN für Abgleich',p.iban||'<span class="mut">—</span>']])}</div></section>
  <section>${sec('Schuldner')}<div class="card dl">${debtor}</div></section>
  <section>${sec('E-Mail für Erinnerungen',`<button class="btn sm sec" data-a="editplan">${ic('pencil',14)}Ändern</button>`)}<div class="card" style="padding:12px 14px">${p.emails.length?`<div class="tags">${p.emails.map(e=>`<span class="tag" style="padding-right:10px">${ic('mail',14)}${esc(e)}</span>`).join('')}</div>`:`<div class="note" style="margin:0">${ic('alert',18)}<span>Keine Adresse – Erinnerungen nur per Brief möglich.</span></div>`}</div></section>
  ${p.note?`<section>${sec('Notiz')}<div class="card notecard"><p>${esc(p.note)}</p></div></section>`:''}
  </div><div class="stack">
- <section>${sec('Ratenplan')}<div class="card">${s.sch.map(r=>`<div class="row" style="min-height:52px"><span class="ri ${r.st==='paid'?'ok':r.st==='overdue'?'bad':r.st==='partial'?'warn':''}">${r.st==='paid'?ic('check',16):`<b style="font-size:13px">${r.nr}</b>`}</span><span class="rm"><span class="rt">Rate ${r.nr} · ${eur(r.amt)}</span><span class="rs">fällig ${fd(r.due)}${r.st==='partial'||(r.st==='overdue'&&r.cov)?` · ${eur(r.cov)} bezahlt`:''}</span></span>${rBadge(r.st)}</div>`).join('')}</div></section>
+ <section>${sec('Ratenplan')}<div class="card">${s.sch.map(r=>`<div class="row" style="min-height:52px"><span class="ri ${r.st==='paid'?'ok':r.st==='overdue'?'bad':r.st==='partial'?'warn':''}">${r.st==='paid'?ic('check',16):`<b style="font-size:13px">${r.nr}</b>`}</span><span class="rm"><span class="rt">${r.final?'Schlussrate':'Rate '+r.nr} · ${eur(r.amt)}</span><span class="rs">fällig ${fd(r.due)}${r.st==='partial'||(r.st==='overdue'&&r.cov)?` · ${eur(r.cov)} bezahlt`:''}</span></span>${rBadge(r.st)}</div>`).join('')}</div></section>
  <section>${sec('Zahlungen',`<button class="btn sm sec" data-a="addpay" data-v="${p.id}">${ic('plus',14)}Zahlung</button>`)}<div class="card">${p.payments.length?[...p.payments].reverse().map(x=>`<div class="row" style="min-height:52px"><span class="ri ${x.src==='bank'?'':'acc'}">${ic(x.src==='bank'?'bank':'cash',16)}</span><span class="rm"><span class="rt">${fd(x.date)}</span><span class="rs">${x.src==='bank'?'Bank · ':''}${esc(x.text)}</span></span><span class="amt pos">+${eur(x.amount)}</span></div>`).join(''):empty('bank','Noch keine Zahlung')}</div></section>
  <section>${sec('Erinnerungsverlauf')}<div class="card">${p.reminders.length?p.reminders.map(r=>`<div class="row" style="min-height:52px"><span class="ri">${ic('mail',16)}</span><span class="rm"><span class="rt">${r.stage}${r.fee?` + Mahngebühr ${eur(r.fee)}`:''}</span><span class="rs">${fd(r.date)} · ${esc(r.to)} · Frist ${fd(r.deadline)}</span></span></div>`).join(''):empty('mail','Noch nichts versendet')}</div></section>
  <button class="btn ghost" style="align-self:flex-start;color:var(--bad)" data-a="sheet" data-v="close">Ratenzahlung beenden …</button>
@@ -452,7 +458,7 @@ function assignSheet(){
   body+=`${sug?`<div class="note ok">${ic('link',18)}<span>Vorschlag über IBAN: ${esc(plan(sug).name)}</span></div>`:''}
   <div class="card">${plans.map(p=>{const s=summary(p),r=s.sch.find(x=>x.st!=='paid');return `<button class="row" data-a="asel" data-v="${p.id}"><span class="rad${S.assignSel===p.id?' on':''}">${S.assignSel===p.id?ic('check',14):''}</span><span class="rm"><span class="rt">${esc(p.name)}</span><span class="rs">${r?`Rate ${r.nr}/${s.n} · fällig ${fds(r.due)}`:''} · Rest ${eur(s.rest)}</span></span></button>`}).join('')}
   <button class="row" data-a="asel" data-v="new"><span class="rad${S.assignSel==='new'?' on':''}">${S.assignSel==='new'?ic('check',14):''}</span><span class="rm"><span class="rt" style="color:var(--ac-text)">Neue Ratenzahlung anlegen</span><span class="rs">Mit Daten aus dieser Überweisung vorbefüllt</span></span>${ic('plus',18)}</button></div>
-  ${S.assignSel&&S.assignSel!=='new'?(()=>{const p=plan(S.assignSel),s=summary(p);const over=t.amount-(s.sch.find(x=>x.st!=='paid')?.amt||0);return `<div class="note plain">${ic('info',18)}<span>Wird der ältesten offenen Rate angerechnet.${over>0?` Überschuss ${eur(over)} läuft in die nächste Rate.`:over<0?` Rate bleibt mit ${eur(-over)} offen.`:''}</span></div>`})():''}`;
+  ${S.assignSel&&S.assignSel!=='new'?(()=>{const p=plan(S.assignSel),s=summary(p);const r0=s.sch.find(x=>x.st!=='paid'),over=t.amount-((r0?.amt||0)-(r0?.cov||0));if(t.amount>=s.rest)return `<div class="note ok">${ic('check',18)}<span>Tilgt die Restschuld von ${eur(s.rest)} vollständig – die Ratenzahlung ist danach abgeschlossen.</span></div>`;return `<div class="note plain">${ic('info',18)}<span>Wird der ältesten offenen Rate angerechnet.${over>0?` Überschuss ${eur(over)} läuft in die nächste Rate.`:over<0?` Rate bleibt mit ${eur(-over)} offen.`:''}</span></div>`})():''}`;
  }
  const lbl=S.assignSel==='new'?'Weiter':'Zuordnen';
  return sheetWrap('Transaktion zuordnen',body,`<button class="btn sec" data-a="close">Abbrechen</button><button class="btn pri" data-a="doassign" ${S.assignSel?'':'disabled'}>${lbl}</button>`);
@@ -508,6 +514,14 @@ function sheetHtml(){
   case 'form':return formSheet();
   case 'remind':return remindSheet();
   case 'pay':return paySheet();
+  case 'final':{const p=plan(S.plan),d=S.finalDate,sch=withFinal(p,d),fin=sch[sch.length-1],before=sch.filter(r=>!r.final),sm=summary(p);
+   const fs=schedule({...p,final:d}),finSch=fs[fs.length-1],openBefore=fs.filter(r=>!r.final&&r.st!=='paid');
+   return sheetWrap('Schlussrate vereinbaren',`<div class="hint">Die gesamte Restschuld wird an einem Tag fällig – auch bereits überfällige Raten. Alle weiteren Raten entfallen.</div>
+   <div class="field"><label>Schlussrate fällig am *</label><input type="date" id="finaldate" value="${d}"></div>
+   <div class="card dl">${dl([['Restschuld heute',eur(sm.rest)],['Schlussrate',`<b>${eur(finSch.amt-finSch.cov)}</b>`],['Ersetzt',`${sm.sch.filter(r=>r.st!=='paid').length} offene Raten`]])}</div>
+   <div class="hint">Wird die Schlussrate nicht bis zum Datum bezahlt, erscheint sie in den Erinnerungen.</div>
+   <div class="note plain">${ic('mail',18)}<span>Optional: Bestätigung mit Betrag, Datum und Bankverbindung an ${p.emails.length?esc(p.emails.join(', ')):'— (keine E-Mail)'} senden.</span></div>`,
+   `<button class="btn sec" data-a="close">Abbrechen</button><button class="btn pri" data-a="dofinal">Festlegen</button>`)}
   case 'close':return sheetWrap('Ratenzahlung beenden?',`<p style="margin:0">Die Ratenzahlung wird geschlossen und taucht nicht mehr in den Erinnerungen auf. Restschuld ${eur(summary(plan(S.plan)).rest)} wird als ausgebucht vermerkt.</p><div class="field"><label>Grund</label><select><option>Restschuld erlassen</option><option>An Inkasso/Gericht übergeben</option><option>Irrtümlich angelegt</option></select></div>`,`<button class="btn sec" data-a="close">Abbrechen</button><button class="btn pri" style="background:var(--bad)" data-a="doclose">Beenden</button>`);
   case 'menu':return sheetWrap('Menü',`<nav class="mnav">${NAV.map(g=>`<div class="ng">${g.label?`<h4>${g.label}</h4>`:''}${g.items.map(([id,l,i])=>`<button class="ni${id===curNav()?' on':''}" data-a="go" data-v="${id}">${ic(i,18)}<span>${l}</span></button>`).join('')}</div>`).join('')}</nav>`);
  }
@@ -547,7 +561,7 @@ $app.addEventListener('click',e=>{
  switch(a){
   case 'go':S.sheet=null;S.page=v;S.plan=null;break;
   case 'plan':S.sheet=null;S.page='plan';S.plan=v;break;
-  case 'sheet':S.sheet=v;break;
+  case 'sheet':S.sheet=v;if(v==='final')S.finalDate=plusDays(S.today,14);break;
   case 'close':S.sheet=null;break;
   case 'pf':S.planFilter=v;break;
   case 'rf':S.remFilter=v;break;
@@ -584,6 +598,8 @@ $app.addEventListener('click',e=>{
    DB.sent.unshift([p.name,stage+' (Rate)',fd(S.today)]);S.sheet=null;S.remPlan=null;render();toast(`${stage} gesendet`);return}
   case 'addpay':S.payPlan=v;S.sheet='pay';break;
   case 'dopay':{const p=plan(S.payPlan);p.payments.push({date:$app.querySelector('#paydate').value,amount:num($app.querySelector('#payamt').value),src:'bar',text:$app.querySelector('#paytext').value});p.payments.sort((x,y)=>x.date<y.date?-1:1);S.sheet=null;render();toast('Zahlung erfasst');return}
+  case 'dofinal':plan(S.plan).final=S.finalDate;S.sheet=null;render();toast('Schlussrate festgelegt');return;
+  case 'unfinal':plan(S.plan).final=null;render();toast('Ursprünglicher Ratenplan wiederhergestellt');return;
   case 'doclose':plan(S.plan).status='closed';S.sheet=null;render();toast('Ratenzahlung beendet');return;
  }
  render();
@@ -597,7 +613,7 @@ $app.addEventListener('input',e=>{
   $app.querySelector('#fprev span').textContent=n&&f.first?`${n} ${n===1?'Rate':'Raten'}${last!==f.rate?` (${n-1} × ${eur(f.rate)} + 1 × ${eur(last)})`:` à ${eur(f.rate)}`} · ${intL(f.interval)} · letzte Rate ${fd(addM(f.first,(n-1)*f.interval))}`:'Gesamtbetrag, Ratenhöhe und erste Fälligkeit eingeben';
  }
 });
-$app.addEventListener('change',e=>{if(e.target.dataset.f==='interval'){S.form.interval=+e.target.value;e.target.dispatchEvent(new Event('input',{bubbles:true}))}});
+$app.addEventListener('change',e=>{if(e.target.id==='finaldate'&&e.target.value){S.finalDate=e.target.value;render();return}if(e.target.dataset.f==='interval'){S.form.interval=+e.target.value;e.target.dispatchEvent(new Event('input',{bubbles:true}))}});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&S.sheet){S.sheet=null;render()}if(e.key==='Enter'&&e.target.id==='newmail'){e.preventDefault();$app.querySelector('[data-a=addmail]').click()}});
 document.getElementById('ctl').addEventListener('click',e=>{
  const b=e.target.closest('button');if(!b)return;const c=b.dataset.c,v=b.dataset.v;
