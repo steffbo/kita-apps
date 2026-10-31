@@ -3,6 +3,20 @@
 Rolling change log of non-obvious implementation decisions. Newest first.
 Basics (ports, commands, layout) live in `AGENTS.md`.
 
+## Jahresauswahl: Datenjahre plus Folgejahr (2026-10-31)
+
+- Fehler: In der Elternstunden-Übersicht hing die Kita-Jahr-Liste vom gewählten Jahr ab; nach
+  Auswahl von 2025/26 verschwand 2026/27.
+- `src/utils/years.ts` liefert jetzt alle Jahreslisten: vom ersten Jahr mit Daten
+  (`FIRST_DATA_YEAR = 2025`, Beiträge, Einstufungen und Elternstunden beginnen 2025) bis zum Jahr
+  nach dem aktuellen, plus weitere Jahre mit Daten (Elternstunden: Beginn der Regelwerke).
+  Das aktuelle Jahr kommt aus dem Berliner Datum (`currentYear`, `currentKitaYear`), nie aus der
+  Auswahl.
+- Umgestellt: Elternstunden-Übersicht (Verwaltung), „Deine Elternstunden“, Beiträge der Eltern
+  (jetzt auch Folgejahr), Jahresübersicht im Dashboard (statt Vorjahr bis Folgejahr) und
+  Einstufungsliste (statt 2 Vorjahre bis Folgejahr). Anlage-Dialoge (Beitrag anlegen, Beiträge
+  generieren, Einstufung) behalten Vorjahr bis Folgejahr, weil sie Jahre zum Anlegen anbieten.
+
 ## Kinderlisten „Krippe“ und „Kita“ für die Leitung (2026-10-31)
 
 - Anlass: Die Leitung führt Papierlisten aller angemeldeten Kinder, getrennt nach Krippe und „Große Gruppe“.
@@ -792,7 +806,8 @@ Basics (ports, commands, layout) live in `AGENTS.md`.
   gesperrt, sobald sie dessen Login ist (sonst könnte ein Elternteil das fremde Login übernehmen).
   `/me` liefert `otherParents` deshalb mit Kontaktdaten und `hasLogin`. Der Feed nennt bei Kind- und
   Fremdänderungen, wessen Daten geändert wurden; Feldnamen sind deutsch (`street_no` → Hausnummer).
-- Beiträge der Eltern: neueste zuerst, Jahresauswahl ab 2025 (davor gibt es keine Daten im Portal).
+- Beiträge der Eltern: neueste zuerst, Jahresauswahl ab 2025 (davor gibt es keine Daten im Portal),
+  seit 2026-10-31 bis zum Folgejahr.
 
 ## Eltern-Zugang, Etappe 2b (2026-09-27)
 

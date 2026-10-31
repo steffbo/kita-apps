@@ -8,15 +8,14 @@ import { getFeePeriodLabel, getFeeTypeName } from '@/utils/fees';
 import ReportDialog from '@/components/family/ReportDialog.vue';
 import PageHeader from '@/components/ui/PageHeader.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
+import { currentYear, yearOptions } from '@/utils/years';
 type FeeRow = OwnFees['items'][number];
-const year = ref(Number(todayISO().slice(0, 4)));
+const year = ref(currentYear());
 const fees = ref<OwnFees | null>(null);
 const error = ref('');
 const reportId = ref<string | null>(null);
 const onlyOpen = ref(false);
-// Fee data in the portal starts with January 2025.
-const firstYear = 2025;
-const years = Array.from({ length: Math.max(1, year.value - firstYear + 1) }, (_, i) => year.value - i);
+const years = yearOptions(year.value);
 const status: Record<string, string> = { OPEN: 'Offen', PAID: 'Bezahlt', OVERDUE: 'Überfällig' };
 function tone(value: string) {
   return value === 'PAID' ? 'badge-success'

@@ -21,10 +21,11 @@ import {
 } from 'lucide-vue-next';
 import { usePagedList } from '@/composables/usePagedList';
 import { formatCareType, formatCurrency, formatDate, formatMonthYear } from '@/utils/format';
+import { currentYear, yearOptions } from '@/utils/years';
 
 const router = useRouter();
 
-const selectedYear = ref(new Date().getFullYear());
+const selectedYear = ref(currentYear());
 const search = ref('');
 const status = ref<EinstufungListStatus>('');
 const statusOptions: { value: EinstufungListStatus; label: string }[] = [
@@ -68,10 +69,7 @@ const {
   }),
 });
 
-const years = computed(() => {
-  const current = new Date().getFullYear();
-  return [current - 2, current - 1, current, current + 1];
-});
+const years = yearOptions(currentYear());
 
 function getChildName(e: Einstufung): string {
   if (e.child) return `${e.child.firstName} ${e.child.lastName}`;

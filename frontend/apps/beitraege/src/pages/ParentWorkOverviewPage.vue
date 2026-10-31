@@ -11,6 +11,7 @@ import SortTh from '@/components/SortTh.vue';
 import PageHeader from '@/components/ui/PageHeader.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
 import SearchInput from '@/components/SearchInput.vue';
+import { FIRST_DATA_YEAR, currentKitaYear, kitaYearLabel, kitaYearOf, yearOptions } from '@/utils/years';
 
 type Filter = 'fulfilled' | 'open' | 'none' | 'submitted';
 
@@ -23,14 +24,9 @@ const showEntry = ref(false);
 const entryHouseholdId = ref<string | undefined>();
 const loading = ref(false);
 const error = ref('');
-const years = computed(() => {
-  const y = year.value ?? overview.value?.kitaYear;
-  if (y === undefined || y === null) return [];
-  const ruleYears = rules.value.map(r => Number(r.validFrom.slice(0, 4)));
-  const first = Math.min(y, ...ruleYears);
-  const last = Math.max(y, ...ruleYears);
-  return Array.from({ length: last - first + 1 }, (_, i) => last - i);
-});
+// Kita-Jahre with rules or data, plus the one after the current year; never derived from the
+// selection, so the current year stays selectable after picking an old one.
+const years = computed(() => yearOptions(currentKitaYear(), [FIRST_DATA_YEAR, ...rules.value.map(r => kitaYearOf(r.validFrom))]));
 const households = computed(() => overview.value?.households ?? []);
 const matchers: Record<Filter, (h: ParentWorkAccount) => boolean> = {
   fulfilled: h => h.openMinutes <= 0,
@@ -61,7 +57,6 @@ const { sortKey, sortDir, sorted, toggle } = useTableSort(rows, {
   open: h => h.openMinutes,
   status: h => status(h),
 }, { key: 'family' });
-function yearLabel(y: number) { return `${y}/${String((y + 1) % 100).padStart(2, '0')}`; }
 function selectCard(key: Filter | null) { filter.value = filter.value === key ? null : key; }
 function addFor(h: ParentWorkAccount) { entryHouseholdId.value = h.householdId; showEntry.value = true; }
 async function load() {
@@ -83,7 +78,7 @@ async function saved() { showEntry.value = false; await load(); }
   <div class="space-y-6">
     <PageHeader title="Elternstunden"><template #actions><button class="btn btn-primary" @click="entryHouseholdId = undefined; showEntry = true"><Plus />Stunden erfassen</button></template></PageHeader>
     <label class="label block w-44">Kita-Jahr
-      <select v-model.number="year" class="input"><option v-for="y in years" :key="y" :value="y">{{ yearLabel(y) }}</option></select>
+      <select v-model.number="year" class="input"><option v-for="y in years" :key="y" :value="y">{{ kitaYearLabel(y) }}</option></select>
     </label>
     <p v-if="error" role="alert" class="note note-danger">{{ error }}</p>
     <p v-if="overview?.notice" class="note note-warning">{{ overview.notice }}</p>

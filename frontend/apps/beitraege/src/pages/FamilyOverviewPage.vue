@@ -3,20 +3,20 @@ import { onMounted, ref, computed } from 'vue';
 import { RouterLink } from 'vue-router';
 import { api } from '@/api';
 import type { OwnOverview, OwnFees, OwnWork, ParentReport } from '@/api/types';
-import { formatCurrency, formatDate, formatHours, todayISO } from '@/utils/format';
+import { formatCurrency, formatDate, formatHours } from '@/utils/format';
 import ReportDialog from '@/components/family/ReportDialog.vue';
 import ReportList from '@/components/family/ReportList.vue';
 import PageHeader from '@/components/ui/PageHeader.vue';
 import { AlertTriangle } from 'lucide-vue-next';
+import { currentKitaYear, currentYear, kitaYearLabel } from '@/utils/years';
 const overview = ref<OwnOverview | null>(null);
 const fees = ref<OwnFees | null>(null);
 const work = ref<OwnWork | null>(null);
 const reports = ref<ParentReport[]>([]);
 const error = ref('');
 const showReport = ref(false);
-const berlinDate = todayISO();
-const year = Number(berlinDate.slice(0, 4));
-const kitaYear = Number(berlinDate.slice(5, 7)) >= 8 ? year : year - 1;
+const year = currentYear();
+const kitaYear = currentKitaYear();
 const overdue = computed(() => fees.value?.items.filter(f => f.status === 'OVERDUE').length ?? 0);
 const progress = computed(() => work.value?.requiredMinutes
   ? Math.min(100, 100 * work.value.doneMinutes / work.value.requiredMinutes) : 0);
@@ -59,7 +59,7 @@ const recentReports = computed(() => reports.value.filter(r => r.status === 'OPE
           <RouterLink to="/familie/beitraege" class="mt-3 inline-block text-primary underline">Beiträge ansehen</RouterLink>
         </section>
         <section class="card p-4 sm:p-5">
-          <h2 class="text-base font-semibold">Elternstunden {{ kitaYear }}/{{ String(kitaYear + 1).slice(-2) }}</h2>
+          <h2 class="text-base font-semibold">Elternstunden {{ kitaYearLabel(kitaYear) }}</h2>
           <p v-if="work?.exempt" class="mt-2 font-semibold">Befreit</p>
           <template v-else-if="work">
             <p class="mt-2">{{ formatHours(work.doneMinutes) }} von {{ formatHours(work.requiredMinutes) }}</p>

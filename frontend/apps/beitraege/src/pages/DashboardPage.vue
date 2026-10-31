@@ -22,6 +22,7 @@ import {
 import { useRouter } from 'vue-router';
 import { formatCurrency, formatCurrencyWhole, formatDate, formatDateTime, formatMonthName, todayISO } from '@/utils/format';
 import { formatCareHours } from '@/utils/child';
+import { currentYear, yearOptions } from '@/utils/years';
 import PageHeader from '@/components/ui/PageHeader.vue';
 import AppSheet from '@/components/ui/AppSheet.vue';
 
@@ -39,7 +40,7 @@ const isLoading = ref(true);
 const error = ref<string | null>(null);
 
 // Year selector only for monthly overview
-const selectedYear = ref(new Date().getFullYear());
+const selectedYear = ref(currentYear());
 const isLoadingMonthly = ref(false);
 const monthlyError = ref(false);
 
@@ -51,10 +52,7 @@ const u3Children = ref<U3ChildDetail[]>([]);
 const isLoadingReport = ref(false);
 const isLoadingU3Children = ref(false);
 
-const years = computed(() => {
-  const currentYear = new Date().getFullYear();
-  return [currentYear - 1, currentYear, currentYear + 1];
-});
+const years = yearOptions(currentYear());
 
 const ue3Count = computed(() => totalChildrenCount.value - u3Count.value);
 

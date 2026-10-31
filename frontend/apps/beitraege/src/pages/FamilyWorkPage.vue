@@ -8,12 +8,9 @@ import DurationPicker from '@/components/parent-work/DurationPicker.vue';
 import PageHeader from '@/components/ui/PageHeader.vue';
 import AppSheet from '@/components/ui/AppSheet.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
-const berlinDate = todayISO();
-const currentYear = Number(berlinDate.slice(0, 4));
-const year = ref(Number(berlinDate.slice(5, 7)) >= 8 ? currentYear : currentYear - 1);
-// Elternstunden are tracked in the app from Kita-Jahr 2025/26 on.
-const firstYear = 2025;
-const years = Array.from({ length: year.value + 2 - firstYear }, (_, i) => year.value + 1 - i);
+import { currentKitaYear, kitaYearLabel, yearOptions } from '@/utils/years';
+const year = ref(currentKitaYear());
+const years = yearOptions(year.value);
 const work = ref<OwnWork | null>(null);
 const error = ref('');
 const actionError = ref('');
@@ -61,7 +58,7 @@ async function confirmWithdraw() {
     </PageHeader>
     <label class="label block max-w-44">Kita-Jahr
       <select v-model.number="year" class="input">
-        <option v-for="y in years" :key="y" :value="y">{{ y }}/{{ String(y + 1).slice(-2) }}</option>
+        <option v-for="y in years" :key="y" :value="y">{{ kitaYearLabel(y) }}</option>
       </select>
     </label>
     <p v-if="error" role="alert" class="note note-danger">{{ error }}</p>
