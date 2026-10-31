@@ -137,10 +137,11 @@ func renderChildList(pdf *fpdf.Fpdf, stichtag time.Time, list ChildList) {
 func listPage(pdf *fpdf.Fpdf, stichtag time.Time, list ChildList) float64 {
 	pdf.AddPage()
 	setListFont(pdf, "B", 13, ink)
-	pdf.Text(listLeft+1.5, 17, association)
+	pdf.Text(listLeft+1.5, 15.5, association)
 	setListFont(pdf, "", 9, gray)
-	pdf.Text(listLeft+1.5, 22, "Elternverein, gemeinnützig anerkannt")
-	pdf.Text(listLeft+1.5, 26.5, "Ahornallee 27 · 16341 Panketal")
+	pdf.Text(listLeft+1.5, 20, "Elternverein, gemeinnützig anerkannt")
+	pdf.Text(listLeft+1.5, 24, "Ahornallee 27 · 16341 Panketal")
+	pdf.Text(listLeft+1.5, 28, "Telefon 030 9446171 · Fax 032 227770160")
 
 	setListFont(pdf, "B", 20, ink)
 	pdf.SetXY(listLeft, 10)
@@ -156,7 +157,7 @@ func listPage(pdf *fpdf.Fpdf, stichtag time.Time, list ChildList) float64 {
 
 	pdf.SetDrawColor(ink[0], ink[1], ink[2])
 	pdf.SetLineWidth(.6 * pt)
-	pdf.Line(listLeft, 30, listLeft+listWidth, 30)
+	pdf.Line(listLeft, 31, listLeft+listWidth, 31)
 
 	setListFont(pdf, "B", 9, muted)
 	x := listLeft

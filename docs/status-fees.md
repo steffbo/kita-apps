@@ -15,8 +15,8 @@ Basics (ports, commands, layout) live in `AGENTS.md`.
   wiederholten Spaltenköpfe zuverlässig.
 - Spalten: Nr., Name, Vorname, Geburtsdatum, Straße (mit Hausnummer), PLZ, Ort, Std./Tag (Wochenstunden / 5,
   z. B. 6,4) und Std./Woche, sortiert nach Name. Kopf: Verein, „Elternverein, gemeinnützig anerkannt“,
-  Anschrift, rechts Listentitel, Stichtag und Anzahl; Fuß: Erstelldatum, Seitenzahl. Die Telefonnummer der
-  Papierliste fehlt, weil sie nirgends im Code oder in den Daten steht. Zu lange Werte werden mit „…“ gekürzt.
+  Anschrift, Telefon 030 9446171 und Fax 032 227770160 (Angabe Vorstand, fest im Code), rechts Listentitel,
+  Stichtag und Anzahl; Fuß: Erstelldatum, Seitenzahl. Zu lange Werte werden mit „…“ gekürzt.
 - Entscheidungen: Titel „Kita“ statt „Große Gruppe“, keine Leerzeilen zum Nachtragen. Fehlende
   Angaben bleiben in der Liste leer.
 - `JugendamtChild` liefert jetzt auch `street`, `streetNo`, `postalCode`, `city`, `addressComplete` und

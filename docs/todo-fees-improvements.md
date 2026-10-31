@@ -93,7 +93,7 @@ Vorlage: Papiermeldung „4. Quartal 2026“ (Stichtag 01.09.2026). Das Leitungs
 
 - [x] **25. Kinderlisten „Krippe“ und „Kita“ exportieren** – PDF mit beiden Listen zum Stichtag des
       Dashboards, Button „Listen drucken“, Warnung bei unvollständiger Adresse (Details in `status-fees.md`).
-      Titel „Kita“, keine Leerzeilen, fehlende Angaben bleiben leer. Ohne Telefonnummer im Kopf (keine Quelle).
+      Titel „Kita“, keine Leerzeilen, fehlende Angaben bleiben leer.
 - [ ] **25a. Betreuungszeiten abgleichen** – gespeicherte Wochenstunden mit der Liste der Leitung abgleichen; am
       01.09.2026 weichen viele Werte ab (Ü3 bis 30 Wochenstunden: 12 in der App, 5 auf Papier). Danach stimmen die
       Stunden in den Listen, und die Aufteilung „bis/über 6 Std.“ (Seite 1 der Meldung) lässt sich ergänzen.
