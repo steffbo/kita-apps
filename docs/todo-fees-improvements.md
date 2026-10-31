@@ -86,5 +86,34 @@ Leitplanke für alle Refactorings: **keine fachliche Verhaltensänderung**, auß
 - [x] **24. Playwright-E2E sauber aufsetzen** (`0302286`) – Suite im Repo statt Wegwerf-Skripte, eigene Test-DB, in CI
       (`docs/e2e-beitraege.md`).
 
+## Phase 7 – Leitung: Meldungen an den Landkreis (geplant 2026-10-31)
+
+Vorlage: Papiermeldung „4. Quartal 2026“ (Stichtag 01.09.2026). Das Leitungs-Dashboard mit den Zahlen
+(`GET /stichtagsmeldung/jugendamt`) ist umgesetzt (`3381ded`).
+
+- [ ] **25. Kinderlisten „Krippe“ und „Kita“ exportieren** – alle am Stichtag angemeldeten Kinder in zwei
+      Listen, wie die Papierlisten der Leitung (dort „Krippe“ und „Große Gruppe“).
+      - Aufteilung wie im Dashboard: Krippe = U3 am Stichtag, Kita = Ü3. Stichtag = der im Dashboard
+        gewählte, damit Listen und Zahlen zusammenpassen (Abgleich 01.09.2026: 13/33 wie auf Papier).
+      - Spalten: lfd. Nr., Name, Vorname, Geb.-Datum, Straße + Nr., PLZ, Ort, Betreuungszeit tägl. Stunden
+        (Wochenstunden / 5) und Wochenstunden; sortiert nach Name. Kopf mit Trägerangaben (Name,
+        „Elternverein, gemeinnützig anerkannt“, Anschrift, Telefon), Listentitel rechts, Stichtag,
+        „Seite x von y“.
+      - Daten: Adresse aus `fees.children`, Wochenstunden aus `child_care_hours_history` am Stichtag. Die
+        Antwort von `/stichtagsmeldung/jugendamt` um diese Felder erweitern (keine Beitragsdaten, also auch
+        für `LEITUNG`), kein neuer Endpunkt.
+      - Format: Druckansicht/PDF im Browser wie beim Einstufungsbescheid (`EinstufungPDF.vue`, Druckfenster,
+        keine neue Abhängigkeit), A4 quer, Seitenumbruch zwischen den Listen; Button „Listen drucken“ auf
+        der Dashboard-Karte. Optional zusätzlich CSV für die Weiterverarbeitung.
+      - Vorher klären: Titel „Kita“ oder „Große Gruppe“; leere Zeilen am Ende zum handschriftlichen Ergänzen
+        wie auf Papier (ja/nein); Kinder ohne Adresse (live am 2026-10-31: 2 von 47) markieren oder leer
+        lassen.
+      - Voraussetzung für richtige Stunden: Betreuungszeiten mit der Liste der Leitung abgleichen; am
+        01.09.2026 weichen viele gespeicherte Werte ab (Ü3 bis 30 Wochenstunden: 12 in der App, 5 auf
+        Papier). Danach lässt sich auch die Aufteilung „bis/über 6 Std.“ (Seite 1 der Meldung) ergänzen.
+- [ ] **26. Personalplanung/Verwendungsnachweis** – pädagogisches Personal und Leitung mit Wochenstunden je
+      Monat, SOLL/IST je Quartal (Seiten 2–3 der Meldung). Konzept offen; braucht die Aufteilung
+      „bis/über 6 Std.“ aus #25 für das Stellen-SOLL.
+
 Bewusst nicht geplant: Audit-Log (vorerst nicht gewünscht); eigene DB-Backups (abgedeckt durch das
 VM-Backup von infra-dev, 2× täglich nach Backblaze).
