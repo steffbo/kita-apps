@@ -188,3 +188,16 @@ func (r *PostgresChildRepository) getStichtagSummary(ctx context.Context, sticht
 		Total:        breakdown.Total,
 	}, totalChildren, breakdown.Total, nil
 }
+
+// ListEnrolledAt returns all children enrolled at the given date, ordered by name.
+func (r *PostgresChildRepository) ListEnrolledAt(ctx context.Context, date time.Time) ([]domain.JugendamtChild, error) {
+	children := []domain.JugendamtChild{}
+	err := conn(ctx, r.db).SelectContext(ctx, &children, `
+		SELECT id::text AS id, first_name, last_name, birth_date
+		FROM fees.children
+		WHERE entry_date <= $1
+		  AND (exit_date IS NULL OR exit_date >= $1)
+		ORDER BY last_name, first_name
+	`, date)
+	return children, err
+}

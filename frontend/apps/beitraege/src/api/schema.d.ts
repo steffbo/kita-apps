@@ -8674,6 +8674,77 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/stichtagsmeldung/jugendamt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the quarterly Stichtagsmeldung to the Landkreis
+         * @description Counts of enrolled children by age and Kita year (U3, last and second-to-last
+         *     Kita year, deferred school entry) at a Stichtag. Without date: the most recent
+         *     Stichtag (1 Mar/Jun/Sep/Dec) up to 30 days after it, otherwise the next one.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Stichtag (YYYY-MM-DD) */
+                    date?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Stichtagsmeldung to the Landkreis */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["JugendamtReport"];
+                    };
+                };
+                /** @description Invalid date */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/stichtagsmeldung/report": {
         parameters: {
             query?: never;
@@ -10156,6 +10227,39 @@ export interface components {
         };
         InviteParentsResponse: {
             results: components["schemas"]["service.InvitationResult"][];
+        };
+        JugendamtChild: {
+            /** @example 2021-03-27 */
+            birthDate: string;
+            firstName: string;
+            /** @enum {string} */
+            group: "U3" | "OTHER_UE3" | "SECOND_TO_LAST_YEAR" | "LAST_YEAR" | "DEFERRED";
+            id: string;
+            lastName: string;
+        };
+        JugendamtReport: {
+            children: components["schemas"]["JugendamtChild"][];
+            /** @example -5 */
+            daysUntil: number;
+            /** @example 1 */
+            deferred: number;
+            /**
+             * @description Last Kita year including the deferred children, as on the § 17a form.
+             * @example 14
+             */
+            lastYear: number;
+            /** @example 9 */
+            otherUe3: number;
+            /** @example 10 */
+            secondToLastYear: number;
+            /** @example 2026-09-01 */
+            stichtag: string;
+            /** @example 46 */
+            total: number;
+            /** @example 13 */
+            u3: number;
+            /** @example 33 */
+            ue3: number;
         };
         /** @description Ledger entry for a child */
         LedgerEntry: {

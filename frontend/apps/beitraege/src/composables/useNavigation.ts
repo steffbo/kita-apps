@@ -75,7 +75,8 @@ export function useNavigation() {
       );
     }
     if (!auth.canAccessFees && auth.isLeitung) {
-      // Leitung: Stammdaten ohne Notizen, keine Beitrags- oder Bankbereiche.
+      // Leitung: Stichtag-Dashboard, Stammdaten ohne Notizen, keine Beitrags- oder Bankbereiche.
+      result.push({ label: '', items: [{ name: 'Start', to: '/', icon: LayoutDashboard }] });
       result.push({ label: 'Stammdaten', items: [
         { name: 'Kinder', to: '/kinder', icon: Users },
         { name: 'Eltern', to: '/eltern', icon: UserCircle },
@@ -84,7 +85,8 @@ export function useNavigation() {
     }
     if (auth.canAccessParentWork) {
       result.push({ label: 'Elternstunden', items: [
-        { name: 'Übersicht', to: '/elternstunden', icon: Clock, match: ['/elternstunden/familien'] },
+        { name: 'Übersicht', short: auth.isLeitung ? 'Stunden' : undefined, to: '/elternstunden', icon: Clock,
+          match: ['/elternstunden/familien'] },
         ...(auth.isAdmin ? [{ name: 'Vorstand', to: '/elternstunden/vorstand', icon: UserCheck }] : []),
         ...(auth.canManageParentWork
           ? [{ name: 'Verwaltung', to: '/elternstunden/verwaltung', icon: Settings2 }] : []),
@@ -102,7 +104,8 @@ export function useNavigation() {
   const tabs = computed<NavItem[]>(() => {
     const find = (to: string) => allItems.value.find(item => item.to === to || item.match?.includes(to));
     let picks: (NavItem | undefined)[];
-    if (auth.isParent || !auth.canAccessFees) picks = allItems.value.slice(0, 4);
+    if (auth.isLeitung) picks = [find('/'), find('/kinder'), find('/eltern'), find('/elternstunden')];
+    else if (auth.isParent || !auth.canAccessFees) picks = allItems.value.slice(0, 4);
     else if (auth.isAdmin) picks = [find('/'), find('/aufgaben'), find('/kinder'), find('/automatisierung')];
     else picks = [find('/'), find('/aufgaben'), find('/kinder'), find('/beitraege')];
     return picks.filter((item): item is NavItem => !!item);
@@ -123,8 +126,7 @@ export function useNavigation() {
 
   const home = computed(() => {
     if (auth.isParent) return '/familie';
-    if (auth.canAccessFees) return '/';
-    return auth.isLeitung ? '/kinder' : '/elternstunden';
+    return auth.canAccessFees || auth.isLeitung ? '/' : '/elternstunden';
   });
 
   return { groups, allItems, tabs, hasMore, taskTabs, taskTotal, isActive, home };

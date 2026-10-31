@@ -63,6 +63,31 @@ func (s *StichtagsmeldungService) GetU3ChildrenForDate(ctx context.Context, repo
 	return s.childRepo.GetU3ChildrenDetails(ctx, nextStichtag)
 }
 
+// GetJugendamtReport returns the counts for the quarterly Stichtagsmeldung to the
+// Landkreis at the given date, or at the Stichtag the dashboard shows when date is nil.
+func (s *StichtagsmeldungService) GetJugendamtReport(ctx context.Context, date *time.Time) (*domain.JugendamtReport, error) {
+	today := util.Today()
+	stichtag := domain.StichtagForJugendamt(today)
+	if date != nil {
+		stichtag = time.Date(date.Year(), date.Month(), date.Day(), 0, 0, 0, 0, time.UTC)
+	}
+
+	children, err := s.childRepo.ListEnrolledAt(ctx, stichtag)
+	if err != nil {
+		return nil, err
+	}
+
+	report := &domain.JugendamtReport{
+		Stichtag:  stichtag,
+		DaysUntil: int(stichtag.Sub(today).Hours() / 24),
+		Children:  make([]domain.JugendamtChild, 0, len(children)),
+	}
+	for _, child := range children {
+		report.Add(child)
+	}
+	return report, nil
+}
+
 // calculateNextStichtag finds the next Stichtag date (15th of Dec/Mar/Jun/Sep).
 func calculateNextStichtag(now time.Time) time.Time {
 	// Stichtag months: March (3), June (6), September (9), December (12)

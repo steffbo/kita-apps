@@ -386,6 +386,8 @@ export type ChildcareFeeResult = Schema['domain.ChildcareFeeResult'];
 export type StichtagsmeldungStats = Schema['StichtagsmeldungStats'];
 export type MemberCountAsOf = Schema['MemberCountAsOf'];
 export type StichtagsmeldungReport = Schema['StichtagsmeldungReport'];
+export type JugendamtReport = Schema['JugendamtReport'];
+export type JugendamtChild = Schema['JugendamtChild'];
 export type U3ChildDetail = Omit<Schema['handler.U3ChildDetailResponse'], 'householdIncome' | 'incomeStatus'> & {
   householdIncome: number | null;
   incomeStatus: string | null;

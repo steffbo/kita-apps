@@ -61,6 +61,7 @@ import type {
   ReminderCaseSendResult,
   StichtagsmeldungStats,
   StichtagsmeldungReport,
+  JugendamtReport,
   MemberCountAsOf,
   U3ChildDetail,
   Einstufung,
@@ -1030,6 +1031,11 @@ class ApiClient {
   async getStichtagsmeldungReport(date: string): Promise<StichtagsmeldungReport> {
     const query = new URLSearchParams({ date });
     return this.request<StichtagsmeldungReport>(`/stichtagsmeldung/report?${query.toString()}`);
+  }
+
+  async getJugendamtReport(date?: string): Promise<JugendamtReport> {
+    const query = date ? `?date=${encodeURIComponent(date)}` : '';
+    return this.request<JugendamtReport>(`/stichtagsmeldung/jugendamt${query}`);
   }
 
   async getU3Children(date?: string): Promise<U3ChildDetail[]> {

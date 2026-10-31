@@ -67,6 +67,7 @@ type ChildRepository interface {
 	GetStichtagsmeldungStats(ctx context.Context, stichtag time.Time) (*domain.StichtagsmeldungStats, error)
 	GetStichtagsmeldungReport(ctx context.Context, stichtag time.Time) (*domain.StichtagsmeldungReport, error)
 	GetU3ChildrenDetails(ctx context.Context, stichtag time.Time) ([]domain.U3ChildDetail, error)
+	ListEnrolledAt(ctx context.Context, date time.Time) ([]domain.JugendamtChild, error)
 	ListCareHoursHistory(ctx context.Context, childID uuid.UUID) ([]domain.ChildCareHoursHistory, error)
 	UpsertCareHoursHistory(ctx context.Context, childID uuid.UUID, careHours *int, validFrom time.Time) error
 	ListLegalHoursHistory(ctx context.Context, childID uuid.UUID) ([]domain.ChildLegalHoursHistory, error)

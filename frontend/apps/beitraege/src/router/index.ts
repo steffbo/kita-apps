@@ -34,8 +34,8 @@ const router = createRouter({
         {
           path: '',
           name: 'dashboard',
-          component: () => import('@/pages/DashboardPage.vue'),
-          meta: { requiresFees: true },
+          component: () => import('@/pages/StartPage.vue'),
+          meta: { requiresDashboard: true },
         },
         {
           // „Aufgaben“: shared tabs above the sections, which keep their own URLs.
@@ -175,7 +175,12 @@ router.beforeEach(async (to, _from, next) => {
     return;
   }
   if (to.meta.requiresParent && !authStore.isParent) {
-    next({ name: authStore.isParentWork ? 'parent-work' : authStore.isLeitung ? 'children' : 'dashboard' });
+    next({ name: authStore.isParentWork ? 'parent-work' : 'dashboard' });
+    return;
+  }
+
+  if (to.meta.requiresDashboard && !authStore.canAccessFees && !authStore.isLeitung) {
+    next({ name: 'parent-work' });
     return;
   }
 
@@ -185,12 +190,12 @@ router.beforeEach(async (to, _from, next) => {
   }
 
   if (to.meta.requiresFees && !authStore.canAccessFees) {
-    next({ name: authStore.isLeitung ? 'children' : 'parent-work' });
+    next({ name: authStore.isLeitung ? 'dashboard' : 'parent-work' });
     return;
   }
 
   if (to.meta.requiresAdmin && !authStore.isAdmin) {
-    next({ name: authStore.isLeitung ? 'children' : 'dashboard' });
+    next({ name: 'dashboard' });
     return;
   }
 
@@ -200,12 +205,12 @@ router.beforeEach(async (to, _from, next) => {
   }
 
   if (to.meta.requiresParentWork && !authStore.canAccessParentWork) {
-    next({ name: authStore.isLeitung ? 'children' : 'dashboard' });
+    next({ name: 'dashboard' });
     return;
   }
 
   if (to.name === 'login' && authStore.isAuthenticated) {
-    next({ name: authStore.isParent ? 'family' : authStore.isParentWork ? 'parent-work' : authStore.isLeitung ? 'children' : 'dashboard' });
+    next({ name: authStore.isParent ? 'family' : authStore.isParentWork ? 'parent-work' : 'dashboard' });
     return;
   }
 

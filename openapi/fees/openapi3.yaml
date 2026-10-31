@@ -5617,6 +5617,51 @@ paths:
       summary: Get U3 children details
       tags:
         - Stichtagsmeldung
+  /stichtagsmeldung/jugendamt:
+    get:
+      description: >-
+        Counts of enrolled children by age and Kita year (U3, last and
+        second-to-last
+
+        Kita year, deferred school entry) at a Stichtag. Without date: the most recent
+
+        Stichtag (1 Mar/Jun/Sep/Dec) up to 30 days after it, otherwise the next one.
+      parameters:
+        - description: Stichtag (YYYY-MM-DD)
+          in: query
+          name: date
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Stichtagsmeldung to the Landkreis
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JugendamtReport"
+        "400":
+          description: Invalid date
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Get the quarterly Stichtagsmeldung to the Landkreis
+      tags:
+        - Stichtagsmeldung
   /stichtagsmeldung/report:
     get:
       description: Get the number of enrolled children and care hours breakdown for a
@@ -7660,6 +7705,78 @@ components:
           type: array
       required:
         - results
+      type: object
+    JugendamtChild:
+      properties:
+        birthDate:
+          example: 2021-03-27
+          type: string
+        firstName:
+          type: string
+        group:
+          enum:
+            - U3
+            - OTHER_UE3
+            - SECOND_TO_LAST_YEAR
+            - LAST_YEAR
+            - DEFERRED
+          type: string
+        id:
+          type: string
+        lastName:
+          type: string
+      required:
+        - birthDate
+        - firstName
+        - group
+        - id
+        - lastName
+      type: object
+    JugendamtReport:
+      properties:
+        children:
+          items:
+            $ref: "#/components/schemas/JugendamtChild"
+          type: array
+        daysUntil:
+          example: -5
+          type: integer
+        deferred:
+          example: 1
+          type: integer
+        lastYear:
+          description: Last Kita year including the deferred children, as on the § 17a form.
+          example: 14
+          type: integer
+        otherUe3:
+          example: 9
+          type: integer
+        secondToLastYear:
+          example: 10
+          type: integer
+        stichtag:
+          example: 2026-09-01
+          type: string
+        total:
+          example: 46
+          type: integer
+        u3:
+          example: 13
+          type: integer
+        ue3:
+          example: 33
+          type: integer
+      required:
+        - children
+        - daysUntil
+        - deferred
+        - lastYear
+        - otherUe3
+        - secondToLastYear
+        - stichtag
+        - total
+        - u3
+        - ue3
       type: object
     LedgerEntry:
       description: Ledger entry for a child

@@ -234,3 +234,58 @@ func toLegalBreakdownDetailsMap(rows []domain.LegalHoursBreakdown) map[string]do
 	}
 	return breakdown
 }
+
+func TestJugendamtReport_CountsEnrolledChildrenByKitaYear(t *testing.T) {
+	requireTestDatabase(t)
+	cleanupTestData()
+	defer cleanupTestData()
+
+	childRepo := repository.NewPostgresChildRepository(testDB)
+	stichtagService := service.NewStichtagsmeldungService(childRepo)
+	stichtag := time.Date(2026, time.September, 1, 0, 0, 0, 0, time.UTC)
+	entry := time.Date(2025, time.January, 1, 0, 0, 0, 0, time.UTC)
+
+	baseline, err := stichtagService.GetJugendamtReport(context.Background(), &stichtag)
+	if err != nil {
+		t.Fatalf("baseline GetJugendamtReport failed: %v", err)
+	}
+
+	children := []*domain.Child{
+		newTestChildWithHours("JA1", time.Date(2024, time.September, 7, 0, 0, 0, 0, time.UTC), entry, nil, nil, nil),
+		newTestChildWithHours("JA2", time.Date(2022, time.October, 4, 0, 0, 0, 0, time.UTC), entry, nil, nil, nil),
+		newTestChildWithHours("JA3", time.Date(2021, time.October, 7, 0, 0, 0, 0, time.UTC), entry, nil, nil, nil),
+		newTestChildWithHours("JA4", time.Date(2020, time.October, 16, 0, 0, 0, 0, time.UTC), entry, datePtr(stichtag), nil, nil),
+		newTestChildWithHours("JA5", time.Date(2020, time.July, 24, 0, 0, 0, 0, time.UTC), entry, nil, nil, nil),
+		// Left the day before the Stichtag / starts after it: not counted.
+		newTestChildWithHours("JA6", time.Date(2020, time.July, 1, 0, 0, 0, 0, time.UTC), entry,
+			datePtr(stichtag.AddDate(0, 0, -1)), nil, nil),
+		newTestChildWithHours("JA7", time.Date(2025, time.March, 1, 0, 0, 0, 0, time.UTC), stichtag.AddDate(0, 0, 1), nil, nil, nil),
+	}
+	for _, child := range children {
+		if err := childRepo.Create(context.Background(), child); err != nil {
+			t.Fatalf("failed to create child %s: %v", child.MemberNumber, err)
+		}
+	}
+
+	report, err := stichtagService.GetJugendamtReport(context.Background(), &stichtag)
+	if err != nil {
+		t.Fatalf("GetJugendamtReport failed: %v", err)
+	}
+	deltas := map[string][2]int{
+		"total":            {report.Total, baseline.Total + 5},
+		"u3":               {report.U3, baseline.U3 + 1},
+		"ue3":              {report.Ue3, baseline.Ue3 + 4},
+		"otherUe3":         {report.OtherUe3, baseline.OtherUe3 + 1},
+		"secondToLastYear": {report.SecondToLastYear, baseline.SecondToLastYear + 1},
+		"lastYear":         {report.LastYear, baseline.LastYear + 2},
+		"deferred":         {report.Deferred, baseline.Deferred + 1},
+	}
+	for name, got := range deltas {
+		if got[0] != got[1] {
+			t.Errorf("%s: got %d, want %d", name, got[0], got[1])
+		}
+	}
+	if len(report.Children) != report.Total {
+		t.Errorf("children list has %d entries, total is %d", len(report.Children), report.Total)
+	}
+}

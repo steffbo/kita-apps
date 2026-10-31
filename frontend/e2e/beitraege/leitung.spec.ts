@@ -23,8 +23,8 @@ async function seedFamily(adminApi: import('./fixtures').Api) {
   return { household, child, suffix, childName: `Kind ${suffix}` };
 }
 
-test('leitung sees master data and Elternstunden but no fee areas', async ({ browser, createUser, adminApi }) => {
-  const { child, childName } = await seedFamily(adminApi);
+test('leitung sees the Stichtag dashboard, master data and Elternstunden but no fee areas', async ({ browser, createUser, adminApi }) => {
+  const { child, childName, suffix } = await seedFamily(adminApi);
   const user = await createUser('LEITUNG');
   const context = await browser.newContext();
   try {
@@ -32,9 +32,9 @@ test('leitung sees master data and Elternstunden but no fee areas', async ({ bro
     const page = await context.newPage();
 
     await page.goto('/beitraege/');
-    await expect(page).toHaveURL(/\/beitraege\/kinder$/);
+    await expect(page).toHaveURL(/\/beitraege\/$/);
     const navigation = page.getByRole('navigation', { name: 'Hauptnavigation' });
-    for (const name of ['Kinder', 'Eltern', 'Mitglieder', 'Übersicht']) {
+    for (const name of ['Start', 'Kinder', 'Eltern', 'Mitglieder', 'Übersicht']) {
       await expect(navigation.getByRole('link', { name, exact: true })).toBeVisible();
     }
     for (const name of ['Notizen', 'Einstufungen', 'Beitragsordnung', 'Erinnerungen', 'Benutzer', 'Vorstand',
@@ -45,11 +45,26 @@ test('leitung sees master data and Elternstunden but no fee areas', async ({ bro
       await expect(navigation.getByText(group, { exact: true })).toHaveCount(0);
     }
 
-    // Fee pages bounce back to the child list.
+    // Fee pages bounce back to the Leitung dashboard.
     for (const path of ['einstufungen', 'bankabgleich', 'notizen', 'beitraege', 'benutzer']) {
       await page.goto(`/beitraege/${path}`);
-      await expect(page).toHaveURL(/\/beitraege\/kinder$/);
+      await expect(page).toHaveURL(/\/beitraege\/$/);
     }
+
+    // The dashboard lists the enrolled children for the Stichtagsmeldung; the seeded child is Ü3.
+    const report = page.getByRole('region', { name: 'Stichtagsmeldung' });
+    await expect(report.getByText('Stichtagsmeldung Landkreis')).toBeVisible();
+    const list = page.getByRole('region', { name: 'Kinder zum Stichtag' });
+    const childRow = list.getByRole('row', { name: new RegExp(suffix) });
+    await expect(childRow).toBeVisible();
+    await report.getByRole('button', { name: /^U3 \(Krippe\)/ }).click();
+    await expect(childRow).toHaveCount(0);
+    await report.getByRole('button', { name: /^Ü3 \(Kindergarten\)/ }).click();
+    await expect(childRow).toBeVisible();
+    const stichtag = await report.getByTestId('stichtag').textContent();
+    await report.getByRole('button', { name: 'Vorheriger Stichtag' }).click();
+    await expect(report.getByTestId('stichtag')).not.toHaveText(stichtag ?? '');
+    await expect(report.getByTestId('stichtag')).toHaveText(/^01\.(03|06|09|12)\./);
 
     // The child page shows the household but no income, fee or note sections.
     await page.goto(`/beitraege/kinder/${child.id}`);
@@ -87,7 +102,26 @@ test('leitung api hides income and rejects fee, bank, note and delete routes', a
     expect(listBody).toContain(child.id);
     expect(listBody).not.toMatch(/openFeesCount|annualHouseholdIncome|incomeStatus/);
 
+    // The Stichtagsmeldung to the Landkreis is open; a child born 24.07.2020 is still in the Kita
+    // on 01.09.2026 although school starts for it in 2026, so it counts as zurückgestellt.
+    const deferred = await adminApi.post<{ id: string }>('/children', {
+      memberNumber: memberNumber(), firstName: 'Rücksteller', lastName: suffix,
+      birthDate: '2020-07-24', entryDate: '2023-08-01',
+    });
+    const jugendamtRes = await context.request.get(`${API}/stichtagsmeldung/jugendamt?date=2026-09-01`, { headers });
+    expect(jugendamtRes.status()).toBe(200);
+    const jugendamt = await jugendamtRes.json() as {
+      stichtag: string; lastYear: number; deferred: number; children: { id: string; group: string }[] };
+    expect(jugendamt.stichtag).toBe('2026-09-01');
+    expect(jugendamt.children.find(c => c.id === deferred.id)?.group).toBe('DEFERRED');
+    expect(jugendamt.children.find(c => c.id === child.id)?.group).toBe('LAST_YEAR');
+    expect(jugendamt.lastYear).toBeGreaterThanOrEqual(jugendamt.deferred + 1);
+
     // Fee, Einstufung, bank and note data is off limits, and so is deleting.
+    for (const path of ['/stichtagsmeldung/report?date=2026-09-01', '/stichtagsmeldung/children']) {
+      const res = await context.request.get(`${API}${path}`, { headers });
+      expect(res.status(), `GET ${path}`).toBe(403);
+    }
     for (const path of [
       '/fees', '/fees/overview', '/einstufungen', '/fee-schedules', '/stichtagsmeldung/stats',
       '/import/transactions', '/import/history', '/banking-sync/status', '/notes',

@@ -228,3 +228,80 @@ func parseOptionalReportDate(value string) (*time.Time, bool) {
 
 	return &parsed, true
 }
+
+// JugendamtReportResponse holds the counts for the quarterly Stichtagsmeldung to the
+// Landkreis (Belegung and § 17a KitaG). It contains no fee or income data.
+type JugendamtReportResponse struct {
+	Stichtag  string `json:"stichtag" example:"2026-09-01"`
+	DaysUntil int    `json:"daysUntil" example:"-5"`
+	Total     int    `json:"total" example:"46"`
+	U3        int    `json:"u3" example:"13"`
+	Ue3       int    `json:"ue3" example:"33"`
+	// Last Kita year including the deferred children, as on the § 17a form.
+	LastYear         int                      `json:"lastYear" example:"14"`
+	Deferred         int                      `json:"deferred" example:"1"`
+	SecondToLastYear int                      `json:"secondToLastYear" example:"10"`
+	OtherUe3         int                      `json:"otherUe3" example:"9"`
+	Children         []JugendamtChildResponse `json:"children"`
+} //@name JugendamtReport
+
+// JugendamtChildResponse is one child enrolled at the Stichtag with its group.
+type JugendamtChildResponse struct {
+	ID        string `json:"id"`
+	FirstName string `json:"firstName"`
+	LastName  string `json:"lastName"`
+	BirthDate string `json:"birthDate" example:"2021-03-27"`
+	Group     string `json:"group" enums:"U3,OTHER_UE3,SECOND_TO_LAST_YEAR,LAST_YEAR,DEFERRED"`
+} //@name JugendamtChild
+
+// GetJugendamtReport handles GET /stichtagsmeldung/jugendamt
+// @Summary Get the quarterly Stichtagsmeldung to the Landkreis
+// @Description Counts of enrolled children by age and Kita year (U3, last and second-to-last
+// @Description Kita year, deferred school entry) at a Stichtag. Without date: the most recent
+// @Description Stichtag (1 Mar/Jun/Sep/Dec) up to 30 days after it, otherwise the next one.
+// @Tags Stichtagsmeldung
+// @Produce json
+// @Security BearerAuth
+// @Param date query string false "Stichtag (YYYY-MM-DD)"
+// @Success 200 {object} JugendamtReportResponse "Stichtagsmeldung to the Landkreis"
+// @Failure 400 {object} response.ErrorBody "Invalid date"
+// @Failure 401 {object} response.ErrorBody "Not authenticated"
+// @Failure 500 {object} response.ErrorBody "Internal server error"
+// @Router /stichtagsmeldung/jugendamt [get]
+func (h *StichtagsmeldungHandler) GetJugendamtReport(w http.ResponseWriter, r *http.Request) {
+	date, ok := parseOptionalReportDate(request.GetQueryString(r, "date", ""))
+	if !ok {
+		response.BadRequest(w, "invalid report date")
+		return
+	}
+
+	report, err := h.stichtagService.GetJugendamtReport(r.Context(), date)
+	if err != nil {
+		response.InternalError(w, "failed to get Stichtagsmeldung")
+		return
+	}
+
+	children := make([]JugendamtChildResponse, len(report.Children))
+	for i, c := range report.Children {
+		children[i] = JugendamtChildResponse{
+			ID:        c.ID,
+			FirstName: c.FirstName,
+			LastName:  c.LastName,
+			BirthDate: c.BirthDate.Format("2006-01-02"),
+			Group:     string(c.Group),
+		}
+	}
+
+	response.Success(w, JugendamtReportResponse{
+		Stichtag:         report.Stichtag.Format("2006-01-02"),
+		DaysUntil:        report.DaysUntil,
+		Total:            report.Total,
+		U3:               report.U3,
+		Ue3:              report.Ue3,
+		LastYear:         report.LastYear,
+		Deferred:         report.Deferred,
+		SecondToLastYear: report.SecondToLastYear,
+		OtherUe3:         report.OtherUe3,
+		Children:         children,
+	})
+}

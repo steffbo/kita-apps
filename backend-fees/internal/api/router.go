@@ -217,6 +217,15 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 					r.Post("/{id}/children", handlers.Household.LinkChild)
 				})
 
+				// Stichtagsmeldung: the report to the Landkreis has no fee data and is
+				// open to LEITUNG; the income breakdowns stay staffOnly.
+				r.Route("/stichtagsmeldung", func(r chi.Router) {
+					r.Get("/jugendamt", handlers.Stichtagsmeldung.GetJugendamtReport)
+					r.With(staffOnly).Get("/stats", handlers.Stichtagsmeldung.GetStats)
+					r.With(staffOnly).Get("/report", handlers.Stichtagsmeldung.GetReport)
+					r.With(staffOnly).Get("/children", handlers.Stichtagsmeldung.GetU3Children)
+				})
+
 				// Members (Vereinsmitglieder)
 				r.Route("/members", func(r chi.Router) {
 					r.Get("/", handlers.Member.List)
@@ -285,13 +294,6 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 					r.With(customMiddleware.RequireRole(string(domain.UserRoleAdmin))).Post("/", handlers.FeeSchedule.Create)
 					r.With(customMiddleware.RequireRole(string(domain.UserRoleAdmin))).Put("/{id}", handlers.FeeSchedule.Update)
 					r.With(customMiddleware.RequireRole(string(domain.UserRoleAdmin))).Delete("/{id}", handlers.FeeSchedule.Delete)
-				})
-
-				// Stichtagsmeldung
-				r.Route("/stichtagsmeldung", func(r chi.Router) {
-					r.Get("/stats", handlers.Stichtagsmeldung.GetStats)
-					r.Get("/report", handlers.Stichtagsmeldung.GetReport)
-					r.Get("/children", handlers.Stichtagsmeldung.GetU3Children)
 				})
 
 				// Import

@@ -3,6 +3,38 @@
 Rolling change log of non-obvious implementation decisions. Newest first.
 Basics (ports, commands, layout) live in `AGENTS.md`.
 
+## Leitungs-Dashboard: Stichtagsmeldung an den Landkreis (2026-10-31)
+
+- Anlass: Die Leitung meldet quartalsweise an den Landkreis Barnim (Jugendamt): Belegung (Krippe/Kindergarten)
+  und die Formularspalten nach § 17a KitaG (Stichtage 1. März, Juni, September, Dezember). Die Zahlen sollen
+  sich vom Dashboard ablesen lassen.
+- `GET /stichtagsmeldung/jugendamt?date=` (`ADMIN`/`USER`/`LEITUNG`, ohne Beitrags- oder Einkommensdaten;
+  `stats`, `report`, `children` unter `/stichtagsmeldung` bleiben `staffOnly`). Ohne `date`: der letzte
+  Stichtag bis 30 Tage danach (Meldung wird gerade erstellt), sonst der nächste
+  (`domain.StichtagForJugendamt`). Gezählt werden Kinder mit `entry_date <= Stichtag <= exit_date`.
+- Einteilung (`domain.ClassifyKitaYear`): U3 = drittes Lebensjahr am Stichtag noch nicht vollendet (wie die
+  Admin-Stichtagsmeldung). Für Ü3 zählt das Einschulungsjahr nach § 37 BbgSchulG: schulpflichtig im August,
+  wenn das sechste Lebensjahr bis 30.09. vollendet ist; nach § 188 Abs. 2 BGB gilt das auch für den
+  Geburtstag 1. Oktober (`domain.SchoolEntryYear`). Kita-Jahr ab 1. August: Einschulung im nächsten August =
+  letztes Kita-Jahr, im übernächsten = vorletztes, später = „übrige Ü3“ (Formularspalte „3. Lebensjahr“).
+  **Zurückgestellt** wird nicht gepflegt, sondern abgeleitet: Kinder, die nach Alter schon in der Schule
+  wären, aber noch angemeldet sind. Sie zählen wie im Formular zusätzlich im letzten Kita-Jahr
+  („inkl. Rücksteller“).
+- Abgleich mit dem Papierformular zum 01.09.2026 (Live-Daten, read-only): 46 Kinder, 13 U3, 33 Ü3, 9 übrige
+  Ü3, 10 vorletztes, 14 letztes inkl. Rücksteller stimmen überein. Abweichung: 2 statt 1 zurückgestellt (beide
+  vor dem 01.10.2020 geboren und noch angemeldet); fachlich zu klären, z. B. Austrittsdatum oder
+  Geburtsdatum.
+- Bewusst nicht enthalten: die Aufteilung „bis/über 6 Stunden“ der Seite 1 (VbE). Die gespeicherten
+  Betreuungszeiten weichen am 01.09.2026 oft von der Liste der Leitung ab (Ü3 bis 30 Wochenstunden: 12 statt
+  5). Erst nach Datenabgleich ergänzen. Personalplanung (Seite 2/3) ist der nächste Schritt.
+- Frontend: `/` rendert über `StartPage.vue` für `LEITUNG` die `LeitungDashboardPage` (sonst das
+  Beitrags-Dashboard); Route-Meta `requiresDashboard` (`canAccessFees` oder `isLeitung`). Leitung landet nach
+  Login und bei gesperrten Seiten auf `/` statt `/kinder`; Navigation mit „Start“, Handy-Tabs Start, Kinder,
+  Eltern, Stunden. Die Karte zeigt Stichtag, Tage bis/seit, Pfeile für ±1 Quartal; ein Klick auf eine Zahl
+  filtert die Kinderliste darunter.
+- Tests: `stichtagsmeldung_test.go` (Domain, Grenzfälle 30.09./01.10., Geburtstag am Stichtag, Fenster),
+  `TestJugendamtReport_CountsEnrolledChildrenByKitaYear` (DB), `TestRouter_RoleAreas`, e2e `leitung.spec.ts`.
+
 ## Rolle `LEITUNG`: Stammdaten ohne Beitragsdaten (2026-10-30)
 
 - Anlass: Die Kita-Leitung soll Kinder, Eltern, Haushalte, Mitglieder und Elternstunden pflegen, aber keine
@@ -13,7 +45,7 @@ Basics (ports, commands, layout) live in `AGENTS.md`.
   erlaubt. `staffOnly` (`ADMIN`/`USER`) bleiben: **Löschen** von Kind, Elternteil, Haushalt und Mitglied (das
   Löschen eines Kindes löscht auch seine Beitragsdaten), `/children/{id}/ledger`, `/timeline`, `/notes`
   (Kindernotizen), `/children/import/**`, `/notes`, `/fees/**`, `/einstufungen/**`, `/fee-schedules`,
-  `/stichtagsmeldung`, `/import/**` (Bankabgleich), `/banking-sync/**`. In `/parent-work/**` darf `LEITUNG` nur
+  `/stichtagsmeldung` (außer `jugendamt`, siehe oben), `/import/**` (Bankabgleich), `/banking-sync/**`. In `/parent-work/**` darf `LEITUNG` nur
   lesen (`overview`, `households`, `households/{id}`, `rules`) und Einträge anlegen (`POST /entries`); Bearbeiten,
   Stornieren, Bestätigen/Ablehnen, manuelles Soll und CSV-Import bleiben `ADMIN`/`PARENT_WORK` (Nachtrag
   2026-10-30, Wunsch: Leitung sieht den Stand der Familien und erfasst Stunden, keine Verwaltung).
@@ -32,9 +64,9 @@ Basics (ports, commands, layout) live in `AGENTS.md`.
   Notizen, Kinderimport); `LEITUNG` zählt zu `canAccessParentWork`, aber nicht zu `canManageParentWork`
   (Seite „Verwaltung“ mit Route-Meta `requiresParentWorkManagement`, in der Familienansicht Soll-Button und
   Aktionsspalte). Route-Meta `requiresMasterData` für
-  Kinder, Eltern und Mitglieder; Leitung landet nach Login und bei gesperrten Seiten auf `/kinder`. Die
-  Navigation zeigt Stammdaten (Kinder, Eltern, Mitglieder) und Elternstunden, kein Start, keine Aufgaben, keine
-  Beitragsgruppe. Kinderseite ohne Einkommen, Platzgeld, IBANs, Beitragsliste, Notizen und Löschen; Kinderliste
+  Kinder, Eltern und Mitglieder; Leitung landete nach Login und bei gesperrten Seiten auf `/kinder` (seit
+  2026-10-31 auf dem eigenen Dashboard `/`, siehe oben). Die Navigation zeigt Stammdaten (Kinder, Eltern,
+  Mitglieder) und Elternstunden, keine Aufgaben, keine Beitragsgruppe. Kinderseite ohne Einkommen, Platzgeld, IBANs, Beitragsliste, Notizen und Löschen; Kinderliste
   ohne Filter „Mit Hinweisen“ und „Offene Beiträge“ und ohne Import; Haushaltsbearbeitung nur Name.
 - Bewusst gleich wie bei `PARENT_WORK`: Die Elternstunden-Regeln zeigen weiter den Satz je Fehlstunde.
 - Tests: Routertests (`TestRouter_RoleAreas`, `TestRouter_LeitungWriteRoutes`,
