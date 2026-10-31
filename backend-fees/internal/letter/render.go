@@ -243,6 +243,20 @@ func (r *renderer) callout(quiet bool, spans ...span) {
 	r.y += h
 }
 
+// loadFonts registers the embedded Liberation Serif as "Liberation".
+func loadFonts(pdf *fpdf.Fpdf) {
+	for _, font := range []struct{ file, style string }{
+		{"Regular", ""}, {"Bold", "B"}, {"Italic", "I"},
+	} {
+		data, err := assets.ReadFile("fonts/LiberationSerif-" + font.file + ".ttf")
+		if err != nil {
+			pdf.SetError(err)
+			return
+		}
+		pdf.AddUTF8FontFromBytes("Liberation", font.style, data)
+	}
+}
+
 func renderEinstufung(l EinstufungLetter) *fpdf.Fpdf {
 	pdf := fpdf.New("P", "mm", "A4", "")
 	pdf.SetMargins(left, 13, 15)
@@ -252,15 +266,9 @@ func renderEinstufung(l EinstufungLetter) *fpdf.Fpdf {
 	pdf.SetTitle(fmt.Sprintf("Einstufung %d %s", l.Year, l.ChildName), true)
 	pdf.SetAuthor("Kita Knirpsenstadt e. V.", true)
 	pdf.SetLang("de")
-	for _, font := range []struct{ file, style string }{
-		{"Regular", ""}, {"Bold", "B"}, {"Italic", "I"},
-	} {
-		data, err := assets.ReadFile("fonts/LiberationSerif-" + font.file + ".ttf")
-		if err != nil {
-			pdf.SetError(err)
-			return pdf
-		}
-		pdf.AddUTF8FontFromBytes("Liberation", font.style, data)
+	loadFonts(pdf)
+	if pdf.Error() != nil {
+		return pdf
 	}
 	logo, err := assets.ReadFile("knirpsenstadt-logo.png")
 	if err != nil {

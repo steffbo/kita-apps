@@ -1038,6 +1038,11 @@ class ApiClient {
     return this.request<JugendamtReport>(`/stichtagsmeldung/jugendamt${query}`);
   }
 
+  async getChildLists(date?: string): Promise<DownloadedFile> {
+    const query = date ? `?date=${encodeURIComponent(date)}` : '';
+    return this.requestFile(`/stichtagsmeldung/jugendamt/lists${query}`);
+  }
+
   async getU3Children(date?: string): Promise<U3ChildDetail[]> {
     const query = date ? `?date=${encodeURIComponent(date)}` : '';
     return this.request<U3ChildDetail[]>(`/stichtagsmeldung/children${query}`);

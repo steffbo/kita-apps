@@ -5662,6 +5662,55 @@ paths:
       summary: Get the quarterly Stichtagsmeldung to the Landkreis
       tags:
         - Stichtagsmeldung
+  /stichtagsmeldung/jugendamt/lists:
+    get:
+      description: >-
+        PDF (A4 landscape) of the children enrolled at the Stichtag, split into
+        U3 ("Krippe")
+
+        and Ü3 ("Kita"), with address and care hours. Same Stichtag rule as the report.
+      parameters:
+        - description: Stichtag (YYYY-MM-DD)
+          in: query
+          name: date
+          schema:
+            type: string
+        - description: Show inline instead of as download
+          in: query
+          name: inline
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: PDF
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "400":
+          description: Invalid date
+          content:
+            application/pdf:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/pdf:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/pdf:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Print the enrolled children as lists "Krippe" and "Kita"
+      tags:
+        - Stichtagsmeldung
   /stichtagsmeldung/report:
     get:
       description: Get the number of enrolled children and care hours breakdown for a
@@ -7708,8 +7757,16 @@ components:
       type: object
     JugendamtChild:
       properties:
+        addressComplete:
+          description: False when street, house number, postal code or city is missing.
+          type: boolean
         birthDate:
           example: 2021-03-27
+          type: string
+        careHours:
+          example: 45
+          type: integer
+        city:
           type: string
         firstName:
           type: string
@@ -7725,7 +7782,14 @@ components:
           type: string
         lastName:
           type: string
+        postalCode:
+          type: string
+        street:
+          type: string
+        streetNo:
+          type: string
       required:
+        - addressComplete
         - birthDate
         - firstName
         - group

@@ -1,6 +1,9 @@
 package domain
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 // StichtagsmeldungStats contains statistics for the Stichtagsmeldung report.
 type StichtagsmeldungStats struct {
@@ -128,13 +131,29 @@ type JugendamtReport struct {
 	Children         []JugendamtChild `json:"children"`
 }
 
-// JugendamtChild lists one child enrolled at the Stichtag with its group.
+// JugendamtChild lists one child enrolled at the Stichtag with its group, the
+// address and the weekly care hours effective at the Stichtag (for the lists).
 type JugendamtChild struct {
-	ID        string        `json:"id" db:"id"`
-	FirstName string        `json:"firstName" db:"first_name"`
-	LastName  string        `json:"lastName" db:"last_name"`
-	BirthDate time.Time     `json:"birthDate" db:"birth_date"`
-	Group     KitaYearGroup `json:"group" db:"-"`
+	ID         string        `json:"id" db:"id"`
+	FirstName  string        `json:"firstName" db:"first_name"`
+	LastName   string        `json:"lastName" db:"last_name"`
+	BirthDate  time.Time     `json:"birthDate" db:"birth_date"`
+	Street     *string       `json:"street" db:"street" binding:"optional"`
+	StreetNo   *string       `json:"streetNo" db:"street_no" binding:"optional"`
+	PostalCode *string       `json:"postalCode" db:"postal_code" binding:"optional"`
+	City       *string       `json:"city" db:"city" binding:"optional"`
+	CareHours  *int          `json:"careHours" db:"care_hours" binding:"optional"`
+	Group      KitaYearGroup `json:"group" db:"-"`
+}
+
+// AddressComplete reports whether street, house number, postal code and city are set.
+func (c JugendamtChild) AddressComplete() bool {
+	for _, field := range []*string{c.Street, c.StreetNo, c.PostalCode, c.City} {
+		if field == nil || strings.TrimSpace(*field) == "" {
+			return false
+		}
+	}
+	return true
 }
 
 // Add counts the child into the report.

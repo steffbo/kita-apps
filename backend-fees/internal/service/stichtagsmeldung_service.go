@@ -2,9 +2,11 @@ package service
 
 import (
 	"context"
+	"strings"
 	"time"
 
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/letter"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/repository"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/util"
 )
@@ -86,6 +88,38 @@ func (s *StichtagsmeldungService) GetJugendamtReport(ctx context.Context, date *
 		report.Add(child)
 	}
 	return report, nil
+}
+
+// GetChildListsPDF prints the children enrolled at the Stichtag of the report
+// (see GetJugendamtReport) as two lists: "Krippe" (U3) and "Kita" (Ü3).
+func (s *StichtagsmeldungService) GetChildListsPDF(ctx context.Context, date *time.Time) (*LetterFile, error) {
+	report, err := s.GetJugendamtReport(ctx, date)
+	if err != nil {
+		return nil, err
+	}
+	krippe := letter.ChildList{Title: "Krippe"}
+	kita := letter.ChildList{Title: "Kita"}
+	for _, child := range report.Children {
+		row := letter.ChildListRow{
+			LastName:    child.LastName,
+			FirstName:   child.FirstName,
+			BirthDate:   child.BirthDate,
+			Street:      strings.TrimSpace(derefString(child.Street) + " " + derefString(child.StreetNo)),
+			PostalCode:  strings.TrimSpace(derefString(child.PostalCode)),
+			City:        strings.TrimSpace(derefString(child.City)),
+			WeeklyHours: child.CareHours,
+		}
+		if child.Group == domain.KitaYearGroupU3 {
+			krippe.Rows = append(krippe.Rows, row)
+		} else {
+			kita.Rows = append(kita.Rows, row)
+		}
+	}
+	data, err := letter.RenderChildLists(report.Stichtag, util.Today(), []letter.ChildList{krippe, kita})
+	if err != nil {
+		return nil, err
+	}
+	return &LetterFile{Filename: "Kinderlisten_" + report.Stichtag.Format("2006-01-02") + ".pdf", Data: data}, nil
 }
 
 // calculateNextStichtag finds the next Stichtag date (15th of Dec/Mar/Jun/Sep).

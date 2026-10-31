@@ -221,6 +221,7 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 				// open to LEITUNG; the income breakdowns stay staffOnly.
 				r.Route("/stichtagsmeldung", func(r chi.Router) {
 					r.Get("/jugendamt", handlers.Stichtagsmeldung.GetJugendamtReport)
+					r.Get("/jugendamt/lists", handlers.Stichtagsmeldung.GetChildListsPDF)
 					r.With(staffOnly).Get("/stats", handlers.Stichtagsmeldung.GetStats)
 					r.With(staffOnly).Get("/report", handlers.Stichtagsmeldung.GetReport)
 					r.With(staffOnly).Get("/children", handlers.Stichtagsmeldung.GetU3Children)

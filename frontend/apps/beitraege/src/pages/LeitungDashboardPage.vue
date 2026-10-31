@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { RouterLink } from 'vue-router';
-import { AlertTriangle, Calendar, ChevronLeft, ChevronRight, Loader2 } from 'lucide-vue-next';
+import { AlertTriangle, Calendar, ChevronLeft, ChevronRight, Loader2, Printer } from 'lucide-vue-next';
 import { api } from '@/api';
 import type { JugendamtChild, JugendamtReport } from '@/api/types';
 import { formatDate } from '@/utils/format';
@@ -87,6 +87,36 @@ const children = computed(() => {
   return groups ? all.filter(child => groups.includes(child.group)) : all;
 });
 
+const missingAddress = computed(() => report.value?.children.filter(child => !child.addressComplete) ?? []);
+
+const printing = ref(false);
+
+// The tab is opened before loading so the popup blocker allows it.
+async function printLists() {
+  if (!report.value) return;
+  const tab = window.open('', '_blank');
+  printing.value = true;
+  error.value = null;
+  try {
+    const file = await api.getChildLists(report.value.stichtag);
+    const url = URL.createObjectURL(file.blob);
+    if (tab) {
+      tab.location.href = url;
+    } else {
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = file.filename ?? `Kinderlisten_${report.value.stichtag}.pdf`;
+      link.click();
+    }
+    setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  } catch (e) {
+    tab?.close();
+    error.value = e instanceof Error ? e.message : 'Listen konnten nicht erstellt werden';
+  } finally {
+    printing.value = false;
+  }
+}
+
 const filterLabel = computed(() =>
   sections.value.flatMap(s => s.rows).find(row => row.key === filter.value)?.label ?? 'Kinder');
 
@@ -140,9 +170,26 @@ onMounted(() => load());
             </button>
           </div>
         </div>
-        <p class="mt-3 text-[13px] text-muted-foreground">
-          Zurückgestellt: nach Alter schon schulpflichtig (6 Jahre bis 30.09.), aber noch in der Kita.
-        </p>
+        <div v-if="missingAddress.length" class="note note-warning mt-4" data-testid="missing-address">
+          <AlertTriangle />
+          <div>
+            Adresse unvollständig:
+            <template v-for="(child, i) in missingAddress" :key="child.id">
+              <RouterLink :to="{ name: 'child-detail', params: { id: child.id } }" class="font-medium underline">
+                {{ child.firstName }} {{ child.lastName }}</RouterLink>{{ i < missingAddress.length - 1 ? ', ' : '' }}
+            </template>
+          </div>
+        </div>
+
+        <div class="mt-3 flex flex-wrap items-center justify-between gap-3">
+          <p class="text-[13px] text-muted-foreground">
+            Zurückgestellt: nach Alter schon schulpflichtig (6 Jahre bis 30.09.), aber noch in der Kita.
+          </p>
+          <button type="button" class="btn btn-secondary btn-sm" :disabled="printing || loading"
+            title="Krippe (U3) und Kita (Ü3) zum Stichtag als PDF" @click="printLists">
+            <Loader2 v-if="printing" class="animate-spin" /><Printer v-else />Listen drucken
+          </button>
+        </div>
       </section>
 
       <section class="card overflow-hidden" aria-label="Kinder zum Stichtag">

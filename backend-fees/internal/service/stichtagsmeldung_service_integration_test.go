@@ -1,6 +1,7 @@
 package service_test
 
 import (
+	"bytes"
 	"context"
 	"strconv"
 	"testing"
@@ -252,7 +253,7 @@ func TestJugendamtReport_CountsEnrolledChildrenByKitaYear(t *testing.T) {
 
 	children := []*domain.Child{
 		newTestChildWithHours("JA1", time.Date(2024, time.September, 7, 0, 0, 0, 0, time.UTC), entry, nil, nil, nil),
-		newTestChildWithHours("JA2", time.Date(2022, time.October, 4, 0, 0, 0, 0, time.UTC), entry, nil, nil, nil),
+		newTestChildWithHours("JA2", time.Date(2022, time.October, 4, 0, 0, 0, 0, time.UTC), entry, nil, nil, intPtr(45)),
 		newTestChildWithHours("JA3", time.Date(2021, time.October, 7, 0, 0, 0, 0, time.UTC), entry, nil, nil, nil),
 		newTestChildWithHours("JA4", time.Date(2020, time.October, 16, 0, 0, 0, 0, time.UTC), entry, datePtr(stichtag), nil, nil),
 		newTestChildWithHours("JA5", time.Date(2020, time.July, 24, 0, 0, 0, 0, time.UTC), entry, nil, nil, nil),
@@ -287,5 +288,18 @@ func TestJugendamtReport_CountsEnrolledChildrenByKitaYear(t *testing.T) {
 	}
 	if len(report.Children) != report.Total {
 		t.Errorf("children list has %d entries, total is %d", len(report.Children), report.Total)
+	}
+	for _, child := range report.Children {
+		if child.ID == children[1].ID.String() && (child.CareHours == nil || *child.CareHours != 45) {
+			t.Errorf("care hours at the Stichtag: got %v, want 45", child.CareHours)
+		}
+	}
+
+	file, err := stichtagService.GetChildListsPDF(context.Background(), &stichtag)
+	if err != nil {
+		t.Fatalf("GetChildListsPDF failed: %v", err)
+	}
+	if file.Filename != "Kinderlisten_2026-09-01.pdf" || !bytes.HasPrefix(file.Data, []byte("%PDF-")) {
+		t.Errorf("unexpected file %q (%d bytes)", file.Filename, len(file.Data))
 	}
 }

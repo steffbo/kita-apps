@@ -189,15 +189,26 @@ func (r *PostgresChildRepository) getStichtagSummary(ctx context.Context, sticht
 	}, totalChildren, breakdown.Total, nil
 }
 
-// ListEnrolledAt returns all children enrolled at the given date, ordered by name.
+// ListEnrolledAt returns all children enrolled at the given date, ordered by name,
+// with the weekly care hours effective at that date.
 func (r *PostgresChildRepository) ListEnrolledAt(ctx context.Context, date time.Time) ([]domain.JugendamtChild, error) {
 	children := []domain.JugendamtChild{}
 	err := conn(ctx, r.db).SelectContext(ctx, &children, `
-		SELECT id::text AS id, first_name, last_name, birth_date
-		FROM fees.children
-		WHERE entry_date <= $1
-		  AND (exit_date IS NULL OR exit_date >= $1)
-		ORDER BY last_name, first_name
+		SELECT c.id::text AS id, c.first_name, c.last_name, c.birth_date,
+		       c.street, c.street_no, c.postal_code, c.city, care.care_hours
+		FROM fees.children c
+		LEFT JOIN LATERAL (
+			SELECT h.care_hours
+			FROM fees.child_care_hours_history h
+			WHERE h.child_id = c.id
+			  AND h.effective_from <= $1
+			  AND (h.effective_until IS NULL OR h.effective_until >= $1)
+			ORDER BY h.effective_from DESC, h.created_at DESC
+			LIMIT 1
+		) care ON TRUE
+		WHERE c.entry_date <= $1
+		  AND (c.exit_date IS NULL OR c.exit_date >= $1)
+		ORDER BY c.last_name, c.first_name
 	`, date)
 	return children, err
 }

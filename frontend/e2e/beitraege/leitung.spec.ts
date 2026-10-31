@@ -66,6 +66,10 @@ test('leitung sees the Stichtag dashboard, master data and Elternstunden but no 
     await expect(report.getByTestId('stichtag')).not.toHaveText(stichtag ?? '');
     await expect(report.getByTestId('stichtag')).toHaveText(/^01\.(03|06|09|12)\./);
 
+    // The seeded child has no address: the dashboard warns, the lists leave it empty.
+    await expect(report.getByTestId('missing-address').getByRole('link', { name: childName })).toBeVisible();
+    await expect(report.getByRole('button', { name: 'Listen drucken' })).toBeEnabled();
+
     // The child page shows the household but no income, fee or note sections.
     await page.goto(`/beitraege/kinder/${child.id}`);
     await expect(page.getByRole('heading', { name: childName })).toBeVisible();
@@ -107,15 +111,28 @@ test('leitung api hides income and rejects fee, bank, note and delete routes', a
     const deferred = await adminApi.post<{ id: string }>('/children', {
       memberNumber: memberNumber(), firstName: 'Rücksteller', lastName: suffix,
       birthDate: '2020-07-24', entryDate: '2023-08-01',
+      street: 'Ahornallee', streetNo: '27', postalCode: '16341', city: 'Panketal',
     });
     const jugendamtRes = await context.request.get(`${API}/stichtagsmeldung/jugendamt?date=2026-09-01`, { headers });
     expect(jugendamtRes.status()).toBe(200);
     const jugendamt = await jugendamtRes.json() as {
-      stichtag: string; lastYear: number; deferred: number; children: { id: string; group: string }[] };
+      stichtag: string; lastYear: number; deferred: number;
+      children: { id: string; group: string; addressComplete: boolean }[] };
     expect(jugendamt.stichtag).toBe('2026-09-01');
-    expect(jugendamt.children.find(c => c.id === deferred.id)?.group).toBe('DEFERRED');
-    expect(jugendamt.children.find(c => c.id === child.id)?.group).toBe('LAST_YEAR');
+    const deferredRow = jugendamt.children.find(c => c.id === deferred.id);
+    const childRow = jugendamt.children.find(c => c.id === child.id);
+    expect(deferredRow?.group).toBe('DEFERRED');
+    expect(childRow?.group).toBe('LAST_YEAR');
+    expect(deferredRow?.addressComplete).toBe(true);
+    expect(childRow?.addressComplete).toBe(false);
     expect(jugendamt.lastYear).toBeGreaterThanOrEqual(jugendamt.deferred + 1);
+
+    // The lists "Krippe" and "Kita" come as one PDF.
+    const listsRes = await context.request.get(`${API}/stichtagsmeldung/jugendamt/lists?date=2026-09-01`, { headers });
+    expect(listsRes.status()).toBe(200);
+    expect(listsRes.headers()['content-type']).toBe('application/pdf');
+    expect(listsRes.headers()['content-disposition']).toContain('Kinderlisten_2026-09-01.pdf');
+    expect((await listsRes.body()).subarray(0, 5).toString()).toBe('%PDF-');
 
     // Fee, Einstufung, bank and note data is off limits, and so is deleting.
     for (const path of ['/stichtagsmeldung/report?date=2026-09-01', '/stichtagsmeldung/children']) {

@@ -245,13 +245,21 @@ type JugendamtReportResponse struct {
 	Children         []JugendamtChildResponse `json:"children"`
 } //@name JugendamtReport
 
-// JugendamtChildResponse is one child enrolled at the Stichtag with its group.
+// JugendamtChildResponse is one child enrolled at the Stichtag with its group,
+// address and the weekly care hours effective at the Stichtag.
 type JugendamtChildResponse struct {
-	ID        string `json:"id"`
-	FirstName string `json:"firstName"`
-	LastName  string `json:"lastName"`
-	BirthDate string `json:"birthDate" example:"2021-03-27"`
-	Group     string `json:"group" enums:"U3,OTHER_UE3,SECOND_TO_LAST_YEAR,LAST_YEAR,DEFERRED"`
+	ID         string  `json:"id"`
+	FirstName  string  `json:"firstName"`
+	LastName   string  `json:"lastName"`
+	BirthDate  string  `json:"birthDate" example:"2021-03-27"`
+	Group      string  `json:"group" enums:"U3,OTHER_UE3,SECOND_TO_LAST_YEAR,LAST_YEAR,DEFERRED"`
+	Street     *string `json:"street" binding:"optional"`
+	StreetNo   *string `json:"streetNo" binding:"optional"`
+	PostalCode *string `json:"postalCode" binding:"optional"`
+	City       *string `json:"city" binding:"optional"`
+	// False when street, house number, postal code or city is missing.
+	AddressComplete bool `json:"addressComplete"`
+	CareHours       *int `json:"careHours" binding:"optional" example:"45"`
 } //@name JugendamtChild
 
 // GetJugendamtReport handles GET /stichtagsmeldung/jugendamt
@@ -289,6 +297,13 @@ func (h *StichtagsmeldungHandler) GetJugendamtReport(w http.ResponseWriter, r *h
 			LastName:  c.LastName,
 			BirthDate: c.BirthDate.Format("2006-01-02"),
 			Group:     string(c.Group),
+
+			Street:          c.Street,
+			StreetNo:        c.StreetNo,
+			PostalCode:      c.PostalCode,
+			City:            c.City,
+			AddressComplete: c.AddressComplete(),
+			CareHours:       c.CareHours,
 		}
 	}
 
@@ -304,4 +319,32 @@ func (h *StichtagsmeldungHandler) GetJugendamtReport(w http.ResponseWriter, r *h
 		OtherUe3:         report.OtherUe3,
 		Children:         children,
 	})
+}
+
+// GetChildListsPDF handles GET /stichtagsmeldung/jugendamt/lists
+// @Summary Print the enrolled children as lists "Krippe" and "Kita"
+// @Description PDF (A4 landscape) of the children enrolled at the Stichtag, split into U3 ("Krippe")
+// @Description and Ü3 ("Kita"), with address and care hours. Same Stichtag rule as the report.
+// @Tags Stichtagsmeldung
+// @Produce application/pdf
+// @Security BearerAuth
+// @Param date query string false "Stichtag (YYYY-MM-DD)"
+// @Param inline query bool false "Show inline instead of as download"
+// @Success 200 {file} file "PDF"
+// @Failure 400 {object} response.ErrorBody "Invalid date"
+// @Failure 401 {object} response.ErrorBody "Not authenticated"
+// @Failure 500 {object} response.ErrorBody "Internal server error"
+// @Router /stichtagsmeldung/jugendamt/lists [get]
+func (h *StichtagsmeldungHandler) GetChildListsPDF(w http.ResponseWriter, r *http.Request) {
+	date, ok := parseOptionalReportDate(request.GetQueryString(r, "date", ""))
+	if !ok {
+		response.BadRequest(w, "invalid report date")
+		return
+	}
+	file, err := h.stichtagService.GetChildListsPDF(r.Context(), date)
+	if err != nil {
+		response.InternalError(w, "failed to render child lists")
+		return
+	}
+	writeLetterPDF(w, r, file)
 }

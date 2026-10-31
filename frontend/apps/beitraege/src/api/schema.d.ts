@@ -8745,6 +8745,78 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/stichtagsmeldung/jugendamt/lists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Print the enrolled children as lists "Krippe" and "Kita"
+         * @description PDF (A4 landscape) of the children enrolled at the Stichtag, split into U3 ("Krippe")
+         *     and Ü3 ("Kita"), with address and care hours. Same Stichtag rule as the report.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Stichtag (YYYY-MM-DD) */
+                    date?: string;
+                    /** @description Show inline instead of as download */
+                    inline?: boolean;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description PDF */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/pdf": string;
+                    };
+                };
+                /** @description Invalid date */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/pdf": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/pdf": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/pdf": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/stichtagsmeldung/report": {
         parameters: {
             query?: never;
@@ -10229,13 +10301,21 @@ export interface components {
             results: components["schemas"]["service.InvitationResult"][];
         };
         JugendamtChild: {
+            /** @description False when street, house number, postal code or city is missing. */
+            addressComplete: boolean;
             /** @example 2021-03-27 */
             birthDate: string;
+            /** @example 45 */
+            careHours?: number;
+            city?: string;
             firstName: string;
             /** @enum {string} */
             group: "U3" | "OTHER_UE3" | "SECOND_TO_LAST_YEAR" | "LAST_YEAR" | "DEFERRED";
             id: string;
             lastName: string;
+            postalCode?: string;
+            street?: string;
+            streetNo?: string;
         };
         JugendamtReport: {
             children: components["schemas"]["JugendamtChild"][];

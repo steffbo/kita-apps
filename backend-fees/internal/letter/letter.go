@@ -1,4 +1,5 @@
-// Package letter renders prepared fee classifications as German business letters.
+// Package letter renders prepared fee classifications as German business letters
+// and the children lists for the Stichtagsmeldung (child_lists.go).
 // The caller selects periods, supplies the basis and membership wording, and provides
 // current board and bank data. Rendering does not calculate fees or access application data.
 // Fixed wording and layout follow the frontend EinstufungPDF template. Liberation Serif

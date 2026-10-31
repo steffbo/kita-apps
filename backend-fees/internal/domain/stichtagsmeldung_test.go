@@ -69,3 +69,21 @@ func TestStichtagForJugendamt(t *testing.T) {
 		}
 	}
 }
+
+func TestJugendamtChildAddressComplete(t *testing.T) {
+	s := func(v string) *string { return &v }
+	full := JugendamtChild{Street: s("Ahornallee"), StreetNo: s("27"), PostalCode: s("16341"), City: s("Panketal")}
+	if !full.AddressComplete() {
+		t.Error("full address reported incomplete")
+	}
+	for name, child := range map[string]JugendamtChild{
+		"no address":   {},
+		"blank street": {Street: s("  "), StreetNo: s("27"), PostalCode: s("16341"), City: s("Panketal")},
+		"no house no.": {Street: s("Ahornallee"), PostalCode: s("16341"), City: s("Panketal")},
+		"no city":      {Street: s("Ahornallee"), StreetNo: s("27"), PostalCode: s("16341")},
+	} {
+		if child.AddressComplete() {
+			t.Errorf("%s: reported complete", name)
+		}
+	}
+}

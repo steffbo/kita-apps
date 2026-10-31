@@ -3,6 +3,33 @@
 Rolling change log of non-obvious implementation decisions. Newest first.
 Basics (ports, commands, layout) live in `AGENTS.md`.
 
+## Kinderlisten „Krippe“ und „Kita“ für die Leitung (2026-10-31)
+
+- Anlass: Die Leitung führt Papierlisten aller angemeldeten Kinder, getrennt nach Krippe und „Große Gruppe“.
+  Sie kommen jetzt aus der App, passend zum Stichtag des Dashboards (Backlog #25).
+- `GET /stichtagsmeldung/jugendamt/lists?date=` (`ADMIN`/`USER`/`LEITUNG`, `inline=1` für Anzeige im Tab):
+  ein PDF, A4 quer, erst „Krippe“ (U3 am Stichtag), dann „Kita“ (Ü3), jede Liste ab einer neuen Seite. Die
+  Kinder und der Stichtag kommen aus demselben Report wie die Zahlen (`GetJugendamtReport`), die Listen passen
+  also immer zum Dashboard. Gerendert mit fpdf in `internal/letter/child_lists.go` (Liberation Serif wie der
+  Einstufungsbrief, `loadFonts` gemeinsam), nicht im Druckfenster des Browsers: so sind „Seite x von y“ und die
+  wiederholten Spaltenköpfe zuverlässig.
+- Spalten: Nr., Name, Vorname, Geburtsdatum, Straße (mit Hausnummer), PLZ, Ort, Std./Tag (Wochenstunden / 5,
+  z. B. 6,4) und Std./Woche, sortiert nach Name. Kopf: Verein, „Elternverein, gemeinnützig anerkannt“,
+  Anschrift, rechts Listentitel, Stichtag und Anzahl; Fuß: Erstelldatum, Seitenzahl. Die Telefonnummer der
+  Papierliste fehlt, weil sie nirgends im Code oder in den Daten steht. Zu lange Werte werden mit „…“ gekürzt.
+- Entscheidungen: Titel „Kita“ statt „Große Gruppe“, keine Leerzeilen zum Nachtragen. Fehlende
+  Angaben bleiben in der Liste leer.
+- `JugendamtChild` liefert jetzt auch `street`, `streetNo`, `postalCode`, `city`, `addressComplete` und
+  `careHours` (Wochenstunden aus `child_care_hours_history`, gültig am Stichtag). Das sind keine Beitragsdaten.
+  Das Dashboard warnt mit Links zu den Kindern, wenn Straße, Hausnummer, PLZ oder Ort fehlen (live am
+  01.09.2026: 2 von 46). Der Button „Listen drucken“ öffnet das PDF im neuen Tab.
+- Abgleich mit der Live-Kopie zum 01.09.2026: Krippe 13, Kita 33, 3 Seiten, nichts gekürzt. Die Stunden sind
+  noch die gespeicherten Werte. Die Abweichung zur Liste der Leitung (siehe unten) bleibt offen, bis die Daten
+  abgeglichen sind.
+- Tests: `child_lists_test.go` (Seitenumbruch, leere Listen, Stunden, Kürzen; Muster-PDF mit
+  `CHILD_LISTS_SAMPLE_OUT=…`), `TestJugendamtChildAddressComplete`, DB-Test mit Stunden am Stichtag und PDF,
+  `TestRouter_RoleAreas`, e2e `leitung.spec.ts`.
+
 ## Leitungs-Dashboard: Stichtagsmeldung an den Landkreis (2026-10-31)
 
 - Anlass: Die Leitung meldet quartalsweise an den Landkreis Barnim (Jugendamt): Belegung (Krippe/Kindergarten)
