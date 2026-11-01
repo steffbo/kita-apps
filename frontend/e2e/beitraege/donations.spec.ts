@@ -163,7 +163,7 @@ test('parents see the donations of their household without bank details; staff s
   await donate(otherPayer, other.householdId, '');
 
   const password = `pw-${uniq()}`;
-  await adminApi.post('/users', { email: own.email, firstName: 'Eva', lastName: 'Eltern', role: 'PARENT', isActive: true, password });
+  await adminApi.post('/users', { email: own.email, firstName: 'Eva', lastName: 'Eltern', roles: ['PARENT'], isActive: true, password });
   const context = await browser.newContext();
   try {
     const token = await loginContext(context, own.email, password);

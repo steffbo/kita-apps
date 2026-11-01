@@ -5,7 +5,7 @@ Basics (ports, commands, layout) live in `AGENTS.md`.
 
 ## Mehrfachrollen und Rollenwechsel (2026-11-01)
 
-- Ein Konto kann mehrere Rollen haben (`fees.users.roles`, Migration `000053`), handelt aber immer in genau einer.
+- Ein Konto kann mehrere Rollen haben (`fees.users.roles`, Migration `000054`), handelt aber immer in genau einer.
   Eine gemischte Sicht gibt es bewusst nicht: Sie würde Admin- und Elternansicht vermischen und alle Rechteprüfungen
   verkomplizieren.
 - `fees.users.role` bleibt die aktive Rolle und ist damit die zuletzt genutzte. JWT, `RequireRole`, `ReadOnly` und
@@ -27,7 +27,7 @@ Basics (ports, commands, layout) live in `AGENTS.md`.
 - Anlass: Aktive Vorstandsmitglieder sollen Konten, Beiträge und Einstufungen einsehen können. Schreiben
   ist bewusst aus, solange es kein Audit-Log gibt („wer hat was geändert“); dann wäre ein Schreibzugriff
   für alle Vorstände nicht nachvollziehbar.
-- Migration `000052`: `BOARD` im CHECK von `fees.users.role`. Label in der UI „Vorstand“.
+- Migration `000053`: `BOARD` im CHECK von `fees.users.role`. Label in der UI „Vorstand“.
 - `middleware.ReadOnly(BOARD)` lässt nur GET/HEAD/OPTIONS durch (403 „Diese Rolle hat nur Leserechte“).
   Es hängt an den Gruppen Stammdaten, Beiträge/Einstufungen/Bank und `/parent-work`. `BOARD` liest
   zusätzlich `/activity`, `GET /parent-reports/`, `GET /{children,parents}/{id}/changes` und

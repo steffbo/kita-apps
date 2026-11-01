@@ -71,8 +71,8 @@ Haushalt; ohne Haushalt eine leere Liste.
   und Haushaltssuche (`HouseholdPicker`, gemeinsam mit Ratenplan-Formular und Elternstunden; `DonationAssignPanel`); Zeilen tragen das Badge „Spende“.
 - Seite `/spenden` (Navigation „Beiträge“ → „Spenden“, `requiresFees`), Tabelle je Jahr, Liste auf dem Handy.
 - Eltern: Abschnitt „Spenden“ auf `/familie/beitraege`, unabhängig vom gewählten Jahr, ohne Spenden ausgeblendet.
-- Haushalt ansehen (`ADMIN`/`USER`): `HouseholdDonationsCard` auf der Kindseite und auf `/elternstunden/familien/:id`.
-  Eine eigene Haushaltsseite gibt es nicht. Die Familienseite erreicht `USER` nicht, dort bleibt die Kindseite.
+- Haushalt ansehen (`ADMIN`, `BOARD`): `HouseholdDonationsCard` auf der Kindseite und auf `/elternstunden/familien/:id`.
+  Eine eigene Haushaltsseite gibt es nicht. 
 - E2E: `frontend/e2e/beitraege/donations.spec.ts`.
 
 ## Offen (nicht gebaut)
