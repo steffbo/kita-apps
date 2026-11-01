@@ -106,6 +106,9 @@ func (s *ImportService) CreateManualMatch(ctx context.Context, transactionID, ex
 	if err != nil {
 		return nil, ErrNotFound
 	}
+	if tx.InstallmentPayment != nil {
+		return nil, ErrInvalidInput
+	}
 
 	// Verify expectation exists
 	fee, err := s.feeRepo.GetByID(ctx, expectationID)
@@ -369,6 +372,9 @@ func (s *ImportService) allocateTransaction(ctx context.Context, transactionID, 
 	tx, err := s.transactionRepo.GetByID(ctx, transactionID)
 	if err != nil {
 		return nil, ErrNotFound
+	}
+	if tx.InstallmentPayment != nil {
+		return nil, ErrInvalidInput
 	}
 
 	// Existing matches on this transaction stay untouched; further allocations are

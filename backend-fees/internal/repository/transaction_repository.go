@@ -71,7 +71,11 @@ func (r *PostgresTransactionRepository) GetByID(ctx context.Context, id uuid.UUI
 		}
 		return nil, err
 	}
-	return &tx, nil
+	rows := []domain.BankTransaction{tx}
+	if err := r.enrichInstallments(ctx, rows); err != nil {
+		return nil, err
+	}
+	return &rows[0], nil
 }
 
 // GetByIDs retrieves multiple transactions by their IDs.
@@ -176,7 +180,7 @@ func buildOrderByClause(sortBy, sortDir string) string {
 
 // listUnmatchedCondition matches transactions that are not fully allocated yet.
 // Partially allocated transactions stay listed until their remaining amount is zero.
-const listUnmatchedCondition = `bt.amount > 0 AND bt.is_hidden = false AND
+const listUnmatchedCondition = `NOT EXISTS(SELECT 1 FROM fees.installment_payments ip WHERE ip.transaction_id=bt.id) AND bt.amount > 0 AND bt.is_hidden = false AND
 	COALESCE((SELECT SUM(pm.amount) FROM fees.payment_matches pm WHERE pm.transaction_id = bt.id), 0) < bt.amount - 0.005`
 
 // listMatchedAmountExpr computes the total amount already allocated for a transaction.
@@ -189,9 +193,9 @@ func (r *PostgresTransactionRepository) ListUnmatched(ctx context.Context, searc
 	return r.listTransactions(ctx, listUnmatchedCondition, search, sortBy, sortDir, offset, limit)
 }
 
-const listHasMatches = `EXISTS (
+const listHasMatches = `(EXISTS(SELECT 1 FROM fees.installment_payments ip WHERE ip.transaction_id=bt.id) OR EXISTS (
  SELECT 1 FROM fees.payment_matches pm WHERE pm.transaction_id = bt.id
-)`
+))`
 
 const listHasWarnings = `EXISTS (
  SELECT 1 FROM fees.transaction_warnings w WHERE w.transaction_id = bt.id
@@ -254,6 +258,9 @@ func (r *PostgresTransactionRepository) listTransactions(
 		return nil, 0, err
 	}
 
+	if err := r.enrichInstallments(ctx, transactions); err != nil {
+		return nil, 0, err
+	}
 	return transactions, total, nil
 }
 
@@ -349,6 +356,7 @@ func (r *PostgresTransactionRepository) DeleteUnmatchedByIBAN(ctx context.Contex
 		DELETE FROM fees.bank_transactions
 		WHERE payer_iban = $1
 		AND id NOT IN (SELECT transaction_id FROM fees.payment_matches)
+ AND NOT EXISTS(SELECT 1 FROM fees.installment_payments ip WHERE ip.transaction_id=fees.bank_transactions.id)
 	`, iban)
 	if err != nil {
 		return 0, err
@@ -381,41 +389,33 @@ func (r *PostgresTransactionRepository) SetBatchErrors(ctx context.Context, id u
 
 // ListMatched retrieves transactions that have been matched to fees.
 func (r *PostgresTransactionRepository) ListMatched(ctx context.Context, search, sortBy, sortDir string, offset, limit int) ([]domain.BankTransaction, int64, error) {
-	var transactions []domain.BankTransaction
-	var total int64
+	return r.listTransactions(ctx, listHasMatches, search, sortBy, sortDir, offset, limit)
+}
 
-	whereClause, args, argIdx := buildSearchFilter("1=1", search, 1)
-
-	// Count total distinct matched transactions with search filter
-	countQuery := fmt.Sprintf(`
-		SELECT COUNT(DISTINCT bt.id)
-		FROM fees.bank_transactions bt
-		INNER JOIN fees.payment_matches pm ON bt.id = pm.transaction_id
-		WHERE %s
-	`, whereClause)
-	err := conn(ctx, r.db).GetContext(ctx, &total, countQuery, args...)
-	if err != nil {
-		return nil, 0, err
+func (r *PostgresTransactionRepository) enrichInstallments(ctx context.Context, rows []domain.BankTransaction) error {
+	for i := range rows {
+		t := &rows[i]
+		link := &domain.InstallmentPaymentLink{}
+		err := conn(ctx, r.db).GetContext(ctx, link, `SELECT ip.id AS payment_id,ip.plan_id,p.debtor_name FROM fees.installment_payments ip JOIN fees.installment_plans p ON p.id=ip.plan_id WHERE ip.transaction_id=$1`, t.ID)
+		if err == nil {
+			t.InstallmentPayment = link
+			v := t.Amount
+			t.MatchedAmount = &v
+			continue
+		}
+		if !errors.Is(err, sql.ErrNoRows) {
+			return err
+		}
+		if t.PayerIBAN == nil {
+			continue
+		}
+		suggestion := &domain.InstallmentPlanSuggestion{}
+		err = conn(ctx, r.db).GetContext(ctx, suggestion, `SELECT p.id AS plan_id,p.debtor_name FROM fees.installment_plans p WHERE p.status='ACTIVE' AND p.payer_iban=upper(replace($1,' ','')) AND p.total_amount+COALESCE((SELECT sum(c.amount) FROM fees.installment_charges c WHERE c.plan_id=p.id),0)>COALESCE((SELECT sum(ip.amount) FROM fees.installment_payments ip WHERE ip.plan_id=p.id),0) ORDER BY p.created_at,p.id LIMIT 1`, *t.PayerIBAN)
+		if err == nil {
+			t.InstallmentPlanSuggestion = suggestion
+		} else if !errors.Is(err, sql.ErrNoRows) {
+			return err
+		}
 	}
-
-	orderBy := buildOrderByClause(sortBy, sortDir)
-
-	// Fetch matched transactions (distinct)
-	selectQuery := fmt.Sprintf(`
-		SELECT DISTINCT bt.id, bt.booking_date, bt.value_date, bt.payer_name, bt.payer_iban,
-		       bt.description, bt.amount, bt.currency, bt.import_batch_id, bt.imported_at
-		FROM fees.bank_transactions bt
-		INNER JOIN fees.payment_matches pm ON bt.id = pm.transaction_id
-		WHERE %s
-		ORDER BY %s
-		LIMIT $%d OFFSET $%d
-	`, whereClause, orderBy, argIdx, argIdx+1)
-	args = append(args, limit, offset)
-
-	err = conn(ctx, r.db).SelectContext(ctx, &transactions, selectQuery, args...)
-	if err != nil {
-		return nil, 0, err
-	}
-
-	return transactions, total, nil
+	return nil
 }

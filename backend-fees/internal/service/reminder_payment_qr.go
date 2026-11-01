@@ -98,18 +98,18 @@ func (s *ReminderService) buildReminderQRCode(
 	householdName string,
 	items []reminderItem,
 ) (*reminderQRCodeData, error) {
-	settings := normalizeReminderPaymentSettings(paymentSettings)
-	settings = applyLegacyReminderPaymentDefaults(settings)
+	return buildPaymentQRCode(paymentSettings, sumReminderItems(items), buildSEPAReference(runDate, householdName, items))
+}
+
+// buildPaymentQRCode is shared by contribution and installment reminders.
+func buildPaymentQRCode(paymentSettings ReminderPaymentSettings, totalAmount float64, reference string) (*reminderQRCodeData, error) {
+	settings := applyLegacyReminderPaymentDefaults(normalizeReminderPaymentSettings(paymentSettings))
 	if !settings.HasRequiredValues() {
 		return nil, nil
 	}
-
-	totalAmount := sumReminderItems(items)
 	if totalAmount <= 0 {
 		return nil, errors.New("non-positive total amount")
 	}
-
-	reference := buildSEPAReference(runDate, householdName, items)
 	payload, err := buildSEPAPayload(settings, totalAmount, reference)
 	if err != nil {
 		return nil, err

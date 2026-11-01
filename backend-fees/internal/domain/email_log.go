@@ -17,20 +17,23 @@ const (
 	EmailLogTypeMembershipReminderFinal   EmailLogType = "MEMBERSHIP_REMINDER_FINAL"
 	EmailLogTypePasswordReset             EmailLogType = "PASSWORD_RESET"
 	EmailLogTypeAccountInvitation         EmailLogType = "ACCOUNT_INVITATION"
+	EmailLogTypeInstallmentInitial        EmailLogType = "INSTALLMENT_REMINDER_INITIAL"
+	EmailLogTypeInstallmentFinal          EmailLogType = "INSTALLMENT_REMINDER_FINAL"
 	EmailLogTypeEinstufung                EmailLogType = "EINSTUFUNG"
 )
 
 // EmailLog represents a sent email entry.
 type EmailLog struct {
-	ID          uuid.UUID        `json:"id" db:"id"`
-	SentAt      time.Time        `json:"sentAt" db:"sent_at"`
-	ToEmail     string           `json:"toEmail" db:"to_email"`
-	Subject     string           `json:"subject" db:"subject"`
-	Body        *string          `json:"body,omitempty" db:"body" binding:"optional"`
-	EmailType   EmailLogType     `json:"emailType" db:"email_type"`
-	Payload     *json.RawMessage `json:"payload,omitempty" db:"payload" binding:"optional"`
-	SentBy      *uuid.UUID       `json:"sentBy,omitempty" db:"sent_by" binding:"optional"`
-	HouseholdID *uuid.UUID       `json:"householdId,omitempty" db:"household_id" binding:"optional"`
+	InstallmentPlanID *uuid.UUID       `json:"installmentPlanId,omitempty" db:"installment_plan_id" binding:"optional"`
+	ID                uuid.UUID        `json:"id" db:"id"`
+	SentAt            time.Time        `json:"sentAt" db:"sent_at"`
+	ToEmail           string           `json:"toEmail" db:"to_email"`
+	Subject           string           `json:"subject" db:"subject"`
+	Body              *string          `json:"body,omitempty" db:"body" binding:"optional"`
+	EmailType         EmailLogType     `json:"emailType" db:"email_type"`
+	Payload           *json.RawMessage `json:"payload,omitempty" db:"payload" binding:"optional" swaggertype:"object"`
+	SentBy            *uuid.UUID       `json:"sentBy,omitempty" db:"sent_by" binding:"optional"`
+	HouseholdID       *uuid.UUID       `json:"householdId,omitempty" db:"household_id" binding:"optional"`
 }
 
 // FeeIDsFromPayload extracts the feeIds array from a reminder email log

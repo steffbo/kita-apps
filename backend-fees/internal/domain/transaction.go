@@ -7,7 +7,19 @@ import (
 )
 
 // BankTransaction represents an imported bank transaction.
+type InstallmentPlanSuggestion struct {
+	PlanID     uuid.UUID `json:"planId" db:"plan_id"`
+	DebtorName string    `json:"debtorName" db:"debtor_name"`
+}
+type InstallmentPaymentLink struct {
+	PaymentID  uuid.UUID `json:"paymentId" db:"payment_id"`
+	PlanID     uuid.UUID `json:"planId" db:"plan_id"`
+	DebtorName string    `json:"debtorName" db:"debtor_name"`
+}
 type BankTransaction struct {
+	InstallmentPlanSuggestion *InstallmentPlanSuggestion `json:"installmentPlanSuggestion,omitempty" db:"-" binding:"optional"`
+	InstallmentPayment        *InstallmentPaymentLink    `json:"installmentPayment,omitempty" db:"-" binding:"optional"`
+
 	ID            uuid.UUID  `json:"id" db:"id"`
 	BookingDate   time.Time  `json:"bookingDate" db:"booking_date"`
 	ValueDate     time.Time  `json:"valueDate" db:"value_date"`

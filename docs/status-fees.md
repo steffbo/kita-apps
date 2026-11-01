@@ -1247,3 +1247,7 @@ WHERE c.household_id IS NOT NULL
   `/parents/{id}/changes`, `/children/{id}/changes` und `/parent-reports`.
 - Der Admin-Feed mischt Kontaktänderungen, Kindänderungen, gemeldete Elternstunden und
   Fehlermeldungen. Nur von Eltern vorgenommene Datenänderungen erscheinen im Feed.
+
+## 2026-11-01: Ratenzahlungen – Backend
+
+Migration 000049 ergänzt vertragliche Ratenpläne für Haushalte und externe Schuldner, Zahlungen, Mahngebühren und PDF-Verträge. ADMIN-Routen unter `/installment-plans` liefern FIFO-Ratenpläne mit Monatsende-Klemmung und Schlussrate. Bankbuchungen werden atomar entweder Beiträgen oder einem Ratenplan zugeordnet; Banklisten, IBAN-Löschung und Rückzuordnung berücksichtigen Planzahlungen. Erinnerungen verwenden vorhandene E-Mail-, Frist-, Gebühren- und Zahlungsdaten/QR-Helfer; Versand protokolliert Stufe und Frist und legt explizit gewählte Mahngebühren an. PDF-Verträge sind auf 10 MiB begrenzt (nur dieser Upload erhält 11 MiB Request-Limit für Multipart-Overhead; sonst weiter 5 MiB). API-Vertrag: `docs/ratenzahlungen.md`, generiertes OpenAPI und Frontend-Typen. Die Benutzeroberfläche ist noch nicht implementiert.

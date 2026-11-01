@@ -96,6 +96,25 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 				r.Post("/{id}/resolve", handlers.ParentAccount.ResolveReport)
 			})
 
+			r.Route("/installment-plans", func(r chi.Router) {
+				r.Use(customMiddleware.RequireRole(string(domain.UserRoleAdmin)))
+				r.Get("/", handlers.Installment.List)
+				r.Post("/", handlers.Installment.Create)
+				r.Get("/{id}", handlers.Installment.Detail)
+				r.Put("/{id}", handlers.Installment.Update)
+				r.Post("/{id}/close", handlers.Installment.Close)
+				r.Post("/{id}/payments", handlers.Installment.Payment)
+				r.Delete("/{id}/payments/{paymentId}", handlers.Installment.DeletePayment)
+				r.Put("/{id}/final-installment", handlers.Installment.Final)
+				r.Delete("/{id}/final-installment", handlers.Installment.DeleteFinal)
+				r.Get("/reminder-cases", handlers.Installment.ReminderCases)
+				r.Post("/{id}/reminder/preview", handlers.Installment.Preview)
+				r.Post("/{id}/reminder/send", handlers.Installment.Send)
+				r.Delete("/{id}/contract", handlers.Installment.DeleteContract)
+				r.Put("/{id}/contract", handlers.Installment.UploadContract)
+				r.Get("/{id}/contract", handlers.Installment.DownloadContract)
+			})
+
 			// User management (admin only)
 			r.Route("/users", func(r chi.Router) {
 				r.Use(customMiddleware.RequireRole(string(domain.UserRoleAdmin)))
@@ -332,6 +351,7 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 
 // Handlers holds all HTTP handlers.
 type Handlers struct {
+	Installment      *handler.InstallmentHandler
 	Auth             *handler.AuthHandler
 	User             *handler.UserHandler
 	Invitation       *handler.AccountInvitationHandler

@@ -4174,6 +4174,854 @@ paths:
       summary: Resolve late payment warning by creating late fee
       tags:
         - Import
+  /installment-plans:
+    get:
+      parameters:
+        - description: active|overdue|done|all
+          in: query
+          name: state
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/domain.InstallmentDetail"
+                type: array
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: List installment plans
+      tags:
+        - Installment plans
+    post:
+      requestBody:
+        $ref: "#/components/requestBodies/service.InstallmentRequest"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/domain.InstallmentDetail"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Create installment plans
+      tags:
+        - Installment plans
+  "/installment-plans/{id}":
+    get:
+      parameters:
+        - description: Plan UUID
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/domain.InstallmentDetail"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Detail installment plans
+      tags:
+        - Installment plans
+    put:
+      parameters:
+        - description: Plan UUID
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        $ref: "#/components/requestBodies/service.InstallmentRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/domain.InstallmentDetail"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Update installment plans
+      tags:
+        - Installment plans
+  "/installment-plans/{id}/close":
+    post:
+      parameters:
+        - description: Plan UUID
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/handler.installmentCloseRequest"
+        description: Request
+        required: true
+      responses:
+        "204":
+          description: No content
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Close installment plans
+      tags:
+        - Installment plans
+  "/installment-plans/{id}/contract":
+    delete:
+      parameters:
+        - description: Plan UUID
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No content
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: DeleteContract installment plans
+      tags:
+        - Installment plans
+    get:
+      parameters:
+        - description: Plan UUID
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        "401":
+          description: Unauthorized
+          content:
+            application/pdf:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/pdf:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not Found
+          content:
+            application/pdf:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/pdf:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Download installment contract
+      tags:
+        - Installment plans
+    put:
+      parameters:
+        - description: Plan UUID
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                file:
+                  description: PDF (max 10 MB)
+                  type: string
+                  format: binary
+              required:
+                - file
+        required: true
+      responses:
+        "204":
+          description: No content
+        "400":
+          description: Bad Request
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not Found
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "413":
+          description: Request Entity Too Large
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Upload installment contract
+      tags:
+        - Installment plans
+  "/installment-plans/{id}/final-installment":
+    delete:
+      parameters:
+        - description: Plan UUID
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No content
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: DeleteFinal installment plans
+      tags:
+        - Installment plans
+    put:
+      parameters:
+        - description: Plan UUID
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/handler.installmentFinalRequest"
+        description: Request
+        required: true
+      responses:
+        "204":
+          description: No content
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Final installment plans
+      tags:
+        - Installment plans
+  "/installment-plans/{id}/payments":
+    post:
+      parameters:
+        - description: Plan UUID
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/service.InstallmentPaymentRequest"
+        description: Request
+        required: true
+      responses:
+        "204":
+          description: No content
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Payment installment plans
+      tags:
+        - Installment plans
+  "/installment-plans/{id}/payments/{paymentId}":
+    delete:
+      parameters:
+        - description: Plan UUID
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+        - description: Payment UUID
+          in: path
+          name: paymentId
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: No content
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: DeletePayment installment plans
+      tags:
+        - Installment plans
+  "/installment-plans/{id}/reminder/preview":
+    post:
+      parameters:
+        - description: Plan UUID
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        $ref: "#/components/requestBodies/service.InstallmentReminderRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/service.InstallmentReminderPreview"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Preview installment plans
+      tags:
+        - Installment plans
+  "/installment-plans/{id}/reminder/send":
+    post:
+      parameters:
+        - description: Plan UUID
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        $ref: "#/components/requestBodies/service.InstallmentReminderRequest"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/service.InstallmentReminderPreview"
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Send installment plans
+      tags:
+        - Installment plans
+  /installment-plans/reminder-cases:
+    get:
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/domain.InstallmentDetail"
+                type: array
+        "400":
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Not Found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "409":
+          description: Conflict
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: ReminderCases installment plans
+      tags:
+        - Installment plans
   /me:
     get:
       responses:
@@ -6184,6 +7032,13 @@ components:
             $ref: "#/components/schemas/FeeScheduleRequest"
       description: Version
       required: true
+    service.InstallmentRequest:
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/service.InstallmentRequest"
+      description: Request
+      required: true
     postChildrenImportParse:
       content:
         multipart/form-data:
@@ -6196,6 +7051,13 @@ components:
                 format: binary
             required:
               - file
+      required: true
+    service.InstallmentReminderRequest:
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/service.InstallmentReminderRequest"
+      description: Request
       required: true
     handler.ownContactRequest:
       content:
@@ -8973,6 +9835,10 @@ components:
           type: string
         importedAt:
           type: string
+        installmentPayment:
+          $ref: "#/components/schemas/domain.InstallmentPaymentLink"
+        installmentPlanSuggestion:
+          $ref: "#/components/schemas/domain.InstallmentPlanSuggestion"
         isHidden:
           type: boolean
         matchedAmount:
@@ -9156,6 +10022,57 @@ components:
         - month
         - year
       type: object
+    domain.EmailLog:
+      properties:
+        body:
+          type: string
+        emailType:
+          $ref: "#/components/schemas/domain.EmailLogType"
+        householdId:
+          type: string
+        id:
+          type: string
+        installmentPlanId:
+          type: string
+        payload:
+          type: object
+        sentAt:
+          type: string
+        sentBy:
+          type: string
+        subject:
+          type: string
+        toEmail:
+          type: string
+      required:
+        - emailType
+        - id
+        - sentAt
+        - subject
+        - toEmail
+      type: object
+    domain.EmailLogType:
+      enum:
+        - REMINDER_INITIAL
+        - REMINDER_FINAL
+        - MEMBERSHIP_REMINDER_INITIAL
+        - MEMBERSHIP_REMINDER_FINAL
+        - PASSWORD_RESET
+        - ACCOUNT_INVITATION
+        - INSTALLMENT_REMINDER_INITIAL
+        - INSTALLMENT_REMINDER_FINAL
+        - EINSTUFUNG
+      type: string
+      x-enum-varnames:
+        - EmailLogTypeReminderInitial
+        - EmailLogTypeReminderFinal
+        - EmailLogTypeMembershipReminderInitial
+        - EmailLogTypeMembershipReminderFinal
+        - EmailLogTypePasswordReset
+        - EmailLogTypeAccountInvitation
+        - EmailLogTypeInstallmentInitial
+        - EmailLogTypeInstallmentFinal
+        - EmailLogTypeEinstufung
     domain.FeeExpectation:
       properties:
         amount:
@@ -9481,6 +10398,224 @@ components:
         - IncomeStatusNotRequired
         - IncomeStatusHistoric
         - IncomeStatusFosterFamily
+    domain.InstallmentCharge:
+      properties:
+        amount:
+          type: number
+        createdAt:
+          type: string
+        emailLogId:
+          type: string
+        id:
+          type: string
+        label:
+          type: string
+        planId:
+          type: string
+      required:
+        - amount
+        - createdAt
+        - id
+        - label
+        - planId
+      type: object
+    domain.InstallmentContract:
+      properties:
+        filename:
+          type: string
+        planId:
+          type: string
+        sizeBytes:
+          type: integer
+        uploadedAt:
+          type: string
+        uploadedBy:
+          type: string
+      required:
+        - filename
+        - planId
+        - sizeBytes
+        - uploadedAt
+      type: object
+    domain.InstallmentDetail:
+      properties:
+        charges:
+          items:
+            $ref: "#/components/schemas/domain.InstallmentCharge"
+          type: array
+        contract:
+          $ref: "#/components/schemas/domain.InstallmentContract"
+        payments:
+          items:
+            $ref: "#/components/schemas/domain.InstallmentPayment"
+          type: array
+        plan:
+          $ref: "#/components/schemas/domain.InstallmentPlan"
+        reminders:
+          items:
+            $ref: "#/components/schemas/domain.EmailLog"
+          type: array
+        schedule:
+          items:
+            $ref: "#/components/schemas/domain.InstallmentRate"
+          type: array
+        summary:
+          $ref: "#/components/schemas/domain.InstallmentSummary"
+      required:
+        - charges
+        - payments
+        - plan
+        - reminders
+        - schedule
+        - summary
+      type: object
+    domain.InstallmentPayment:
+      properties:
+        amount:
+          type: number
+        createdAt:
+          type: string
+        createdBy:
+          type: string
+        id:
+          type: string
+        note:
+          type: string
+        paidOn:
+          type: string
+        planId:
+          type: string
+        source:
+          type: string
+        transactionId:
+          type: string
+      required:
+        - amount
+        - createdAt
+        - id
+        - note
+        - paidOn
+        - planId
+        - source
+      type: object
+    domain.InstallmentPaymentLink:
+      properties:
+        debtorName:
+          type: string
+        paymentId:
+          type: string
+        planId:
+          type: string
+      required:
+        - debtorName
+        - paymentId
+        - planId
+      type: object
+    domain.InstallmentPlan:
+      properties:
+        closeReason:
+          type: string
+        closedAt:
+          type: string
+        createdAt:
+          type: string
+        createdBy:
+          type: string
+        debtorAddress:
+          type: string
+        debtorName:
+          type: string
+        emails:
+          items:
+            type: string
+          type: array
+        finalDueDate:
+          type: string
+        firstDueDate:
+          type: string
+        householdId:
+          type: string
+        id:
+          type: string
+        installmentAmount:
+          type: number
+        intervalMonths:
+          type: integer
+        note:
+          type: string
+        payerIban:
+          type: string
+        reference:
+          type: string
+        status:
+          type: string
+        totalAmount:
+          type: number
+        updatedAt:
+          type: string
+      required:
+        - createdAt
+        - debtorAddress
+        - debtorName
+        - emails
+        - firstDueDate
+        - id
+        - installmentAmount
+        - intervalMonths
+        - note
+        - reference
+        - status
+        - totalAmount
+        - updatedAt
+      type: object
+    domain.InstallmentPlanSuggestion:
+      properties:
+        debtorName:
+          type: string
+        planId:
+          type: string
+      required:
+        - debtorName
+        - planId
+      type: object
+    domain.InstallmentRate:
+      properties:
+        amount:
+          type: number
+        dueDate:
+          type: string
+        number:
+          type: integer
+        paid:
+          type: number
+        status:
+          type: string
+      required:
+        - amount
+        - dueDate
+        - number
+        - paid
+        - status
+      type: object
+    domain.InstallmentSummary:
+      properties:
+        effectiveTotal:
+          type: number
+        overdue:
+          type: number
+        paid:
+          type: number
+        rest:
+          type: number
+        state:
+          type: string
+      required:
+        - effectiveTotal
+        - overdue
+        - paid
+        - rest
+        - state
+      type: object
     domain.KnownIBAN:
       properties:
         child:
@@ -10155,6 +11290,20 @@ components:
         - office
         - startDate
       type: object
+    handler.installmentCloseRequest:
+      properties:
+        reason:
+          type: string
+      required:
+        - reason
+      type: object
+    handler.installmentFinalRequest:
+      properties:
+        dueDate:
+          type: string
+      required:
+        - dueDate
+      type: object
     handler.ownChild:
       properties:
         birthDate:
@@ -10821,6 +11970,109 @@ components:
       required:
         - child
         - index
+      type: object
+    service.InstallmentPaymentRequest:
+      properties:
+        amount:
+          type: number
+        note:
+          type: string
+        paidOn:
+          type: string
+        transactionId:
+          type: string
+      required:
+        - amount
+        - note
+        - paidOn
+      type: object
+    service.InstallmentReminderPreview:
+      properties:
+        body:
+          type: string
+        deadline:
+          type: string
+        qrImageDataUrl:
+          type: string
+        recipients:
+          items:
+            type: string
+          type: array
+        stage:
+          $ref: "#/components/schemas/service.ReminderStage"
+        subject:
+          type: string
+        totalAmount:
+          type: number
+        warnings:
+          items:
+            type: string
+          type: array
+      required:
+        - body
+        - deadline
+        - recipients
+        - stage
+        - subject
+        - totalAmount
+        - warnings
+      type: object
+    service.InstallmentReminderRequest:
+      properties:
+        body:
+          type: string
+        chargeReminderFee:
+          type: boolean
+        includeQR:
+          type: boolean
+        installmentNumbers:
+          items:
+            type: integer
+          type: array
+        subject:
+          type: string
+      required:
+        - chargeReminderFee
+        - installmentNumbers
+      type: object
+    service.InstallmentRequest:
+      properties:
+        debtorAddress:
+          type: string
+        debtorName:
+          type: string
+        emails:
+          items:
+            type: string
+          type: array
+        firstDueDate:
+          type: string
+        householdId:
+          type: string
+        installmentAmount:
+          type: number
+        intervalMonths:
+          type: integer
+        note:
+          type: string
+        payerIban:
+          type: string
+        reference:
+          type: string
+        totalAmount:
+          type: number
+        transactionId:
+          type: string
+      required:
+        - debtorAddress
+        - debtorName
+        - emails
+        - firstDueDate
+        - installmentAmount
+        - intervalMonths
+        - note
+        - reference
+        - totalAmount
       type: object
     service.InvitationResult:
       properties:

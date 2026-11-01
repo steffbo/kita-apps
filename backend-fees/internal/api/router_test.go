@@ -36,6 +36,22 @@ var publicRoutes = map[string]bool{
 
 // Routes restricted to role ADMIN (RequireRole in router.go).
 var adminRoutes = []string{
+	"GET /installment-plans/",
+	"POST /installment-plans/",
+	"GET /installment-plans/{id}",
+	"PUT /installment-plans/{id}",
+	"POST /installment-plans/{id}/close",
+	"POST /installment-plans/{id}/payments",
+	"DELETE /installment-plans/{id}/payments/{paymentId}",
+	"PUT /installment-plans/{id}/final-installment",
+	"DELETE /installment-plans/{id}/final-installment",
+	"GET /installment-plans/reminder-cases",
+	"POST /installment-plans/{id}/reminder/preview",
+	"POST /installment-plans/{id}/reminder/send",
+	"PUT /installment-plans/{id}/contract",
+	"GET /installment-plans/{id}/contract",
+	"DELETE /installment-plans/{id}/contract",
+
 	"POST /banking-sync/run",
 	"GET /banking-sync/status",
 	"POST /banking-sync/cancel",
@@ -425,5 +441,28 @@ func TestRouter_LeitungParentWorkRoutes(t *testing.T) {
 				t.Fatalf("PARENT_WORK: status %d, want handler reached", code)
 			}
 		})
+	}
+}
+
+func TestRouter_InstallmentsRejectAllNonAdminRoles(t *testing.T) {
+	router, jwtService := testRouter(t, "")
+	for _, role := range []string{"USER", "LEITUNG", "PARENT_WORK", "PARENT"} {
+		tokens, err := jwtService.GenerateTokenPair(uuid.New(), "roles@example.test", role)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, route := range adminRoutes {
+			if !strings.Contains(route, "/installment-plans") {
+				continue
+			}
+			method, path, _ := strings.Cut(route, " ")
+			req := httptest.NewRequest(method, apiPrefix+concretePath(path), nil)
+			req.Header.Set("Authorization", "Bearer "+tokens.AccessToken)
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+			if w.Code != 403 {
+				t.Fatalf("%s %s: %d", role, route, w.Code)
+			}
+		}
 	}
 }

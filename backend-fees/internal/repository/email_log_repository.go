@@ -24,13 +24,13 @@ func NewPostgresEmailLogRepository(db *sqlx.DB) *PostgresEmailLogRepository {
 // Create creates a new email log entry.
 func (r *PostgresEmailLogRepository) Create(ctx context.Context, log *domain.EmailLog) error {
 	_, err := conn(ctx, r.db).ExecContext(ctx, `
-		INSERT INTO fees.email_logs (id, sent_at, to_email, subject, body, email_type, payload, sent_by, household_id)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-	`, log.ID, log.SentAt, log.ToEmail, log.Subject, log.Body, log.EmailType, log.Payload, log.SentBy, log.HouseholdID)
+		INSERT INTO fees.email_logs (id, sent_at, to_email, subject, body, email_type, payload, sent_by, household_id, installment_plan_id)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+	`, log.ID, log.SentAt, log.ToEmail, log.Subject, log.Body, log.EmailType, log.Payload, log.SentBy, log.HouseholdID, log.InstallmentPlanID)
 	return err
 }
 
-const emailLogColumns = `id, sent_at, to_email, subject, body, email_type, payload, sent_by, household_id`
+const emailLogColumns = `id, sent_at, to_email, subject, body, email_type, payload, sent_by, household_id, installment_plan_id`
 
 // List returns a filtered, sorted and paginated list of email logs.
 func (r *PostgresEmailLogRepository) List(ctx context.Context, offset, limit int, filter EmailLogFilter) ([]domain.EmailLog, int64, error) {

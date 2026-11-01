@@ -316,3 +316,17 @@ type ParentWorkRepository interface {
 	SaveOverride(context.Context, *domain.ParentWorkOverride) error
 	DeleteOverride(context.Context, uuid.UUID, int) error
 }
+
+// InstallmentRepository persists contractual debt plans and their source records.
+type InstallmentRepository interface {
+	List(context.Context) ([]domain.InstallmentPlan, error)
+	Get(context.Context, uuid.UUID, bool) (*domain.InstallmentDetail, error)
+	SavePlan(context.Context, *domain.InstallmentPlan) error
+	SavePayment(context.Context, *domain.InstallmentPayment) error
+	SaveCharge(context.Context, *domain.InstallmentCharge) error
+	SaveContract(context.Context, *domain.InstallmentContract) error
+	Contract(context.Context, uuid.UUID) (*domain.InstallmentContract, error)
+	DeleteContract(context.Context, uuid.UUID) error
+	DeletePayment(context.Context, uuid.UUID, uuid.UUID) error
+	LockTransaction(context.Context, uuid.UUID) error
+}

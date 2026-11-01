@@ -24,11 +24,32 @@ func NewPostgresMatchRepository(db *sqlx.DB) *PostgresMatchRepository {
 
 // Create creates a new payment match.
 func (r *PostgresMatchRepository) Create(ctx context.Context, match *domain.PaymentMatch) error {
-	_, err := conn(ctx, r.db).ExecContext(ctx, `
+	tx, err := beginTx(ctx, r.db)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var occupied bool
+	// Both assignment paths lock the bank row before checking the other ledger.
+	var id uuid.UUID
+	if err = tx.GetContext(ctx, &id, `SELECT id FROM fees.bank_transactions WHERE id=$1 FOR UPDATE`, match.TransactionID); err != nil {
+		return err
+	}
+	if err = tx.GetContext(ctx, &occupied, `SELECT EXISTS(SELECT 1 FROM fees.installment_payments WHERE transaction_id=$1)`, match.TransactionID); err != nil {
+		return err
+	}
+	if occupied {
+		return ErrDuplicate
+	}
+
+	_, err = tx.ExecContext(ctx, `
 		INSERT INTO fees.payment_matches (id, transaction_id, expectation_id, amount, match_type, confidence, matched_at, matched_by)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 	`, match.ID, match.TransactionID, match.ExpectationID, match.Amount, match.MatchType, match.Confidence, match.MatchedAt, match.MatchedBy)
-	return err
+	if err != nil {
+		return err
+	}
+	return tx.Commit()
 }
 
 // GetByID retrieves a payment match by ID.
@@ -127,14 +148,24 @@ func (r *PostgresMatchRepository) Delete(ctx context.Context, id uuid.UUID) erro
 
 // DeleteByTransactionID deletes all matches for a transaction and returns the number removed.
 func (r *PostgresMatchRepository) DeleteByTransactionID(ctx context.Context, transactionID uuid.UUID) (int64, error) {
-	result, err := conn(ctx, r.db).ExecContext(ctx, `
+	var installmentCount int64
+	result, err := conn(ctx, r.db).ExecContext(ctx, `DELETE FROM fees.installment_payments WHERE transaction_id=$1`, transactionID)
+	if err != nil {
+		return 0, err
+	}
+	installmentCount, err = result.RowsAffected()
+	if err != nil {
+		return 0, err
+	}
+	result, err = conn(ctx, r.db).ExecContext(ctx, `
 		DELETE FROM fees.payment_matches WHERE transaction_id = $1
 	`, transactionID)
 	if err != nil {
 		return 0, err
 	}
 
-	return result.RowsAffected()
+	n, err := result.RowsAffected()
+	return n + installmentCount, err
 }
 
 // GetByTransactionIDs retrieves all matches for a list of transaction IDs.

@@ -103,6 +103,7 @@ func main() {
 	einstufungRepo := repository.NewPostgresEinstufungRepository(db)
 	childNoteRepo := repository.NewPostgresChildNoteRepository(db)
 	feeScheduleRepo := repository.NewPostgresFeeScheduleRepository(db)
+	installmentRepo := repository.NewPostgresInstallmentRepository(db)
 	parentWorkRepo := repository.NewPostgresParentWorkRepository(db)
 
 	// Initialize services
@@ -145,6 +146,7 @@ func main() {
 	childService.UseEinstufungSync(einstufungService)
 	childNoteService := service.NewChildNoteService(childNoteRepo, childService)
 	feeScheduleService := service.NewFeeScheduleService(feeScheduleRepo)
+	installmentService := service.NewInstallmentService(installmentRepo, householdRepo, transactionRepo, txManager, reminderService)
 	parentWorkService := service.NewParentWorkService(parentWorkRepo, txManager)
 	parentAccountService := service.NewParentAccountService(accountRepo, parentWorkService)
 	einstufungLetterRepo := repository.NewEinstufungLetterRepository(db)
@@ -173,6 +175,7 @@ func main() {
 			einstufungLetterRepo, emailService)),
 		FeeSchedule:      handler.NewFeeScheduleHandler(feeScheduleService),
 		ParentWork:       handler.NewParentWorkHandler(parentWorkService),
+		Installment:      handler.NewInstallmentHandler(installmentService),
 		ParentAccount:    handler.NewParentAccountHandler(parentAccountService),
 		Stichtagsmeldung: handler.NewStichtagsmeldungHandler(stichtagService),
 		JWTService:       jwtService,
