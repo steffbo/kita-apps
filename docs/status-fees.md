@@ -1248,6 +1248,19 @@ WHERE c.household_id IS NOT NULL
 - Der Admin-Feed mischt Kontaktänderungen, Kindänderungen, gemeldete Elternstunden und
   Fehlermeldungen. Nur von Eltern vorgenommene Datenänderungen erscheinen im Feed.
 
+## 2026-11-01: Spenden im Bankabgleich
+
+Eine Banktransaktion lässt sich als Spende zuordnen; die Seite „Spenden“ gruppiert sie nach Buchungsjahr mit Summen.
+Spec und offene Punkte: `docs/spenden.md`.
+
+- Entscheidung: statt einer Spenden-Tabelle die allgemeine `fees.transaction_assignments` (Migration 000050, `kind`
+  `DONATION`). Weitere Zuordnungsarten (Zuschüsse, Phase 8) sind ein neuer `kind`, nicht neue Prüfstellen. Gebaut
+  ist nur die Spende.
+- Die „schon belegt“-Prüfung der Zuordnungswege (`payment_matches`, Planzahlung, Zweck) steht einmal in
+  `transactionOccupiedSQL`; Service-Seite `BankTransaction.HasExclusiveAssignment`.
+- Rollen: `ADMIN`/`USER` wie der Bankabgleich (Annahme, siehe Spec); keine Schwärzung nötig.
+- Die Planzahlungs-Hilfe `uploadPayment` der E2E-Tests liegt jetzt in `e2e/beitraege/bank.ts`.
+
 ## 2026-11-01: Ratenzahlungen – Frontend
 
 - Seiten `/ratenzahlungen` und `/ratenzahlungen/:id` (Route-Meta `requiresAdmin`). Der Navigationseintrag

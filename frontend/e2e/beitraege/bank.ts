@@ -1,4 +1,7 @@
 // Helpers for bank CSV imports in the Beiträge tests.
+import { expect, type PlaywrightWorkerArgs } from '@playwright/test';
+import { uniq } from './fixtures';
+import { API, IMPORT_TOKEN } from './env';
 
 /** Berlin calendar date, like the backend's util.Today(). */
 export function berlinToday() {
@@ -30,4 +33,26 @@ export function bankCsv(row: { date: string; payer: string; iban: string; purpos
 export function uniqueIban(): string {
   const digits = Array.from({ length: 18 }, () => Math.floor(Math.random() * 10)).join('');
   return `DE00${digits}`;
+}
+
+/** Uploads one incoming payment the way banking-sync does; nothing matches it automatically. */
+export async function uploadPayment(
+  playwright: PlaywrightWorkerArgs['playwright'],
+  baseURL: string | undefined,
+  payment: { payer: string; iban: string; purpose: string; amount: string; date?: { year: number; month: number; day: number } },
+) {
+  const { date, ...row } = payment;
+  const sync = await playwright.request.newContext({ baseURL });
+  const res = await sync.post(`${API}/import/upload`, {
+    headers: { 'X-Import-Token': IMPORT_TOKEN },
+    multipart: {
+      file: {
+        name: `${uniq()}.csv`,
+        mimeType: 'text/csv',
+        buffer: Buffer.from(bankCsv({ date: bankDate(date ?? berlinToday()), ...row })),
+      },
+    },
+  });
+  expect(res.status(), await res.text()).toBe(200);
+  await sync.dispose();
 }

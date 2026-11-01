@@ -19,6 +19,19 @@ type InstallmentPaymentLink struct {
 	DebtorName string    `json:"debtorName" db:"debtor_name"`
 }
 
+// AssignmentKind names what a transaction outside fees and plans is for.
+type AssignmentKind string
+
+// AssignmentDonation marks an incoming donation (Spende).
+const AssignmentDonation AssignmentKind = "DONATION"
+
+// TransactionAssignment records the purpose of a transaction that is neither a fee nor a plan payment.
+type TransactionAssignment struct {
+	Kind       AssignmentKind `json:"kind" db:"kind"`
+	Note       string         `json:"note" db:"note"`
+	AssignedAt time.Time      `json:"assignedAt" db:"assigned_at"`
+}
+
 // BankTransaction represents an imported bank transaction.
 type BankTransaction struct {
 	ID            uuid.UUID  `json:"id" db:"id"`
@@ -40,8 +53,15 @@ type BankTransaction struct {
 	// Installment fields are redacted for roles without installment access.
 	InstallmentPlanSuggestion *InstallmentPlanSuggestion `json:"installmentPlanSuggestion,omitempty" db:"-" binding:"optional"`
 	InstallmentPayment        *InstallmentPaymentLink    `json:"installmentPayment,omitempty" db:"-" binding:"optional"`
+	Assignment                *TransactionAssignment     `json:"assignment,omitempty" db:"-" binding:"optional"`
 	// MatchedAmount is the total amount of this transaction already allocated to fees.
 	MatchedAmount *float64 `json:"matchedAmount,omitempty" db:"matched_amount" binding:"optional"`
+}
+
+// HasExclusiveAssignment reports whether the transaction already belongs to a plan or has a purpose,
+// so it can no longer be allocated to fees.
+func (t *BankTransaction) HasExclusiveAssignment() bool {
+	return t.InstallmentPayment != nil || t.Assignment != nil
 }
 
 // IsIncoming returns true if the transaction is an incoming payment.

@@ -3252,6 +3252,34 @@ paths:
       summary: Confirm suggested matches
       tags:
         - Import
+  /import/donations:
+    get:
+      description: Transactions assigned as donation, grouped by booking year with
+        sums, newest first
+      responses:
+        "200":
+          description: Donations
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/service.DonationReport"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: List donations grouped by year
+      tags:
+        - Import
   /import/history:
     get:
       description: Get a paginated list of past CSV imports
@@ -3486,6 +3514,56 @@ paths:
       security:
         - BearerAuth: []
       summary: Allocate a transaction across multiple fees
+      tags:
+        - Import
+  "/import/transactions/{id}/assign":
+    post:
+      description: Marks an unassigned incoming transaction as donation. Undo with the
+        unmatch action.
+      parameters:
+        - description: Transaction ID (UUID)
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AssignTransactionRequest"
+        description: Purpose
+        required: true
+      responses:
+        "204":
+          description: Assigned
+        "400":
+          description: Invalid kind, outgoing transaction or already assigned
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Transaction not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Assign a transaction to a purpose
       tags:
         - Import
   "/import/transactions/{id}/dismiss":
@@ -7138,6 +7216,22 @@ components:
         - amount
         - expectationId
       type: object
+    AssignTransactionRequest:
+      description: Request body for assigning a transaction to a purpose
+      properties:
+        kind:
+          allOf:
+            - $ref: "#/components/schemas/domain.AssignmentKind"
+          enum:
+            - DONATION
+          example: DONATION
+        note:
+          example: Spende Sommerfest
+          type: string
+      required:
+        - kind
+        - note
+      type: object
     BankingSyncStatus:
       description: Status of the banking-sync runner (proxied 1:1 from the
         banking-sync service)
@@ -9815,10 +9909,18 @@ components:
         - total
         - totalPages
       type: object
+    domain.AssignmentKind:
+      enum:
+        - DONATION
+      type: string
+      x-enum-varnames:
+        - AssignmentDonation
     domain.BankTransaction:
       properties:
         amount:
           type: number
+        assignment:
+          $ref: "#/components/schemas/domain.TransactionAssignment"
         bookingDate:
           type: string
         currency:
@@ -11076,6 +11178,19 @@ components:
         - ResolutionTypeDismissed
         - ResolutionTypeMatched
         - ResolutionTypeAutoResolved
+    domain.TransactionAssignment:
+      properties:
+        assignedAt:
+          type: string
+        kind:
+          $ref: "#/components/schemas/domain.AssignmentKind"
+        note:
+          type: string
+      required:
+        - assignedAt
+        - kind
+        - note
+      type: object
     domain.TransactionWarning:
       properties:
         actualAmount:
@@ -11833,6 +11948,39 @@ components:
         - firstName
         - lastName
         - memberNumber
+      type: object
+    service.DonationReport:
+      properties:
+        count:
+          type: integer
+        total:
+          type: number
+        years:
+          items:
+            $ref: "#/components/schemas/service.DonationYear"
+          type: array
+      required:
+        - count
+        - total
+        - years
+      type: object
+    service.DonationYear:
+      properties:
+        count:
+          type: integer
+        total:
+          type: number
+        transactions:
+          items:
+            $ref: "#/components/schemas/domain.BankTransaction"
+          type: array
+        year:
+          type: integer
+      required:
+        - count
+        - total
+        - transactions
+        - year
       type: object
     service.ExecuteRequest:
       properties:

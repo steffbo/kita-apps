@@ -1,27 +1,6 @@
 import { test, expect, uniq, loginContext, type Api } from './fixtures';
-import { bankCsv, bankDate, berlinToday, uniqueIban } from './bank';
-import { API, IMPORT_TOKEN } from './env';
-
-/** Uploads one incoming payment the way banking-sync does; nothing matches it automatically. */
-async function uploadPayment(
-  playwright: import('@playwright/test').PlaywrightWorkerArgs['playwright'],
-  baseURL: string | undefined,
-  payment: { payer: string; iban: string; purpose: string; amount: string },
-) {
-  const sync = await playwright.request.newContext({ baseURL });
-  const res = await sync.post(`${API}/import/upload`, {
-    headers: { 'X-Import-Token': IMPORT_TOKEN },
-    multipart: {
-      file: {
-        name: `${uniq()}.csv`,
-        mimeType: 'text/csv',
-        buffer: Buffer.from(bankCsv({ date: bankDate(berlinToday()), ...payment })),
-      },
-    },
-  });
-  expect(res.status(), await res.text()).toBe(200);
-  await sync.dispose();
-}
+import { berlinToday, uniqueIban, uploadPayment } from './bank';
+import { API } from './env';
 
 /** A plan with one overdue rate. */
 async function seedOverduePlan(adminApi: Api, emails: string[] = []) {

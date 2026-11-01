@@ -115,5 +115,6 @@ Vor der Umsetzung im Plan zu klären:
 - Wer zahlt was wofür, und in welchem Rhythmus? Gibt es eine Berechnungsgrundlage (Formel, Bescheid) oder nur Soll-Beträge?
 - Meldung festschreiben: Stand je Quartal mit den gemeldeten Zahlen speichern (Abgabedatum, Korrekturen, PDF)?
 - Soll/Ist: Soll-Betrag aus Meldung oder Bescheid, Ist aus der zugeordneten Banktransaktion, Differenz je Zeitraum.
-- Bankabgleich: Zuordnung als eigene Art neben Beitrag und Ratenzahlung; gemeinsames Modell mit den Spenden prüfen.
+- Bankabgleich: Zuordnung als eigene Art neben Beitrag und Ratenzahlung. Die Spenden nutzen `fees.transaction_assignments`
+  (`docs/spenden.md`); ein Zuschuss wäre ein weiterer `kind`, braucht aber vermutlich Bezug (Quartal/Bescheid) als Zusatzfelder.
 - Rechte: `LEITUNG` erstellt die Meldung, sieht aber keine Bankdaten. Wer sieht Zuschüsse?

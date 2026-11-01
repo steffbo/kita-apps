@@ -7,6 +7,7 @@ import { Loader2, CheckCircle } from 'lucide-vue-next';
 import { formatCurrency, formatDate } from '@/utils/format';
 import { getConfidenceColor, getConfidenceLabel, getFeeTypeName } from '@/utils/fees';
 import SearchInput from '@/components/SearchInput.vue';
+import DonationAssignPanel from '@/components/import/DonationAssignPanel.vue';
 import InstallmentAssignPanel from '@/components/installments/InstallmentAssignPanel.vue';
 import { useAuthStore } from '@/stores/auth';
 
@@ -16,8 +17,8 @@ const emit = defineEmits<{ close: []; matched: [] }>();
 const PREFILTER_CONFIDENCE = 0.6;
 
 const auth = useAuthStore();
-// Ratenzahlungen are admin-only; everyone else only sees the fee dialog.
-const mode = ref<'fee' | 'plan'>(auth.isAdmin && props.transaction.installmentPlanSuggestion ? 'plan' : 'fee');
+// Ratenzahlungen are admin-only; Spenden are open to everyone who reconciles.
+const mode = ref<'fee' | 'plan' | 'donation'>(auth.isAdmin && props.transaction.installmentPlanSuggestion ? 'plan' : 'fee');
 
 const manualMatchSuggestion = ref<MatchSuggestion | null>(null);
 const isLoadingSuggestions = ref(false);
@@ -220,9 +221,12 @@ const displayedFeeCandidates = computed<ScoredFee[]>(() => {
         </div>
       </div>
 
-      <div v-if="auth.isAdmin" class="mb-4 flex gap-2" role="group" aria-label="Zuordnen zu">
+      <div class="mb-4 flex gap-2" role="group" aria-label="Zuordnen zu">
         <button type="button" class="chip" :aria-pressed="mode === 'fee'" @click="mode = 'fee'">Beitrag</button>
-        <button type="button" class="chip" :aria-pressed="mode === 'plan'" @click="mode = 'plan'">Ratenzahlung</button>
+        <button v-if="auth.isAdmin" type="button" class="chip" :aria-pressed="mode === 'plan'"
+          @click="mode = 'plan'">Ratenzahlung</button>
+        <button v-if="!transaction.matches?.length" type="button" class="chip" :aria-pressed="mode === 'donation'"
+          @click="mode = 'donation'">Spende</button>
       </div>
 
       <template v-if="mode === 'fee'">
@@ -324,6 +328,7 @@ const displayedFeeCandidates = computed<ScoredFee[]>(() => {
         </div>
       </template>
 
+      <DonationAssignPanel v-else-if="mode === 'donation'" :transaction="transaction" @matched="emit('matched')" />
       <InstallmentAssignPanel v-else :transaction="transaction" @matched="emit('matched')" />
     </div>
     <template #footer>

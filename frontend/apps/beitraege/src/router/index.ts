@@ -122,6 +122,12 @@ const router = createRouter({
           meta: { requiresFees: true, requiresAdmin: true },
         },
         {
+          path: 'spenden',
+          name: 'donations',
+          component: () => import('@/pages/DonationsPage.vue'),
+          meta: { requiresFees: true },
+        },
+        {
           path: 'ratenzahlungen',
           name: 'installment-plans',
           component: () => import('@/pages/InstallmentPlansPage.vue'),

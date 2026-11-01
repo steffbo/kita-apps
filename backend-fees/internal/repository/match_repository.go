@@ -35,7 +35,7 @@ func (r *PostgresMatchRepository) Create(ctx context.Context, match *domain.Paym
 	if err = tx.GetContext(ctx, &id, `SELECT id FROM fees.bank_transactions WHERE id=$1 FOR UPDATE`, match.TransactionID); err != nil {
 		return err
 	}
-	if err = tx.GetContext(ctx, &occupied, `SELECT EXISTS(SELECT 1 FROM fees.installment_payments WHERE transaction_id=$1)`, match.TransactionID); err != nil {
+	if err = tx.GetContext(ctx, &occupied, `SELECT EXISTS(SELECT 1 FROM fees.installment_payments WHERE transaction_id=$1) OR EXISTS(SELECT 1 FROM fees.transaction_assignments WHERE transaction_id=$1)`, match.TransactionID); err != nil {
 		return err
 	}
 	if occupied {
@@ -148,16 +148,19 @@ func (r *PostgresMatchRepository) Delete(ctx context.Context, id uuid.UUID) erro
 
 // DeleteByTransactionID deletes all matches for a transaction and returns the number removed.
 func (r *PostgresMatchRepository) DeleteByTransactionID(ctx context.Context, transactionID uuid.UUID) (int64, error) {
-	var installmentCount int64
-	result, err := conn(ctx, r.db).ExecContext(ctx, `DELETE FROM fees.installment_payments WHERE transaction_id=$1`, transactionID)
-	if err != nil {
-		return 0, err
+	var otherCount int64
+	for _, table := range []string{"installment_payments", "transaction_assignments"} {
+		result, err := conn(ctx, r.db).ExecContext(ctx, `DELETE FROM fees.`+table+` WHERE transaction_id=$1`, transactionID)
+		if err != nil {
+			return 0, err
+		}
+		n, err := result.RowsAffected()
+		if err != nil {
+			return 0, err
+		}
+		otherCount += n
 	}
-	installmentCount, err = result.RowsAffected()
-	if err != nil {
-		return 0, err
-	}
-	result, err = conn(ctx, r.db).ExecContext(ctx, `
+	result, err := conn(ctx, r.db).ExecContext(ctx, `
 		DELETE FROM fees.payment_matches WHERE transaction_id = $1
 	`, transactionID)
 	if err != nil {
@@ -165,7 +168,7 @@ func (r *PostgresMatchRepository) DeleteByTransactionID(ctx context.Context, tra
 	}
 
 	n, err := result.RowsAffected()
-	return n + installmentCount, err
+	return n + otherCount, err
 }
 
 // GetByTransactionIDs retrieves all matches for a list of transaction IDs.

@@ -4950,6 +4950,63 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/import/donations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List donations grouped by year
+         * @description Transactions assigned as donation, grouped by booking year with sums, newest first
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Donations */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["service.DonationReport"];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/import/history": {
         parameters: {
             query?: never;
@@ -5286,6 +5343,87 @@ export interface paths {
                     };
                 };
                 /** @description Transaction or fee not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/import/transactions/{id}/assign": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Assign a transaction to a purpose
+         * @description Marks an unassigned incoming transaction as donation. Undo with the unmatch action.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Transaction ID (UUID) */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            /** @description Purpose */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["AssignTransactionRequest"];
+                };
+            };
+            responses: {
+                /** @description Assigned */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Invalid kind, outgoing transaction or already assigned */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Transaction not found */
                 404: {
                     headers: {
                         [name: string]: unknown;
@@ -10879,6 +11017,16 @@ export interface components {
             /** @example 550e8400-e29b-41d4-a716-446655440001 */
             expectationId: string;
         };
+        /** @description Request body for assigning a transaction to a purpose */
+        AssignTransactionRequest: {
+            /**
+             * @example DONATION
+             * @enum {unknown}
+             */
+            kind: "DONATION";
+            /** @example Spende Sommerfest */
+            note: string;
+        };
         /** @description Status of the banking-sync runner (proxied 1:1 from the banking-sync service) */
         BankingSyncStatus: {
             downloadPath?: string;
@@ -12236,8 +12384,11 @@ export interface components {
             /** @example 1 */
             totalPages: number;
         };
+        /** @enum {string} */
+        "domain.AssignmentKind": "DONATION";
         "domain.BankTransaction": {
             amount: number;
+            assignment?: components["schemas"]["domain.TransactionAssignment"];
             bookingDate: string;
             currency: string;
             description?: string;
@@ -12724,6 +12875,11 @@ export interface components {
         };
         /** @enum {string} */
         "domain.ResolutionType": "dismissed" | "matched" | "auto_resolved";
+        "domain.TransactionAssignment": {
+            assignedAt: string;
+            kind: components["schemas"]["domain.AssignmentKind"];
+            note: string;
+        };
         "domain.TransactionWarning": {
             actualAmount?: number;
             child?: components["schemas"]["domain.Child"];
@@ -13027,6 +13183,17 @@ export interface components {
             postalCode?: string;
             street?: string;
             streetNo?: string;
+        };
+        "service.DonationReport": {
+            count: number;
+            total: number;
+            years: components["schemas"]["service.DonationYear"][];
+        };
+        "service.DonationYear": {
+            count: number;
+            total: number;
+            transactions: components["schemas"]["domain.BankTransaction"][];
+            year: number;
         };
         "service.ExecuteRequest": {
             parentDecisions: components["schemas"]["service.ParentDecision"][];

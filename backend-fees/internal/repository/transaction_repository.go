@@ -72,7 +72,7 @@ func (r *PostgresTransactionRepository) GetByID(ctx context.Context, id uuid.UUI
 		return nil, err
 	}
 	rows := []domain.BankTransaction{tx}
-	if err := r.enrichInstallments(ctx, rows); err != nil {
+	if err := r.enrich(ctx, rows); err != nil {
 		return nil, err
 	}
 	return &rows[0], nil
@@ -180,8 +180,14 @@ func buildOrderByClause(sortBy, sortDir string) string {
 
 // listUnmatchedCondition matches transactions that are not fully allocated yet.
 // Partially allocated transactions stay listed until their remaining amount is zero.
-const listUnmatchedCondition = `NOT EXISTS(SELECT 1 FROM fees.installment_payments ip WHERE ip.transaction_id=bt.id) AND bt.amount > 0 AND bt.is_hidden = false AND
+const listUnmatchedCondition = `NOT EXISTS(SELECT 1 FROM fees.installment_payments ip WHERE ip.transaction_id=bt.id) AND NOT EXISTS(SELECT 1 FROM fees.transaction_assignments ta WHERE ta.transaction_id=bt.id) AND bt.amount > 0 AND bt.is_hidden = false AND
 	COALESCE((SELECT SUM(pm.amount) FROM fees.payment_matches pm WHERE pm.transaction_id = bt.id), 0) < bt.amount - 0.005`
+
+// transactionOccupiedSQL is true when a transaction already has fee matches, a plan payment or a purpose.
+// Every path that assigns a transaction locks the bank row first and checks this.
+const transactionOccupiedSQL = `EXISTS(SELECT 1 FROM fees.payment_matches WHERE transaction_id=$1)
+	OR EXISTS(SELECT 1 FROM fees.installment_payments WHERE transaction_id=$1)
+	OR EXISTS(SELECT 1 FROM fees.transaction_assignments WHERE transaction_id=$1)`
 
 // listMatchedAmountExpr computes the total amount already allocated for a transaction.
 const listMatchedAmountExpr = `COALESCE((SELECT SUM(pm.amount) FROM fees.payment_matches pm WHERE pm.transaction_id = bt.id), 0)`
@@ -193,7 +199,7 @@ func (r *PostgresTransactionRepository) ListUnmatched(ctx context.Context, searc
 	return r.listTransactions(ctx, listUnmatchedCondition, search, sortBy, sortDir, offset, limit)
 }
 
-const listHasMatches = `(EXISTS(SELECT 1 FROM fees.installment_payments ip WHERE ip.transaction_id=bt.id) OR EXISTS (
+const listHasMatches = `(EXISTS(SELECT 1 FROM fees.installment_payments ip WHERE ip.transaction_id=bt.id) OR EXISTS(SELECT 1 FROM fees.transaction_assignments ta WHERE ta.transaction_id=bt.id) OR EXISTS (
  SELECT 1 FROM fees.payment_matches pm WHERE pm.transaction_id = bt.id
 ))`
 
@@ -258,7 +264,7 @@ func (r *PostgresTransactionRepository) listTransactions(
 		return nil, 0, err
 	}
 
-	if err := r.enrichInstallments(ctx, transactions); err != nil {
+	if err := r.enrich(ctx, transactions); err != nil {
 		return nil, 0, err
 	}
 	return transactions, total, nil
@@ -357,6 +363,7 @@ func (r *PostgresTransactionRepository) DeleteUnmatchedByIBAN(ctx context.Contex
 		WHERE payer_iban = $1
 		AND id NOT IN (SELECT transaction_id FROM fees.payment_matches)
  AND NOT EXISTS(SELECT 1 FROM fees.installment_payments ip WHERE ip.transaction_id=fees.bank_transactions.id)
+ AND NOT EXISTS(SELECT 1 FROM fees.transaction_assignments ta WHERE ta.transaction_id=fees.bank_transactions.id)
 	`, iban)
 	if err != nil {
 		return 0, err
@@ -418,4 +425,91 @@ func (r *PostgresTransactionRepository) enrichInstallments(ctx context.Context, 
 		}
 	}
 	return nil
+}
+
+func (r *PostgresTransactionRepository) enrich(ctx context.Context, rows []domain.BankTransaction) error {
+	if err := r.enrichInstallments(ctx, rows); err != nil {
+		return err
+	}
+	return r.enrichAssignments(ctx, rows)
+}
+
+// enrichAssignments attaches the assignment and counts the full amount as allocated.
+func (r *PostgresTransactionRepository) enrichAssignments(ctx context.Context, rows []domain.BankTransaction) error {
+	if len(rows) == 0 {
+		return nil
+	}
+	ids := make([]uuid.UUID, len(rows))
+	for i := range rows {
+		ids[i] = rows[i].ID
+	}
+	var found []struct {
+		TransactionID uuid.UUID `db:"transaction_id"`
+		domain.TransactionAssignment
+	}
+	if err := conn(ctx, r.db).SelectContext(ctx, &found, `SELECT transaction_id, kind, note, assigned_at FROM fees.transaction_assignments WHERE transaction_id = ANY($1)`, pq.Array(ids)); err != nil {
+		return err
+	}
+	byID := make(map[uuid.UUID]domain.TransactionAssignment, len(found))
+	for _, f := range found {
+		byID[f.TransactionID] = f.TransactionAssignment
+	}
+	for i := range rows {
+		if a, ok := byID[rows[i].ID]; ok {
+			rows[i].Assignment = &a
+			v := rows[i].Amount
+			rows[i].MatchedAmount = &v
+		}
+	}
+	return nil
+}
+
+// Assign gives a transaction a purpose (e.g. donation). The row is locked first, like the
+// other assignment paths; a transaction with fee matches, a plan payment or a purpose is refused.
+func (r *PostgresTransactionRepository) Assign(ctx context.Context, transactionID uuid.UUID, kind domain.AssignmentKind, note string, userID uuid.UUID) error {
+	tx, err := beginTx(ctx, r.db)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	var id uuid.UUID
+	if err = tx.GetContext(ctx, &id, `SELECT id FROM fees.bank_transactions WHERE id=$1 FOR UPDATE`, transactionID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ErrNotFound
+		}
+		return err
+	}
+	var occupied bool
+	if err = tx.GetContext(ctx, &occupied, `SELECT `+transactionOccupiedSQL, transactionID); err != nil {
+		return err
+	}
+	if occupied {
+		return ErrDuplicate
+	}
+	if _, err = tx.ExecContext(ctx, `INSERT INTO fees.transaction_assignments (transaction_id, kind, note, assigned_at, assigned_by) VALUES ($1,$2,$3,$4,$5)`,
+		transactionID, kind, note, util.Now(), userID); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// ListAssigned returns the transactions with the given purpose, newest first.
+func (r *PostgresTransactionRepository) ListAssigned(ctx context.Context, kind domain.AssignmentKind) ([]domain.BankTransaction, error) {
+	var rows []domain.BankTransaction
+	err := conn(ctx, r.db).SelectContext(ctx, &rows, `
+		SELECT bt.id, bt.booking_date, bt.value_date, bt.payer_name, bt.payer_iban,
+		       bt.description, bt.amount, bt.currency, bt.import_batch_id, bt.imported_at,
+		       bt.is_hidden, bt.hidden_at, bt.hidden_by
+		FROM fees.bank_transactions bt
+		JOIN fees.transaction_assignments ta ON ta.transaction_id = bt.id
+		WHERE ta.kind = $1
+		ORDER BY bt.booking_date DESC, bt.id ASC
+	`, kind)
+	if err != nil {
+		return nil, err
+	}
+	if err := r.enrichAssignments(ctx, rows); err != nil {
+		return nil, err
+	}
+	return rows, nil
 }

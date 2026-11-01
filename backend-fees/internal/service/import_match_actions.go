@@ -106,7 +106,7 @@ func (s *ImportService) CreateManualMatch(ctx context.Context, transactionID, ex
 	if err != nil {
 		return nil, ErrNotFound
 	}
-	if tx.InstallmentPayment != nil {
+	if tx.HasExclusiveAssignment() {
 		return nil, ErrInvalidInput
 	}
 
@@ -373,7 +373,7 @@ func (s *ImportService) allocateTransaction(ctx context.Context, transactionID, 
 	if err != nil {
 		return nil, ErrNotFound
 	}
-	if tx.InstallmentPayment != nil {
+	if tx.HasExclusiveAssignment() {
 		return nil, ErrInvalidInput
 	}
 

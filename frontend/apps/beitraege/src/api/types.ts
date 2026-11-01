@@ -224,6 +224,8 @@ export interface CreateFeeRequest {
 
 // ── Bank Transactions ────────────────────────────────────────────────────────
 export type BankTransaction = Schema['domain.BankTransaction'];
+export type DonationReport = Schema['service.DonationReport'];
+export type DonationYear = Schema['service.DonationYear'];
 export type MatchSuggestion = Omit<Schema['domain.MatchSuggestion'], 'transaction'> & {
   transaction: BankTransaction;
 };

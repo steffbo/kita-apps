@@ -19,6 +19,7 @@ import {
   Clock,
   Euro,
   HandCoins,
+  Heart,
   LinkIcon,
   Unlink,
   Search,
@@ -224,6 +225,10 @@ const dismissNote = computed({
                     </router-link>
                     <span v-else class="badge badge-primary"><HandCoins class="h-3 w-3" />Ratenzahlung</span>
                   </template>
+
+                  <span v-if="row.tx.assignment" class="badge badge-success">
+                    <Heart class="h-3 w-3" />Spende
+                  </span>
 
                   <div v-if="row.matched && row.tx.matches && row.tx.matches.length > 0" class="flex flex-wrap gap-1">
                     <span

@@ -67,7 +67,7 @@ func (r *PostgresInstallmentRepository) SavePlan(ctx context.Context, v *domain.
 func (r *PostgresInstallmentRepository) SavePayment(ctx context.Context, v *domain.InstallmentPayment) error {
 	if v.TransactionID != nil {
 		var occupied bool
-		if err := conn(ctx, r.db).GetContext(ctx, &occupied, `SELECT EXISTS(SELECT 1 FROM fees.payment_matches WHERE transaction_id=$1) OR EXISTS(SELECT 1 FROM fees.installment_payments WHERE transaction_id=$1)`, v.TransactionID); err != nil {
+		if err := conn(ctx, r.db).GetContext(ctx, &occupied, `SELECT `+transactionOccupiedSQL, v.TransactionID); err != nil {
 			return err
 		}
 		if occupied {

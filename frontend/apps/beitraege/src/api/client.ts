@@ -42,6 +42,7 @@ import type {
   DismissResult,
   HideResult,
   UnmatchResult,
+  DonationReport,
   ChildUnmatchedSuggestionsResponse,
   AllocationInput,
   AllocateTransactionResult,
@@ -1000,6 +1001,17 @@ class ApiClient {
       method: 'POST',
       body: JSON.stringify({ deleteTransaction: options?.deleteTransaction ?? false }),
     });
+  }
+
+  async assignTransactionAsDonation(transactionId: string, note: string): Promise<void> {
+    return this.request<void>(`/import/transactions/${transactionId}/assign`, {
+      method: 'POST',
+      body: JSON.stringify({ kind: 'DONATION', note }),
+    });
+  }
+
+  async getDonations(): Promise<DonationReport> {
+    return this.request<DonationReport>('/import/donations');
   }
 
   async allocateTransaction(transactionId: string, allocations: AllocationInput[]): Promise<AllocateTransactionResult> {
