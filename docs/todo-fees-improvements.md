@@ -103,3 +103,17 @@ Vorlage: Papiermeldung „4. Quartal 2026“ (Stichtag 01.09.2026). Das Leitungs
 
 Bewusst nicht geplant: Audit-Log (vorerst nicht gewünscht); eigene DB-Backups (abgedeckt durch das
 VM-Backup von infra-dev, 2× täglich nach Backblaze).
+
+## Phase 8 – Zuschüsse von Gemeinde und Land (Plan fehlt, noch nichts umsetzen)
+
+Eingehende Zuschüsse von Gemeinde und Land (Jugendamt) sollen sich prüfen lassen, denkbar mit Bezug zur
+Stichtagsmeldung. Heute ist eine Meldung keine Entität: `GET /stichtagsmeldung/jugendamt` berechnet die Zahlen bei
+jedem Aufruf aus den Kinderdaten, was gemeldet wurde, ist nicht gespeichert.
+
+Vor der Umsetzung im Plan zu klären:
+
+- Wer zahlt was wofür, und in welchem Rhythmus? Gibt es eine Berechnungsgrundlage (Formel, Bescheid) oder nur Soll-Beträge?
+- Meldung festschreiben: Stand je Quartal mit den gemeldeten Zahlen speichern (Abgabedatum, Korrekturen, PDF)?
+- Soll/Ist: Soll-Betrag aus Meldung oder Bescheid, Ist aus der zugeordneten Banktransaktion, Differenz je Zeitraum.
+- Bankabgleich: Zuordnung als eigene Art neben Beitrag und Ratenzahlung; gemeinsames Modell mit den Spenden prüfen.
+- Rechte: `LEITUNG` erstellt die Meldung, sieht aber keine Bankdaten. Wer sieht Zuschüsse?
