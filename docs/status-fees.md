@@ -1261,6 +1261,14 @@ Spec und offene Punkte: `docs/spenden.md`.
 - Rollen: `ADMIN`/`USER` wie der Bankabgleich (Annahme, siehe Spec); keine Schwärzung nötig.
 - Die Planzahlungs-Hilfe `uploadPayment` der E2E-Tests liegt jetzt in `e2e/beitraege/bank.ts`.
 
+## 2026-11-01: Einstufung – Kindsuche über den Server
+
+`EinstufungDetailPage` lud beim Öffnen Kinder und Haushalte mit `perPage: 2000`, die API liefert aber höchstens 100 (live
+77 Kinder, 94 Haushalte). Ab 101 hätten Kinder in der Suche und Haushalte in den Vorgaben gefehlt. Jetzt sucht
+`ChildSearchSelect` beim Tippen über `GET /children?search=` (bis 100 Treffer, 20 angezeigt), die Seite lädt nur noch das
+gewählte Kind mit Haushalt über `GET /children/{id}`. `search` verlangt jetzt jedes Suchwort einzeln („zoe akz“), das gilt
+auch für die Kinderliste.
+
 ## 2026-11-01: Spenden – Sichtbarkeit für Eltern und im Haushalt, Review
 
 - Eltern sehen die Spenden ihres Haushalts über `GET /me/donations` (Positivliste, ohne IBAN, Zweck, Notiz), Staff in der

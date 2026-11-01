@@ -11,6 +11,7 @@ import (
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/util"
 	"github.com/lib/pq"
 	"github.com/rs/zerolog/log"
+	"strings"
 )
 
 // PostgresChildRepository is the PostgreSQL implementation of ChildRepository.
@@ -136,9 +137,10 @@ func (r *PostgresChildRepository) List(ctx context.Context, activeOnly bool, u3O
 		baseQuery += " AND COALESCE(ofe.open_fees_count, 0) > 0"
 	}
 
-	if search != "" {
+	// Every search word must occur in the first name, last name or member number ("zoe akz").
+	for _, word := range strings.Fields(search) {
 		baseQuery += fmt.Sprintf(" AND (c.first_name ILIKE $%d OR c.last_name ILIKE $%d OR c.member_number ILIKE $%d)", argIdx, argIdx, argIdx)
-		args = append(args, "%"+search+"%")
+		args = append(args, "%"+word+"%")
 		argIdx++
 	}
 

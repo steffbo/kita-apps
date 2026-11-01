@@ -1,52 +1,81 @@
 <script setup lang="ts">
 import EmptyState from '@/components/ui/EmptyState.vue';
 
-import { computed, nextTick, ref, useId } from 'vue';
-import type { Child, Household } from '@/api/types';
+import { computed, nextTick, onUnmounted, ref, useId, watch } from 'vue';
+import { api } from '@/api';
+import type { Child } from '@/api/types';
 import SearchInput from '@/components/SearchInput.vue';
 import { formatDate, todayISO } from '@/utils/format';
 
-// Kindauswahl per Suche: ab zwei Zeichen werden Treffer aus Vorname, Nachname und
-// Mitgliedsnummer angezeigt; mehrere Suchwörter müssen alle vorkommen ("zoe akz").
+// Kindauswahl per Suche: ab zwei Zeichen sucht der Server in Vorname, Nachname und
+// Mitgliedsnummer; mehrere Suchwörter müssen alle vorkommen ("zoe akz").
 const MIN_QUERY_LENGTH = 2;
 const MAX_RESULTS = 20;
+const FETCHED_RESULTS = 100;
 
-const props = defineProps<{
-  children: Child[];
-  households?: Household[];
+defineProps<{
+  selected: Child | null;
   disabled?: boolean;
 }>();
-const model = defineModel<string>({ required: true });
+const emit = defineEmits<{ select: [child: Child | null] }>();
 
 const listId = useId();
 const search = ref('');
 const open = ref(false);
 const activeIndex = ref(0);
+const results = ref<Child[]>([]);
+const total = ref(0);
+const isSearching = ref(false);
+const searchError = ref<string | null>(null);
 const searchInput = ref<InstanceType<typeof SearchInput> | null>(null);
-
-const householdNames = computed(() => new Map((props.households ?? []).map((h) => [h.id, h.name])));
-const selected = computed(() => props.children.find((c) => c.id === model.value) ?? null);
 
 function hasLeft(child: Child): boolean {
   return !!child.exitDate && child.exitDate.split('T')[0] < todayISO();
 }
 
-const tokens = computed(() => search.value.trim().toLocaleLowerCase('de').split(/\s+/).filter(Boolean));
-const queryLongEnough = computed(() => tokens.value.join('').length >= MIN_QUERY_LENGTH);
+const query = computed(() => search.value.trim());
+const queryLongEnough = computed(() => query.value.replace(/\s+/g, '').length >= MIN_QUERY_LENGTH);
 
-const allMatches = computed(() => {
-  if (!queryLongEnough.value) return [];
-  return props.children
-    .filter((child) => {
-      const haystack = `${child.firstName} ${child.lastName} ${child.memberNumber}`.toLocaleLowerCase('de');
-      return tokens.value.every((token) => haystack.includes(token));
-    })
-    .sort((left, right) =>
-      Number(hasLeft(left)) - Number(hasLeft(right)) ||
-      left.lastName.localeCompare(right.lastName, 'de') ||
-      left.firstName.localeCompare(right.firstName, 'de'));
+const matches = computed(() => [...results.value]
+  .sort((left, right) =>
+    Number(hasLeft(left)) - Number(hasLeft(right)) ||
+    left.lastName.localeCompare(right.lastName, 'de') ||
+    left.firstName.localeCompare(right.firstName, 'de'))
+  .slice(0, MAX_RESULTS));
+
+let request = 0;
+let timer: ReturnType<typeof setTimeout> | undefined;
+// Enter while the search is still running picks the first result when it arrives.
+let selectOnResults = false;
+
+// Old results vanish at once, so Enter cannot pick a child from the previous search.
+watch(query, (value) => {
+  clearTimeout(timer);
+  const current = ++request;
+  selectOnResults = false;
+  results.value = [];
+  total.value = 0;
+  searchError.value = null;
+  isSearching.value = queryLongEnough.value;
+  if (!queryLongEnough.value) return;
+  timer = setTimeout(async () => {
+    try {
+      const response = await api.getChildren({ search: value, perPage: FETCHED_RESULTS });
+      if (current !== request) return;
+      results.value = response.data;
+      total.value = response.total;
+      if (selectOnResults && matches.value[0]) select(matches.value[0]);
+    } catch (e) {
+      if (current === request) searchError.value = e instanceof Error ? e.message : 'Suche fehlgeschlagen';
+    } finally {
+      if (current === request) isSearching.value = false;
+    }
+  }, 150);
 });
-const matches = computed(() => allMatches.value.slice(0, MAX_RESULTS));
+onUnmounted(() => {
+  clearTimeout(timer);
+  request++;
+});
 
 function optionId(index: number) {
   return `${listId}-option-${index}`;
@@ -67,6 +96,7 @@ function onKeydown(event: KeyboardEvent) {
   } else if (event.key === 'Enter') {
     // Enter wählt den markierten Treffer, statt das Formular abzuschicken.
     event.preventDefault();
+    if (isSearching.value) selectOnResults = true;
     const child = matches.value[activeIndex.value];
     if (open.value && child) select(child);
   } else if (event.key === 'Escape') {
@@ -75,13 +105,13 @@ function onKeydown(event: KeyboardEvent) {
 }
 
 function select(child: Child) {
-  model.value = child.id;
+  emit('select', child);
   search.value = '';
   open.value = false;
 }
 
 async function change() {
-  model.value = '';
+  emit('select', null);
   await nextTick();
   searchInput.value?.$el.querySelector('input')?.focus();
 }
@@ -100,9 +130,7 @@ async function change() {
         </p>
         <p class="truncate text-xs text-muted-foreground">
           geb. {{ formatDate(selected.birthDate) }} · Eintritt {{ formatDate(selected.entryDate) }}
-          <template v-if="selected.householdId && householdNames.get(selected.householdId)">
-            · {{ householdNames.get(selected.householdId) }}
-          </template>
+          <template v-if="selected.household"> · {{ selected.household.name }}</template>
         </p>
       </div>
       <button v-if="!disabled" type="button" class="btn btn-secondary shrink-0" @click="change">Ändern</button>
@@ -114,6 +142,7 @@ async function change() {
         placeholder="Name oder Mitgliedsnummer"
         label="Kind suchen"
         :disabled="disabled"
+        :loading="isSearching"
         role="combobox"
         autocomplete="off"
         :aria-expanded="open && queryLongEnough"
@@ -149,15 +178,15 @@ async function change() {
           <span class="text-muted-foreground">({{ child.memberNumber }})</span>
           <span class="block text-xs text-muted-foreground">
             geb. {{ formatDate(child.birthDate) }}
-            <template v-if="child.householdId && householdNames.get(child.householdId)">
-              · {{ householdNames.get(child.householdId) }}
-            </template>
+            <template v-if="child.household"> · {{ child.household.name }}</template>
             <template v-if="hasLeft(child)">· ausgetreten {{ formatDate(child.exitDate) }}</template>
           </span>
         </button>
-        <EmptyState v-if="!matches.length" text="Kein Kind gefunden" />
-        <p v-else-if="allMatches.length > matches.length" class="px-3 py-2 text-xs text-muted-foreground">
-          {{ allMatches.length - matches.length }} weitere Treffer – bitte Suche verfeinern.
+        <p v-if="searchError" role="alert" class="px-3 py-2 text-sm text-destructive">{{ searchError }}</p>
+        <p v-else-if="isSearching" class="px-3 py-2 text-sm text-muted-foreground">Suche …</p>
+        <EmptyState v-else-if="!matches.length" text="Kein Kind gefunden" />
+        <p v-else-if="total > matches.length" class="px-3 py-2 text-xs text-muted-foreground">
+          {{ total - matches.length }} weitere Treffer – bitte Suche verfeinern.
         </p>
       </div>
     </template>

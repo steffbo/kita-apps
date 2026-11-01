@@ -15,7 +15,8 @@ spenden meist für die Familie). Es gibt keine Spender-Stammdaten und keine Zuwe
   Zahler, Zweck und Notiz, die `USER` in der Bankliste ohnehin sieht. Es gibt noch keine Rolle `VORSTAND`; der Vorstand
   arbeitet als `ADMIN`.
 - `PARENT` sieht die dem eigenen Haushalt zugeordneten Spenden: Datum, Zahlername, Betrag, Jahressumme. IBAN,
-  Verwendungszweck und Notiz (intern) gehören nicht dazu; `service.OwnDonation` ist dafür die Positivliste.
+  Verwendungszweck und Notiz (intern) gehören nicht dazu; `service.OwnDonation` ist dafür die Positivliste. Der Zahlername
+  ist bewusst sichtbar (Entscheidung 2026-11-01), auch für beide Elternteile eines Haushalts.
 
 ## Datenmodell (Migration `000050_transaction_assignments`)
 
@@ -39,8 +40,8 @@ Der Service lehnt gemischte Zuordnungen mit `HasExclusiveAssignment` ab.
   `DeleteUnmatchedByIBAN` löscht sie nicht, die Liste „Zugeordnet“ enthält sie (`matchedAmount` = Betrag).
 - Nur sichtbare Eingänge (Betrag > 0) ohne Beitragszuordnung können Spende werden. Zuordnen löst offene Warnungen der
   Transaktion wie eine Beitragszuordnung. Spenden und Planzahlungen lassen sich nicht ausblenden (`POST …/hide` gibt 400).
-- Bekannte Grenze: Der Auto-Match läuft beim Import vor jeder Spendenzuordnung. Bucht er eine Spende als Beitrag, muss
-  die Zuordnung erst aufgehoben werden.
+- Der Auto-Match läuft beim Import vor jeder Spendenzuordnung. Bucht er eine Spende von einer bekannten IBAN als Beitrag,
+  muss die Zuordnung erst aufgehoben werden. Das ist so akzeptiert (Entscheidung 2026-11-01).
 - Aufheben: der vorhandene `POST /import/transactions/{id}/unmatch` entfernt auch die Spende.
 
 ## Haushalt und IBAN-Vorschlag

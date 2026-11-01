@@ -9,7 +9,6 @@ import type {
   Einstufung,
   EinstufungPreview,
   Child,
-  Household,
   IncomeBasis,
   IncomeDetails,
   HouseholdIncomeCalculation,
@@ -109,24 +108,17 @@ function emptyIncome(): IncomeDetails {
 const parent1Income = ref<IncomeDetails>(emptyIncome());
 const parent2Income = ref<IncomeDetails>(emptyIncome());
 
-// Reference data
-const children = ref<Child[]>([]);
-const households = ref<Household[]>([]);
-
-// Computed: selected child's household
-const selectedChild = computed(() => children.value.find((c) => c.id === selectedChildId.value));
-const selectedHousehold = computed(() => {
-  if (!selectedChild.value?.householdId) return null;
-  return households.value.find((h) => h.id === selectedChild.value!.householdId);
-});
+// The selected child with its household, parents and siblings (GET /children/{id}).
+const loadedChild = ref<Child | null>(null);
+const selectedChild = computed(() => (loadedChild.value?.id === selectedChildId.value ? loadedChild.value : undefined));
+const selectedHousehold = computed(() => selectedChild.value?.household ?? null);
 const childMissingHousehold = computed(() => !!selectedChildId.value && !!selectedChild.value && !selectedChild.value.householdId);
 const householdParents = computed(() => selectedHousehold.value?.parents ?? []);
 
 // Defaults for a new (non follow-up) Einstufung, derived from the selected child,
 // its household and the household's existing Einstufungen.
 const householdChildren = computed(() => {
-  const householdId = selectedChild.value?.householdId;
-  return householdId ? children.value.filter((c) => c.householdId === householdId) : [];
+  return selectedHousehold.value?.children ?? [];
 });
 const existingOpenEinstufung = ref<Einstufung | null>(null);
 const prefillSource = ref<Einstufung | null>(null);
@@ -242,7 +234,25 @@ async function applyChildDefaults() {
   }
 }
 
-function onChildSelected() {
+async function loadSelectedChild(id: string): Promise<void> {
+  selectedChildId.value = id;
+  const child = await api.getChild(id);
+  if (selectedChildId.value === id) loadedChild.value = child;
+}
+
+// The search result shows at once; the details arrive before the defaults are derived from them.
+async function onChildSelected(child: Child | null): Promise<void> {
+  selectedChildId.value = child?.id ?? '';
+  loadedChild.value = child;
+  if (child) {
+    try {
+      await loadSelectedChild(child.id);
+    } catch (e) {
+      error.value = e instanceof Error ? e.message : 'Kind konnte nicht geladen werden';
+      return;
+    }
+    if (selectedChildId.value !== child.id) return;
+  }
   if (isNew.value && !isFollowUpMode.value) void applyChildDefaults();
 }
 
@@ -605,13 +615,6 @@ async function loadData() {
   prefillSource.value = null;
   isPrefilling.value = false;
   try {
-    const [childRes, householdRes] = await Promise.all([
-      api.getChildren({ perPage: 2000 }),
-      api.getHouseholds({ perPage: 2000 }),
-    ]);
-    children.value = childRes.data;
-    households.value = householdRes.data;
-
     if (einstufungId.value) {
       const e = await api.getEinstufung(einstufungId.value);
       einstufung.value = e;
@@ -624,7 +627,7 @@ async function loadData() {
           .filter((item) => item.childId === e.childId && item.effectiveFromMonth < e.effectiveFromMonth)
           .sort((a, b) => b.effectiveFromMonth.localeCompare(a.effectiveFromMonth))[0] ?? null;
       }
-      selectedChildId.value = e.childId;
+      await loadSelectedChild(e.childId);
       selectedYear.value = e.year;
       // The form edits the actual change/admission date. `validFrom` is the
       // normalized billing-month boundary and must not replace that date.
@@ -647,7 +650,7 @@ async function loadData() {
         throw new Error('Keine bestehende Einstufung als Vorlage gefunden.');
       }
       sourceEinstufung.value = source;
-      selectedChildId.value = source.childId;
+      await loadSelectedChild(source.childId);
       selectedYear.value = new Date(calculateEffectiveFromMonth(todayISO())).getUTCFullYear();
       validFrom.value = todayISO();
       childrenCount.value = source.childrenCount;
@@ -658,16 +661,10 @@ async function loadData() {
       parent2Income.value = { ...emptyIncome(), ...source.incomeCalculation.parent2 };
     } else if (route.query.childId) {
       // Pre-select child from query param
-      const childId = route.query.childId as string;
-      selectedChildId.value = childId;
-      // Ensure the child is in the list (fetch individually if needed)
-      if (!children.value.find(c => c.id === childId)) {
-        try {
-          const child = await api.getChild(childId);
-          children.value.unshift(child);
-        } catch {
-          // Child not found, ignore
-        }
+      try {
+        await loadSelectedChild(route.query.childId as string);
+      } catch {
+        // Child not found, ignore
       }
       void applyChildDefaults();
     }
@@ -800,11 +797,9 @@ watch(defaultEmailBody, (next) => {
           <div>
             <label class="label">Kind *</label>
             <ChildSearchSelect
-              v-model="selectedChildId"
-              :children="children"
-              :households="households"
+              :selected="selectedChild ?? null"
               :disabled="!isNew || isFollowUpMode"
-              @update:model-value="onChildSelected" />
+              @select="onChildSelected" />
           </div>
           <!-- Year -->
           <div>
