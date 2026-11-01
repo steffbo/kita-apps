@@ -7,11 +7,17 @@ import { Loader2, CheckCircle } from 'lucide-vue-next';
 import { formatCurrency, formatDate } from '@/utils/format';
 import { getConfidenceColor, getConfidenceLabel, getFeeTypeName } from '@/utils/fees';
 import SearchInput from '@/components/SearchInput.vue';
+import InstallmentAssignPanel from '@/components/installments/InstallmentAssignPanel.vue';
+import { useAuthStore } from '@/stores/auth';
 
 const props = defineProps<{ transaction: BankTransaction }>();
 const emit = defineEmits<{ close: []; matched: [] }>();
 
 const PREFILTER_CONFIDENCE = 0.6;
+
+const auth = useAuthStore();
+// Ratenzahlungen are admin-only; everyone else only sees the fee dialog.
+const mode = ref<'fee' | 'plan'>(auth.isAdmin && props.transaction.installmentPlanSuggestion ? 'plan' : 'fee');
 
 const manualMatchSuggestion = ref<MatchSuggestion | null>(null);
 const isLoadingSuggestions = ref(false);
@@ -214,103 +220,111 @@ const displayedFeeCandidates = computed<ScoredFee[]>(() => {
         </div>
       </div>
 
-      <!-- Suggestion (if available) -->
-      <div v-if="isLoadingSuggestions" class="p-4 border-b">
-        <div class="flex items-center gap-2 text-muted-foreground">
-          <Loader2 class="h-4 w-4 animate-spin" />
-          Lade Vorschlage...
-        </div>
+      <div v-if="auth.isAdmin" class="mb-4 flex gap-2" role="group" aria-label="Zuordnen zu">
+        <button type="button" class="chip" :aria-pressed="mode === 'fee'" @click="mode = 'fee'">Beitrag</button>
+        <button type="button" class="chip" :aria-pressed="mode === 'plan'" @click="mode = 'plan'">Ratenzahlung</button>
       </div>
-      <div v-else-if="manualMatchSuggestion?.expectation" class="py-4 border-b">
-        <h3 class="text-sm font-medium text-foreground mb-2">Vorschlag</h3>
-        <div
-          class="border p-3 bg-success-soft border-success-line rounded-lg flex items-center justify-between cursor-pointer hover:bg-success-soft"
-          @click="confirmManualMatch(manualMatchSuggestion.expectation!.id)"
-        >
-          <div class="flex-1">
-            <div class="font-medium">
-              {{ manualMatchSuggestion.child?.firstName }} {{ manualMatchSuggestion.child?.lastName }}
-            </div>
-            <div class="text-sm text-muted-foreground">
-              {{ getFeeTypeName(manualMatchSuggestion.expectation?.feeType) }}
-              - {{ manualMatchSuggestion.expectation?.month }}/{{ manualMatchSuggestion.expectation?.year }}
-              - {{ formatCurrency(manualMatchSuggestion.expectation?.amount || 0) }}
-            </div>
-          </div>
-          <div class="flex items-center gap-2">
-            <span
-              :class="getConfidenceColor(manualMatchSuggestion.confidence)"
-            >
-              {{ Math.round(manualMatchSuggestion.confidence * 100) }}%
-            </span>
-            <CheckCircle class="h-5 w-5 text-success" />
+
+      <template v-if="mode === 'fee'">
+        <!-- Suggestion (if available) -->
+        <div v-if="isLoadingSuggestions" class="p-4 border-b">
+          <div class="flex items-center gap-2 text-muted-foreground">
+            <Loader2 class="h-4 w-4 animate-spin" />
+            Lade Vorschlage...
           </div>
         </div>
-      </div>
-
-      <!-- Fee Search -->
-      <div class="py-4 border-b">
-        <div class="flex items-center justify-between mb-2">
-          <h3 class="text-sm font-medium text-foreground">Offene Beitrage durchsuchen</h3>
-          <button
-            v-if="manualMatchSuggestion?.confidence && highConfidenceFees.length > 0 && !feeSearch.trim()"
-            @click="showAllFees = !showAllFees"
-            class="text-xs text-primary hover:underline"
-          >
-            {{ showAllFees ? 'Nur hohe Konfidenz' : 'Alle offenen Beitrage anzeigen' }}
-          </button>
-        </div>
-        <p v-if="isConfidencePrefiltered" class="text-xs text-muted-foreground mb-2">
-          Gefiltert nach hoher Konfidenz (>= {{ Math.round(PREFILTER_CONFIDENCE * 100) }}%).
-        </p>
-        <SearchInput v-model="feeSearch" placeholder="Nach Kind oder Beitragsart suchen..."
-          @input="loadAvailableFees" />
-      </div>
-
-      <div v-if="matchError" class="pt-4">
-        <div class="note note-danger">{{ matchError }}</div>
-      </div>
-
-      <!-- Fee List -->
-      <div class="flex-1 py-4">
-        <div v-if="isLoadingFees" class="flex items-center justify-center py-8">
-          <Loader2 class="h-6 w-6 animate-spin text-primary" />
-        </div>
-        <div v-else-if="displayedFeeCandidates.length === 0" class="text-center py-8 text-muted-foreground">
-          Keine offenen Beitrage gefunden
-        </div>
-        <div v-else class="space-y-2">
+        <div v-else-if="manualMatchSuggestion?.expectation" class="py-4 border-b">
+          <h3 class="text-sm font-medium text-foreground mb-2">Vorschlag</h3>
           <div
-            v-for="candidate in displayedFeeCandidates"
-            :key="candidate.fee.id"
-            class="p-3 border rounded-lg hover:bg-accent cursor-pointer flex items-center justify-between"
-            @click="confirmManualMatch(candidate.fee.id)"
+            class="border p-3 bg-success-soft border-success-line rounded-lg flex items-center justify-between cursor-pointer hover:bg-success-soft"
+            @click="confirmManualMatch(manualMatchSuggestion.expectation!.id)"
           >
-            <div>
+            <div class="flex-1">
               <div class="font-medium">
-                {{ candidate.fee.child?.firstName }} {{ candidate.fee.child?.lastName }}
+                {{ manualMatchSuggestion.child?.firstName }} {{ manualMatchSuggestion.child?.lastName }}
               </div>
               <div class="text-sm text-muted-foreground">
-                {{ getFeeTypeName(candidate.fee.feeType) }}
-                - {{ candidate.fee.month ? candidate.fee.month + '/' : '' }}{{ candidate.fee.year }}
+                {{ getFeeTypeName(manualMatchSuggestion.expectation?.feeType) }}
+                - {{ manualMatchSuggestion.expectation?.month }}/{{ manualMatchSuggestion.expectation?.year }}
+                - {{ formatCurrency(manualMatchSuggestion.expectation?.amount || 0) }}
               </div>
             </div>
-            <div class="text-right">
-              <div class="flex items-center justify-end gap-2">
-                <span
-                  v-if="candidate.confidence > 0"
-                  :class="getConfidenceColor(candidate.confidence)"
-                >
-                  {{ getConfidenceLabel(candidate.confidence) }} ({{ Math.round(candidate.confidence * 100) }}%)
-                </span>
-                <div class="font-medium">{{ formatCurrency(candidate.fee.amount) }}</div>
-              </div>
-              <div class="text-xs text-muted-foreground">Fallig: {{ formatDate(candidate.fee.dueDate) }}</div>
+            <div class="flex items-center gap-2">
+              <span
+                :class="getConfidenceColor(manualMatchSuggestion.confidence)"
+              >
+                {{ Math.round(manualMatchSuggestion.confidence * 100) }}%
+              </span>
+              <CheckCircle class="h-5 w-5 text-success" />
             </div>
           </div>
         </div>
-      </div>
 
+        <!-- Fee Search -->
+        <div class="py-4 border-b">
+          <div class="flex items-center justify-between mb-2">
+            <h3 class="text-sm font-medium text-foreground">Offene Beitrage durchsuchen</h3>
+            <button
+              v-if="manualMatchSuggestion?.confidence && highConfidenceFees.length > 0 && !feeSearch.trim()"
+              @click="showAllFees = !showAllFees"
+              class="text-xs text-primary hover:underline"
+            >
+              {{ showAllFees ? 'Nur hohe Konfidenz' : 'Alle offenen Beitrage anzeigen' }}
+            </button>
+          </div>
+          <p v-if="isConfidencePrefiltered" class="text-xs text-muted-foreground mb-2">
+            Gefiltert nach hoher Konfidenz (>= {{ Math.round(PREFILTER_CONFIDENCE * 100) }}%).
+          </p>
+          <SearchInput v-model="feeSearch" placeholder="Nach Kind oder Beitragsart suchen..."
+            @input="loadAvailableFees" />
+        </div>
+
+        <div v-if="matchError" class="pt-4">
+          <div class="note note-danger">{{ matchError }}</div>
+        </div>
+
+        <!-- Fee List -->
+        <div class="flex-1 py-4">
+          <div v-if="isLoadingFees" class="flex items-center justify-center py-8">
+            <Loader2 class="h-6 w-6 animate-spin text-primary" />
+          </div>
+          <div v-else-if="displayedFeeCandidates.length === 0" class="text-center py-8 text-muted-foreground">
+            Keine offenen Beitrage gefunden
+          </div>
+          <div v-else class="space-y-2">
+            <div
+              v-for="candidate in displayedFeeCandidates"
+              :key="candidate.fee.id"
+              class="p-3 border rounded-lg hover:bg-accent cursor-pointer flex items-center justify-between"
+              @click="confirmManualMatch(candidate.fee.id)"
+            >
+              <div>
+                <div class="font-medium">
+                  {{ candidate.fee.child?.firstName }} {{ candidate.fee.child?.lastName }}
+                </div>
+                <div class="text-sm text-muted-foreground">
+                  {{ getFeeTypeName(candidate.fee.feeType) }}
+                  - {{ candidate.fee.month ? candidate.fee.month + '/' : '' }}{{ candidate.fee.year }}
+                </div>
+              </div>
+              <div class="text-right">
+                <div class="flex items-center justify-end gap-2">
+                  <span
+                    v-if="candidate.confidence > 0"
+                    :class="getConfidenceColor(candidate.confidence)"
+                  >
+                    {{ getConfidenceLabel(candidate.confidence) }} ({{ Math.round(candidate.confidence * 100) }}%)
+                  </span>
+                  <div class="font-medium">{{ formatCurrency(candidate.fee.amount) }}</div>
+                </div>
+                <div class="text-xs text-muted-foreground">Fallig: {{ formatDate(candidate.fee.dueDate) }}</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </template>
+
+      <InstallmentAssignPanel v-else :transaction="transaction" @matched="emit('matched')" />
     </div>
     <template #footer>
         <button @click="$emit('close')" class="btn btn-secondary">

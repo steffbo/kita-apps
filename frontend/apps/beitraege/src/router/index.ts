@@ -122,6 +122,18 @@ const router = createRouter({
           meta: { requiresFees: true, requiresAdmin: true },
         },
         {
+          path: 'ratenzahlungen',
+          name: 'installment-plans',
+          component: () => import('@/pages/InstallmentPlansPage.vue'),
+          meta: { requiresFees: true, requiresAdmin: true },
+        },
+        {
+          path: 'ratenzahlungen/:id',
+          name: 'installment-plan',
+          component: () => import('@/pages/InstallmentPlanDetailPage.vue'),
+          meta: { requiresFees: true, requiresAdmin: true },
+        },
+        {
           path: 'beitragsordnung',
           name: 'fee-schedules',
           component: () => import('@/pages/FeeSchedulesPage.vue'),

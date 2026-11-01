@@ -12247,6 +12247,7 @@ export interface components {
             importBatchId?: string;
             importedAt: string;
             installmentPayment?: components["schemas"]["domain.InstallmentPaymentLink"];
+            /** @description Installment fields are redacted for roles without installment access. */
             installmentPlanSuggestion?: components["schemas"]["domain.InstallmentPlanSuggestion"];
             isHidden: boolean;
             /** @description MatchedAmount is the total amount of this transaction already allocated to fees. */
@@ -12489,6 +12490,7 @@ export interface components {
             contract?: components["schemas"]["domain.InstallmentContract"];
             payments: components["schemas"]["domain.InstallmentPayment"][];
             plan: components["schemas"]["domain.InstallmentPlan"];
+            reminderDue: boolean;
             reminders: components["schemas"]["domain.EmailLog"][];
             schedule: components["schemas"]["domain.InstallmentRate"][];
             summary: components["schemas"]["domain.InstallmentSummary"];

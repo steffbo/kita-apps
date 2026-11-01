@@ -5,11 +5,12 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"strings"
+	"time"
+
 	"github.com/google/uuid"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/util"
-	"strings"
-	"time"
 )
 
 type InstallmentReminderRequest struct {
@@ -19,6 +20,7 @@ type InstallmentReminderRequest struct {
 	Subject            *string `json:"subject" binding:"optional"`
 	Body               *string `json:"body" binding:"optional"`
 }
+
 type InstallmentReminderPreview struct {
 	Recipients     []string      `json:"recipients"`
 	Subject        string        `json:"subject"`
@@ -30,8 +32,10 @@ type InstallmentReminderPreview struct {
 	Warnings       []string      `json:"warnings"`
 }
 
+// installmentReminderStage returns the stage of the next mail and whether it can be
+// sent now: first an initial reminder, then Mahnungen once the last deadline has passed.
 func installmentReminderStage(d *domain.InstallmentDetail, today time.Time) (ReminderStage, bool) {
-	if d.Plan.Status != "ACTIVE" || d.Summary.Overdue <= 0 {
+	if d.Plan.Status != domain.InstallmentStatusActive || d.Summary.Overdue <= 0 {
 		return ReminderStageInitial, false
 	}
 	if len(d.Reminders) == 0 {
@@ -47,6 +51,7 @@ func installmentReminderStage(d *domain.InstallmentDetail, today time.Time) (Rem
 	deadline, err := time.Parse("2006-01-02", payload.Deadline)
 	return ReminderStageFinal, err == nil && deadline.Before(today)
 }
+
 func (s *InstallmentService) ReminderCases(ctx context.Context) ([]domain.InstallmentDetail, error) {
 	all, err := s.List(ctx, "overdue")
 	if err != nil {
@@ -54,12 +59,13 @@ func (s *InstallmentService) ReminderCases(ctx context.Context) ([]domain.Instal
 	}
 	out := []domain.InstallmentDetail{}
 	for _, d := range all {
-		if _, ok := installmentReminderStage(&d, util.Today()); ok {
+		if d.ReminderDue {
 			out = append(out, d)
 		}
 	}
 	return out, nil
 }
+
 func (s *InstallmentService) reminderPreview(ctx context.Context, d *domain.InstallmentDetail, req InstallmentReminderRequest) (*InstallmentReminderPreview, error) {
 	stage, ok := installmentReminderStage(d, util.Today())
 	if !ok {
@@ -80,7 +86,7 @@ func (s *InstallmentService) reminderPreview(ctx context.Context, d *domain.Inst
 		}
 		selected[n] = true
 		r := d.Schedule[n-1]
-		if r.Status != "OVERDUE" {
+		if r.Status != domain.InstallmentRateOverdue {
 			return nil, ErrInvalidInput
 		}
 		open := domain.Cents(r.Amount) - domain.Cents(r.Paid)
@@ -104,7 +110,11 @@ func (s *InstallmentService) reminderPreview(ctx context.Context, d *domain.Inst
 	if d.Plan.HouseholdID != nil {
 		greeting = "Hallo " + d.Plan.DebtorName + ",\n\nbitte überweist"
 	}
-	p.Body = fmt.Sprintf("%s den offenen Betrag von %s bis zum %s.\n\n%s\n\nBezug: %s\nEmpfänger: %s\nIBAN: %s\n\nVielen Dank\nKnirpsenstadt e.V.", greeting, formatCurrencyEUR(p.TotalAmount), p.Deadline.Format("02.01.2006"), strings.Join(lines, "\n"), d.Plan.Reference, settings.RecipientName, formatIBANForEmail(settings.IBAN))
+	reference := ""
+	if d.Plan.Reference != "" {
+		reference = "Bezug: " + d.Plan.Reference + "\n"
+	}
+	p.Body = fmt.Sprintf("%s den offenen Betrag von %s bis zum %s.\n\n%s\n\n%sEmpfänger: %s\nIBAN: %s\n\nVielen Dank\nKnirpsenstadt e.V.", greeting, formatCurrencyEUR(p.TotalAmount), p.Deadline.Format("02.01.2006"), strings.Join(lines, "\n"), reference, settings.RecipientName, formatIBANForEmail(settings.IBAN))
 	if req.Subject != nil {
 		p.Subject = *req.Subject
 	}
@@ -128,6 +138,7 @@ func (s *InstallmentService) reminderPreview(ctx context.Context, d *domain.Inst
 	}
 	return p, nil
 }
+
 func (s *InstallmentService) PreviewReminder(ctx context.Context, id uuid.UUID, req InstallmentReminderRequest) (*InstallmentReminderPreview, error) {
 	d, err := s.Detail(ctx, id)
 	if err != nil {
@@ -145,12 +156,15 @@ func (s *InstallmentService) SendReminder(ctx context.Context, id uuid.UUID, req
 		if err != nil {
 			return err
 		}
-		d.Summary, d.Schedule = domain.CalculateInstallments(d.Plan, d.Payments, d.Charges, util.Today())
+		calculateInstallmentDetail(d)
 		p, err = s.reminderPreview(ctx, d, req)
 		if err != nil {
 			return err
 		}
-		if len(p.Recipients) == 0 || s.reminders.emailSender == nil || !s.reminders.emailSender.IsEnabled() {
+		if s.reminders.emailSender == nil || !s.reminders.emailSender.IsEnabled() {
+			return ErrEmailDisabled
+		}
+		if len(p.Recipients) == 0 {
 			return ErrInvalidInput
 		}
 		payload, err := json.Marshal(struct {

@@ -6,20 +6,21 @@ import (
 	"github.com/google/uuid"
 )
 
-// BankTransaction represents an imported bank transaction.
+// InstallmentPlanSuggestion names the active plan whose payer IBAN matches an unassigned transaction.
 type InstallmentPlanSuggestion struct {
 	PlanID     uuid.UUID `json:"planId" db:"plan_id"`
 	DebtorName string    `json:"debtorName" db:"debtor_name"`
 }
+
+// InstallmentPaymentLink points from a transaction to the plan payment it belongs to.
 type InstallmentPaymentLink struct {
 	PaymentID  uuid.UUID `json:"paymentId" db:"payment_id"`
 	PlanID     uuid.UUID `json:"planId" db:"plan_id"`
 	DebtorName string    `json:"debtorName" db:"debtor_name"`
 }
-type BankTransaction struct {
-	InstallmentPlanSuggestion *InstallmentPlanSuggestion `json:"installmentPlanSuggestion,omitempty" db:"-" binding:"optional"`
-	InstallmentPayment        *InstallmentPaymentLink    `json:"installmentPayment,omitempty" db:"-" binding:"optional"`
 
+// BankTransaction represents an imported bank transaction.
+type BankTransaction struct {
 	ID            uuid.UUID  `json:"id" db:"id"`
 	BookingDate   time.Time  `json:"bookingDate" db:"booking_date"`
 	ValueDate     time.Time  `json:"valueDate" db:"value_date"`
@@ -36,6 +37,9 @@ type BankTransaction struct {
 
 	// Joined fields
 	Matches []PaymentMatch `json:"matches,omitempty" db:"-" binding:"optional"`
+	// Installment fields are redacted for roles without installment access.
+	InstallmentPlanSuggestion *InstallmentPlanSuggestion `json:"installmentPlanSuggestion,omitempty" db:"-" binding:"optional"`
+	InstallmentPayment        *InstallmentPaymentLink    `json:"installmentPayment,omitempty" db:"-" binding:"optional"`
 	// MatchedAmount is the total amount of this transaction already allocated to fees.
 	MatchedAmount *float64 `json:"matchedAmount,omitempty" db:"matched_amount" binding:"optional"`
 }

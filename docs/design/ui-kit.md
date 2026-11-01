@@ -49,6 +49,7 @@ Icons in `btn`/`note` brauchen keine Größe (`<Plus />`), das setzt die Klasse.
 - `AppPagination`: Fußzeile seitenweiser Listen (`v-model:page-size`, `@go`); Zustand und Laden kommen aus
   `composables/usePagedList.ts`.
 - `EmptyState`: leere Liste (`icon`, `text`, optional Aktion im Slot).
+- `DetailRow`: Bezeichnung/Wert-Zeile in `<dl class="card divide-y text-sm">` (`label`, optional `value-class`).
 - Weiterhin: `SearchInput`, `SortTh`.
 
 ## Listen auf dem Handy

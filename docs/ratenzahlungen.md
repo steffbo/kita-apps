@@ -1,7 +1,7 @@
 # Ratenzahlungen (installment plans)
 
 Feature spec and handoff contract. Visual reference: `docs/design/ratenzahlung-mockup.html`
-(clickable mock, accepted 2026-11-01). Status: backend implemented (2026-11).
+(clickable mock, accepted 2026-11-01). Status: backend and frontend implemented (2026-11).
 
 ## Scope
 
@@ -11,8 +11,10 @@ family; first real case: payment from „Eggert, Daniel“, 19.10.2026, 300 €,
 „Ratenzahlung nach 10 C 644/24“).
 
 - Access: `ADMIN` only (API and UI). A future `VORSTAND` role is expected to get the same
-  rights as `ADMIN`; keep the role check in one place per layer (one router group, one
-  route meta / store flag) so it is a one-line change later.
+  rights as `ADMIN`: backend `domain.InstallmentManagerRoles`, frontend `auth.isAdmin`.
+- Other staff (`USER`) share the bank lists: `redactInstallments` removes suggestions and debtor names there
+  (a plan-assigned transaction only shows the plain badge „Ratenzahlung“), and unmatching such a transaction
+  returns 403.
 - Not visible to `USER`, `LEITUNG`, `PARENT_WORK`, `PARENT`.
 
 ## Data model (migration `000049_installment_plans`)
@@ -115,6 +117,7 @@ uses the household name), `debtorAddress`, `emails[]`, `totalAmount`, `installme
 
 ## Reminders
 
+- `InstallmentDetail.reminderDue` carries this decision; the detail page only offers sending when it is true.
 - A plan is a reminder case when it is ACTIVE, has at least one OVERDUE rate, and either no installment
   reminder was sent yet or the deadline of the last one has passed (deadline stored in the email log payload).
 - Stage: first mail `initial` (Zahlungserinnerung), afterwards `final` (Mahnung). A Mahngebühr can be charged
@@ -143,5 +146,8 @@ uses the household name), `debtorAddress`, `emails[]`, `totalAmount`, `installme
 - Bankabgleich: manual-match dialog gets a „Beitrag | Ratenzahlung“ switch (admin only); plan list with
   suggestion, „Neue Ratenzahlung anlegen“ prefilled from the transaction (external debtor, name „First Last“
   from „Last, First“, rate = amount, first due = booking date, reference from purpose, IBAN).
+- Haushalt-Zeile auf der Detailseite ist Text (keine Haushaltsseite vorhanden). Aus dem Entwurf noch nicht umgesetzt:
+  PDF-Brief im Erinnerungsdialog (ohne E-Mail-Adresse gibt es daher keinen Versandweg aus der App) und
+  Bestätigungsmail zur Schlussrate.
 - Use existing building blocks (`AppSheet`, `PageHeader`, `EmptyState`, `.btn`, `.badge`, `.note`, `.chip`,
   `.card`, `SearchInput`, status tokens) — see `docs/design/ui-kit.md`.

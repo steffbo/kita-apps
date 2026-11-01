@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { BankTransaction, TransactionWarning } from '@/api/types';
 import { computed, toRefs } from 'vue';
+import { useAuthStore } from '@/stores/auth';
 import type { StatusFilter, SortField, TxRow } from '@/composables/useImportTransactions';
 import { isPartiallyAllocated, getTxRemaining } from '@/composables/useImportTransactions';
 import {
@@ -17,6 +18,7 @@ import {
   EyeOff,
   Clock,
   Euro,
+  HandCoins,
   LinkIcon,
   Unlink,
   Search,
@@ -25,6 +27,8 @@ import SortTh from '@/components/SortTh.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
 import { formatCurrency, formatDate, formatDateTime, formatMonthName } from '@/utils/format';
 import { getFeeTypeColor, getFeeTypeName } from '@/utils/fees';
+
+const auth = useAuthStore();
 
 const props = defineProps<{
   activeFilter: StatusFilter;
@@ -210,6 +214,17 @@ const dismissNote = computed({
                     Nicht zugeordnet
                   </span>
 
+                  <span v-if="row.tx.installmentPlanSuggestion" class="badge badge-primary">
+                    <HandCoins class="h-3 w-3" />Rate · {{ row.tx.installmentPlanSuggestion.debtorName }}
+                  </span>
+                  <template v-if="row.tx.installmentPayment">
+                    <router-link v-if="auth.isAdmin" :to="`/ratenzahlungen/${row.tx.installmentPayment.planId}`"
+                      class="badge badge-primary">
+                      <HandCoins class="h-3 w-3" />Ratenzahlung · {{ row.tx.installmentPayment.debtorName }}
+                    </router-link>
+                    <span v-else class="badge badge-primary"><HandCoins class="h-3 w-3" />Ratenzahlung</span>
+                  </template>
+
                   <div v-if="row.matched && row.tx.matches && row.tx.matches.length > 0" class="flex flex-wrap gap-1">
                     <span
                       v-for="match in row.tx.matches"
@@ -298,8 +313,8 @@ const dismissNote = computed({
                   </div>
                 </template>
 
-                <!-- Matched actions -->
-                <template v-else>
+                <!-- Matched actions; plan payments are only changed by admins -->
+                <template v-else-if="auth.isAdmin || !row.tx.installmentPayment">
                   <div v-if="unmatchConfirmId === row.tx.id" class="flex flex-wrap items-center justify-end gap-1.5">
                     <span class="text-xs text-muted-foreground">Zuordnung aufheben?</span>
                     <button

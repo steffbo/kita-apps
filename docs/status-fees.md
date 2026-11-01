@@ -1248,8 +1248,31 @@ WHERE c.household_id IS NOT NULL
 - Der Admin-Feed mischt Kontaktänderungen, Kindänderungen, gemeldete Elternstunden und
   Fehlermeldungen. Nur von Eltern vorgenommene Datenänderungen erscheinen im Feed.
 
+## 2026-11-01: Ratenzahlungen – Frontend
+
+- Seiten `/ratenzahlungen` und `/ratenzahlungen/:id` (Route-Meta `requiresAdmin`). Der Navigationseintrag
+  „Ratenzahlungen“ steht im bestehenden `auth.isAdmin`-Block; es gibt kein neues Rollen-Flag.
+- Der Bankabgleich-Dialog hat den Schalter „Beitrag | Ratenzahlung“ nur für Admins. Ein Bankvorschlag öffnet
+  direkt den Ratenzahlungs-Tab; Zuordnung oder „Neue Ratenzahlung anlegen“ (vorbefüllt aus der Buchung).
+- Erinnerungen: Ratenzahlungsfälle stehen über den Beitragsfällen (`InstallmentReminderList`), der Versand
+  läuft über dieselbe Dialogkomponente wie auf der Detailseite (`InstallmentReminderSheet`).
+- Der Zeitplan kommt vollständig aus der API. Lokal berechnet wird nur der Hinweis „8 Raten à …“ im
+  Formular (`schedulePreviewText`).
+- `transactionId` wird nur beim Anlegen gesendet; Updates lehnt das Backend ab. Schlägt der Vertrags-Upload
+  nach dem Anlegen fehl, bleibt der Dialog offen und ein erneutes Speichern aktualisiert denselben Plan.
+- Bankzeilen mit Planzahlung zählen als zugeordnet (`matched` in `useImportTransactions`), damit sie in der
+  Liste nicht als „Nicht zugeordnet“ erscheinen. Die Zeile verlinkt auf den Plan.
+- Statusfarben: Läuft = `badge-primary`, Rückstand = `badge-danger`, Abgeschlossen = `badge-success`,
+  Beendet = neutral.
+- Rollen: `domain.InstallmentManagerRoles` ist die eine Stelle fürs Backend (auch Router und Schwärzung), im
+  Frontend `auth.isAdmin`. `USER` teilt sich die Banklisten: Vorschläge und Schuldnernamen werden dort entfernt,
+  Aufheben einer Planzahlung gibt 403.
+- `reminderDue` im Detail vermeidet doppelte Fristlogik; innerhalb der Mahnfrist bietet die Detailseite keinen Versand an.
+- Nicht umgesetzt (Entwurf, ohne Backend): PDF-Brief aus dem Erinnerungsdialog, Bestätigungsmail bei der
+  Schlussrate. Die Haushalt-Zeile der Detailseite ist Text, weil es noch keine Haushaltsseite gibt.
+
 ## 2026-11-01: Ratenzahlungen – Backend
 
-Migration 000049 ergänzt vertragliche Ratenpläne für Haushalte und externe Schuldner, Zahlungen, Mahngebühren und PDF-Verträge. ADMIN-Routen unter `/installment-plans` liefern FIFO-Ratenpläne mit Monatsende-Klemmung und Schlussrate. Bankbuchungen werden atomar entweder Beiträgen oder einem Ratenplan zugeordnet; Banklisten, IBAN-Löschung und Rückzuordnung berücksichtigen Planzahlungen. Erinnerungen verwenden vorhandene E-Mail-, Frist-, Gebühren- und Zahlungsdaten/QR-Helfer; Versand protokolliert Stufe und Frist und legt explizit gewählte Mahngebühren an. PDF-Verträge sind auf 10 MiB begrenzt (nur dieser Upload erhält 11 MiB Request-Limit für Multipart-Overhead; sonst weiter 5 MiB). API-Vertrag: `docs/ratenzahlungen.md`, generiertes OpenAPI und Frontend-Typen. Die Benutzeroberfläche ist noch nicht implementiert.
+Migration 000049 ergänzt vertragliche Ratenpläne für Haushalte und externe Schuldner, Zahlungen, Mahngebühren und PDF-Verträge. ADMIN-Routen unter `/installment-plans` liefern FIFO-Ratenpläne mit Monatsende-Klemmung und Schlussrate. Bankbuchungen werden atomar entweder Beiträgen oder einem Ratenplan zugeordnet; Banklisten, IBAN-Löschung und Rückzuordnung berücksichtigen Planzahlungen. Erinnerungen verwenden vorhandene E-Mail-, Frist-, Gebühren- und Zahlungsdaten/QR-Helfer; Versand protokolliert Stufe und Frist und legt explizit gewählte Mahngebühren an. PDF-Verträge sind auf 10 MiB begrenzt (nur dieser Upload erhält 11 MiB Request-Limit für Multipart-Overhead; sonst weiter 5 MiB). API-Vertrag: `docs/ratenzahlungen.md`, generiertes OpenAPI und Frontend-Typen. Die Benutzeroberfläche steht im Abschnitt „Frontend“ darüber.
 
 Die generierten Request-Typen kennzeichnen Vorgabewerte sowie die alternativen Bank-/manuellen Zahlungsfelder als optional; Pflichtangaben je Variante werden im Service validiert. `transactionId` beim Erstellen ist optional und wird bei Updates abgelehnt. Datumsangaben in Requests sind `YYYY-MM-DD`, Antworten verwenden Go-Zeitstempel als RFC3339.

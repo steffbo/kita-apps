@@ -3,15 +3,16 @@ package handler
 import (
 	"encoding/json"
 	"errors"
+	"io"
+	"mime"
+	"net/http"
+	"path/filepath"
+
 	"github.com/google/uuid"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/api/response"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/repository"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/service"
-	"io"
-	"mime"
-	"net/http"
-	"path/filepath"
 )
 
 type InstallmentHandler struct{ svc *service.InstallmentService }
@@ -23,6 +24,7 @@ func NewInstallmentHandler(s *service.InstallmentService) *InstallmentHandler {
 type installmentCloseRequest struct {
 	Reason string `json:"reason"`
 }
+
 type installmentFinalRequest struct {
 	DueDate string `json:"dueDate"`
 }
@@ -35,6 +37,8 @@ func installmentError(w http.ResponseWriter, err error) {
 		response.Conflict(w, "Buchung bereits zugeordnet")
 	case errors.Is(err, service.ErrInvalidInput):
 		response.BadRequest(w, "Ungültige Angaben")
+	case errors.Is(err, service.ErrEmailDisabled):
+		response.Error(w, http.StatusServiceUnavailable, "E-Mail-Versand ist nicht aktiviert")
 	default:
 		response.InternalError(w, "Ratenzahlung konnte nicht verarbeitet werden")
 	}
@@ -154,7 +158,7 @@ func (h *InstallmentHandler) Close(w http.ResponseWriter, r *http.Request) {
 		response.BadRequest(w, "Ungültiges JSON")
 		return
 	}
-	err := h.svc.Terms(r.Context(), id, &req.Reason, nil)
+	err := h.svc.Close(r.Context(), id, req.Reason)
 	if err != nil {
 		installmentError(w, err)
 		return
@@ -239,7 +243,7 @@ func (h *InstallmentHandler) Final(w http.ResponseWriter, r *http.Request) {
 		response.BadRequest(w, "Ungültiges JSON")
 		return
 	}
-	err := h.svc.Terms(r.Context(), id, nil, &req.DueDate)
+	err := h.svc.SetFinalDueDate(r.Context(), id, req.DueDate)
 	if err != nil {
 		installmentError(w, err)
 		return
@@ -261,7 +265,7 @@ func (h *InstallmentHandler) DeleteFinal(w http.ResponseWriter, r *http.Request)
 	if !ok {
 		return
 	}
-	err := h.svc.Terms(r.Context(), id, nil, nil)
+	err := h.svc.ClearFinalDueDate(r.Context(), id)
 	if err != nil {
 		installmentError(w, err)
 		return

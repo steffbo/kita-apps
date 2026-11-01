@@ -1,12 +1,40 @@
 package domain
 
 import (
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/lib/pq"
 )
 
+// InstallmentManagerRoles may see and change Ratenzahlungen. The single place to
+// extend when another role (e.g. VORSTAND) gets the same rights as ADMIN.
+var InstallmentManagerRoles = []string{string(UserRoleAdmin)}
+
+// CanManageInstallments reports whether the role may see installment plans.
+func CanManageInstallments(role string) bool {
+	return slices.Contains(InstallmentManagerRoles, role)
+}
+
+const (
+	InstallmentStatusActive = "ACTIVE"
+	InstallmentStatusClosed = "CLOSED"
+
+	InstallmentSourceBank   = "BANK"
+	InstallmentSourceManual = "MANUAL"
+
+	// Derived plan states; ACTIVE and CLOSED share the stored status values.
+	InstallmentStateOverdue = "OVERDUE"
+	InstallmentStateDone    = "DONE"
+
+	InstallmentRatePaid    = "PAID"
+	InstallmentRateOverdue = "OVERDUE"
+	InstallmentRatePartial = "PARTIAL"
+	InstallmentRateOpen    = "OPEN"
+)
+
+// InstallmentPlan is a contractual payment plan of a household or an external debtor.
 type InstallmentPlan struct {
 	ID                uuid.UUID      `json:"id" db:"id"`
 	HouseholdID       *uuid.UUID     `json:"householdId" db:"household_id" binding:"optional"`
@@ -28,6 +56,8 @@ type InstallmentPlan struct {
 	UpdatedAt         time.Time      `json:"updatedAt" db:"updated_at"`
 	CreatedBy         *uuid.UUID     `json:"createdBy" db:"created_by" binding:"optional"`
 }
+
+// InstallmentPayment is a bank or manual payment towards a plan.
 type InstallmentPayment struct {
 	ID            uuid.UUID  `json:"id" db:"id"`
 	PlanID        uuid.UUID  `json:"planId" db:"plan_id"`
@@ -39,6 +69,8 @@ type InstallmentPayment struct {
 	CreatedAt     time.Time  `json:"createdAt" db:"created_at"`
 	CreatedBy     *uuid.UUID `json:"createdBy" db:"created_by" binding:"optional"`
 }
+
+// InstallmentCharge is an extra amount added to the debt, e.g. a Mahngebühr.
 type InstallmentCharge struct {
 	ID         uuid.UUID  `json:"id" db:"id"`
 	PlanID     uuid.UUID  `json:"planId" db:"plan_id"`
@@ -47,6 +79,8 @@ type InstallmentCharge struct {
 	CreatedAt  time.Time  `json:"createdAt" db:"created_at"`
 	EmailLogID *uuid.UUID `json:"emailLogId" db:"email_log_id" binding:"optional"`
 }
+
+// InstallmentContract is the signed contract PDF of a plan.
 type InstallmentContract struct {
 	PlanID     uuid.UUID  `json:"planId" db:"plan_id"`
 	Filename   string     `json:"filename" db:"filename"`
@@ -56,6 +90,7 @@ type InstallmentContract struct {
 	UploadedBy *uuid.UUID `json:"uploadedBy" db:"uploaded_by" binding:"optional"`
 }
 
+// InstallmentRate is one calculated rate of the schedule.
 type InstallmentRate struct {
 	Number  int       `json:"number"`
 	DueDate time.Time `json:"dueDate"`
@@ -63,6 +98,8 @@ type InstallmentRate struct {
 	Paid    float64   `json:"paid"`
 	Status  string    `json:"status"`
 }
+
+// InstallmentSummary holds the calculated totals and the derived state of a plan.
 type InstallmentSummary struct {
 	EffectiveTotal float64 `json:"effectiveTotal"`
 	Paid           float64 `json:"paid"`
@@ -70,14 +107,18 @@ type InstallmentSummary struct {
 	Overdue        float64 `json:"overdue"`
 	State          string  `json:"state"`
 }
+
+// InstallmentDetail is a plan with everything derived from it. ReminderDue says
+// whether a reminder can be sent now (overdue rate, last deadline passed).
 type InstallmentDetail struct {
-	Plan      InstallmentPlan      `json:"plan"`
-	Summary   InstallmentSummary   `json:"summary"`
-	Schedule  []InstallmentRate    `json:"schedule"`
-	Payments  []InstallmentPayment `json:"payments"`
-	Charges   []InstallmentCharge  `json:"charges"`
-	Reminders []EmailLog           `json:"reminders"`
-	Contract  *InstallmentContract `json:"contract" binding:"optional"`
+	Plan        InstallmentPlan      `json:"plan"`
+	Summary     InstallmentSummary   `json:"summary"`
+	Schedule    []InstallmentRate    `json:"schedule"`
+	Payments    []InstallmentPayment `json:"payments"`
+	Charges     []InstallmentCharge  `json:"charges"`
+	Reminders   []EmailLog           `json:"reminders"`
+	Contract    *InstallmentContract `json:"contract" binding:"optional"`
+	ReminderDue bool                 `json:"reminderDue"`
 }
 
 // CalculateInstallments distributes payments in cents, oldest rate first. Month
@@ -91,7 +132,7 @@ func CalculateInstallments(p InstallmentPlan, payments []InstallmentPayment, cha
 		paid += Cents(v.Amount)
 	}
 	rest := max(int64(0), total-paid)
-	summary := InstallmentSummary{EffectiveTotal: Euros(total), Paid: Euros(paid), Rest: Euros(rest), State: "ACTIVE"}
+	summary := InstallmentSummary{EffectiveTotal: Euros(total), Paid: Euros(paid), Rest: Euros(rest), State: InstallmentStatusActive}
 	rates := []InstallmentRate{}
 	rate := Cents(p.InstallmentAmount)
 	if rate <= 0 || p.IntervalMonths <= 0 {
@@ -109,28 +150,28 @@ func CalculateInstallments(p InstallmentPlan, payments []InstallmentPayment, cha
 			covered = min(available, amount)
 			due = *p.FinalDueDate
 		}
-		status := "OPEN"
+		status := InstallmentRateOpen
 		switch {
 		case covered == amount:
-			status = "PAID"
+			status = InstallmentRatePaid
 		case due.Before(today):
-			status = "OVERDUE"
+			status = InstallmentRateOverdue
 			summary.Overdue += Euros(amount - covered)
 		case covered > 0:
-			status = "PARTIAL"
+			status = InstallmentRatePartial
 		}
 		rates = append(rates, InstallmentRate{Number: i + 1, DueDate: due, Amount: Euros(amount), Paid: Euros(covered), Status: status})
 		remaining -= amount
 		available -= covered
 	}
 	if summary.Overdue > 0 {
-		summary.State = "OVERDUE"
+		summary.State = InstallmentStateOverdue
 	}
 	if rest == 0 {
-		summary.State = "DONE"
+		summary.State = InstallmentStateDone
 	}
-	if p.Status == "CLOSED" {
-		summary.State = "CLOSED"
+	if p.Status == InstallmentStatusClosed {
+		summary.State = InstallmentStatusClosed
 	}
 	return summary, rates
 }

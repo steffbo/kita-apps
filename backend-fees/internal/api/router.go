@@ -97,7 +97,7 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 			})
 
 			r.Route("/installment-plans", func(r chi.Router) {
-				r.Use(customMiddleware.RequireRole(string(domain.UserRoleAdmin)))
+				r.Use(customMiddleware.RequireRole(domain.InstallmentManagerRoles...))
 				r.Get("/", handlers.Installment.List)
 				r.Post("/", handlers.Installment.Create)
 				r.Get("/{id}", handlers.Installment.Detail)

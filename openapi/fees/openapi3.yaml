@@ -9838,7 +9838,9 @@ components:
         installmentPayment:
           $ref: "#/components/schemas/domain.InstallmentPaymentLink"
         installmentPlanSuggestion:
-          $ref: "#/components/schemas/domain.InstallmentPlanSuggestion"
+          allOf:
+            - $ref: "#/components/schemas/domain.InstallmentPlanSuggestion"
+          description: Installment fields are redacted for roles without installment access.
         isHidden:
           type: boolean
         matchedAmount:
@@ -10451,6 +10453,8 @@ components:
           type: array
         plan:
           $ref: "#/components/schemas/domain.InstallmentPlan"
+        reminderDue:
+          type: boolean
         reminders:
           items:
             $ref: "#/components/schemas/domain.EmailLog"
@@ -10465,6 +10469,7 @@ components:
         - charges
         - payments
         - plan
+        - reminderDue
         - reminders
         - schedule
         - summary

@@ -15,8 +15,13 @@ import EmailLogModal from '@/components/automation/EmailLogModal.vue';
 import ReminderSettingsDialog from '@/components/automation/ReminderSettingsDialog.vue';
 import PageHeader from '@/components/ui/PageHeader.vue';
 import AppSheet from '@/components/ui/AppSheet.vue';
+import InstallmentReminderList from '@/components/installments/InstallmentReminderList.vue';
+import InstallmentReminderSheet from '@/components/installments/InstallmentReminderSheet.vue';
+import type { InstallmentDetail } from '@/api/types';
+import { useRouter } from 'vue-router';
 
 const authStore = useAuthStore();
+const router = useRouter();
 
 // ── Page tabs ────────────────────────────────────────────────────────────────
 const activeTab = ref<'worklist' | 'log'>('worklist');
@@ -74,6 +79,15 @@ const {
 );
 
 const showSettingsDialog = ref(false);
+
+// Ratenzahlungen are listed above the fee cases; `remindersVersion` remounts the list after a send.
+const reminderCase = ref<InstallmentDetail | null>(null);
+const remindersVersion = ref(0);
+
+function onInstallmentSent(): void {
+  reminderCase.value = null;
+  remindersVersion.value++;
+}
 
 function openCase(householdId: string): void {
   selectedHouseholdId.value = householdId;
@@ -138,6 +152,9 @@ function closeCase(): void {
         :filteredCases="filteredCases"
         :loadCases="loadCases"
       />
+
+      <InstallmentReminderList :key="remindersVersion" :class="selectedCase ? 'hidden lg:block' : ''"
+        @open="reminderCase = $event" />
 
       <!-- Master-detail -->
       <div :class="selectedCase ? 'lg:grid lg:grid-cols-[minmax(300px,2fr)_minmax(0,3fr)] lg:gap-6' : ''">
@@ -312,6 +329,9 @@ function closeCase(): void {
           </button>
       </template>
     </AppSheet>
+
+    <InstallmentReminderSheet v-if="reminderCase" :detail="reminderCase" @close="reminderCase = null"
+      @sent="onInstallmentSent" @edit="router.push(`/ratenzahlungen/${reminderCase?.plan.id}`)" />
 
     <ReminderSettingsDialog v-if="showSettingsDialog" @close="showSettingsDialog = false" />
 

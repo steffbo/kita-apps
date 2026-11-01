@@ -59,6 +59,13 @@ import type {
   ReminderCasePreview,
   ReminderCaseRequest,
   ReminderCaseSendResult,
+  InstallmentDetail,
+  InstallmentRequest,
+  InstallmentPaymentRequest,
+  InstallmentCloseRequest,
+  InstallmentFinalRequest,
+  InstallmentReminderRequest,
+  InstallmentReminderPreview,
   StichtagsmeldungStats,
   StichtagsmeldungReport,
   JugendamtReport,
@@ -753,6 +760,90 @@ class ApiClient {
     return response.json();
   }
 
+
+  // Ratenzahlungen (installment plans)
+  async getInstallmentPlans(): Promise<InstallmentDetail[]> {
+    return this.request<InstallmentDetail[]>('/installment-plans?state=all');
+  }
+
+  async getInstallmentPlan(id: string): Promise<InstallmentDetail> {
+    return this.request<InstallmentDetail>(`/installment-plans/${id}`);
+  }
+
+  async getInstallmentReminderCases(): Promise<InstallmentDetail[]> {
+    return this.request<InstallmentDetail[]>('/installment-plans/reminder-cases');
+  }
+
+  async createInstallmentPlan(data: InstallmentRequest): Promise<InstallmentDetail> {
+    return this.request<InstallmentDetail>('/installment-plans', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async updateInstallmentPlan(id: string, data: InstallmentRequest): Promise<InstallmentDetail> {
+    return this.request<InstallmentDetail>(`/installment-plans/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async closeInstallmentPlan(id: string, data: InstallmentCloseRequest): Promise<void> {
+    return this.request<void>(`/installment-plans/${id}/close`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async addInstallmentPayment(id: string, data: InstallmentPaymentRequest): Promise<void> {
+    return this.request<void>(`/installment-plans/${id}/payments`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async deleteInstallmentPayment(id: string, paymentId: string): Promise<void> {
+    return this.request<void>(`/installment-plans/${id}/payments/${paymentId}`, { method: 'DELETE' });
+  }
+
+  async setInstallmentFinalDueDate(id: string, data: InstallmentFinalRequest): Promise<void> {
+    return this.request<void>(`/installment-plans/${id}/final-installment`, {
+      method: 'PUT',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async clearInstallmentFinalDueDate(id: string): Promise<void> {
+    return this.request<void>(`/installment-plans/${id}/final-installment`, { method: 'DELETE' });
+  }
+
+  async uploadInstallmentContract(id: string, file: File): Promise<void> {
+    const form = new FormData();
+    form.append('file', file);
+    return this.request<void>(`/installment-plans/${id}/contract`, { method: 'PUT', body: form });
+  }
+
+  async getInstallmentContract(id: string): Promise<DownloadedFile> {
+    return this.requestFile(`/installment-plans/${id}/contract`);
+  }
+
+  async deleteInstallmentContract(id: string): Promise<void> {
+    return this.request<void>(`/installment-plans/${id}/contract`, { method: 'DELETE' });
+  }
+
+  async previewInstallmentReminder(id: string, data: InstallmentReminderRequest): Promise<InstallmentReminderPreview> {
+    return this.request<InstallmentReminderPreview>(`/installment-plans/${id}/reminder/preview`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async sendInstallmentReminder(id: string, data: InstallmentReminderRequest): Promise<InstallmentReminderPreview> {
+    return this.request<InstallmentReminderPreview>(`/installment-plans/${id}/reminder/send`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
 
   async getEmailLogs(params?: {
     page?: number;

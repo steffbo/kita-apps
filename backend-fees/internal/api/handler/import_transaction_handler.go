@@ -71,6 +71,7 @@ func (h *ImportHandler) UnmatchedTransactions(w http.ResponseWriter, r *http.Req
 		response.InternalError(w, "failed to get unmatched transactions")
 		return
 	}
+	redactInstallments(r, transactions)
 
 	response.Paginated(w, transactions, total, pagination.Page, pagination.PerPage)
 }
@@ -314,6 +315,18 @@ func (h *ImportHandler) UnmatchTransaction(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	if !canManageInstallments(r) {
+		assigned, err := h.importService.HasInstallmentPayment(r.Context(), id)
+		if err != nil {
+			response.InternalError(w, "failed to unmatch transaction")
+			return
+		}
+		if assigned {
+			response.Forbidden(w, "installment payments are admin-only")
+			return
+		}
+	}
+
 	result, err := h.importService.UnmatchTransaction(r.Context(), id, req.DeleteTransaction)
 	if err != nil {
 		if err == service.ErrNotFound {
@@ -470,6 +483,10 @@ func (h *ImportHandler) ChildUnmatchedSuggestions(w http.ResponseWriter, r *http
 		response.InternalError(w, "failed to get suggestions")
 		return
 	}
+	for i := range result.Suggestions {
+		// The child page suggests fees only; plan suggestions belong to the admin-only bank dialog.
+		result.Suggestions[i].Transaction.InstallmentPlanSuggestion = nil
+	}
 
 	resp := ChildUnmatchedSuggestionsResponse{
 		ChildID:     result.ChildID.String(),
@@ -477,6 +494,25 @@ func (h *ImportHandler) ChildUnmatchedSuggestions(w http.ResponseWriter, r *http
 		Suggestions: result.Suggestions,
 	}
 	response.Success(w, resp)
+}
+
+func canManageInstallments(r *http.Request) bool {
+	user := middleware.GetUserFromContext(r)
+	return user != nil && domain.CanManageInstallments(user.Role)
+}
+
+// redactInstallments keeps Ratenzahlungen admin-only in the shared bank lists: other
+// staff only learn that a transaction belongs to a plan, so it is not shown as open.
+func redactInstallments(r *http.Request, transactions []domain.BankTransaction) {
+	if canManageInstallments(r) {
+		return
+	}
+	for i := range transactions {
+		transactions[i].InstallmentPlanSuggestion = nil
+		if transactions[i].InstallmentPayment != nil {
+			transactions[i].InstallmentPayment = &domain.InstallmentPaymentLink{}
+		}
+	}
 }
 
 // MatchedTransactions handles GET /import/transactions/matched
@@ -505,6 +541,7 @@ func (h *ImportHandler) MatchedTransactions(w http.ResponseWriter, r *http.Reque
 		response.InternalError(w, "failed to get matched transactions")
 		return
 	}
+	redactInstallments(r, transactions)
 
 	response.Paginated(w, transactions, total, pagination.Page, pagination.PerPage)
 }

@@ -73,6 +73,12 @@ export function formatEuroAmount(amount: number, suffix: '€' | 'Euro' = '€')
   return `${fixedCentsFormat.format(amount)} ${suffix}`;
 }
 
+/** File size as `512 KB` or `1,25 MB`. */
+export function formatFileSize(bytes: number): string {
+  if (bytes >= 1_048_576) return `${formatDecimalNumber(bytes / 1_048_576, 2)} MB`;
+  return `${Math.round(bytes / 1024)} KB`;
+}
+
 /** Formats a number with German separators and up to the requested decimal places. */
 export function formatDecimalNumber(value: number, maximumFractionDigits?: 2): string {
   return maximumFractionDigits === undefined

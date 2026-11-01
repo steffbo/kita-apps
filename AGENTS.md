@@ -125,6 +125,7 @@ Both are family-data-neutral; re-check their code maps against the implementatio
 | --- | --- |
 | `README.md` | user-facing project overview and quickstart |
 | `docs/status-fees.md` | Beiträge backend + frontend change log and decisions |
+| `docs/ratenzahlungen.md` | Ratenzahlungen: data model, schedule rules, API, reminders |
 | `docs/todo-fees-improvements.md` | ordered Beiträge improvement backlog (worked top to bottom) |
 | `docs/status-banking-sync.md` | banking-sync behavior and operational notes |
 | `docs/deployment-ghcr.md` | generic GHCR/Compose deployment guide |

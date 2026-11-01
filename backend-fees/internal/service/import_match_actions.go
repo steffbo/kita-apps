@@ -547,6 +547,18 @@ func (s *ImportService) unmatchTransaction(ctx context.Context, transactionID uu
 	}, nil
 }
 
+// HasInstallmentPayment reports whether a transaction is assigned to an installment plan.
+func (s *ImportService) HasInstallmentPayment(ctx context.Context, transactionID uuid.UUID) (bool, error) {
+	tx, err := s.transactionRepo.GetByID(ctx, transactionID)
+	if errors.Is(err, repository.ErrNotFound) {
+		return false, nil // Reported by the unmatch itself.
+	}
+	if err != nil {
+		return false, err
+	}
+	return tx.InstallmentPayment != nil, nil
+}
+
 // GetMatchedTransactions returns transactions that have been matched to fees.
 func (s *ImportService) GetMatchedTransactions(ctx context.Context, search, sortBy, sortDir string, offset, limit int) ([]domain.BankTransaction, int64, error) {
 	transactions, total, err := s.transactionRepo.ListMatched(ctx, search, sortBy, sortDir, offset, limit)

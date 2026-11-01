@@ -494,3 +494,18 @@ export interface FeeScheduleRequest {
   name: string;
   config: FeeScheduleConfig;
 }
+
+// ── Ratenzahlungen (installment plans, ADMIN) ────────────────────────────────
+export type InstallmentDetail = Schema['domain.InstallmentDetail'];
+export type InstallmentPlan = Schema['domain.InstallmentPlan'];
+export type InstallmentSummary = Schema['domain.InstallmentSummary'];
+export type InstallmentRate = Schema['domain.InstallmentRate'];
+export type InstallmentPayment = Schema['domain.InstallmentPayment'];
+export type InstallmentContract = Schema['domain.InstallmentContract'];
+export type InstallmentReminder = Schema['domain.EmailLog'];
+export type InstallmentRequest = Schema['service.InstallmentRequest'];
+export type InstallmentPaymentRequest = Schema['service.InstallmentPaymentRequest'];
+export type InstallmentCloseRequest = Schema['handler.installmentCloseRequest'];
+export type InstallmentFinalRequest = Schema['handler.installmentFinalRequest'];
+export type InstallmentReminderRequest = Schema['service.InstallmentReminderRequest'];
+export type InstallmentReminderPreview = Schema['service.InstallmentReminderPreview'];

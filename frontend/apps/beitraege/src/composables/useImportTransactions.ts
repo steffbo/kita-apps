@@ -131,7 +131,7 @@ export function useImportTransactions(uploadError: Ref<string | null>) {
   const pagedRows = computed<TxRow[]>(() => transactions.value.map(tx => ({
     key: tx.id,
     tx,
-    matched: (tx.matches?.length ?? 0) > 0,
+    matched: (tx.matches?.length ?? 0) > 0 || !!tx.installmentPayment,
     warnings: warnings.value.filter(warning => warning.transactionId === tx.id),
   })));
 

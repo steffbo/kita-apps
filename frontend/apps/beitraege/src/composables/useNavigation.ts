@@ -2,7 +2,7 @@ import { computed, type Component } from 'vue';
 import { useRoute } from 'vue-router';
 import {
   LayoutDashboard, Inbox, Users, UserCircle, UserPlus, NotebookPen, Receipt, ClipboardList, Bell,
-  Scale, Clock, UserCheck, Settings2, ShieldCheck, Home, IdCard,
+  Scale, Clock, UserCheck, Settings2, ShieldCheck, Home, IdCard, HandCoins,
 } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/auth';
 import { useTaskCounts } from '@/composables/useTaskCounts';
@@ -69,7 +69,10 @@ export function useNavigation() {
         { label: 'Beiträge', items: [
           { name: 'Beiträge', to: '/beitraege', icon: Receipt },
           { name: 'Einstufungen', to: '/einstufungen', icon: ClipboardList },
-          ...(auth.isAdmin ? [{ name: 'Erinnerungen', to: '/automatisierung', icon: Bell }] : []),
+          ...(auth.isAdmin ? [
+            { name: 'Ratenzahlungen', to: '/ratenzahlungen', icon: HandCoins },
+            { name: 'Erinnerungen', to: '/automatisierung', icon: Bell },
+          ] : []),
           { name: 'Beitragsordnung', to: '/beitragsordnung', icon: Scale },
         ] },
       );
