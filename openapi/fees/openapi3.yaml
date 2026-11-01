@@ -11981,10 +11981,6 @@ components:
           type: string
         transactionId:
           type: string
-      required:
-        - amount
-        - note
-        - paidOn
       type: object
     service.InstallmentReminderPreview:
       properties:
@@ -12064,14 +12060,8 @@ components:
         transactionId:
           type: string
       required:
-        - debtorAddress
-        - debtorName
-        - emails
         - firstDueDate
         - installmentAmount
-        - intervalMonths
-        - note
-        - reference
         - totalAmount
       type: object
     service.InvitationResult:

@@ -13084,9 +13084,9 @@ export interface components {
             parent2?: components["schemas"]["service.ParentPreview"];
         };
         "service.InstallmentPaymentRequest": {
-            amount: number;
-            note: string;
-            paidOn: string;
+            amount?: number;
+            note?: string;
+            paidOn?: string;
             transactionId?: string;
         };
         "service.InstallmentReminderPreview": {
@@ -13107,16 +13107,16 @@ export interface components {
             subject?: string;
         };
         "service.InstallmentRequest": {
-            debtorAddress: string;
-            debtorName: string;
-            emails: string[];
+            debtorAddress?: string;
+            debtorName?: string;
+            emails?: string[];
             firstDueDate: string;
             householdId?: string;
             installmentAmount: number;
-            intervalMonths: number;
-            note: string;
+            intervalMonths?: number;
+            note?: string;
             payerIban?: string;
-            reference: string;
+            reference?: string;
             totalAmount: number;
             transactionId?: string;
         };

@@ -14,23 +14,23 @@ import (
 
 type InstallmentRequest struct {
 	HouseholdID       *uuid.UUID `json:"householdId" binding:"optional"`
-	DebtorName        string     `json:"debtorName"`
-	DebtorAddress     string     `json:"debtorAddress"`
-	Emails            []string   `json:"emails"`
+	DebtorName        string     `json:"debtorName" binding:"optional"`
+	DebtorAddress     string     `json:"debtorAddress" binding:"optional"`
+	Emails            []string   `json:"emails" binding:"optional"`
 	TotalAmount       float64    `json:"totalAmount"`
 	InstallmentAmount float64    `json:"installmentAmount"`
-	IntervalMonths    int        `json:"intervalMonths"`
+	IntervalMonths    int        `json:"intervalMonths" binding:"optional"`
 	FirstDueDate      string     `json:"firstDueDate"`
-	Reference         string     `json:"reference"`
+	Reference         string     `json:"reference" binding:"optional"`
 	PayerIBAN         *string    `json:"payerIban" binding:"optional"`
-	Note              string     `json:"note"`
+	Note              string     `json:"note" binding:"optional"`
 	TransactionID     *uuid.UUID `json:"transactionId" binding:"optional"`
 }
 type InstallmentPaymentRequest struct {
 	TransactionID *uuid.UUID `json:"transactionId" binding:"optional"`
-	Amount        float64    `json:"amount"`
-	PaidOn        string     `json:"paidOn"`
-	Note          string     `json:"note"`
+	Amount        float64    `json:"amount" binding:"optional"`
+	PaidOn        string     `json:"paidOn" binding:"optional"`
+	Note          string     `json:"note" binding:"optional"`
 }
 type InstallmentService struct {
 	repo         repository.InstallmentRepository
