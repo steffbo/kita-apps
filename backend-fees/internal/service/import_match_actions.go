@@ -328,9 +328,13 @@ func (s *ImportService) DismissTransaction(ctx context.Context, transactionID uu
 
 // HideTransaction marks a transaction as hidden (no blacklist).
 func (s *ImportService) HideTransaction(ctx context.Context, transactionID uuid.UUID, userID uuid.UUID) (*HideResult, error) {
-	// Ensure transaction exists
-	if _, err := s.transactionRepo.GetByID(ctx, transactionID); err != nil {
+	// Ensure transaction exists; plan payments and purposes count in their reports and stay visible.
+	tx, err := s.transactionRepo.GetByID(ctx, transactionID)
+	if err != nil {
 		return nil, ErrNotFound
+	}
+	if tx.HasExclusiveAssignment() {
+		return nil, ErrInvalidInput
 	}
 
 	if err := s.transactionRepo.Hide(ctx, transactionID, userID); err != nil {

@@ -111,12 +111,23 @@ func (h *ImportHandler) UpdateAssignment(w http.ResponseWriter, r *http.Request)
 // @Tags Import
 // @Produce json
 // @Security BearerAuth
+// @Param householdId query string false "Only donations credited to this household (UUID)"
 // @Success 200 {object} service.DonationReport "Donations"
+// @Failure 400 {object} response.ErrorBody "Invalid household ID"
 // @Failure 401 {object} response.ErrorBody "Not authenticated"
 // @Failure 500 {object} response.ErrorBody "Internal server error"
 // @Router /import/donations [get]
 func (h *ImportHandler) Donations(w http.ResponseWriter, r *http.Request) {
-	report, err := h.importService.GetDonations(r.Context())
+	var householdID *uuid.UUID
+	if raw := r.URL.Query().Get("householdId"); raw != "" {
+		id, err := uuid.Parse(raw)
+		if err != nil {
+			response.BadRequest(w, "invalid household ID")
+			return
+		}
+		householdID = &id
+	}
+	report, err := h.importService.GetDonations(r.Context(), householdID)
 	if err != nil {
 		response.InternalError(w, "failed to get donations")
 		return

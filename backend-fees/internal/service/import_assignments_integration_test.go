@@ -11,6 +11,7 @@ import (
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/repository"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/service"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/util"
 )
 
 func TestImportService_DonationAssignment(t *testing.T) {
@@ -59,7 +60,7 @@ func TestImportService_DonationAssignment(t *testing.T) {
 	}
 
 	// Grouped by booking year, newest first, sums in cents.
-	report, err := svc.GetDonations(ctx)
+	report, err := svc.GetDonations(ctx, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -99,7 +100,7 @@ func TestImportService_DonationAssignment(t *testing.T) {
 	if _, err := svc.CreateManualMatch(ctx, a.ID, fee.ID, user); !errors.Is(err, service.ErrInvalidInput) {
 		t.Fatalf("fee match on donation: %v", err)
 	}
-	if err := matchRepo.Create(ctx, &domain.PaymentMatch{ID: uuid.New(), TransactionID: a.ID, ExpectationID: fee.ID, Amount: 1, MatchType: domain.MatchTypeManual, MatchedAt: time.Now()}); !errors.Is(err, repository.ErrDuplicate) {
+	if err := matchRepo.Create(ctx, &domain.PaymentMatch{ID: uuid.New(), TransactionID: a.ID, ExpectationID: fee.ID, Amount: 1, MatchType: domain.MatchTypeManual, MatchedAt: util.Now()}); !errors.Is(err, repository.ErrDuplicate) {
 		t.Fatalf("repository fee match on donation: %v", err)
 	}
 	d := mk("TESTDON00005", 100.10, day(2026, 3, 2))
@@ -119,7 +120,7 @@ func TestImportService_DonationAssignment(t *testing.T) {
 	if err != nil || len(open) != 1 || open[0].Assignment != nil {
 		t.Fatalf("open after unmatch %+v %v", open, err)
 	}
-	if report, _ = svc.GetDonations(ctx); report.Count != 2 {
+	if report, _ = svc.GetDonations(ctx, nil); report.Count != 2 {
 		t.Fatalf("report after unmatch %+v", report)
 	}
 
@@ -138,7 +139,7 @@ func TestImportService_DonationAssignment(t *testing.T) {
 	if err := svc.AssignTransaction(ctx, e.ID, domain.AssignmentInput{Kind: domain.AssignmentDonation, HouseholdID: &hh}, user); err != nil {
 		t.Fatal(err)
 	}
-	report, _ = svc.GetDonations(ctx)
+	report, _ = svc.GetDonations(ctx, nil)
 	var got *domain.TransactionAssignment
 	for _, y := range report.Years {
 		for _, tx := range y.Transactions {
@@ -180,6 +181,50 @@ func TestImportService_DonationAssignment(t *testing.T) {
 	done, _, _ = txRepo.ListTransactions(ctx, "zugeordnet", "TESTDON00007", "date", "desc", 0, 10)
 	if len(done) != 1 || done[0].HouseholdSuggestion != nil {
 		t.Fatalf("assigned row keeps suggestion %+v", done)
+	}
+
+	// Filter by household.
+	if report, err = svc.GetDonations(ctx, &other); err != nil || report.Count != 1 || report.Years[0].Transactions[0].ID != e.ID {
+		t.Fatalf("household filter %+v %v", report, err)
+	}
+
+	// Hidden transactions cannot become donations, donations cannot be hidden.
+	hidden := mk("TESTDON00008", 5, day(2026, 7, 1))
+	if _, err := svc.HideTransaction(ctx, hidden.ID, user); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.AssignTransaction(ctx, hidden.ID, domain.AssignmentInput{Kind: domain.AssignmentDonation}, user); !errors.Is(err, service.ErrInvalidInput) {
+		t.Fatalf("hidden: %v", err)
+	}
+	if _, err := svc.HideTransaction(ctx, e.ID, user); !errors.Is(err, service.ErrInvalidInput) {
+		t.Fatalf("hide donation: %v", err)
+	}
+
+	// Assigning settles open warnings, so the row leaves the warnings tab.
+	warned := mk("TESTDON00009", 5, day(2026, 7, 2))
+	if err := repository.NewPostgresWarningRepository(testDB).Create(ctx, &domain.TransactionWarning{ID: uuid.New(), TransactionID: warned.ID,
+		WarningType: domain.WarningTypeNoMatchingFee, Message: "test", CreatedAt: util.Now()}); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.AssignTransaction(ctx, warned.ID, domain.AssignmentInput{Kind: domain.AssignmentDonation}, user); err != nil {
+		t.Fatal(err)
+	}
+	if rows, _, err := txRepo.ListTransactions(ctx, "warnungen", "TESTDON00009", "date", "desc", 0, 10); err != nil || len(rows) != 0 {
+		t.Fatalf("warning still open %+v %v", rows, err)
+	}
+
+	// A plan with this IBAN does not suggest itself on a row that already is a donation.
+	if _, err := testDB.Exec(`INSERT INTO fees.installment_plans (id, debtor_name, total_amount, installment_amount, first_due_date, payer_iban)
+		VALUES ($1, 'TEST Schuldner', 100, 10, '2030-01-01', 'TESTDON00007')`, uuid.New()); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { testDB.Exec(`DELETE FROM fees.installment_plans WHERE payer_iban = 'TESTDON00007'`) })
+	if got, err := txRepo.GetByID(ctx, f.ID); err != nil || got.InstallmentPlanSuggestion != nil {
+		t.Fatalf("plan suggestion on donation %+v %v", got, err)
+	}
+	// Reads outside the bank list carry no household suggestion.
+	if got, err := txRepo.GetByID(ctx, next.ID); err != nil || got.HouseholdSuggestion != nil {
+		t.Fatalf("suggestion outside list %+v %v", got, err)
 	}
 }
 

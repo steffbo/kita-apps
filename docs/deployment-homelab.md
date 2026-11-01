@@ -47,7 +47,7 @@ The Beiträge frontend is embedded in the `backend-fees` image; there are no sep
 
 ### 3. Deploy to Server
 
-Deployment is handled via ansible (pulls latest image from GHCR and restarts the container):
+Deployment is handled via ansible (pulls latest image from GHCR and restarts the container). Run it on the host `ubuntu`: `ansible-core`, `sops` and `age` live in `~/.local/bin` there (installed without sudo, `ansible-core` via `uv tool`), and the age key and SSH key are in place. Agent containers have none of these:
 
 ```bash
 cd /home/stefan/workspace/homelab/ansible

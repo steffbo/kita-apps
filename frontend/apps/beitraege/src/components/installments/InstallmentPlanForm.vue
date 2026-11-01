@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { computed, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import { api } from '@/api';
 import type {
-  BankTransaction, Household, InstallmentDetail, InstallmentPlan, InstallmentRequest,
+  BankTransaction, InstallmentDetail, InstallmentPlan, InstallmentRequest, ParentWorkHouseholdOption,
 } from '@/api/types';
 import { AlertTriangle, CalendarDays, Link2, Loader2, Plus, X } from 'lucide-vue-next';
 import AppSheet from '@/components/ui/AppSheet.vue';
@@ -107,14 +107,23 @@ function setKind(kind: Draft['kind']): void {
   if (kind === 'external') form.householdId = null;
 }
 
+const households = ref<ParentWorkHouseholdOption[]>([]);
+onMounted(async () => {
+  try {
+    households.value = await api.getHouseholdOptions();
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : 'Haushalte konnten nicht geladen werden';
+  }
+});
+
 // Picking a household takes its name and the e-mail addresses of its parents.
-async function selectHousehold(household: Household): Promise<void> {
-  form.householdId = household.id;
-  form.debtorName = household.name;
+async function selectHousehold(id: string): Promise<void> {
+  form.householdId = id;
+  form.debtorName = households.value.find(household => household.id === id)?.name ?? '';
   error.value = null;
   try {
-    const detail = await api.getHousehold(household.id);
-    if (form.householdId !== household.id) return;
+    const detail = await api.getHousehold(id);
+    if (form.householdId !== id) return;
     const addresses = (detail.parents ?? []).flatMap(parent => (parent.email ? [parent.email] : []));
     form.emails = [...new Set(addresses)];
   } catch (e) {
@@ -208,8 +217,8 @@ async function submit(): Promise<void> {
         </div>
       </div>
 
-      <HouseholdPicker v-if="form.kind === 'household'" v-model="form.householdId" @select="selectHousehold"
-        @error="error = $event" />
+      <HouseholdPicker v-if="form.kind === 'household'" :model-value="form.householdId ?? undefined"
+        :households="households" label="Haushalt *" @update:model-value="selectHousehold" />
 
       <div v-else class="space-y-4">
         <div>

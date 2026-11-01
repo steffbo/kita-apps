@@ -7,6 +7,7 @@ import (
 	"net/mail"
 	"sort"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/google/uuid"
@@ -15,9 +16,10 @@ import (
 )
 
 type ParentAccountService struct {
-	accounts *repository.ParentAccountRepository
-	work     *ParentWorkService
-	letters  *repository.EinstufungLetterRepository
+	accounts  *repository.ParentAccountRepository
+	work      *ParentWorkService
+	letters   *repository.EinstufungLetterRepository
+	donations repository.TransactionRepository
 }
 
 func NewParentAccountService(accounts *repository.ParentAccountRepository,
@@ -79,6 +81,51 @@ func (s *ParentAccountService) Fees(ctx context.Context, userID uuid.UUID,
 // their children.
 func (s *ParentAccountService) UseEinstufungLetters(letters *repository.EinstufungLetterRepository) {
 	s.letters = letters
+}
+
+// UseDonations lets parents see the donations credited to their household.
+func (s *ParentAccountService) UseDonations(transactions repository.TransactionRepository) {
+	s.donations = transactions
+}
+
+// OwnDonation is what a parent sees of a donation: no IBAN, purpose text or internal note.
+type OwnDonation struct {
+	ID          uuid.UUID `json:"id"`
+	BookingDate time.Time `json:"bookingDate"`
+	Amount      float64   `json:"amount"`
+	PayerName   *string   `json:"payerName,omitempty" binding:"optional"`
+}
+
+// OwnDonationYear sums the donations of one booking year.
+type OwnDonationYear struct {
+	Year         int           `json:"year"`
+	Total        float64       `json:"total"`
+	Count        int           `json:"count"`
+	Transactions []OwnDonation `json:"transactions"`
+}
+
+// Donations lists the donations credited to the parent's household by booking year, newest first.
+func (s *ParentAccountService) Donations(ctx context.Context, userID uuid.UUID) ([]OwnDonationYear, error) {
+	account, err := s.Account(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	years := []OwnDonationYear{}
+	if account.Parent.HouseholdID == nil {
+		return years, nil
+	}
+	rows, err := s.donations.ListAssigned(ctx, domain.AssignmentDonation, account.Parent.HouseholdID)
+	if err != nil {
+		return nil, err
+	}
+	for _, y := range groupDonations(rows).Years {
+		own := OwnDonationYear{Year: y.Year, Total: y.Total, Count: y.Count}
+		for _, t := range y.Transactions {
+			own.Transactions = append(own.Transactions, OwnDonation{ID: t.ID, BookingDate: t.BookingDate, Amount: t.Amount, PayerName: t.PayerName})
+		}
+		years = append(years, own)
+	}
+	return years, nil
 }
 
 // OwnEinstufungLetter is a letter emailed for one of the parent's children.

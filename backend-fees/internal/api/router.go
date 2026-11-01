@@ -78,6 +78,7 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 				r.Use(customMiddleware.RequireRole(string(domain.UserRolePARENT)))
 				r.Get("/", handlers.ParentAccount.Me)
 				r.Get("/fees", handlers.ParentAccount.Fees)
+				r.Get("/donations", handlers.ParentAccount.Donations)
 				r.Get("/einstufung-letters", handlers.ParentAccount.EinstufungLetters)
 				r.Get("/einstufung-letters/{id}/pdf", handlers.ParentAccount.EinstufungLetterPDF)
 				r.Get("/parent-work", handlers.ParentAccount.ParentWork)
@@ -228,6 +229,7 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 				// Households
 				r.Route("/households", func(r chi.Router) {
 					r.Get("/", handlers.Household.List)
+					r.With(staffOnly).Get("/options", handlers.ParentWork.Households)
 					r.Post("/", handlers.Household.Create)
 					r.Get("/{id}", handlers.Household.Get)
 					r.Put("/{id}", handlers.Household.Update)

@@ -184,6 +184,25 @@ func (h *ParentAccountHandler) Me(w http.ResponseWriter, r *http.Request) {
 	response.Success(w, out)
 }
 
+// Donations handles GET /me/donations.
+// @Summary Spenden, die dem eigenen Haushalt zugeordnet sind
+// @Tags Parent account
+// @Security BearerAuth
+// @Success 200 {array} service.OwnDonationYear
+// @Router /me/donations [get]
+func (h *ParentAccountHandler) Donations(w http.ResponseWriter, r *http.Request) {
+	id, ok := ownID(w, r)
+	if !ok {
+		return
+	}
+	years, err := h.svc.Donations(r.Context(), id)
+	if err != nil {
+		parentAccountError(w, err)
+		return
+	}
+	response.Success(w, years)
+}
+
 // Fees handles GET /me/fees.
 // @Summary Eigene Beiträge
 // @Tags Parent account

@@ -195,7 +195,7 @@ type TransactionRepository interface {
 	DeleteUnmatchedByIBAN(ctx context.Context, iban string) (int64, error)
 	Assign(ctx context.Context, transactionID uuid.UUID, in domain.AssignmentInput, userID uuid.UUID) error
 	UpdateAssignment(ctx context.Context, transactionID uuid.UUID, in domain.AssignmentInput) error
-	ListAssigned(ctx context.Context, kind domain.AssignmentKind) ([]domain.BankTransaction, error)
+	ListAssigned(ctx context.Context, kind domain.AssignmentKind, householdID *uuid.UUID) ([]domain.BankTransaction, error)
 }
 
 // MatchRepository handles payment match persistence.

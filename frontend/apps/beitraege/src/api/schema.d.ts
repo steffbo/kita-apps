@@ -4741,6 +4741,45 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/households/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Familienauswahl für Elternstunden */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Suche */
+                    search?: string;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["service.ParentWorkHouseholdOption"][];
+                    };
+                };
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/import/blacklist": {
         parameters: {
             query?: never;
@@ -4963,7 +5002,10 @@ export interface paths {
          */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    /** @description Only donations credited to this household (UUID) */
+                    householdId?: string;
+                };
                 header?: never;
                 path?: never;
                 cookie?: never;
@@ -4977,6 +5019,15 @@ export interface paths {
                     };
                     content: {
                         "application/json": components["schemas"]["service.DonationReport"];
+                    };
+                };
+                /** @description Invalid household ID */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
                     };
                 };
                 /** @description Not authenticated */
@@ -7926,6 +7977,42 @@ export interface paths {
                 };
             };
         };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/me/donations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Spenden, die dem eigenen Haushalt zugeordnet sind */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["service.OwnDonationYear"][];
+                    };
+                };
+            };
+        };
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -13359,6 +13446,18 @@ export interface components {
             error?: string;
             parentId: string;
             success: boolean;
+        };
+        "service.OwnDonation": {
+            amount: number;
+            bookingDate: string;
+            id: string;
+            payerName?: string;
+        };
+        "service.OwnDonationYear": {
+            count: number;
+            total: number;
+            transactions: components["schemas"]["service.OwnDonation"][];
+            year: number;
         };
         "service.ParentDecision": {
             /** @description "create" or "link" */

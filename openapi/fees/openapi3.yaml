@@ -3129,6 +3129,28 @@ paths:
       summary: Link parent to household
       tags:
         - Households
+  /households/options:
+    get:
+      parameters:
+        - description: Suche
+          in: query
+          name: search
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/service.ParentWorkHouseholdOption"
+                type: array
+      security:
+        - BearerAuth: []
+      summary: Familienauswahl für Elternstunden
+      tags:
+        - parent-work
   /import/blacklist:
     get:
       description: Get a paginated list of IBANs that are ignored during import
@@ -3256,6 +3278,12 @@ paths:
     get:
       description: Transactions assigned as donation, grouped by booking year with
         sums, newest first
+      parameters:
+        - description: Only donations credited to this household (UUID)
+          in: query
+          name: householdId
+          schema:
+            type: string
       responses:
         "200":
           description: Donations
@@ -3263,6 +3291,12 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/service.DonationReport"
+        "400":
+          description: Invalid household ID
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
         "401":
           description: Not authenticated
           content:
@@ -5166,6 +5200,22 @@ paths:
       security:
         - BearerAuth: []
       summary: Eigene Kontaktdaten ändern
+      tags:
+        - Parent account
+  /me/donations:
+    get:
+      responses:
+        "200":
+          description: OK
+          content:
+            "*/*":
+              schema:
+                items:
+                  $ref: "#/components/schemas/service.OwnDonationYear"
+                type: array
+      security:
+        - BearerAuth: []
+      summary: Spenden, die dem eigenen Haushalt zugeordnet sind
       tags:
         - Parent account
   /me/einstufung-letters:
@@ -12297,6 +12347,39 @@ components:
       required:
         - parentId
         - success
+      type: object
+    service.OwnDonation:
+      properties:
+        amount:
+          type: number
+        bookingDate:
+          type: string
+        id:
+          type: string
+        payerName:
+          type: string
+      required:
+        - amount
+        - bookingDate
+        - id
+      type: object
+    service.OwnDonationYear:
+      properties:
+        count:
+          type: integer
+        total:
+          type: number
+        transactions:
+          items:
+            $ref: "#/components/schemas/service.OwnDonation"
+          type: array
+        year:
+          type: integer
+      required:
+        - count
+        - total
+        - transactions
+        - year
       type: object
     service.ParentDecision:
       properties:

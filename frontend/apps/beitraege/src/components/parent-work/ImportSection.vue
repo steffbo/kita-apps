@@ -5,7 +5,7 @@ import { AlertTriangle, FileSpreadsheet, Upload } from 'lucide-vue-next';
 import { api } from '@/api/client';
 import type { ParentWorkHouseholdOption, ParentWorkImportPreviewRow, ParentWorkImportExecuteRow } from '@/api/types';
 import { formatDate, formatHours } from '@/utils/format';
-import HouseholdPicker from '@/components/parent-work/HouseholdPicker.vue';
+import HouseholdPicker from '@/components/HouseholdPicker.vue';
 
 type FieldKey = 'childName' | 'memberName' | 'workDate' | 'occasion' | 'hours';
 const fields: { key: FieldKey; label: string; required: boolean; example: string; hints: string[] }[] = [

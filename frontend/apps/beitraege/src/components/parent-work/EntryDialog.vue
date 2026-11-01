@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from 'vue';
 import { api } from '@/api';
 import type { ParentWorkEntry, ParentWorkHouseholdOption, ParentWorkEntryRequest } from '@/api/types';
 import { formatDateForInput, todayISO } from '@/utils/format';
-import HouseholdPicker from './HouseholdPicker.vue';
+import HouseholdPicker from '@/components/HouseholdPicker.vue';
 import DurationPicker from './DurationPicker.vue';
 import AppSheet from '@/components/ui/AppSheet.vue';
 

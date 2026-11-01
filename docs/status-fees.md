@@ -1261,12 +1261,27 @@ Spec und offene Punkte: `docs/spenden.md`.
 - Rollen: `ADMIN`/`USER` wie der Bankabgleich (Annahme, siehe Spec); keine Schwärzung nötig.
 - Die Planzahlungs-Hilfe `uploadPayment` der E2E-Tests liegt jetzt in `e2e/beitraege/bank.ts`.
 
+## 2026-11-01: Spenden – Sichtbarkeit für Eltern und im Haushalt, Review
+
+- Eltern sehen die Spenden ihres Haushalts über `GET /me/donations` (Positivliste, ohne IBAN, Zweck, Notiz), Staff in der
+  `HouseholdDonationsCard` auf Kindseite und Elternstunden-Familienseite (`GET /import/donations?householdId=`).
+- Review der ersten Umsetzung, korrigiert:
+  - Enter in der Haushaltssuche speicherte die Spende; Warnungen blieben nach dem Zuordnen offen.
+  - Spenden trugen einen Ratenplan-Vorschlag; Einzelabrufe rechneten Haushaltsvorschläge und hielten voll zugeordnete
+    Transaktionen für offen. Vorschläge kommen jetzt nur noch in der Liste des Bankabgleichs.
+  - Ausgeblendete Eingänge konnten Spende werden, Spenden und Planzahlungen ließen sich ausblenden.
+  - DB-Fehler wurden beim Zuordnen zu 404.
+- Aufgeräumt: Es gab schon `parent-work/HouseholdPicker`, die zweite Komponente gleichen Namens ist wieder entfernt. Das
+  Original liegt jetzt in `components/` und bedient auch Ratenplan-Formular und Spenden. Es lädt alle Haushalte über
+  `GET /households/options`, weil `/households` bei 100 Einträgen endet (live 94) und nicht nach Kindern sucht.
+  Die Bedingung „Plan oder Zweck“ steht einmal in `inOtherLedger`. Migration 000052 entfernt den wirkungslosen Index
+  auf `kind`.
+
 ## 2026-11-01: Spenden – Haushalt und IBAN-Vorschlag
 
 Migration 000051: `transaction_assignments.household_id`. Spenden lassen sich einem Haushalt zuordnen und später
 ändern (`PUT /import/transactions/{id}/assign`); offene Eingänge mit bekannter IBAN tragen einen `householdSuggestion`,
-den das Panel vorwählt. Bewusst kein stilles Auto-Zuordnen. Die Haushaltssuche liegt jetzt als `HouseholdPicker` vor
-(vorher im Ratenplan-Formular inline). Details: `docs/spenden.md`.
+den das Panel vorwählt. Bewusst kein stilles Auto-Zuordnen. Details: `docs/spenden.md`.
 
 ## 2026-11-01: Ratenzahlungen – Frontend
 

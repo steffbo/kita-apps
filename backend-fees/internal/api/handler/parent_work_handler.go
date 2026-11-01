@@ -139,7 +139,7 @@ func (h *ParentWorkHandler) Overview(w http.ResponseWriter, r *http.Request) {
 	response.Success(w, v)
 }
 
-// Households handles GET /parent-work/households.
+// Households handles GET /parent-work/households and, for staff outside Elternstunden, GET /households/options.
 // @Summary Familienauswahl für Elternstunden
 // @Tags parent-work
 // @Produce json
@@ -147,6 +147,7 @@ func (h *ParentWorkHandler) Overview(w http.ResponseWriter, r *http.Request) {
 // @Param search query string false "Suche"
 // @Success 200 {array} service.ParentWorkHouseholdOption
 // @Router /parent-work/households [get]
+// @Router /households/options [get]
 func (h *ParentWorkHandler) Households(w http.ResponseWriter, r *http.Request) {
 	v, err := h.svc.Households(r.Context(), r.URL.Query().Get("search"))
 	if err != nil {

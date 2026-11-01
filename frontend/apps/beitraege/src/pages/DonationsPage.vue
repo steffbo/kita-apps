@@ -84,7 +84,8 @@ onMounted(load);
               </button>
             </li>
           </ul>
-          <table class="table hidden sm:table">
+          <div class="hidden overflow-x-auto sm:block">
+          <table class="table">
             <thead>
               <tr>
                 <th>Datum</th><th>Zahler</th><th>Haushalt</th><th>Verwendungszweck</th><th>Notiz</th><th class="text-right">Betrag</th><th></th>
@@ -107,14 +108,16 @@ onMounted(load);
               </tr>
             </tbody>
           </table>
+          </div>
         </div>
       </section>
     </template>
 
     <AppSheet v-if="editing" title="Spende bearbeiten" @close="editing = null">
-      <DonationAssignPanel :transaction="editing" @matched="saved" />
+      <DonationAssignPanel :transaction="editing" form-id="donation-edit" @matched="saved" />
       <template #footer>
         <button type="button" class="btn btn-secondary" @click="editing = null">Abbrechen</button>
+        <button type="submit" form="donation-edit" class="btn btn-primary">Speichern</button>
       </template>
     </AppSheet>
   </div>

@@ -2,10 +2,11 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { CornerDownRight, Download, Loader2, MessageSquareWarning } from 'lucide-vue-next';
 import { api } from '@/api';
-import type { OwnEinstufungLetter, OwnFees } from '@/api/types';
+import type { OwnDonationYear, OwnEinstufungLetter, OwnFees } from '@/api/types';
 import { formatCurrency, formatDate, formatMonthName, todayISO } from '@/utils/format';
 import { getFeePeriodLabel, getFeeTypeName } from '@/utils/fees';
 import ReportDialog from '@/components/family/ReportDialog.vue';
+import DonationYearList from '@/components/DonationYearList.vue';
 import PageHeader from '@/components/ui/PageHeader.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
 import { currentYear, yearOptions } from '@/utils/years';
@@ -85,6 +86,14 @@ async function downloadLetter(letter: OwnEinstufungLetter) {
   }
 }
 onMounted(loadLetters);
+
+// Donations credited to the household; independent of the selected year, hidden when there are none.
+const donations = ref<OwnDonationYear[]>([]);
+const donationsError = ref('');
+onMounted(async () => {
+  try { donations.value = await api.getOwnDonations(); }
+  catch (e) { donationsError.value = e instanceof Error ? e.message : 'Spenden konnten nicht geladen werden'; }
+});
 </script>
 <template>
   <div class="space-y-5">
@@ -198,6 +207,11 @@ onMounted(loadLetters);
           </button>
         </li>
       </ul>
+    </section>
+    <p v-if="donationsError" role="alert" class="note note-danger">{{ donationsError }}</p>
+    <section v-if="donations.length" class="space-y-2" aria-labelledby="donations-heading">
+      <h2 id="donations-heading" class="text-lg font-semibold">Spenden</h2>
+      <DonationYearList :years="donations" />
     </section>
     <ReportDialog v-if="reportId" topic="FEE" :reference-id="reportId"
       @close="reportId = null" @saved="reportId = null" />

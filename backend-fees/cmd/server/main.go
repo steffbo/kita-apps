@@ -151,6 +151,7 @@ func main() {
 	parentAccountService := service.NewParentAccountService(accountRepo, parentWorkService)
 	einstufungLetterRepo := repository.NewEinstufungLetterRepository(db)
 	parentAccountService.UseEinstufungLetters(einstufungLetterRepo)
+	parentAccountService.UseDonations(transactionRepo)
 
 	// Initialize handlers
 	handlers := &api.Handlers{

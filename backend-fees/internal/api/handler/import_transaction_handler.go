@@ -280,6 +280,10 @@ func (h *ImportHandler) HideTransaction(w http.ResponseWriter, r *http.Request) 
 			response.NotFound(w, "transaction not found")
 			return
 		}
+		if errors.Is(err, service.ErrInvalidInput) {
+			response.BadRequest(w, "Zugeordnete Ratenzahlungen und Spenden lassen sich nicht ausblenden")
+			return
+		}
 		response.InternalError(w, "failed to hide transaction")
 		return
 	}

@@ -101,16 +101,20 @@ test('a donation is credited to a household; the next one from the same IBAN sug
   await uploadPayment(playwright, baseURL, { payer, iban, purpose: `Spende erste ${payer}`, amount: '60,00' });
   let dialog = await openDonationDialog(`erste ${payer}`);
   await expect(dialog.getByText(/Vorschlag über IBAN/)).toHaveCount(0);
-  await dialog.getByLabel('Haushalt suchen').fill(name);
-  await dialog.getByRole('button', { name }).click();
-  await expect(dialog.getByRole('button', { name })).toHaveAttribute('aria-pressed', 'true');
+  const search = dialog.getByPlaceholder('Familie, Kind oder Mitglied suchen');
+  await search.fill(name);
+  // Enter in the search must not submit the assignment.
+  await search.press('Enter');
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole('button', { name, exact: true }).click();
+  await expect(dialog.getByText(`Familie: ${name}`)).toBeVisible();
   await dialog.getByRole('button', { name: /Als Spende zuordnen/ }).click();
   await expect(dialog).toBeHidden();
 
   await uploadPayment(playwright, baseURL, { payer, iban, purpose: `Spende zweite ${payer}`, amount: '25,00' });
   dialog = await openDonationDialog(`zweite ${payer}`);
-  await expect(dialog.getByText(`Vorschlag über IBAN: ${name}`)).toBeVisible();
-  await expect(dialog.getByRole('button', { name })).toHaveAttribute('aria-pressed', 'true');
+  await expect(dialog.getByText('Vorschlag über IBAN')).toBeVisible();
+  await expect(dialog.getByText(`Familie: ${name}`)).toBeVisible();
   await dialog.getByRole('button', { name: /Als Spende zuordnen/ }).click();
   await expect(dialog).toBeHidden();
 
@@ -121,9 +125,70 @@ test('a donation is credited to a household; the next one from the same IBAN sug
   await page.getByRole('button', { name: `Spende von ${payer} bearbeiten` }).first().click();
   const edit = page.getByRole('dialog', { name: 'Spende bearbeiten' });
   await edit.getByLabel('Notiz (optional)').fill('Weihnachten');
-  await edit.getByRole('button', { name: 'Entfernen' }).click();
+  await edit.getByRole('button', { name: 'Haushalt entfernen' }).click();
   await edit.getByRole('button', { name: 'Speichern' }).click();
   await expect(edit).toBeHidden();
   await expect(page.getByRole('cell', { name, exact: true })).toHaveCount(1);
   await expect(page.getByRole('cell', { name: 'Weihnachten', exact: true })).toBeVisible();
+});
+
+test('parents see the donations of their household without bank details; staff see them on the household', async ({ adminApi, adminPage, browser, playwright, baseURL }) => {
+  // A family whose household is created by linking the parent to the child.
+  const family = async (label: string) => {
+    const suffix = uniq();
+    const today = berlinToday();
+    const email = `spende-${suffix}@e2e.test`;
+    const child = await adminApi.post<{ id: string }>('/children', {
+      memberNumber: String(10_000_000 + Math.floor(Math.random() * 90_000_000)), firstName: label, lastName: suffix,
+      birthDate: `${today.year - 5}-01-01`, entryDate: `${today.year - 2}-01-01`,
+    });
+    const parent = await adminApi.post<{ id: string }>('/parents', { firstName: 'Eva', lastName: suffix, email });
+    await adminApi.post(`/children/${child.id}/parents`, { parentId: parent.id, isPrimary: true });
+    const { householdId } = await adminApi.get<{ householdId: string }>(`/children/${child.id}`);
+    return { childId: child.id, email, householdId };
+  };
+  const donate = async (payer: string, householdId: string, note: string) => {
+    const iban = uniqueIban();
+    await uploadPayment(playwright, baseURL, { payer, iban, purpose: 'Geheimer Zweck', amount: '75,00' });
+    const { data } = await adminApi.get<{ data: { id: string }[] }>(`/import/transactions?status=offen&search=${iban}`);
+    await adminApi.post(`/import/transactions/${data[0].id}/assign`, { kind: 'DONATION', note, householdId });
+    return iban;
+  };
+
+  const own = await family('KindSpende');
+  const other = await family('KindAnders');
+  const ownPayer = `Oma${uniq()}`;
+  const otherPayer = `Opa${uniq()}`;
+  const iban = await donate(ownPayer, own.householdId, 'Interne Notiz');
+  await donate(otherPayer, other.householdId, '');
+
+  const password = `pw-${uniq()}`;
+  await adminApi.post('/users', { email: own.email, firstName: 'Eva', lastName: 'Eltern', role: 'PARENT', isActive: true, password });
+  const context = await browser.newContext();
+  try {
+    const token = await loginContext(context, own.email, password);
+    const res = await context.request.get(`${API}/me/donations`, { headers: { Authorization: `Bearer ${token}` } });
+    expect(res.ok()).toBeTruthy();
+    const body = await res.text();
+    expect(body).toContain(ownPayer);
+    for (const secret of [otherPayer, iban, 'Interne Notiz', 'Geheimer Zweck']) expect(body).not.toContain(secret);
+
+    const page = await context.newPage();
+    await page.goto('/beitraege/familie/beitraege');
+    const section = page.getByRole('region', { name: 'Spenden', exact: true });
+    await expect(section.getByText(ownPayer)).toBeVisible();
+    await expect(section.getByText('75,00 €').first()).toBeVisible();
+    await expect(page.getByText(otherPayer)).toHaveCount(0);
+    await expect(page.getByText('Interne Notiz')).toHaveCount(0);
+  } finally {
+    await context.close();
+  }
+
+  // Staff: on the child's household and on the household's Elternstunden page.
+  await adminPage.goto(`/beitraege/kinder/${own.childId}`);
+  const card = adminPage.getByRole('region', { name: 'Spenden des Haushalts' });
+  await expect(card.getByText(ownPayer)).toBeVisible();
+  await expect(card.getByText(otherPayer)).toHaveCount(0);
+  await adminPage.goto(`/beitraege/elternstunden/familien/${own.householdId}`);
+  await expect(adminPage.getByRole('region', { name: 'Spenden des Haushalts' }).getByText(ownPayer)).toBeVisible();
 });

@@ -10,6 +10,7 @@ import EntryDialog from '@/components/parent-work/EntryDialog.vue';
 import SortTh from '@/components/SortTh.vue';
 import PageHeader from '@/components/ui/PageHeader.vue';
 import AppSheet from '@/components/ui/AppSheet.vue';
+import HouseholdDonationsCard from '@/components/HouseholdDonationsCard.vue';
 
 const route = useRoute();
 const auth = useAuthStore();
@@ -146,6 +147,7 @@ function source(source: string) { return source === 'IMPORT' ? 'Import' : source
           <button class="btn btn-primary btn-sm" @click="review(e.id, true)">Bestätigen</button>
           <button class="btn btn-secondary btn-sm" @click="rejectEntry = e">Ablehnen</button>
         </div><div v-else-if="auth.canManageParentWork && e.status !== 'VOIDED'" class="flex gap-2"><button class="btn btn-secondary btn-sm" @click="editingEntry = e; entryDialog = true">Bearbeiten</button><button class="btn btn-danger-outline btn-sm" @click="voidEntry = e; voidReason = ''; actionError = ''">Stornieren</button></div></td></tr><tr v-if="!detail.entries?.length"><td :colspan="auth.canManageParentWork ? 8 : 7" class="px-4 py-6 text-center text-muted-foreground">Keine Einträge.</td></tr></tbody></table></div></section>
+      <HouseholdDonationsCard v-if="auth.canAccessFees" :household-id="String(route.params.id)" />
       <section v-if="detail.boardTerms?.length" class="card overflow-hidden"><h2 class="px-4 pb-1 pt-4 text-base font-semibold">Vorstands-Amtszeiten</h2><div class="overflow-x-auto"><table class="table"><thead><tr><th>Mitglied</th><th>Amt</th><th>Von</th><th>Bis</th></tr></thead><tbody><tr v-for="term in detail.boardTerms" :key="term.id"><td>{{ term.memberName }}</td><td>{{ term.office }}</td><td>{{ formatDate(term.startDate) }}</td><td>{{ formatDate(term.endDate) }}</td></tr></tbody></table></div></section>
     </template>
     <AppSheet v-if="rejectEntry" title="Meldung ablehnen" @close="rejectEntry = null">

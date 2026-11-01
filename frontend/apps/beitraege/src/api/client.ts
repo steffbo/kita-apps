@@ -44,6 +44,7 @@ import type {
   UnmatchResult,
   DonationReport,
   DonationInput,
+  OwnDonationYear,
   ChildUnmatchedSuggestionsResponse,
   AllocationInput,
   AllocateTransactionResult,
@@ -302,6 +303,7 @@ class ApiClient {
   // Elternkonto und Admin-Prüfung
   getOwnOverview(): Promise<OwnOverview> { return this.request('/me'); }
   getOwnFees(year: number): Promise<OwnFees> { return this.request(`/me/fees?year=${year}`); }
+  getOwnDonations(): Promise<OwnDonationYear[]> { return this.request('/me/donations'); }
   getOwnEinstufungLetters(): Promise<OwnEinstufungLetter[]> { return this.request('/me/einstufung-letters'); }
   getOwnEinstufungLetter(id: string): Promise<DownloadedFile> { return this.requestFile(`/me/einstufung-letters/${id}/pdf`); }
   getOwnWork(year?: number): Promise<OwnWork> {
@@ -1005,21 +1007,23 @@ class ApiClient {
   }
 
   async assignTransactionAsDonation(transactionId: string, data: DonationInput): Promise<void> {
-    return this.request<void>(`/import/transactions/${transactionId}/assign`, {
-      method: 'POST',
-      body: JSON.stringify({ kind: 'DONATION', ...data }),
-    });
+    return this.saveDonation('POST', transactionId, data);
   }
 
   async updateDonation(transactionId: string, data: DonationInput): Promise<void> {
+    return this.saveDonation('PUT', transactionId, data);
+  }
+
+  private saveDonation(method: 'POST' | 'PUT', transactionId: string, data: DonationInput): Promise<void> {
     return this.request<void>(`/import/transactions/${transactionId}/assign`, {
-      method: 'PUT',
+      method,
       body: JSON.stringify({ kind: 'DONATION', ...data }),
     });
   }
 
-  async getDonations(): Promise<DonationReport> {
-    return this.request<DonationReport>('/import/donations');
+  async getDonations(householdId?: string): Promise<DonationReport> {
+    const query = householdId ? `?householdId=${encodeURIComponent(householdId)}` : '';
+    return this.request<DonationReport>(`/import/donations${query}`);
   }
 
   async allocateTransaction(transactionId: string, allocations: AllocationInput[]): Promise<AllocateTransactionResult> {
@@ -1330,6 +1334,7 @@ class ApiClient {
   getParentWorkOverview(kitaYear?: number): Promise<ParentWorkOverview> {
     return this.request(`/parent-work/overview${kitaYear === undefined ? '' : `?kitaYear=${kitaYear}`}`);
   }
+  getHouseholdOptions(): Promise<ParentWorkHouseholdOption[]> { return this.request('/households/options'); }
   getParentWorkHouseholds(search?: string): Promise<ParentWorkHouseholdOption[]> {
     return this.request(`/parent-work/households${search ? `?search=${encodeURIComponent(search)}` : ''}`);
   }

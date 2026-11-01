@@ -290,6 +290,7 @@ func TestRouter_RoleAreas(t *testing.T) {
 		{"/import/transactions", staff},
 		{"/import/history", staff},
 		{"/import/donations", staff},
+		{"/households/options", staff},
 		{"/banking-sync/status", map[string]bool{"ADMIN": true}},
 	}
 	for _, role := range []string{"ADMIN", "USER", "PARENT_WORK", "LEITUNG", "PARENT"} {

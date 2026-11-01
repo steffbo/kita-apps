@@ -30,12 +30,12 @@ func (r *PostgresMatchRepository) Create(ctx context.Context, match *domain.Paym
 	}
 	defer tx.Rollback()
 	var occupied bool
-	// Both assignment paths lock the bank row before checking the other ledger.
+	// Every assignment path locks the bank row before checking the other ledgers.
 	var id uuid.UUID
 	if err = tx.GetContext(ctx, &id, `SELECT id FROM fees.bank_transactions WHERE id=$1 FOR UPDATE`, match.TransactionID); err != nil {
 		return err
 	}
-	if err = tx.GetContext(ctx, &occupied, `SELECT EXISTS(SELECT 1 FROM fees.installment_payments WHERE transaction_id=$1) OR EXISTS(SELECT 1 FROM fees.transaction_assignments WHERE transaction_id=$1)`, match.TransactionID); err != nil {
+	if err = tx.GetContext(ctx, &occupied, `SELECT `+inOtherLedger("$1"), match.TransactionID); err != nil {
 		return err
 	}
 	if occupied {

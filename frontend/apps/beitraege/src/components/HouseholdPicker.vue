@@ -1,69 +1,46 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue';
-import { api } from '@/api';
-import type { Household } from '@/api/types';
-import { Check, Loader2 } from 'lucide-vue-next';
+import { computed, ref } from 'vue';
+import type { ParentWorkHouseholdOption } from '@/api/types';
 import SearchInput from '@/components/SearchInput.vue';
 
-// Searchable single-select list of households. `modelValue` is the selected household id.
-defineProps<{ modelValue: string | null }>();
-const emit = defineEmits<{
-  'update:modelValue': [id: string];
-  select: [household: Household];
-  error: [message: string];
+const props = defineProps<{
+  households: ParentWorkHouseholdOption[];
+  modelValue?: string;
+  label: string;
+  /** No household is a valid choice, so the empty state is no warning. */
+  optional?: boolean;
 }>();
-
-const households = ref<Household[]>([]);
-const isLoading = ref(false);
-const query = ref('');
-let request = 0;
-let timer: ReturnType<typeof setTimeout> | undefined;
-
-// Only the latest search may fill the list; the endpoint returns at most 100 households.
-async function load(): Promise<void> {
-  const current = ++request;
-  isLoading.value = true;
-  try {
-    const result = await api.getHouseholds({ search: query.value.trim() || undefined, perPage: 100 });
-    if (current === request) households.value = result.data;
-  } catch (e) {
-    emit('error', e instanceof Error ? e.message : 'Haushalte konnten nicht geladen werden');
-  } finally {
-    if (current === request) isLoading.value = false;
-  }
-}
-
-watch(query, () => {
-  clearTimeout(timer);
-  timer = setTimeout(() => void load(), 150);
+const emit = defineEmits<{ 'update:modelValue': [value: string] }>();
+const search = ref('');
+const open = ref(false);
+const selected = computed(() => props.households.find(h => h.id === props.modelValue));
+const matches = computed(() => {
+  const query = search.value.trim().toLocaleLowerCase('de');
+  return props.households.filter(h => !query || [h.name, ...h.children.map(c => c.name),
+    ...h.members.map(m => m.name), ...h.parents.map(p => p.name)]
+    .some(name => name.toLocaleLowerCase('de').includes(query))).slice(0, 30);
 });
-onMounted(load);
-
-function pick(household: Household): void {
-  emit('update:modelValue', household.id);
-  emit('select', household);
+function select(id: string) {
+  emit('update:modelValue', id);
+  search.value = '';
+  open.value = false;
 }
 </script>
 
 <template>
-  <div class="space-y-2">
-    <SearchInput v-model="query" placeholder="Familie suchen" label="Haushalt suchen" />
-    <div v-if="isLoading" class="flex justify-center py-4">
-      <Loader2 class="h-5 w-5 animate-spin text-muted-foreground" />
+  <div class="relative">
+    <label class="block text-sm font-medium">{{ label }}
+      <SearchInput v-model="search" placeholder="Familie, Kind oder Mitglied suchen" class="mt-1 font-normal"
+        @focus="open = true" @input="open = true" @blur="open = false" @keydown.escape="open = false" @keydown.enter.prevent />
+    </label>
+    <p v-if="selected" class="mt-1 text-sm text-foreground">Familie: {{ selected.name }}</p>
+    <p v-else class="mt-1 text-sm" :class="optional ? 'text-muted-foreground' : 'text-warning'">Keine Familie ausgewählt</p>
+    <div v-if="open"
+      class="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border bg-popover shadow-lg">
+      <button v-for="household in matches" :key="household.id" type="button"
+        class="block w-full px-3 py-2 text-left text-sm hover:bg-accent"
+        @mousedown.prevent @click="select(household.id)">{{ household.name }}</button>
+      <p v-if="!matches.length" class="px-3 py-2 text-sm text-muted-foreground">Keine Familie gefunden</p>
     </div>
-    <ul v-else class="card max-h-64 divide-y overflow-y-auto">
-      <li v-for="household in households" :key="household.id">
-        <button type="button"
-          class="flex min-h-12 w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-accent"
-          :class="modelValue === household.id && 'bg-primary-soft text-primary-text'"
-          :aria-pressed="modelValue === household.id" @click="pick(household)">
-          <span class="min-w-0 flex-1 truncate font-medium">{{ household.name }}</span>
-          <Check v-if="modelValue === household.id" class="h-4 w-4 shrink-0" />
-        </button>
-      </li>
-      <li v-if="households.length === 0" class="px-4 py-6 text-center text-sm text-muted-foreground">
-        Kein Haushalt gefunden
-      </li>
-    </ul>
   </div>
 </template>

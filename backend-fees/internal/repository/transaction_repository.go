@@ -178,16 +178,22 @@ func buildOrderByClause(sortBy, sortDir string) string {
 	return fmt.Sprintf("%s %s, bt.id ASC", orderColumn, orderDirection)
 }
 
+// inOtherLedger is the SQL condition "the transaction belongs to a plan or has a purpose", the two
+// assignment kinds that always take the whole transaction. txID is a column or parameter reference.
+func inOtherLedger(txID string) string {
+	return fmt.Sprintf(`(EXISTS(SELECT 1 FROM fees.installment_payments ip WHERE ip.transaction_id=%[1]s)
+	OR EXISTS(SELECT 1 FROM fees.transaction_assignments ta WHERE ta.transaction_id=%[1]s))`, txID)
+}
+
+// transactionOccupiedSQL is true when a transaction with ID $1 already has fee matches, a plan payment or a purpose.
+// Assigning to a plan or purpose locks the bank row first and checks this; fee matches check inOtherLedger only,
+// because a transaction can be split across several fees.
+var transactionOccupiedSQL = `EXISTS(SELECT 1 FROM fees.payment_matches WHERE transaction_id=$1) OR ` + inOtherLedger("$1")
+
 // listUnmatchedCondition matches transactions that are not fully allocated yet.
 // Partially allocated transactions stay listed until their remaining amount is zero.
-const listUnmatchedCondition = `NOT EXISTS(SELECT 1 FROM fees.installment_payments ip WHERE ip.transaction_id=bt.id) AND NOT EXISTS(SELECT 1 FROM fees.transaction_assignments ta WHERE ta.transaction_id=bt.id) AND bt.amount > 0 AND bt.is_hidden = false AND
+var listUnmatchedCondition = `NOT ` + inOtherLedger("bt.id") + ` AND bt.amount > 0 AND bt.is_hidden = false AND
 	COALESCE((SELECT SUM(pm.amount) FROM fees.payment_matches pm WHERE pm.transaction_id = bt.id), 0) < bt.amount - 0.005`
-
-// transactionOccupiedSQL is true when a transaction already has fee matches, a plan payment or a purpose.
-// Every path that assigns a transaction locks the bank row first and checks this.
-const transactionOccupiedSQL = `EXISTS(SELECT 1 FROM fees.payment_matches WHERE transaction_id=$1)
-	OR EXISTS(SELECT 1 FROM fees.installment_payments WHERE transaction_id=$1)
-	OR EXISTS(SELECT 1 FROM fees.transaction_assignments WHERE transaction_id=$1)`
 
 // listMatchedAmountExpr computes the total amount already allocated for a transaction.
 const listMatchedAmountExpr = `COALESCE((SELECT SUM(pm.amount) FROM fees.payment_matches pm WHERE pm.transaction_id = bt.id), 0)`
@@ -199,7 +205,7 @@ func (r *PostgresTransactionRepository) ListUnmatched(ctx context.Context, searc
 	return r.listTransactions(ctx, listUnmatchedCondition, search, sortBy, sortDir, offset, limit)
 }
 
-const listHasMatches = `(EXISTS(SELECT 1 FROM fees.installment_payments ip WHERE ip.transaction_id=bt.id) OR EXISTS(SELECT 1 FROM fees.transaction_assignments ta WHERE ta.transaction_id=bt.id) OR EXISTS (
+var listHasMatches = `(` + inOtherLedger("bt.id") + ` OR EXISTS (
  SELECT 1 FROM fees.payment_matches pm WHERE pm.transaction_id = bt.id
 ))`
 
@@ -222,7 +228,14 @@ func (r *PostgresTransactionRepository) ListTransactions(
 	case "warnungen":
 		condition = listHasWarnings
 	}
-	return r.listTransactions(ctx, condition, literalTransactionSearch(search), sortBy, sortDir, offset, limit)
+	rows, total, err := r.listTransactions(ctx, condition, literalTransactionSearch(search), sortBy, sortDir, offset, limit)
+	if err != nil {
+		return nil, 0, err
+	}
+	if err := r.enrichHouseholdSuggestions(ctx, rows); err != nil {
+		return nil, 0, err
+	}
+	return rows, total, nil
 }
 
 func (r *PostgresTransactionRepository) listTransactions(
@@ -362,9 +375,7 @@ func (r *PostgresTransactionRepository) DeleteUnmatchedByIBAN(ctx context.Contex
 		DELETE FROM fees.bank_transactions
 		WHERE payer_iban = $1
 		AND id NOT IN (SELECT transaction_id FROM fees.payment_matches)
- AND NOT EXISTS(SELECT 1 FROM fees.installment_payments ip WHERE ip.transaction_id=fees.bank_transactions.id)
- AND NOT EXISTS(SELECT 1 FROM fees.transaction_assignments ta WHERE ta.transaction_id=fees.bank_transactions.id)
-	`, iban)
+		AND NOT `+inOtherLedger("fees.bank_transactions.id"), iban)
 	if err != nil {
 		return 0, err
 	}
@@ -402,6 +413,9 @@ func (r *PostgresTransactionRepository) ListMatched(ctx context.Context, search,
 func (r *PostgresTransactionRepository) enrichInstallments(ctx context.Context, rows []domain.BankTransaction) error {
 	for i := range rows {
 		t := &rows[i]
+		if t.Assignment != nil {
+			continue // Has a purpose, so neither a plan payment nor a plan suggestion.
+		}
 		link := &domain.InstallmentPaymentLink{}
 		err := conn(ctx, r.db).GetContext(ctx, link, `SELECT ip.id AS payment_id,ip.plan_id,p.debtor_name FROM fees.installment_payments ip JOIN fees.installment_plans p ON p.id=ip.plan_id WHERE ip.transaction_id=$1`, t.ID)
 		if err == nil {
@@ -428,16 +442,13 @@ func (r *PostgresTransactionRepository) enrichInstallments(ctx context.Context, 
 }
 
 func (r *PostgresTransactionRepository) enrich(ctx context.Context, rows []domain.BankTransaction) error {
-	if err := r.enrichInstallments(ctx, rows); err != nil {
-		return err
-	}
 	if err := r.enrichAssignments(ctx, rows); err != nil {
 		return err
 	}
-	return r.enrichHouseholdSuggestions(ctx, rows)
+	return r.enrichInstallments(ctx, rows)
 }
 
-// isOpenIncoming reports an incoming transaction without any allocation (needs the enrichment of the other ledgers first).
+// isOpenIncoming reports an incoming list row without any allocation; it needs matched_amount and enrich.
 func isOpenIncoming(t *domain.BankTransaction) bool {
 	return t.Amount > 0 && !t.HasExclusiveAssignment() && (t.MatchedAmount == nil || *t.MatchedAmount == 0)
 }
@@ -575,8 +586,8 @@ func mapMissingHousehold(err error) error {
 	return err
 }
 
-// ListAssigned returns the transactions with the given purpose, newest first.
-func (r *PostgresTransactionRepository) ListAssigned(ctx context.Context, kind domain.AssignmentKind) ([]domain.BankTransaction, error) {
+// ListAssigned returns the transactions with the given purpose, newest first; householdID narrows them to one household.
+func (r *PostgresTransactionRepository) ListAssigned(ctx context.Context, kind domain.AssignmentKind, householdID *uuid.UUID) ([]domain.BankTransaction, error) {
 	var rows []domain.BankTransaction
 	err := conn(ctx, r.db).SelectContext(ctx, &rows, `
 		SELECT bt.id, bt.booking_date, bt.value_date, bt.payer_name, bt.payer_iban,
@@ -584,9 +595,9 @@ func (r *PostgresTransactionRepository) ListAssigned(ctx context.Context, kind d
 		       bt.is_hidden, bt.hidden_at, bt.hidden_by
 		FROM fees.bank_transactions bt
 		JOIN fees.transaction_assignments ta ON ta.transaction_id = bt.id
-		WHERE ta.kind = $1
+		WHERE ta.kind = $1 AND ($2::uuid IS NULL OR ta.household_id = $2)
 		ORDER BY bt.booking_date DESC, bt.id ASC
-	`, kind)
+	`, kind, householdID)
 	if err != nil {
 		return nil, err
 	}

@@ -50,7 +50,7 @@ Icons in `btn`/`note` brauchen keine Größe (`<Plus />`), das setzt die Klasse.
   `composables/usePagedList.ts`.
 - `EmptyState`: leere Liste (`icon`, `text`, optional Aktion im Slot).
 - `DetailRow`: Bezeichnung/Wert-Zeile in `<dl class="card divide-y text-sm">` (`label`, optional `value-class`).
-- Weiterhin: `SearchInput`, `SortTh`.
+- Weiterhin: `SearchInput`, `SortTh`, `HouseholdPicker` (Haushalt wählen; Liste kommt vom Aufrufer, `optional` wenn keiner erlaubt ist).
 
 ## Listen auf dem Handy
 

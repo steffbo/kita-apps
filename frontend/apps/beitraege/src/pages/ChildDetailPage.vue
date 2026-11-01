@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import ChildPaymentsCard from '@/components/child/ChildPaymentsCard.vue';
 import ChildHouseholdCard from '@/components/child/ChildHouseholdCard.vue';
+import HouseholdDonationsCard from '@/components/HouseholdDonationsCard.vue';
 import ChildInformationCard from '@/components/child/ChildInformationCard.vue';
 import { ref, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
@@ -382,6 +383,7 @@ async function createReminder() {
           :cancelEditingHousehold="cancelEditingHousehold"
           :saveHouseholdEdit="saveHouseholdEdit"
         />
+      <HouseholdDonationsCard v-if="authStore.canAccessFees && child.householdId" :household-id="child.householdId" class="mb-6" />
       <ChildNotesCard v-if="authStore.canAccessFees" :child-id="childId" />
 
       <!-- Fees section (not for Leitung) -->
