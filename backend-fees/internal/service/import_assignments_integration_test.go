@@ -40,21 +40,21 @@ func TestImportService_DonationAssignment(t *testing.T) {
 	out := mk("TESTDON00004", -20, day(2026, 1, 2))
 
 	for _, tx := range []*domain.BankTransaction{a, b, c} {
-		if err := svc.AssignTransaction(ctx, tx.ID, domain.AssignmentDonation, "  Sommerfest ", user); err != nil {
+		if err := svc.AssignTransaction(ctx, tx.ID, domain.AssignmentInput{Kind: domain.AssignmentDonation, Note: "  Sommerfest "}, user); err != nil {
 			t.Fatal(err)
 		}
 	}
 	// Not assignable: second assignment, outgoing, unknown kind, overlong note, unknown ID.
-	if err := svc.AssignTransaction(ctx, a.ID, domain.AssignmentDonation, "", user); !errors.Is(err, service.ErrInvalidInput) {
+	if err := svc.AssignTransaction(ctx, a.ID, domain.AssignmentInput{Kind: domain.AssignmentDonation, Note: ""}, user); !errors.Is(err, service.ErrInvalidInput) {
 		t.Fatalf("double assignment: %v", err)
 	}
-	if err := svc.AssignTransaction(ctx, out.ID, domain.AssignmentDonation, "", user); !errors.Is(err, service.ErrInvalidInput) {
+	if err := svc.AssignTransaction(ctx, out.ID, domain.AssignmentInput{Kind: domain.AssignmentDonation, Note: ""}, user); !errors.Is(err, service.ErrInvalidInput) {
 		t.Fatalf("outgoing: %v", err)
 	}
-	if err := svc.AssignTransaction(ctx, out.ID, "SUBSIDY", "", user); !errors.Is(err, service.ErrInvalidInput) {
+	if err := svc.AssignTransaction(ctx, out.ID, domain.AssignmentInput{Kind: domain.AssignmentKind("SUBSIDY"), Note: ""}, user); !errors.Is(err, service.ErrInvalidInput) {
 		t.Fatalf("kind: %v", err)
 	}
-	if err := svc.AssignTransaction(ctx, uuid.New(), domain.AssignmentDonation, "", user); !errors.Is(err, service.ErrNotFound) {
+	if err := svc.AssignTransaction(ctx, uuid.New(), domain.AssignmentInput{Kind: domain.AssignmentDonation}, user); !errors.Is(err, service.ErrNotFound) {
 		t.Fatalf("unknown: %v", err)
 	}
 
@@ -106,7 +106,7 @@ func TestImportService_DonationAssignment(t *testing.T) {
 	if _, err := svc.CreateManualMatch(ctx, d.ID, fee.ID, user); err != nil {
 		t.Fatal(err)
 	}
-	if err := svc.AssignTransaction(ctx, d.ID, domain.AssignmentDonation, "", user); !errors.Is(err, service.ErrInvalidInput) {
+	if err := svc.AssignTransaction(ctx, d.ID, domain.AssignmentInput{Kind: domain.AssignmentDonation, Note: ""}, user); !errors.Is(err, service.ErrInvalidInput) {
 		t.Fatalf("donation on fee match: %v", err)
 	}
 
@@ -122,4 +122,65 @@ func TestImportService_DonationAssignment(t *testing.T) {
 	if report, _ = svc.GetDonations(ctx); report.Count != 2 {
 		t.Fatalf("report after unmatch %+v", report)
 	}
+
+	// Household: stored with the donation, shown in the report, unknown ids refused, editable.
+	hh := uuid.New()
+	other := uuid.New()
+	for id, name := range map[uuid.UUID]string{hh: "TESTFamilie Spende", other: "TESTFamilie Andere"} {
+		if _, err := testDB.Exec(`INSERT INTO fees.households (id, name) VALUES ($1, $2)`, id, name); err != nil {
+			t.Fatal(err)
+		}
+	}
+	e := mk("TESTDON00006", 40, day(2026, 5, 5))
+	if err := svc.AssignTransaction(ctx, e.ID, domain.AssignmentInput{Kind: domain.AssignmentDonation, HouseholdID: ptr(uuid.New())}, user); !errors.Is(err, service.ErrNotFound) {
+		t.Fatalf("unknown household: %v", err)
+	}
+	if err := svc.AssignTransaction(ctx, e.ID, domain.AssignmentInput{Kind: domain.AssignmentDonation, HouseholdID: &hh}, user); err != nil {
+		t.Fatal(err)
+	}
+	report, _ = svc.GetDonations(ctx)
+	var got *domain.TransactionAssignment
+	for _, y := range report.Years {
+		for _, tx := range y.Transactions {
+			if tx.ID == e.ID {
+				got = tx.Assignment
+			}
+		}
+	}
+	if got == nil || got.HouseholdID == nil || *got.HouseholdID != hh || got.HouseholdName != "TESTFamilie Spende" {
+		t.Fatalf("household not reported: %+v", got)
+	}
+	if err := svc.UpdateAssignment(ctx, e.ID, domain.AssignmentInput{Kind: domain.AssignmentDonation, Note: "neu", HouseholdID: &other}); err != nil {
+		t.Fatal(err)
+	}
+	if err := svc.UpdateAssignment(ctx, uuid.New(), domain.AssignmentInput{Kind: domain.AssignmentDonation}); !errors.Is(err, service.ErrNotFound) {
+		t.Fatalf("update unknown: %v", err)
+	}
+
+	// Suggestion for the next open payment of the same IBAN (earlier donation), and from a trusted child IBAN.
+	next := mk("TESTDON00006", 40, day(2026, 6, 5))
+	open, _, err = txRepo.ListTransactions(ctx, "offen", "TESTDON00006", "date", "desc", 0, 10)
+	if err != nil || len(open) != 1 || open[0].ID != next.ID || open[0].HouseholdSuggestion == nil || open[0].HouseholdSuggestion.HouseholdID != other {
+		t.Fatalf("iban suggestion %+v %v", open, err)
+	}
+	if _, err := testDB.Exec(`UPDATE fees.children SET household_id=$1 WHERE id=$2`, hh, child.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := testDB.Exec(`INSERT INTO fees.known_ibans (iban, status, child_id) VALUES ('TESTDON00007','trusted',$1)`, child.ID); err != nil {
+		t.Fatal(err)
+	}
+	f := mk("TESTDON00007", 15, day(2026, 6, 6))
+	open, _, _ = txRepo.ListTransactions(ctx, "offen", "TESTDON00007", "date", "desc", 0, 10)
+	if len(open) != 1 || open[0].ID != f.ID || open[0].HouseholdSuggestion == nil || open[0].HouseholdSuggestion.HouseholdID != hh {
+		t.Fatalf("child suggestion %+v", open)
+	}
+	if err := svc.AssignTransaction(ctx, f.ID, domain.AssignmentInput{Kind: domain.AssignmentDonation}, user); err != nil {
+		t.Fatal(err)
+	}
+	done, _, _ = txRepo.ListTransactions(ctx, "zugeordnet", "TESTDON00007", "date", "desc", 0, 10)
+	if len(done) != 1 || done[0].HouseholdSuggestion != nil {
+		t.Fatalf("assigned row keeps suggestion %+v", done)
+	}
 }
+
+func ptr[T any](v T) *T { return &v }

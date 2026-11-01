@@ -328,6 +328,7 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 					r.Post("/transactions/{id}/hide", handlers.Import.HideTransaction)
 					r.Post("/transactions/{id}/unmatch", handlers.Import.UnmatchTransaction)
 					r.Post("/transactions/{id}/assign", handlers.Import.AssignTransaction)
+					r.Put("/transactions/{id}/assign", handlers.Import.UpdateAssignment)
 					r.Get("/donations", handlers.Import.Donations)
 					r.Post("/transactions/{id}/allocate", handlers.Import.AllocateTransaction)
 					r.Post("/match", handlers.Import.ManualMatch)

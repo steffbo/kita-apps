@@ -14,11 +14,28 @@ import (
 
 const maxAssignmentNoteLength = 500
 
-// AssignTransaction gives an unassigned incoming transaction a purpose (currently only donations).
-// Fee matches, a plan payment or an earlier purpose make the transaction ineligible.
-func (s *ImportService) AssignTransaction(ctx context.Context, transactionID uuid.UUID, kind domain.AssignmentKind, note string, userID uuid.UUID) error {
-	note = strings.TrimSpace(note)
-	if kind != domain.AssignmentDonation || utf8.RuneCountInString(note) > maxAssignmentNoteLength {
+func validAssignmentInput(in *domain.AssignmentInput) bool {
+	in.Note = strings.TrimSpace(in.Note)
+	return in.Kind == domain.AssignmentDonation && utf8.RuneCountInString(in.Note) <= maxAssignmentNoteLength
+}
+
+// mapAssignmentError translates repository errors; a missing household or transaction is ErrNotFound.
+func mapAssignmentError(err error) error {
+	switch {
+	case errors.Is(err, repository.ErrNotFound):
+		return ErrNotFound
+	case errors.Is(err, repository.ErrDuplicate):
+		return ErrInvalidInput
+	default:
+		return err
+	}
+}
+
+// AssignTransaction gives an unassigned incoming transaction a purpose (currently only donations),
+// optionally credited to a household. Fee matches, a plan payment or an earlier purpose make the
+// transaction ineligible.
+func (s *ImportService) AssignTransaction(ctx context.Context, transactionID uuid.UUID, in domain.AssignmentInput, userID uuid.UUID) error {
+	if !validAssignmentInput(&in) {
 		return ErrInvalidInput
 	}
 	tx, err := s.transactionRepo.GetByID(ctx, transactionID)
@@ -28,14 +45,15 @@ func (s *ImportService) AssignTransaction(ctx context.Context, transactionID uui
 	if tx.Amount <= 0 || tx.HasExclusiveAssignment() {
 		return ErrInvalidInput
 	}
-	switch err := s.transactionRepo.Assign(ctx, transactionID, kind, note, userID); {
-	case errors.Is(err, repository.ErrNotFound):
-		return ErrNotFound
-	case errors.Is(err, repository.ErrDuplicate):
+	return mapAssignmentError(s.transactionRepo.Assign(ctx, transactionID, in, userID))
+}
+
+// UpdateAssignment changes note and household of an existing assignment.
+func (s *ImportService) UpdateAssignment(ctx context.Context, transactionID uuid.UUID, in domain.AssignmentInput) error {
+	if !validAssignmentInput(&in) {
 		return ErrInvalidInput
-	default:
-		return err
 	}
+	return mapAssignmentError(s.transactionRepo.UpdateAssignment(ctx, transactionID, in))
 }
 
 // DonationYear sums the donations booked in one calendar year.

@@ -431,7 +431,62 @@ func (r *PostgresTransactionRepository) enrich(ctx context.Context, rows []domai
 	if err := r.enrichInstallments(ctx, rows); err != nil {
 		return err
 	}
-	return r.enrichAssignments(ctx, rows)
+	if err := r.enrichAssignments(ctx, rows); err != nil {
+		return err
+	}
+	return r.enrichHouseholdSuggestions(ctx, rows)
+}
+
+// isOpenIncoming reports an incoming transaction without any allocation (needs the enrichment of the other ledgers first).
+func isOpenIncoming(t *domain.BankTransaction) bool {
+	return t.Amount > 0 && !t.HasExclusiveAssignment() && (t.MatchedAmount == nil || *t.MatchedAmount == 0)
+}
+
+// enrichHouseholdSuggestions proposes a household for open incoming transactions from their payer IBAN:
+// the household of the latest donation from that IBAN, else the household of a child the IBAN is trusted for.
+func (r *PostgresTransactionRepository) enrichHouseholdSuggestions(ctx context.Context, rows []domain.BankTransaction) error {
+	var ibans []string
+	for i := range rows {
+		t := &rows[i]
+		if t.PayerIBAN != nil && isOpenIncoming(t) {
+			ibans = append(ibans, *t.PayerIBAN)
+		}
+	}
+	if len(ibans) == 0 {
+		return nil
+	}
+	var found []struct {
+		IBAN string `db:"iban"`
+		domain.HouseholdSuggestion
+	}
+	err := conn(ctx, r.db).SelectContext(ctx, &found, `
+		SELECT DISTINCT ON (s.iban) s.iban, h.id AS household_id, h.name
+		FROM (
+			SELECT bt.payer_iban AS iban, ta.household_id, 1 AS prio, ta.assigned_at AS ts
+			FROM fees.transaction_assignments ta JOIN fees.bank_transactions bt ON bt.id = ta.transaction_id
+			WHERE ta.household_id IS NOT NULL AND bt.payer_iban = ANY($1)
+			UNION ALL
+			SELECT ki.iban, c.household_id, 2, ki.updated_at
+			FROM fees.known_ibans ki JOIN fees.children c ON c.id = ki.child_id
+			WHERE ki.status = 'trusted' AND c.household_id IS NOT NULL AND ki.iban = ANY($1)
+		) s JOIN fees.households h ON h.id = s.household_id
+		ORDER BY s.iban, s.prio, s.ts DESC`, pq.Array(ibans))
+	if err != nil {
+		return err
+	}
+	byIBAN := make(map[string]domain.HouseholdSuggestion, len(found))
+	for _, f := range found {
+		byIBAN[f.IBAN] = f.HouseholdSuggestion
+	}
+	for i := range rows {
+		if rows[i].PayerIBAN == nil {
+			continue
+		}
+		if sug, ok := byIBAN[*rows[i].PayerIBAN]; ok && isOpenIncoming(&rows[i]) {
+			rows[i].HouseholdSuggestion = &sug
+		}
+	}
+	return nil
 }
 
 // enrichAssignments attaches the assignment and counts the full amount as allocated.
@@ -447,7 +502,9 @@ func (r *PostgresTransactionRepository) enrichAssignments(ctx context.Context, r
 		TransactionID uuid.UUID `db:"transaction_id"`
 		domain.TransactionAssignment
 	}
-	if err := conn(ctx, r.db).SelectContext(ctx, &found, `SELECT transaction_id, kind, note, assigned_at FROM fees.transaction_assignments WHERE transaction_id = ANY($1)`, pq.Array(ids)); err != nil {
+	if err := conn(ctx, r.db).SelectContext(ctx, &found, `SELECT ta.transaction_id, ta.kind, ta.note, ta.assigned_at, ta.household_id, COALESCE(h.name, '') AS household_name
+		FROM fees.transaction_assignments ta LEFT JOIN fees.households h ON h.id = ta.household_id
+		WHERE ta.transaction_id = ANY($1)`, pq.Array(ids)); err != nil {
 		return err
 	}
 	byID := make(map[uuid.UUID]domain.TransactionAssignment, len(found))
@@ -466,7 +523,7 @@ func (r *PostgresTransactionRepository) enrichAssignments(ctx context.Context, r
 
 // Assign gives a transaction a purpose (e.g. donation). The row is locked first, like the
 // other assignment paths; a transaction with fee matches, a plan payment or a purpose is refused.
-func (r *PostgresTransactionRepository) Assign(ctx context.Context, transactionID uuid.UUID, kind domain.AssignmentKind, note string, userID uuid.UUID) error {
+func (r *PostgresTransactionRepository) Assign(ctx context.Context, transactionID uuid.UUID, in domain.AssignmentInput, userID uuid.UUID) error {
 	tx, err := beginTx(ctx, r.db)
 	if err != nil {
 		return err
@@ -486,11 +543,36 @@ func (r *PostgresTransactionRepository) Assign(ctx context.Context, transactionI
 	if occupied {
 		return ErrDuplicate
 	}
-	if _, err = tx.ExecContext(ctx, `INSERT INTO fees.transaction_assignments (transaction_id, kind, note, assigned_at, assigned_by) VALUES ($1,$2,$3,$4,$5)`,
-		transactionID, kind, note, util.Now(), userID); err != nil {
+	_, err = tx.ExecContext(ctx, `INSERT INTO fees.transaction_assignments (transaction_id, kind, note, household_id, assigned_at, assigned_by) VALUES ($1,$2,$3,$4,$5,$6)`,
+		transactionID, in.Kind, in.Note, in.HouseholdID, util.Now(), userID)
+	if err = mapMissingHousehold(err); err != nil {
 		return err
 	}
 	return tx.Commit()
+}
+
+// UpdateAssignment changes note and household of an existing assignment; the kind stays.
+func (r *PostgresTransactionRepository) UpdateAssignment(ctx context.Context, transactionID uuid.UUID, in domain.AssignmentInput) error {
+	result, err := conn(ctx, r.db).ExecContext(ctx, `UPDATE fees.transaction_assignments SET note=$2, household_id=$3 WHERE transaction_id=$1 AND kind=$4`,
+		transactionID, in.Note, in.HouseholdID, in.Kind)
+	if err = mapMissingHousehold(err); err != nil {
+		return err
+	}
+	if n, err := result.RowsAffected(); err != nil {
+		return err
+	} else if n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// mapMissingHousehold turns a foreign-key violation on household_id into ErrNotFound.
+func mapMissingHousehold(err error) error {
+	var pqErr *pq.Error
+	if errors.As(err, &pqErr) && pqErr.Code == "23503" {
+		return ErrNotFound
+	}
+	return err
 }
 
 // ListAssigned returns the transactions with the given purpose, newest first.

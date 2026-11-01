@@ -227,7 +227,7 @@ const dismissNote = computed({
                   </template>
 
                   <span v-if="row.tx.assignment" class="badge badge-success">
-                    <Heart class="h-3 w-3" />Spende
+                    <Heart class="h-3 w-3" />Spende<template v-if="row.tx.assignment.householdName"> · {{ row.tx.assignment.householdName }}</template>
                   </span>
 
                   <div v-if="row.matched && row.tx.matches && row.tx.matches.length > 0" class="flex flex-wrap gap-1">

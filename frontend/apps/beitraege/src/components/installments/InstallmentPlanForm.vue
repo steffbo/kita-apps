@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { computed, reactive, ref } from 'vue';
 import { api } from '@/api';
 import type {
   BankTransaction, Household, InstallmentDetail, InstallmentPlan, InstallmentRequest,
 } from '@/api/types';
-import { AlertTriangle, CalendarDays, Check, Link2, Loader2, Plus, X } from 'lucide-vue-next';
+import { AlertTriangle, CalendarDays, Link2, Loader2, Plus, X } from 'lucide-vue-next';
 import AppSheet from '@/components/ui/AppSheet.vue';
-import SearchInput from '@/components/SearchInput.vue';
+import HouseholdPicker from '@/components/HouseholdPicker.vue';
 import { formatCurrency, formatDate, formatDateForInput, todayISO } from '@/utils/format';
 import {
   INTERVAL_OPTIONS, debtorNameFromPayer, firstOfNextMonth, referenceFromPurpose, schedulePreviewText,
@@ -102,38 +102,9 @@ const previewText = computed(() => schedulePreviewText(
 ));
 
 // ── Schuldner ───────────────────────────────────────────────────────────────
-const households = ref<Household[]>([]);
-const isLoadingHouseholds = ref(false);
-const householdQuery = ref('');
-let householdRequest = 0;
-let householdSearchTimer: ReturnType<typeof setTimeout> | undefined;
-
-// Only the latest search may fill the list; the endpoint returns at most 100 households.
-async function loadHouseholds(): Promise<void> {
-  const request = ++householdRequest;
-  isLoadingHouseholds.value = true;
-  try {
-    const result = await api.getHouseholds({ search: householdQuery.value.trim() || undefined, perPage: 100 });
-    if (request === householdRequest) households.value = result.data;
-  } catch (e) {
-    error.value = e instanceof Error ? e.message : 'Haushalte konnten nicht geladen werden';
-  } finally {
-    if (request === householdRequest) isLoadingHouseholds.value = false;
-  }
-}
-
-watch(householdQuery, () => {
-  clearTimeout(householdSearchTimer);
-  householdSearchTimer = setTimeout(() => void loadHouseholds(), 150);
-});
-
 function setKind(kind: Draft['kind']): void {
   form.kind = kind;
-  if (kind === 'external') {
-    form.householdId = null;
-  } else {
-    void loadHouseholds();
-  }
+  if (kind === 'external') form.householdId = null;
 }
 
 // Picking a household takes its name and the e-mail addresses of its parents.
@@ -214,10 +185,6 @@ async function submit(): Promise<void> {
     isSaving.value = false;
   }
 }
-
-onMounted(() => {
-  if (form.kind === 'household') void loadHouseholds();
-});
 </script>
 
 <template>
@@ -241,26 +208,8 @@ onMounted(() => {
         </div>
       </div>
 
-      <div v-if="form.kind === 'household'" class="space-y-2">
-        <SearchInput v-model="householdQuery" placeholder="Familie suchen" label="Haushalt suchen" />
-        <div v-if="isLoadingHouseholds" class="flex justify-center py-4">
-          <Loader2 class="h-5 w-5 animate-spin text-muted-foreground" />
-        </div>
-        <ul v-else class="card max-h-64 divide-y overflow-y-auto">
-          <li v-for="household in households" :key="household.id">
-            <button type="button"
-              class="flex min-h-12 w-full items-center gap-3 px-4 py-2.5 text-left hover:bg-accent"
-              :class="form.householdId === household.id && 'bg-primary-soft text-primary-text'"
-              :aria-pressed="form.householdId === household.id" @click="selectHousehold(household)">
-              <span class="min-w-0 flex-1 truncate font-medium">{{ household.name }}</span>
-              <Check v-if="form.householdId === household.id" class="h-4 w-4 shrink-0" />
-            </button>
-          </li>
-          <li v-if="households.length === 0" class="px-4 py-6 text-center text-sm text-muted-foreground">
-            Kein Haushalt gefunden
-          </li>
-        </ul>
-      </div>
+      <HouseholdPicker v-if="form.kind === 'household'" v-model="form.householdId" @select="selectHousehold"
+        @error="error = $event" />
 
       <div v-else class="space-y-4">
         <div>

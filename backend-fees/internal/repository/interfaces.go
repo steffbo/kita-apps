@@ -193,7 +193,8 @@ type TransactionRepository interface {
 	Hide(ctx context.Context, id uuid.UUID, userID uuid.UUID) error
 	Delete(ctx context.Context, id uuid.UUID) error
 	DeleteUnmatchedByIBAN(ctx context.Context, iban string) (int64, error)
-	Assign(ctx context.Context, transactionID uuid.UUID, kind domain.AssignmentKind, note string, userID uuid.UUID) error
+	Assign(ctx context.Context, transactionID uuid.UUID, in domain.AssignmentInput, userID uuid.UUID) error
+	UpdateAssignment(ctx context.Context, transactionID uuid.UUID, in domain.AssignmentInput) error
 	ListAssigned(ctx context.Context, kind domain.AssignmentKind) ([]domain.BankTransaction, error)
 }
 

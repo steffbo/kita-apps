@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import { api } from '@/api';
-import type { DonationReport } from '@/api/types';
-import { AlertTriangle, Heart, Loader2 } from 'lucide-vue-next';
+import type { BankTransaction, DonationReport } from '@/api/types';
+import { AlertTriangle, Heart, Loader2, Pencil } from 'lucide-vue-next';
 import PageHeader from '@/components/ui/PageHeader.vue';
 import EmptyState from '@/components/ui/EmptyState.vue';
+import AppSheet from '@/components/ui/AppSheet.vue';
+import DonationAssignPanel from '@/components/import/DonationAssignPanel.vue';
 import { formatCurrency, formatDate } from '@/utils/format';
 
 const report = ref<DonationReport | null>(null);
@@ -21,6 +23,13 @@ async function load(): Promise<void> {
   } finally {
     isLoading.value = false;
   }
+}
+
+const editing = ref<BankTransaction | null>(null);
+
+async function saved(): Promise<void> {
+  editing.value = null;
+  await load();
 }
 
 onMounted(load);
@@ -62,34 +71,51 @@ onMounted(load);
 
         <div class="card overflow-hidden">
           <ul class="divide-y sm:hidden">
-            <li v-for="tx in year.transactions" :key="tx.id" class="flex items-center gap-3 px-4 py-3">
-              <span class="min-w-0 flex-1">
-                <span class="block truncate font-medium">{{ tx.payerName || 'Unbekannt' }}</span>
-                <span class="block text-[13px] text-muted-foreground">
-                  {{ formatDate(tx.bookingDate) }}<template v-if="tx.assignment?.note"> · {{ tx.assignment.note }}</template>
+            <li v-for="tx in year.transactions" :key="tx.id">
+              <button type="button" class="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-accent"
+                :aria-label="`Spende von ${tx.payerName || 'Unbekannt'} bearbeiten`" @click="editing = tx">
+                <span class="min-w-0 flex-1">
+                  <span class="block truncate font-medium">{{ tx.payerName || 'Unbekannt' }}</span>
+                  <span class="block text-[13px] text-muted-foreground">
+                    {{ formatDate(tx.bookingDate) }}<template v-if="tx.assignment?.householdName"> · {{ tx.assignment.householdName }}</template><template v-if="tx.assignment?.note"> · {{ tx.assignment.note }}</template>
+                  </span>
                 </span>
-              </span>
-              <span class="shrink-0 font-semibold tabular-nums">{{ formatCurrency(tx.amount) }}</span>
+                <span class="shrink-0 font-semibold tabular-nums">{{ formatCurrency(tx.amount) }}</span>
+              </button>
             </li>
           </ul>
           <table class="table hidden sm:table">
             <thead>
               <tr>
-                <th>Datum</th><th>Zahler</th><th>Verwendungszweck</th><th>Notiz</th><th class="text-right">Betrag</th>
+                <th>Datum</th><th>Zahler</th><th>Haushalt</th><th>Verwendungszweck</th><th>Notiz</th><th class="text-right">Betrag</th><th></th>
               </tr>
             </thead>
             <tbody>
               <tr v-for="tx in year.transactions" :key="tx.id">
                 <td class="whitespace-nowrap">{{ formatDate(tx.bookingDate) }}</td>
                 <td>{{ tx.payerName || 'Unbekannt' }}</td>
+                <td>{{ tx.assignment?.householdName }}</td>
                 <td class="text-muted-foreground">{{ tx.description }}</td>
                 <td>{{ tx.assignment?.note }}</td>
                 <td class="whitespace-nowrap text-right font-semibold tabular-nums">{{ formatCurrency(tx.amount) }}</td>
+                <td class="text-right">
+                  <button type="button" class="btn btn-ghost btn-icon btn-sm"
+                    :aria-label="`Spende von ${tx.payerName || 'Unbekannt'} bearbeiten`" @click="editing = tx">
+                    <Pencil />
+                  </button>
+                </td>
               </tr>
             </tbody>
           </table>
         </div>
       </section>
     </template>
+
+    <AppSheet v-if="editing" title="Spende bearbeiten" @close="editing = null">
+      <DonationAssignPanel :transaction="editing" @matched="saved" />
+      <template #footer>
+        <button type="button" class="btn btn-secondary" @click="editing = null">Abbrechen</button>
+      </template>
+    </AppSheet>
   </div>
 </template>

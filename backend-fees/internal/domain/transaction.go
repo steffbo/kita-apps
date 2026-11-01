@@ -27,9 +27,24 @@ const AssignmentDonation AssignmentKind = "DONATION"
 
 // TransactionAssignment records the purpose of a transaction that is neither a fee nor a plan payment.
 type TransactionAssignment struct {
-	Kind       AssignmentKind `json:"kind" db:"kind"`
-	Note       string         `json:"note" db:"note"`
-	AssignedAt time.Time      `json:"assignedAt" db:"assigned_at"`
+	Kind          AssignmentKind `json:"kind" db:"kind"`
+	Note          string         `json:"note" db:"note"`
+	AssignedAt    time.Time      `json:"assignedAt" db:"assigned_at"`
+	HouseholdID   *uuid.UUID     `json:"householdId,omitempty" db:"household_id" binding:"optional"`
+	HouseholdName string         `json:"householdName,omitempty" db:"household_name" binding:"optional"`
+}
+
+// AssignmentInput is what a user states when assigning or editing a purpose.
+type AssignmentInput struct {
+	Kind        AssignmentKind
+	Note        string
+	HouseholdID *uuid.UUID
+}
+
+// HouseholdSuggestion names the household an open transaction probably belongs to, derived from its payer IBAN.
+type HouseholdSuggestion struct {
+	HouseholdID uuid.UUID `json:"householdId" db:"household_id"`
+	Name        string    `json:"name" db:"name"`
 }
 
 // BankTransaction represents an imported bank transaction.
@@ -54,6 +69,8 @@ type BankTransaction struct {
 	InstallmentPlanSuggestion *InstallmentPlanSuggestion `json:"installmentPlanSuggestion,omitempty" db:"-" binding:"optional"`
 	InstallmentPayment        *InstallmentPaymentLink    `json:"installmentPayment,omitempty" db:"-" binding:"optional"`
 	Assignment                *TransactionAssignment     `json:"assignment,omitempty" db:"-" binding:"optional"`
+	// HouseholdSuggestion is set on open transactions whose payer IBAN is known to a household.
+	HouseholdSuggestion *HouseholdSuggestion `json:"householdSuggestion,omitempty" db:"-" binding:"optional"`
 	// MatchedAmount is the total amount of this transaction already allocated to fees.
 	MatchedAmount *float64 `json:"matchedAmount,omitempty" db:"matched_amount" binding:"optional"`
 }

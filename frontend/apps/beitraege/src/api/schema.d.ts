@@ -5376,7 +5376,67 @@ export interface paths {
             cookie?: never;
         };
         get?: never;
-        put?: never;
+        /**
+         * Change note and household of an assignment
+         * @description Replaces note and household of an existing donation assignment
+         */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    /** @description Transaction ID (UUID) */
+                    id: string;
+                };
+                cookie?: never;
+            };
+            requestBody: components["requestBodies"]["AssignTransactionRequest"];
+            responses: {
+                /** @description Updated */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                /** @description Invalid request */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Assignment or household not found */
+                404: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Internal server error */
+                500: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "*/*": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
         /**
          * Assign a transaction to a purpose
          * @description Marks an unassigned incoming transaction as donation. Undo with the unmatch action.
@@ -5391,12 +5451,7 @@ export interface paths {
                 };
                 cookie?: never;
             };
-            /** @description Purpose */
-            requestBody: {
-                content: {
-                    "application/json": components["schemas"]["AssignTransactionRequest"];
-                };
-            };
+            requestBody: components["requestBodies"]["AssignTransactionRequest"];
             responses: {
                 /** @description Assigned */
                 204: {
@@ -5423,7 +5478,7 @@ export interface paths {
                         "application/json": components["schemas"]["ErrorResponse"];
                     };
                 };
-                /** @description Transaction not found */
+                /** @description Transaction or household not found */
                 404: {
                     headers: {
                         [name: string]: unknown;
@@ -11019,6 +11074,8 @@ export interface components {
         };
         /** @description Request body for assigning a transaction to a purpose */
         AssignTransactionRequest: {
+            /** @description HouseholdID credits the donation to a household (optional). */
+            householdId?: string;
             /**
              * @example DONATION
              * @enum {unknown}
@@ -12394,6 +12451,8 @@ export interface components {
             description?: string;
             hiddenAt?: string;
             hiddenBy?: string;
+            /** @description HouseholdSuggestion is set on open transactions whose payer IBAN is known to a household. */
+            householdSuggestion?: components["schemas"]["domain.HouseholdSuggestion"];
             id: string;
             importBatchId?: string;
             importedAt: string;
@@ -12561,6 +12620,10 @@ export interface components {
         "domain.HouseholdIncomeCalculation": {
             parent1: components["schemas"]["domain.IncomeDetails"];
             parent2: components["schemas"]["domain.IncomeDetails"];
+        };
+        "domain.HouseholdSuggestion": {
+            householdId: string;
+            name: string;
         };
         "domain.ImportBatch": {
             dateFrom?: string;
@@ -12877,6 +12940,8 @@ export interface components {
         "domain.ResolutionType": "dismissed" | "matched" | "auto_resolved";
         "domain.TransactionAssignment": {
             assignedAt: string;
+            householdId?: string;
+            householdName?: string;
             kind: components["schemas"]["domain.AssignmentKind"];
             note: string;
         };
@@ -13530,6 +13595,12 @@ export interface components {
                      */
                     file: string;
                 };
+            };
+        };
+        /** @description Purpose */
+        AssignTransactionRequest: {
+            content: {
+                "application/json": components["schemas"]["AssignTransactionRequest"];
             };
         };
         /** @description Request */

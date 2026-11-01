@@ -3528,12 +3528,7 @@ paths:
           schema:
             type: string
       requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/AssignTransactionRequest"
-        description: Purpose
-        required: true
+        $ref: "#/components/requestBodies/AssignTransactionRequest"
       responses:
         "204":
           description: Assigned
@@ -3550,7 +3545,7 @@ paths:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
         "404":
-          description: Transaction not found
+          description: Transaction or household not found
           content:
             application/json:
               schema:
@@ -3564,6 +3559,49 @@ paths:
       security:
         - BearerAuth: []
       summary: Assign a transaction to a purpose
+      tags:
+        - Import
+    put:
+      description: Replaces note and household of an existing donation assignment
+      parameters:
+        - description: Transaction ID (UUID)
+          in: path
+          name: id
+          required: true
+          schema:
+            type: string
+      requestBody:
+        $ref: "#/components/requestBodies/AssignTransactionRequest"
+      responses:
+        "204":
+          description: Updated
+        "400":
+          description: Invalid request
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Assignment or household not found
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "500":
+          description: Internal server error
+          content:
+            "*/*":
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Change note and household of an assignment
       tags:
         - Import
   "/import/transactions/{id}/dismiss":
@@ -7130,6 +7168,13 @@ components:
             required:
               - file
       required: true
+    AssignTransactionRequest:
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/AssignTransactionRequest"
+      description: Purpose
+      required: true
     service.InstallmentReminderRequest:
       content:
         application/json:
@@ -7219,6 +7264,9 @@ components:
     AssignTransactionRequest:
       description: Request body for assigning a transaction to a purpose
       properties:
+        householdId:
+          description: HouseholdID credits the donation to a household (optional).
+          type: string
         kind:
           allOf:
             - $ref: "#/components/schemas/domain.AssignmentKind"
@@ -9931,6 +9979,11 @@ components:
           type: string
         hiddenBy:
           type: string
+        householdSuggestion:
+          allOf:
+            - $ref: "#/components/schemas/domain.HouseholdSuggestion"
+          description: HouseholdSuggestion is set on open transactions whose payer IBAN is
+            known to a household.
         id:
           type: string
         importBatchId:
@@ -10363,6 +10416,16 @@ components:
       required:
         - parent1
         - parent2
+      type: object
+    domain.HouseholdSuggestion:
+      properties:
+        householdId:
+          type: string
+        name:
+          type: string
+      required:
+        - householdId
+        - name
       type: object
     domain.ImportBatch:
       properties:
@@ -11181,6 +11244,10 @@ components:
     domain.TransactionAssignment:
       properties:
         assignedAt:
+          type: string
+        householdId:
+          type: string
+        householdName:
           type: string
         kind:
           $ref: "#/components/schemas/domain.AssignmentKind"

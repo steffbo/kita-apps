@@ -1261,6 +1261,13 @@ Spec und offene Punkte: `docs/spenden.md`.
 - Rollen: `ADMIN`/`USER` wie der Bankabgleich (Annahme, siehe Spec); keine Schwärzung nötig.
 - Die Planzahlungs-Hilfe `uploadPayment` der E2E-Tests liegt jetzt in `e2e/beitraege/bank.ts`.
 
+## 2026-11-01: Spenden – Haushalt und IBAN-Vorschlag
+
+Migration 000051: `transaction_assignments.household_id`. Spenden lassen sich einem Haushalt zuordnen und später
+ändern (`PUT /import/transactions/{id}/assign`); offene Eingänge mit bekannter IBAN tragen einen `householdSuggestion`,
+den das Panel vorwählt. Bewusst kein stilles Auto-Zuordnen. Die Haushaltssuche liegt jetzt als `HouseholdPicker` vor
+(vorher im Ratenplan-Formular inline). Details: `docs/spenden.md`.
+
 ## 2026-11-01: Ratenzahlungen – Frontend
 
 - Seiten `/ratenzahlungen` und `/ratenzahlungen/:id` (Route-Meta `requiresAdmin`). Der Navigationseintrag

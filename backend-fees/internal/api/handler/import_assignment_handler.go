@@ -19,6 +19,8 @@ import (
 type AssignTransactionRequest struct {
 	Kind domain.AssignmentKind `json:"kind" enums:"DONATION" example:"DONATION"`
 	Note string                `json:"note" example:"Spende Sommerfest"`
+	// HouseholdID credits the donation to a household (optional).
+	HouseholdID *uuid.UUID `json:"householdId,omitempty" swaggertype:"string" binding:"optional"`
 } //@name AssignTransactionRequest
 
 // AssignTransaction handles POST /import/transactions/{id}/assign
@@ -33,7 +35,7 @@ type AssignTransactionRequest struct {
 // @Success 204 "Assigned"
 // @Failure 400 {object} response.ErrorBody "Invalid kind, outgoing transaction or already assigned"
 // @Failure 401 {object} response.ErrorBody "Not authenticated"
-// @Failure 404 {object} response.ErrorBody "Transaction not found"
+// @Failure 404 {object} response.ErrorBody "Transaction or household not found"
 // @Failure 500 {object} response.ErrorBody "Internal server error"
 // @Router /import/transactions/{id}/assign [post]
 func (h *ImportHandler) AssignTransaction(w http.ResponseWriter, r *http.Request) {
@@ -54,15 +56,52 @@ func (h *ImportHandler) AssignTransaction(w http.ResponseWriter, r *http.Request
 	}
 	userID, _ := uuid.Parse(userCtx.UserID)
 
-	switch err := h.importService.AssignTransaction(r.Context(), id, req.Kind, req.Note, userID); {
+	switch err := h.importService.AssignTransaction(r.Context(), id, domain.AssignmentInput{Kind: req.Kind, Note: req.Note, HouseholdID: req.HouseholdID}, userID); {
 	case err == nil:
 		response.NoContent(w)
 	case errors.Is(err, service.ErrNotFound):
-		response.NotFound(w, "transaction not found")
+		response.NotFound(w, "transaction or household not found")
 	case errors.Is(err, service.ErrInvalidInput):
 		response.BadRequest(w, "Zahlung ist nicht zuordenbar: nur offene Eingänge, ohne Beitrag oder Ratenzahlung")
 	default:
 		response.InternalError(w, "failed to assign transaction")
+	}
+}
+
+// UpdateAssignment handles PUT /import/transactions/{id}/assign
+// @Summary Change note and household of an assignment
+// @Description Replaces note and household of an existing donation assignment
+// @Tags Import
+// @Accept json
+// @Security BearerAuth
+// @Param id path string true "Transaction ID (UUID)"
+// @Param request body AssignTransactionRequest true "Purpose"
+// @Success 204 "Updated"
+// @Failure 400 {object} response.ErrorBody "Invalid request"
+// @Failure 401 {object} response.ErrorBody "Not authenticated"
+// @Failure 404 {object} response.ErrorBody "Assignment or household not found"
+// @Failure 500 {object} response.ErrorBody "Internal server error"
+// @Router /import/transactions/{id}/assign [put]
+func (h *ImportHandler) UpdateAssignment(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		response.BadRequest(w, "invalid transaction ID")
+		return
+	}
+	var req AssignTransactionRequest
+	if err := request.DecodeJSON(r, &req); err != nil {
+		response.BadRequest(w, "invalid request body")
+		return
+	}
+	switch err := h.importService.UpdateAssignment(r.Context(), id, domain.AssignmentInput{Kind: req.Kind, Note: req.Note, HouseholdID: req.HouseholdID}); {
+	case err == nil:
+		response.NoContent(w)
+	case errors.Is(err, service.ErrNotFound):
+		response.NotFound(w, "assignment or household not found")
+	case errors.Is(err, service.ErrInvalidInput):
+		response.BadRequest(w, "invalid assignment")
+	default:
+		response.InternalError(w, "failed to update assignment")
 	}
 }
 
