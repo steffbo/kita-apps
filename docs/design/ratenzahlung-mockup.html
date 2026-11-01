@@ -271,6 +271,9 @@ trash:'<path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/>',
 info:'<circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/>',
 link:'<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
 more:'<circle cx="12" cy="5" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="12" cy="19" r="1"/>',
+file:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h4"/>',
+upload:'<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/>',
+eye:'<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>',
 cash:'<rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2"/><path d="M6 12h.01M18 12h.01"/>'
 });
 const eur=n=>n.toLocaleString('de-DE',{style:'currency',currency:'EUR'});
@@ -300,7 +303,7 @@ function seed(){
  return {
   plans:[
    {id:'p2',kind:'hh',household:'h3',name:'Familie Schulz',address:'',emails:['s.schulz@example.org'],total:900,rate:150,interval:1,first:'2026-07-15',ref:'Rückstand Beiträge Jan–Jun 2026',iban:'DE12 •••• 4471',note:'Vereinbart im Gespräch am 30.06.2026.',
-    payments:[{date:'2026-07-14',amount:150,src:'bank',text:'RATE SCHULZ 07'},{date:'2026-08-16',amount:150,src:'bank',text:'RATE SCHULZ 08'}],reminders:[],created:'2026-06-30',status:'active'},
+    payments:[{date:'2026-07-14',amount:150,src:'bank',text:'RATE SCHULZ 07'},{date:'2026-08-16',amount:150,src:'bank',text:'RATE SCHULZ 08'}],contract:{name:'Ratenzahlungsvertrag_Schulz_2026-06-30.pdf',size:184320,uploaded:'2026-07-01',by:'Stefan',url:null},reminders:[],created:'2026-06-30',status:'active'},
    {id:'p3',kind:'hh',household:'h6',name:'Familie Braun',address:'',emails:['braun@example.org'],total:600,rate:200,interval:3,first:'2025-11-01',ref:'Essensgeld 2024/25',iban:'',note:'',
     payments:[{date:'2025-11-03',amount:200,src:'bank',text:'BRAUN RATE 1'},{date:'2026-02-02',amount:200,src:'bank',text:'BRAUN RATE 2'},{date:'2026-05-04',amount:200,src:'bar',text:'Barzahlung im Büro'}],reminders:[],created:'2025-10-20',status:'active'}
   ],
@@ -352,6 +355,10 @@ const RST={paid:['Bezahlt','ok'],overdue:['Überfällig','bad'],partial:['Teilwe
 const rBadge=s=>`<span class="badge ${RST[s][1]}">${RST[s][0]}</span>`;
 const nextStage=p=>p.reminders.length?'Mahnung':'Erinnerung';
 const initials=n=>n.replace(/^Familie /,'').split(/[ ,]+/).filter(Boolean).slice(0,2).map(x=>x[0]).join('').toUpperCase();
+const kb=n=>n>1048576?(n/1048576).toLocaleString('de-DE',{maximumFractionDigits:1})+' MB':Math.round(n/1024)+' KB';
+const contractCard=(c,where)=>c?`<div class="row" style="min-height:60px"><span class="ri acc">${ic('file',18)}</span><span class="rm"><span class="rt">${esc(c.name)}</span><span class="rs">PDF · ${kb(c.size)} · hochgeladen ${fd(c.uploaded)} von ${esc(c.by)}</span></span><button class="ib" data-a="viewpdf" data-v="${where}" aria-label="Ansehen">${ic('eye',18)}</button></div>
+ <div style="display:flex;gap:8px;justify-content:flex-end;padding:0 14px 12px"><label class="btn sm ghost" style="cursor:pointer">${ic('upload',14)}Ersetzen<input type="file" accept="application/pdf" data-up="${where}" hidden></label><button class="btn sm ghost" style="color:var(--bad)" data-a="rmpdf" data-v="${where}">${ic('trash',14)}Entfernen</button></div>`
+ :`<label class="row" style="cursor:pointer;min-height:64px;border:1.5px dashed var(--line);border-radius:12px"><span class="ri">${ic('upload',18)}</span><span class="rm"><span class="rt" style="color:var(--ac-text)">Unterschriebenen Vertrag hochladen</span><span class="rs">PDF, max. 10 MB</span></span><input type="file" accept="application/pdf" data-up="${where}" hidden></label>`;
 const debtorSub=p=>p.kind==='hh'?`Haushalt · ${hh(p.household).kids}`:'Externer Schuldner';
 
 // ── Shell ──
@@ -412,7 +419,7 @@ function pRaten(){
  const act=all.filter(f.active), rest=act.reduce((s,x)=>s+x.s.rest,0), od=all.filter(f.overdue).reduce((s,x)=>s+x.s.overdueAmt,0);
  return `<div class="grid4">${stat('Restschuld gesamt',eur(rest))}${stat('Davon überfällig',`<span style="color:${od?'var(--bad)':'inherit'}">${eur(od)}</span>`)}</div>
  <div class="chips">${[['active','Aktiv'],['overdue','Rückstand'],['done','Abgeschlossen'],['all','Alle']].map(([v,l])=>chip('pf',v,l,all.filter(f[v]).length,S.planFilter===v)).join('')}</div>
- <div class="card">${list.length?list.map(({p,s})=>`<button class="row" data-a="plan" data-v="${p.id}"><span class="av">${initials(p.name)}</span><span class="rm"><span class="rt">${esc(p.name)}</span><span class="rs">${debtorSub(p)} · ${eur(p.rate)} ${intL(p.interval)}</span><span class="rs">${s.nPaid}/${s.n} Raten · ${s.next?'nächste '+fds(s.next.due):s.state==='done'?'vollständig bezahlt':'—'}</span></span><span class="re"><span class="amt">${eur(s.rest)}</span>${stBadge(s.state)}</span></button>`).join(''):empty('coins','Keine Ratenzahlungen',`<button class="btn sec sm" data-a="newplan">${ic('plus',16)}Ratenzahlung anlegen</button>`)}</div>`;
+ <div class="card">${list.length?list.map(({p,s})=>`<button class="row" data-a="plan" data-v="${p.id}"><span class="av">${initials(p.name)}</span><span class="rm"><span class="rt">${esc(p.name)}</span><span class="rs">${debtorSub(p)} · ${eur(p.rate)} ${intL(p.interval)}</span><span class="rs">${p.contract?'':'<span style="color:var(--warn)">Vertrag fehlt</span> · '}${s.nPaid}/${s.n} Raten · ${s.next?'nächste '+fds(s.next.due):s.state==='done'?'vollständig bezahlt':'—'}</span></span><span class="re"><span class="amt">${eur(s.rest)}</span>${stBadge(s.state)}</span></button>`).join(''):empty('coins','Keine Ratenzahlungen',`<button class="btn sec sm" data-a="newplan">${ic('plus',16)}Ratenzahlung anlegen</button>`)}</div>`;
 }
 function pPlan(){
  const p=plan(S.plan),s=summary(p),pct=Math.round(s.paid/p.total*100);
@@ -421,6 +428,7 @@ function pPlan(){
  <div class="card stat"><div class="l">Restschuld</div><div class="v">${eur(s.rest)} <small>von ${eur(p.total)}</small></div><div class="bar"><i style="width:${pct}%"></i></div><div class="prog"><span>${eur(s.paid)} bezahlt · ${s.nPaid}/${s.n} Raten</span>${stBadge(s.state)}</div></div>
  <div class="cols2"><div class="stack">
  <section>${sec('Vereinbarung',s.rest>0&&p.status==='active'?(p.final?`<button class="btn sm sec" data-a="unfinal">Schlussrate aufheben</button>`:`<button class="btn sm sec" data-a="sheet" data-v="final">${ic('cal',14)}Schlussrate</button>`):'')}<div class="card dl">${dl([['Ratenhöhe',eur(p.rate)],['Intervall',intL(p.interval)],['Erste Rate',fd(p.first)],[p.final?'Schlussrate':'Letzte Rate',p.final?`${fd(p.final)} · ${eur(s.sch[s.n-1].amt)}`:fd(s.sch[s.n-1].due)],['Bezug',p.ref?esc(p.ref):'<span class="mut">—</span>'],['IBAN für Abgleich',p.iban||'<span class="mut">—</span>']])}</div></section>
+ <section>${sec('Vertrag')}${p.contract?`<div class="card">${contractCard(p.contract,'plan')}</div>`:`<div class="note" style="margin-bottom:8px">${ic('alert',18)}<span>Noch kein unterschriebener Vertrag hinterlegt.</span></div>${contractCard(null,'plan')}`}</section>
  <section>${sec('Schuldner')}<div class="card dl">${debtor}</div></section>
  <section>${sec('E-Mail für Erinnerungen',`<button class="btn sm sec" data-a="editplan">${ic('pencil',14)}Ändern</button>`)}<div class="card" style="padding:12px 14px">${p.emails.length?`<div class="tags">${p.emails.map(e=>`<span class="tag" style="padding-right:10px">${ic('mail',14)}${esc(e)}</span>`).join('')}</div>`:`<div class="note" style="margin:0">${ic('alert',18)}<span>Keine Adresse – Erinnerungen nur per Brief möglich.</span></div>`}</div></section>
  ${p.note?`<section>${sec('Notiz')}<div class="card notecard"><p>${esc(p.note)}</p></div></section>`:''}
@@ -486,6 +494,7 @@ function formSheet(){
  <div class="note plain" id="fprev">${ic('cal',18)}<span>${preview}</span></div>
  <div class="field"><label>Bezug / Aktenzeichen <span class="mut">(optional)</span></label><input data-f="ref" value="${esc(f.ref)}" placeholder="z. B. Rückstand Beiträge 2025"><div class="hint">Steht in Erinnerungen und hilft beim automatischen Abgleich.</div></div>
  <div class="field"><label>IBAN des Zahlers <span class="mut">(optional)</span></label><input data-f="iban" value="${esc(f.iban)}" placeholder="DE…"><div class="hint">Künftige Überweisungen von dieser IBAN werden als Rate vorgeschlagen.</div></div>
+ <div class="field"><label>Unterschriebener Vertrag <span class="mut">(PDF)</span></label>${f.contract?`<div class="card">${contractCard(f.contract,'form')}</div>`:contractCard(null,'form')}<div class="hint">Kann auch später auf der Detailseite nachgereicht werden.</div></div>
  <div class="field"><label>Notiz</label><textarea data-f="note" placeholder="Vereinbarung, Ansprechpartner …">${esc(f.note)}</textarea></div>`;
  return sheetWrap(isNew?'Neue Ratenzahlung':'Ratenzahlung bearbeiten',body,`<button class="btn sec" data-a="close">Abbrechen</button><button class="btn pri" data-a="saveplan">${f.fromTx?'Anlegen & zuordnen':'Speichern'}</button>`);
 }
@@ -548,7 +557,7 @@ function savePlan(){
  const name=f.kind==='hh'?hh(f.household)?.name:f.name.trim();
  if(!name){toast(f.kind==='hh'?'Bitte Haushalt auswählen':'Bitte Namen eingeben');return false}
  if(!(num(f.total)>0&&num(f.rate)>0&&f.first)){toast('Betrag, Rate und Fälligkeit fehlen');return false}
- const data={kind:f.kind,household:f.kind==='hh'?f.household:null,name,address:f.address,emails:[...f.emails],total:num(f.total),rate:num(f.rate),interval:+f.interval,first:f.first,ref:f.ref,iban:f.iban,note:f.note};
+ const data={kind:f.kind,household:f.kind==='hh'?f.household:null,name,address:f.address,emails:[...f.emails],contract:f.contract||null,total:num(f.total),rate:num(f.rate),interval:+f.interval,first:f.first,ref:f.ref,iban:f.iban,note:f.note};
  if(f.id){Object.assign(plan(f.id),data);return f.id}
  const id='p'+Date.now();DB.plans.unshift({id,...data,payments:[],reminders:[],created:S.today,status:'active'});
  if(f.fromTx){const t=DB.tx.find(x=>x.id===f.fromTx.id);t.done=true;plan(id).payments.push({date:t.date,amount:t.amount,src:'bank',text:t.purpose})}
@@ -582,7 +591,7 @@ $app.addEventListener('click',e=>{
    S.sheet=null;render();toast('Beitrag zugeordnet');return;
   }
   case 'newplan':S.form=blankForm();S.sheet='form';break;
-  case 'editplan':{const p=plan(S.remPlan&&S.sheet==='remind'?S.remPlan:S.plan);S.form={...p,emails:[...p.emails],hq:'',fromTx:null};S.sheet='form';break}
+  case 'editplan':{const p=plan(S.remPlan&&S.sheet==='remind'?S.remPlan:S.plan);S.form={...p,emails:[...p.emails],contract:p.contract,hq:'',fromTx:null};S.sheet='form';break}
   case 'fkind':S.form.kind=v;if(v==='ext'){S.form.household=null}break;
   case 'fhh':{S.form.household=v;const h=hh(v);S.form.emails=[...new Set([...h.emails])];break}
   case 'addmail':{const i=$app.querySelector('#newmail'),val=i.value.trim();if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(val)){toast('Keine gültige E-Mail-Adresse');return}if(!S.form.emails.includes(val))S.form.emails.push(val);break}
@@ -598,6 +607,8 @@ $app.addEventListener('click',e=>{
    DB.sent.unshift([p.name,stage+' (Rate)',fd(S.today)]);S.sheet=null;S.remPlan=null;render();toast(`${stage} gesendet`);return}
   case 'addpay':S.payPlan=v;S.sheet='pay';break;
   case 'dopay':{const p=plan(S.payPlan);p.payments.push({date:$app.querySelector('#paydate').value,amount:num($app.querySelector('#payamt').value),src:'bar',text:$app.querySelector('#paytext').value});p.payments.sort((x,y)=>x.date<y.date?-1:1);S.sheet=null;render();toast('Zahlung erfasst');return}
+  case 'viewpdf':{const c=v==='form'?S.form.contract:plan(S.plan).contract;if(c.url){window.open(c.url,'_blank');return}S.sheet=v==='form'?S.sheet:null;render();toast('Öffnet das PDF (im Mock nur Beispieldatei)');return}
+  case 'rmpdf':if(v==='form')S.form.contract=null;else{plan(S.plan).contract=null;render();toast('Vertrag entfernt');return}break;
   case 'dofinal':plan(S.plan).final=S.finalDate;S.sheet=null;render();toast('Schlussrate festgelegt');return;
   case 'unfinal':plan(S.plan).final=null;render();toast('Ursprünglicher Ratenplan wiederhergestellt');return;
   case 'doclose':plan(S.plan).status='closed';S.sheet=null;render();toast('Ratenzahlung beendet');return;
@@ -613,7 +624,10 @@ $app.addEventListener('input',e=>{
   $app.querySelector('#fprev span').textContent=n&&f.first?`${n} ${n===1?'Rate':'Raten'}${last!==f.rate?` (${n-1} × ${eur(f.rate)} + 1 × ${eur(last)})`:` à ${eur(f.rate)}`} · ${intL(f.interval)} · letzte Rate ${fd(addM(f.first,(n-1)*f.interval))}`:'Gesamtbetrag, Ratenhöhe und erste Fälligkeit eingeben';
  }
 });
-$app.addEventListener('change',e=>{if(e.target.id==='finaldate'&&e.target.value){S.finalDate=e.target.value;render();return}if(e.target.dataset.f==='interval'){S.form.interval=+e.target.value;e.target.dispatchEvent(new Event('input',{bubbles:true}))}});
+$app.addEventListener('change',e=>{const up=e.target.dataset.up;if(up){const file=e.target.files[0];if(!file)return;
+  if(file.type&&file.type!=='application/pdf'){toast('Bitte eine PDF-Datei wählen');return}
+  const c={name:file.name,size:file.size,uploaded:S.today,by:'Stefan',url:URL.createObjectURL(file)};
+  if(up==='form'){S.form.contract=c;render()}else{plan(S.plan).contract=c;render();toast('Vertrag hochgeladen')}return}if(e.target.id==='finaldate'&&e.target.value){S.finalDate=e.target.value;render();return}if(e.target.dataset.f==='interval'){S.form.interval=+e.target.value;e.target.dispatchEvent(new Event('input',{bubbles:true}))}});
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&S.sheet){S.sheet=null;render()}if(e.key==='Enter'&&e.target.id==='newmail'){e.preventDefault();$app.querySelector('[data-a=addmail]').click()}});
 document.getElementById('ctl').addEventListener('click',e=>{
  const b=e.target.closest('button');if(!b)return;const c=b.dataset.c,v=b.dataset.v;
