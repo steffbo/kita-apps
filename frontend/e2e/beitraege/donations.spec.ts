@@ -192,3 +192,30 @@ test('parents see the donations of their household without bank details; staff s
   await adminPage.goto(`/beitraege/elternstunden/familien/${own.householdId}`);
   await expect(adminPage.getByRole('region', { name: 'Spenden des Haushalts' }).getByText(ownPayer)).toBeVisible();
 });
+
+test('a donation from a fee-paying family is not booked as fee and is assigned from the child page', async ({ adminPage: page, adminApi, playwright, baseURL }) => {
+  const suffix = uniq();
+  const today = berlinToday();
+  const memberNumber = String(10_000_000 + Math.floor(Math.random() * 90_000_000));
+  const child = await adminApi.post<{ id: string }>('/children', {
+    memberNumber, firstName: 'KindGabe', lastName: suffix, birthDate: `${today.year - 5}-01-01`, entryDate: `${today.year - 2}-01-01`,
+  });
+  const parent = await adminApi.post<{ id: string }>('/parents', { firstName: 'Eva', lastName: suffix, email: `gabe-${suffix}@e2e.test` });
+  await adminApi.post(`/children/${child.id}/parents`, { parentId: parent.id, isPrimary: true });
+  const iban = uniqueIban();
+  const purpose = `Spende Fam ${memberNumber}`;
+  await uploadPayment(playwright, baseURL, { payer: `Oma${suffix}`, iban, purpose, amount: '45,40' });
+  const { data } = await adminApi.get<{ data: { id: string; likelyDonation?: boolean; matches?: unknown[] }[] }>(`/import/transactions?status=offen&search=${iban}`);
+  expect(data).toHaveLength(1);
+  expect(data[0].likelyDonation).toBe(true);
+
+  await page.goto(`/beitraege/kinder/${child.id}`);
+  await page.getByRole('button', { name: 'Als Spende zuordnen' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Als Spende zuordnen' });
+  await dialog.getByRole('button', { name: 'Speichern' }).click();
+  await expect(dialog).toBeHidden();
+
+  // Credited to the child's household; the card shows the payment text, the suggestion is gone.
+  await expect(page.getByRole('region', { name: `Spenden ${today.year}` }).getByText(purpose)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Als Spende zuordnen' })).toHaveCount(0);
+});

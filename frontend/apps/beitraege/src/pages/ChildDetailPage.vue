@@ -2,6 +2,7 @@
 import ChildPaymentsCard from '@/components/child/ChildPaymentsCard.vue';
 import ChildHouseholdCard from '@/components/child/ChildHouseholdCard.vue';
 import HouseholdDonationsCard from '@/components/HouseholdDonationsCard.vue';
+import DonationAssignPanel from '@/components/import/DonationAssignPanel.vue';
 import ChildInformationCard from '@/components/child/ChildInformationCard.vue';
 import { ref, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
@@ -9,7 +10,7 @@ import { api } from '@/api';
 import { useChildDetailData } from '@/composables/useChildDetailData';
 import ChangeHistory from '@/components/family/ChangeHistory.vue';
 import { useAuthStore } from '@/stores/auth';
-import type { ChildEinstufungSync, FeeExpectation, MatchSuggestion, Parent, UpdateHouseholdRequest } from '@/api/types';
+import type { BankTransaction, ChildEinstufungSync, FeeExpectation, MatchSuggestion, Parent, UpdateHouseholdRequest } from '@/api/types';
 import { Trash2, Loader2, AlertCircle, Unlink } from 'lucide-vue-next';
 import PageHeader from '@/components/ui/PageHeader.vue';
 import AppSheet from '@/components/ui/AppSheet.vue';
@@ -54,6 +55,9 @@ const showParentDialog = ref(false);
 const parentDialogMode = ref<'create' | 'link'>('create');
 const selectedFee = ref<FeeExpectation | null>(null);
 const allocationSuggestion = ref<MatchSuggestion | null>(null);
+const donationTransaction = ref<BankTransaction | null>(null);
+// Remounts the household's donation list after a new assignment.
+const donationsVersion = ref(0);
 const selectedParentForDetail = ref<Parent | null>(null);
 
 // Delete dialog state
@@ -204,6 +208,16 @@ function openTransactionModal(fee: FeeExpectation) {
 
 function openAllocationModal(suggestion: MatchSuggestion): void {
   allocationSuggestion.value = suggestion;
+}
+
+function openDonationAssign(suggestion: MatchSuggestion): void {
+  donationTransaction.value = suggestion.transaction;
+}
+
+async function onDonationAssigned() {
+  donationTransaction.value = null;
+  donationsVersion.value++;
+  await loadLikelyTransactions();
 }
 
 // After unmatching, deleting or allocating a transaction
@@ -383,7 +397,7 @@ async function createReminder() {
           :cancelEditingHousehold="cancelEditingHousehold"
           :saveHouseholdEdit="saveHouseholdEdit"
         />
-      <HouseholdDonationsCard v-if="authStore.canAccessFees && child.householdId" :household-id="child.householdId" class="mb-6" />
+      <HouseholdDonationsCard v-if="authStore.canAccessFees && child.householdId" :key="donationsVersion" :household-id="child.householdId" class="mb-6" />
       <ChildNotesCard v-if="authStore.canAccessFees" :child-id="childId" />
 
       <!-- Fees section (not for Leitung) -->
@@ -399,6 +413,7 @@ async function createReminder() {
         :paidFeeGroups="paidFeeGroups"
         :openTransactionModal="openTransactionModal"
         :openAllocationModal="openAllocationModal"
+        :openDonationAssign="openDonationAssign"
         :getPaymentSummary="getPaymentSummary"
         :getReminderSummary="getReminderSummary"
         :canCreateReminder="canCreateReminder"
@@ -463,6 +478,15 @@ async function createReminder() {
       @close="allocationSuggestion = null"
       @allocated="onTransactionChanged"
     />
+
+    <AppSheet v-if="donationTransaction" title="Als Spende zuordnen" @close="donationTransaction = null">
+      <DonationAssignPanel :transaction="donationTransaction" :default-household-id="child?.householdId"
+        form-id="donation-child" @matched="onDonationAssigned" />
+      <template #footer>
+        <button type="button" class="btn btn-secondary" @click="donationTransaction = null">Abbrechen</button>
+        <button type="submit" form="donation-child" class="btn btn-primary">Speichern</button>
+      </template>
+    </AppSheet>
 
     <ParentDetailModal
       v-if="selectedParentForDetail"

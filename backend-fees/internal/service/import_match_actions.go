@@ -288,7 +288,8 @@ func (s *ImportService) DismissTransaction(ctx context.Context, transactionID uu
 		return nil, ErrNotFound
 	}
 
-	if tx.PayerIBAN == nil {
+	// An assigned payment is no reason to block its payer, and its bank row must stay.
+	if tx.PayerIBAN == nil || tx.HasExclusiveAssignment() {
 		return nil, ErrInvalidInput
 	}
 

@@ -3,6 +3,17 @@
 Rolling change log of non-obvious implementation decisions. Newest first.
 Basics (ports, commands, layout) live in `AGENTS.md`.
 
+## Spenden: kein Beitrags-Matching, Blacklist geleert (2026-11-01)
+
+- Anlass: Spenden kommen auch von beitragspflichtigen Familien, deren IBAN vertraut ist; bei passendem Betrag hätte der
+  Auto-Match sie als Beitrag gebucht. Entscheidung: Das Wort „Spende“ im Verwendungszweck schließt die Buchung vom Matching
+  aus, nur von Hand bleibt der Beitrag möglich. Ein falscher Treffer kostet einen Klick, eine falsche Beitragsbuchung
+  verfälscht Forderungen. Regeln: `docs/spenden.md`.
+- Live-Daten: Alle 17 Blacklist-Einträge wurden auf Wunsch über die API entfernt. Das Ignorieren hatte die Buchungen dieser
+  IBANs gelöscht, darunter zwei Spenden. Die Banking-Sync-Downloads liegen unter `/srv/homelab-data/kita/banking-sync/downloads/`
+  (Fenster je Datei rund 90 Tage), daher lassen sich solche Buchungen dort nachschlagen und erneut importieren.
+  Der tägliche Import bringt nun auch wieder Eingänge von Kassen, Landkreis, Gemeinde und Finanzamt in die offene Liste.
+
 ## Mehrfachrollen und Rollenwechsel (2026-11-01)
 
 - Ein Konto kann mehrere Rollen haben (`fees.users.roles`, Migration `000054`), handelt aber immer in genau einer.

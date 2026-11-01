@@ -18,7 +18,10 @@ const PREFILTER_CONFIDENCE = 0.6;
 
 const auth = useAuthStore();
 // Ratenzahlungen are admin-only; Spenden are open to everyone who reconciles.
-const mode = ref<'fee' | 'plan' | 'donation'>(auth.isAdmin && props.transaction.installmentPlanSuggestion ? 'plan' : 'fee');
+const mode = ref<'fee' | 'plan' | 'donation'>(
+  props.transaction.likelyDonation && !props.transaction.matches?.length ? 'donation'
+    : auth.isAdmin && props.transaction.installmentPlanSuggestion ? 'plan' : 'fee',
+);
 
 const manualMatchSuggestion = ref<MatchSuggestion | null>(null);
 const isLoadingSuggestions = ref(false);

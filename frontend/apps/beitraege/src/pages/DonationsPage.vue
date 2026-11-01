@@ -82,6 +82,7 @@ onMounted(load);
                   <span class="block text-[13px] text-muted-foreground">
                     {{ formatDate(tx.bookingDate) }}<template v-if="tx.assignment?.householdName"> · {{ tx.assignment.householdName }}</template><template v-if="tx.assignment?.note"> · {{ tx.assignment.note }}</template>
                   </span>
+                  <span v-if="tx.description" class="block break-words text-[13px] text-muted-foreground">{{ tx.description }}</span>
                 </span>
                 <span class="shrink-0 font-semibold tabular-nums">{{ formatCurrency(tx.amount) }}</span>
               </button>

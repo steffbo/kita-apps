@@ -6,7 +6,11 @@ defineProps<{
   years: {
     year: number;
     total: number;
-    transactions: { id: string; bookingDate: string; amount: number; payerName?: string }[];
+    transactions: {
+      id: string; bookingDate: string; amount: number; payerName?: string;
+      // Only in the staff report.
+      description?: string; assignment?: { note?: string };
+    }[];
   }[];
 }>();
 </script>
@@ -23,6 +27,8 @@ defineProps<{
           <span class="min-w-0 flex-1">
             <span class="block truncate font-medium">{{ tx.payerName || 'Unbekannt' }}</span>
             <span class="block text-[13px] text-muted-foreground">{{ formatDate(tx.bookingDate) }}</span>
+            <span v-if="tx.description" class="block break-words text-[13px] text-muted-foreground">{{ tx.description }}</span>
+            <span v-if="tx.assignment?.note" class="block break-words text-[13px]">{{ tx.assignment.note }}</span>
           </span>
           <span class="shrink-0 tabular-nums">{{ formatCurrency(tx.amount) }}</span>
         </li>

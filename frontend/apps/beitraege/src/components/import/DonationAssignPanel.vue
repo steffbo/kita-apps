@@ -9,14 +9,15 @@ import { formatCurrency } from '@/utils/format';
 // Marks an open incoming transaction as donation, or edits note and household of an existing one.
 // A household known from the payer IBAN is preselected; undo via „Zuordnung aufheben“.
 // With `formId` the surrounding sheet renders the submit button in its footer.
-const props = defineProps<{ transaction: BankTransaction; formId?: string }>();
+// `defaultHouseholdId` preselects the household the panel was opened from, ahead of the IBAN suggestion.
+const props = defineProps<{ transaction: BankTransaction; formId?: string; defaultHouseholdId?: string }>();
 const emit = defineEmits<{ matched: [] }>();
 
 const existing = computed(() => props.transaction.assignment ?? null);
 const suggestion = computed(() => (existing.value ? null : props.transaction.householdSuggestion ?? null));
 
 const note = ref(existing.value?.note ?? '');
-const householdId = ref<string | undefined>(existing.value?.householdId ?? suggestion.value?.householdId);
+const householdId = ref<string | undefined>(existing.value?.householdId ?? props.defaultHouseholdId ?? suggestion.value?.householdId);
 const households = ref<ParentWorkHouseholdOption[]>([]);
 const isSaving = ref(false);
 const error = ref<string | null>(null);

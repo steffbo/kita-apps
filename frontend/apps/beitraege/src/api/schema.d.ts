@@ -5660,7 +5660,7 @@ export interface paths {
                         "application/json": components["schemas"]["DismissTransactionResponse"];
                     };
                 };
-                /** @description Invalid transaction ID or transaction has no IBAN */
+                /** @description Invalid transaction ID, transaction has no IBAN or is a donation or plan payment */
                 400: {
                     headers: {
                         [name: string]: unknown;
@@ -12620,6 +12620,8 @@ export interface components {
             /** @description Installment fields are redacted for roles without installment access. */
             installmentPlanSuggestion?: components["schemas"]["domain.InstallmentPlanSuggestion"];
             isHidden: boolean;
+            /** @description LikelyDonation is set on list rows whose payment text calls them a donation, see LooksLikeDonation. */
+            likelyDonation?: boolean;
             /** @description MatchedAmount is the total amount of this transaction already allocated to fees. */
             matchedAmount?: number;
             /** @description Joined fields */

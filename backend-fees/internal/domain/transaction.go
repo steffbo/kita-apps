@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -71,8 +72,17 @@ type BankTransaction struct {
 	Assignment                *TransactionAssignment     `json:"assignment,omitempty" db:"-" binding:"optional"`
 	// HouseholdSuggestion is set on open transactions whose payer IBAN is known to a household.
 	HouseholdSuggestion *HouseholdSuggestion `json:"householdSuggestion,omitempty" db:"-" binding:"optional"`
+	// LikelyDonation is set on list rows whose payment text calls them a donation, see LooksLikeDonation.
+	LikelyDonation bool `json:"likelyDonation,omitempty" db:"-" binding:"optional"`
 	// MatchedAmount is the total amount of this transaction already allocated to fees.
 	MatchedAmount *float64 `json:"matchedAmount,omitempty" db:"matched_amount" binding:"optional"`
+}
+
+// LooksLikeDonation reports whether the payment text calls the payment a donation ("Spende", "Geldspende",
+// "gespendet"). Such payments are never matched to fees automatically, by hand they still can be.
+// The payer name does not count: "Spender" is also a surname.
+func (t *BankTransaction) LooksLikeDonation() bool {
+	return t.Description != nil && strings.Contains(strings.ToLower(*t.Description), "spende")
 }
 
 // HasExclusiveAssignment reports whether the transaction already belongs to a plan or has a purpose,

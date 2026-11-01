@@ -323,8 +323,8 @@ func (r *PostgresTransactionRepository) GetBatches(ctx context.Context, offset, 
 		SELECT 
 			ib.id as id,
 			ib.imported_at as imported_at,
-			COALESCE(COUNT(bt.id), 0) as transaction_count,
-			COALESCE(COUNT(pm.id), 0) as matched_count,
+			COUNT(bt.id) as transaction_count,
+			COUNT(bt.id) FILTER (WHERE `+listHasMatches+`) as matched_count,
 			COALESCE(ib.file_name, '') as file_name,
 			COALESCE(ib.imported_by, '00000000-0000-0000-0000-000000000000') as imported_by,
 			CASE 
@@ -337,7 +337,6 @@ func (r *PostgresTransactionRepository) GetBatches(ctx context.Context, offset, 
 			ib.errors as errors
 		FROM fees.import_batches ib
 		LEFT JOIN fees.bank_transactions bt ON bt.import_batch_id = ib.id
-		LEFT JOIN fees.payment_matches pm ON bt.id = pm.transaction_id
 		GROUP BY ib.id, ib.file_name, ib.imported_by, ib.imported_at, ib.error_count, ib.errors
 		ORDER BY ib.imported_at DESC
 		LIMIT $1 OFFSET $2
@@ -442,6 +441,9 @@ func (r *PostgresTransactionRepository) enrichInstallments(ctx context.Context, 
 }
 
 func (r *PostgresTransactionRepository) enrich(ctx context.Context, rows []domain.BankTransaction) error {
+	for i := range rows {
+		rows[i].LikelyDonation = rows[i].LooksLikeDonation()
+	}
 	if err := r.enrichAssignments(ctx, rows); err != nil {
 		return err
 	}

@@ -3699,7 +3699,8 @@ paths:
               schema:
                 $ref: "#/components/schemas/DismissTransactionResponse"
         "400":
-          description: Invalid transaction ID or transaction has no IBAN
+          description: Invalid transaction ID, transaction has no IBAN or is a donation or
+            plan payment
           content:
             application/json:
               schema:
@@ -10130,6 +10131,10 @@ components:
             - $ref: "#/components/schemas/domain.InstallmentPlanSuggestion"
           description: Installment fields are redacted for roles without installment access.
         isHidden:
+          type: boolean
+        likelyDonation:
+          description: LikelyDonation is set on list rows whose payment text calls them a
+            donation, see LooksLikeDonation.
           type: boolean
         matchedAmount:
           description: MatchedAmount is the total amount of this transaction already

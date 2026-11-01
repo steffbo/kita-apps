@@ -39,8 +39,15 @@ Der Service lehnt gemischte Zuordnungen mit `HasExclusiveAssignment` ab.
   `DeleteUnmatchedByIBAN` löscht sie nicht, die Liste „Zugeordnet“ enthält sie (`matchedAmount` = Betrag).
 - Nur sichtbare Eingänge (Betrag > 0) ohne Beitragszuordnung können Spende werden. Zuordnen löst offene Warnungen der
   Transaktion wie eine Beitragszuordnung. Spenden und Planzahlungen lassen sich nicht ausblenden (`POST …/hide` gibt 400).
-- Der Auto-Match läuft beim Import vor jeder Spendenzuordnung. Bucht er eine Spende von einer bekannten IBAN als Beitrag,
-  muss die Zuordnung erst aufgehoben werden. Das ist so akzeptiert (Entscheidung 2026-11-01).
+- „Spende“ im Verwendungszweck (`BankTransaction.LooksLikeDonation`, auch „Geldspende“, „gespendet“; Groß/Klein egal, der
+  Zahlername zählt nicht) schließt die Buchung vom Matching aus: kein Auto-Match bei Import und Rescan, kein Beitragsvorschlag,
+  keine Warnung wegen fehlender Forderung. Die Buchung bleibt offen, trägt `likelyDonation` und der Dialog startet im Modus
+  „Spende“. Von Hand lässt sie sich weiter als Beitrag buchen, etwa bei „Essensgeld und Spende“.
+- Grenze: Ohne das Wort ist eine Spende nicht erkennbar. Überweist eine Familie von einer bekannten IBAN genau den Betrag
+  einer offenen Forderung, bucht der Auto-Match ihn als Beitrag; dann die Zuordnung aufheben und als Spende zuordnen.
+- „Ignorieren“ (`POST …/dismiss`, Blacklist) lehnt Spenden und Planzahlungen mit 400 ab. Es sperrt die IBAN, der Import
+  verwirft dann auch künftige Spenden von ihr. Für einzelne Buchungen ohne Beitragsbezug ist „Ausblenden“ der richtige Weg.
+- Die Import-Historie zählt Spenden und Planzahlungen als zugeordnet.
 - Aufheben: der vorhandene `POST /import/transactions/{id}/unmatch` entfernt auch die Spende.
 
 ## Haushalt und IBAN-Vorschlag
@@ -71,6 +78,10 @@ Haushalt; ohne Haushalt eine leere Liste.
   und Haushaltssuche (`HouseholdPicker`, gemeinsam mit Ratenplan-Formular und Elternstunden; `DonationAssignPanel`); Zeilen tragen das Badge „Spende“.
 - Seite `/spenden` (Navigation „Beiträge“ → „Spenden“, `requiresFees`), Tabelle je Jahr, Liste auf dem Handy.
 - Eltern: Abschnitt „Spenden“ auf `/familie/beitraege`, unabhängig vom gewählten Jahr, ohne Spenden ausgeblendet.
+- Kindseite: Vorschläge mit `likelyDonation` tragen das Badge „Spende?“ und die Aktion „Als Spende zuordnen“ (Haushalt des
+  Kindes vorgewählt) neben „Als Beitrag“.
+- Herkunft einer Spende: `transaction_assignments.transaction_id` zeigt auf die unveränderte Bankbuchung. Der
+  Verwendungszweck steht in `/spenden` (Tabelle und Handyliste) und auf der Haushaltskarte, bei Eltern bewusst nicht.
 - Haushalt ansehen (`ADMIN`, `BOARD`): `HouseholdDonationsCard` auf der Kindseite und auf `/elternstunden/familien/:id`.
   Eine eigene Haushaltsseite gibt es nicht. 
 - E2E: `frontend/e2e/beitraege/donations.spec.ts`.
@@ -80,3 +91,7 @@ Haushalt; ohne Haushalt eine leere Liste.
 - Zuwendungsbestätigungen (Spendenquittungen) und Spender als Stammdaten (Adresse, Zuordnung mehrerer Zahlungen).
 - Spende ohne Klick zuordnen (auch der Haushalt ist nur Vorschlag), Vorschlag „ist Spende“ anhand des Verwendungszwecks.
 - Spenden je Haushalt auswerten/gruppieren, Export/CSV, Filter auf ein Jahr.
+- Historie der Zuordnung: Aufheben und Löschen hinterlassen keine Spur, `PUT …/assign` hält nicht fest, wer geändert hat;
+  `assigned_by` wird gespeichert, aber nicht ausgeliefert.
+- Beim Löschen eines Haushalts verliert die Spende ohne Warnung den Haushalt (`ON DELETE SET NULL`); ein Umzug des Kindes
+  ändert ihren Haushalt nicht. Rücküberweisungen mindern die Summe nicht (Zuordnung von Hand aufheben).

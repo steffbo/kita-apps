@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { toRefs } from 'vue';
 import type { FeeExpectation, MatchSuggestion } from '@/api/types';
-import { Loader2, Receipt, CheckCircle, Clock, AlertTriangle, AlertCircle, CreditCard } from 'lucide-vue-next';
+import { Loader2, Receipt, CheckCircle, Clock, AlertTriangle, AlertCircle, CreditCard, Heart } from 'lucide-vue-next';
 import { formatCurrency, formatDate, todayISO } from '@/utils/format';
 import {
   formatConfidence,
@@ -24,6 +24,7 @@ const props = defineProps<{
   paidFeeGroups: { fee: FeeExpectation; reminders: FeeExpectation[] }[];
   openTransactionModal: (fee: FeeExpectation) => void;
   openAllocationModal: (suggestion: MatchSuggestion) => void;
+  openDonationAssign: (suggestion: MatchSuggestion) => void;
   getPaymentSummary: (fee: FeeExpectation) => string;
   getReminderSummary: (reminders: FeeExpectation[]) => string;
   canCreateReminder: (fee: FeeExpectation) => boolean;
@@ -41,6 +42,7 @@ const {
   paidFeeGroups,
   openTransactionModal,
   openAllocationModal,
+  openDonationAssign,
   getPaymentSummary,
   getReminderSummary,
   canCreateReminder,
@@ -86,6 +88,9 @@ const {
               <p class="font-medium text-primary">
                 {{ suggestion.transaction.payerName || 'Unbekannt' }}
                 <span class="text-xs text-primary ml-2">· {{ formatDate(suggestion.transaction.bookingDate) }}</span>
+                <span v-if="suggestion.transaction.likelyDonation" class="badge badge-success ml-2">
+                  <Heart class="h-3 w-3" />Spende?
+                </span>
               </p>
               <p v-if="suggestion.transaction.description" class="text-sm text-primary break-words">
                 {{ suggestion.transaction.description }}
@@ -107,11 +112,17 @@ const {
                 Bereits zugeordnet: {{ formatCurrency(suggestion.transaction.matchedAmount ?? 0) }}
                 · Rest: {{ formatCurrency(getTxRemainingAmount(suggestion.transaction)) }}
               </p>
+              <button v-if="suggestion.transaction.likelyDonation" data-write
+                @click="openDonationAssign(suggestion)"
+                class="btn btn-primary btn-sm"
+              >
+                Als Spende zuordnen
+              </button>
               <button data-write
                 @click="openAllocationModal(suggestion)"
                 class="inline-flex items-center gap-1 px-2 py-1 text-xs text-primary bg-card hover:bg-primary-soft border border-primary/20 rounded transition-colors"
               >
-                Zuordnen
+                {{ suggestion.transaction.likelyDonation ? 'Als Beitrag' : 'Zuordnen' }}
               </button>
             </div>
           </div>

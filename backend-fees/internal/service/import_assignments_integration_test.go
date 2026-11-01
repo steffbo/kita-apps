@@ -3,6 +3,7 @@ package service_test
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -229,3 +230,104 @@ func TestImportService_DonationAssignment(t *testing.T) {
 }
 
 func ptr[T any](v T) *T { return &v }
+
+// A donation from a family with an open fee of exactly that amount and a trusted IBAN stays open.
+func TestImportService_DonationTextIsNeverMatchedToFees(t *testing.T) {
+	requireTestDatabase(t)
+	cleanupTestData()
+	t.Cleanup(cleanupTestData)
+	ctx := context.Background()
+	childRepo := repository.NewPostgresChildRepository(testDB)
+	feeRepo := repository.NewPostgresFeeRepository(testDB)
+	txRepo := repository.NewPostgresTransactionRepository(testDB)
+	matchRepo := repository.NewPostgresMatchRepository(testDB)
+	knownRepo := repository.NewPostgresKnownIBANRepository(testDB)
+	warningRepo := repository.NewPostgresWarningRepository(testDB)
+	svc := service.NewImportService(txRepo, feeRepo, childRepo, matchRepo, knownRepo, warningRepo, repository.NewTxManager(testDB), repository.NewPostgresFeeScheduleRepository(testDB))
+	child, err := createTestChild(childRepo, "DM")
+	if err != nil {
+		t.Fatal(err)
+	}
+	fee, err := createTestFee(feeRepo, child.ID, domain.FeeTypeFood, 45.40, time.Now().Year(), int(time.Now().Month()))
+	if err != nil {
+		t.Fatal(err)
+	}
+	const iban = "TESTDE999888777666"
+	if err := createTrustedIBAN(knownRepo, iban, &child.ID); err != nil {
+		t.Fatal(err)
+	}
+	row := func(purpose, amount string) string {
+		return `Bezeichnung Auftragskonto;IBAN Auftragskonto;BIC Auftragskonto;Bankname Auftragskonto;Buchungstag;Valutadatum;Name Zahlungsbeteiligter;IBAN Zahlungsbeteiligter;BIC (SWIFT-Code) Zahlungsbeteiligter;Buchungstext;Verwendungszweck;Betrag;Waehrung;Saldo nach Buchung
+Test;DE1234;BIC;Bank;02.01.2026;02.01.2026;Test Zahler;` + iban + `;BIC;Transfer;` + purpose + ` ` + child.FirstName + ` ` + child.LastName + `;` + amount + `;EUR;1000,00
+`
+	}
+
+	result, err := svc.ProcessCSV(ctx, strings.NewReader(row("Spende Sommerfest", "45,40")), "donation.csv", uuid.New())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Imported != 1 || result.AutoMatched != 0 || len(result.Suggestions) != 0 {
+		t.Fatalf("import %+v", result)
+	}
+	rescan, err := svc.Rescan(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rescan.AutoMatched != 0 || len(rescan.Suggestions) != 0 {
+		t.Fatalf("rescan %+v", rescan)
+	}
+	if paid, err := matchRepo.ExistsForExpectation(ctx, fee.ID); err != nil || paid {
+		t.Fatalf("fee matched: %v %v", paid, err)
+	}
+	// No warning about a missing fee either.
+	warnings, _, err := warningRepo.ListUnresolved(ctx, 0, 10)
+	if err != nil || len(warnings) != 0 {
+		t.Fatalf("warnings %+v %v", warnings, err)
+	}
+
+	open, _, err := txRepo.ListTransactions(ctx, "offen", iban, "date", "desc", 0, 10)
+	if err != nil || len(open) != 1 || !open[0].LikelyDonation {
+		t.Fatalf("open %+v %v", open, err)
+	}
+	// Still offered on the child page, flagged and without a fee.
+	child2, err := svc.GetUnmatchedSuggestionsForChild(ctx, child.ID, 0, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(child2.Suggestions) != 1 || !child2.Suggestions[0].Transaction.LikelyDonation || child2.Suggestions[0].Expectation != nil {
+		t.Fatalf("child suggestions %+v", child2.Suggestions)
+	}
+	// By hand the payment can still become a fee payment.
+	if _, err := svc.CreateManualMatch(ctx, open[0].ID, fee.ID, uuid.New()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.UnmatchTransaction(ctx, open[0].ID, false); err != nil {
+		t.Fatal(err)
+	}
+
+	// The same payment without the word is still matched.
+	result, err = svc.ProcessCSV(ctx, strings.NewReader(row("Essensgeld", "45,40")), "fee.csv", uuid.New())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.AutoMatched != 1 {
+		t.Fatalf("fee import %+v", result)
+	}
+
+	// An assigned donation cannot be dismissed, and the import history counts it.
+	if err := svc.AssignTransaction(ctx, open[0].ID, domain.AssignmentInput{Kind: domain.AssignmentDonation}, uuid.New()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.DismissTransaction(ctx, open[0].ID); !errors.Is(err, service.ErrInvalidInput) {
+		t.Fatalf("dismiss: %v", err)
+	}
+	batches, _, err := svc.GetHistory(ctx, 0, 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, b := range batches {
+		if b.TransactionCount != 1 || b.MatchedCount != 1 {
+			t.Fatalf("batch %+v", b)
+		}
+	}
+}

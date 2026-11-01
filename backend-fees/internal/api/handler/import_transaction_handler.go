@@ -216,7 +216,7 @@ type AllocateTransactionResponse struct {
 // @Security BearerAuth
 // @Param id path string true "Transaction ID (UUID)"
 // @Success 200 {object} DismissTransactionResponse "Dismissal result"
-// @Failure 400 {object} response.ErrorBody "Invalid transaction ID or transaction has no IBAN"
+// @Failure 400 {object} response.ErrorBody "Invalid transaction ID, transaction has no IBAN or is a donation or plan payment"
 // @Failure 401 {object} response.ErrorBody "Not authenticated"
 // @Failure 404 {object} response.ErrorBody "Transaction not found"
 // @Failure 500 {object} response.ErrorBody "Internal server error"
@@ -236,7 +236,7 @@ func (h *ImportHandler) DismissTransaction(w http.ResponseWriter, r *http.Reques
 			return
 		}
 		if err == service.ErrInvalidInput {
-			response.BadRequest(w, "transaction has no IBAN")
+			response.BadRequest(w, "transaction has no IBAN or is a donation or plan payment")
 			return
 		}
 		response.InternalError(w, "failed to dismiss transaction")

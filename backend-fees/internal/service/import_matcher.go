@@ -22,6 +22,11 @@ type ChildUnmatchedSuggestionsResult struct {
 }
 
 func (s *ImportService) matchTransaction(ctx context.Context, tx domain.BankTransaction, children []domain.Child, schedules domain.FeeSchedules) (*domain.MatchSuggestion, *domain.TransactionWarning) {
+	// A donation from a family looks like a fee payment (trusted IBAN, maybe the exact amount).
+	if tx.LooksLikeDonation() {
+		return nil, nil
+	}
+
 	suggestion := &domain.MatchSuggestion{
 		Transaction:  tx,
 		DetectedType: detectFeeType(tx.Amount, feeConfigAt(schedules, tx.BookingDate)),
@@ -337,7 +342,7 @@ func buildMatchText(tx domain.BankTransaction) string {
 
 // checkForWarning checks if an unmatched transaction from a trusted IBAN should generate a warning.
 func (s *ImportService) checkForWarning(ctx context.Context, tx domain.BankTransaction, schedules domain.FeeSchedules) *domain.TransactionWarning {
-	if tx.PayerIBAN == nil {
+	if tx.PayerIBAN == nil || tx.LooksLikeDonation() {
 		return nil
 	}
 
@@ -496,7 +501,7 @@ func (s *ImportService) GetUnmatchedSuggestionsForChild(ctx context.Context, chi
 			continue
 		}
 
-		if suggestion.DetectedType != nil {
+		if suggestion.DetectedType != nil && !tx.LooksLikeDonation() {
 			_ = s.matchFeeExpectation(ctx, tx, suggestion)
 		}
 
