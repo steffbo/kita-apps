@@ -89,12 +89,14 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 				r.Get("/reports", handlers.ParentAccount.OwnReports)
 				r.Post("/reports", handlers.ParentAccount.CreateReport)
 			})
-			r.With(customMiddleware.RequireRole(string(domain.UserRoleAdmin))).
-				Get("/activity", handlers.ParentAccount.Activity)
+			// BOARD is read-only everywhere (middleware.ReadOnly, see its group below).
+			adminOrBoard := customMiddleware.RequireRole(
+				string(domain.UserRoleAdmin), string(domain.UserRoleBoard))
+			r.With(adminOrBoard).Get("/activity", handlers.ParentAccount.Activity)
 			r.Route("/parent-reports", func(r chi.Router) {
-				r.Use(customMiddleware.RequireRole(string(domain.UserRoleAdmin)))
-				r.Get("/", handlers.ParentAccount.StaffReports)
-				r.Post("/{id}/resolve", handlers.ParentAccount.ResolveReport)
+				r.With(adminOrBoard).Get("/", handlers.ParentAccount.StaffReports)
+				r.With(customMiddleware.RequireRole(string(domain.UserRoleAdmin))).
+					Post("/{id}/resolve", handlers.ParentAccount.ResolveReport)
 			})
 
 			r.Route("/installment-plans", func(r chi.Router) {
@@ -131,11 +133,12 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 
 			// Parent-work account routes. LEITUNG sees the accounts and records hours;
 			// everything else (corrections, review, overrides, import, rules) is
-			// ADMIN/PARENT_WORK only.
+			// ADMIN/PARENT_WORK only. BOARD only reads.
 			r.Route("/parent-work", func(r chi.Router) {
 				r.Use(customMiddleware.RequireRole(
-					string(domain.UserRoleAdmin), string(domain.UserRoleParentWork),
-					string(domain.UserRoleLeitung)))
+					string(domain.UserRoleAdmin), string(domain.UserRoleBoard),
+					string(domain.UserRoleParentWork), string(domain.UserRoleLeitung)))
+				r.Use(customMiddleware.ReadOnly(string(domain.UserRoleBoard)))
 				r.Get("/overview", handlers.ParentWork.Overview)
 				r.Get("/households", handlers.ParentWork.Households)
 				r.Get("/households/{id}", handlers.ParentWork.Household)
@@ -154,9 +157,9 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 					r.Post("/import/preview", handlers.ParentWork.PreviewImport)
 					r.Post("/import/execute", handlers.ParentWork.ExecuteImport)
 				})
+				r.With(adminOrBoard).Get("/board-terms", handlers.ParentWork.Terms)
 				r.Group(func(r chi.Router) {
 					r.Use(customMiddleware.RequireRole(string(domain.UserRoleAdmin)))
-					r.Get("/board-terms", handlers.ParentWork.Terms)
 					r.Post("/board-terms", handlers.ParentWork.CreateTerm)
 					r.Put("/board-terms/{id}", handlers.ParentWork.UpdateTerm)
 					r.Delete("/board-terms/{id}", handlers.ParentWork.DeleteTerm)
@@ -165,18 +168,19 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 				})
 			})
 
-			// Staff = full access including fees (ADMIN, USER). LEITUNG gets the
-			// master-data group below and never reaches fee, Einstufung, bank or note routes.
-			staffOnly := customMiddleware.RequireRole(
-				string(domain.UserRoleAdmin), string(domain.UserRoleUser))
+			// Staff = full access including fees (ADMIN, BOARD read-only). LEITUNG gets
+			// the master-data group below and never reaches fee, Einstufung, bank or
+			// note routes.
+			staffOnly := adminOrBoard
 
 			// Master data: children, parents, households, members. LEITUNG may use
 			// it, but HideFeeData strips income/fee fields from its requests and
 			// responses. Routes that expose or destroy fee data stay staffOnly.
 			r.Group(func(r chi.Router) {
 				r.Use(customMiddleware.RequireRole(
-					string(domain.UserRoleAdmin), string(domain.UserRoleUser),
+					string(domain.UserRoleAdmin), string(domain.UserRoleBoard),
 					string(domain.UserRoleLeitung)))
+				r.Use(customMiddleware.ReadOnly(string(domain.UserRoleBoard)))
 				r.Use(customMiddleware.HideFeeData(string(domain.UserRoleLeitung)))
 
 				// Children
@@ -185,8 +189,7 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 					r.Get("/next-member-number", handlers.Child.NextMemberNumber)
 					r.Post("/", handlers.Child.Create)
 					r.Get("/{id}", handlers.Child.Get)
-					r.With(customMiddleware.RequireRole(string(domain.UserRoleAdmin))).
-						Get("/{id}/changes", handlers.ParentAccount.ChildChanges)
+					r.With(adminOrBoard).Get("/{id}/changes", handlers.ParentAccount.ChildChanges)
 					r.Put("/{id}", handlers.Child.Update)
 					r.With(staffOnly).Delete("/{id}", handlers.Child.Delete)
 					r.Get("/{id}/care-hours-history", handlers.Child.GetCareHoursHistory)
@@ -218,8 +221,7 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 					r.Get("/", handlers.Parent.List)
 					r.Post("/", handlers.Parent.Create)
 					r.Get("/{id}", handlers.Parent.Get)
-					r.With(customMiddleware.RequireRole(string(domain.UserRoleAdmin))).
-						Get("/{id}/changes", handlers.ParentAccount.ParentChanges)
+					r.With(adminOrBoard).Get("/{id}/changes", handlers.ParentAccount.ParentChanges)
 					r.Put("/{id}", handlers.Parent.Update)
 					r.With(staffOnly).Delete("/{id}", handlers.Parent.Delete)
 					r.Post("/{id}/member", handlers.Parent.CreateMember)
@@ -259,9 +261,10 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 				})
 			})
 
-			// Fees, Einstufungen, bank data and notes: ADMIN and USER only.
+			// Fees, Einstufungen, bank data and notes: ADMIN, and BOARD read-only.
 			r.Group(func(r chi.Router) {
 				r.Use(staffOnly)
+				r.Use(customMiddleware.ReadOnly(string(domain.UserRoleBoard)))
 
 				// Notes (global list across children)
 				r.Get("/notes", handlers.ChildNote.ListAll)

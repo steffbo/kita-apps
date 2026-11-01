@@ -19,7 +19,7 @@ const isNew = computed(() => !props.user);
 const email = ref(props.user?.email ?? '');
 const firstName = ref(props.user?.firstName ?? '');
 const lastName = ref(props.user?.lastName ?? '');
-const role = ref<UserRole>(props.user?.role ?? 'USER');
+const role = ref<UserRole>(props.user?.role ?? 'PARENT_WORK');
 const isActive = ref(props.user?.isActive ?? true);
 const password = ref('');
 const isSaving = ref(false);
@@ -83,12 +83,15 @@ async function submit() {
         <label class="block">
           <span class="text-sm font-medium text-foreground">Rolle</span>
           <select v-model="role" :disabled="isSelf" class="mt-1 w-full input disabled:bg-muted">
-            <option value="USER">Benutzer</option>
             <option value="ADMIN">Administrator</option>
+            <option value="BOARD">Vorstand</option>
             <option value="PARENT_WORK">Elternstunden</option>
             <option value="LEITUNG">Leitung</option>
             <option value="PARENT">Eltern</option>
           </select>
+          <span v-if="role === 'BOARD'" class="mt-1 block text-xs text-muted-foreground">
+            Sieht alles, auch Beiträge, Einkommen, Einstufungen und Bankdaten, kann aber nichts ändern.
+          </span>
           <span v-if="role === 'LEITUNG'" class="mt-1 block text-xs text-muted-foreground">
             Sieht und bearbeitet Kinder, Eltern, Haushalte, Mitglieder und Elternstunden, aber keine Beiträge, Einkommen, Einstufungen, Notizen oder Bankdaten.
           </span>

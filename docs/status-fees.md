@@ -3,6 +3,35 @@
 Rolling change log of non-obvious implementation decisions. Newest first.
 Basics (ports, commands, layout) live in `AGENTS.md`.
 
+## Rolle Vorstand (`BOARD`), `USER` nur noch Systemrolle (2026-11-01)
+
+- Anlass: Aktive Vorstandsmitglieder sollen Konten, Beiträge und Einstufungen einsehen können. Schreiben
+  ist bewusst aus, solange es kein Audit-Log gibt („wer hat was geändert“); dann wäre ein Schreibzugriff
+  für alle Vorstände nicht nachvollziehbar.
+- Migration `000052`: `BOARD` im CHECK von `fees.users.role`. Label in der UI „Vorstand“.
+- `middleware.ReadOnly(BOARD)` lässt nur GET/HEAD/OPTIONS durch (403 „Diese Rolle hat nur Leserechte“).
+  Es hängt an den Gruppen Stammdaten, Beiträge/Einstufungen/Bank und `/parent-work`. `BOARD` liest
+  zusätzlich `/activity`, `GET /parent-reports/`, `GET /{children,parents}/{id}/changes` und
+  `GET /parent-work/board-terms`. Nicht erlaubt: Benutzer, Impersonation, Bank-Sync, Erinnerungen/Mahnungen,
+  Elternstunden-Regeln und -Korrekturen. `TestRouter_BoardIsReadOnly` läuft per `chi.Walk` über alle
+  Schreib-Routen; eine neue Gruppe mit `BOARD` ohne `ReadOnly` fällt dort auf.
+- `USER` war historisch der Beitrags-Sachbearbeiter (heute faktisch nur Admin ohne Systemrechte). Live
+  hatte kein Konto diese Rolle; der Bankimport braucht kein Konto, `ImportAuthMiddleware` setzt für den
+  Import-Token (`CRON_API_TOKEN`) eine synthetische Identität mit `USER`. Jetzt: `USER` ist nicht
+  zuweisbar (`UserInput.normalize`), `Authenticate` lehnt Konten mit `USER` ab, JWT-Uploads auf
+  `/import/upload` nur noch `ADMIN`. Die Beitrags-Routen erlauben `ADMIN`/`BOARD` statt `ADMIN`/`USER`.
+  Der Wert bleibt im CHECK, damit eine bestehende Zeile (und die Down-Migration) nicht bricht.
+- Frontend: `auth.isBoard`/`isReadOnly`; `canAccessFees` und `canAccessParentWork` schließen `BOARD` ein
+  (Navigation wie Beitragsansicht ohne Admin-Bereiche). Der Benutzer-Dialog bietet Administrator, Vorstand, Elternstunden, Leitung, Eltern; Standard
+  ist `PARENT_WORK` (geringster Zugriff ohne Elternverknüpfung, Eltern kommen über „Eltern einladen“). Hinweisleiste „Vorstand: Du siehst alle Daten,
+  kannst aber nichts ändern“ (`read-only-indicator`). **Noch nicht verdrahtet:** Schreib-Buttons sind für
+  `BOARD` sichtbar und scheitern mit der 403-Meldung; sie auszublenden steht aus.
+- Geplant, nicht umgesetzt: mehrere Rollen pro Benutzer mit aktiver Rolle (Wechsler und Rollen-Badge,
+  `POST /auth/switch-role`, `roles[]`), Vorstand + Eltern, Admin + Eltern; Audit-Log als Voraussetzung für
+  Schreibrechte des Vorstands.
+- Tests: `TestReadOnly`, `TestRouter_BoardIsReadOnly`, erweiterte Rollen-/Admin-Routen-Tests,
+  `TestAuthService_SystemRoleCannotLogin`, E2E `board.spec.ts`.
+
 ## Jahresauswahl: Datenjahre plus Folgejahr (2026-10-31)
 
 - Fehler: In der Elternstunden-Übersicht hing die Kita-Jahr-Liste vom gewählten Jahr ab; nach

@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/auth"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/repository"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/service"
@@ -103,20 +104,23 @@ func TestUserService_ManageAccounts(t *testing.T) {
 	adminID := service.BootstrapAdminID
 	name := "  Erika "
 
-	if _, err := userSvc.Create(ctx, service.UserInput{Email: "no-at", Role: domain.UserRoleUser, IsActive: true}, "password1"); !errors.Is(err, service.ErrInvalidInput) {
+	if _, err := userSvc.Create(ctx, service.UserInput{Email: "no-at", Role: domain.UserRoleBoard, IsActive: true}, "password1"); !errors.Is(err, service.ErrInvalidInput) {
 		t.Errorf("invalid email: err = %v", err)
 	}
 	if _, err := userSvc.Create(ctx, service.UserInput{Email: "x@example.com", Role: "BOSS", IsActive: true}, "password1"); !errors.Is(err, service.ErrInvalidInput) {
 		t.Errorf("invalid role: err = %v", err)
 	}
-	if _, err := userSvc.Create(ctx, service.UserInput{Email: "x@example.com", Role: domain.UserRoleUser, IsActive: true}, "short"); !errors.Is(err, service.ErrInvalidInput) {
+	if _, err := userSvc.Create(ctx, service.UserInput{Email: "x@example.com", Role: domain.UserRoleUser, IsActive: true}, "password1"); !errors.Is(err, service.ErrInvalidInput) {
+		t.Errorf("system role USER must not be assignable: err = %v", err)
+	}
+	if _, err := userSvc.Create(ctx, service.UserInput{Email: "x@example.com", Role: domain.UserRoleBoard, IsActive: true}, "short"); !errors.Is(err, service.ErrInvalidInput) {
 		t.Errorf("short password: err = %v", err)
 	}
-	if _, err := userSvc.Create(ctx, service.UserInput{Email: "ADMIN@example.com", Role: domain.UserRoleUser, IsActive: true}, "password1"); !errors.Is(err, service.ErrConflict) {
+	if _, err := userSvc.Create(ctx, service.UserInput{Email: "ADMIN@example.com", Role: domain.UserRoleBoard, IsActive: true}, "password1"); !errors.Is(err, service.ErrConflict) {
 		t.Errorf("duplicate email (case-insensitive): err = %v, want ErrConflict", err)
 	}
 
-	erika, err := userSvc.Create(ctx, service.UserInput{Email: " erika@example.com ", FirstName: &name, Role: domain.UserRoleUser, IsActive: true}, "password1")
+	erika, err := userSvc.Create(ctx, service.UserInput{Email: " erika@example.com ", FirstName: &name, Role: domain.UserRoleBoard, IsActive: true}, "password1")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -128,7 +132,7 @@ func TestUserService_ManageAccounts(t *testing.T) {
 	}
 
 	// Self-protection: no self-deactivation or self-demotion.
-	selfInput := service.UserInput{Email: "admin@example.com", Role: domain.UserRoleUser, IsActive: true}
+	selfInput := service.UserInput{Email: "admin@example.com", Role: domain.UserRoleBoard, IsActive: true}
 	if _, err := userSvc.Update(ctx, adminID, adminID, selfInput); !errors.Is(err, service.ErrInvalidInput) {
 		t.Errorf("self-demotion: err = %v, want ErrInvalidInput", err)
 	}
@@ -136,7 +140,7 @@ func TestUserService_ManageAccounts(t *testing.T) {
 	if _, err := userSvc.Update(ctx, adminID, adminID, selfInput); !errors.Is(err, service.ErrInvalidInput) {
 		t.Errorf("self-deactivation: err = %v, want ErrInvalidInput", err)
 	}
-	if _, err := userSvc.Update(ctx, adminID, uuid.New(), service.UserInput{Email: "a@b.de", Role: domain.UserRoleUser}); !errors.Is(err, service.ErrNotFound) {
+	if _, err := userSvc.Update(ctx, adminID, uuid.New(), service.UserInput{Email: "a@b.de", Role: domain.UserRoleBoard}); !errors.Is(err, service.ErrNotFound) {
 		t.Errorf("unknown user: err = %v, want ErrNotFound", err)
 	}
 
@@ -144,7 +148,7 @@ func TestUserService_ManageAccounts(t *testing.T) {
 	if err := authSvc.StoreRefreshToken(ctx, erika.ID, "erika-token"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := userSvc.Update(ctx, adminID, erika.ID, service.UserInput{Email: "erika@example.com", Role: domain.UserRoleUser, IsActive: false}); err != nil {
+	if _, err := userSvc.Update(ctx, adminID, erika.ID, service.UserInput{Email: "erika@example.com", Role: domain.UserRoleBoard, IsActive: false}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := authSvc.Authenticate(ctx, "erika@example.com", "password1"); !errors.Is(err, service.ErrUnauthorized) {
@@ -175,5 +179,26 @@ func TestUserService_ManageAccounts(t *testing.T) {
 	list, err := userSvc.List(ctx)
 	if err != nil || len(list) != 2 {
 		t.Fatalf("list = %d users, err %v", len(list), err)
+	}
+}
+
+// USER is the import system role: even a row with a valid password cannot log in.
+func TestAuthService_SystemRoleCannotLogin(t *testing.T) {
+	ctx := context.Background()
+	authSvc, _ := newUserServices(t)
+	hash, err := auth.HashPassword("password1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := testDB.Exec(`INSERT INTO fees.users(id,email,password_hash,role,is_active)
+		VALUES ($1,'importer@example.org',$2,'USER',true),($3,'board@example.org',$2,'BOARD',true)`,
+		uuid.New(), hash, uuid.New()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := authSvc.Authenticate(ctx, "importer@example.org", "password1"); !errors.Is(err, service.ErrUnauthorized) {
+		t.Errorf("USER login: err = %v, want ErrUnauthorized", err)
+	}
+	if _, err := authSvc.Authenticate(ctx, "board@example.org", "password1"); err != nil {
+		t.Errorf("BOARD login: %v", err)
 	}
 }

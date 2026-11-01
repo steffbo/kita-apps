@@ -22,6 +22,10 @@ func TestImportAuthMiddleware(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	boardTokens, err := jwtService.GenerateTokenPair(uuid.New(), "board@example.org", "BOARD")
+	if err != nil {
+		t.Fatal(err)
+	}
 	parentWorkTokens, err := jwtService.GenerateTokenPair(uuid.New(), "parent@example.org", "PARENT_WORK")
 	if err != nil {
 		t.Fatal(err)
@@ -40,7 +44,8 @@ func TestImportAuthMiddleware(t *testing.T) {
 		{name: "token auth disabled", configured: "", importToken: "anything", wantStatus: http.StatusUnauthorized},
 		{name: "no credentials", configured: "s3cret", wantStatus: http.StatusUnauthorized},
 		{name: "admin bearer", configured: "s3cret", authorization: "Bearer " + tokens.AccessToken, wantStatus: http.StatusOK},
-		{name: "user bearer", configured: "s3cret", authorization: "Bearer " + userTokens.AccessToken, wantStatus: http.StatusOK},
+		{name: "user bearer (system role, no JWT access)", configured: "s3cret", authorization: "Bearer " + userTokens.AccessToken, wantStatus: http.StatusForbidden},
+		{name: "board bearer (read-only)", configured: "s3cret", authorization: "Bearer " + boardTokens.AccessToken, wantStatus: http.StatusForbidden},
 		{name: "parent-work bearer", configured: "s3cret", authorization: "Bearer " + parentWorkTokens.AccessToken, wantStatus: http.StatusForbidden},
 		{name: "invalid bearer wins over valid import token", configured: "s3cret", authorization: "Bearer nope", importToken: "s3cret", wantStatus: http.StatusUnauthorized},
 	}

@@ -79,6 +79,14 @@ var adminRoutes = []string{
 	"POST /parent-reports/{id}/resolve",
 }
 
+// boardReadableAdminRoutes are the adminRoutes BOARD may read.
+var boardReadableAdminRoutes = map[string]bool{
+	"GET /activity":              true,
+	"GET /parents/{id}/changes":  true,
+	"GET /children/{id}/changes": true,
+	"GET /parent-reports/":       true,
+}
+
 // testRouter wires the real router with nil handlers: every request asserted
 // here must be answered by middleware before a handler is reached.
 func testRouter(t *testing.T, importToken string) (http.Handler, *auth.JWTService) {
@@ -147,24 +155,69 @@ func TestRouter_ProtectedRoutesRequireToken(t *testing.T) {
 	}
 }
 
+// USER is the import system role: a (hand-made) JWT with it reaches nothing,
+// BOARD only the read routes in boardReadableAdminRoutes.
 func TestRouter_AdminRoutesRejectUserRole(t *testing.T) {
 	router, jwtService := testRouter(t, "")
-	tokens, err := jwtService.GenerateTokenPair(uuid.New(), "user@example.org", "USER")
+	for _, role := range []string{"USER", "BOARD"} {
+		tokens, err := jwtService.GenerateTokenPair(uuid.New(), role+"@example.org", role)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, route := range adminRoutes {
+			method, pattern, _ := strings.Cut(route, " ")
+			readable := role == "BOARD" && boardReadableAdminRoutes[route]
+			t.Run(role+" "+route, func(t *testing.T) {
+				req := httptest.NewRequest(method, apiPrefix+concretePath(pattern), nil)
+				req.Header.Set("Authorization", "Bearer "+tokens.AccessToken)
+				rec := httptest.NewRecorder()
+				router.ServeHTTP(rec, req)
+				if readable && (rec.Code == http.StatusForbidden || rec.Code == http.StatusUnauthorized) {
+					t.Fatalf("status %d, BOARD should reach the handler", rec.Code)
+				}
+				if !readable && rec.Code != http.StatusForbidden {
+					t.Fatalf("status %d, want 403", rec.Code)
+				}
+			})
+		}
+	}
+}
+
+// BOARD reads but never writes: every protected route with a changing method
+// answers 403, except changing the own password.
+func TestRouter_BoardIsReadOnly(t *testing.T) {
+	router, jwtService := testRouter(t, "")
+	mux, ok := router.(chi.Routes)
+	if !ok {
+		t.Fatal("router is not a chi.Routes")
+	}
+	tokens, err := jwtService.GenerateTokenPair(uuid.New(), "board@example.org", "BOARD")
 	if err != nil {
 		t.Fatal(err)
 	}
-
-	for _, route := range adminRoutes {
-		method, pattern, _ := strings.Cut(route, " ")
-		t.Run(route, func(t *testing.T) {
-			req := httptest.NewRequest(method, apiPrefix+concretePath(pattern), nil)
-			req.Header.Set("Authorization", "Bearer "+tokens.AccessToken)
-			rec := httptest.NewRecorder()
-			router.ServeHTTP(rec, req)
-			if rec.Code != http.StatusForbidden {
-				t.Fatalf("status %d, want 403", rec.Code)
-			}
-		})
+	checked := 0
+	err = chi.Walk(mux, func(method, route string, _ http.Handler, _ ...func(http.Handler) http.Handler) error {
+		if !strings.HasPrefix(route, apiPrefix) || publicRoutes[method+" "+route] ||
+			method == http.MethodGet || method == http.MethodHead || method == http.MethodOptions ||
+			route == apiPrefix+"/auth/change-password" {
+			return nil
+		}
+		checked++
+		req := httptest.NewRequest(method, concretePath(route), strings.NewReader(`{}`))
+		req.Header.Set("Authorization", "Bearer "+tokens.AccessToken)
+		req.Header.Set("Content-Type", "application/json")
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, req)
+		if rec.Code != http.StatusForbidden {
+			t.Errorf("BOARD %s %s: status %d, want 403", method, route, rec.Code)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if checked < 50 {
+		t.Fatalf("only %d write routes walked, router wiring changed?", checked)
 	}
 }
 
@@ -231,7 +284,7 @@ func TestRouter_UploadBodyLimit(t *testing.T) {
 
 func TestRouter_ParentWorkRuleWriteRoles(t *testing.T) {
 	router, jwtService := testRouter(t, "")
-	for _, role := range []string{"ADMIN", "USER", "PARENT_WORK", "LEITUNG"} {
+	for _, role := range []string{"ADMIN", "BOARD", "USER", "PARENT_WORK", "LEITUNG"} {
 		t.Run(role, func(t *testing.T) {
 			tokens, err := jwtService.GenerateTokenPair(uuid.New(), role+"@example.org", role)
 			if err != nil {
@@ -254,14 +307,17 @@ func TestRouter_ParentWorkRuleWriteRoles(t *testing.T) {
 
 func TestRouter_RoleAreas(t *testing.T) {
 	router, jwtService := testRouter(t, "")
-	staff := map[string]bool{"ADMIN": true, "USER": true}
-	masterData := map[string]bool{"ADMIN": true, "USER": true, "LEITUNG": true}
+	// USER is in the role loop below on purpose: it must reach nothing.
+	staff := map[string]bool{"ADMIN": true, "BOARD": true}
+	masterData := map[string]bool{"ADMIN": true, "BOARD": true, "LEITUNG": true}
+	adminBoard := map[string]bool{"ADMIN": true, "BOARD": true}
 	childID := uuid.NewString()
 	routes := []struct {
 		path    string
 		allowed map[string]bool
 	}{
-		{"/auth/me", map[string]bool{"ADMIN": true, "USER": true, "PARENT_WORK": true, "LEITUNG": true, "PARENT": true}},
+		// /auth/me is not role-gated (a USER token cannot be obtained by login).
+		{"/auth/me", map[string]bool{"ADMIN": true, "BOARD": true, "USER": true, "PARENT_WORK": true, "LEITUNG": true, "PARENT": true}},
 		{"/users/", map[string]bool{"ADMIN": true}},
 		{"/children/", masterData},
 		{"/members/", masterData},
@@ -269,11 +325,11 @@ func TestRouter_RoleAreas(t *testing.T) {
 		{"/fees/", staff},
 		{"/fee-schedules/", staff},
 		{"/fees/reminders/settings", map[string]bool{"ADMIN": true}},
-		{"/parent-work/rules", map[string]bool{"ADMIN": true, "PARENT_WORK": true, "LEITUNG": true}},
-		{"/parent-work/board-terms", map[string]bool{"ADMIN": true}},
-		{"/activity", map[string]bool{"ADMIN": true}},
-		{"/parent-reports/", map[string]bool{"ADMIN": true}},
-		{"/children/" + uuid.NewString() + "/changes", map[string]bool{"ADMIN": true}},
+		{"/parent-work/rules", map[string]bool{"ADMIN": true, "BOARD": true, "PARENT_WORK": true, "LEITUNG": true}},
+		{"/parent-work/board-terms", adminBoard},
+		{"/activity", adminBoard},
+		{"/parent-reports/", adminBoard},
+		{"/children/" + uuid.NewString() + "/changes", adminBoard},
 		{"/parents/" + uuid.NewString(), masterData},
 		{"/me", map[string]bool{"PARENT": true}},
 		// Fee, Einstufung, bank and note data: never for LEITUNG.
@@ -293,7 +349,7 @@ func TestRouter_RoleAreas(t *testing.T) {
 		{"/households/options", staff},
 		{"/banking-sync/status", map[string]bool{"ADMIN": true}},
 	}
-	for _, role := range []string{"ADMIN", "USER", "PARENT_WORK", "LEITUNG", "PARENT"} {
+	for _, role := range []string{"ADMIN", "BOARD", "USER", "PARENT_WORK", "LEITUNG", "PARENT"} {
 		tokens, err := jwtService.GenerateTokenPair(uuid.New(), role+"@example.org", role)
 		if err != nil {
 			t.Fatal(err)
@@ -302,7 +358,7 @@ func TestRouter_RoleAreas(t *testing.T) {
 			if route.path == "/me" && role == "PARENT" {
 				continue
 			}
-			if route.path == "/activity" && role == "ADMIN" {
+			if route.path == "/activity" && (role == "ADMIN" || role == "BOARD") {
 				continue
 			}
 			if strings.HasPrefix(route.path, "/parents/") && role != "PARENT" {
@@ -362,7 +418,11 @@ func TestRouter_LeitungWriteRoutes(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	user, err := jwtService.GenerateTokenPair(uuid.New(), "user@example.org", "USER")
+	admin, err := jwtService.GenerateTokenPair(uuid.New(), "admin@example.org", "ADMIN")
+	if err != nil {
+		t.Fatal(err)
+	}
+	board, err := jwtService.GenerateTokenPair(uuid.New(), "board@example.org", "BOARD")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -383,8 +443,11 @@ func TestRouter_LeitungWriteRoutes(t *testing.T) {
 			if !route.leitung && code != http.StatusForbidden {
 				t.Fatalf("LEITUNG: status %d, want 403", code)
 			}
-			if code := do(route.method, route.path, user.AccessToken); code == http.StatusForbidden || code == http.StatusUnauthorized {
-				t.Fatalf("USER: status %d, want handler reached", code)
+			if code := do(route.method, route.path, admin.AccessToken); code == http.StatusForbidden || code == http.StatusUnauthorized {
+				t.Fatalf("ADMIN: status %d, want handler reached", code)
+			}
+			if code := do(route.method, route.path, board.AccessToken); code != http.StatusForbidden {
+				t.Fatalf("BOARD: status %d, want 403 (read-only)", code)
 			}
 		})
 	}

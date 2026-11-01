@@ -23,6 +23,14 @@ export class Api {
     return res.status() === 204 ? (undefined as T) : ((await res.json()) as T);
   }
 
+  /** Like post, but returns the raw response for asserting error statuses. */
+  postRaw(path: string, data?: unknown) {
+    return this.request.fetch(`${API}${path}`, {
+      method: 'POST',
+      data,
+      headers: { Authorization: `Bearer ${this.token}` },
+    });
+  }
   get<T>(path: string) {
     return this.send<T>('GET', path);
   }
@@ -58,7 +66,7 @@ type Fixtures = {
   /** API client authenticated as admin, for seeding. */
   adminApi: Api;
   /** Creates an active account with the requested role and returns its credentials. */
-  createUser: (role?: 'USER' | 'ADMIN' | 'PARENT_WORK' | 'LEITUNG') => Promise<TestUser>;
+  createUser: (role?: 'BOARD' | 'ADMIN' | 'PARENT_WORK' | 'LEITUNG') => Promise<TestUser>;
 };
 
 export const test = base.extend<Fixtures>({
@@ -76,7 +84,7 @@ export const test = base.extend<Fixtures>({
   },
 
   createUser: async ({ adminApi }, use) => {
-    await use(async (role = 'USER') => {
+    await use(async (role = 'BOARD') => {
       const email = `user-${uniq()}@e2e.test`;
       const password = `pw-${uniq()}`;
       const user = await adminApi.post<{ id: string }>('/users', {

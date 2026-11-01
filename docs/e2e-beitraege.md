@@ -36,6 +36,7 @@ Nach dem Lauf beendet Playwright das Skript per SIGTERM, das Skript entfernt den
 ## Abgedeckt
 
 - `auth.spec.ts`: falsches Passwort, Session im httpOnly-Cookie (kein Token im `localStorage`, Cookie-Attribute), Reload, Logout, Deep-Link-Redirect, Login-Bremse.
+- `board.spec.ts`: Vorstand sieht Beitragsbereich und Lese-Hinweis ohne Admin-Seiten, liest per API, jeder Schreibzugriff 403; `USER` ist nicht zuweisbar.
 - `users.spec.ts`: Benutzer anlegen, Nicht-Admin ohne Zugriff auf „Benutzer“, eigenes Passwort ändern (andere Sitzungen enden), Deaktivieren, Selbstschutz, Liste filtert nach Suche und Rolle.
 - `fees-flow.spec.ts`: Kind und Elternteil anlegen, Monatsbeiträge generieren, Bank-CSV hochladen, automatische Zuordnung, Beitrag erscheint als bezahlt.
 - `einstufung.spec.ts`: neue Einstufung, Kind per Suche (Mindestlänge, Mehrwortsuche), Vorbelegung von Einkommen und Kinderzahl aus der Einstufung des Geschwisterkinds, Speichern; zweite offene Einstufung für dasselbe Kind gesperrt mit Link zur Folgeeinstufung.

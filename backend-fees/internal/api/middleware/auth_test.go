@@ -130,3 +130,33 @@ func TestRequireRole(t *testing.T) {
 		})
 	}
 }
+
+func TestReadOnly(t *testing.T) {
+	tests := []struct {
+		name       string
+		role       string
+		method     string
+		wantStatus int
+	}{
+		{"board reads", "BOARD", http.MethodGet, http.StatusOK},
+		{"board head", "BOARD", http.MethodHead, http.StatusOK},
+		{"board post", "BOARD", http.MethodPost, http.StatusForbidden},
+		{"board put", "BOARD", http.MethodPut, http.StatusForbidden},
+		{"board patch", "BOARD", http.MethodPatch, http.StatusForbidden},
+		{"board delete", "BOARD", http.MethodDelete, http.StatusForbidden},
+		{"admin post", "ADMIN", http.MethodPost, http.StatusOK},
+		{"leitung delete", "LEITUNG", http.MethodDelete, http.StatusOK},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(http.StatusOK) })
+			req := httptest.NewRequest(tt.method, "/children/1", nil)
+			req = req.WithContext(withUser(req.Context(), &UserContext{Role: tt.role}))
+			rec := httptest.NewRecorder()
+			ReadOnly("BOARD")(next).ServeHTTP(rec, req)
+			if rec.Code != tt.wantStatus {
+				t.Fatalf("status %d, want %d", rec.Code, tt.wantStatus)
+			}
+		})
+	}
+}

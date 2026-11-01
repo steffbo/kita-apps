@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
-import { Menu, Search, VenetianMask, ChevronsUpDown } from 'lucide-vue-next';
+import { Menu, Search, VenetianMask, ChevronsUpDown, Eye } from 'lucide-vue-next';
 import { useAuthStore } from '@/stores/auth';
 import { useNavigation, TASK_PATHS } from '@/composables/useNavigation';
 import { refreshTaskCounts } from '@/composables/useTaskCounts';
@@ -166,6 +166,12 @@ function onPasswordChanged() {
         </span>
         <button type="button" class="ml-auto shrink-0 rounded-md px-2 py-1 underline-offset-2 hover:underline"
           @click="stopImpersonation">Beenden</button>
+      </div>
+
+      <div v-if="authStore.isReadOnly" data-testid="read-only-indicator" role="status"
+        class="flex items-center gap-2 border-b bg-muted px-4 py-2 text-sm text-muted-foreground lg:px-8">
+        <Eye class="h-4 w-4 shrink-0" />
+        <span class="min-w-0 truncate">Vorstand: Du siehst alle Daten, kannst aber nichts ändern.</span>
       </div>
 
       <main class="mx-auto min-w-0 max-w-7xl px-4 pb-[calc(5.5rem+env(safe-area-inset-bottom))] pt-5 sm:px-6 lg:px-8 lg:py-8">

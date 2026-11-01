@@ -11574,10 +11574,10 @@ export interface components {
             lastName?: string;
             password: string;
             /**
-             * @example USER
+             * @example BOARD
              * @enum {string}
              */
-            role: "ADMIN" | "USER" | "PARENT_WORK" | "LEITUNG" | "PARENT";
+            role: "ADMIN" | "BOARD" | "PARENT_WORK" | "LEITUNG" | "PARENT";
         };
         /** @description Paid month that would become overpaid after a childcare fee decrease */
         CreditReviewPeriod: {
@@ -12480,7 +12480,7 @@ export interface components {
              * @example ADMIN
              * @enum {string}
              */
-            role: "ADMIN" | "USER" | "PARENT_WORK" | "LEITUNG" | "PARENT";
+            role: "ADMIN" | "BOARD" | "PARENT_WORK" | "LEITUNG" | "PARENT";
         };
         UserAccount: {
             createdAt: string;
@@ -12496,10 +12496,10 @@ export interface components {
             parentId?: string;
             parentName?: string;
             /**
-             * @example USER
+             * @example BOARD
              * @enum {string}
              */
-            role: "ADMIN" | "USER" | "PARENT_WORK" | "LEITUNG" | "PARENT";
+            role: "ADMIN" | "BOARD" | "PARENT_WORK" | "LEITUNG" | "PARENT";
             updatedAt: string;
         };
         UserAccountRequest: {
@@ -12511,10 +12511,10 @@ export interface components {
             /** @example Mustermann */
             lastName?: string;
             /**
-             * @example USER
+             * @example BOARD
              * @enum {string}
              */
-            role: "ADMIN" | "USER" | "PARENT_WORK" | "LEITUNG" | "PARENT";
+            role: "ADMIN" | "BOARD" | "PARENT_WORK" | "LEITUNG" | "PARENT";
         };
         /** @description Paginated warnings list as returned by the warnings endpoint */
         WarningList: {

@@ -11,6 +11,8 @@ test('admin creates a user who can log in without admin rights', async ({ adminP
   await dialog.getByLabel('E-Mail (Anmeldename) *').fill(email);
   await dialog.getByLabel('Vorname').fill('Erika');
   await dialog.getByLabel('Nachname').fill('Muster');
+  await dialog.getByLabel('Rolle').selectOption({ label: 'Vorstand' });
+  await expect(dialog.getByText(/kann aber nichts ändern/)).toBeVisible();
   await dialog.getByLabel(/Startpasswort/).fill(password);
   await dialog.getByRole('button', { name: 'Anlegen', exact: true }).click();
   await expect(page.getByText('Benutzer angelegt.')).toBeVisible();

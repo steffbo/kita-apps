@@ -16,7 +16,8 @@ const (
 
 // ImportAuthMiddleware allows either a JWT access token or an import token.
 // The import token (CRON_API_TOKEN) is intended only for automated CSV uploads
-// by the banking-sync container. An empty importToken disables token auth.
+// by the banking-sync container; it acts as the system role USER. JWTs need
+// ADMIN: BOARD is read-only and no account can hold USER. An empty importToken disables token auth.
 func ImportAuthMiddleware(jwtService *auth.JWTService, importToken string) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -25,7 +26,7 @@ func ImportAuthMiddleware(jwtService *auth.JWTService, importToken string) func(
 				if !ok {
 					return
 				}
-				if userCtx.Role != string(domain.UserRoleAdmin) && userCtx.Role != string(domain.UserRoleUser) {
+				if userCtx.Role != string(domain.UserRoleAdmin) {
 					response.Error(w, http.StatusForbidden, "Keine Berechtigung")
 					return
 				}

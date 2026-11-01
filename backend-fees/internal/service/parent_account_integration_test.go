@@ -61,7 +61,7 @@ func TestParentAccountLinking(t *testing.T) {
 		t.Fatalf("already linked: %v", err)
 	}
 	moved, err := svc.Update(ctx, uuid.New(), user.ID, service.UserInput{Email: email,
-		Role: domain.UserRoleUser, IsActive: true})
+		Role: domain.UserRoleBoard, IsActive: true})
 	if err != nil || moved.ParentID != nil {
 		t.Fatalf("role switch: %+v %v", moved, err)
 	}

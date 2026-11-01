@@ -26,7 +26,14 @@ type User struct {
 type UserRole string
 
 const (
-	UserRoleAdmin      UserRole = "ADMIN"
+	UserRoleAdmin UserRole = "ADMIN"
+	// UserRoleBoard is for active board members: read-only access to
+	// everything the staff sees, incl. fees, income and bank data, until write
+	// access can be audited. Enforced by middleware.ReadOnly.
+	UserRoleBoard UserRole = "BOARD"
+	// UserRoleUser is a system role for the automated CSV import (import token,
+	// see middleware.ImportAuthMiddleware). It is not assignable to accounts and
+	// cannot sign in.
 	UserRoleUser       UserRole = "USER"
 	UserRoleParentWork UserRole = "PARENT_WORK"
 	// UserRoleLeitung manages children, parents, households, members and

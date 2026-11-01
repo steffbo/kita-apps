@@ -99,7 +99,7 @@ func TestAccountInvitations(t *testing.T) {
 		t.Fatal(err)
 	}
 	if _, err := userSvc.Create(ctx, service.UserInput{Email: unlinkedEmail,
-		Role: domain.UserRoleUser, IsActive: true}, "password1"); err != nil {
+		Role: domain.UserRoleBoard, IsActive: true}, "password1"); err != nil {
 		t.Fatal(err)
 	}
 

@@ -38,7 +38,10 @@ func (in *UserInput) normalize() error {
 	if !strings.Contains(in.Email, "@") || strings.ContainsAny(in.Email, " \t") {
 		return fmt.Errorf("%w: ungültige E-Mail-Adresse", ErrInvalidInput)
 	}
-	if in.Role != domain.UserRoleAdmin && in.Role != domain.UserRoleUser &&
+	if in.Role == domain.UserRoleUser {
+		return fmt.Errorf("%w: Die Rolle USER ist eine Systemrolle für den Import und keinem Konto zuweisbar", ErrInvalidInput)
+	}
+	if in.Role != domain.UserRoleAdmin && in.Role != domain.UserRoleBoard &&
 		in.Role != domain.UserRoleParentWork && in.Role != domain.UserRoleLeitung &&
 		in.Role != domain.UserRolePARENT {
 		return fmt.Errorf("%w: Ungültige Rolle", ErrInvalidInput)

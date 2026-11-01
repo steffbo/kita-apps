@@ -8117,11 +8117,11 @@ components:
         role:
           enum:
             - ADMIN
-            - USER
+            - BOARD
             - PARENT_WORK
             - LEITUNG
             - PARENT
-          example: USER
+          example: BOARD
           type: string
       required:
         - email
@@ -9900,7 +9900,7 @@ components:
         role:
           enum:
             - ADMIN
-            - USER
+            - BOARD
             - PARENT_WORK
             - LEITUNG
             - PARENT
@@ -9937,11 +9937,11 @@ components:
         role:
           enum:
             - ADMIN
-            - USER
+            - BOARD
             - PARENT_WORK
             - LEITUNG
             - PARENT
-          example: USER
+          example: BOARD
           type: string
         updatedAt:
           type: string
@@ -9970,11 +9970,11 @@ components:
         role:
           enum:
             - ADMIN
-            - USER
+            - BOARD
             - PARENT_WORK
             - LEITUNG
             - PARENT
-          example: USER
+          example: BOARD
           type: string
       required:
         - email

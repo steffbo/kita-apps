@@ -60,7 +60,7 @@ test('impersonation button is offered only for active non-admin users other than
     const admin = await createUser('ADMIN');
     const inactive = await createUser();
     await adminApi.put(`/users/${inactive.id}`, {
-      email: inactive.email, firstName: 'E2E', lastName: 'Nutzer', role: 'USER', isActive: false,
+      email: inactive.email, firstName: 'E2E', lastName: 'Nutzer', role: 'BOARD', isActive: false,
     });
 
     await page.goto('/beitraege/benutzer');

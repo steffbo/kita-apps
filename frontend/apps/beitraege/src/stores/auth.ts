@@ -25,14 +25,17 @@ export const useAuthStore = defineStore('auth', () => {
   const isAuthenticated = computed(() => !!accessToken.value);
   const isImpersonating = computed(() => !!impersonator.value);
   const isAdmin = computed(() => user.value?.role === 'ADMIN');
+  const isBoard = computed(() => user.value?.role === 'BOARD');
   const isParent = computed(() => user.value?.role === 'PARENT');
   const isParentWork = computed(() => user.value?.role === 'PARENT_WORK');
   const isLeitung = computed(() => user.value?.role === 'LEITUNG');
   /** Beiträge, Einstufungen, Bankabgleich, Notizen; never for Leitung. */
-  const canAccessFees = computed(() => isAdmin.value || user.value?.role === 'USER');
+  const canAccessFees = computed(() => isAdmin.value || isBoard.value);
+  /** Vorstand sieht alles, ändert aber nichts (the API answers writes with 403). */
+  const isReadOnly = computed(() => isBoard.value);
   /** Kinder, Eltern, Haushalte, Mitglieder (Leitung ohne Beitrags- und Einkommensdaten). */
   const canAccessMasterData = computed(() => canAccessFees.value || isLeitung.value);
-  const canAccessParentWork = computed(() => isAdmin.value || isParentWork.value || isLeitung.value);
+  const canAccessParentWork = computed(() => isAdmin.value || isBoard.value || isParentWork.value || isLeitung.value);
   /** Regeln, Import, Soll, Bearbeiten/Stornieren/Prüfen; Leitung sieht nur den Stand und erfasst Stunden. */
   const canManageParentWork = computed(() => isAdmin.value || isParentWork.value);
 
@@ -168,6 +171,8 @@ export const useAuthStore = defineStore('auth', () => {
     isImpersonating,
     isAuthenticated,
     isAdmin,
+    isBoard,
+    isReadOnly,
     isParent,
     isParentWork,
     isLeitung,
