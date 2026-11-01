@@ -132,7 +132,7 @@ onMounted(() => {
   <div>
     <PageHeader title="Einstufungen">
       <template #actions>
-        <button type="button" @click="router.push('/einstufungen/neu')" class="btn btn-primary">
+        <button data-write type="button" @click="router.push('/einstufungen/neu')" class="btn btn-primary">
           <Plus class="h-4 w-4" />
           Neue Einstufung
         </button>
@@ -168,7 +168,7 @@ onMounted(() => {
               <template v-else-if="m.entryDate > m.month">· Eintritt {{ formatDate(m.entryDate) }}</template>
             </span>
           </div>
-          <RouterLink :to="{ path: '/einstufungen/neu', query: { childId: m.childId } }" class="btn btn-secondary">
+          <RouterLink data-write :to="{ path: '/einstufungen/neu', query: { childId: m.childId } }" class="btn btn-secondary">
             <Plus class="h-4 w-4" />
             Einstufung anlegen
           </RouterLink>
@@ -213,7 +213,7 @@ onMounted(() => {
         Keine Einstufungen für {{ selectedYear }} passen zum Filter.
       </p>
       <p v-else class="text-muted-foreground mb-4">Für {{ selectedYear }} wurden noch keine Einstufungen erstellt.</p>
-      <button type="button" v-if="!isFiltered" @click="router.push('/einstufungen/neu')" class="btn btn-primary">
+      <button data-write type="button" v-if="!isFiltered" @click="router.push('/einstufungen/neu')" class="btn btn-primary">
         <Plus class="h-4 w-4" />
         Erste Einstufung erstellen
       </button>
@@ -263,7 +263,7 @@ onMounted(() => {
               <FileText />
               Einstufung bearbeiten
             </button>
-            <button
+            <button data-write
               type="button"
               @click.stop="confirmDelete(e)"
               class="btn btn-danger-outline btn-icon btn-sm"
@@ -361,7 +361,7 @@ onMounted(() => {
                 <span class="text-sm text-muted-foreground">{{ formatDate(e.letterSentAt) }}</span>
               </td>
               <td class="px-4 py-3 whitespace-nowrap text-right tabular-nums">
-                <button
+                <button data-write
                   type="button"
                   @click.stop="confirmDelete(e)"
                   class="btn btn-danger-outline btn-icon btn-sm"

@@ -76,7 +76,7 @@ async function saved() { showEntry.value = false; await load(); }
 
 <template>
   <div class="space-y-6">
-    <PageHeader title="Elternstunden"><template #actions><button class="btn btn-primary" @click="entryHouseholdId = undefined; showEntry = true"><Plus />Stunden erfassen</button></template></PageHeader>
+    <PageHeader title="Elternstunden"><template #actions><button data-write class="btn btn-primary" @click="entryHouseholdId = undefined; showEntry = true"><Plus />Stunden erfassen</button></template></PageHeader>
     <label class="label block w-44">Kita-Jahr
       <select v-model.number="year" class="input"><option v-for="y in years" :key="y" :value="y">{{ kitaYearLabel(y) }}</option></select>
     </label>
@@ -109,7 +109,7 @@ async function saved() { showEntry.value = false; await load(); }
             <p class="text-[13px] text-muted-foreground">{{ h.children.map(c => c.name).join(', ') || '—' }}</p>
           </div><span class="badge" :class="h.openMinutes > 0 ? 'badge-warning' : 'badge-success'">{{ status(h) }}</span></div>
           <p class="text-[13px] text-muted-foreground">Soll {{ formatHours(h.requiredMinutes) }} · Übertrag {{ formatHours(h.carryInMinutes) }} · Ist {{ formatHours(h.doneMinutes) }} · Offen {{ formatHours(h.openMinutes) }}</p>
-          <button type="button" class="btn btn-secondary btn-sm" :aria-label="`Stunden erfassen für ${h.householdName}`" :title="`Stunden erfassen für ${h.householdName}`" @click="addFor(h)"><Plus />Stunden erfassen</button>
+          <button data-write type="button" class="btn btn-secondary btn-sm" :aria-label="`Stunden erfassen für ${h.householdName}`" :title="`Stunden erfassen für ${h.householdName}`" @click="addFor(h)"><Plus />Stunden erfassen</button>
         </li>
         <li v-if="!sorted.length"><EmptyState :text="loading ? 'Lade Familien …' : 'Keine Familien gefunden.'" /></li>
       </ul>
@@ -125,7 +125,7 @@ async function saved() { showEntry.value = false; await load(); }
       </tr></thead>
         <tbody><tr v-for="h in sorted" :key="h.householdId" class="border-t hover:bg-accent"><td class="px-4 py-3 font-medium"><RouterLink :to="{ name: 'parent-work-detail', params: { id: h.householdId }, query: { jahr: year } }" class="text-primary hover:underline">{{ h.householdName }}</RouterLink><span v-if="h.submittedCount"
           class="ml-2 badge badge-warning">{{ h.submittedCount }} Meldungen</span></td><td class="px-4 py-3">{{ h.children.map(c => c.name).join(', ') || '—' }}</td><td class="px-4 py-3 text-right">{{ formatHours(h.requiredMinutes) }}</td><td class="px-4 py-3 text-right">{{ formatHours(h.carryInMinutes) }}</td><td class="px-4 py-3 text-right">{{ formatHours(h.doneMinutes) }}</td><td class="px-4 py-3 text-right">{{ formatHours(h.openMinutes) }}</td><td class="px-4 py-3"><span class="badge" :class="h.openMinutes > 0 ? 'badge-warning' : 'badge-success'">{{ status(h) }}</span></td>
-          <td class="px-4 py-3 text-right"><button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border hover:bg-accent"
+          <td class="px-4 py-3 text-right"><button data-write type="button" class="inline-flex h-8 w-8 items-center justify-center rounded-lg border hover:bg-accent"
             :aria-label="`Stunden erfassen für ${h.householdName}`" :title="`Stunden erfassen für ${h.householdName}`" @click="addFor(h)"><Plus class="h-4 w-4" /></button></td></tr>
           <tr v-if="!sorted.length"><td colspan="8" class="px-4 py-8 text-center text-muted-foreground">{{ loading ? 'Lade Familien …' : 'Keine Familien gefunden.' }}</td></tr></tbody></table></div>
     </div>

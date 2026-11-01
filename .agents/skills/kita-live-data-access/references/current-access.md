@@ -30,7 +30,7 @@ Current behavior:
 - login is `POST /api/fees/v1/auth/login`; the body returns only the access token (15 min), the refresh token is an httpOnly cookie `fees_refresh` — script clients simply log in again instead of refreshing
 - failed logins are throttled (5 per IP+account, 20 per IP per 15 min → `429`); do not retry credentials in a loop
 - protected routes use a JWT bearer access token
-- accounts live in `fees.users` (bcrypt hash, role `ADMIN`/`USER`, `is_active`); never read `password_hash`
+- accounts live in `fees.users` (bcrypt hash, role `ADMIN`/`BOARD`/`PARENT_WORK`/`LEITUNG`/`PARENT`, `is_active`); never read `password_hash`
 - `USER_NAME` / `USER_PASSWORD` only bootstrap the admin account on first start; its password may since have been changed in the app, so the env value is not guaranteed to work
 - role and email in tokens are taken from the DB on login and refresh; inactive accounts cannot log in or refresh
 
@@ -38,7 +38,7 @@ Prefer an already authenticated browser, an injected short-lived token, or a fut
 
 ## Dedicated agent identity target
 
-A separate agent identity would improve revocation, rotation, and auditability, and is now possible: an admin can create a `USER` account for it on the "Benutzer" page. That is an explicit, user-authorized step; do not create it yourself.
+A separate agent identity would improve revocation, rotation, and auditability, and is now possible: an admin can create a read-only `BOARD` account for it on the "Benutzer" page. That is an explicit, user-authorized step; do not create it yourself.
 
 Prefer these properties when that work is authorized:
 

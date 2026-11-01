@@ -164,7 +164,7 @@ onMounted(() => loadVersions());
   <div>
     <PageHeader title="Beitragsordnung">
       <template #actions>
-        <button
+        <button data-write
           type="button"
           v-if="!isEditing"
           @click="startCreate"
@@ -244,11 +244,11 @@ onMounted(() => loadVersions());
               </p>
             </div>
             <div v-if="selected.editable" class="flex gap-2">
-              <button type="button" @click="startEdit(selected)" class="btn btn-secondary">
+              <button data-write type="button" @click="startEdit(selected)" class="btn btn-secondary">
                 <Pencil class="h-4 w-4" />
                 Bearbeiten
               </button>
-              <button type="button" @click="deleteVersion(selected)" class="btn btn-danger-outline">
+              <button data-write type="button" @click="deleteVersion(selected)" class="btn btn-danger-outline">
                 <Trash2 class="h-4 w-4" />
                 Löschen
               </button>

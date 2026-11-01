@@ -56,6 +56,6 @@ Never print, return, commit, log, or persist passwords, access tokens, refresh t
 
 ## Treat the agent account as a target state
 
-Fees users are database-backed (`fees.users`, roles `ADMIN`/`USER`), so a dedicated agent account can be created by an admin on the "Benutzer" page, but none exists yet. Do not claim that one does.
+Fees users are database-backed (`fees.users`, roles `ADMIN`/`BOARD`/`PARENT_WORK`/`LEITUNG`/`PARENT`), so a dedicated agent account can be created by an admin on the "Benutzer" page, but none exists yet. Do not claim that one does.
 
 Prefer a future dedicated, revocable agent service account over sharing the human admin identity. Design it with least privilege, API-only use, credential rotation, an unambiguous audit identity, and explicit production-write permissions. Until such an account has been created, follow the current authentication path in `current-access.md` and keep the limitation visible.

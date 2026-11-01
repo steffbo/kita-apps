@@ -291,11 +291,11 @@ async function onFeeCreated() {
   <div>
     <PageHeader title="Beiträge">
       <template #actions>
-        <button type="button" @click="showCreateFeeDialog = true" class="btn btn-secondary">
+        <button data-write type="button" @click="showCreateFeeDialog = true" class="btn btn-secondary">
           <Plus class="h-4 w-4" />
           Einzelner Beitrag
         </button>
-        <button type="button" @click="showGenerateDialog = true" class="btn btn-primary">
+        <button data-write type="button" @click="showGenerateDialog = true" class="btn btn-primary">
           <Calendar class="h-4 w-4" />
           Beiträge generieren
         </button>
@@ -374,7 +374,7 @@ async function onFeeCreated() {
           class="space-y-2 px-4 py-3"
           :class="isSelected(fee.id) && 'bg-primary-soft'">
           <div class="flex items-center gap-3">
-            <input
+            <input data-write
               type="checkbox"
               :checked="isSelected(fee.id)"
               @change="toggleSelect(fee.id)"
@@ -395,7 +395,7 @@ async function onFeeCreated() {
               {{ getStatusInfo(fee).label }}
             </span>
             <div class="flex items-center gap-1">
-              <button
+              <button data-write
                 type="button"
                 v-if="canCreateReminder(fee)"
                 @click="openReminderDialog(fee)"
@@ -404,7 +404,7 @@ async function onFeeCreated() {
                 title="Mahngebühr erstellen">
                 <AlertCircle class="h-4 w-4" />
               </button>
-              <button
+              <button data-write
                 type="button"
                 v-if="!fee.isPaid"
                 @click="deleteSingleFee(fee)"
@@ -418,7 +418,7 @@ async function onFeeCreated() {
         </li>
       </ul>
       <div v-if="fees.length" class="flex items-center gap-2 border-t px-4 py-2 text-sm sm:hidden">
-        <input
+        <input data-write
           type="checkbox"
           :checked="allSelected"
           :indeterminate="someSelected"
@@ -432,7 +432,7 @@ async function onFeeCreated() {
           <thead class="bg-muted">
             <tr class="text-left text-sm text-muted-foreground">
               <th class="px-4 py-3 font-medium w-10">
-                <input
+                <input data-write
                   type="checkbox"
                   :checked="allSelected"
                   :indeterminate="someSelected"
@@ -469,7 +469,7 @@ async function onFeeCreated() {
               isSelected(fee.id) ? 'bg-primary-soft' : 'hover:bg-accent'
               ]">
               <td class="px-4 py-3">
-                <input
+                <input data-write
                   type="checkbox"
                   :checked="isSelected(fee.id)"
                   @change="toggleSelect(fee.id)"
@@ -501,7 +501,7 @@ async function onFeeCreated() {
               </td>
               <td class="px-4 py-3">
                 <div class="flex items-center gap-1">
-                  <button
+                  <button data-write
                     type="button"
                     v-if="canCreateReminder(fee)"
                     @click="openReminderDialog(fee)"
@@ -510,7 +510,7 @@ async function onFeeCreated() {
                     title="Mahngebühr erstellen">
                     <AlertCircle class="h-4 w-4" />
                   </button>
-                  <button
+                  <button data-write
                     type="button"
                     v-if="!fee.isPaid"
                     @click="deleteSingleFee(fee)"

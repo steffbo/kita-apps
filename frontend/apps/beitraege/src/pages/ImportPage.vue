@@ -328,7 +328,7 @@ function getWarningTypeColor(type: string): string {
       <div class="flex flex-col gap-2 sm:flex-row">
         <SearchInput v-model="transactionSearch" placeholder="Zahler oder Beschreibung" class="flex-1" />
         <div class="flex gap-2">
-          <button
+          <button data-write
             @click="rescanTransactions"
             :disabled="isRescanning || offenCount === 0"
             class="btn btn-secondary flex-1 sm:flex-none"
@@ -338,7 +338,7 @@ function getWarningTypeColor(type: string): string {
             <RefreshCw v-else />
             Erneut zuordnen
           </button>
-          <button @click="showUploadModal = true" class="btn btn-primary flex-1 sm:flex-none">
+          <button data-write @click="showUploadModal = true" class="btn btn-primary flex-1 sm:flex-none">
             <Upload />
             CSV hochladen
           </button>

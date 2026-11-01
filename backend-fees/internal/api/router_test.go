@@ -184,7 +184,13 @@ func TestRouter_AdminRoutesRejectUserRole(t *testing.T) {
 }
 
 // BOARD reads but never writes: every protected route with a changing method
-// answers 403, except changing the own password.
+// answers 403, except changing the own password and calculations that store nothing.
+var boardWritableRoutes = map[string]bool{
+	apiPrefix + "/auth/change-password":          true,
+	apiPrefix + "/einstufungen/calculate-income": true,
+	apiPrefix + "/einstufungen/preview":          true,
+}
+
 func TestRouter_BoardIsReadOnly(t *testing.T) {
 	router, jwtService := testRouter(t, "")
 	mux, ok := router.(chi.Routes)
@@ -199,7 +205,7 @@ func TestRouter_BoardIsReadOnly(t *testing.T) {
 	err = chi.Walk(mux, func(method, route string, _ http.Handler, _ ...func(http.Handler) http.Handler) error {
 		if !strings.HasPrefix(route, apiPrefix) || publicRoutes[method+" "+route] ||
 			method == http.MethodGet || method == http.MethodHead || method == http.MethodOptions ||
-			route == apiPrefix+"/auth/change-password" {
+			boardWritableRoutes[route] {
 			return nil
 		}
 		checked++

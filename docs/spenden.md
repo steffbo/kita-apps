@@ -10,10 +10,9 @@ Transaktionsbetrag, Jahr = Buchungsdatum (Berlin). Optional wird die Spende eine
 spenden meist für die Familie). Es gibt keine Spender-Stammdaten und keine Zuwendungsbestätigungen
 (siehe „Offen“).
 
-- Rollen: Zuordnen und Gesamtübersicht `ADMIN` und `USER` (wie der übrige Bankabgleich). `LEITUNG` und `PARENT_WORK`
-  haben keinen Zugriff (Bankdaten). Anders als bei Ratenzahlungen gibt es keine Schwärzung: eine Spende zeigt nur
-  Zahler, Zweck und Notiz, die `USER` in der Bankliste ohnehin sieht. Es gibt noch keine Rolle `VORSTAND`; der Vorstand
-  arbeitet als `ADMIN`.
+- Rollen: Zuordnen `ADMIN`, Gesamtübersicht `ADMIN` und `BOARD` nur lesend (wie der übrige Bankabgleich). `LEITUNG` und
+  `PARENT_WORK` haben keinen Zugriff (Bankdaten). Anders als bei Ratenzahlungen gibt es keine Schwärzung: eine Spende zeigt
+  nur Zahler, Zweck und Notiz, die der Vorstand in der Bankliste ohnehin sieht.
 - `PARENT` sieht die dem eigenen Haushalt zugeordneten Spenden: Datum, Zahlername, Betrag, Jahressumme. IBAN,
   Verwendungszweck und Notiz (intern) gehören nicht dazu; `service.OwnDonation` ist dafür die Positivliste. Der Zahlername
   ist bewusst sichtbar (Entscheidung 2026-11-01), auch für beide Elternteile eines Haushalts.
@@ -54,7 +53,7 @@ Der Service lehnt gemischte Zuordnungen mit `HasExclusiveAssignment` ab.
   abwählbar („Haushalt entfernen“), die Zuordnung bestätigt der Nutzer.
 - Notiz und Haushalt lassen sich später auf der Seite „Spenden“ ändern (`PUT …/assign`, Stift/Zeile).
 
-## API (`/api/fees/v1`, `ADMIN`/`USER`)
+## API (`/api/fees/v1`, `ADMIN`, `BOARD` nur lesend)
 
 | Method | Path | Purpose |
 | --- | --- | --- |

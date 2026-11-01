@@ -18,9 +18,14 @@ Basics (ports, commands, layout) live in `AGENTS.md`.
 - `USER` war historisch der Beitrags-Sachbearbeiter (heute faktisch nur Admin ohne Systemrechte). Live
   hatte kein Konto diese Rolle; der Bankimport braucht kein Konto, `ImportAuthMiddleware` setzt für den
   Import-Token (`CRON_API_TOKEN`) eine synthetische Identität mit `USER`. Jetzt: `USER` ist nicht
-  zuweisbar (`UserInput.normalize`), `Authenticate` lehnt Konten mit `USER` ab, JWT-Uploads auf
+  zuweisbar (`UserInput.normalize`) und der CHECK auf `fees.users` schließt den Wert aus (Migration deaktiviert
+  etwaige Altzeilen; live gab es keine), JWT-Uploads auf
   `/import/upload` nur noch `ADMIN`. Die Beitrags-Routen erlauben `ADMIN`/`BOARD` statt `ADMIN`/`USER`.
-  Der Wert bleibt im CHECK, damit eine bestehende Zeile (und die Down-Migration) nicht bricht.
+- Lesesperre zentral: Die geschützte Router-Gruppe setzt `ReadOnly(BOARD)` genau einmal; außerhalb liegen nur
+  `/auth/me`, `/auth/change-password` sowie `POST /einstufungen/preview` und `/calculate-income`, die nichts speichern.
+  Der Vorstand sieht auch im UI Meldungen, Änderungen, Aktivität, Fehlbetrag, Vorstandsämter und die Regeln;
+  Bedienelemente mit Schreibwirkung tragen `data-write` und sind für ihn ausgeblendet (`docs/design/ui-kit.md`).
+  Seiten, die nur anlegen (`/kinder/import`, `/einstufungen/neu`), leiten ihn zum Dashboard um.
 - Frontend: `auth.isBoard`/`isReadOnly`; `canAccessFees` und `canAccessParentWork` schließen `BOARD` ein
   (Navigation wie Beitragsansicht ohne Admin-Bereiche). Der Benutzer-Dialog bietet Administrator, Vorstand, Elternstunden, Leitung, Eltern; Standard
   ist `PARENT_WORK` (geringster Zugriff ohne Elternverknüpfung, Eltern kommen über „Eltern einladen“). Hinweisleiste „Vorstand: Du siehst alle Daten,

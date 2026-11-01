@@ -51,12 +51,12 @@ const router = createRouter({
               meta: { requiresFees: true },
             },
             { path: 'meldungen', name: 'reports', component: () => import('@/pages/ReportsPage.vue'),
-              meta: { requiresAdmin: true } },
+              meta: { requiresFees: true } },
             {
               path: 'aenderungen',
               name: 'parent-changes',
               component: () => import('@/pages/ParentChangesPage.vue'),
-              meta: { requiresFees: true, requiresAdmin: true },
+              meta: { requiresFees: true },
             },
           ],
         },
@@ -71,7 +71,7 @@ const router = createRouter({
           path: 'kinder/import',
           name: 'children-import',
           component: () => import('@/pages/ChildImportPage.vue'),
-          meta: { requiresFees: true },
+          meta: { requiresFees: true, requiresWrite: true },
         },
         {
           path: 'kinder/:id',
@@ -170,8 +170,8 @@ const router = createRouter({
           meta: { requiresParentWork: true },
         },
         { path: 'elternstunden/familien/:id', name: 'parent-work-detail', component: () => import('@/pages/ParentWorkDetailPage.vue'), meta: { requiresParentWork: true } },
-        { path: 'elternstunden/vorstand', name: 'parent-work-board', component: () => import('@/pages/ParentWorkBoardPage.vue'), meta: { requiresAdmin: true } },
-        { path: 'elternstunden/verwaltung', name: 'parent-work-admin', component: () => import('@/pages/ParentWorkAdminPage.vue'), meta: { requiresParentWorkManagement: true } },
+        { path: 'elternstunden/vorstand', name: 'parent-work-board', component: () => import('@/pages/ParentWorkBoardPage.vue'), meta: { requiresFees: true } },
+        { path: 'elternstunden/verwaltung', name: 'parent-work-admin', component: () => import('@/pages/ParentWorkAdminPage.vue'), meta: { requiresParentWorkAdmin: true } },
       ],
     },
   ],
@@ -212,12 +212,18 @@ router.beforeEach(async (to, _from, next) => {
     return;
   }
 
+  // Pages that only create something (`/einstufungen/neu` shares its route with the detail page).
+  if (authStore.isReadOnly && (to.meta.requiresWrite || (to.name === 'einstufung-detail' && to.params.id === 'neu'))) {
+    next({ name: 'dashboard' });
+    return;
+  }
+
   if (to.meta.requiresAdmin && !authStore.isAdmin) {
     next({ name: 'dashboard' });
     return;
   }
 
-  if (to.meta.requiresParentWorkManagement && !authStore.canManageParentWork) {
+  if (to.meta.requiresParentWorkAdmin && !authStore.canViewParentWorkAdmin) {
     next({ name: authStore.canAccessParentWork ? 'parent-work' : 'dashboard' });
     return;
   }

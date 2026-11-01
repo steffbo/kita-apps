@@ -912,7 +912,7 @@ watch(defaultEmailBody, (next) => {
                 <router-link :to="`/einstufungen/${existingOpenEinstufung.id}`" class="underline font-medium">
                   Einstufung öffnen →
                 </router-link>
-                <router-link
+                <router-link data-write
                   :to="`/einstufungen/neu?sourceId=${existingOpenEinstufung.id}`"
                   class="underline font-medium">
                   Folgeeinstufung erstellen →
@@ -927,7 +927,7 @@ watch(defaultEmailBody, (next) => {
                 {{ prefillSummary }} aus der Einstufung von {{ einstufungLabel(prefillSource) }}.
                 Bitte prüfen, ob die Angaben noch aktuell sind.
               </div>
-              <button type="button" class="btn btn-secondary shrink-0" @click="discardPrefill">Verwerfen</button>
+              <button data-write type="button" class="btn btn-secondary shrink-0" @click="discardPrefill">Verwerfen</button>
             </div>
           </div>
           <div v-if="isKindergartenAtStart" class="note note-success mt-4">
@@ -1041,7 +1041,7 @@ watch(defaultEmailBody, (next) => {
             {{ hasUnsavedCalculation ? 'Vorschau – noch nicht gespeichert' : 'Ergebnis' }}
             <Loader2 v-if="isPreviewing" class="h-4 w-4 animate-spin text-muted-foreground" />
           </h2>
-          <button
+          <button data-write
             v-if="einstufung && !isNew && !successorEinstufung && !hasUnsavedCalculation"
             type="button"
             @click="router.push(`/einstufungen/neu?sourceId=${einstufung.id}`)"
@@ -1268,7 +1268,7 @@ watch(defaultEmailBody, (next) => {
             <Mail class="h-5 w-5 text-muted-foreground" />
             Brief und E-Mail an Eltern
           </h2>
-          <button type="button" @click="resetEmailDraft" class="btn btn-secondary">
+          <button data-write type="button" @click="resetEmailDraft" class="btn btn-secondary">
             <RotateCcw class="h-3.5 w-3.5" />
             Standardtext einsetzen
           </button>
@@ -1349,7 +1349,7 @@ watch(defaultEmailBody, (next) => {
           <div class="min-w-0 flex-1">{{ mailSuccess }}</div>
         </div>
         <div>
-          <button
+          <button data-write
             type="button"
             :disabled="!!letterBlockedReason || isSending || !emailRecipients.length"
             @click="sendLetter"
@@ -1470,7 +1470,7 @@ watch(defaultEmailBody, (next) => {
       <div class="flex items-center justify-end">
         <div class="flex items-center gap-3">
           <button type="button" @click="router.push('/einstufungen')" class="btn btn-secondary">Abbrechen</button>
-          <button
+          <button data-write
             type="submit"
             :disabled="isSaving || isPrefilling || childMissingHousehold || (isNew && !!existingOpenEinstufung)"
             class="btn btn-primary">

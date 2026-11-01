@@ -276,7 +276,7 @@ function resetStichtagToToday() {
         <button type="button" class="btn btn-secondary" @click="openStichtagModal">
           <CalendarClock />Stichtagsreport
         </button>
-        <button type="button" class="btn btn-primary" @click="showCreateDialog = true">
+        <button data-write type="button" class="btn btn-primary" @click="showCreateDialog = true">
           <Plus />Mitglied hinzufügen
         </button>
       </template>
@@ -347,7 +347,7 @@ function resetStichtagToToday() {
     <div v-else class="card overflow-hidden">
       <ul class="divide-y sm:hidden">
         <li class="flex flex-wrap items-center gap-2 px-4 py-3">
-          <input type="checkbox" :checked="isAllSelected" :indeterminate="isSomeSelected"
+          <input data-write type="checkbox" :checked="isAllSelected" :indeterminate="isSomeSelected"
             @change="toggleSelectAll" aria-label="Alle Mitglieder auswählen" />
           <button type="button" class="chip" :aria-pressed="sortField === 'memberNumber'"
             @click="toggleSort('memberNumber')">Nr.</button>
@@ -361,7 +361,7 @@ function resetStichtagToToday() {
             @click="toggleSort('membershipStart')">Mitglied seit</button>
         </li>
         <li v-for="member in members" :key="member.id" class="flex items-center gap-3 p-4" @click="goToMember(member.id)">
-          <input type="checkbox" :checked="selectedIds.has(member.id)" @click.stop
+          <input data-write type="checkbox" :checked="selectedIds.has(member.id)" @click.stop
             @change="toggleSelect(member.id, $event)" aria-label="Mitglied auswählen" />
           <div class="min-w-0 flex-1">
             <p class="font-medium">{{ member.lastName }}, {{ member.firstName }}</p>
@@ -378,7 +378,7 @@ function resetStichtagToToday() {
             <tr class="text-left text-sm text-muted-foreground">
               <!-- Checkbox column -->
               <th class="px-4 py-3 w-12">
-                <input
+                <input data-write
                   type="checkbox"
                   :checked="isAllSelected"
                   :indeterminate="isSomeSelected"
@@ -431,7 +431,7 @@ function resetStichtagToToday() {
             >
               <!-- Checkbox -->
               <td class="px-4 py-3" @click.stop>
-                <input
+                <input data-write
                   type="checkbox"
                   :checked="selectedIds.has(member.id)"
                   @change="toggleSelect(member.id, $event)"

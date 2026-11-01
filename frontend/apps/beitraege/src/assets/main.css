@@ -257,3 +257,8 @@
     font-size: 1rem;
   }
 }
+
+/* Read-only roles (html.read-only, set by the auth store) never see controls that change data. */
+html.read-only [data-write] {
+  display: none !important;
+}

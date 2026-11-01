@@ -287,7 +287,7 @@ const dismissNote = computed({
                     </button>
                   </div>
                   <div v-else class="flex flex-col items-end gap-0.5">
-                    <button
+                    <button data-write
                       @click="openManualMatch(row.tx)"
                       class="inline-flex items-center gap-1 px-2 py-1 text-xs text-primary hover:text-primary/80 hover:bg-primary/10 rounded transition-colors"
                       title="Manuell zuordnen"
@@ -295,7 +295,7 @@ const dismissNote = computed({
                       <LinkIcon class="h-3 w-3" />
                       Zuordnen
                     </button>
-                    <button
+                    <button data-write
                       @click="showHideConfirm(row.tx.id)"
                       :disabled="isHiding === row.tx.id"
                       class="inline-flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-accent rounded transition-colors disabled:opacity-50"
@@ -305,7 +305,7 @@ const dismissNote = computed({
                       <EyeOff v-else class="h-3 w-3" />
                       Ausblenden
                     </button>
-                    <button
+                    <button data-write
                       @click="showDismissConfirm(row.tx.id)"
                       :disabled="isDismissing === row.tx.id"
                       class="inline-flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive-soft rounded transition-colors disabled:opacity-50"
@@ -351,7 +351,7 @@ const dismissNote = computed({
                     </button>
                   </div>
                   <div v-else class="flex flex-col items-end gap-0.5">
-                    <button
+                    <button data-write
                       @click="showUnmatchConfirm(row.tx.id)"
                       :disabled="isUnmatching === row.tx.id || isDeletingMatched === row.tx.id"
                       class="inline-flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-warning hover:bg-warning-soft rounded transition-colors disabled:opacity-50"
@@ -361,7 +361,7 @@ const dismissNote = computed({
                       <Unlink v-else class="h-3 w-3" />
                       Aufheben
                     </button>
-                    <button
+                    <button data-write
                       @click="showDeleteConfirm(row.tx.id)"
                       :disabled="isUnmatching === row.tx.id || isDeletingMatched === row.tx.id"
                       class="inline-flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-destructive hover:bg-destructive-soft rounded transition-colors disabled:opacity-50"
@@ -452,7 +452,7 @@ const dismissNote = computed({
                       </div>
 
                       <div class="flex flex-col gap-2">
-                        <button
+                        <button data-write
                           v-if="warning.warningType === 'LATE_PAYMENT'"
                           @click="resolveLateFee(warning)"
                           :disabled="isResolvingWarning === warning.id"
@@ -488,7 +488,7 @@ const dismissNote = computed({
                           </div>
                         </div>
 
-                        <button
+                        <button data-write
                           v-else
                           @click="showWarningDismiss(warning.id)"
                           :disabled="isResolvingWarning === warning.id"

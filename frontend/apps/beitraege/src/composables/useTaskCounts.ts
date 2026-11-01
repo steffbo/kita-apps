@@ -21,8 +21,8 @@ async function load() {
   }
   const [unmatched, open, activity] = await Promise.allSettled([
     api.getUnmatchedTransactions({ perPage: 1 }),
-    auth.isAdmin ? api.getParentReports('OPEN') : Promise.resolve([]),
-    auth.isAdmin ? api.getParentActivity(ACTIVITY_LIMIT) : Promise.resolve([]),
+    api.getParentReports('OPEN'),
+    api.getParentActivity(ACTIVITY_LIMIT),
   ] as const);
   if (unmatched.status === 'fulfilled') bank.value = unmatched.value.total;
   if (open.status === 'fulfilled') reports.value = open.value.length;

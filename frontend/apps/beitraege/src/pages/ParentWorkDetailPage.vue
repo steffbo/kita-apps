@@ -99,7 +99,7 @@ const account = computed(() => {
     { label: 'Offen', value: formatHours(d.openMinutes) },
     { label: 'Übertrag Folgejahr', value: formatHours(d.carryOutMinutes) },
   ];
-  if (auth.isAdmin) cards.push({ label: 'Fehlbetrag', value: formatCurrency(d.missingAmountCents / 100) });
+  if (auth.canAccessFees) cards.push({ label: 'Fehlbetrag', value: formatCurrency(d.missingAmountCents / 100) });
   return cards;
 });
 function entrySaved() { entryDialog.value = false; editingEntry.value = null; load(); }
@@ -111,7 +111,7 @@ function source(source: string) { return source === 'IMPORT' ? 'Import' : source
   <div class="space-y-6">
     <PageHeader :title="detail?.householdName ?? 'Familie'" back="/elternstunden">
       <template #meta><span v-if="year" class="badge">Kita-Jahr {{ year }}/{{ String((year + 1) % 100).padStart(2, '0') }}</span></template>
-      <template #actions><button class="btn btn-primary" @click="editingEntry = null; entryDialog = true">Stunden erfassen</button></template>
+      <template #actions><button data-write class="btn btn-primary" @click="editingEntry = null; entryDialog = true">Stunden erfassen</button></template>
     </PageHeader>
     <p v-if="error" role="alert" class="note note-danger">{{ error }}</p><p v-if="loading" class="text-muted-foreground">Lade Familie …</p>
     <template v-if="detail">

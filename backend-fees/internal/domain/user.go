@@ -31,9 +31,9 @@ const (
 	// everything the staff sees, incl. fees, income and bank data, until write
 	// access can be audited. Enforced by middleware.ReadOnly.
 	UserRoleBoard UserRole = "BOARD"
-	// UserRoleUser is a system role for the automated CSV import (import token,
-	// see middleware.ImportAuthMiddleware). It is not assignable to accounts and
-	// cannot sign in.
+	// UserRoleUser identifies the automated CSV import in the request context
+	// (see middleware.ImportAuthMiddleware). fees.users does not allow it, so no
+	// account can hold it.
 	UserRoleUser       UserRole = "USER"
 	UserRoleParentWork UserRole = "PARENT_WORK"
 	// UserRoleLeitung manages children, parents, households, members and

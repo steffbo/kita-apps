@@ -76,7 +76,7 @@ const showDeleteDialog = computed({
         </div>
       </div>
       <div class="flex items-center gap-2">
-        <button
+        <button data-write
           @click="showEditDialog = true"
           class="btn btn-secondary btn-icon btn-sm"
           aria-label="Bearbeiten"
@@ -84,7 +84,7 @@ const showDeleteDialog = computed({
         >
           <Edit class="h-5 w-5" />
         </button>
-        <button
+        <button data-write
           v-if="auth.canAccessFees"
           @click="showDeleteDialog = true"
           class="btn btn-danger-outline btn-icon btn-sm"

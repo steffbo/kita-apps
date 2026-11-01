@@ -92,11 +92,6 @@ func (s *AuthService) Authenticate(ctx context.Context, email, password string) 
 		}
 		return nil, err
 	}
-	if user.Role == domain.UserRoleUser {
-		// System role of the import token: never a person, so no interactive login.
-		auth.CheckPassword(password, dummyPasswordHash)
-		return nil, ErrUnauthorized
-	}
 	if user.InvitationPending {
 		// No password yet: same bcrypt cost as a wrong password, so the state does not leak via timing.
 		auth.CheckPassword(password, dummyPasswordHash)

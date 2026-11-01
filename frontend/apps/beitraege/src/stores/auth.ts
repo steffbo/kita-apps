@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia';
-import { ref, computed } from 'vue';
+import { ref, computed, watch } from 'vue';
 import { api } from '@/api';
 import type { User } from '@/api/types';
 
@@ -33,11 +33,17 @@ export const useAuthStore = defineStore('auth', () => {
   const canAccessFees = computed(() => isAdmin.value || isBoard.value);
   /** Vorstand sieht alles, ändert aber nichts (the API answers writes with 403). */
   const isReadOnly = computed(() => isBoard.value);
+  // Hides every [data-write] control, including those in teleported dialogs (main.css).
+  watch(isReadOnly, (readOnly) => {
+    document.documentElement.classList.toggle('read-only', readOnly);
+  }, { immediate: true });
   /** Kinder, Eltern, Haushalte, Mitglieder (Leitung ohne Beitrags- und Einkommensdaten). */
   const canAccessMasterData = computed(() => canAccessFees.value || isLeitung.value);
   const canAccessParentWork = computed(() => isAdmin.value || isBoard.value || isParentWork.value || isLeitung.value);
   /** Regeln, Import, Soll, Bearbeiten/Stornieren/Prüfen; Leitung sieht nur den Stand und erfasst Stunden. */
   const canManageParentWork = computed(() => isAdmin.value || isParentWork.value);
+  /** Verwaltungsseite: Vorstand sieht dort nur die Regeln. */
+  const canViewParentWorkAdmin = computed(() => canManageParentWork.value || isBoard.value);
 
   api.setOnTokenRefreshed((token) => {
     accessToken.value = token;
@@ -180,6 +186,7 @@ export const useAuthStore = defineStore('auth', () => {
     canAccessMasterData,
     canAccessParentWork,
     canManageParentWork,
+    canViewParentWorkAdmin,
     isLoading,
     error,
     login,

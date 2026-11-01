@@ -63,7 +63,7 @@ const auth = useAuthStore();
         <h2 class="text-base font-semibold">{{ auth.canAccessFees ? 'Haushalt & Einkommen' : 'Haushalt' }}</h2>
       </div>
       <div class="flex items-center gap-2">
-        <button
+        <button data-write
           @click="openLinkParentDialog"
           class="btn btn-secondary btn-sm"
           title="Vorhandenen Elternteil verknüpfen"
@@ -71,14 +71,14 @@ const auth = useAuthStore();
           <Link class="h-3 w-3" />
           Verknüpfen
         </button>
-        <button
+        <button data-write
           @click="openCreateParentDialog"
           class="btn btn-secondary btn-sm"
         >
           <Plus class="h-3 w-3" />
           Elternteil
         </button>
-        <button
+        <button data-write
           v-if="child.household && !isEditingHousehold"
           @click="startEditingHousehold"
           class="btn btn-secondary btn-icon btn-sm"
@@ -105,14 +105,14 @@ const auth = useAuthStore();
           <div>
             <p class="text-sm text-muted-foreground">Einkommensstatus</p>
             <p class="font-medium">{{ getIncomeStatusLabel(child.household.incomeStatus) }}</p>
-            <router-link
+            <router-link data-write
               v-if="!child.household.incomeStatus || child.household.incomeStatus === 'PENDING'"
               :to="`/einstufungen/neu?childId=${child.id}`"
               class="inline-flex items-center gap-1 mt-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
             >
               Einstufung erstellen →
             </router-link>
-            <router-link
+            <router-link data-write
               v-else
               :to="`/einstufungen/neu?childId=${child.id}&followUp=1`"
               class="inline-flex items-center gap-1 mt-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
@@ -208,7 +208,7 @@ const auth = useAuthStore();
                   <User class="h-4 w-4 text-primary" />
                   <span>{{ parent.firstName }} {{ parent.lastName }}</span>
                 </button>
-                <button
+                <button data-write
                   @click="confirmUnlinkParent(parent)"
                   class="p-1.5 text-primary hover:text-destructive hover:bg-destructive-soft rounded-r-lg border-l border-primary/20 transition-colors"
                   title="Verknüpfung aufheben"
@@ -320,14 +320,14 @@ const auth = useAuthStore();
       <p class="text-muted-foreground text-sm mb-1">Noch keine Eltern zugeordnet</p>
       <p class="text-muted-foreground text-xs mb-4">Ein Haushalt wird automatisch erstellt, wenn der erste Elternteil verknüpft wird.</p>
       <div class="flex items-center justify-center gap-2">
-        <button
+        <button data-write
           @click="openLinkParentDialog"
           class="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium text-primary border border-primary hover:bg-primary/10 rounded-lg transition-colors"
         >
           <Link class="h-4 w-4" />
           Verknüpfen
         </button>
-        <button
+        <button data-write
           @click="openCreateParentDialog"
           class="inline-flex items-center gap-1 px-3 py-1.5 text-sm font-medium bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg transition-colors"
         >

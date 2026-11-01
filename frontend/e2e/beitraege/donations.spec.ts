@@ -55,10 +55,10 @@ test('a payment is assigned as donation, listed per year and can be undone', asy
   await expect(page.getByText(old)).toHaveCount(0);
 });
 
-test('USER may assign donations, LEITUNG has no access', async ({ browser, createUser, playwright, baseURL }) => {
+test('BOARD sees donations but cannot assign them, LEITUNG has no access', async ({ browser, createUser, playwright, baseURL }) => {
   const iban = uniqueIban();
   await uploadPayment(playwright, baseURL, { payer: `Spender${uniq()}`, iban, purpose: 'Spende', amount: '25,00' });
-  for (const role of ['USER', 'LEITUNG'] as const) {
+  for (const role of ['BOARD', 'LEITUNG'] as const) {
     const user = await createUser(role);
     const context = await browser.newContext();
     try {
@@ -71,7 +71,7 @@ test('USER may assign donations, LEITUNG has no access', async ({ browser, creat
       }
       const [tx] = (await list.json()).data as { id: string }[];
       const assign = await context.request.post(`${API}/import/transactions/${tx.id}/assign`, { headers, data: { kind: 'DONATION', note: '' } });
-      expect(assign.status()).toBe(204);
+      expect(assign.status()).toBe(403);
       const page = await context.newPage();
       await page.goto('/beitraege/spenden');
       await expect(page.getByRole('heading', { name: 'Spenden', level: 1 })).toBeVisible();

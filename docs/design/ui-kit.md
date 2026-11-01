@@ -38,6 +38,10 @@ kein unnötiger Text, hell und dunkel gleichwertig, Handy zuerst.
 
 Icons in `btn`/`note` brauchen keine Größe (`<Plus />`), das setzt die Klasse.
 
+## Leserechte
+
+Bedienelemente, die Daten ändern (Anlegen, Bearbeiten, Löschen, Senden, Auswahl-Checkboxen), bekommen `data-write`. Eine Regel in `main.css` blendet sie für Rollen mit `auth.isReadOnly` (Vorstand) aus, auch in Dialogen. Ansehen, Filtern und PDF bleiben ohne Attribut. Die API weist Schreibzugriffe unabhängig davon ab.
+
 ## Komponenten (`src/components/ui/`)
 
 - `PageHeader`: Titel (`h1`) links, Aktionen rechts (`#actions`), optional `back` für Detailseiten.

@@ -98,7 +98,7 @@ import AppSheet from '@/components/ui/AppSheet.vue';
           </div>
         </div>
         <div class="flex items-center gap-2">
-          <button
+          <button data-write
             v-if="!isEditingParent"
             @click="startEditingParent"
             class="p-2 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors"

@@ -8,7 +8,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/auth"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/repository"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/service"
@@ -182,23 +181,11 @@ func TestUserService_ManageAccounts(t *testing.T) {
 	}
 }
 
-// USER is the import system role: even a row with a valid password cannot log in.
-func TestAuthService_SystemRoleCannotLogin(t *testing.T) {
-	ctx := context.Background()
-	authSvc, _ := newUserServices(t)
-	hash, err := auth.HashPassword("password1")
-	if err != nil {
-		t.Fatal(err)
-	}
+// USER only identifies the import token; the database does not allow it on accounts.
+func TestUsersTable_RejectsSystemRole(t *testing.T) {
+	newUserServices(t)
 	if _, err := testDB.Exec(`INSERT INTO fees.users(id,email,password_hash,role,is_active)
-		VALUES ($1,'importer@example.org',$2,'USER',true),($3,'board@example.org',$2,'BOARD',true)`,
-		uuid.New(), hash, uuid.New()); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := authSvc.Authenticate(ctx, "importer@example.org", "password1"); !errors.Is(err, service.ErrUnauthorized) {
-		t.Errorf("USER login: err = %v, want ErrUnauthorized", err)
-	}
-	if _, err := authSvc.Authenticate(ctx, "board@example.org", "password1"); err != nil {
-		t.Errorf("BOARD login: %v", err)
+		VALUES ($1,'importer@example.org','x','USER',true)`, uuid.New()); err == nil {
+		t.Fatal("insert with role USER succeeded, want check violation")
 	}
 }

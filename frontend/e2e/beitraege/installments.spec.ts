@@ -110,7 +110,7 @@ test('staff without installment access neither see plans nor whose payment it is
   const assigned = open.find(tx => tx.description === 'Rate A')!;
   await adminApi.post(`/installment-plans/${detail.plan.id}/payments`, { transactionId: assigned.id });
 
-  const user = await createUser('USER');
+  const user = await createUser('BOARD');
   const context = await browser.newContext();
   try {
     const token = await loginContext(context, user.email, user.password);

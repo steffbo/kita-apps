@@ -131,6 +131,15 @@ func TestRequireRole(t *testing.T) {
 	}
 }
 
+func TestReadOnly_RequiresUser(t *testing.T) {
+	next := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { t.Error("handler reached") })
+	rec := httptest.NewRecorder()
+	ReadOnly("BOARD")(next).ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/children/1", nil))
+	if rec.Code != http.StatusUnauthorized {
+		t.Fatalf("status %d, want 401", rec.Code)
+	}
+}
+
 func TestReadOnly(t *testing.T) {
 	tests := []struct {
 		name       string

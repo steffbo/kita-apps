@@ -136,7 +136,7 @@ onMounted(() => {
         <NotebookPen class="h-5 w-5 text-primary" />
         <h2 class="text-base font-semibold">Notizen</h2>
       </div>
-      <button
+      <button data-write
         @click="openNoteCreateDialog"
         class="btn btn-secondary btn-sm"
       >
@@ -171,14 +171,14 @@ onMounted(() => {
             </p>
           </div>
           <div class="flex items-center gap-1 flex-shrink-0">
-            <button
+            <button data-write
               @click="openNoteEditDialog(note)"
               class="p-1.5 text-muted-foreground hover:text-foreground hover:bg-accent rounded-lg transition-colors"
               title="Bearbeiten"
             >
               <Edit class="h-4 w-4" />
             </button>
-            <button
+            <button data-write
               @click="noteToDelete = note; showNoteDeleteDialog = true"
               class="p-1.5 text-destructive hover:text-destructive hover:bg-destructive-soft rounded-lg transition-colors"
               title="Löschen"

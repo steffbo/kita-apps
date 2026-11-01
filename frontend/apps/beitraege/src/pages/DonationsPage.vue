@@ -8,6 +8,9 @@ import EmptyState from '@/components/ui/EmptyState.vue';
 import AppSheet from '@/components/ui/AppSheet.vue';
 import DonationAssignPanel from '@/components/import/DonationAssignPanel.vue';
 import { formatCurrency, formatDate } from '@/utils/format';
+import { useAuthStore } from '@/stores/auth';
+
+const auth = useAuthStore();
 
 const report = ref<DonationReport | null>(null);
 const isLoading = ref(true);
@@ -73,7 +76,7 @@ onMounted(load);
           <ul class="divide-y sm:hidden">
             <li v-for="tx in year.transactions" :key="tx.id">
               <button type="button" class="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-accent"
-                :aria-label="`Spende von ${tx.payerName || 'Unbekannt'} bearbeiten`" @click="editing = tx">
+                :disabled="auth.isReadOnly" :aria-label="`Spende von ${tx.payerName || 'Unbekannt'} bearbeiten`" @click="editing = tx">
                 <span class="min-w-0 flex-1">
                   <span class="block truncate font-medium">{{ tx.payerName || 'Unbekannt' }}</span>
                   <span class="block text-[13px] text-muted-foreground">
@@ -100,7 +103,7 @@ onMounted(load);
                 <td>{{ tx.assignment?.note }}</td>
                 <td class="whitespace-nowrap text-right font-semibold tabular-nums">{{ formatCurrency(tx.amount) }}</td>
                 <td class="text-right">
-                  <button type="button" class="btn btn-ghost btn-icon btn-sm"
+                  <button data-write type="button" class="btn btn-ghost btn-icon btn-sm"
                     :aria-label="`Spende von ${tx.payerName || 'Unbekannt'} bearbeiten`" @click="editing = tx">
                     <Pencil />
                   </button>

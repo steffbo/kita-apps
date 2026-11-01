@@ -330,10 +330,10 @@ async function handleBulkDelete() {
   <div>
     <PageHeader title="Kinder">
       <template #actions>
-        <button v-if="authStore.canAccessFees" type="button" class="btn btn-secondary" @click="router.push('/kinder/import')">
+        <button data-write v-if="authStore.canAccessFees" type="button" class="btn btn-secondary" @click="router.push('/kinder/import')">
           <Upload />Importieren
         </button>
-        <button type="button" class="btn btn-primary" @click="openCreateDialog">
+        <button data-write type="button" class="btn btn-primary" @click="openCreateDialog">
           <Plus />Kind hinzufügen
         </button>
       </template>
@@ -383,7 +383,7 @@ async function handleBulkDelete() {
       <ul v-else class="divide-y sm:hidden">
         <li v-for="child in children" :key="child.id" class="flex items-center gap-3 px-4 py-3"
           :class="selectedIds.has(child.id) && 'bg-primary-soft'">
-          <input type="checkbox" :checked="selectedIds.has(child.id)" :aria-label="`${child.firstName} ${child.lastName} auswählen`"
+          <input data-write type="checkbox" :checked="selectedIds.has(child.id)" :aria-label="`${child.firstName} ${child.lastName} auswählen`"
             class="h-5 w-5 shrink-0 rounded" @change="toggleSelect(child.id, $event)" />
           <button type="button" class="flex min-w-0 flex-1 items-center gap-3 text-left" @click="goToChild(child.id)">
             <span class="min-w-0 flex-1">
@@ -411,7 +411,7 @@ async function handleBulkDelete() {
           <thead>
             <tr>
               <th class="w-12">
-                <input type="checkbox" aria-label="Alle auswählen" :checked="isAllSelected" :indeterminate="isSomeSelected"
+                <input data-write type="checkbox" aria-label="Alle auswählen" :checked="isAllSelected" :indeterminate="isSomeSelected"
                   class="h-4 w-4 rounded" @change="toggleSelectAll" />
               </th>
               <SortTh label="Nr." column="memberNumber" :sort-key="sortField" :sort-dir="sortDirection" @sort="toggleSort" />
@@ -429,7 +429,7 @@ async function handleBulkDelete() {
             <tr v-for="child in children" :key="child.id" class="cursor-pointer transition-colors hover:bg-accent"
               :class="selectedIds.has(child.id) && 'bg-primary-soft hover:bg-primary-soft'" @click="goToChild(child.id)">
               <td @click.stop>
-                <input type="checkbox" :checked="selectedIds.has(child.id)" class="h-4 w-4 rounded"
+                <input data-write type="checkbox" :checked="selectedIds.has(child.id)" class="h-4 w-4 rounded"
                   @change="toggleSelect(child.id, $event)" />
               </td>
               <td class="tabular-nums text-muted-foreground">{{ child.memberNumber }}</td>

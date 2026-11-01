@@ -60,13 +60,13 @@ const topics: Record<string, string> = {
         v-if="report.parentName"> · von {{ report.parentName }}</template></p>
       <p v-if="report.response" class="mt-2 rounded-lg bg-muted p-3 text-sm">
         <span class="font-semibold">Antwort:</span> {{ report.response }}</p>
-      <label v-if="report.status === 'OPEN'" class="mt-3 block text-sm font-medium">
+      <label data-write v-if="report.status === 'OPEN'" class="mt-3 block text-sm font-medium">
         Antwort an die Eltern (optional)
         <textarea v-model="answers[report.id]" rows="2" maxlength="2000"
           class="input mt-1" /></label>
       <div class="flex mt-3 flex-wrap items-center gap-4 text-sm"><RouterLink :to="link(report)" class="text-primary underline">
         Bezug ansehen</RouterLink>
-        <button v-if="report.status === 'OPEN'" class="btn btn-primary btn-sm"
+        <button data-write v-if="report.status === 'OPEN'" class="btn btn-primary btn-sm"
           @click="resolve(report.id)">{{ answers[report.id]?.trim() ? 'Antworten und erledigen' : 'Erledigt' }}</button></div>
     </article>
     </div>

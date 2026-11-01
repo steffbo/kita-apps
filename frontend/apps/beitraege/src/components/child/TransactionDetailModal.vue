@@ -163,7 +163,7 @@ import AppSheet from '@/components/ui/AppSheet.vue';
         </p>
 
         <div v-if="!transactionAction && selectedTransaction" class="flex flex-col gap-2">
-          <button
+          <button data-write
             @click="requestTransactionAction('unmatch')"
             :disabled="isUnmatchingTransaction || isDeletingTransaction"
             class="inline-flex items-center gap-2 px-3 py-2 text-sm text-warning bg-warning-soft hover:bg-warning-soft rounded-lg transition-colors disabled:opacity-50"
@@ -171,7 +171,7 @@ import AppSheet from '@/components/ui/AppSheet.vue';
             <Unlink class="h-4 w-4" />
             Zuordnung aufheben
           </button>
-          <button
+          <button data-write
             @click="requestTransactionAction('delete')"
             :disabled="isUnmatchingTransaction || isDeletingTransaction"
             class="inline-flex items-center gap-2 px-3 py-2 text-sm text-destructive bg-destructive-soft hover:bg-destructive-soft rounded-lg transition-colors disabled:opacity-50"

@@ -61,7 +61,7 @@ async function remove() { if (!deleting.value) return; saving.value = true; acti
 </script>
 
 <template>
-  <div class="space-y-6"><PageHeader title="Vorstand"><template #actions><button class="btn btn-primary" @click="open()">Amtszeit anlegen</button></template></PageHeader>
+  <div class="space-y-6"><PageHeader title="Vorstand"><template #actions><button data-write class="btn btn-primary" @click="open()">Amtszeit anlegen</button></template></PageHeader>
     <p v-if="error" role="alert" class="note note-danger">{{ error }}</p>
     <div class="flex flex-col gap-3 sm:flex-row">
       <SearchInput v-model="search" placeholder="Suchen nach Mitglied, Familie oder Amt..." label="Amtszeiten durchsuchen" class="flex-1" />
@@ -75,7 +75,7 @@ async function remove() { if (!deleting.value) return; saving.value = true; acti
       <li v-for="t in sorted" :key="t.id" class="space-y-2 p-4">
         <div class="flex items-start justify-between gap-3"><div><p class="font-medium">{{ t.memberName }}</p><p class="text-[13px] text-muted-foreground">{{ t.householdName || '—' }} · {{ t.office }}</p></div><span class="badge" :class="active(t) ? 'badge-success' : 'badge'">{{ active(t) ? 'Ja' : 'Nein' }}</span></div>
         <p class="text-[13px] text-muted-foreground">{{ formatDate(t.startDate) }} – {{ formatDate(t.endDate) }}</p>
-        <div class="flex gap-2"><button class="btn btn-secondary btn-sm" @click="open(t)">Bearbeiten</button><button class="btn btn-danger-outline btn-sm" @click="deleting = t; actionError = ''">Löschen</button></div>
+        <div class="flex gap-2"><button data-write class="btn btn-secondary btn-sm" @click="open(t)">Bearbeiten</button><button data-write class="btn btn-danger-outline btn-sm" @click="deleting = t; actionError = ''">Löschen</button></div>
       </li>
       <li v-if="!sorted.length" class="p-6 text-center text-sm text-muted-foreground">{{ loading ? 'Lade Amtszeiten …' : terms.length ? 'Keine Amtszeiten gefunden.' : 'Keine Amtszeiten vorhanden.' }}</li>
     </ul><div class="hidden overflow-x-auto sm:block"><table class="table w-full text-sm"><thead class="bg-muted text-left text-muted-foreground"><tr>
@@ -85,7 +85,7 @@ async function remove() { if (!deleting.value) return; saving.value = true; acti
       <SortTh label="Von" column="startDate" :sort-key="sortKey" :sort-dir="sortDir" @sort="toggle" />
       <SortTh label="Bis" column="endDate" :sort-key="sortKey" :sort-dir="sortDir" @sort="toggle" />
       <SortTh label="Aktiv" column="active" :sort-key="sortKey" :sort-dir="sortDir" @sort="toggle" />
-      <th class="px-4 py-3">Aktionen</th></tr></thead><tbody><tr v-for="t in sorted" :key="t.id" class="border-t"><td class="px-4 py-3">{{ t.memberName }}</td><td class="px-4 py-3">{{ t.householdName || '—' }}</td><td class="px-4 py-3">{{ t.office }}</td><td class="px-4 py-3">{{ formatDate(t.startDate) }}</td><td class="px-4 py-3">{{ formatDate(t.endDate) }}</td><td class="px-4 py-3">{{ active(t) ? 'Ja' : 'Nein' }}</td><td class="px-4 py-3"><div class="flex gap-2"><button class="btn btn-secondary btn-sm" @click="open(t)">Bearbeiten</button><button class="btn btn-danger-outline btn-sm" @click="deleting = t; actionError = ''">Löschen</button></div></td></tr><tr v-if="!sorted.length"><td colspan="7" class="px-4 py-8 text-center text-muted-foreground">{{ loading ? 'Lade Amtszeiten …' : terms.length ? 'Keine Amtszeiten gefunden.' : 'Keine Amtszeiten vorhanden.' }}</td></tr></tbody></table></div></div>
+      <th data-write class="px-4 py-3">Aktionen</th></tr></thead><tbody><tr v-for="t in sorted" :key="t.id" class="border-t"><td class="px-4 py-3">{{ t.memberName }}</td><td class="px-4 py-3">{{ t.householdName || '—' }}</td><td class="px-4 py-3">{{ t.office }}</td><td class="px-4 py-3">{{ formatDate(t.startDate) }}</td><td class="px-4 py-3">{{ formatDate(t.endDate) }}</td><td class="px-4 py-3">{{ active(t) ? 'Ja' : 'Nein' }}</td><td data-write class="px-4 py-3"><div class="flex gap-2"><button data-write class="btn btn-secondary btn-sm" @click="open(t)">Bearbeiten</button><button data-write class="btn btn-danger-outline btn-sm" @click="deleting = t; actionError = ''">Löschen</button></div></td></tr><tr v-if="!sorted.length"><td colspan="7" class="px-4 py-8 text-center text-muted-foreground">{{ loading ? 'Lade Amtszeiten …' : terms.length ? 'Keine Amtszeiten gefunden.' : 'Keine Amtszeiten vorhanden.' }}</td></tr></tbody></table></div></div>
     <AppSheet v-if="dialog" :title="editing ? 'Amtszeit bearbeiten' : 'Amtszeit anlegen'" @close="dialog = false">
       <form id="board-term" class="space-y-4" @submit.prevent="save">
         <label class="label">Mitglied suchen<SearchInput v-model="memberSearch" placeholder="Name oder Familie" class="mt-1 font-normal" /></label>

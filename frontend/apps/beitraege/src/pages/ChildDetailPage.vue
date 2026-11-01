@@ -495,6 +495,6 @@ async function createReminder() {
         </button>
       </template>
     </AppSheet>
-    <ChangeHistory v-if="authStore.isAdmin" kind="child" :id="String(route.params.id)" class="mt-6" />
+    <ChangeHistory v-if="authStore.canAccessFees" kind="child" :id="String(route.params.id)" class="mt-6" />
   </div>
 </template>

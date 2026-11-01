@@ -241,7 +241,7 @@ function formatAge(birthDateStr: string): string {
   <div>
     <PageHeader title="Dashboard" />
 
-    <ActivitySummaryCard v-if="authStore.isAdmin" class="mb-6" />
+    <ActivitySummaryCard v-if="authStore.canAccessFees" class="mb-6" />
 
     <!-- Loading state -->
     <div v-if="isLoading" class="flex items-center justify-center py-12">

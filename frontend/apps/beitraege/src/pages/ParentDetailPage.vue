@@ -171,8 +171,8 @@ async function handleUnlinkMember() {
   <div>
     <PageHeader :title="parent ? `${parent.firstName} ${parent.lastName}` : 'Elternteil'" back="/eltern">
       <template #actions v-if="parent">
-        <button type="button" class="btn btn-secondary btn-icon" title="Bearbeiten" aria-label="Bearbeiten" @click="openEditDialog"><Edit /></button>
-        <button v-if="authStore.isAdmin" type="button" class="btn btn-danger-outline btn-icon" title="Löschen" aria-label="Löschen" @click="showDeleteDialog = true"><Trash2 /></button>
+        <button data-write type="button" class="btn btn-secondary btn-icon" title="Bearbeiten" aria-label="Bearbeiten" @click="openEditDialog"><Edit /></button>
+        <button data-write v-if="authStore.isAdmin" type="button" class="btn btn-danger-outline btn-icon" title="Löschen" aria-label="Löschen" @click="showDeleteDialog = true"><Trash2 /></button>
       </template>
     </PageHeader>
 
@@ -294,7 +294,7 @@ async function handleUnlinkMember() {
                   <ExternalLink class="h-4 w-4" />
                   Details
                 </button>
-                <button
+                <button data-write
                   @click="handleUnlinkMember"
                   class="btn btn-ghost btn-icon btn-sm"
                   title="Verknüpfung entfernen" aria-label="Verknüpfung entfernen"
@@ -309,7 +309,7 @@ async function handleUnlinkMember() {
           <div v-else class="text-center py-6 bg-muted rounded-lg border border-dashed">
             <UserPlus class="h-8 w-8 text-muted-foreground mx-auto mb-2" />
             <p class="text-muted-foreground text-sm mb-3">Kein Vereinsmitglied</p>
-            <button
+            <button data-write
               @click="openMemberDialog"
               class="btn btn-primary"
             >
@@ -519,6 +519,6 @@ async function handleUnlinkMember() {
             Erstellen
           </button>
         </div></template></AppSheet>
-    <ChangeHistory v-if="authStore.isAdmin" kind="parent" :id="String(route.params.id)" class="mt-6" />
+    <ChangeHistory v-if="authStore.canAccessFees" kind="parent" :id="String(route.params.id)" class="mt-6" />
   </div>
 </template>

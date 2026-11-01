@@ -58,7 +58,7 @@ func TestImpersonation(t *testing.T) {
 		parentID *uuid.UUID
 	}{
 		{&parentUserID, parentEmail, "PARENT", true, &parentID},
-		{&inactiveID, "inactive@example.org", "USER", false, nil},
+		{&inactiveID, "inactive@example.org", "BOARD", false, nil},
 		{&otherAdminID, "admin2@example.org", "ADMIN", true, nil},
 	} {
 		*row.id = uuid.New()

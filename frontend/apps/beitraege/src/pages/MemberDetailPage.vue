@@ -124,11 +124,11 @@ async function handleToggleActive() {
         </span>
       </template>
       <template #actions v-if="member">
-        <button type="button" class="btn btn-secondary" :disabled="isEditing" @click="handleToggleActive">
+        <button data-write type="button" class="btn btn-secondary" :disabled="isEditing" @click="handleToggleActive">
           {{ member?.isActive ? 'Deaktivieren' : 'Aktivieren' }}
         </button>
-        <button type="button" class="btn btn-secondary btn-icon" title="Bearbeiten" aria-label="Bearbeiten" @click="openEditDialog"><Edit /></button>
-        <button v-if="authStore.isAdmin" type="button" class="btn btn-danger-outline btn-icon" title="Löschen" aria-label="Löschen" @click="showDeleteDialog = true"><Trash2 /></button>
+        <button data-write type="button" class="btn btn-secondary btn-icon" title="Bearbeiten" aria-label="Bearbeiten" @click="openEditDialog"><Edit /></button>
+        <button data-write v-if="authStore.isAdmin" type="button" class="btn btn-danger-outline btn-icon" title="Löschen" aria-label="Löschen" @click="showDeleteDialog = true"><Trash2 /></button>
       </template>
     </PageHeader>
 

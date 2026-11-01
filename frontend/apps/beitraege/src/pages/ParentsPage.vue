@@ -193,7 +193,7 @@ async function handleBulkDelete() {
   <div>
     <PageHeader title="Eltern">
       <template #actions>
-        <button type="button" class="btn btn-primary" @click="openCreateParentDialog">
+        <button data-write type="button" class="btn btn-primary" @click="openCreateParentDialog">
           <Plus />Elternteil hinzufügen
         </button>
       </template>
@@ -255,7 +255,7 @@ async function handleBulkDelete() {
     <div v-else class="card overflow-hidden">
       <ul class="divide-y sm:hidden">
         <li class="flex flex-wrap items-center gap-2 px-4 py-3">
-          <input type="checkbox" :checked="isAllSelected" :indeterminate="isSomeSelected"
+          <input data-write type="checkbox" :checked="isAllSelected" :indeterminate="isSomeSelected"
             @change="toggleSelectAll" aria-label="Alle Eltern auswählen" />
           <button type="button" class="chip" :aria-pressed="sortField === 'lastName'"
             @click="toggleSort('lastName')">Nachname</button>
@@ -265,7 +265,7 @@ async function handleBulkDelete() {
             @click="toggleSort('email')">E-Mail</button>
         </li>
         <li v-for="parent in parents" :key="parent.id" class="flex items-center gap-3 p-4" @click="goToParent(parent.id)">
-          <input type="checkbox" :checked="selectedIds.has(parent.id)" @click.stop
+          <input data-write type="checkbox" :checked="selectedIds.has(parent.id)" @click.stop
             @change="toggleSelect(parent.id, $event)" aria-label="Elternteil auswählen" />
           <div class="min-w-0 flex-1">
             <p class="font-medium">{{ parent.lastName }}, {{ parent.firstName }}</p>
@@ -283,7 +283,7 @@ async function handleBulkDelete() {
             <tr class="text-left text-sm text-muted-foreground">
               <!-- Checkbox column -->
               <th class="px-4 py-3 w-12">
-                <input
+                <input data-write
                   type="checkbox"
                   :checked="isAllSelected"
                   :indeterminate="isSomeSelected"
@@ -323,7 +323,7 @@ async function handleBulkDelete() {
             >
               <!-- Checkbox -->
               <td class="px-4 py-3" @click.stop>
-                <input
+                <input data-write
                   type="checkbox"
                   :checked="selectedIds.has(parent.id)"
                   @change="toggleSelect(parent.id, $event)"

@@ -66,13 +66,30 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 		r.With(customMiddleware.ImportAuthMiddleware(handlers.JWTService, cfg.Import.Token)).
 			Post("/import/upload", handlers.Import.Upload)
 
-		// Protected routes
+		// Staff = full access including fees (ADMIN, BOARD read-only). LEITUNG gets
+		// the master-data group below and never reaches fee, Einstufung, bank or
+		// note routes.
+		staffOnly := customMiddleware.RequireRole(
+			string(domain.UserRoleAdmin), string(domain.UserRoleBoard))
+
+		// Protected routes open to read-only roles even though they use POST.
 		r.Group(func(r chi.Router) {
 			r.Use(customMiddleware.AuthMiddleware(handlers.JWTService))
 
 			// Auth
 			r.Get("/auth/me", handlers.Auth.Me)
 			r.Post("/auth/change-password", handlers.Auth.ChangePassword)
+
+			// Calculations only, nothing is stored.
+			r.With(staffOnly).Post("/einstufungen/calculate-income", handlers.Einstufung.CalculateIncome)
+			r.With(staffOnly).Post("/einstufungen/preview", handlers.Einstufung.Preview)
+		})
+
+		// All other protected routes. BOARD only reads, here and in every route
+		// below that allows it.
+		r.Group(func(r chi.Router) {
+			r.Use(customMiddleware.AuthMiddleware(handlers.JWTService))
+			r.Use(customMiddleware.ReadOnly(string(domain.UserRoleBoard)))
 
 			r.Route("/me", func(r chi.Router) {
 				r.Use(customMiddleware.RequireRole(string(domain.UserRolePARENT)))
@@ -89,12 +106,9 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 				r.Get("/reports", handlers.ParentAccount.OwnReports)
 				r.Post("/reports", handlers.ParentAccount.CreateReport)
 			})
-			// BOARD is read-only everywhere (middleware.ReadOnly, see its group below).
-			adminOrBoard := customMiddleware.RequireRole(
-				string(domain.UserRoleAdmin), string(domain.UserRoleBoard))
-			r.With(adminOrBoard).Get("/activity", handlers.ParentAccount.Activity)
+			r.With(staffOnly).Get("/activity", handlers.ParentAccount.Activity)
 			r.Route("/parent-reports", func(r chi.Router) {
-				r.With(adminOrBoard).Get("/", handlers.ParentAccount.StaffReports)
+				r.With(staffOnly).Get("/", handlers.ParentAccount.StaffReports)
 				r.With(customMiddleware.RequireRole(string(domain.UserRoleAdmin))).
 					Post("/{id}/resolve", handlers.ParentAccount.ResolveReport)
 			})
@@ -138,7 +152,6 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 				r.Use(customMiddleware.RequireRole(
 					string(domain.UserRoleAdmin), string(domain.UserRoleBoard),
 					string(domain.UserRoleParentWork), string(domain.UserRoleLeitung)))
-				r.Use(customMiddleware.ReadOnly(string(domain.UserRoleBoard)))
 				r.Get("/overview", handlers.ParentWork.Overview)
 				r.Get("/households", handlers.ParentWork.Households)
 				r.Get("/households/{id}", handlers.ParentWork.Household)
@@ -157,7 +170,7 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 					r.Post("/import/preview", handlers.ParentWork.PreviewImport)
 					r.Post("/import/execute", handlers.ParentWork.ExecuteImport)
 				})
-				r.With(adminOrBoard).Get("/board-terms", handlers.ParentWork.Terms)
+				r.With(staffOnly).Get("/board-terms", handlers.ParentWork.Terms)
 				r.Group(func(r chi.Router) {
 					r.Use(customMiddleware.RequireRole(string(domain.UserRoleAdmin)))
 					r.Post("/board-terms", handlers.ParentWork.CreateTerm)
@@ -168,11 +181,6 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 				})
 			})
 
-			// Staff = full access including fees (ADMIN, BOARD read-only). LEITUNG gets
-			// the master-data group below and never reaches fee, Einstufung, bank or
-			// note routes.
-			staffOnly := adminOrBoard
-
 			// Master data: children, parents, households, members. LEITUNG may use
 			// it, but HideFeeData strips income/fee fields from its requests and
 			// responses. Routes that expose or destroy fee data stay staffOnly.
@@ -180,7 +188,6 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 				r.Use(customMiddleware.RequireRole(
 					string(domain.UserRoleAdmin), string(domain.UserRoleBoard),
 					string(domain.UserRoleLeitung)))
-				r.Use(customMiddleware.ReadOnly(string(domain.UserRoleBoard)))
 				r.Use(customMiddleware.HideFeeData(string(domain.UserRoleLeitung)))
 
 				// Children
@@ -189,7 +196,7 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 					r.Get("/next-member-number", handlers.Child.NextMemberNumber)
 					r.Post("/", handlers.Child.Create)
 					r.Get("/{id}", handlers.Child.Get)
-					r.With(adminOrBoard).Get("/{id}/changes", handlers.ParentAccount.ChildChanges)
+					r.With(staffOnly).Get("/{id}/changes", handlers.ParentAccount.ChildChanges)
 					r.Put("/{id}", handlers.Child.Update)
 					r.With(staffOnly).Delete("/{id}", handlers.Child.Delete)
 					r.Get("/{id}/care-hours-history", handlers.Child.GetCareHoursHistory)
@@ -221,7 +228,7 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 					r.Get("/", handlers.Parent.List)
 					r.Post("/", handlers.Parent.Create)
 					r.Get("/{id}", handlers.Parent.Get)
-					r.With(adminOrBoard).Get("/{id}/changes", handlers.ParentAccount.ParentChanges)
+					r.With(staffOnly).Get("/{id}/changes", handlers.ParentAccount.ParentChanges)
 					r.Put("/{id}", handlers.Parent.Update)
 					r.With(staffOnly).Delete("/{id}", handlers.Parent.Delete)
 					r.Post("/{id}/member", handlers.Parent.CreateMember)
@@ -264,7 +271,6 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 			// Fees, Einstufungen, bank data and notes: ADMIN, and BOARD read-only.
 			r.Group(func(r chi.Router) {
 				r.Use(staffOnly)
-				r.Use(customMiddleware.ReadOnly(string(domain.UserRoleBoard)))
 
 				// Notes (global list across children)
 				r.Get("/notes", handlers.ChildNote.ListAll)
@@ -298,8 +304,6 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 				r.Route("/einstufungen", func(r chi.Router) {
 					r.Get("/", handlers.Einstufung.List)
 					r.Post("/", handlers.Einstufung.Create)
-					r.Post("/calculate-income", handlers.Einstufung.CalculateIncome)
-					r.Post("/preview", handlers.Einstufung.Preview)
 					r.Get("/missing", handlers.Einstufung.ListMissing)
 					r.Get("/child/{childId}", handlers.Einstufung.GetForChild)
 					r.Get("/household/{householdId}", handlers.Einstufung.ListForHousehold)

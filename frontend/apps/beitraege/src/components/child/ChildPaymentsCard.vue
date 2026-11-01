@@ -107,7 +107,7 @@ const {
                 Bereits zugeordnet: {{ formatCurrency(suggestion.transaction.matchedAmount ?? 0) }}
                 · Rest: {{ formatCurrency(getTxRemainingAmount(suggestion.transaction)) }}
               </p>
-              <button
+              <button data-write
                 @click="openAllocationModal(suggestion)"
                 class="inline-flex items-center gap-1 px-2 py-1 text-xs text-primary bg-card hover:bg-primary-soft border border-primary/20 rounded transition-colors"
               >
@@ -172,7 +172,7 @@ const {
             </div>
             <div class="flex items-center gap-2">
               <p :class="['font-semibold', group.fee.feeType === 'REMINDER' ? 'text-destructive' : '']">{{ formatCurrency(group.fee.amount) }}</p>
-              <button
+              <button data-write
                 v-if="canCreateReminder(group.fee)"
                 @click="openReminderDialog(group.fee)"
                 class="p-1.5 text-warning hover:text-warning hover:bg-warning-soft rounded-lg transition-colors"

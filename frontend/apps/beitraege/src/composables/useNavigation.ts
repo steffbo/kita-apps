@@ -33,7 +33,7 @@ export function useNavigation() {
 
   const taskTabs = computed<NavItem[]>(() => [
     ...(auth.canAccessFees ? [{ name: 'Bankabgleich', to: '/bankabgleich', icon: Inbox, count: counts.bank.value }] : []),
-    ...(auth.isAdmin ? [
+    ...(auth.canAccessFees ? [
       { name: 'Meldungen', to: '/meldungen', icon: Inbox, count: counts.reports.value },
       { name: 'Änderungen', to: '/aenderungen', icon: Inbox, count: counts.changes.value },
     ] : []),
@@ -91,8 +91,8 @@ export function useNavigation() {
       result.push({ label: 'Elternstunden', items: [
         { name: 'Übersicht', short: auth.isLeitung ? 'Stunden' : undefined, to: '/elternstunden', icon: Clock,
           match: ['/elternstunden/familien'] },
-        ...(auth.isAdmin ? [{ name: 'Vorstand', to: '/elternstunden/vorstand', icon: UserCheck }] : []),
-        ...(auth.canManageParentWork
+        ...(auth.canAccessFees ? [{ name: 'Vorstand', to: '/elternstunden/vorstand', icon: UserCheck }] : []),
+        ...(auth.canViewParentWorkAdmin
           ? [{ name: 'Verwaltung', to: '/elternstunden/verwaltung', icon: Settings2 }] : []),
       ] });
     }

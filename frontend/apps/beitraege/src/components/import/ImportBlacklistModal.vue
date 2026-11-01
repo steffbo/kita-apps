@@ -101,7 +101,7 @@ onMounted(loadBlacklist);
                     {{ formatDate(item.createdAt) }}
                   </td>
                   <td class="text-right">
-                    <button
+                    <button data-write
                       @click="removeFromBlacklist(item.iban)"
                       class="btn btn-secondary btn-sm"
                       title="Von Blacklist entfernen"
