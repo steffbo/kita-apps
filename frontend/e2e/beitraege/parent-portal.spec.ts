@@ -29,7 +29,7 @@ test('Eltern sehen nur die eigene Familie; Meldungen und Änderungen gehen an St
     await adminApi.post(`/children/${a.child.id}/parents`, { parentId: partner.id, isPrimary: false });
     const password = `pw-${uniq()}`;
     await adminApi.post('/users', {
-      email: a.email, firstName: 'Eva', lastName: 'Eltern', role: 'PARENT',
+      email: a.email, firstName: 'Eva', lastName: 'Eltern', roles: ['PARENT'],
       isActive: true, password,
     });
     const context = await browser.newContext();
@@ -128,7 +128,7 @@ test('Beiträge der Familie: Mahngebühr direkt am Beitrag, Filter auf offene', 
   await adminApi.post(`/fees/${base.id}/reminder`);
   const password = `pw-${uniq()}`;
   await adminApi.post('/users', {
-    email: a.email, firstName: 'Eva', lastName: 'Eltern', role: 'PARENT', isActive: true, password,
+    email: a.email, firstName: 'Eva', lastName: 'Eltern', roles: ['PARENT'], isActive: true, password,
   });
   const context = await browser.newContext();
   try {

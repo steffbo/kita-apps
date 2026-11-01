@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/auth"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
@@ -94,13 +95,13 @@ func (s *AccountInvitationService) inviteOne(ctx context.Context,
 		return s.reinviteOne(ctx, c, actorID)
 	}
 	input := UserInput{Email: c.Email, FirstName: &c.FirstName, LastName: &c.LastName,
-		Role: domain.UserRolePARENT, IsActive: true}
+		Roles: []domain.UserRole{domain.UserRolePARENT}, IsActive: true}
 	if err := input.normalize(); err != nil {
 		return err.Error()
 	}
 	user := &domain.User{
 		Email: input.Email, FirstName: input.FirstName, LastName: input.LastName,
-		Role: domain.UserRolePARENT, IsActive: true,
+		Role: domain.UserRolePARENT, Roles: pq.StringArray{string(domain.UserRolePARENT)}, IsActive: true,
 	}
 	// Reuse the exact matching and ambiguity checks of the single-account path.
 	userService := NewUserService(s.users, nil)
@@ -142,7 +143,7 @@ func (s *AccountInvitationService) Resend(ctx context.Context, id, actorID uuid.
 	if err != nil {
 		return mapUserRepoError(err)
 	}
-	if !user.InvitationPending || user.Role != domain.UserRolePARENT || !user.IsActive || user.ParentID == nil {
+	if !user.InvitationPending || !user.HasRole(domain.UserRolePARENT) || !user.IsActive || user.ParentID == nil {
 		return fmt.Errorf("%w: Keine ausstehende Einladung", ErrInvalidInput)
 	}
 	return s.send(ctx, user, actorID)

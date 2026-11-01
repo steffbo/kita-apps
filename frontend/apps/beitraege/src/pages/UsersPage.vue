@@ -6,7 +6,7 @@ import { api } from '@/api';
 import type { UserAccount, UserRole } from '@/api/types';
 import { useAuthStore } from '@/stores/auth';
 import { formatDate } from '@/utils/format';
-import { userRoleLabel } from '@/utils/userRole';
+import { ASSIGNABLE_ROLES, userRoleLabel } from '@/utils/userRole';
 import { useTableSort } from '@/composables/useTableSort';
 import SearchInput from '@/components/SearchInput.vue';
 import SortTh from '@/components/SortTh.vue';
@@ -34,16 +34,20 @@ const resendingId = ref<string | null>(null);
 
 const search = ref('');
 const roleFilter = ref<UserRole | ''>('');
-const roles: UserRole[] = ['ADMIN', 'BOARD', 'PARENT_WORK', 'LEITUNG', 'PARENT'];
+const roles = ASSIGNABLE_ROLES;
+
+function roleLabels(user: UserAccount): string {
+  return user.roles.map(userRoleLabel).join(', ');
+}
 const filteredUsers = computed(() => {
   const q = search.value.trim().toLocaleLowerCase('de');
-  return users.value.filter(u => (!roleFilter.value || u.role === roleFilter.value)
+  return users.value.filter(u => (!roleFilter.value || u.roles.includes(roleFilter.value))
     && (!q || [displayName(u), u.email, u.parentName ?? ''].some(v => v.toLocaleLowerCase('de').includes(q))));
 });
 const { sortKey, sortDir, sorted, toggle } = useTableSort(filteredUsers, {
   name: u => displayName(u),
   email: u => u.email,
-  role: u => userRoleLabel(u.role),
+  role: u => roleLabels(u),
   parent: u => u.parentName,
   status: u => statusLabel(u),
   createdAt: u => u.createdAt,
@@ -84,7 +88,7 @@ function isSelf(user: UserAccount | null): boolean {
 }
 
 function canImpersonate(user: UserAccount): boolean {
-  return user.isActive && user.role !== 'ADMIN' && !isSelf(user);
+  return user.isActive && !user.roles.includes('ADMIN') && !isSelf(user);
 }
 
 async function impersonate(user: UserAccount) {
@@ -183,7 +187,7 @@ onMounted(loadUsers);
               <div class="min-w-0">
                 <p class="font-medium">{{ displayName(user) }}<span v-if="isSelf(user)" class="ml-1 text-xs text-muted-foreground">(angemeldet)</span></p>
                 <p class="break-all text-[13px] text-muted-foreground">{{ user.email }}</p>
-                <p class="text-[13px] text-muted-foreground">{{ userRoleLabel(user.role) }} · {{ formatDate(user.createdAt) }}</p>
+                <p class="text-[13px] text-muted-foreground">{{ roleLabels(user) }} · {{ formatDate(user.createdAt) }}</p>
                 <RouterLink v-if="user.parentId" :to="`/eltern/${user.parentId}`" class="text-[13px] text-primary underline">{{ user.parentName || 'Elternteil' }}</RouterLink>
               </div>
               <span class="badge" :class="statusClass(user)">{{ statusLabel(user) }}</span>
@@ -217,7 +221,7 @@ onMounted(loadUsers);
                 <span v-if="isSelf(user)" class="ml-1 text-xs text-muted-foreground">(angemeldet)</span>
               </td>
               <td class="px-4 py-3">{{ user.email }}</td>
-              <td class="px-4 py-3">{{ userRoleLabel(user.role) }}</td>
+              <td class="px-4 py-3">{{ roleLabels(user) }}</td>
               <td class="px-4 py-3"><RouterLink v-if="user.parentId" :to="`/eltern/${user.parentId}`"
                 class="text-primary-text hover:underline">{{ user.parentName || 'Elternteil' }}</RouterLink>
                 <span v-else>—</span></td>

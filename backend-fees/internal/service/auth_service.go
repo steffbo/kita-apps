@@ -14,6 +14,7 @@ import (
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/repository"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/util"
+	"github.com/lib/pq"
 )
 
 // BootstrapAdminID is the ID of the admin created from USER_NAME/USER_PASSWORD.
@@ -70,6 +71,7 @@ func (s *AuthService) BootstrapAdmin(ctx context.Context, email, password string
 		FirstName:    &admin,
 		LastName:     &knirps,
 		Role:         domain.UserRoleAdmin,
+		Roles:        pq.StringArray{string(domain.UserRoleAdmin)},
 		IsActive:     true,
 	}
 	// Reuse the former static ID unless another account already holds it.
@@ -80,6 +82,29 @@ func (s *AuthService) BootstrapAdmin(ctx context.Context, email, password string
 		return false, fmt.Errorf("create bootstrap admin: %w", err)
 	}
 	return true, nil
+}
+
+// SwitchRole makes one of the account's assigned roles the active one. It stays
+// stored, so refreshes and later logins continue in it.
+func (s *AuthService) SwitchRole(ctx context.Context, id uuid.UUID, role domain.UserRole) (*domain.User, error) {
+	user, err := s.users.GetByID(ctx, id)
+	if err != nil {
+		if errors.Is(err, repository.ErrNotFound) {
+			return nil, ErrUnauthorized
+		}
+		return nil, err
+	}
+	if !user.IsActive {
+		return nil, ErrUnauthorized
+	}
+	if !user.HasRole(role) {
+		return nil, fmt.Errorf("%w: Diese Rolle ist dem Konto nicht zugewiesen", ErrInvalidInput)
+	}
+	if err := s.users.SetActiveRole(ctx, id, role); err != nil {
+		return nil, err
+	}
+	user.Role = role
+	return user, nil
 }
 
 // Authenticate validates credentials of an active user.

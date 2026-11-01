@@ -88,7 +88,7 @@ test('board member can read everything but every write is refused', async ({ bro
 
 test('the import role USER cannot be assigned to an account', async ({ adminApi }) => {
   const res = await adminApi.postRaw('/users', {
-    email: `user-${uniq()}@e2e.test`, role: 'USER', isActive: true, password: `pw-${uniq()}`,
+    email: `user-${uniq()}@e2e.test`, roles: ['USER'], isActive: true, password: `pw-${uniq()}`,
   });
   expect(res.status()).toBe(400);
 });

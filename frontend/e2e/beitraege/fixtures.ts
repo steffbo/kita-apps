@@ -91,7 +91,7 @@ export const test = base.extend<Fixtures>({
         email,
         firstName: 'E2E',
         lastName: role === 'ADMIN' ? 'Admin' : 'Nutzer',
-        role,
+        roles: [role],
         isActive: true,
         password,
       });

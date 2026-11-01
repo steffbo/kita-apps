@@ -214,6 +214,49 @@ paths:
       summary: Refresh access token
       tags:
         - Auth
+  /auth/switch-role:
+    post:
+      description: Makes one of the account's assigned roles the active one and
+        returns a new session in it. The role stays stored, so later logins and
+        other devices continue in it (other devices with their next token
+        refresh).
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SwitchRoleRequest"
+        description: Role to act in
+        required: true
+      responses:
+        "200":
+          description: New session in the chosen role
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LoginResponse"
+        "400":
+          description: Role not assigned to the account
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "403":
+          description: Not available while impersonating
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+      security:
+        - BearerAuth: []
+      summary: Switch the active role
+      tags:
+        - Auth
   /banking-sync/cancel:
     post:
       description: Cancels the running sync in the banking-sync service
@@ -6880,8 +6923,9 @@ paths:
         - Users
   "/users/{id}":
     put:
-      description: Admins cannot deactivate or demote themselves. Deactivating ends
-        the account's sessions.
+      description: Admins cannot deactivate themselves or give up the admin role. The
+        active role stays while it is assigned, otherwise the most privileged
+        assigned role takes over. Deactivating ends the account's sessions.
       parameters:
         - description: User ID (UUID)
           in: path
@@ -8114,20 +8158,21 @@ components:
         password:
           minLength: 8
           type: string
-        role:
-          enum:
-            - ADMIN
-            - BOARD
-            - PARENT_WORK
-            - LEITUNG
-            - PARENT
-          example: BOARD
-          type: string
+        roles:
+          items:
+            enum:
+              - ADMIN
+              - BOARD
+              - PARENT_WORK
+              - LEITUNG
+              - PARENT
+            type: string
+          type: array
       required:
         - email
         - isActive
         - password
-        - role
+        - roles
       type: object
     CreditReviewPeriod:
       description: Paid month that would become overpaid after a childcare fee decrease
@@ -9592,6 +9637,20 @@ components:
         - totalChildrenInKita
         - u3IncomeBreakdown
       type: object
+    SwitchRoleRequest:
+      properties:
+        role:
+          enum:
+            - ADMIN
+            - BOARD
+            - PARENT_WORK
+            - LEITUNG
+            - PARENT
+          example: PARENT
+          type: string
+      required:
+        - role
+      type: object
     TransactionList:
       description: Paginated list of bank transactions as returned by the import
         transaction endpoints
@@ -9898,6 +9957,7 @@ components:
           example: Mustermann
           type: string
         role:
+          description: Role is the active role, Roles all roles assigned to the account.
           enum:
             - ADMIN
             - BOARD
@@ -9906,10 +9966,21 @@ components:
             - PARENT
           example: ADMIN
           type: string
+        roles:
+          items:
+            enum:
+              - ADMIN
+              - BOARD
+              - PARENT_WORK
+              - LEITUNG
+              - PARENT
+            type: string
+          type: array
       required:
         - email
         - id
         - role
+        - roles
       type: object
     UserAccount:
       properties:
@@ -9943,6 +10014,16 @@ components:
             - PARENT
           example: BOARD
           type: string
+        roles:
+          items:
+            enum:
+              - ADMIN
+              - BOARD
+              - PARENT_WORK
+              - LEITUNG
+              - PARENT
+            type: string
+          type: array
         updatedAt:
           type: string
       required:
@@ -9952,6 +10033,7 @@ components:
         - invitationPending
         - isActive
         - role
+        - roles
         - updatedAt
       type: object
     UserAccountRequest:
@@ -9967,19 +10049,20 @@ components:
         lastName:
           example: Mustermann
           type: string
-        role:
-          enum:
-            - ADMIN
-            - BOARD
-            - PARENT_WORK
-            - LEITUNG
-            - PARENT
-          example: BOARD
-          type: string
+        roles:
+          items:
+            enum:
+              - ADMIN
+              - BOARD
+              - PARENT_WORK
+              - LEITUNG
+              - PARENT
+            type: string
+          type: array
       required:
         - email
         - isActive
-        - role
+        - roles
       type: object
     WarningList:
       description: Paginated warnings list as returned by the warnings endpoint

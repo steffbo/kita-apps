@@ -39,12 +39,12 @@ func TestParentFeedbackOtherParentAndReview(t *testing.T) {
 	if _, err := testDB.Exec(`UPDATE fees.parents SET street=$2 WHERE id=$1`, partner, street); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := testDB.Exec(`INSERT INTO fees.users(id,email,password_hash,role,parent_id)
-        SELECT $1,email,$2,'PARENT',id FROM fees.parents WHERE id=$3`, ownUser, hash, own); err != nil {
+	if _, err := testDB.Exec(`INSERT INTO fees.users(id,email,password_hash,role,roles,parent_id)
+        SELECT $1,email,$2,'PARENT',ARRAY['PARENT'],id FROM fees.parents WHERE id=$3`, ownUser, hash, own); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := testDB.Exec(`INSERT INTO fees.users(id,email,password_hash,role,first_name,last_name)
-        VALUES ($1,$2,$3,'ADMIN','Ada','Admin')`, admin, uuid.NewString()+"@example.org", hash); err != nil {
+	if _, err := testDB.Exec(`INSERT INTO fees.users(id,email,password_hash,role,roles,first_name,last_name)
+        VALUES ($1,$2,$3,'ADMIN',ARRAY['ADMIN'],'Ada','Admin')`, admin, uuid.NewString()+"@example.org", hash); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
@@ -93,8 +93,8 @@ func TestParentFeedbackOtherParentAndReview(t *testing.T) {
 		t.Fatal("activity misses the edited partner")
 	}
 
-	if _, err = testDB.Exec(`INSERT INTO fees.users(id,email,password_hash,role,parent_id)
-        VALUES ($1,$2,$3,'PARENT',$4)`, partnerUser, partnerEmail, hash, partner); err != nil {
+	if _, err = testDB.Exec(`INSERT INTO fees.users(id,email,password_hash,role,roles,parent_id)
+        VALUES ($1,$2,$3,'PARENT',ARRAY['PARENT'],$4)`, partnerUser, partnerEmail, hash, partner); err != nil {
 		t.Fatal(err)
 	}
 	other := uuid.NewString() + "@example.org"

@@ -4,9 +4,11 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/lib/pq"
 
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/auth"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
@@ -29,7 +31,7 @@ type UserInput struct {
 	Email     string
 	FirstName *string
 	LastName  *string
-	Role      domain.UserRole
+	Roles     []domain.UserRole
 	IsActive  bool
 }
 
@@ -38,14 +40,29 @@ func (in *UserInput) normalize() error {
 	if !strings.Contains(in.Email, "@") || strings.ContainsAny(in.Email, " \t") {
 		return fmt.Errorf("%w: ungültige E-Mail-Adresse", ErrInvalidInput)
 	}
-	if in.Role != domain.UserRoleAdmin && in.Role != domain.UserRoleBoard &&
-		in.Role != domain.UserRoleParentWork && in.Role != domain.UserRoleLeitung &&
-		in.Role != domain.UserRolePARENT {
-		return fmt.Errorf("%w: Ungültige Rolle", ErrInvalidInput)
+	if len(in.Roles) == 0 {
+		return fmt.Errorf("%w: Mindestens eine Rolle auswählen", ErrInvalidInput)
 	}
+	for _, role := range in.Roles {
+		if !slices.Contains(domain.AssignableRoles, role) {
+			return fmt.Errorf("%w: Ungültige Rolle", ErrInvalidInput)
+		}
+	}
+	// Most privileged first and without duplicates, whatever the client sent.
+	in.Roles = slices.DeleteFunc(slices.Clone(domain.AssignableRoles), func(role domain.UserRole) bool {
+		return !slices.Contains(in.Roles, role)
+	})
 	in.FirstName = trimmedOrNil(in.FirstName)
 	in.LastName = trimmedOrNil(in.LastName)
 	return nil
+}
+
+func (in *UserInput) storedRoles() pq.StringArray {
+	roles := make(pq.StringArray, len(in.Roles))
+	for i, role := range in.Roles {
+		roles[i] = string(role)
+	}
+	return roles
 }
 
 func trimmedOrNil(s *string) *string {
@@ -91,7 +108,7 @@ func (s *UserService) ImpersonationTarget(ctx context.Context, actorID, id uuid.
 		return nil, mapUserRepoError(err)
 	}
 	switch {
-	case id == actorID || user.Role == domain.UserRoleAdmin:
+	case id == actorID || user.HasRole(domain.UserRoleAdmin):
 		return nil, fmt.Errorf("%w: Administratoren können nicht übernommen werden", ErrInvalidInput)
 	case !user.IsActive:
 		return nil, fmt.Errorf("%w: Deaktivierte Benutzer können nicht übernommen werden", ErrInvalidInput)
@@ -116,7 +133,8 @@ func (s *UserService) Create(ctx context.Context, in UserInput, password string)
 		PasswordHash: hash,
 		FirstName:    in.FirstName,
 		LastName:     in.LastName,
-		Role:         in.Role,
+		Role:         in.Roles[0],
+		Roles:        in.storedRoles(),
 		IsActive:     in.IsActive,
 	}
 	if err := s.linkParent(ctx, user); err != nil {
@@ -128,9 +146,9 @@ func (s *UserService) Create(ctx context.Context, in UserInput, password string)
 	return s.users.GetByID(ctx, user.ID)
 }
 
-// Update changes an account. Admins cannot deactivate or demote themselves,
-// which also guarantees at least one active admin remains. Deactivating an
-// account revokes its refresh tokens.
+// Update changes an account. Admins cannot deactivate themselves or give up the
+// admin role, which also guarantees at least one active admin remains. The active
+// role stays while it is assigned. Deactivating an account revokes its refresh tokens.
 func (s *UserService) Update(ctx context.Context, actorID, id uuid.UUID, in UserInput) (*domain.User, error) {
 	if err := in.normalize(); err != nil {
 		return nil, err
@@ -139,24 +157,28 @@ func (s *UserService) Update(ctx context.Context, actorID, id uuid.UUID, in User
 	if err != nil {
 		return nil, mapUserRepoError(err)
 	}
-	if id == actorID && (!in.IsActive || in.Role != domain.UserRoleAdmin) {
+	if id == actorID && (!in.IsActive || !slices.Contains(in.Roles, domain.UserRoleAdmin)) {
 		return nil, fmt.Errorf("%w: Das eigene Konto kann nicht deaktiviert oder herabgestuft werden", ErrInvalidInput)
 	}
 	deactivated := user.IsActive && !in.IsActive
-	wasLinked := user.Role == domain.UserRolePARENT && user.ParentID != nil
+	wasLinked := user.HasRole(domain.UserRolePARENT) && user.ParentID != nil
+	staysParent := slices.Contains(in.Roles, domain.UserRolePARENT)
 	oldEmail := user.Email
 
 	user.Email = in.Email
 	user.FirstName = in.FirstName
 	user.LastName = in.LastName
-	user.Role = in.Role
+	user.Roles = in.storedRoles()
+	if !slices.Contains(in.Roles, user.Role) {
+		user.Role = in.Roles[0]
+	}
 	user.IsActive = in.IsActive
-	if !wasLinked || in.Role != domain.UserRolePARENT {
+	if !wasLinked || !staysParent {
 		if err := s.linkParent(ctx, user); err != nil {
 			return nil, err
 		}
 	}
-	if wasLinked && in.Role == domain.UserRolePARENT && oldEmail != in.Email {
+	if wasLinked && staysParent && oldEmail != in.Email {
 		writer, ok := s.users.(interface {
 			UpdateLinkedUser(context.Context, *domain.User, uuid.UUID) error
 		})
@@ -178,7 +200,7 @@ func (s *UserService) Update(ctx context.Context, actorID, id uuid.UUID, in User
 }
 
 func (s *UserService) linkParent(ctx context.Context, user *domain.User) error {
-	if user.Role != domain.UserRolePARENT {
+	if !user.HasRole(domain.UserRolePARENT) {
 		user.ParentID, user.ParentName = nil, nil
 		return nil
 	}

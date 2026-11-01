@@ -26,7 +26,7 @@ func TestParentWorkAccountIntegration(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	must(`INSERT INTO fees.users (id,email,password_hash,role) VALUES ($1,$2,'test','ADMIN')`,
+	must(`INSERT INTO fees.users (id,email,password_hash,role,roles) VALUES ($1,$2,'test','ADMIN',ARRAY['ADMIN'])`,
 		user, user.String()+"@example.org")
 	t.Cleanup(func() { must(`DELETE FROM fees.users WHERE id=$1`, user) })
 	for id, name := range map[uuid.UUID]string{h1: "Familie Eins", h2: "Familie Zwei", unused: "Familie Ohne"} {
@@ -183,8 +183,8 @@ func TestParentWorkImportIntegration(t *testing.T) {
         VALUES ($1,$2,'Mira','Mitglied','2025-01-01',$3)`, member, "IMP"+uuid.NewString()[:6], h2)
 	t.Cleanup(func() { must(`DELETE FROM fees.members WHERE id=$1`, member) })
 	user := uuid.New()
-	must(`INSERT INTO fees.users (id,email,password_hash,role)
-	    VALUES ($1,$2,'test','ADMIN')`, user, user.String()+"@example.org")
+	must(`INSERT INTO fees.users (id,email,password_hash,role,roles)
+	    VALUES ($1,$2,'test','ADMIN',ARRAY['ADMIN'])`, user, user.String()+"@example.org")
 	t.Cleanup(func() { must(`DELETE FROM fees.users WHERE id=$1`, user) })
 	date, _ := time.Parse("2006-01-02", "2026-09-10")
 	duplicate := domain.ParentWorkEntry{

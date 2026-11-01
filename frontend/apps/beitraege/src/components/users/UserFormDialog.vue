@@ -4,6 +4,7 @@ import { Loader2, UserPlus, UserCog } from 'lucide-vue-next';
 import { api } from '@/api';
 import AppSheet from '@/components/ui/AppSheet.vue';
 import type { UserAccount, UserRole } from '@/api/types';
+import { ASSIGNABLE_ROLES, userRoleLabel } from '@/utils/userRole';
 
 const MIN_LENGTH = 8;
 
@@ -19,7 +20,7 @@ const isNew = computed(() => !props.user);
 const email = ref(props.user?.email ?? '');
 const firstName = ref(props.user?.firstName ?? '');
 const lastName = ref(props.user?.lastName ?? '');
-const role = ref<UserRole>(props.user?.role ?? 'PARENT_WORK');
+const roles = ref<UserRole[]>(props.user ? [...props.user.roles] : ['PARENT_WORK']);
 const isActive = ref(props.user?.isActive ?? true);
 const password = ref('');
 const isSaving = ref(false);
@@ -27,6 +28,10 @@ const error = ref<string | null>(null);
 
 async function submit() {
   error.value = null;
+  if (!roles.value.length) {
+    error.value = 'Mindestens eine Rolle auswählen.';
+    return;
+  }
   if (isNew.value && password.value.length < MIN_LENGTH) {
     error.value = `Das Passwort muss mindestens ${MIN_LENGTH} Zeichen haben.`;
     return;
@@ -35,7 +40,7 @@ async function submit() {
     email: email.value.trim(),
     firstName: firstName.value.trim() || undefined,
     lastName: lastName.value.trim() || undefined,
-    role: role.value,
+    roles: roles.value,
     isActive: isActive.value,
   };
   isSaving.value = true;
@@ -80,34 +85,36 @@ async function submit() {
             <input v-model="lastName" type="text" class="mt-1 w-full input" />
           </label>
         </div>
-        <label class="block">
-          <span class="text-sm font-medium text-foreground">Rolle</span>
-          <select v-model="role" :disabled="isSelf" class="mt-1 w-full input disabled:bg-muted">
-            <option value="ADMIN">Administrator</option>
-            <option value="BOARD">Vorstand</option>
-            <option value="PARENT_WORK">Elternstunden</option>
-            <option value="LEITUNG">Leitung</option>
-            <option value="PARENT">Eltern</option>
-          </select>
-          <span v-if="role === 'BOARD'" class="mt-1 block text-xs text-muted-foreground">
+        <fieldset>
+          <legend class="text-sm font-medium text-foreground">Rollen</legend>
+          <div class="mt-1 grid grid-cols-2 gap-x-4 gap-y-1">
+            <label v-for="option in ASSIGNABLE_ROLES" :key="option" class="flex items-center gap-2">
+              <input v-model="roles" type="checkbox" :value="option" :disabled="isSelf && option === 'ADMIN'" class="rounded" />
+              <span class="text-sm text-foreground">{{ userRoleLabel(option) }}</span>
+            </label>
+          </div>
+          <span v-if="roles.includes('BOARD')" class="mt-1 block text-xs text-muted-foreground">
             Sieht alles, auch Beiträge, Einkommen, Einstufungen und Bankdaten, kann aber nichts ändern.
           </span>
-          <span v-if="role === 'LEITUNG'" class="mt-1 block text-xs text-muted-foreground">
+          <span v-if="roles.includes('LEITUNG')" class="mt-1 block text-xs text-muted-foreground">
             Sieht und bearbeitet Kinder, Eltern, Haushalte, Mitglieder und Elternstunden, aber keine Beiträge, Einkommen, Einstufungen, Notizen oder Bankdaten.
           </span>
-          <span v-if="role === 'PARENT'" class="mt-1 block text-xs text-muted-foreground">
+          <span v-if="roles.includes('PARENT')" class="mt-1 block text-xs text-muted-foreground">
             Das Konto wird über die E-Mail-Adresse mit dem Elternteil verknüpft.
           </span>
           <span class="mt-1 block text-xs text-muted-foreground">
             Administratoren dürfen zusätzlich Benutzer, Beitragsordnung, Erinnerungen und Bankabruf verwalten.
           </span>
-        </label>
+          <span v-if="roles.length > 1" class="mt-1 block text-xs text-muted-foreground">
+            Angemeldet gilt immer genau eine Rolle; das Konto kann im Benutzermenü zwischen ihnen wechseln.
+          </span>
+        </fieldset>
         <label class="flex items-center gap-2">
           <input v-model="isActive" type="checkbox" :disabled="isSelf" class="rounded" />
           <span class="text-sm text-foreground">Aktiv (darf sich anmelden)</span>
         </label>
         <p v-if="isSelf" class="text-xs text-muted-foreground">
-          Das eigene Konto kann nicht deaktiviert oder herabgestuft werden.
+          Das eigene Konto kann nicht deaktiviert werden und behält die Rolle Administrator.
         </p>
         <label v-if="isNew" class="block">
           <span class="text-sm font-medium text-foreground">Startpasswort (mind. {{ MIN_LENGTH }} Zeichen) *</span>

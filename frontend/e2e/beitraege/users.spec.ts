@@ -1,4 +1,5 @@
 import { test, expect, uniq, loginContext } from './fixtures';
+import { API } from './env';
 
 test('admin creates a user who can log in without admin rights', async ({ adminPage: page, browser }) => {
   const email = `neu-${uniq()}@e2e.test`;
@@ -11,7 +12,8 @@ test('admin creates a user who can log in without admin rights', async ({ adminP
   await dialog.getByLabel('E-Mail (Anmeldename) *').fill(email);
   await dialog.getByLabel('Vorname').fill('Erika');
   await dialog.getByLabel('Nachname').fill('Muster');
-  await dialog.getByLabel('Rolle').selectOption({ label: 'Vorstand' });
+  await dialog.getByLabel('Elternstunden').uncheck();
+  await dialog.getByLabel('Vorstand').check();
   await expect(dialog.getByText(/kann aber nichts ändern/)).toBeVisible();
   await dialog.getByLabel(/Startpasswort/).fill(password);
   await dialog.getByRole('button', { name: 'Anlegen', exact: true }).click();
@@ -83,9 +85,10 @@ test('deactivated user cannot log in; own account is protected', async ({ adminP
   expect(res.status()).toBe(401);
   await context.close();
 
-  // Own row: role and active flag are locked.
+  // Own row: the admin role and the active flag are locked, further roles are not.
   await page.getByRole('row', { name: /\(angemeldet\)/ }).getByRole('button', { name: 'Bearbeiten' }).click();
-  await expect(dialog.getByLabel('Rolle')).toBeDisabled();
+  await expect(dialog.getByLabel('Administrator')).toBeDisabled();
+  await expect(dialog.getByLabel('Vorstand')).toBeEnabled();
   await expect(dialog.getByLabel('Aktiv (darf sich anmelden)')).toBeDisabled();
 });
 
@@ -106,4 +109,48 @@ test('user list filters by search and role', async ({ adminPage: page, createUse
   await page.getByLabel('Rolle').selectOption({ label: 'Elternstunden' });
   await expect(workerRow).toBeVisible();
   await expect(userRow).toHaveCount(0);
+});
+
+test('a user with several roles acts in one, switches, and keeps the last one', async ({ browser, adminApi }) => {
+  const email = `multi-${uniq()}@e2e.test`;
+  const password = `pw-${uniq()}`;
+  await adminApi.post('/users', { email, firstName: 'Mia', lastName: 'Mehrfach', roles: ['PARENT_WORK', 'BOARD'], isActive: true, password });
+  const context = await browser.newContext();
+  try {
+    const token = await loginContext(context, email, password);
+    const page = await context.newPage();
+
+    // Starts in the most privileged role.
+    await page.goto('/beitraege/');
+    await expect(page.getByTestId('active-role')).toContainText('Vorstand');
+    await expect(page.getByTestId('read-only-indicator')).toBeVisible();
+
+    const refused = await context.request.post(`${API}/auth/switch-role`, {
+      headers: { Authorization: `Bearer ${token}` }, data: { role: 'ADMIN' },
+    });
+    expect(refused.status()).toBe(400);
+
+    await page.getByRole('button', { name: 'Benutzermenü' }).first().click();
+    await page.getByRole('radiogroup', { name: 'Rolle' }).getByRole('radio', { name: 'Elternstunden' }).click();
+    await expect(page).toHaveURL(/\/elternstunden$/);
+    await expect(page.getByTestId('active-role')).toContainText('Elternstunden');
+    await expect(page.getByTestId('read-only-indicator')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Stunden erfassen', exact: true })).toBeVisible();
+
+    // Stays across a reload and a new login, and the API follows the role.
+    await page.reload();
+    await expect(page.getByTestId('active-role')).toContainText('Elternstunden');
+    const again = await browser.newContext();
+    try {
+      const fresh = await loginContext(again, email, password);
+      const me = await again.request.get(`${API}/auth/me`, { headers: { Authorization: `Bearer ${fresh}` } });
+      expect(await me.json()).toMatchObject({ role: 'PARENT_WORK', roles: ['BOARD', 'PARENT_WORK'] });
+      const children = await again.request.get(`${API}/children/`, { headers: { Authorization: `Bearer ${fresh}` } });
+      expect(children.status()).toBe(403);
+    } finally {
+      await again.close();
+    }
+  } finally {
+    await context.close();
+  }
 });

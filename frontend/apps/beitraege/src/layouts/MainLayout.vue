@@ -38,6 +38,7 @@ const initials = computed(() => {
   return ((user?.firstName?.[0] ?? '') + (user?.lastName?.[0] ?? '') || user?.email?.[0] || '?').toUpperCase();
 });
 const displayName = computed(() => personName(authStore.user));
+const activeRole = computed(() => (authStore.user ? userRoleLabel(authStore.user.role) : ''));
 const moreActive = computed(() => !tabs.value.some(tab => isActive(tab)));
 
 function isTaskPath(path: string) {
@@ -115,6 +116,9 @@ function onPasswordChanged() {
         <img :src="logo" alt="" class="h-7 w-7 rounded-lg object-cover" />
         Knirpsenstadt
       </RouterLink>
+      <p v-if="authStore.hasMultipleRoles" data-testid="active-role" class="mb-3 px-2 text-xs text-muted-foreground">
+        Aktive Rolle: <span class="badge badge-primary">{{ activeRole }}</span>
+      </p>
       <button type="button"
         class="mb-4 flex h-9 w-full items-center gap-2 rounded-lg border bg-background px-2.5 text-sm text-muted-foreground hover:border-input"
         @click="searchOpen = true">
@@ -131,7 +135,7 @@ function onPasswordChanged() {
           <span class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-muted text-xs font-semibold text-muted-foreground">{{ initials }}</span>
           <span class="min-w-0 flex-1">
             <span class="block truncate text-sm font-medium">{{ displayName }}</span>
-            <span class="block truncate text-xs text-muted-foreground">{{ authStore.user ? userRoleLabel(authStore.user.role) : '' }}</span>
+            <span class="block truncate text-xs text-muted-foreground">{{ activeRole }}</span>
           </span>
           <ChevronsUpDown class="h-4 w-4 text-muted-foreground" />
         </button>
@@ -149,6 +153,7 @@ function onPasswordChanged() {
           <img :src="logo" alt="" class="h-7 w-7 rounded-lg object-cover" />
           <span class="truncate">Knirpsenstadt</span>
         </RouterLink>
+        <span v-if="authStore.hasMultipleRoles" data-testid="active-role-mobile" class="badge badge-primary shrink-0">{{ activeRole }}</span>
         <button type="button" aria-label="Suchen" class="grid h-10 w-10 place-items-center rounded-lg hover:bg-accent"
           @click="searchOpen = true"><Search class="h-5 w-5" /></button>
         <button type="button" aria-label="Benutzermenü" :aria-expanded="userMenuOpen"

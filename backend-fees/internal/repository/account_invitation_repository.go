@@ -56,7 +56,7 @@ func (r *AccountInvitationRepository) Candidates(ctx context.Context,
                 ROW_NUMBER() OVER (PARTITION BY LOWER(p.email) ORDER BY p.parent_id) AS row_no
             FROM parent_emails p
             LEFT JOIN fees.users acc ON acc.parent_id = p.parent_id
-                AND acc.role = 'PARENT' AND acc.is_active
+                AND 'PARENT' = ANY(acc.roles) AND acc.is_active
             WHERE NOT EXISTS (SELECT 1 FROM fees.users u
                     WHERE (u.parent_id = p.parent_id OR LOWER(u.email) = LOWER(p.email))
                       AND u.id IS DISTINCT FROM acc.id)
@@ -76,9 +76,9 @@ func (r *AccountInvitationRepository) CreatePending(ctx context.Context, user *d
 		user.ID = uuid.New()
 	}
 	_, err := r.db.ExecContext(ctx, `
-        INSERT INTO fees.users (id, email, password_hash, first_name, last_name, role,
+        INSERT INTO fees.users (id, email, password_hash, first_name, last_name, role, roles,
             parent_id, is_active, invitation_pending)
-        VALUES ($1,$2,'',$3,$4,'PARENT',$5,TRUE,TRUE)`,
+        VALUES ($1,$2,'',$3,$4,'PARENT',ARRAY['PARENT'],$5,TRUE,TRUE)`,
 		user.ID, user.Email, user.FirstName, user.LastName, user.ParentID)
 	return mapUniqueViolation(err)
 }
@@ -89,7 +89,7 @@ func (r *AccountInvitationRepository) CreatePending(ctx context.Context, user *d
 func (r *AccountInvitationRepository) Reopen(ctx context.Context, userID, parentID uuid.UUID) error {
 	result, err := r.db.ExecContext(ctx, `
         UPDATE fees.users SET invitation_pending = TRUE, updated_at = NOW()
-        WHERE id = $1 AND parent_id = $2 AND role = 'PARENT' AND is_active`, userID, parentID)
+        WHERE id = $1 AND parent_id = $2 AND 'PARENT' = ANY(roles) AND is_active`, userID, parentID)
 	if err != nil {
 		return err
 	}
@@ -109,7 +109,7 @@ func (r *AccountInvitationRepository) SaveToken(ctx context.Context, userID uuid
 	result, err := r.db.ExecContext(ctx, `
         INSERT INTO fees.account_invitations (user_id, token_hash, expires_at)
         SELECT id, $2, $3 FROM fees.users
-        WHERE id = $1 AND invitation_pending AND is_active AND role = 'PARENT'
+        WHERE id = $1 AND invitation_pending AND is_active AND 'PARENT' = ANY(roles)
         ON CONFLICT (user_id) DO UPDATE SET token_hash = EXCLUDED.token_hash,
             expires_at = EXCLUDED.expires_at`, userID, tokenHash, expiresAt)
 	if err != nil {
@@ -129,7 +129,7 @@ func (r *AccountInvitationRepository) Consume(ctx context.Context, tokenHash, pa
         UPDATE fees.users u SET password_hash = $2, invitation_pending = FALSE,
             updated_at = NOW()
         FROM claimed WHERE u.id = claimed.user_id AND u.invitation_pending
-            AND u.is_active AND u.role = 'PARENT'
+            AND u.is_active AND 'PARENT' = ANY(u.roles)
         RETURNING u.id`, tokenHash, passwordHash)
 	if errors.Is(err, sql.ErrNoRows) {
 		return ErrNotFound

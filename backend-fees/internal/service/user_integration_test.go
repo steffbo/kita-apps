@@ -103,23 +103,23 @@ func TestUserService_ManageAccounts(t *testing.T) {
 	adminID := service.BootstrapAdminID
 	name := "  Erika "
 
-	if _, err := userSvc.Create(ctx, service.UserInput{Email: "no-at", Role: domain.UserRoleBoard, IsActive: true}, "password1"); !errors.Is(err, service.ErrInvalidInput) {
+	if _, err := userSvc.Create(ctx, service.UserInput{Email: "no-at", Roles: []domain.UserRole{domain.UserRoleBoard}, IsActive: true}, "password1"); !errors.Is(err, service.ErrInvalidInput) {
 		t.Errorf("invalid email: err = %v", err)
 	}
-	if _, err := userSvc.Create(ctx, service.UserInput{Email: "x@example.com", Role: "BOSS", IsActive: true}, "password1"); !errors.Is(err, service.ErrInvalidInput) {
+	if _, err := userSvc.Create(ctx, service.UserInput{Email: "x@example.com", Roles: []domain.UserRole{"BOSS"}, IsActive: true}, "password1"); !errors.Is(err, service.ErrInvalidInput) {
 		t.Errorf("invalid role: err = %v", err)
 	}
-	if _, err := userSvc.Create(ctx, service.UserInput{Email: "x@example.com", Role: domain.UserRoleUser, IsActive: true}, "password1"); !errors.Is(err, service.ErrInvalidInput) {
+	if _, err := userSvc.Create(ctx, service.UserInput{Email: "x@example.com", Roles: []domain.UserRole{domain.UserRoleUser}, IsActive: true}, "password1"); !errors.Is(err, service.ErrInvalidInput) {
 		t.Errorf("system role USER must not be assignable: err = %v", err)
 	}
-	if _, err := userSvc.Create(ctx, service.UserInput{Email: "x@example.com", Role: domain.UserRoleBoard, IsActive: true}, "short"); !errors.Is(err, service.ErrInvalidInput) {
+	if _, err := userSvc.Create(ctx, service.UserInput{Email: "x@example.com", Roles: []domain.UserRole{domain.UserRoleBoard}, IsActive: true}, "short"); !errors.Is(err, service.ErrInvalidInput) {
 		t.Errorf("short password: err = %v", err)
 	}
-	if _, err := userSvc.Create(ctx, service.UserInput{Email: "ADMIN@example.com", Role: domain.UserRoleBoard, IsActive: true}, "password1"); !errors.Is(err, service.ErrConflict) {
+	if _, err := userSvc.Create(ctx, service.UserInput{Email: "ADMIN@example.com", Roles: []domain.UserRole{domain.UserRoleBoard}, IsActive: true}, "password1"); !errors.Is(err, service.ErrConflict) {
 		t.Errorf("duplicate email (case-insensitive): err = %v, want ErrConflict", err)
 	}
 
-	erika, err := userSvc.Create(ctx, service.UserInput{Email: " erika@example.com ", FirstName: &name, Role: domain.UserRoleBoard, IsActive: true}, "password1")
+	erika, err := userSvc.Create(ctx, service.UserInput{Email: " erika@example.com ", FirstName: &name, Roles: []domain.UserRole{domain.UserRoleBoard}, IsActive: true}, "password1")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -131,15 +131,15 @@ func TestUserService_ManageAccounts(t *testing.T) {
 	}
 
 	// Self-protection: no self-deactivation or self-demotion.
-	selfInput := service.UserInput{Email: "admin@example.com", Role: domain.UserRoleBoard, IsActive: true}
+	selfInput := service.UserInput{Email: "admin@example.com", Roles: []domain.UserRole{domain.UserRoleBoard}, IsActive: true}
 	if _, err := userSvc.Update(ctx, adminID, adminID, selfInput); !errors.Is(err, service.ErrInvalidInput) {
 		t.Errorf("self-demotion: err = %v, want ErrInvalidInput", err)
 	}
-	selfInput = service.UserInput{Email: "admin@example.com", Role: domain.UserRoleAdmin, IsActive: false}
+	selfInput = service.UserInput{Email: "admin@example.com", Roles: []domain.UserRole{domain.UserRoleAdmin}, IsActive: false}
 	if _, err := userSvc.Update(ctx, adminID, adminID, selfInput); !errors.Is(err, service.ErrInvalidInput) {
 		t.Errorf("self-deactivation: err = %v, want ErrInvalidInput", err)
 	}
-	if _, err := userSvc.Update(ctx, adminID, uuid.New(), service.UserInput{Email: "a@b.de", Role: domain.UserRoleBoard}); !errors.Is(err, service.ErrNotFound) {
+	if _, err := userSvc.Update(ctx, adminID, uuid.New(), service.UserInput{Email: "a@b.de", Roles: []domain.UserRole{domain.UserRoleBoard}}); !errors.Is(err, service.ErrNotFound) {
 		t.Errorf("unknown user: err = %v, want ErrNotFound", err)
 	}
 
@@ -147,7 +147,7 @@ func TestUserService_ManageAccounts(t *testing.T) {
 	if err := authSvc.StoreRefreshToken(ctx, erika.ID, "erika-token"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := userSvc.Update(ctx, adminID, erika.ID, service.UserInput{Email: "erika@example.com", Role: domain.UserRoleBoard, IsActive: false}); err != nil {
+	if _, err := userSvc.Update(ctx, adminID, erika.ID, service.UserInput{Email: "erika@example.com", Roles: []domain.UserRole{domain.UserRoleBoard}, IsActive: false}); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := authSvc.Authenticate(ctx, "erika@example.com", "password1"); !errors.Is(err, service.ErrUnauthorized) {
@@ -164,7 +164,7 @@ func TestUserService_ManageAccounts(t *testing.T) {
 	if err := userSvc.SetPassword(ctx, uuid.New(), "password2"); !errors.Is(err, service.ErrNotFound) {
 		t.Errorf("reset unknown: err = %v, want ErrNotFound", err)
 	}
-	if _, err := userSvc.Update(ctx, adminID, erika.ID, service.UserInput{Email: "erika@example.com", Role: domain.UserRoleAdmin, IsActive: true}); err != nil {
+	if _, err := userSvc.Update(ctx, adminID, erika.ID, service.UserInput{Email: "erika@example.com", Roles: []domain.UserRole{domain.UserRoleAdmin}, IsActive: true}); err != nil {
 		t.Fatal(err)
 	}
 	if err := userSvc.SetPassword(ctx, erika.ID, "password2"); err != nil {
@@ -184,8 +184,93 @@ func TestUserService_ManageAccounts(t *testing.T) {
 // USER only identifies the import token; the database does not allow it on accounts.
 func TestUsersTable_RejectsSystemRole(t *testing.T) {
 	newUserServices(t)
-	if _, err := testDB.Exec(`INSERT INTO fees.users(id,email,password_hash,role,is_active)
-		VALUES ($1,'importer@example.org','x','USER',true)`, uuid.New()); err == nil {
+	if _, err := testDB.Exec(`INSERT INTO fees.users(id,email,password_hash,role,roles,is_active)
+		VALUES ($1,'importer@example.org','x','USER',ARRAY['USER'],true)`, uuid.New()); err == nil {
 		t.Fatal("insert with role USER succeeded, want check violation")
+	}
+}
+
+// A switch survives logout and is limited to assigned roles.
+func TestAuthService_SwitchRole(t *testing.T) {
+	ctx := context.Background()
+	authSvc, userSvc := newUserServices(t)
+	user, err := userSvc.Create(ctx, service.UserInput{
+		Email: "vorstand@example.com", IsActive: true,
+		Roles: []domain.UserRole{domain.UserRoleParentWork, domain.UserRoleBoard},
+	}, "password1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if user.Role != domain.UserRoleBoard {
+		t.Fatalf("initial role = %s, want the most privileged one", user.Role)
+	}
+
+	if _, err := authSvc.SwitchRole(ctx, user.ID, domain.UserRoleAdmin); !errors.Is(err, service.ErrInvalidInput) {
+		t.Fatalf("switch to unassigned role: %v", err)
+	}
+	if _, err := authSvc.SwitchRole(ctx, user.ID, domain.UserRoleParentWork); err != nil {
+		t.Fatal(err)
+	}
+	again, err := authSvc.Authenticate(ctx, user.Email, "password1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if again.Role != domain.UserRoleParentWork || len(again.Roles) != 2 {
+		t.Fatalf("after login role=%s roles=%v", again.Role, again.Roles)
+	}
+
+	// The active role stays while it is assigned and is replaced once it is not.
+	input := service.UserInput{Email: user.Email, IsActive: true,
+		Roles: []domain.UserRole{domain.UserRoleBoard, domain.UserRoleParentWork, domain.UserRoleLeitung}}
+	updated, err := userSvc.Update(ctx, uuid.New(), user.ID, input)
+	if err != nil || updated.Role != domain.UserRoleParentWork {
+		t.Fatalf("add role: %+v err=%v", updated, err)
+	}
+	input.Roles = []domain.UserRole{domain.UserRoleLeitung, domain.UserRoleBoard}
+	updated, err = userSvc.Update(ctx, uuid.New(), user.ID, input)
+	if err != nil || updated.Role != domain.UserRoleBoard {
+		t.Fatalf("remove active role: %+v err=%v", updated, err)
+	}
+
+	input.IsActive = false
+	if _, err := userSvc.Update(ctx, uuid.New(), user.ID, input); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := authSvc.SwitchRole(ctx, user.ID, domain.UserRoleLeitung); !errors.Is(err, service.ErrUnauthorized) {
+		t.Fatalf("switch on inactive account: %v", err)
+	}
+}
+
+// Admins can hold further roles, but never give up their own admin role or get impersonated.
+func TestUserService_AdminWithFurtherRoles(t *testing.T) {
+	ctx := context.Background()
+	authSvc, userSvc := newUserServices(t)
+	admin, err := userSvc.Create(ctx, service.UserInput{
+		Email: "chef@example.com", IsActive: true, Roles: []domain.UserRole{domain.UserRoleAdmin},
+	}, "password1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	both := []domain.UserRole{domain.UserRoleAdmin, domain.UserRoleBoard}
+	if _, err := userSvc.Update(ctx, admin.ID, admin.ID, service.UserInput{
+		Email: admin.Email, IsActive: true, Roles: both}); err != nil {
+		t.Fatalf("add role to own account: %v", err)
+	}
+	if _, err := userSvc.Update(ctx, admin.ID, admin.ID, service.UserInput{
+		Email: admin.Email, IsActive: true, Roles: both[1:]}); !errors.Is(err, service.ErrInvalidInput) {
+		t.Fatalf("give up own admin role: %v", err)
+	}
+
+	// Acting as Vorstand right now does not make the account a valid impersonation target.
+	if _, err := authSvc.SwitchRole(ctx, admin.ID, domain.UserRoleBoard); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := userSvc.ImpersonationTarget(ctx, uuid.New(), admin.ID); !errors.Is(err, service.ErrInvalidInput) {
+		t.Fatalf("impersonate account holding admin: %v", err)
+	}
+
+	if _, err := userSvc.Create(ctx, service.UserInput{
+		Email: "ohne@example.com", IsActive: true}, "password1"); !errors.Is(err, service.ErrInvalidInput) {
+		t.Fatalf("create without roles: %v", err)
 	}
 }

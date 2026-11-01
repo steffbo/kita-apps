@@ -94,12 +94,12 @@ func TestAccountInvitations(t *testing.T) {
 	formerEmail := "former@example.test"
 	former := invitationParent(t, "Ehemalig", &formerEmail, true)
 	existingUser, err := userSvc.Create(ctx, service.UserInput{Email: existing,
-		Role: domain.UserRolePARENT, IsActive: true}, "password1")
+		Roles: []domain.UserRole{domain.UserRolePARENT}, IsActive: true}, "password1")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err := userSvc.Create(ctx, service.UserInput{Email: unlinkedEmail,
-		Role: domain.UserRoleBoard, IsActive: true}, "password1"); err != nil {
+		Roles: []domain.UserRole{domain.UserRoleBoard}, IsActive: true}, "password1"); err != nil {
 		t.Fatal(err)
 	}
 

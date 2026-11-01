@@ -1,6 +1,7 @@
 import type {
   LoginRequest,
   LoginResponse,
+  UserRole,
   RefreshResponse,
   ImpersonationResponse,
   User,
@@ -288,6 +289,13 @@ class ApiClient {
     return this.request<RefreshResponse>('/auth/change-password', {
       method: 'POST',
       body: JSON.stringify(data),
+    });
+  }
+
+  async switchRole(role: UserRole): Promise<LoginResponse> {
+    return this.request<LoginResponse>('/auth/switch-role', {
+      method: 'POST',
+      body: JSON.stringify({ role }),
     });
   }
 

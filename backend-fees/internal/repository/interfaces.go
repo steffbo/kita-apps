@@ -35,8 +35,9 @@ type UserRepository interface {
 	ParentLinkedToOther(ctx context.Context, parentID, userID uuid.UUID) (bool, error)
 	// Create returns ErrDuplicate when the email is taken.
 	Create(ctx context.Context, user *domain.User) error
-	// Update writes email, names, role and active flag (not the password).
+	// Update writes email, names, roles and active flag (not the password).
 	Update(ctx context.Context, user *domain.User) error
+	SetActiveRole(ctx context.Context, id uuid.UUID, role domain.UserRole) error
 	UpdatePassword(ctx context.Context, id uuid.UUID, passwordHash string) error
 }
 

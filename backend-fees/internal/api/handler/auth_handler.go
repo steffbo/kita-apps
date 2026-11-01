@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,6 +16,7 @@ import (
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/api/request"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/api/response"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/auth"
+	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/domain"
 	"github.com/knirpsenstadt/kita-apps/backend-fees/internal/service"
 )
 
@@ -127,7 +129,9 @@ type UserResponse struct {
 	Email     string  `json:"email" example:"user@example.com"`
 	FirstName *string `json:"firstName,omitempty" example:"Max" binding:"optional"`
 	LastName  *string `json:"lastName,omitempty" example:"Mustermann" binding:"optional"`
-	Role      string  `json:"role" example:"ADMIN" enums:"ADMIN,BOARD,PARENT_WORK,LEITUNG,PARENT"`
+	// Role is the active role, Roles all roles assigned to the account.
+	Role  string   `json:"role" example:"ADMIN" enums:"ADMIN,BOARD,PARENT_WORK,LEITUNG,PARENT"`
+	Roles []string `json:"roles" enums:"ADMIN,BOARD,PARENT_WORK,LEITUNG,PARENT"`
 } //@name User
 
 // MessageResponse represents a simple message response.
@@ -186,13 +190,7 @@ func (h *AuthHandler) Login(w http.ResponseWriter, r *http.Request) {
 	response.Success(w, LoginResponse{
 		AccessToken: tokenPair.AccessToken,
 		ExpiresAt:   tokenPair.ExpiresAt.Format(time.RFC3339),
-		User: UserResponse{
-			ID:        user.ID.String(),
-			Email:     user.Email,
-			FirstName: user.FirstName,
-			LastName:  user.LastName,
-			Role:      string(user.Role),
-		},
+		User:        toUserResponse(user),
 	})
 }
 
@@ -308,12 +306,73 @@ func (h *AuthHandler) Me(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.Success(w, map[string]interface{}{
-		"id":        user.ID.String(),
-		"email":     user.Email,
-		"firstName": user.FirstName,
-		"lastName":  user.LastName,
-		"role":      string(user.Role),
+	response.Success(w, toUserResponse(user))
+}
+
+// SwitchRoleRequest names the assigned role to act in.
+type SwitchRoleRequest struct {
+	Role string `json:"role" example:"PARENT" enums:"ADMIN,BOARD,PARENT_WORK,LEITUNG,PARENT"`
+} //@name SwitchRoleRequest
+
+// SwitchRole changes the role the current user acts in
+// @Summary Switch the active role
+// @Description Makes one of the account's assigned roles the active one and returns a new session in it. The role stays stored, so later logins and other devices continue in it (other devices with their next token refresh).
+// @Tags Auth
+// @Accept json
+// @Produce json
+// @Security BearerAuth
+// @Param request body SwitchRoleRequest true "Role to act in"
+// @Success 200 {object} LoginResponse "New session in the chosen role"
+// @Failure 400 {object} response.ErrorBody "Role not assigned to the account"
+// @Failure 401 {object} response.ErrorBody "Not authenticated"
+// @Failure 403 {object} response.ErrorBody "Not available while impersonating"
+// @Router /auth/switch-role [post]
+func (h *AuthHandler) SwitchRole(w http.ResponseWriter, r *http.Request) {
+	userCtx := middleware.GetUserFromContext(r)
+	if userCtx == nil {
+		response.Unauthorized(w, "not authenticated")
+		return
+	}
+	if userCtx.ImpersonatorID != "" {
+		response.Forbidden(w, "Während der Impersonation kann die Rolle nicht gewechselt werden")
+		return
+	}
+	userID, err := uuid.Parse(userCtx.UserID)
+	if err != nil {
+		response.Unauthorized(w, "invalid user ID")
+		return
+	}
+	var req SwitchRoleRequest
+	if err := request.DecodeJSON(r, &req); err != nil {
+		response.BadRequest(w, "invalid request body")
+		return
+	}
+	user, err := h.authService.SwitchRole(r.Context(), userID, domain.UserRole(req.Role))
+	if err != nil {
+		switch {
+		case errors.Is(err, service.ErrInvalidInput):
+			response.BadRequest(w, strings.TrimPrefix(err.Error(), service.ErrInvalidInput.Error()+": "))
+		case errors.Is(err, service.ErrUnauthorized):
+			response.Unauthorized(w, "account is not active")
+		default:
+			response.InternalError(w, "failed to switch role")
+		}
+		return
+	}
+
+	// Best effort like Refresh: a new pair is issued anyway.
+	if token := refreshCookieValue(r); token != "" {
+		_ = h.authService.RevokeRefreshToken(r.Context(), token)
+	}
+	tokenPair, err := h.issueTokens(w, r, user.ID, user.Email, string(user.Role))
+	if err != nil {
+		response.InternalError(w, "failed to issue tokens")
+		return
+	}
+	response.Success(w, LoginResponse{
+		AccessToken: tokenPair.AccessToken,
+		ExpiresAt:   tokenPair.ExpiresAt.Format(time.RFC3339),
+		User:        toUserResponse(user),
 	})
 }
 

@@ -79,6 +79,7 @@ func NewRouter(cfg *config.Config, handlers *Handlers) http.Handler {
 			// Auth
 			r.Get("/auth/me", handlers.Auth.Me)
 			r.Post("/auth/change-password", handlers.Auth.ChangePassword)
+			r.Post("/auth/switch-role", handlers.Auth.SwitchRole)
 
 			// Calculations only, nothing is stored.
 			r.With(staffOnly).Post("/einstufungen/calculate-income", handlers.Einstufung.CalculateIncome)

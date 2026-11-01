@@ -36,6 +36,7 @@ Nach dem Lauf beendet Playwright das Skript per SIGTERM, das Skript entfernt den
 ## Abgedeckt
 
 - `auth.spec.ts`: falsches Passwort, Session im httpOnly-Cookie (kein Token im `localStorage`, Cookie-Attribute), Reload, Logout, Deep-Link-Redirect, Login-Bremse.
+- `users.spec.ts` (Mehrfachrollen): Konto mit zwei Rollen startet in der höchsten, wechselt im Benutzermenü und behält die Rolle über Reload und neuen Login; nicht zugewiesene Rolle ergibt 400.
 - `board.spec.ts`: Vorstand sieht Beitragsbereich und Lese-Hinweis ohne Admin-Seiten, Meldungen, Änderungen, Regeln und Vorstandsämter ohne Schreib-Bedienelemente, liest per API, jeder Schreibzugriff 403 (Berechnungen erlaubt); `USER` ist nicht zuweisbar.
 - `users.spec.ts`: Benutzer anlegen, Nicht-Admin ohne Zugriff auf „Benutzer“, eigenes Passwort ändern (andere Sitzungen enden), Deaktivieren, Selbstschutz, Liste filtert nach Suche und Rolle.
 - `fees-flow.spec.ts`: Kind und Elternteil anlegen, Monatsbeiträge generieren, Bank-CSV hochladen, automatische Zuordnung, Beitrag erscheint als bezahlt.

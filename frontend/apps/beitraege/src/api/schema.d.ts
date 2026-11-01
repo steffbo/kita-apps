@@ -414,6 +414,77 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/switch-role": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Switch the active role
+         * @description Makes one of the account's assigned roles the active one and returns a new session in it. The role stays stored, so later logins and other devices continue in it (other devices with their next token refresh).
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            /** @description Role to act in */
+            requestBody: {
+                content: {
+                    "application/json": components["schemas"]["SwitchRoleRequest"];
+                };
+            };
+            responses: {
+                /** @description New session in the chosen role */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["LoginResponse"];
+                    };
+                };
+                /** @description Role not assigned to the account */
+                400: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not authenticated */
+                401: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+                /** @description Not available while impersonating */
+                403: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": components["schemas"]["ErrorResponse"];
+                    };
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/banking-sync/cancel": {
         parameters: {
             query?: never;
@@ -10670,7 +10741,7 @@ export interface paths {
         get?: never;
         /**
          * Update user account
-         * @description Admins cannot deactivate or demote themselves. Deactivating ends the account's sessions.
+         * @description Admins cannot deactivate themselves or give up the admin role. The active role stays while it is assigned, otherwise the most privileged assigned role takes over. Deactivating ends the account's sessions.
          */
         put: {
             parameters: {
@@ -11573,11 +11644,7 @@ export interface components {
             /** @example Mustermann */
             lastName?: string;
             password: string;
-            /**
-             * @example BOARD
-             * @enum {string}
-             */
-            role: "ADMIN" | "BOARD" | "PARENT_WORK" | "LEITUNG" | "PARENT";
+            roles: ("ADMIN" | "BOARD" | "PARENT_WORK" | "LEITUNG" | "PARENT")[];
         };
         /** @description Paid month that would become overpaid after a childcare fee decrease */
         CreditReviewPeriod: {
@@ -12292,6 +12359,13 @@ export interface components {
             totalChildrenInKita: number;
             u3IncomeBreakdown: components["schemas"]["U3IncomeBreakdown"];
         };
+        SwitchRoleRequest: {
+            /**
+             * @example PARENT
+             * @enum {string}
+             */
+            role: "ADMIN" | "BOARD" | "PARENT_WORK" | "LEITUNG" | "PARENT";
+        };
         /** @description Paginated list of bank transactions as returned by the import transaction endpoints */
         TransactionList: {
             data: components["schemas"]["domain.BankTransaction"][];
@@ -12477,10 +12551,12 @@ export interface components {
             /** @example Mustermann */
             lastName?: string;
             /**
+             * @description Role is the active role, Roles all roles assigned to the account.
              * @example ADMIN
              * @enum {string}
              */
             role: "ADMIN" | "BOARD" | "PARENT_WORK" | "LEITUNG" | "PARENT";
+            roles: ("ADMIN" | "BOARD" | "PARENT_WORK" | "LEITUNG" | "PARENT")[];
         };
         UserAccount: {
             createdAt: string;
@@ -12500,6 +12576,7 @@ export interface components {
              * @enum {string}
              */
             role: "ADMIN" | "BOARD" | "PARENT_WORK" | "LEITUNG" | "PARENT";
+            roles: ("ADMIN" | "BOARD" | "PARENT_WORK" | "LEITUNG" | "PARENT")[];
             updatedAt: string;
         };
         UserAccountRequest: {
@@ -12510,11 +12587,7 @@ export interface components {
             isActive: boolean;
             /** @example Mustermann */
             lastName?: string;
-            /**
-             * @example BOARD
-             * @enum {string}
-             */
-            role: "ADMIN" | "BOARD" | "PARENT_WORK" | "LEITUNG" | "PARENT";
+            roles: ("ADMIN" | "BOARD" | "PARENT_WORK" | "LEITUNG" | "PARENT")[];
         };
         /** @description Paginated warnings list as returned by the warnings endpoint */
         WarningList: {

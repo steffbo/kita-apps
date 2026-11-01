@@ -145,10 +145,10 @@ func (r *ParentAccountRepository) UpdateLinkedUser(ctx context.Context, user *do
 	}
 	_, err = tx.ExecContext(ctx,
 		`UPDATE fees.users SET
-	email=$2,first_name=$3,last_name=$4,role=$5,parent_id=$6,is_active=$7,updated_at=$8 WHERE
+	email=$2,first_name=$3,last_name=$4,role=$5,roles=$6,parent_id=$7,is_active=$8,updated_at=$9 WHERE
 	id=$1
 	`,
-		user.ID, user.Email, user.FirstName, user.LastName, user.Role, user.ParentID, user.IsActive,
+		user.ID, user.Email, user.FirstName, user.LastName, user.Role, user.Roles, user.ParentID, user.IsActive,
 		util.Now())
 	if err != nil {
 		return mapUniqueViolation(err)

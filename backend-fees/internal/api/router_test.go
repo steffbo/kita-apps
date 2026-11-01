@@ -187,6 +187,7 @@ func TestRouter_AdminRoutesRejectUserRole(t *testing.T) {
 // answers 403, except changing the own password and calculations that store nothing.
 var boardWritableRoutes = map[string]bool{
 	apiPrefix + "/auth/change-password":          true,
+	apiPrefix + "/auth/switch-role":              true,
 	apiPrefix + "/einstufungen/calculate-income": true,
 	apiPrefix + "/einstufungen/preview":          true,
 }

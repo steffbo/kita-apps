@@ -34,6 +34,8 @@ Go services all follow: `cmd/server`, `cmd/migrate`, `internal/api` (handlers + 
 
 Ratenzahlungen verwalten vertragliche Schulden mit FIFO-Zahlungen, PDF-Vertrag und Erinnerungen; `/installment-plans/**` ist ausschließlich `ADMIN`.
 
+An account holds several roles (`fees.users.roles`) but always acts in exactly one: `role` is the active, last-used role, tokens carry only that one, and `POST /auth/switch-role` changes it. The menu offers the switch, the shell shows the active role. All role checks below refer to the active role; accounts holding `ADMIN` cannot be impersonated.
+
 Router groups by role: fee routes `ADMIN` and read-only `BOARD` (children, parents, households, members also `LEITUNG`, see below), `/users` `ADMIN` (incl. `POST /users/{id}/impersonate` and parent invitations; public `POST /auth/invitation-password`; see `docs/status-fees.md`), `/parent-work/**` `ADMIN`/`PARENT_WORK`, read-only `BOARD`
 (rules write and board terms `ADMIN`; `LEITUNG` only reads accounts/rules and creates entries), `/me/**` `PARENT`, `/activity`, `/parent-reports/**`, `/parents/{id}/changes` and `/children/{id}/changes` `ADMIN` and read-only `BOARD`.
 `BOARD` (Vorstand, active board members) sees everything the staff sees incl. fees, income, bank data, Elternstunden and the parents' reports/changes, except Ratenzahlungen, Erinnerungen, Bank-Sync and Benutzer, but `middleware.ReadOnly` answers every non-GET with 403 until changes are audited (no audit log yet); the protected router group applies it centrally, only `/auth/change-password` and the storing-nothing Einstufung calculations sit outside. The UI hides controls that change data with `data-write`. `USER` is not an account role: the import token acts as `USER` on `/import/upload`, and the `fees.users` CHECK rejects it. `PARENT_WORK` is for an ordinary parent who looks after Elternstunden.
@@ -110,7 +112,7 @@ ssh vm-infra-dev \
   "sudo docker exec kita-db psql -U kita -d kita -c 'SELECT COUNT(*) FROM fees.children;'"
 ```
 
-Qualify schemas explicitly (`fees.*`). `backend-fees` users live in `fees.users` (migration `000036`, bcrypt hashes, roles `ADMIN`/`BOARD`/`PARENT_WORK`/`LEITUNG`/`PARENT`, managed on the "Benutzer" page). `USER_NAME` / `USER_PASSWORD` only bootstrap the admin when no account with that email exists (same ID as the former static admin, `a0eebc99-…`); they never overwrite it. There is no agent service account yet.
+Qualify schemas explicitly (`fees.*`). `backend-fees` users live in `fees.users` (migration `000036`, bcrypt hashes, `roles` plus active `role`, `ADMIN`/`BOARD`/`PARENT_WORK`/`LEITUNG`/`PARENT`, managed on the "Benutzer" page). `USER_NAME` / `USER_PASSWORD` only bootstrap the admin when no account with that email exists (same ID as the former static admin, `a0eebc99-…`); they never overwrite it. There is no agent service account yet.
 
 Note on the kita stack `.env` (`/srv/homelab/stacks/infra-dev/apps/kita/.env` on infra-dev): values with special characters (e.g. `USER_PASSWORD`) are wrapped in single quotes. Docker Compose strips the quotes when passing them into containers, so login works — but when reading the file manually (scripts, shell parsing), strip surrounding `'` yourself or authentication will fail.
 

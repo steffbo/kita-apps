@@ -3,6 +3,25 @@
 Rolling change log of non-obvious implementation decisions. Newest first.
 Basics (ports, commands, layout) live in `AGENTS.md`.
 
+## Mehrfachrollen und Rollenwechsel (2026-11-01)
+
+- Ein Konto kann mehrere Rollen haben (`fees.users.roles`, Migration `000053`), handelt aber immer in genau einer.
+  Eine gemischte Sicht gibt es bewusst nicht: Sie würde Admin- und Elternansicht vermischen und alle Rechteprüfungen
+  verkomplizieren.
+- `fees.users.role` bleibt die aktive Rolle und ist damit die zuletzt genutzte. JWT, `RequireRole`, `ReadOnly` und
+  `HideFeeData` kennen weiter nur sie; deshalb musste keine Rechteprüfung geändert werden. Ein CHECK stellt
+  `role = ANY(roles)` sicher.
+- `POST /auth/switch-role` speichert die Rolle und gibt eine neue Sitzung aus. Login und Refresh lesen die Rolle aus der
+  DB. Andere Geräte folgen beim nächsten Token-Refresh (spätestens 15 Minuten): Das Frontend vergleicht die Rolle im
+  neuen Token mit der angezeigten und lädt bei Abweichung neu. Während einer Impersonation ist der Wechsel gesperrt.
+- Neue Konten starten in der höchsten Rolle (`domain.AssignableRoles`). Beim Bearbeiten bleibt die aktive Rolle, solange
+  sie zugewiesen ist; sonst übernimmt die höchste. Admins können die eigene Admin-Rolle nicht abgeben, aber weitere Rollen
+  ergänzen. `POST/PUT /users` nehmen `roles` statt `role`.
+- Konten mit `ADMIN` sind nie Impersonation-Ziel, auch wenn sie gerade in einer anderen Rolle handeln. Die Verknüpfung
+  mit einem Elternteil hängt daran, ob `PARENT` zugewiesen ist, nicht an der aktiven Rolle.
+- UI: Rollen-Checkboxen im Benutzerdialog, Wechsel im Benutzermenü, Badge „Aktive Rolle“ in Sidebar und Kopfzeile (nur bei
+  mehreren Rollen).
+
 ## Rolle Vorstand (`BOARD`), `USER` nur noch Systemrolle (2026-11-01)
 
 - Anlass: Aktive Vorstandsmitglieder sollen Konten, Beiträge und Einstufungen einsehen können. Schreiben

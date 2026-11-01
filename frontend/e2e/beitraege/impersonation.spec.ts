@@ -15,7 +15,7 @@ async function parentUser(adminApi: Api) {
   });
   await adminApi.post(`/children/${child.id}/parents`, { parentId: parent.id, isPrimary: true });
   await adminApi.post('/users', {
-    email, firstName: 'Eva', lastName: suffix, role: 'PARENT', isActive: true, password: `pw-${uniq()}`,
+    email, firstName: 'Eva', lastName: suffix, roles: ['PARENT'], isActive: true, password: `pw-${uniq()}`,
   });
   return { email, childName: `ImpKind ${suffix}` };
 }
@@ -60,7 +60,7 @@ test('impersonation button is offered only for active non-admin users other than
     const admin = await createUser('ADMIN');
     const inactive = await createUser();
     await adminApi.put(`/users/${inactive.id}`, {
-      email: inactive.email, firstName: 'E2E', lastName: 'Nutzer', role: 'BOARD', isActive: false,
+      email: inactive.email, firstName: 'E2E', lastName: 'Nutzer', roles: ['BOARD'], isActive: false,
     });
 
     await page.goto('/beitraege/benutzer');

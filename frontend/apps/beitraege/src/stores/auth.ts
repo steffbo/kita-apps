@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref, computed, watch } from 'vue';
 import { api } from '@/api';
-import type { User } from '@/api/types';
+import type { User, UserRole } from '@/api/types';
 
 // Tokens used to live in localStorage; remove leftovers from older versions.
 localStorage.removeItem('fees_access_token');
@@ -44,9 +44,15 @@ export const useAuthStore = defineStore('auth', () => {
   const canManageParentWork = computed(() => isAdmin.value || isParentWork.value);
   /** Verwaltungsseite: Vorstand sieht dort nur die Regeln. */
   const canViewParentWorkAdmin = computed(() => canManageParentWork.value || isBoard.value);
+  const hasMultipleRoles = computed(() => (user.value?.roles.length ?? 0) > 1);
+  /** While impersonating the account is someone else's, so its roles are not ours to change. */
+  const canSwitchRole = computed(() => hasMultipleRoles.value && !isImpersonating.value);
 
   api.setOnTokenRefreshed((token) => {
     accessToken.value = token;
+    // The role was changed elsewhere (other device, admin): this view no longer fits the token.
+    const role = tokenRole(token);
+    if (user.value && !impersonator.value && role !== user.value.role) reloadAt(homePath(role));
   });
 
   api.setOnAuthFailed(() => {
@@ -81,10 +87,14 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
-  function homePath(target: User): string {
-    if (target.role === 'PARENT') return '/familie';
-    if (target.role === 'PARENT_WORK') return '/elternstunden';
-    if (target.role === 'LEITUNG') return '/kinder';
+  function tokenRole(token: string): UserRole {
+    return JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'))).role;
+  }
+
+  function homePath(role: UserRole): string {
+    if (role === 'PARENT') return '/familie';
+    if (role === 'PARENT_WORK') return '/elternstunden';
+    if (role === 'LEITUNG') return '/kinder';
     return '/';
   }
 
@@ -98,7 +108,13 @@ export const useAuthStore = defineStore('auth', () => {
   async function startImpersonation(userId: string) {
     const result = await api.impersonateUser(userId);
     sessionStorage.setItem(IMPERSONATION_KEY, userId);
-    reloadAt(homePath(result.user));
+    reloadAt(homePath(result.user.role));
+  }
+
+  /** The backend stores the role as the last one used; the reload starts its view fresh. */
+  async function switchRole(role: UserRole) {
+    const result = await api.switchRole(role);
+    reloadAt(homePath(result.user.role));
   }
 
   function stopImpersonation() {
@@ -187,6 +203,8 @@ export const useAuthStore = defineStore('auth', () => {
     canAccessParentWork,
     canManageParentWork,
     canViewParentWorkAdmin,
+    hasMultipleRoles,
+    canSwitchRole,
     isLoading,
     error,
     login,
@@ -196,5 +214,6 @@ export const useAuthStore = defineStore('auth', () => {
     initialize,
     startImpersonation,
     stopImpersonation,
+    switchRole,
   };
 });

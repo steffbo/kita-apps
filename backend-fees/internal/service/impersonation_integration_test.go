@@ -62,8 +62,8 @@ func TestImpersonation(t *testing.T) {
 		{&otherAdminID, "admin2@example.org", "ADMIN", true, nil},
 	} {
 		*row.id = uuid.New()
-		if _, err := testDB.Exec(`INSERT INTO fees.users(id,email,password_hash,role,is_active,parent_id)
-			VALUES ($1,$2,$3,$4,$5,$6)`, *row.id, row.email, hash, row.role, row.active, row.parentID); err != nil {
+		if _, err := testDB.Exec(`INSERT INTO fees.users(id,email,password_hash,role,roles,is_active,parent_id)
+			VALUES ($1,$2,$3,$4,ARRAY[$4],$5,$6)`, *row.id, row.email, hash, row.role, row.active, row.parentID); err != nil {
 			t.Fatal(err)
 		}
 	}

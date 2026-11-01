@@ -35,6 +35,7 @@ type UserAccountResponse struct {
 	FirstName         *string    `json:"firstName,omitempty" example:"Max" binding:"optional"`
 	LastName          *string    `json:"lastName,omitempty" example:"Mustermann" binding:"optional"`
 	Role              string     `json:"role" example:"BOARD" enums:"ADMIN,BOARD,PARENT_WORK,LEITUNG,PARENT"`
+	Roles             []string   `json:"roles" enums:"ADMIN,BOARD,PARENT_WORK,LEITUNG,PARENT"`
 	ParentID          *uuid.UUID `json:"parentId" binding:"optional"`
 	ParentName        *string    `json:"parentName" binding:"optional"`
 	IsActive          bool       `json:"isActive"`
@@ -45,11 +46,11 @@ type UserAccountResponse struct {
 
 // UserAccountRequest updates a user account.
 type UserAccountRequest struct {
-	Email     string  `json:"email" example:"user@example.com"`
-	FirstName *string `json:"firstName,omitempty" example:"Max" binding:"optional"`
-	LastName  *string `json:"lastName,omitempty" example:"Mustermann" binding:"optional"`
-	Role      string  `json:"role" example:"BOARD" enums:"ADMIN,BOARD,PARENT_WORK,LEITUNG,PARENT"`
-	IsActive  bool    `json:"isActive"`
+	Email     string   `json:"email" example:"user@example.com"`
+	FirstName *string  `json:"firstName,omitempty" example:"Max" binding:"optional"`
+	LastName  *string  `json:"lastName,omitempty" example:"Mustermann" binding:"optional"`
+	Roles     []string `json:"roles" enums:"ADMIN,BOARD,PARENT_WORK,LEITUNG,PARENT"`
+	IsActive  bool     `json:"isActive"`
 } //@name UserAccountRequest
 
 // CreateUserAccountRequest creates a user account with an initial password.
@@ -116,7 +117,7 @@ func (h *UserHandler) Create(w http.ResponseWriter, r *http.Request) {
 
 // Update handles PUT /users/{id}
 // @Summary Update user account
-// @Description Admins cannot deactivate or demote themselves. Deactivating ends the account's sessions.
+// @Description Admins cannot deactivate themselves or give up the admin role. The active role stays while it is assigned, otherwise the most privileged assigned role takes over. Deactivating ends the account's sessions.
 // @Tags Users
 // @Accept json
 // @Produce json
@@ -240,15 +241,20 @@ func toUserResponse(u *domain.User) UserResponse {
 		FirstName: u.FirstName,
 		LastName:  u.LastName,
 		Role:      string(u.Role),
+		Roles:     u.Roles,
 	}
 }
 
 func (req UserAccountRequest) toInput() service.UserInput {
+	roles := make([]domain.UserRole, len(req.Roles))
+	for i, role := range req.Roles {
+		roles[i] = domain.UserRole(role)
+	}
 	return service.UserInput{
 		Email:     req.Email,
 		FirstName: req.FirstName,
 		LastName:  req.LastName,
-		Role:      domain.UserRole(req.Role),
+		Roles:     roles,
 		IsActive:  req.IsActive,
 	}
 }
@@ -287,6 +293,7 @@ func toUserAccountResponse(u *domain.User) UserAccountResponse {
 		FirstName:         u.FirstName,
 		LastName:          u.LastName,
 		Role:              string(u.Role),
+		Roles:             u.Roles,
 		ParentID:          u.ParentID,
 		ParentName:        u.ParentName,
 		IsActive:          u.IsActive,

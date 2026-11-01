@@ -26,7 +26,7 @@ func TestParentAccountLinking(t *testing.T) {
 	tokens := repository.NewPostgresRefreshTokenRepository(testDB)
 	svc := service.NewUserService(users, tokens)
 	email := uuid.NewString() + "@example.org"
-	input := service.UserInput{Email: email, Role: domain.UserRolePARENT, IsActive: true}
+	input := service.UserInput{Email: email, Roles: []domain.UserRole{domain.UserRolePARENT}, IsActive: true}
 	_, err := svc.Create(ctx, input, "password123")
 	if !errors.Is(err, service.ErrInvalidInput) {
 		t.Fatalf("zero matches: %v", err)
@@ -55,20 +55,63 @@ func TestParentAccountLinking(t *testing.T) {
 	if _, err := testDB.Exec(`UPDATE fees.parents SET email=$2 WHERE id=$1`, p1, otherEmail); err != nil {
 		t.Fatal(err)
 	}
-	_, err = svc.Create(ctx, service.UserInput{Email: otherEmail, Role: domain.UserRolePARENT,
+	_, err = svc.Create(ctx, service.UserInput{Email: otherEmail, Roles: []domain.UserRole{domain.UserRolePARENT},
 		IsActive: true}, "password123")
 	if !errors.Is(err, service.ErrConflict) {
 		t.Fatalf("already linked: %v", err)
 	}
 	moved, err := svc.Update(ctx, uuid.New(), user.ID, service.UserInput{Email: email,
-		Role: domain.UserRoleBoard, IsActive: true})
+		Roles: []domain.UserRole{domain.UserRoleBoard}, IsActive: true})
 	if err != nil || moved.ParentID != nil {
 		t.Fatalf("role switch: %+v %v", moved, err)
 	}
 	moved, err = svc.Update(ctx, uuid.New(), user.ID, service.UserInput{Email: otherEmail,
-		Role: domain.UserRolePARENT, IsActive: true})
+		Roles: []domain.UserRole{domain.UserRolePARENT}, IsActive: true})
 	if err != nil || moved.ParentID == nil || *moved.ParentID != p1 {
 		t.Fatalf("relink: %+v %v", moved, err)
+	}
+}
+
+// The parent link follows the assigned PARENT role, not the role the account acts in.
+func TestParentAccountLinking_WithFurtherRoles(t *testing.T) {
+	requireTestDatabase(t)
+	ctx := context.Background()
+	users := repository.NewPostgresUserRepository(testDB)
+	svc := service.NewUserService(users, repository.NewPostgresRefreshTokenRepository(testDB))
+	authSvc := service.NewAuthService(users, time.Hour, repository.NewPostgresRefreshTokenRepository(testDB))
+	email := uuid.NewString() + "@example.org"
+	parent := uuid.New()
+	if _, err := testDB.Exec(`INSERT INTO fees.parents (id,first_name,last_name,email)
+        VALUES ($1,'Parent','Test',$2)`, parent, email); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { testDB.Exec(`DELETE FROM fees.parents WHERE id=$1`, parent) })
+
+	both := []domain.UserRole{domain.UserRoleLeitung, domain.UserRolePARENT}
+	user, err := svc.Create(ctx, service.UserInput{Email: email, Roles: both, IsActive: true}, "password123")
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { testDB.Exec(`DELETE FROM fees.users WHERE id=$1`, user.ID) })
+	if user.Role != domain.UserRoleLeitung || user.ParentID == nil || *user.ParentID != parent {
+		t.Fatalf("created: %+v", user)
+	}
+
+	if _, err := authSvc.SwitchRole(ctx, user.ID, domain.UserRolePARENT); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := authSvc.SwitchRole(ctx, user.ID, domain.UserRoleLeitung); err != nil {
+		t.Fatal(err)
+	}
+	user, err = users.GetByID(ctx, user.ID)
+	if err != nil || user.ParentID == nil {
+		t.Fatalf("link lost by switching: %+v %v", user, err)
+	}
+
+	user, err = svc.Update(ctx, uuid.New(), user.ID, service.UserInput{Email: email,
+		Roles: both[:1], IsActive: true})
+	if err != nil || user.ParentID != nil {
+		t.Fatalf("PARENT removed: %+v %v", user, err)
 	}
 }
 
@@ -92,8 +135,8 @@ func TestParentAccountIsolationAndAudit(t *testing.T) {
             VALUES ($1,$2,'Parent','Test',$3)`, parents[i], households[i], email); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := testDB.Exec(`INSERT INTO fees.users(id,email,password_hash,role,parent_id)
-            VALUES ($1,$2,$4,'PARENT',$3)`, users[i], email, parents[i], hash); err != nil {
+		if _, err := testDB.Exec(`INSERT INTO fees.users(id,email,password_hash,role,roles,parent_id)
+            VALUES ($1,$2,$4,'PARENT',ARRAY['PARENT'],$3)`, users[i], email, parents[i], hash); err != nil {
 			t.Fatal(err)
 		}
 		if _,
@@ -355,7 +398,7 @@ func TestParentAccountIsolationAndAudit(t *testing.T) {
 	}
 	userSvc := service.NewUserService(userRepo, repository.NewPostgresRefreshTokenRepository(testDB))
 	if _, err = userSvc.Update(ctx, users[1], users[0], service.UserInput{Email: taken.Email,
-		Role: domain.UserRolePARENT, IsActive: true}); !errors.Is(err, service.ErrConflict) {
+		Roles: []domain.UserRole{domain.UserRolePARENT}, IsActive: true}); !errors.Is(err, service.ErrConflict) {
 		t.Fatalf("admin conflict: %v", err)
 	}
 	a, err = accountRepo.Account(ctx, users[0])
@@ -364,7 +407,7 @@ func TestParentAccountIsolationAndAudit(t *testing.T) {
 	}
 	adminEmail := uuid.NewString() + "@example.org"
 	if _, err = userSvc.Update(ctx, users[1], users[0], service.UserInput{Email: adminEmail,
-		Role: domain.UserRolePARENT, IsActive: true}); err != nil {
+		Roles: []domain.UserRole{domain.UserRolePARENT}, IsActive: true}); err != nil {
 		t.Fatalf("admin login email: %v", err)
 	}
 	a, err = accountRepo.Account(ctx, users[0])

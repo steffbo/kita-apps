@@ -1,5 +1,7 @@
 <script setup lang="ts">
-import { KeyRound, LogOut, Monitor, Moon, Sun, Undo2 } from 'lucide-vue-next';
+import { ref } from 'vue';
+import { Check, KeyRound, LogOut, Monitor, Moon, Sun, Undo2 } from 'lucide-vue-next';
+import type { UserRole } from '@/api/types';
 import { useAuthStore } from '@/stores/auth';
 import { useTheme } from '@/composables/useTheme';
 import { userRoleLabel } from '@/utils/userRole';
@@ -14,6 +16,17 @@ const themes = [
   { value: 'dark', label: 'Dunkel', icon: Moon },
 ] as const;
 
+const switchError = ref<string | null>(null);
+async function switchRole(role: UserRole) {
+  if (role === auth.user?.role) return;
+  switchError.value = null;
+  try {
+    await auth.switchRole(role);
+  } catch (e) {
+    switchError.value = e instanceof Error ? e.message : 'Rollenwechsel fehlgeschlagen';
+  }
+}
+
 const item = 'flex h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-sm hover:bg-accent';
 </script>
 
@@ -26,6 +39,17 @@ const item = 'flex h-11 w-full items-center gap-3 rounded-lg px-3 text-left text
       <p class="truncate text-sm text-muted-foreground">
         {{ auth.user?.email }} · {{ auth.user ? userRoleLabel(auth.user.role) : '' }}
       </p>
+    </div>
+    <div v-if="auth.canSwitchRole" class="border-t pt-2">
+      <p class="px-3 pb-1 text-xs font-medium text-muted-foreground">Rolle wechseln</p>
+      <div role="radiogroup" aria-label="Rolle">
+        <button v-for="role in auth.user?.roles" :key="role" type="button" role="radio"
+          :aria-checked="role === auth.user?.role" :class="[item, role === auth.user?.role && 'font-medium']"
+          @click="switchRole(role)">
+          <Check class="h-4 w-4" :class="role === auth.user?.role ? 'text-primary-text' : 'invisible'" />{{ userRoleLabel(role) }}
+        </button>
+      </div>
+      <p v-if="switchError" class="px-3 pt-1 text-xs text-destructive" role="alert">{{ switchError }}</p>
     </div>
     <div role="radiogroup" aria-label="Design" class="grid grid-cols-3 gap-1 rounded-lg bg-muted p-1">
       <button v-for="t in themes" :key="t.value" type="button" role="radio" :aria-checked="mode === t.value"
